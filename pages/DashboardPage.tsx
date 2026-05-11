@@ -132,7 +132,7 @@ const ShopifyMetric = ({ label, value, change, trend, data, color, loading, acti
       {data && data.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
-            <Area type="monotone" dataKey="val" stroke={color} fill={color} fillOpacity={0.1} strokeWidth={2} isAnimationActive={false} />
+            <Area type="monotone" dataKey="val" stroke={color} fill={color} fillOpacity={0.1} strokeWidth={2} dot={{ r: 2, fill: color }} isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
       ) : (
@@ -166,21 +166,31 @@ const MetricDetailChart = ({ data, color, label }: any) => (
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
           <XAxis 
-            dataKey="name" 
-            hide 
+            dataKey="date" 
+            tickFormatter={(d) => {
+              const parts = d.split('-');
+              return parts.length > 2 ? `${parts[2]}/${parts[1]}` : d;
+            }}
+            tick={{ fontSize: 10, fill: '#9ca3af' }}
+            axisLine={false}
+            tickLine={false}
+            interval="preserveStartEnd"
           />
           <YAxis 
             hide 
-            domain={['auto', 'auto']}
+            domain={[0, 'auto']}
           />
           <Tooltip 
             content={({ active, payload }: any) => {
               if (active && payload && payload.length) {
+                const val = payload[0].value;
                 return (
                   <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-2 rounded-lg shadow-xl">
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase mb-1">{payload[0].payload.date}</p>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase mb-1">
+                      {payload[0].payload.date}
+                    </p>
                     <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                      {typeof payload[0].value === 'number' && payload[0].value > 1000 ? `$ ${payload[0].value.toLocaleString()}` : payload[0].value}
+                      {typeof val === 'number' && val > 100 ? `$ ${val.toLocaleString()}` : val}
                     </p>
                   </div>
                 );
@@ -192,9 +202,19 @@ const MetricDetailChart = ({ data, color, label }: any) => (
             type="monotone" 
             dataKey="val" 
             stroke={color} 
-            strokeWidth={2}
+            strokeWidth={3}
             fillOpacity={1} 
             fill={`url(#gradient-${label})`}
+            dot={(props: any) => {
+              const { cx, cy, value } = props;
+              if (value > 0) {
+                return (
+                  <circle key={cx} cx={cx} cy={cy} r={4} fill={color} stroke="#fff" strokeWidth={2} />
+                );
+              }
+              return null;
+            }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
             isAnimationActive={false}
           />
         </AreaChart>
@@ -209,13 +229,13 @@ export default function DashboardPage() {
   const [metaDaily, setMetaDaily] = useState<any[]>([]);
   
   // Date States
-  const [activePreset, setActivePreset] = useState<DatePreset | 'custom'>('today');
-  const [activeSince, setActiveSince] = useState(today());
+  const [activePreset, setActivePreset] = useState<DatePreset | 'custom'>('last_7d');
+  const [activeSince, setActiveSince] = useState(daysAgo(7));
   const [activeUntil, setActiveUntil] = useState(today());
 
   // Date Picker Pending States
-  const [pendingPreset, setPendingPreset] = useState<DatePreset | 'custom'>('today');
-  const [pendingSince, setPendingSince] = useState(today());
+  const [pendingPreset, setPendingPreset] = useState<DatePreset | 'custom'>('last_7d');
+  const [pendingSince, setPendingSince] = useState(daysAgo(7));
   const [pendingUntil, setPendingUntil] = useState(today());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [hovering, setHovering] = useState('');
@@ -256,12 +276,25 @@ export default function DashboardPage() {
     if (profile?.meta_account_id) {
       setFetchingMeta(true);
       try {
-        const [curr, prev, daily] = await Promise.all([
+        const [curr, prev, rawDaily] = await Promise.all([
           metaAds.getInsights(profile.meta_account_id, INSIGHT_FIELDS, p === 'custom' ? undefined : p, p === 'custom' ? range : undefined),
           metaAds.getInsights(profile.meta_account_id, INSIGHT_FIELDS, undefined, prevRange),
           metaAds.getInsightsDaily(profile.meta_account_id, INSIGHT_FIELDS, p === 'custom' ? undefined : p, p === 'custom' ? range : undefined)
         ]);
-        console.log("Meta Daily Data:", daily);
+
+        // Padding logic for daily charts
+        const padded = [];
+        let d = new Date(range.since + 'T12:00:00');
+        const end = new Date(range.until + 'T12:00:00');
+        while (d <= end) {
+          const iso = d.toISOString().split('T')[0];
+          const match = rawDaily.find((rd: any) => rd.date === iso);
+          padded.push(match || { date: iso, spend: 0, results: 0, purchase_value: 0, roas: 0, reach: 0 });
+          d.setDate(d.getDate() + 1);
+        }
+        const daily = padded;
+
+        console.log("Meta Daily Data (Padded):", daily);
         setCurrentMeta(curr); setPrevMeta(prev); setMetaDaily(daily);
       } catch (err) { console.error("Meta Fetch Error:", err); }
       finally { setFetchingMeta(false); }

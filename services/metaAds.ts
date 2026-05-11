@@ -188,13 +188,29 @@ export const metaAds = {
     
     if (data.error) throw data.error;
     
+    const extractResults = (actions: any[]) => {
+      if (!actions) return 0;
+      // Priority: Purchase -> Lead -> Other conversions
+      const purchase = actions.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase');
+      if (purchase) return parseFloat(purchase.value);
+      const lead = actions.find(a => a.action_type === 'lead' || a.action_type === 'offsite_conversion.fb_pixel_lead');
+      if (lead) return parseFloat(lead.value);
+      return 0;
+    };
+
+    const extractValue = (values: any[]) => {
+      if (!values) return 0;
+      const v = values.find(a => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase');
+      return v ? parseFloat(v.value) : 0;
+    };
+
     if (timeIncrement === 1) {
       return data.data.map((d: any) => ({
         ...d,
         spend: parseFloat(d.spend || 0),
         reach: parseInt(d.reach || 0),
-        results: parseFloat(d.actions?.find((a: any) => a.action_type === 'purchase' || a.action_type === 'lead')?.value || 0),
-        purchase_value: parseFloat(d.action_values?.find((a: any) => a.action_type === 'purchase')?.value || 0),
+        results: extractResults(d.actions),
+        purchase_value: extractValue(d.action_values),
         roas: parseFloat(d.purchase_roas?.[0]?.value || 0),
         date: d.date_start
       }));
@@ -205,8 +221,8 @@ export const metaAds = {
       ...insights,
       spend: parseFloat(insights.spend || 0),
       reach: parseInt(insights.reach || 0),
-      results: parseFloat(insights.actions?.find((a: any) => a.action_type === 'purchase' || a.action_type === 'lead')?.value || 0),
-      purchase_value: parseFloat(insights.action_values?.find((a: any) => a.action_type === 'purchase')?.value || 0),
+      results: extractResults(insights.actions),
+      purchase_value: extractValue(insights.action_values),
       roas: parseFloat(insights.purchase_roas?.[0]?.value || 0)
     };
   },
