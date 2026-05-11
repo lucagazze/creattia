@@ -355,7 +355,9 @@ export default function DashboardPage() {
             <LayoutDashboard className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">Portal C.A.R</h1>
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+              {profile?.business_name || 'Portal C.A.R'}
+            </h1>
             <p className="text-[13px] text-zinc-500 font-medium">Algoritmia · 2026</p>
           </div>
         </div>
