@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/klaviyo/:path*",
+      "destination": "https://a.klaviyo.com/api/:path*"
+    }
+  ]
+}
