@@ -11,7 +11,7 @@ export const ecommerce = {
       let nextUrl: string | null = `${BASE}/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
 
       while (nextUrl) {
-        const res = await fetch(nextUrl, {
+        const res: Response = await fetch(nextUrl, {
           headers: {
             'X-Shopify-Access-Token': token,
             'X-Shop-Domain': cleanDomain,
@@ -27,16 +27,16 @@ export const ecommerce = {
         const data = await res.json();
         allOrders = allOrders.concat(data.orders ?? []);
 
-        const linkHeader = res.headers.get('Link');
-        let nextLink = null;
+        const linkHeader: string | null = res.headers.get('Link');
+        let nextLink: string | null = null;
         if (linkHeader) {
-          const links = linkHeader.split(',');
-          const nextPart = links.find(s => s.includes('rel="next"'));
+          const links: string[] = linkHeader.split(',');
+          const nextPart: string | undefined = links.find((s: string) => s.includes('rel="next"'));
           if (nextPart) {
-            const match = nextPart.match(/<([^>]+)>/);
+            const match: RegExpMatchArray | null = nextPart.match(/<([^>]+)>/);
             if (match) {
-              const urlObj = new URL(match[1]);
-              const pageInfo = urlObj.searchParams.get('page_info');
+              const urlObj: URL = new URL(match[1]);
+              const pageInfo: string | null = urlObj.searchParams.get('page_info');
               if (pageInfo) {
                 nextLink = `${BASE}/orders.json?limit=250&page_info=${pageInfo}`;
               }

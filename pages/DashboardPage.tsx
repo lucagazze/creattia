@@ -564,8 +564,8 @@ export default function DashboardPage() {
               Algoritmia • Gestión
             </span>
           </div>
-          <h1 className="text-[18px] sm:text-[22px] font-semibold text-zinc-600 dark:text-zinc-400 tracking-tight leading-tight">
-            Resumen general del rendimiento de tu negocio.
+          <h1 className="text-[20px] sm:text-[24px] font-bold text-zinc-900 dark:text-white tracking-tight leading-tight">
+            Resumen General
           </h1>
         </div>
         <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-sm h-11 relative" ref={datePickerRef}>
