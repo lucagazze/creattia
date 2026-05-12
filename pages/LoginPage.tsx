@@ -46,7 +46,7 @@ export default function LoginPage() {
           
           <div className="text-center space-y-2">
             <h1 className="text-[32px] font-bold text-white tracking-tight leading-none">
-              ALGORITMIA <span className="text-violet-500">C.A.R</span>
+              ALGORITMIA <span className="text-violet-500">GESTIÓN</span>
             </h1>
             <p className="text-zinc-500 text-[14px] font-medium tracking-wide uppercase">
               Inteligencia • Captación • Retención
