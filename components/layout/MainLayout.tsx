@@ -40,8 +40,8 @@ export const MainLayout = () => {
           >
             <Menu className="w-[18px] h-[18px]" />
           </button>
-          <span className="ml-2 text-[15px] font-semibold text-zinc-900 dark:text-white tracking-[-0.02em]">
-            Portal C.A.R
+          <span className="ml-2 text-[15px] font-bold text-zinc-900 dark:text-white tracking-tight uppercase">
+            ALGORITMIA <span className="text-violet-500 ml-0.5">GESTIÓN</span>
           </span>
         </div>
 

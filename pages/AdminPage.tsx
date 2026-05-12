@@ -9,8 +9,9 @@ import { klaviyo } from '../services/klaviyo';
 import {
   UserPlus, Users, Eye, EyeOff, Check, X, Loader2,
   Shield, Building2, RefreshCw, Copy, ChevronDown, ChevronUp,
-  AlertTriangle, Pencil, Globe, Mail, Facebook, MessageSquare
+  AlertTriangle, Pencil, Globe, Mail, Facebook, MessageSquare, Sun, Moon
 } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ClientRow {
   id: string; user_id: string; business_name: string;
@@ -61,6 +62,7 @@ function SectionBox({ title, badge, children, status }: { title: string; badge?:
 
 export default function AdminPage() {
   const { profile } = useAuth();
+  const { darkMode, toggleDarkMode } = useTheme();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -282,6 +284,13 @@ export default function AdminPage() {
           <p className="text-[13px] text-zinc-500">Creá y administrá los portales de tus clientes C.A.R</p>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={toggleDarkMode}
+            className="h-9 w-9 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center justify-center shadow-sm"
+            title="Cambiar apariencia"
+          >
+            {darkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
+          </button>
           <button onClick={load} className="h-9 px-3 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 text-[13px] font-medium">
             <RefreshCw className="w-3.5 h-3.5" /> Actualizar
           </button>

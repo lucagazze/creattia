@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { metaAds, INSIGHT_FIELDS, DAILY_FIELDS, DatePreset, presetToRange, getPrevPeriod, today, daysAgo } from '../services/metaAds';
@@ -11,7 +12,11 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-const MAIN_COLOR = '#3b82f6';
+const BLUE = '#3b82f6';
+const GREEN = '#10b981';
+const RED = '#ef4444';
+
+const MAIN_COLOR = '#3b82f6'; // Back to Blue as requested // Back to Blue as requested
 
 const ensureMetaToken = async (): Promise<void> => {
   if (localStorage.getItem('meta_ads_token')) return;
@@ -83,6 +88,10 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
 
   const maxVal = Math.max(...data.map((d: any) => d.val), 0);
 
+  const trend = prevAvg > 0 ? ((avg - prevAvg) / prevAvg) * 100 : 0;
+  const chartColor = trend > 5 ? GREEN : trend < -5 ? RED : BLUE;
+  const gradientId = `grad-${label.replace(/\s+/g, '-')}`;
+
   const fmtVal = (v: number) => {
     if (!v) return '0';
     if (v >= 1000) return (v/1000).toFixed(1) + 'k';
@@ -90,11 +99,11 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-[20px] p-8 shadow-sm mt-4 animate-in fade-in slide-in-from-top-4 duration-300">
+    <div className="bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-[20px] p-8 shadow-sm mt-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-widest">Evolución de {label}</h3>
         <div className="flex items-center gap-5">
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} /><span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Actual</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: chartColor }} /><span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Actual</span></div>
           
           {avg > 0 && (
             <div 
@@ -123,13 +132,13 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={merged} margin={{ left: 0, right: 8, top: 12, bottom: 0 }}>
             <defs>
-              <linearGradient id={`gradient-${label}`} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={color} stopOpacity={0.15}/><stop offset="95%" stopColor={color} stopOpacity={0}/></linearGradient>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={chartColor} stopOpacity={0.15}/><stop offset="95%" stopColor={chartColor} stopOpacity={0}/></linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
             <XAxis dataKey="date" tickFormatter={(d) => d.split('-').slice(1).reverse().join('/')} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
             <YAxis 
               domain={[0, maxVal > 0 ? maxVal * 1.2 : 'auto']} 
-              ticks={maxVal > 0 ? [0, Math.round(avg), Math.round(prevAvg), Math.round(maxVal)].filter(v => v >= 0).sort((a,b) => a-b) : undefined} 
+              ticks={maxVal > 0 ? Array.from(new Set([0, Math.round(avg), Math.round(prevAvg), Math.round(maxVal)])).filter(v => v >= 0).sort((a,b) => a-b) : undefined} 
               tickFormatter={(v) => v === 0 ? '' : fmtVal(v)} 
               tick={{ fontSize: 9, fill: '#9ca3af' }} 
               axisLine={false} 
@@ -146,7 +155,7 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
                     {curr && (
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: chartColor }} />
                           <span className="text-[11px] font-medium text-zinc-500">Valor</span>
                         </div>
                         <span className="text-[12px] font-bold text-zinc-900 dark:text-zinc-100">{fmtTooltip(curr.value)}</span>
@@ -196,13 +205,13 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
             <Area 
               type="monotone" 
               dataKey="val" 
-              stroke={color} 
+              stroke={chartColor} 
               strokeWidth={hoveredLine ? 1 : 3} 
               strokeOpacity={hoveredLine ? 0.1 : 1}
               fillOpacity={hoveredLine ? 0.02 : 1} 
-              fill={`url(#gradient-${label})`} 
+              fill={`url(#${gradientId})`} 
               dot={(p: any) => p.value > 0 ? (
-                <circle key={`dot-${p.index}-${p.cx}`} cx={p.cx} cy={p.cy} r={4} fill={color} stroke="#fff" strokeWidth={2} fillOpacity={hoveredLine ? 0.1 : 1} strokeOpacity={hoveredLine ? 0.1 : 1} />
+                <circle key={`dot-${p.index}-${p.cx}`} cx={p.cx} cy={p.cy} r={4} fill={chartColor} stroke="#fff" strokeWidth={2} fillOpacity={hoveredLine ? 0.1 : 1} strokeOpacity={hoveredLine ? 0.1 : 1} />
               ) : <path key={`empty-${p.index}-${p.cx}`} d="" />} 
               activeDot={{ r: 6, strokeWidth: 0 }} 
             />
@@ -215,6 +224,7 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
 
 export default function DashboardPage() {
   const { profile } = useAuth();
+  const { darkMode } = useTheme();
   const [links, setLinks] = useState<ClientLink[]>([]);
   const [metaDaily, setMetaDaily] = useState<any[]>([]);
   const [prevMetaDaily, setPrevMetaDaily] = useState<any[]>([]);
@@ -331,7 +341,7 @@ export default function DashboardPage() {
       loadLinks(); 
       setLoadingInitial(false); 
     } 
-  }, [profile, activePreset, activeSince, activeUntil, refreshKey]);
+  }, [profile?.id, activePreset, activeSince, activeUntil, refreshKey]);
 
   const handleApply = () => { 
     setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil); setRefreshKey(prev => prev + 1); setShowDatePicker(false); 
@@ -424,21 +434,23 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500 space-y-10">
+    <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
-        <div className="space-y-2">
+        <div className="space-y">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-[12px] bg-gradient-to-tr from-violet-600 to-blue-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <Zap className="w-5 h-5 text-white fill-white" />
-            </div>
-            <span className="text-[11px] font-black text-violet-500 dark:text-violet-400 uppercase tracking-[0.3em]">
-              Algoritmia • Ecosistema C.A.R
+            <img 
+              src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} 
+              alt="Algoritmia" 
+              className="w-12 h-12 object-contain drop-shadow-sm"
+            />
+            <span className="text-[11px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.3em]">
+              Algoritmia • Gestión
             </span>
           </div>
-          <h1 className="text-[28px] sm:text-[36px] font-black text-zinc-900 dark:text-white tracking-tight leading-tight">
+          <h1 className="text-[22px] sm:text-[30px] font-bold text-zinc-900 dark:text-white tracking-tight leading-tight">
             ¡Hola, {profile?.business_name || 'Bienvenido'}!
-            <span className="block text-[15px] sm:text-[17px] font-medium text-zinc-500 dark:text-zinc-500 mt-2 tracking-normal">
-              {new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 20 ? 'Buenas tardes' : 'Buenas noches'}. Aquí tienes el pulso de tu negocio hoy.
+            <span className="block text-[13px] sm:text-[15px] font-medium text-zinc-500 dark:text-zinc-500 mt-1.5 tracking-normal">
+              Resumen general del rendimiento de tu negocio.
             </span>
           </h1>
         </div>
@@ -452,7 +464,7 @@ export default function DashboardPage() {
               <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-200">
                 {activePreset === 'custom' 
                   ? `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}` 
-                  : {
+                  : ({
                       'today': 'Hoy',
                       'yesterday': 'Ayer',
                       'last_7d': 'Últimos 7 días',
@@ -464,25 +476,27 @@ export default function DashboardPage() {
                       'last_month': 'Mes pasado',
                       'this_year': 'Este año',
                       'last_year': 'Año pasado'
-                    }[activePreset as any] || activePreset
+                    } as any)[activePreset] || activePreset
                 }
               </span>
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
             </button>
             
             {showDatePicker && (
-              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                <div className="w-[160px] border-r border-zinc-50 dark:border-zinc-800 p-3 flex flex-col gap-1">
-                  {[{ id: 'today', label: 'Hoy' }, { id: 'yesterday', label: 'Ayer' }, { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_14d', label: 'Últimos 14 días' }, { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_30d', label: 'Últimos 30 días' }, { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' }, { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' }, { id: 'last_year', label: 'Año pasado' }].map(p => (
-                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-left px-4 py-1.5 rounded-[10px] text-[12px] font-bold transition-all ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+              <div className="fixed inset-x-0 bottom-0 top-0 sm:absolute sm:inset-auto sm:right-0 sm:top-full mt-0 sm:mt-3 bg-white dark:bg-zinc-900 rounded-t-[30px] sm:rounded-[20px] border-t sm:border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex flex-col sm:flex-row overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-top-2 fade-in duration-300 sm:duration-200">
+                <div className="w-full sm:w-[160px] border-b sm:border-b-0 sm:border-r border-zinc-50 dark:border-zinc-800 p-2 sm:p-3 flex flex-row sm:flex-col gap-1 overflow-x-auto sm:overflow-x-visible scrollbar-hide">
+                  {[{ id: 'today', label: 'Hoy' }, { id: 'yesterday', label: 'Ayer' }, { id: 'last_7d', label: '7d' }, { id: 'last_30d', label: '30d' }, { id: 'last_90d', label: '90d' }, { id: 'this_month', label: 'Mes' }].map(p => (
+                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-center sm:text-left px-3 sm:px-4 py-1.5 rounded-[10px] text-[11px] sm:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
-                <div className="flex-1 p-5">
-                  <div className="flex gap-8">
-                    <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} />
-                    <MiniCal year={calMonth === 11 ? calYear + 1 : calYear} month={calMonth === 11 ? 0 : calMonth + 1} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
+                <div className="flex-1 p-3 sm:p-5 flex flex-col">
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 overflow-y-auto sm:overflow-y-visible max-h-[60vh] sm:max-h-none">
+                    <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} onNext={window.innerWidth < 640 ? (() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }) : undefined} />
+                    <div className="hidden sm:block">
+                      <MiniCal year={calMonth === 11 ? calYear + 1 : calYear} month={calMonth === 11 ? 0 : calMonth + 1} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
+                    </div>
                   </div>
-                  <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800">
+                  <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                     <button onClick={() => setShowDatePicker(false)} className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-zinc-500">Cancelar</button>
                     <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-md shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-colors">Aplicar</button>
                   </div>
@@ -503,28 +517,28 @@ export default function DashboardPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Shopify Section - Only show if has platform AND we got data (or still loading) */}
-        {(profile as any)?.ecommerce_platform && (fetchingStore || currentStore) && (
+        {/* Shopify Section */}
+        {((profile as any)?.ecommerce_platform && currentStore && !fetchingStore) && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1"><div className="w-2 h-2 rounded-full bg-pink-500" /><h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Tienda Online ({(profile as any).ecommerce_platform})</h2></div>
-            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 sm:grid-cols-3 xl:flex">
+            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex">
               <ShopifyMetric label="Ingresos" value={currentStore ? `$ ${currentStore.revenue?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '0'} change={getKlaviyoChange(currentStore?.revenue, prevStore?.revenue)} trend={(currentStore?.revenue || 0) >= (prevStore?.revenue || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-revenue'} onClick={() => setExpandedMetric(expandedMetric === 's-revenue' ? null : 's-revenue')} />
               <ShopifyMetric label="Pedidos" value={currentStore ? currentStore.orders?.toLocaleString('es-AR') : '0'} change={getKlaviyoChange(currentStore?.orders, prevStore?.orders)} trend={(currentStore?.orders || 0) >= (prevStore?.orders || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.orders, date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-orders'} onClick={() => setExpandedMetric(expandedMetric === 's-orders' ? null : 's-orders')} />
-              <ShopifyMetric label="Ticket Promedio" value={currentStore ? `$ ${currentStore.aov?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '0'} change={getKlaviyoChange(currentStore?.aov, prevStore?.aov)} trend={(currentStore?.aov || 0) >= (prevStore?.aov || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.revenue / (d.orders || 1), date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-aov'} onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')} />
+              <ShopifyMetric label="Ticket" value={currentStore ? `$ ${currentStore.aov?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '0'} change={getKlaviyoChange(currentStore?.aov, prevStore?.aov)} trend={(currentStore?.aov || 0) >= (prevStore?.aov || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.revenue / (d.orders || 1), date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-aov'} onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')} />
             </div>
             {expandedMetric?.startsWith('s-') && (<MetricDetailChart label={expandedMetric === 's-revenue' ? 'Ingresos' : expandedMetric === 's-orders' ? 'Pedidos' : 'Ticket Promedio'} color={MAIN_COLOR} data={expandedMetric === 's-revenue' ? currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date })) : expandedMetric === 's-orders' ? currentStore?.daily?.map((d: any) => ({ val: d.orders, date: d.date })) : currentStore?.daily?.map((d: any) => ({ val: d.revenue / (d.orders || 1), date: d.date }))} />)}
           </div>
         )}
 
-        {/* Meta Ads Section - Only show if has account AND we got data (or still loading) */}
-        {profile?.meta_account_id && (fetchingMeta || currentMeta) && (
+        {/* Meta Ads Section */}
+        {profile?.meta_account_id && currentMeta && !fetchingMeta && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1"><div className="w-2 h-2 rounded-full bg-blue-500" /><h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Captación (Meta Ads)</h2></div>
-            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 sm:grid-cols-3 xl:flex">
+            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex">
               <ShopifyMetric label="Inversión" value={`$ ${currentMeta?.spend?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}`} change={getMetaChange(currentMeta?.spend, prevMeta?.spend)} trend={(currentMeta?.spend || 0) >= (prevMeta?.spend || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.spend, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-inversion'} onClick={() => setExpandedMetric(expandedMetric === 'meta-inversion' ? null : 'meta-inversion')} />
               <ShopifyMetric label="Alcance" value={currentMeta?.reach?.toLocaleString('es-AR') || 0} change={getMetaChange(currentMeta?.reach, prevMeta?.reach)} trend={(currentMeta?.reach || 0) >= (prevMeta?.reach || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.reach, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-alcance'} onClick={() => setExpandedMetric(expandedMetric === 'meta-alcance' ? null : 'meta-alcance')} />
-              <ShopifyMetric label="Conversiones" value={currentMeta?.results || 0} change={getMetaChange(currentMeta?.results, prevMeta?.results)} trend={(currentMeta?.results || 0) >= (prevMeta?.results || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.results, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-conv'} onClick={() => setExpandedMetric(expandedMetric?.startsWith('meta-conv') ? null : 'meta-conv')} />
-              <ShopifyMetric label="Retorno Publicidad" value={`$ ${currentMeta?.purchase_value?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}`} change={getMetaChange(currentMeta?.purchase_value, prevMeta?.purchase_value)} trend={(currentMeta?.purchase_value || 0) >= (prevMeta?.purchase_value || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-roas-v'} onClick={() => setExpandedMetric(expandedMetric === 'meta-roas-v' ? null : 'meta-roas-v')} />
+              <ShopifyMetric label="Conv." value={currentMeta?.results || 0} change={getMetaChange(currentMeta?.results, prevMeta?.results)} trend={(currentMeta?.results || 0) >= (prevMeta?.results || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.results, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-conv'} onClick={() => setExpandedMetric(expandedMetric === 'meta-conv' ? null : 'meta-conv')} />
+              <ShopifyMetric label="Retorno" value={`$ ${currentMeta?.purchase_value?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}`} change={getMetaChange(currentMeta?.purchase_value, prevMeta?.purchase_value)} trend={(currentMeta?.purchase_value || 0) >= (prevMeta?.purchase_value || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-roas-v'} onClick={() => setExpandedMetric(expandedMetric === 'meta-roas-v' ? null : 'meta-roas-v')} />
               <ShopifyMetric label="ROAS" value={`${currentMeta?.roas?.toFixed(2) || 0}x`} change={getMetaChange(currentMeta?.roas, prevMeta?.roas)} trend={(currentMeta?.roas || 0) >= (prevMeta?.roas || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-roas'} onClick={() => setExpandedMetric(expandedMetric === 'meta-roas' ? null : 'meta-roas')} />
             </div>
             {expandedMetric?.startsWith('meta-') && (
@@ -538,8 +552,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Klaviyo Section - Only show if has key AND we got data (or still loading) */}
-        {profile?.klaviyo_api_key && (fetchingKlaviyo || currentKlaviyo) && (
+        {/* Klaviyo Section */}
+        {profile?.klaviyo_api_key && currentKlaviyo && !fetchingKlaviyo && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1"><div className="w-2 h-2 rounded-full bg-emerald-500" /><h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Retención (Klaviyo)</h2></div>
             <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden flex overflow-x-auto scrollbar-hide">

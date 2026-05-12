@@ -53,11 +53,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         {/* Logo / Brand */}
         <div className="h-[72px] flex items-center px-6 border-b border-zinc-100 dark:border-white/[0.03] flex-shrink-0">
           <div className="flex items-center gap-3 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20 group-hover:scale-110 transition-transform">
-              <Zap className="w-4 h-4 text-white fill-white" />
-            </div>
+            <img 
+              src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} 
+              alt="Algoritmia" 
+              className="w-10 h-10 object-contain group-hover:scale-110 transition-transform drop-shadow-sm"
+            />
             <div className="flex flex-col">
-              <span className="text-[14px] font-black text-zinc-900 dark:text-white tracking-tighter leading-none">ALGORITMIA</span>
+              <span className="text-[14px] font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase">ALGORITMIA</span>
               <span className="text-[10px] font-bold text-violet-500 tracking-[0.2em] mt-1 uppercase">Gestión</span>
             </div>
           </div>

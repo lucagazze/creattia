@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { metaAds, DatePreset, presetToRange, daysAgo, today, getPrevPeriod } from '../services/metaAds';
 import {
@@ -11,6 +12,8 @@ import {
 } from 'lucide-react';
 
 const BLUE = '#3b82f6';
+const GREEN = '#10b981';
+const RED = '#ef4444';
 const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
   { id: 'today', label: 'Hoy' },
   { id: 'yesterday', label: 'Ayer' },
@@ -63,8 +66,8 @@ const KpiCard = ({ label, value, sub, trend, icon: Icon, color = BLUE, active, o
 
 const SectionTitle = ({ icon: Icon, title, subtitle }: any) => (
   <div className="flex items-center gap-3 mb-4">
-    <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-      <Icon className="w-4 h-4 text-blue-500" />
+    <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
+      <Icon className="w-4 h-4 text-emerald-500" />
     </div>
     <div>
       <h3 className="text-sm font-bold text-zinc-900 dark:text-white">{title}</h3>
@@ -78,6 +81,7 @@ const PLATFORM_COLORS: Record<string, string> = { facebook: '#1877f2', instagram
 
 export default function CaptacionPage() {
   const { profile } = useAuth();
+  const { darkMode } = useTheme();
   const datePickerRef = useRef<HTMLDivElement>(null);
 
   // Date State
@@ -196,7 +200,7 @@ export default function CaptacionPage() {
     } catch (e) { console.error('CaptacionPage fetch error:', e); } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchAll(); }, [profile, activeSince, activeUntil, activePreset]);
+  useEffect(() => { fetchAll(); }, [profile?.id, activeSince, activeUntil, activePreset]);
 
   // Click outside date picker
   useEffect(() => {
@@ -261,13 +265,21 @@ export default function CaptacionPage() {
   const prevNonZero = prevVals.filter(v => v > 0);
   const prevAvg = prevNonZero.length > 0 ? prevNonZero.reduce((a, b) => a + b, 0) / prevNonZero.length : 0;
 
+  const trendValue = getChange(avg, prevAvg);
+  const chartColor = trendValue > 5 ? GREEN : trendValue < -5 ? RED : BLUE;
+  const gradientId = `grad-${expandedMetric}`;
+
   return (
-    <div className="p-4 sm:p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500 space-y-8 print:space-y-6 print:p-0 print:max-w-none">
+    <div className="max-w-[1600px] mx-auto space-y-8 print:space-y-6 print:p-0 print:max-w-none">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200 dark:shadow-none"><BarChart2 className="w-6 h-6" /></div>
+            <img 
+              src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} 
+              alt="Algoritmia" 
+              className="w-10 h-10 object-contain drop-shadow-sm"
+            />
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Captación (Meta Ads)</h1>
           </div>
           <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Análisis detallado por regiones, demografía y plataformas.</p>
@@ -283,18 +295,20 @@ export default function CaptacionPage() {
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
             </button>
             {showDatePicker && (
-              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                <div className="w-[160px] border-r border-zinc-50 dark:border-zinc-800 p-3 flex flex-col gap-1">
+              <div className="fixed inset-x-0 bottom-0 top-0 sm:absolute sm:inset-auto sm:right-0 sm:top-full mt-0 sm:mt-3 bg-white dark:bg-zinc-900 rounded-t-[30px] sm:rounded-[20px] border-t sm:border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex flex-col sm:flex-row overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-top-2 fade-in duration-300 sm:duration-200">
+                <div className="w-full sm:w-[160px] border-b sm:border-b-0 sm:border-r border-zinc-50 dark:border-zinc-800 p-2 sm:p-3 flex flex-row sm:flex-col gap-1 overflow-x-auto sm:overflow-x-visible scrollbar-hide">
                   {PRESETS.map(p => (
-                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-left px-4 py-1.5 rounded-[10px] text-[12px] font-bold transition-all ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-center sm:text-left px-3 sm:px-4 py-1.5 rounded-[10px] text-[11px] sm:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
-                <div className="flex-1 p-5">
-                  <div className="flex gap-8">
-                    <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} />
-                    <MiniCal year={calMonth === 11 ? calYear + 1 : calYear} month={calMonth === 11 ? 0 : calMonth + 1} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
+                <div className="flex-1 p-3 sm:p-5 flex flex-col">
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 overflow-y-auto sm:overflow-y-visible max-h-[60vh] sm:max-h-none">
+                    <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} onNext={window.innerWidth < 640 ? (() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }) : undefined} />
+                    <div className="hidden sm:block">
+                      <MiniCal year={calMonth === 11 ? calYear + 1 : calYear} month={calMonth === 11 ? 0 : calMonth + 1} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
+                    </div>
                   </div>
-                  <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800">
+                  <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                     <button onClick={() => setShowDatePicker(false)} className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-zinc-500">Cancelar</button>
                     <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-md shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-colors">Aplicar</button>
                   </div>
@@ -324,7 +338,7 @@ export default function CaptacionPage() {
             subtitle="Análisis detallado del periodo" 
           />
           <div className="flex items-center gap-5">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500" /><span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Actual</span></div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: chartColor }} /><span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">Actual</span></div>
             
             {avg > 0 && (
               <div 
@@ -353,7 +367,7 @@ export default function CaptacionPage() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={currentValData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorVis" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={BLUE} stopOpacity={0.15}/><stop offset="95%" stopColor={BLUE} stopOpacity={0}/></linearGradient>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={chartColor} stopOpacity={0.15}/><stop offset="95%" stopColor={chartColor} stopOpacity={0}/></linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-zinc-100 dark:text-zinc-800/50" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} tickFormatter={d => d.split('-').slice(1).reverse().join('/')} axisLine={false} tickLine={false} interval="preserveStartEnd" />
@@ -374,7 +388,7 @@ export default function CaptacionPage() {
                       {curr && (
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BLUE }} />
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: chartColor }} />
                             <span className="text-[11px] font-medium text-zinc-500">Valor</span>
                           </div>
                           <span className="text-[12px] font-bold text-zinc-900 dark:text-zinc-100">{fmtVal(curr.value)}</span>
@@ -421,12 +435,12 @@ export default function CaptacionPage() {
               <Area 
                 type="monotone" 
                 dataKey="val" 
-                stroke={BLUE} 
+                stroke={chartColor} 
                 strokeWidth={hoveredLine ? 1 : 3} 
                 strokeOpacity={hoveredLine ? 0.1 : 1}
                 fillOpacity={hoveredLine ? 0.02 : 1} 
-                fill="url(#colorVis)" 
-                dot={{ r: 4, fill: BLUE, strokeWidth: 2, stroke: '#fff' }} 
+                fill={`url(#${gradientId})`} 
+                dot={{ r: 4, fill: chartColor, strokeWidth: 2, stroke: '#fff' }} 
                 activeDot={{ r: 6, strokeWidth: 0 }} 
                 isAnimationActive={true}
                 animationDuration={1500}
