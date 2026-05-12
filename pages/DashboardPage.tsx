@@ -4,6 +4,20 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { metaAds, INSIGHT_FIELDS, DatePreset, presetToRange, getPrevPeriod, today, daysAgo } from '../services/metaAds';
 import { klaviyo } from '../services/klaviyo';
+
+// Ensures the Meta token is in localStorage before any API call
+const ensureMetaToken = async (): Promise<void> => {
+  // If already set via env variable or a previous load, skip
+  if (localStorage.getItem('meta_ads_token')) return;
+  try {
+    const { data } = await supabase
+      .from('AgencySettings')
+      .select('value')
+      .eq('key', 'meta_ads_token')
+      .maybeSingle();
+    if (data?.value) localStorage.setItem('meta_ads_token', data.value);
+  } catch { /* silently ignore */ }
+};
 import { 
   LayoutDashboard, Users, MessageSquare, Mail, Link as LinkIcon, FileText, 
   Settings, LogOut, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Search, Bell,
@@ -270,6 +284,9 @@ export default function DashboardPage() {
     if (fetchLock.current) return;
     fetchLock.current = true;
     
+    // Always ensure token is loaded before hitting Meta API
+    await ensureMetaToken();
+
     const range = p === 'custom' ? { since: s, until: u } : presetToRange(p);
     const prevRange = getPrevPeriod(range.since, range.until);
 
