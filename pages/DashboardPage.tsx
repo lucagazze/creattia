@@ -564,8 +564,10 @@ export default function DashboardPage() {
               Algoritmia • Gestión
             </span>
           </div>
-          <h1 className="text-[20px] sm:text-[24px] font-bold text-zinc-900 dark:text-white tracking-tight leading-tight">
+          <h1 className="text-[20px] sm:text-[24px] font-bold text-zinc-900 dark:text-white tracking-tight leading-tight flex items-center gap-3">
             Resumen General
+            <span className="text-zinc-400 dark:text-zinc-500 font-medium text-[16px] sm:text-[18px]">•</span>
+            <span className="text-zinc-500 dark:text-zinc-400 font-medium text-[16px] sm:text-[18px] truncate">{profile?.full_name || 'The Skirting Factory'}</span>
           </h1>
         </div>
         <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-sm h-11 relative" ref={datePickerRef}>
