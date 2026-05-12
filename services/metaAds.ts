@@ -33,7 +33,7 @@ export const CLIENT_META_MAP: Record<string, { igId?: string; username?: string;
   '51a050d9-5f32-4f95-8724-8eefff9666d6': { igId: '17841463377689897', username: 'selecta' },
 };
 
-export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'this_month' | 'last_month' | 'last_6months' | 'last_year';
+export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'last_30d' | 'last_90d' | 'this_month' | 'last_month' | 'last_6months' | 'last_year';
 export type TimeRange = { since: string; until: string };
 
 export const daysAgo = (n: number): string => {
@@ -61,11 +61,13 @@ export const presetToRange = (preset: DatePreset): TimeRange => {
   const t = today();
   if (preset === 'today')       return { since: t, until: t };
   if (preset === 'yesterday')   { const y = daysAgo(1); return { since: y, until: y }; }
-  if (preset === 'last_7d')     return { since: daysAgo(7), until: t };
-  if (preset === 'last_14d')    return { since: daysAgo(14), until: t };
-  if (preset === 'last_28d')    return { since: daysAgo(28), until: t };
-  if (preset === 'last_6months') return { since: daysAgo(180), until: t };
-  if (preset === 'last_year')   return { since: daysAgo(365), until: t };
+  if (preset === 'last_7d')     return { since: daysAgo(8), until: daysAgo(1) };
+  if (preset === 'last_14d')    return { since: daysAgo(15), until: daysAgo(1) };
+  if (preset === 'last_28d')    return { since: daysAgo(29), until: daysAgo(1) };
+  if (preset === 'last_30d')    return { since: daysAgo(31), until: daysAgo(1) };
+  if (preset === 'last_90d')    return { since: daysAgo(91), until: daysAgo(1) };
+  if (preset === 'last_6months') return { since: daysAgo(181), until: daysAgo(1) };
+  if (preset === 'last_year')   return { since: daysAgo(366), until: daysAgo(1) };
   if (preset === 'this_month') {
     const now = new Date();
     return { since: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, until: t };
@@ -88,6 +90,11 @@ export const INSIGHT_FIELDS = [
   'actions', 'cost_per_action_type', 'action_values',
   'purchase_roas',
   'video_thruplay_watched_actions',
+].join(',');
+
+export const DAILY_FIELDS = [
+  'spend', 'reach', 'actions', 'action_values',
+  'purchase_roas',
 ].join(',');
 
 // Lighter fields for ad-level (creative) insights — sin campos que no existen a nivel de anuncio
@@ -176,14 +183,14 @@ export const metaAds = {
     }),
 
   // ── INSIGHTS ──────────────────────────────────────────────
-  getInsights: async (accountId: string, fields: string[] | string, preset?: DatePreset, range?: { since: string, until: string }, timeIncrement?: number) => {
+  getInsights: async (accountId: string, fields: string[] | string, preset?: DatePreset, range?: { since: string, until: string }, timeIncrement?: number, signal?: AbortSignal) => {
     const fieldsStr = Array.isArray(fields) ? fields.join(',') : fields;
-    let url = `${BASE}/${accountId}/insights?fields=${fieldsStr}&access_token=${getToken()}`;
+    let url = `${BASE}/${accountId}/insights?fields=${fieldsStr}&access_token=${getToken()}&limit=500`;
     if (range) url += `&time_range={"since":"${range.since}","until":"${range.until}"}`;
     else if (preset) url += `&date_preset=${preset}`;
     if (timeIncrement) url += `&time_increment=${timeIncrement}`;
 
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
     const data = await res.json();
     
     if (data.error) throw data.error;
@@ -213,7 +220,7 @@ export const metaAds = {
         purchase_value: extractValue(d.action_values),
         roas: parseFloat(d.purchase_roas?.[0]?.value || 0),
         date: d.date_start
-      }));
+      })).sort((a: any, b: any) => a.date.localeCompare(b.date));
     }
     
     const insights = data.data[0] || {};
@@ -227,8 +234,8 @@ export const metaAds = {
     };
   },
 
-  getInsightsDaily: async (accountId: string, fields: string[] | string, preset?: DatePreset, range?: { since: string, until: string }) => {
-    return metaAds.getInsights(accountId, fields, preset, range, 1);
+  getInsightsDaily: async (accountId: string, fields: string[] | string, preset?: DatePreset, range?: { since: string, until: string }, signal?: AbortSignal) => {
+    return metaAds.getInsights(accountId, fields, preset, range, 1, signal);
   },
 
   // ── INSIGHTS AT ADSET LEVEL (for segment classification) ──
