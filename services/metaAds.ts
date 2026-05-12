@@ -33,7 +33,7 @@ export const CLIENT_META_MAP: Record<string, { igId?: string; username?: string;
   '51a050d9-5f32-4f95-8724-8eefff9666d6': { igId: '17841463377689897', username: 'selecta' },
 };
 
-export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'last_30d' | 'last_90d' | 'this_month' | 'last_month' | 'last_6months' | 'last_year';
+export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'last_30d' | 'last_90d' | 'this_month' | 'last_month' | 'this_year' | 'last_year';
 export type TimeRange = { since: string; until: string };
 
 export const daysAgo = (n: number): string => {
@@ -66,8 +66,14 @@ export const presetToRange = (preset: DatePreset): TimeRange => {
   if (preset === 'last_28d')    return { since: daysAgo(29), until: daysAgo(1) };
   if (preset === 'last_30d')    return { since: daysAgo(31), until: daysAgo(1) };
   if (preset === 'last_90d')    return { since: daysAgo(91), until: daysAgo(1) };
-  if (preset === 'last_6months') return { since: daysAgo(181), until: daysAgo(1) };
-  if (preset === 'last_year')   return { since: daysAgo(366), until: daysAgo(1) };
+  if (preset === 'this_year') {
+    const now = new Date();
+    return { since: `${now.getFullYear()}-01-01`, until: t };
+  }
+  if (preset === 'last_year') {
+    const prevYear = new Date().getFullYear() - 1;
+    return { since: `${prevYear}-01-01`, until: `${prevYear}-12-31` };
+  }
   if (preset === 'this_month') {
     const now = new Date();
     return { since: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, until: t };

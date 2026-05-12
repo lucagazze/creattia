@@ -428,11 +428,13 @@ export default function DashboardPage() {
                       'today': 'Hoy',
                       'yesterday': 'Ayer',
                       'last_7d': 'Últimos 7 días',
+                      'last_14d': 'Últimos 14 días',
                       'last_28d': 'Últimos 28 días',
-                      'last_30d': 'Últimos 30 días',
                       'last_90d': 'Últimos 90 días',
                       'this_month': 'Este mes',
-                      'last_month': 'Mes pasado'
+                      'last_month': 'Mes pasado',
+                      'this_year': 'Este año',
+                      'last_year': 'Año pasado'
                     }[activePreset] || activePreset
                 }
               </span>
@@ -442,8 +444,8 @@ export default function DashboardPage() {
             {showDatePicker && (
               <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 <div className="w-[160px] border-r border-zinc-50 dark:border-zinc-800 p-3 flex flex-col gap-1">
-                  {[{ id: 'today', label: 'Hoy' }, { id: 'yesterday', label: 'Ayer' }, { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_30d', label: 'Últimos 30 días' }, { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' }, { id: 'last_month', label: 'Mes pasado' }].map(p => (
-                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-left px-4 py-2.5 rounded-[10px] text-[12px] font-bold transition-all ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                  {[{ id: 'today', label: 'Hoy' }, { id: 'yesterday', label: 'Ayer' }, { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_14d', label: 'Últimos 14 días' }, { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' }, { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' }, { id: 'last_year', label: 'Año pasado' }].map(p => (
+                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-left px-4 py-1.5 rounded-[10px] text-[12px] font-bold transition-all ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
                 <div className="flex-1 p-5">
