@@ -198,18 +198,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
                 <Shield className="w-[18px] h-[18px]" />
                 <span>Gestión Clientes</span>
               </Link>
-              <Link
-                to="/admin/meta"
-                onClick={() => window.innerWidth < 768 && setIsOpen(false)}
-                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 ${
-                  location.pathname === '/admin/meta'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/5'
-                }`}
-              >
-                <BarChart2 className="w-[18px] h-[18px]" />
-                <span>Meta Ads Global</span>
-              </Link>
             </div>
           )}
         </nav>

@@ -93,8 +93,15 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
   const chartColor = trend > 5 ? GREEN : trend < -5 ? RED : BLUE;
   const gradientId = `grad-${label.replace(/\s+/g, '-')}`;
 
+  const isPercentLabel = label.toLowerCase().includes('tasa');
+  const isMoneyLabel = label.toLowerCase().includes('ingreso') || label.toLowerCase().includes('inversión') || label.toLowerCase().includes('retorno');
+  const isRoasLabel = label.toLowerCase().includes('roas');
+
   const fmtVal = (v: number) => {
-    if (!v) return '0';
+    if (v === null || v === undefined || isNaN(v)) return '0';
+    if (isPercentLabel) return `${v.toFixed(2)}%`;
+    if (isMoneyLabel) return `$${v >= 1000 ? (v/1000).toFixed(1) + 'k' : v.toFixed(0)}`;
+    if (isRoasLabel) return `${v.toFixed(2)}x`;
     if (v >= 1000) return (v/1000).toFixed(1) + 'k';
     return v.toFixed(v < 10 ? 2 : 0);
   };
@@ -146,10 +153,19 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
               tickLine={false} 
               width={40} 
             />
-            <Tooltip content={({ active, payload }: any) => {
+              <Tooltip content={({ active, payload }: any) => {
               if (active && payload && payload.length) {
                 const curr = payload.find((p: any) => p.dataKey === 'val');
-                const fmtTooltip = (v: number) => typeof v === 'number' && v > 100 ? `$ ${v.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : String(v ?? '—');
+                const isMoney = label.toLowerCase().includes('ingreso') || label.toLowerCase().includes('inversión') || label.toLowerCase().includes('retorno');
+                const isPercentage = label.toLowerCase().includes('tasa');
+                const isRoas = label.toLowerCase().includes('roas');
+                const fmtTooltip = (v: number) => {
+                  if (typeof v !== 'number') return String(v ?? '—');
+                  if (isMoney) return `$ ${v.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+                  if (isPercentage) return `${v.toFixed(2)}%`;
+                  if (isRoas) return `${v.toFixed(2)}x`;
+                  return v.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+                };
                 return (
                   <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-3 rounded-xl shadow-xl min-w-[140px]">
                     <p className="text-[10px] font-bold text-zinc-400 uppercase mb-2">{curr?.payload?.date}</p>
@@ -252,6 +268,8 @@ export default function DashboardPage() {
   const [currentStore, setCurrentStore] = useState<any>(null);
   const [prevStore, setPrevStore] = useState<any>(null);
   const [fetchingStore, setFetchingStore] = useState(false);
+  const [historical90d, setHistorical90d] = useState<any[]>([]);
+  const [fetching90d, setFetching90d] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const datePickerRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -285,7 +303,21 @@ export default function DashboardPage() {
       const range = p === 'custom' ? { since: s, until: u } : presetToRange(p);
       const prevRange = getPrevPeriod(range.since, range.until);
       
-      if (profile?.meta_account_id) {
+      const prof: any = profile;
+      const fetchShopify = async () => {
+        if (!prof?.ecommerce_platform || !prof?.shopify_domain || !prof?.shopify_access_token) return;
+        setFetchingStore(true);
+        try {
+          const [currStore, prevStoreData] = await Promise.all([
+            ecommerce.getDashboardData(prof.ecommerce_platform, prof.shopify_domain, prof.shopify_access_token, range.since, range.until),
+            ecommerce.getDashboardData(prof.ecommerce_platform, prof.shopify_domain, prof.shopify_access_token, prevRange.since, prevRange.until)
+          ]);
+          setCurrentStore(currStore); setPrevStore(prevStoreData);
+        } catch (err) { console.error("Store Fetch Error:", err); } finally { setFetchingStore(false); }
+      };
+
+      const fetchMeta = async () => {
+        if (!profile?.meta_account_id) return;
         setFetchingMeta(true);
         try {
           const [rawDaily, rawPrevDaily] = await Promise.all([
@@ -317,29 +349,25 @@ export default function DashboardPage() {
         } catch (err: any) { 
           if (err.name !== 'AbortError') console.error("Meta Fetch Error:", err); 
         } finally { setFetchingMeta(false); }
-      }
+      };
 
-      if (profile?.klaviyo_api_key) {
+      const fetchKlaviyo = async () => {
+        if (!profile?.klaviyo_api_key) return;
         setFetchingKlaviyo(true);
         try {
-          // The global queue in klaviyo.ts handles the rate limiting
-          const curr = await klaviyo.getDashboardData(profile.klaviyo_api_key, range.since, range.until);
-          const prev = await klaviyo.getDashboardData(profile.klaviyo_api_key, prevRange.since, prevRange.until);
+          const [curr, prev] = await Promise.all([
+            klaviyo.getDashboardData(profile.klaviyo_api_key, range.since, range.until),
+            klaviyo.getDashboardData(profile.klaviyo_api_key, prevRange.since, prevRange.until)
+          ]);
           setCurrentKlaviyo(curr); setPrevKlaviyo(prev);
         } catch (err) { console.error("Klaviyo Fetch Error:", err); } finally { setFetchingKlaviyo(false); }
-      }
+      };
 
-      const prof: any = profile;
-      if (prof?.ecommerce_platform && prof?.shopify_domain && prof?.shopify_access_token) {
-        setFetchingStore(true);
-        try {
-          const [currStore, prevStoreData] = await Promise.all([
-            ecommerce.getDashboardData(prof.ecommerce_platform, prof.shopify_domain, prof.shopify_access_token, range.since, range.until),
-            ecommerce.getDashboardData(prof.ecommerce_platform, prof.shopify_domain, prof.shopify_access_token, prevRange.since, prevRange.until)
-          ]);
-          setCurrentStore(currStore); setPrevStore(prevStoreData);
-        } catch (err) { console.error("Store Fetch Error:", err); } finally { setFetchingStore(false); }
-      }
+      // Disparamos Shopify y Meta primero, en paralelo para máxima velocidad.
+      await Promise.all([fetchShopify(), fetchMeta()]);
+      
+      // Una vez que Shopify y Meta terminaron de cargar, disparamos Klaviyo.
+      await fetchKlaviyo();
     } catch (globalErr: any) {
       if (globalErr.name !== 'AbortError') console.error("Global Fetch Error:", globalErr);
     }
@@ -357,12 +385,32 @@ export default function DashboardPage() {
     } 
   }, [profile?.id, activePreset, activeSince, activeUntil, refreshKey]);
 
+  useEffect(() => {
+    let mounted = true;
+    const fetch90d = async () => {
+       const prof: any = profile;
+       if (!prof?.ecommerce_platform || !prof?.shopify_domain || !prof?.shopify_access_token) return;
+       setFetching90d(true);
+       try {
+         const range90 = presetToRange('last_90d');
+         const store90 = await ecommerce.getDashboardData(prof.ecommerce_platform, prof.shopify_domain, prof.shopify_access_token, range90.since, range90.until);
+         if (mounted && store90) {
+            setHistorical90d(store90.daily || []);
+         }
+       } catch (err) { } finally {
+         if (mounted) setFetching90d(false);
+       }
+    };
+    if (profile?.id) fetch90d();
+    return () => { mounted = false; };
+  }, [profile?.id, refreshKey]);
+
   const handleApply = () => { 
     setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil); setRefreshKey(prev => prev + 1); setShowDatePicker(false); 
   };
 
-  const getMetaChange = (curr: number, prev: number) => (!prev ? 0 : ((curr - prev) / prev) * 100);
-  const getKlaviyoChange = (curr: number, prev: number) => (!prev ? 0 : ((curr - prev) / prev) * 100);
+  const getMetaChange = (curr: number, prev: number) => (!prev || isNaN(prev) ? 0 : ((curr - prev) / Math.abs(prev)) * 100);
+  const getKlaviyoChange = (curr: number, prev: number) => (!prev || isNaN(prev) || !isFinite(prev) ? 0 : ((curr - prev) / Math.abs(prev)) * 100);
 
   const activeRange = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
   const activePrevRange = getPrevPeriod(activeRange.since, activeRange.until);
@@ -516,11 +564,8 @@ export default function DashboardPage() {
               Algoritmia • Gestión
             </span>
           </div>
-          <h1 className="text-[22px] sm:text-[30px] font-bold text-zinc-900 dark:text-white tracking-tight leading-tight">
-            ¡Hola, {profile?.business_name || 'Bienvenido'}!
-            <span className="block text-[13px] sm:text-[15px] font-medium text-zinc-500 dark:text-zinc-500 mt-1.5 tracking-normal">
-              Resumen general del rendimiento de tu negocio.
-            </span>
+          <h1 className="text-[18px] sm:text-[22px] font-semibold text-zinc-600 dark:text-zinc-400 tracking-tight leading-tight">
+            Resumen general del rendimiento de tu negocio.
           </h1>
         </div>
         <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-sm h-11 relative" ref={datePickerRef}>
@@ -587,55 +632,86 @@ export default function DashboardPage() {
 
       <div className="space-y-6">
         {/* Shopify Section */}
-        {((profile as any)?.ecommerce_platform && currentStore && !fetchingStore) && (
+        {(profile as any)?.ecommerce_platform && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1"><div className="w-2 h-2 rounded-full bg-pink-500" /><h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Tienda Online ({(profile as any).ecommerce_platform})</h2></div>
-            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex">
-              <ShopifyMetric label="Ingresos" value={currentStore ? `$ ${currentStore.revenue?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '0'} change={getKlaviyoChange(currentStore?.revenue, prevStore?.revenue)} trend={(currentStore?.revenue || 0) >= (prevStore?.revenue || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-revenue'} onClick={() => setExpandedMetric(expandedMetric === 's-revenue' ? null : 's-revenue')} />
-              <ShopifyMetric label="Pedidos" value={currentStore ? currentStore.orders?.toLocaleString('es-AR') : '0'} change={getKlaviyoChange(currentStore?.orders, prevStore?.orders)} trend={(currentStore?.orders || 0) >= (prevStore?.orders || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.orders, date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-orders'} onClick={() => setExpandedMetric(expandedMetric === 's-orders' ? null : 's-orders')} />
-              <ShopifyMetric label="Ticket" value={currentStore ? `$ ${currentStore.aov?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '0'} change={getKlaviyoChange(currentStore?.aov, prevStore?.aov)} trend={(currentStore?.aov || 0) >= (prevStore?.aov || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.revenue / (d.orders || 1), date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-aov'} onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')} />
-            </div>
-            {expandedMetric?.startsWith('s-') && (<MetricDetailChart label={expandedMetric === 's-revenue' ? 'Ingresos' : expandedMetric === 's-orders' ? 'Pedidos' : 'Ticket Promedio'} color={MAIN_COLOR} data={expandedMetric === 's-revenue' ? currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date })) : expandedMetric === 's-orders' ? currentStore?.daily?.map((d: any) => ({ val: d.orders, date: d.date })) : currentStore?.daily?.map((d: any) => ({ val: d.revenue / (d.orders || 1), date: d.date }))} />)}
+            {fetchingStore && !currentStore ? (
+              <div className="animate-pulse bg-zinc-100 dark:bg-zinc-800/50 rounded-[12px] h-[88px] w-full" />
+            ) : currentStore ? (
+              <>
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                  <ShopifyMetric label="Ticket Promedio" value={`$ ${currentStore.aov?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`} change={getKlaviyoChange(currentStore?.aov, prevStore?.aov)} trend={(currentStore?.aov || 0) >= (prevStore?.aov || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.aov, date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-aov'} onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')} />
+                  <ShopifyMetric label="Pedidos" value={currentStore.orders?.toLocaleString('es-AR')} change={getKlaviyoChange(currentStore?.orders, prevStore?.orders)} trend={(currentStore?.orders || 0) >= (prevStore?.orders || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.orders, date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-orders'} onClick={() => setExpandedMetric(expandedMetric === 's-orders' ? null : 's-orders')} />
+                  <ShopifyMetric label="Ingresos" value={`$ ${currentStore.revenue?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`} change={getKlaviyoChange(currentStore?.revenue, prevStore?.revenue)} trend={(currentStore?.revenue || 0) >= (prevStore?.revenue || 0) ? 'up' : 'down'} data={currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))} color={MAIN_COLOR} loading={fetchingStore} active={expandedMetric === 's-revenue'} onClick={() => setExpandedMetric(expandedMetric === 's-revenue' ? null : 's-revenue')} />
+                </div>
+                {expandedMetric?.startsWith('s-') && (
+                  <MetricDetailChart 
+                    label={expandedMetric === 's-revenue' ? 'Ingresos' : expandedMetric === 's-orders' ? 'Pedidos' : expandedMetric === 's-aov' ? 'Ticket Promedio' : expandedMetric === 's-sessions' ? 'Sesiones' : 'Tasa de Conversión'} 
+                    color={MAIN_COLOR} 
+                    data={expandedMetric === 's-revenue' ? currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date })) : expandedMetric === 's-orders' ? currentStore?.daily?.map((d: any) => ({ val: d.orders, date: d.date })) : expandedMetric === 's-aov' ? currentStore?.daily?.map((d: any) => ({ val: d.aov, date: d.date })) : expandedMetric === 's-sessions' ? currentStore?.daily?.map((d: any) => ({ val: d.sessions, date: d.date })) : currentStore?.daily?.map((d: any) => ({ val: d.conversionRate, date: d.date })) || []} 
+                    prevData={expandedMetric === 's-revenue' ? prevStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date })) : expandedMetric === 's-orders' ? prevStore?.daily?.map((d: any) => ({ val: d.orders, date: d.date })) : expandedMetric === 's-aov' ? prevStore?.daily?.map((d: any) => ({ val: d.aov, date: d.date })) : expandedMetric === 's-sessions' ? prevStore?.daily?.map((d: any) => ({ val: d.sessions, date: d.date })) : prevStore?.daily?.map((d: any) => ({ val: d.conversionRate, date: d.date })) || []}
+                  />
+                )}
+              </>
+            ) : null}
           </div>
         )}
 
         {/* Meta Ads Section */}
-        {profile?.meta_account_id && currentMeta && !fetchingMeta && (
+        {profile?.meta_account_id && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1"><div className="w-2 h-2 rounded-full bg-blue-500" /><h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Captación (Meta Ads)</h2></div>
-            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex">
-              <ShopifyMetric label="Inversión" value={`$ ${currentMeta?.spend?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}`} change={getMetaChange(currentMeta?.spend, prevMeta?.spend)} trend={(currentMeta?.spend || 0) >= (prevMeta?.spend || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.spend, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-inversion'} onClick={() => setExpandedMetric(expandedMetric === 'meta-inversion' ? null : 'meta-inversion')} />
-              <ShopifyMetric label="Alcance" value={currentMeta?.reach?.toLocaleString('es-AR') || 0} change={getMetaChange(currentMeta?.reach, prevMeta?.reach)} trend={(currentMeta?.reach || 0) >= (prevMeta?.reach || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.reach, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-alcance'} onClick={() => setExpandedMetric(expandedMetric === 'meta-alcance' ? null : 'meta-alcance')} />
-              <ShopifyMetric label="Conv." value={currentMeta?.results || 0} change={getMetaChange(currentMeta?.results, prevMeta?.results)} trend={(currentMeta?.results || 0) >= (prevMeta?.results || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.results, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-conv'} onClick={() => setExpandedMetric(expandedMetric === 'meta-conv' ? null : 'meta-conv')} />
-              <ShopifyMetric label="Retorno" value={`$ ${currentMeta?.purchase_value?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}`} change={getMetaChange(currentMeta?.purchase_value, prevMeta?.purchase_value)} trend={(currentMeta?.purchase_value || 0) >= (prevMeta?.purchase_value || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-roas-v'} onClick={() => setExpandedMetric(expandedMetric === 'meta-roas-v' ? null : 'meta-roas-v')} />
-              <ShopifyMetric label="ROAS" value={`${currentMeta?.roas?.toFixed(2) || 0}x`} change={getMetaChange(currentMeta?.roas, prevMeta?.roas)} trend={(currentMeta?.roas || 0) >= (prevMeta?.roas || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-roas'} onClick={() => setExpandedMetric(expandedMetric === 'meta-roas' ? null : 'meta-roas')} />
-            </div>
-            {expandedMetric?.startsWith('meta-') && (
-              <MetricDetailChart 
-                label={expandedMetric === 'meta-inversion' ? 'Inversión' : expandedMetric === 'meta-alcance' ? 'Alcance' : expandedMetric === 'meta-conv' ? 'Conversiones' : expandedMetric === 'meta-roas-v' ? 'Retorno' : 'ROAS'} 
-                color={MAIN_COLOR} 
-                data={expandedMetric === 'meta-inversion' ? metaDaily?.map((d: any) => ({ val: d.spend, date: d.date })) : expandedMetric === 'meta-alcance' ? metaDaily?.map((d: any) => ({ val: d.reach, date: d.date })) : expandedMetric === 'meta-conv' ? metaDaily?.map((d: any) => ({ val: d.results, date: d.date })) : expandedMetric === 'meta-roas-v' ? metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date })) : metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))}
-                prevData={expandedMetric === 'meta-inversion' ? prevMetaDaily?.map((d: any) => ({ val: d.spend, date: d.date })) : expandedMetric === 'meta-alcance' ? prevMetaDaily?.map((d: any) => ({ val: d.reach, date: d.date })) : expandedMetric === 'meta-conv' ? prevMetaDaily?.map((d: any) => ({ val: d.results, date: d.date })) : expandedMetric === 'meta-roas-v' ? prevMetaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date })) : prevMetaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))}
-              />
-            )}
+            {fetchingMeta && !currentMeta ? (
+              <div className="animate-pulse bg-zinc-100 dark:bg-zinc-800/50 rounded-[12px] h-[88px] w-full" />
+            ) : currentMeta ? (
+              <>
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex overflow-x-auto scrollbar-hide">
+                  <ShopifyMetric label="Inversión" value={`$ ${currentMeta.spend?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}`} change={getMetaChange(currentMeta?.spend, prevMeta?.spend)} trend={(currentMeta?.spend || 0) >= (prevMeta?.spend || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.spend, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-inversion'} onClick={() => setExpandedMetric(expandedMetric === 'meta-inversion' ? null : 'meta-inversion')} />
+                  <ShopifyMetric label="Alcance" value={currentMeta.reach?.toLocaleString('es-AR') || 0} change={getMetaChange(currentMeta?.reach, prevMeta?.reach)} trend={(currentMeta?.reach || 0) >= (prevMeta?.reach || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.reach, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-alcance'} onClick={() => setExpandedMetric(expandedMetric === 'meta-alcance' ? null : 'meta-alcance')} />
+                  <ShopifyMetric label="Conv." value={currentMeta.results || 0} change={getMetaChange(currentMeta?.results, prevMeta?.results)} trend={(currentMeta?.results || 0) >= (prevMeta?.results || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.results, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-conv'} onClick={() => setExpandedMetric(expandedMetric === 'meta-conv' ? null : 'meta-conv')} />
+                  <ShopifyMetric label="ROAS" value={`${currentMeta.roas?.toFixed(2) || 0}x`} change={getMetaChange(currentMeta?.roas, prevMeta?.roas)} trend={(currentMeta?.roas || 0) >= (prevMeta?.roas || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-roas'} onClick={() => setExpandedMetric(expandedMetric === 'meta-roas' ? null : 'meta-roas')} />
+                  <ShopifyMetric label="Retorno" value={`$ ${currentMeta.purchase_value?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}`} change={getMetaChange(currentMeta?.purchase_value, prevMeta?.purchase_value)} trend={(currentMeta?.purchase_value || 0) >= (prevMeta?.purchase_value || 0) ? 'up' : 'down'} data={metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))} color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === 'meta-roas-v'} onClick={() => setExpandedMetric(expandedMetric === 'meta-roas-v' ? null : 'meta-roas-v')} />
+                </div>
+                {expandedMetric?.startsWith('meta-') && (
+                  <MetricDetailChart 
+                    label={expandedMetric === 'meta-inversion' ? 'Inversión' : expandedMetric === 'meta-alcance' ? 'Alcance' : expandedMetric === 'meta-conv' ? 'Conversiones' : expandedMetric === 'meta-roas-v' ? 'Retorno' : 'ROAS'} 
+                    color={MAIN_COLOR} 
+                    data={expandedMetric === 'meta-inversion' ? metaDaily?.map((d: any) => ({ val: d.spend, date: d.date })) : expandedMetric === 'meta-alcance' ? metaDaily?.map((d: any) => ({ val: d.reach, date: d.date })) : expandedMetric === 'meta-conv' ? metaDaily?.map((d: any) => ({ val: d.results, date: d.date })) : expandedMetric === 'meta-roas-v' ? metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date })) : metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))}
+                    prevData={expandedMetric === 'meta-inversion' ? prevMetaDaily?.map((d: any) => ({ val: d.spend, date: d.date })) : expandedMetric === 'meta-alcance' ? prevMetaDaily?.map((d: any) => ({ val: d.reach, date: d.date })) : expandedMetric === 'meta-conv' ? prevMetaDaily?.map((d: any) => ({ val: d.results, date: d.date })) : expandedMetric === 'meta-roas-v' ? prevMetaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date })) : prevMetaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))}
+                  />
+                )}
+              </>
+            ) : null}
           </div>
         )}
 
         {/* Klaviyo Section */}
-        {profile?.klaviyo_api_key && (currentKlaviyo || fetchingKlaviyo) && (
+        {profile?.klaviyo_api_key && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
               <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Retención (Klaviyo)</h2>
-              {fetchingKlaviyo && <div className="ml-2 w-3 h-3 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />}
             </div>
-            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden flex overflow-x-auto scrollbar-hide">
-              <ShopifyMetric label="Total Ingresos" value={currentKlaviyo ? `$ ${currentKlaviyo.revenue?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '...'} change={getKlaviyoChange(currentKlaviyo?.revenue, prevKlaviyo?.revenue)} trend={(currentKlaviyo?.revenue || 0) >= (prevKlaviyo?.revenue || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyRevenue?.map((v: any, i: number) => ({ val: v, date: `Día ${i+1}` }))} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-revenue'} onClick={() => setExpandedMetric(expandedMetric === 'k-revenue' ? null : 'k-revenue')} />
-              <ShopifyMetric label="Ingresos Klaviyo" value="Próximamente" change={0} trend="up" data={[]} color={MAIN_COLOR} loading={false} active={false} onClick={() => {}} />
-              <ShopifyMetric label="Entregas" value={currentKlaviyo ? currentKlaviyo.sent?.toLocaleString('es-AR') : '...'} change={getKlaviyoChange(currentKlaviyo?.sent, prevKlaviyo?.sent)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent?.map((v: any, i: number) => ({ val: v, date: `Día ${i+1}` }))} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} />
-              <ShopifyMetric label="Tasa de Apertura" value={currentKlaviyo ? `${((currentKlaviyo.opens / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyOpens?.map((v: any, i: number) => ({ val: ((v / (currentKlaviyo.dailySent[i] || 1)) * 100), date: `Día ${i+1}` }))} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-open-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-open-rate' ? null : 'k-open-rate')} />
-            </div>
-            {expandedMetric?.startsWith('k-') && (<MetricDetailChart label={expandedMetric === 'k-revenue' ? 'Total Ingresos' : expandedMetric === 'k-sent' ? 'Entregas' : 'Tasa de Apertura'} color={MAIN_COLOR} data={expandedMetric === 'k-revenue' ? currentKlaviyo?.dailyRevenue?.map((v: any, i: number) => ({ val: v, date: `Día ${i+1}` })) : expandedMetric === 'k-sent' ? currentKlaviyo?.dailySent?.map((v: any, i: number) => ({ val: v, date: `Día ${i+1}` })) : currentKlaviyo?.dailyOpens?.map((v: any, i: number) => ({ val: ((v / (currentKlaviyo.dailySent[i] || 1)) * 100), date: `Día ${i+1}` }))} />)}
+            {fetchingKlaviyo && !currentKlaviyo ? (
+              <div className="animate-pulse bg-zinc-100 dark:bg-zinc-800/50 rounded-[12px] h-[88px] w-full" />
+            ) : currentKlaviyo ? (
+              <>
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden flex overflow-x-auto scrollbar-hide">
+                  <ShopifyMetric label="Entregas" value={currentKlaviyo.sent?.toLocaleString('es-AR') || '0'} change={getKlaviyoChange(currentKlaviyo?.sent ?? 0, prevKlaviyo?.sent ?? 0)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} />
+                  <ShopifyMetric label="Tasa de Apertura" value={`${((currentKlaviyo.opens / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%`} change={getKlaviyoChange((currentKlaviyo?.opens ?? 0) / (currentKlaviyo?.sent || 1), (prevKlaviyo?.opens ?? 0) / (prevKlaviyo?.sent || 1))} trend={((currentKlaviyo?.opens ?? 0) / (currentKlaviyo?.sent || 1)) >= ((prevKlaviyo?.opens ?? 0) / (prevKlaviyo?.sent || 1)) ? 'up' : 'down'} data={currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-open-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-open-rate' ? null : 'k-open-rate')} />
+                  <ShopifyMetric label="Tasa de Clics" value={`${((currentKlaviyo.clicks / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%`} change={getKlaviyoChange((currentKlaviyo?.clicks ?? 0) / (currentKlaviyo?.sent || 1), (prevKlaviyo?.clicks ?? 0) / (prevKlaviyo?.sent || 1))} trend={((currentKlaviyo?.clicks ?? 0) / (currentKlaviyo?.sent || 1)) >= ((prevKlaviyo?.clicks ?? 0) / (prevKlaviyo?.sent || 1)) ? 'up' : 'down'} data={currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-click-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-click-rate' ? null : 'k-click-rate')} />
+                  <ShopifyMetric label="Ingresos Klaviyo" value={`$ ${currentKlaviyo.attributed?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || 0}`} change={getKlaviyoChange(currentKlaviyo?.attributed ?? 0, prevKlaviyo?.attributed ?? 0)} trend={(currentKlaviyo?.attributed || 0) >= (prevKlaviyo?.attributed || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyAttributed || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-attr'} onClick={() => setExpandedMetric(expandedMetric === 'k-attr' ? null : 'k-attr')} />
+                </div>
+                {expandedMetric?.startsWith('k-') && (
+                  <MetricDetailChart 
+                    label={expandedMetric === 'k-revenue' ? 'Ingresos Tienda Online' : expandedMetric === 'k-attr' ? 'Ingresos Klaviyo' : expandedMetric === 'k-sent' ? 'Entregas' : expandedMetric === 'k-click-rate' ? 'Tasa de Clics' : 'Tasa de Apertura'} 
+                    color={MAIN_COLOR} 
+                    data={expandedMetric === 'k-revenue' ? (currentKlaviyo?.dailyRevenue || []) : expandedMetric === 'k-attr' ? (currentKlaviyo?.dailyAttributed || []) : expandedMetric === 'k-sent' ? (currentKlaviyo?.dailySent || []) : expandedMetric === 'k-click-rate' ? (currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []) : (currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || [])}
+                    prevData={expandedMetric === 'k-revenue' ? (prevKlaviyo?.dailyRevenue || []) : expandedMetric === 'k-attr' ? (prevKlaviyo?.dailyAttributed || []) : expandedMetric === 'k-sent' ? (prevKlaviyo?.dailySent || []) : expandedMetric === 'k-click-rate' ? (prevKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / (prevKlaviyo?.dailySent[i]?.val || 1)) * 100), date: d.date })) || []) : (prevKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / (prevKlaviyo?.dailySent[i]?.val || 1)) * 100), date: d.date })) || [])}
+                  />
+                )}
+              </>
+            ) : null}
           </div>
         )}
 
@@ -648,7 +724,32 @@ export default function DashboardPage() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
-        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.06] dark:border-white/[0.06] p-8 shadow-sm"><h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 mb-8 tracking-tight">Rendimiento Histórico</h2><div className="h-[300px] flex flex-col items-center justify-center text-zinc-400 gap-4"><BarChart2 className="w-10 h-10 opacity-20" /><p className="text-[13px] font-medium opacity-60">Sin datos históricos</p></div></div>
+        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.06] dark:border-white/[0.06] p-8 shadow-sm">
+          <h2 className="text-[13px] font-bold text-zinc-900 dark:text-zinc-50 mb-8 tracking-tight">Evolución de Ingresos (Últimos 90 días)</h2>
+          {fetching90d ? (
+             <div className="h-[300px] flex items-center justify-center animate-pulse bg-zinc-50 dark:bg-zinc-800/50 rounded-xl" />
+          ) : historical90d.length > 0 ? (
+             <div className="h-[300px]">
+               <ResponsiveContainer width="100%" height="100%">
+                 <AreaChart data={historical90d}>
+                   <defs>
+                     <linearGradient id="colorRev90" x1="0" y1="0" x2="0" y2="1">
+                       <stop offset="5%" stopColor={MAIN_COLOR} stopOpacity={0.2} />
+                       <stop offset="95%" stopColor={MAIN_COLOR} stopOpacity={0} />
+                     </linearGradient>
+                   </defs>
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#3f3f46" opacity={0.1} />
+                   <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#71717a' }} minTickGap={30} tickFormatter={(val) => { const d = new Date(val); return `${d.getDate()}/${d.getMonth()+1}`; }} />
+                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#71717a' }} tickFormatter={(val) => `$${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} />
+                   <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }} itemStyle={{ color: '#fff', fontSize: '12px' }} labelStyle={{ color: '#a1a1aa', fontSize: '10px' }} formatter={(v: any) => [`$ ${Number(v).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`, 'Ingresos']} />
+                   <Area type="monotone" dataKey="revenue" stroke={MAIN_COLOR} strokeWidth={2} fillOpacity={1} fill="url(#colorRev90)" />
+                 </AreaChart>
+               </ResponsiveContainer>
+             </div>
+          ) : (
+             <div className="h-[300px] flex flex-col items-center justify-center text-zinc-400 gap-4"><BarChart2 className="w-10 h-10 opacity-20" /><p className="text-[13px] font-medium opacity-60">Sin datos históricos</p></div>
+          )}
+        </div>
         <div className="bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.06] dark:border-white/[0.06] p-8 shadow-sm">
           <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-8">Accesos Directos</h2>
           <div className="space-y-3">{links.length > 0 ? links.map(link => (<a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30 hover:bg-white dark:hover:bg-zinc-800 transition-all group"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-blue-600 transition-colors">{link.icon === 'chat' ? <MessageSquare className="w-5 h-5" /> : link.icon === 'mail' ? <Mail className="w-5 h-5" /> : <ExternalLink className="w-5 h-5" />}</div><span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-300">{link.title}</span></div><ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-blue-600 transition-colors" /></a>)) : (<div className="text-center py-10"><p className="text-[12px] text-zinc-400 font-medium">No hay accesos configurados</p></div>)}</div>
