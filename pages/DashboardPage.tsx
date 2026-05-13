@@ -891,9 +891,9 @@ export default function DashboardPage() {
                 className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center
                   ${
                     isSelected
-                      ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full z-10 shadow-md shadow-zinc-200 dark:shadow-none"
+                      ? "bg-blue-600 text-white rounded-full z-10 shadow-md shadow-blue-200 dark:shadow-none"
                       : isInRange || isHovering
-                        ? "bg-zinc-100 dark:bg-zinc-800/50 text-zinc-900 dark:text-white"
+                        ? "bg-blue-50 dark:bg-blue-500/10 text-blue-600"
                         : isFuture
                           ? "text-zinc-200 dark:text-zinc-800 cursor-default"
                           : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full"
@@ -1069,7 +1069,7 @@ export default function DashboardPage() {
                         setPendingSince(r.since);
                         setPendingUntil(r.until);
                       }}
-                      className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-md shadow-zinc-200 dark:shadow-none" : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
+                      className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? "bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none" : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
                     >
                       {p.label}
                     </button>
@@ -1155,9 +1155,9 @@ export default function DashboardPage() {
                     >
                       Cancelar
                     </button>
-                    <button
+                     <button
                       onClick={handleApply}
-                      className="px-5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-bold shadow-md shadow-zinc-200 dark:shadow-none hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors"
+                      className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-md shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-colors"
                     >
                       Aplicar
                     </button>

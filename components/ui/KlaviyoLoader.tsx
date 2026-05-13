@@ -4,13 +4,14 @@ interface Props {
   loading: boolean;
   color?: string;
   labels?: string[];
+  children?: React.ReactNode;
 }
 
 /**
  * Inline progress bar that matches the exact footprint of the metric cards row.
  * No layout shift: same height and border-radius as the cards.
  */
-export default function KlaviyoLoader({ loading, color = '#10b981', labels = ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Klaviyo'] }: Props) {
+export default function KlaviyoLoader({ loading, color = '#10b981', labels = ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Klaviyo'], children }: Props) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(true);
   const intervalRef = useRef<any>(null);
@@ -21,9 +22,16 @@ export default function KlaviyoLoader({ loading, color = '#10b981', labels = ['E
     return () => { mountedRef.current = false; clearInterval(intervalRef.current); };
   }, []);
 
+  useEffect(() => {
+    if (loading) {
+      setVisible(true);
+      setProgress(0);
+    }
+  }, [loading]);
+
   // Fill to ~88% while loading
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !loading) return;
     intervalRef.current = setInterval(() => {
       if (!mountedRef.current) return;
       setProgress(prev => {
@@ -33,7 +41,7 @@ export default function KlaviyoLoader({ loading, color = '#10b981', labels = ['E
       });
     }, 80);
     return () => clearInterval(intervalRef.current);
-  }, [visible]);
+  }, [visible, loading]);
 
   // When loading finishes, rush to 100% then hide
   useEffect(() => {
@@ -51,9 +59,9 @@ export default function KlaviyoLoader({ loading, color = '#10b981', labels = ['E
       }, 16);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, visible]);
 
-  if (!visible) return null;
+  if (!visible) return <>{children}</>;
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
