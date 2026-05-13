@@ -145,30 +145,19 @@ export const klaviyo = {
   ) => apiPost(apiKey, 'metric-aggregates', buildAggBody(metricId, since, until, measurements, by)),
 
   getDashboardData: async (apiKey: string, since: string, until: string) => {
-    // ─── Cache check: skip all API calls if fresh data exists ───
     const cacheKey = `dashboard:${apiKey}:${since}:${until}`;
     const cached = getCached(cacheKey);
-    if (cached) {
-      console.log('[Klaviyo] ✅ Cache hit for', cacheKey);
-      return cached;
-    }
+    if (cached) return cached;
 
     try {
-      // 1. Get metric IDs (also cached per session)
       const metricsRes = await klaviyo.getMetrics(apiKey);
       if (!metricsRes?.data) return null;
 
       const metrics = metricsRes.data;
-
-      // Log all available metric names for debugging
-      console.log('[Klaviyo] Available metrics:', metrics.map((m: any) => `${m.id}: ${m.attributes.name}`));
-
       const findId = (names: string[]) => {
-        // 1. Exact match (case-insensitive)
         let found = metrics.find((m: any) =>
           names.some((n: string) => m.attributes.name.toLowerCase() === n.toLowerCase())
         );
-        // 2. Partial match
         if (!found) {
           found = metrics.find((m: any) =>
             names.some((n: string) => m.attributes.name.toLowerCase().includes(n.toLowerCase()))
@@ -178,16 +167,12 @@ export const klaviyo = {
       };
 
       const mIds = {
-        revenue: findId(['Placed Order', 'Pedido Realizado', 'Order Placed', 'Completed Order']),
-        opens:   findId(['Opened Email', 'Email Abierto', 'Email Open', 'Open Email']),
-        clicks:  findId(['Clicked Email', 'Email Clicado', 'Email Click', 'Click Email', 'Clicked Link in Email']),
-        // "Received Email" is the key one — Klaviyo also calls it "Email Delivered" in some accounts
-        sent:    findId(['Received Email', 'Email Recibido', 'Email Delivered', 'Delivered Email', 'Sent Email', 'Email Sent']),
+        revenue: findId(['Placed Order', 'Pedido Realizado', 'Order Placed']),
+        opens:   findId(['Opened Email', 'Email Abierto', 'Email Open']),
+        clicks:  findId(['Clicked Email', 'Email Clicado', 'Email Click', 'Clicked Link in Email']),
+        sent:    findId(['Received Email', 'Email Recibido', 'Email Delivered', 'Delivered Email', 'Sent Email']),
       };
 
-      console.log('[Klaviyo] Resolved metric IDs:', mIds);
-
-      // 2. Fire ALL 5 requests simultaneously
       const [revenueRes, attributedRes, sentRes, opensRes, clicksRes] = await Promise.all([
         mIds.revenue ? apiPost(apiKey, 'metric-aggregates', buildAggBody(mIds.revenue, since, until, ['sum_value', 'count'])) : null,
         mIds.revenue ? apiPost(apiKey, 'metric-aggregates', buildAggBody(mIds.revenue, since, until, ['sum_value'], ['$attributed_message'])) : null,
@@ -211,17 +196,12 @@ export const klaviyo = {
         dailyConversions: dailyMeasure(revenueRes, 'count'),
       };
 
-      // Integrity check: if sent=0 but opens or clicks>0, the "sent" metric ID wasn't found.
-      // Don't cache bad data — clear the metric ID cache so it re-fetches fresh next time.
       const dataLooksCorrupt = result.sent === 0 && (result.opens > 0 || result.clicks > 0);
       if (dataLooksCorrupt) {
-        console.warn('[Klaviyo] ⚠️ Data integrity issue: sent=0 but opens/clicks>0. Metric ID for sent not found. Clearing metric cache.');
         delete metricIdCache[apiKey];
-        // Still return the result so the UI shows something, but don't cache it
         return result;
       }
 
-      // Cache the result for 5 minutes only if data looks valid
       setCache(cacheKey, result);
       return result;
     } catch (err) {
@@ -262,12 +242,9 @@ export const klaviyo = {
 
   getFlowMessages: async (apiKey: string, flowId: string) => {
     try {
-      const actRes = await apiFetch(`${BASE}/flows/${flowId}/flow-actions`, {
-        headers: buildHeaders(apiKey),
-      });
+      const actRes = await apiFetch(`${BASE}/flows/${flowId}/flow-actions`, { headers: buildHeaders(apiKey) });
       if (!actRes.ok) return [];
       const actions = await actRes.json();
-
       const msgPromises = (actions.data || [])
         .filter((a: any) => a.type === 'flow-action')
         .map((action: any) =>
@@ -275,7 +252,6 @@ export const klaviyo = {
             headers: buildHeaders(apiKey),
           }).then(r => r.ok ? r.json() : { data: [] })
         );
-
       const results = await Promise.all(msgPromises);
       return results.flatMap(r => r.data || []);
     } catch (e) { return []; }
@@ -283,9 +259,7 @@ export const klaviyo = {
 
   getCampaignMessages: async (apiKey: string, campaignId: string) => {
     try {
-      const res = await apiFetch(`${BASE}/campaigns/${campaignId}/campaign-messages`, {
-        headers: buildHeaders(apiKey),
-      });
+      const res = await apiFetch(`${BASE}/campaigns/${campaignId}/campaign-messages`, { headers: buildHeaders(apiKey) });
       if (!res.ok) return [];
       const json = await res.json();
       return json.data || [];
