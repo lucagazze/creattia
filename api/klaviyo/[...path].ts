@@ -2,38 +2,39 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Build the Klaviyo API URL from the path segments
-  const pathSegments = req.query.path as string[];
-  const klaviyoPath = pathSegments ? pathSegments.join('/') : '';
+  const pathParam = req.query.path;
+  const klaviyoPath = Array.isArray(pathParam) ? pathParam.join('/') : (pathParam || '');
   
-  // Preserve query string (e.g. pagination cursors)
+  // Build query string excluding 'path'
   const queryString = new URLSearchParams();
   for (const [key, value] of Object.entries(req.query)) {
-    if (key === 'path') continue; // skip the path catch-all param
-    if (Array.isArray(value)) {
-      value.forEach(v => queryString.append(key, v));
-    } else if (value) {
-      queryString.set(key, value);
-    }
+    if (key === 'path') continue;
+    if (Array.isArray(value)) value.forEach(v => queryString.append(key, v));
+    else if (value) queryString.set(key, value as string);
   }
   const qs = queryString.toString();
   const targetUrl = `https://a.klaviyo.com/api/${klaviyoPath}${qs ? `?${qs}` : ''}`;
 
-  // Set CORS header so the browser doesn't block the response
+  // Set CORS headers early
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Revision, Content-Type, Accept');
 
-  // Handle preflight early
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
 
-  // Forward allowed headers (Authorization, Revision, Content-Type, Accept)
+  // Forward critical headers correctly (case-insensitive in req.headers)
   const forwardHeaders: Record<string, string> = {};
-  if (req.headers['accept'])          forwardHeaders['Accept']          = req.headers['accept'] as string;
-  if (req.headers['authorization'])   forwardHeaders['Authorization']  = req.headers['authorization'] as string;
-  if (req.headers['revision'])        forwardHeaders['Revision']        = req.headers['revision'] as string;
-  if (req.headers['content-type'])    forwardHeaders['Content-Type']    = req.headers['content-type'] as string;
+  const auth = req.headers['authorization'];
+  const rev = req.headers['revision'];
+  const ct = req.headers['content-type'];
+  const acc = req.headers['accept'];
+
+  if (auth) forwardHeaders['Authorization'] = auth as string;
+  if (rev)  forwardHeaders['Revision']      = rev as string;
+  if (ct)   forwardHeaders['Content-Type']  = ct as string;
+  if (acc)  forwardHeaders['Accept']        = acc as string;
 
   try {
     const fetchOptions: RequestInit = {
@@ -41,23 +42,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: forwardHeaders,
     };
 
-    // Forward body for POST/PATCH/PUT
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
-      fetchOptions.body = JSON.stringify(req.body);
+      fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     }
 
     const klaviyoRes = await fetch(targetUrl, fetchOptions);
     const contentType = klaviyoRes.headers.get('content-type') || '';
 
-    // Forward critical headers back to the frontend (especially for rate limiting)
-    const retryAfter = klaviyoRes.headers.get('retry-after');
-    if (retryAfter) res.setHeader('Retry-After', retryAfter);
-    
-    const rlLimit = klaviyoRes.headers.get('ratelimit-limit');
-    if (rlLimit) res.setHeader('RateLimit-Limit', rlLimit);
-    
-    const rlRem = klaviyoRes.headers.get('ratelimit-remaining');
-    if (rlRem) res.setHeader('RateLimit-Remaining', rlRem);
+    // Forward rate limit headers back
+    ['retry-after', 'ratelimit-limit', 'ratelimit-remaining', 'ratelimit-reset'].forEach(h => {
+      const val = klaviyoRes.headers.get(h);
+      if (val) res.setHeader(h, val);
+    });
 
     res.status(klaviyoRes.status);
 
