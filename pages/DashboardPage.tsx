@@ -237,7 +237,7 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={merged}
-            margin={{ left: 0, right: 8, top: 12, bottom: 0 }}
+            margin={{ left: -30, right: 8, top: 12, bottom: 0 }}
           >
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -279,7 +279,7 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
               tick={{ fontSize: 9, fill: "#9ca3af" }}
               axisLine={false}
               tickLine={false}
-              width={40}
+              width={35}
             />
             <Tooltip
               content={({ active, payload }: any) => {
@@ -1760,7 +1760,7 @@ export default function DashboardPage() {
           ) : historical90d.length > 0 ? (
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={historical90d}>
+                <AreaChart data={historical90d} margin={{ left: -30, right: 0, top: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRev90" x1="0" y1="0" x2="0" y2="1">
                       <stop
@@ -1799,6 +1799,7 @@ export default function DashboardPage() {
                     tickFormatter={(val) =>
                       `$${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`
                     }
+                    width={35}
                   />
                   <Tooltip
                     contentStyle={{
