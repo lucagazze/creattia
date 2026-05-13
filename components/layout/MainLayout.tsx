@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -33,16 +33,30 @@ export const MainLayout = () => {
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen relative">
         {/* Mobile header */}
-        <div className="md:hidden h-14 border-b border-black/[0.06] dark:border-white/[0.05] flex items-center px-4 bg-white/80 dark:bg-[#161618]/80 backdrop-blur-xl sticky top-0 z-30">
+        <div className="md:hidden h-14 border-b border-black/[0.06] dark:border-white/[0.05] flex items-center justify-between px-4 bg-white/80 dark:bg-[#161618]/80 backdrop-blur-xl sticky top-0 z-30">
+          <div className="flex items-center">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 -ml-1.5 rounded-[8px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all"
+            >
+              <Menu className="w-[18px] h-[18px]" />
+            </button>
+            <span className="ml-2 text-[15px] font-bold text-zinc-900 dark:text-white tracking-tight uppercase">
+              ALGORITMIA <span className="text-violet-500 ml-0.5">GESTIÓN</span>
+            </span>
+          </div>
+
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-1.5 rounded-[8px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all"
+            onClick={toggleDarkMode}
+            className={`p-1.5 rounded-[8px] border shadow-sm transition-all ${
+              darkMode 
+                ? 'bg-zinc-900 border-white/10 text-zinc-300 hover:text-white hover:bg-zinc-800' 
+                : 'bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+            }`}
+            title="Cambiar apariencia"
           >
-            <Menu className="w-[18px] h-[18px]" />
+            {darkMode ? <Sun className="w-[18px] h-[18px] text-amber-400" /> : <Moon className="w-[18px] h-[18px]" />}
           </button>
-          <span className="ml-2 text-[15px] font-bold text-zinc-900 dark:text-white tracking-tight uppercase">
-            ALGORITMIA <span className="text-violet-500 ml-0.5">GESTIÓN</span>
-          </span>
         </div>
 
         <div className="flex-1 overflow-auto p-4 md:p-8 lg:p-10 w-full pb-24 md:pb-10">

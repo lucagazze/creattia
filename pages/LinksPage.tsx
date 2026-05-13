@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useViewAs } from '../contexts/ViewAsContext';
 import { db, ClientLink } from '../services/db';
 import { ExternalLink, Link2 } from 'lucide-react';
 
 export default function LinksPage() {
-  const { profile } = useAuth();
+  const { profile: authProfile } = useAuth();
+  const { viewAsProfile, isViewingAs } = useViewAs();
+  const profile = isViewingAs ? viewAsProfile : authProfile;
   const [links, setLinks] = useState<ClientLink[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { useToast } from '../components/Toast';
-import { Lock, Mail, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
+import { Loader2, Moon, Sun, EyeOff, Eye } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { darkMode, toggleDarkMode } = useTheme();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,109 +30,107 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#030303] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-600/20 rounded-full blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse delay-700" />
-      
-      <div className="w-full max-w-[420px] relative z-10">
-        {/* Header / Logo Section */}
-        <div className="flex flex-col items-center mb-12">
-          <div className="relative group mb-8">
-            <div className="absolute inset-0 bg-gradient-to-tr from-violet-600 to-blue-600 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
-            <img 
-              src="/assets/logoSinFondo.png" 
-              alt="Algoritmia" 
-              className="relative h-20 w-auto object-contain drop-shadow-[0_0_15px_rgba(139,92,246,0.3)]"
-            />
-          </div>
-          
-          <div className="text-center space-y-2">
-            <h1 className="text-[32px] font-bold text-white tracking-tight leading-none">
-              ALGORITMIA <span className="text-violet-500">GESTIÓN</span>
+    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-500 relative overflow-hidden ${darkMode ? 'bg-[#09090b] text-white' : 'bg-[#f8fafc] text-zinc-900'}`}>
+      {/* Ambient background glow */}
+      <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[800px] h-[400px] rounded-full blur-[120px] pointer-events-none transition-opacity duration-1000 ${darkMode ? 'bg-violet-600/15' : 'bg-violet-400/10'}`} />
+
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-5 w-full relative z-10">
+        <div className="flex items-center gap-2">
+          <img 
+            src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} 
+            alt="Algoritmia" 
+            className="h-[24px] w-auto object-contain drop-shadow-sm"
+          />
+          <span className={`text-[17px] font-bold tracking-tight ${darkMode ? 'text-white' : 'text-zinc-900'}`}>algoritmia</span>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={toggleDarkMode}
+            className={`flex items-center justify-center w-[38px] h-[38px] rounded-xl border shadow-sm transition-all duration-300 ${
+              darkMode 
+                ? 'bg-[#18181b] border-white/10 text-zinc-300 hover:text-white hover:bg-zinc-800 hover:border-white/20' 
+                : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 hover:border-zinc-300'
+            }`}
+            title="Cambiar apariencia"
+          >
+            {darkMode ? <Sun className="w-[16px] h-[16px] text-amber-400" /> : <Moon className="w-[16px] h-[16px]" />}
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-20 relative z-10">
+        <div className="w-full max-w-[400px]">
+          <div className="mb-10">
+            <h1 className={`text-[28px] font-bold mb-2 tracking-tight ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+              ¡Comenzá ahora!
             </h1>
-            <p className="text-zinc-500 text-[14px] font-medium tracking-wide uppercase">
-              Inteligencia • Captación • Retención
+            <p className={`text-[15px] font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              Ingresá con tu correo electrónico.
             </p>
           </div>
-        </div>
 
-        {/* Login Card */}
-        <div className="bg-[#111]/80 backdrop-blur-2xl rounded-[28px] border border-white/5 p-8 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-4">
-              <div className="relative group">
-                <label className="absolute -top-2.5 left-4 px-2 bg-[#111] text-[11px] font-bold text-violet-400 uppercase tracking-widest z-10">
-                  Acceso Cliente
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                    <Mail className="w-4 h-4 text-zinc-500 group-focus-within:text-violet-500 transition-colors" />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="tu@email.com"
-                    className="w-full h-14 pl-12 pr-4 bg-transparent border border-white/10 rounded-[16px] text-white text-[15px] focus:outline-none focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/10 transition-all placeholder:text-zinc-600"
-                  />
-                </div>
-              </div>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Email"
+                className={`w-full h-12 px-4 rounded-[12px] border text-[14.5px] outline-none transition-all duration-300 ${
+                  darkMode 
+                    ? 'bg-[#18181b]/50 border-white/10 text-white placeholder:text-zinc-600 focus:bg-[#18181b] focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/10' 
+                    : 'bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/10'
+                }`}
+              />
 
-              <div className="relative group">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                    <Lock className="w-4 h-4 text-zinc-500 group-focus-within:text-violet-500 transition-colors" />
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full h-14 pl-12 pr-4 bg-transparent border border-white/10 rounded-[16px] text-white text-[15px] focus:outline-none focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/10 transition-all placeholder:text-zinc-600"
-                  />
-                </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className={`w-full h-12 pl-4 pr-12 rounded-[12px] border text-[14.5px] outline-none transition-all duration-300 ${
+                    darkMode 
+                      ? 'bg-[#18181b]/50 border-white/10 text-white placeholder:text-zinc-600 focus:bg-[#18181b] focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/10' 
+                      : 'bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/50 focus:ring-4 focus:ring-violet-500/10'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={`absolute right-4 top-1/2 -translate-y-1/2 transition-colors ${darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
+                >
+                  {showPassword ? <Eye className="w-[18px] h-[18px]" /> : <EyeOff className="w-[18px] h-[18px]" />}
+                </button>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-14 bg-zinc-900 text-white hover:bg-black rounded-[16px] text-[15px] font-bold shadow-2xl hover:-translate-y-[2px] active:translate-y-[0] active:scale-[0.98] transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none group"
+              className="w-full h-12 flex items-center justify-center rounded-[12px] bg-violet-600 text-white text-[15px] font-bold tracking-wide hover:bg-violet-500 active:scale-[0.98] transition-all duration-300 shadow-[0_0_20px_rgba(124,58,237,0.15)] hover:shadow-[0_0_25px_rgba(124,58,237,0.3)] disabled:opacity-50 disabled:pointer-events-none"
             >
-              <div className="flex items-center justify-center gap-3">
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-white/80" />
-                ) : (
-                  <>
-                    <span>Entrar al Ecosistema</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </div>
+              {loading ? <Loader2 className="w-[20px] h-[20px] animate-spin" /> : 'Entrar al ecosistema'}
             </button>
+            
+            <div className="flex justify-center pt-2">
+              <a 
+                href="https://wa.me/5493476245523?text=Hola,%20necesito%20ayuda%20para%20recuperar%20mi%20contrase%C3%B1a%20del%20sistema%20Algoritmia." 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={`text-[13.5px] font-medium transition-colors hover:underline ${darkMode ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
+              >
+                ¿Olvidaste tu contraseña?
+              </a>
+            </div>
           </form>
         </div>
-
-        {/* Footer Info */}
-        <div className="mt-10 flex flex-col items-center gap-6">
-          <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 rounded-full">
-            <ShieldCheck className="w-4 h-4 text-violet-400" />
-            <span className="text-[11px] text-zinc-400 font-bold uppercase tracking-widest">Servidor de Datos Seguro</span>
-          </div>
-          
-          <div className="text-center space-y-1">
-            <p className="text-zinc-500 text-[12px] font-medium">
-              &copy; {new Date().getFullYear()} Algoritmia Desarrollos
-            </p>
-            <p className="text-zinc-700 text-[10px] font-bold uppercase tracking-tighter">
-              Captación • Atención • Retención • V1.4.0
-            </p>
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -80,14 +80,8 @@ const MetricDetailChart = ({ data, color, label }: any) => {
 const MetricCard = ({ label, value, change, trend, data, color, loading, active, onClick }: any) => (
   <button 
     onClick={onClick}
-    className={`flex flex-col flex-1 min-w-0 px-4 py-4 sm:px-6 sm:py-5
-      border-b border-r border-zinc-100 dark:border-zinc-800
-      [&:nth-child(odd)]:border-r [&:nth-child(even)]:border-r-0
-      sm:[&:nth-child(odd)]:border-r sm:[&:nth-child(even)]:border-r
-      sm:[&:nth-child(3n)]:border-r-0
-      xl:border-b-0 xl:border-r xl:last:border-r-0
-      transition-all text-left group relative
-      ${active ? 'bg-blue-50/30 dark:bg-blue-500/5' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
+    className={`bg-white dark:bg-zinc-900 rounded-2xl border transition-all text-left flex flex-col w-full min-w-0 px-4 py-4 sm:px-5 sm:py-5 group relative
+      ${active ? 'ring-2 ring-blue-500 border-transparent shadow-lg bg-blue-50/30 dark:bg-blue-500/5' : 'border-black/[0.06] dark:border-white/[0.06] shadow-sm hover:shadow-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
   >
     <div className="flex items-center justify-between mb-2">
       <span className="text-[10px] sm:text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{label}</span>
@@ -211,6 +205,14 @@ export default function RetencionPage() {
   const handleApply = () => { setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil); setShowDatePicker(false); };
 
   const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
+    const touchStart = React.useRef<number>(0);
+    const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+    const handleTouchEnd = (e: React.TouchEvent) => {
+      const diff = touchStart.current - e.changedTouches[0].clientX;
+      if (diff > 40 && onNext) onNext();
+      if (diff < -40 && onPrev) onPrev();
+    };
+
     const days: any[] = [];
     const first = new Date(year, month, 1).getDay();
     const startOffset = first === 0 ? 6 : first - 1;
@@ -219,14 +221,22 @@ export default function RetencionPage() {
     for (let i = 1; i <= lastDay; i++) days.push(new Date(year, month, i).toISOString().split('T')[0]);
     const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const todayStr = today();
+
+    const prevDate = React.useRef(new Date(year, month, 1).getTime());
+    const current = new Date(year, month, 1).getTime();
+    let animClass = 'animate-in fade-in zoom-in-95 duration-200';
+    if (current > prevDate.current) animClass = 'animate-in fade-in slide-in-from-right-16 duration-300';
+    else if (current < prevDate.current) animClass = 'animate-in fade-in slide-in-from-left-16 duration-300';
+    React.useEffect(() => { prevDate.current = current; }, [current]);
+
     return (
-      <div className="w-[240px]">
+      <div className="w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="flex items-center mb-4 px-1">
           <div className="w-8 flex justify-start">{onPrev && <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"><ChevronDown className="w-4 h-4 rotate-90 text-zinc-400" /></button>}</div>
           <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">{MONTHS_ES[month]} {year}</span>
           <div className="w-8 flex justify-end">{onNext && <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"><ChevronDown className="w-4 h-4 -rotate-90 text-zinc-400" /></button>}</div>
         </div>
-        <div className="grid grid-cols-7 gap-y-1">
+        <div key={`${year}-${month}`} className={`grid grid-cols-7 gap-y-1 ${animClass}`}>
           {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(d => <div key={d} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase">{d}</div>)}
           {days.map((d, i) => {
             if (!d) return <div key={`empty-${i}`} />;
@@ -267,19 +277,22 @@ export default function RetencionPage() {
             </button>
             
             {showDatePicker && (
-              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
-                <div className="w-[160px] border-r border-zinc-50 dark:border-zinc-800 p-3 flex flex-col gap-1">
+              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[320px] md:w-auto origin-top-right">
+                <div className="w-full md:w-[160px] border-b md:border-b-0 md:border-r border-zinc-50 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-hide">
                   {PRESETS.map(p => (
-                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-left px-4 py-1.5 rounded-[10px] text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
-                <div className="p-5 flex flex-col">
-                  <div className="flex gap-8">
+                <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
+                  <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                     <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
+                    <div className="hidden md:block">
+                      <MiniCal year={calMonth === 11 ? calYear + 1 : calYear} month={calMonth === 11 ? 0 : calMonth + 1} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
+                    </div>
                   </div>
-                  <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800">
+                  <div className="w-full flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                     <button onClick={() => setShowDatePicker(false)} className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-zinc-500">Cancelar</button>
-                    <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold hover:bg-blue-700 transition-colors">Aplicar</button>
+                    <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-md shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-colors">Aplicar</button>
                   </div>
                 </div>
               </div>
@@ -291,7 +304,7 @@ export default function RetencionPage() {
       {/* Main Metrics */}
       {profile?.klaviyo_api_key && (currentKlaviyo || fetchingKlaviyo) && (
         <div className="space-y-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden flex overflow-x-auto scrollbar-hide">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4">
             <MetricCard label="Entregas" value={currentKlaviyo ? currentKlaviyo.sent?.toLocaleString('es-AR') : '...'} change={getKlaviyoChange(currentKlaviyo?.sent, prevKlaviyo?.sent)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} />
             <MetricCard label="Tasa de Apertura" value={currentKlaviyo ? `${((currentKlaviyo.opens / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-open-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-open-rate' ? null : 'k-open-rate')} />
             <MetricCard label="Tasa de Clics" value={currentKlaviyo ? `${((currentKlaviyo.clicks / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.clicks / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.clicks / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.clicks / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.clicks / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-click-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-click-rate' ? null : 'k-click-rate')} />

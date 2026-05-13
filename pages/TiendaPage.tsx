@@ -11,13 +11,13 @@ export default function TiendaPage() {
   const [loading, setLoading] = useState(true);
 
   // Date Picker State
-  const [activePreset, setActivePreset] = useState('last_30d');
+  const [activePreset, setActivePreset] = useState<any>('last_30d');
   const [activeSince, setActiveSince] = useState(daysAgo(30));
   const [activeUntil, setActiveUntil] = useState(today());
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [pendingPreset, setPendingPreset] = useState('last_30d');
+  const [pendingPreset, setPendingPreset] = useState<any>('last_30d');
   const [pendingSince, setPendingSince] = useState(daysAgo(30));
   const [pendingUntil, setPendingUntil] = useState(today());
   const [hovering, setHovering] = useState<string | null>(null);
@@ -74,6 +74,14 @@ export default function TiendaPage() {
   };
 
   const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
+    const touchStart = React.useRef<number>(0);
+    const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+    const handleTouchEnd = (e: React.TouchEvent) => {
+      const diff = touchStart.current - e.changedTouches[0].clientX;
+      if (diff > 40 && onNext) onNext();
+      if (diff < -40 && onPrev) onPrev();
+    };
+
     const days: any[] = [];
     const first = new Date(year, month, 1).getDay();
     const startOffset = first === 0 ? 6 : first - 1;
@@ -87,7 +95,7 @@ export default function TiendaPage() {
     const todayStr = new Date().toISOString().split('T')[0];
 
     return (
-      <div className="w-[240px]">
+      <div className="w-[240px]" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="flex items-center mb-4 px-1">
           <div className="w-8 flex justify-start">
             {onPrev && (
@@ -197,20 +205,20 @@ export default function TiendaPage() {
             </button>
             
             {showDatePicker && (
-              <div className="fixed inset-x-0 bottom-0 top-0 sm:absolute sm:inset-auto sm:right-0 sm:top-full mt-0 sm:mt-3 bg-white dark:bg-zinc-900 rounded-t-[30px] sm:rounded-[20px] border-t sm:border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex flex-col sm:flex-row overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-top-2 fade-in duration-300 sm:duration-200">
-                <div className="w-full sm:w-[160px] border-b sm:border-b-0 sm:border-r border-zinc-50 dark:border-zinc-800 p-2 sm:p-3 flex flex-row sm:flex-col gap-1 overflow-x-auto sm:overflow-x-visible scrollbar-hide">
+              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-[100] flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[320px] md:w-auto origin-top-right">
+                <div className="w-full md:w-[160px] border-b md:border-b-0 md:border-r border-zinc-50 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-hide">
                   {[{ id: 'today', label: 'Hoy' }, { id: 'yesterday', label: 'Ayer' }, { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_14d', label: 'Últimos 14 días' }, { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_30d', label: 'Últimos 30 días' }, { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' }, { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' }, { id: 'last_year', label: 'Año pasado' }].map(p => (
-                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-center sm:text-left px-3 sm:px-4 py-1.5 rounded-[10px] text-[11px] sm:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-pink-600 text-white shadow-md shadow-pink-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-pink-600 text-white shadow-md shadow-pink-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
-                <div className="flex-1 p-3 sm:p-5 flex flex-col">
-                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 overflow-y-auto sm:overflow-y-visible max-h-[60vh] sm:max-h-none">
-                    <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} onNext={window.innerWidth < 640 ? (() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }) : undefined} />
-                    <div className="hidden sm:block">
+                <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
+                  <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                    <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
+                    <div className="hidden md:block">
                       <MiniCal year={calMonth === 11 ? calYear + 1 : calYear} month={calMonth === 11 ? 0 : calMonth + 1} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
                     </div>
                   </div>
-                  <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                  <div className="w-full flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                     <button onClick={() => setShowDatePicker(false)} className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-zinc-500">Cancelar</button>
                     <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-pink-600 text-white text-[12px] font-bold shadow-md shadow-pink-200 dark:shadow-none hover:bg-pink-700 transition-colors">Aplicar</button>
                   </div>

@@ -147,6 +147,15 @@ export const db = {
       if (error) { console.error(error); return []; }
       return data ?? [];
     },
+    async upsert(link: Omit<ClientLink, 'id'> & { id?: number }) {
+      const { data, error } = await supabase.from('car_links').upsert(link).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async delete(id: number) {
+      const { error } = await supabase.from('car_links').delete().eq('id', id);
+      if (error) throw error;
+    }
   },
 
   reports: {

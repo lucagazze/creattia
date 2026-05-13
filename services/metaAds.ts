@@ -10,7 +10,7 @@ export const initMetaToken = async (): Promise<void> => {
   } catch { /* silently ignore */ }
 };
 
-const getToken = () => import.meta.env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
+const getToken = () => (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
 export const META_AD_ACCOUNT = 'act_2136106490563351';
 const BASE = 'https://graph.facebook.com/v21.0';
 
@@ -33,7 +33,7 @@ export const CLIENT_META_MAP: Record<string, { igId?: string; username?: string;
   '51a050d9-5f32-4f95-8724-8eefff9666d6': { igId: '17841463377689897', username: 'selecta' },
 };
 
-export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'last_30d' | 'last_90d' | 'this_month' | 'last_month' | 'this_year' | 'last_year';
+export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'last_30d' | 'last_90d' | 'last_6months' | 'this_month' | 'last_month' | 'this_year' | 'last_year';
 export type TimeRange = { since: string; until: string };
 
 export const daysAgo = (n: number): string => {
@@ -66,6 +66,7 @@ export const presetToRange = (preset: DatePreset): TimeRange => {
   if (preset === 'last_28d')    return { since: daysAgo(28), until: daysAgo(1) };
   if (preset === 'last_30d')    return { since: daysAgo(30), until: daysAgo(1) };
   if (preset === 'last_90d')    return { since: daysAgo(90), until: daysAgo(1) };
+  if (preset === 'last_6months') return { since: daysAgo(180), until: daysAgo(1) };
   if (preset === 'this_year') {
     const now = new Date();
     return { since: `${now.getFullYear()}-01-01`, until: daysAgo(1) };

@@ -13,7 +13,7 @@ async function test() {
   // Get metrics
   const mRes = await fetch('https://a.klaviyo.com/api/metrics', { headers });
   const metrics = await mRes.json();
-  const poMetric = metrics.data.find((m: any) => m.attributes.name === 'Placed Order');
+  const poMetric = metrics.data.find((m) => m.attributes.name === 'Placed Order');
   
   if (!poMetric) return console.log('Placed order metric not found');
   console.log('PO Metric ID:', poMetric.id);
@@ -21,7 +21,7 @@ async function test() {
   // Get properties for this metric
   const pRes = await fetch(`https://a.klaviyo.com/api/metrics/${poMetric.id}/properties/`, { headers });
   const props = await pRes.json();
-  console.log('Properties:', props.data?.map((p:any) => p.attributes.name).join(', '));
+  console.log('Properties:', props.data?.map((p) => p.attributes.name).join(', '));
 }
 
 test();
