@@ -239,8 +239,9 @@ export default function TiendaPage() {
         </div>
       </div>
 
-      <KlaviyoLoader loading={loading && !data} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']}>
-        {data && (
+      {loading ? (
+        <KlaviyoLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']} />
+      ) : data ? (
           <div className="space-y-6">
             {/* Top Stats */}
             <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
@@ -494,8 +495,7 @@ export default function TiendaPage() {
             </div>
           </div>
         </div>
-        )}
-      </KlaviyoLoader>
+        ) : null}
     </div>
   );
 }

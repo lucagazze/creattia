@@ -1189,7 +1189,7 @@ export default function DashboardPage() {
                 Tienda Online ({(profile as any).ecommerce_platform})
               </h2>
             </div>
-            {fetchingStore && !currentStore ? (
+            {fetchingStore ? (
               <KlaviyoLoader loading={fetchingStore} color={PINK} labels={['Ticket Promedio', 'Pedidos', 'Ingresos']} />
             ) : currentStore ? (
               <>
@@ -1352,7 +1352,7 @@ export default function DashboardPage() {
                 Captación (Meta Ads)
               </h2>
             </div>
-            {fetchingMeta && !currentMeta ? (
+            {fetchingMeta ? (
               <KlaviyoLoader loading={fetchingMeta} color={"#3b82f6"} labels={['Inversión', 'Alcance', 'Conv.', 'ROAS', 'Retorno']} />
             ) : currentMeta ? (
               <>
@@ -1566,7 +1566,7 @@ export default function DashboardPage() {
                 Retención (Klaviyo)
               </h2>
             </div>
-            {fetchingKlaviyo && !currentKlaviyo ? (
+            {fetchingKlaviyo ? (
               <KlaviyoLoader loading={fetchingKlaviyo} color={GREEN} />
             ) : currentKlaviyo ? (
               <>
