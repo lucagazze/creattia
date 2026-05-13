@@ -18,6 +18,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const qs = queryString.toString();
   const targetUrl = `https://a.klaviyo.com/api/${klaviyoPath}${qs ? `?${qs}` : ''}`;
 
+  // Set CORS header so the browser doesn't block the response
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Revision, Content-Type, Accept');
+
+  // Handle preflight early
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   // Forward allowed headers (Authorization, Revision, Content-Type, Accept)
   const forwardHeaders: Record<string, string> = {};
   if (req.headers['accept'])          forwardHeaders['Accept']          = req.headers['accept'] as string;
@@ -38,16 +48,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const klaviyoRes = await fetch(targetUrl, fetchOptions);
     const contentType = klaviyoRes.headers.get('content-type') || '';
-
-    // Set CORS header so the browser doesn't block the response
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Revision, Content-Type, Accept');
-
-    // Handle preflight
-    if (req.method === 'OPTIONS') {
-      return res.status(204).end();
-    }
 
     // Forward critical headers back to the frontend (especially for rate limiting)
     const retryAfter = klaviyoRes.headers.get('retry-after');

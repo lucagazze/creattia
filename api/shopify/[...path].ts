@@ -5,8 +5,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const shopifyPath = pathSegments ? pathSegments.join('/') : '';
   
   // Extraer dominio del query param ?shop= o del header como fallback
-  const domain = (req.query.shop as string) || (req.headers['x-shopify-domain'] as string);
+  const domain = (req.query.shop as string) || (req.headers['x-shopify-domain'] as string) || (req.headers['x-shop-domain'] as string);
   const token = req.headers['x-shopify-access-token'] as string;
+
+  // Set CORS headers early
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'x-shopify-domain, x-shop-domain, x-shopify-access-token, Content-Type, Accept');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
 
   if (!domain || !token) {
     return res.status(400).json({ error: 'Missing Shopify domain or token' });
@@ -43,14 +52,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const shopifyRes = await fetch(targetUrl, fetchOptions);
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'x-shopify-domain, x-shopify-access-token, Content-Type, Accept');
-
-    if (req.method === 'OPTIONS') {
-      return res.status(204).end();
-    }
 
     const data = await shopifyRes.json();
     return res.status(shopifyRes.status).json(data);

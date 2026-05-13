@@ -91,10 +91,10 @@ const ShopifyMetric = ({
   const isGreen = color === GREEN || color === '#10b981';
   const isPink = color === PINK || color === '#ec4899';
   
-  let activeBgClass = "bg-blue-50/30 dark:bg-blue-500/5";
+  let activeBgClass = "bg-blue-50/60 dark:bg-blue-500/5";
   let pulseClass = "bg-blue-500";
-  if (isGreen) { activeBgClass = "bg-emerald-50/30 dark:bg-emerald-500/5"; pulseClass = "bg-emerald-500"; }
-  if (isPink) { activeBgClass = "bg-pink-50/30 dark:bg-pink-500/5"; pulseClass = "bg-pink-500"; }
+  if (isGreen) { activeBgClass = "bg-emerald-50/60 dark:bg-emerald-500/5"; pulseClass = "bg-emerald-500"; }
+  if (isPink) { activeBgClass = "bg-pink-50/60 dark:bg-pink-500/5"; pulseClass = "bg-pink-500"; }
 
   return (
     <button
@@ -106,12 +106,12 @@ const ShopifyMetric = ({
         sm:[&:nth-child(3n)]:border-r-0
         xl:border-b-0 xl:border-r xl:last:border-r-0
         transition-all text-left group relative
-        ${active ? activeBgClass : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"}`}
+        ${active ? activeBgClass : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] dark:hover:shadow-none"}`}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           {Icon && <Icon className="w-4 h-4" style={{ color }} />}
-          <span className="text-[10px] sm:text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
+          <span className="text-[10px] sm:text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
             {label}
           </span>
         </div>
@@ -120,7 +120,7 @@ const ShopifyMetric = ({
         )}
       </div>
     <div className="flex items-end justify-between gap-2">
-      <div className="flex flex-col">
+      <div className="flex flex-col shrink-0">
         <span className="text-[17px] sm:text-[20px] font-bold text-zinc-900 dark:text-white leading-none mb-2">
           {loading ? "..." : value}
         </span>
@@ -137,7 +137,7 @@ const ShopifyMetric = ({
           </div>
         )}
       </div>
-      <div className="h-8 w-16 sm:h-10 sm:w-24 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
+      <div className="h-8 sm:h-10 flex-1 min-w-0 max-w-[250px] ml-2 sm:ml-6 opacity-60 group-hover:opacity-100 transition-opacity">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
             <Area
@@ -447,22 +447,22 @@ export default function DashboardPage() {
   const [metaDaily, setMetaDaily] = useState<any[]>([]);
   const [prevMetaDaily, setPrevMetaDaily] = useState<any[]>([]);
   const [activePreset, setActivePreset] = useState<DatePreset | "custom">(
-    "last_7d",
+    "last_14d",
   );
   const [activeSince, setActiveSince] = useState(
-    presetToRange("last_7d").since,
+    presetToRange("last_14d").since,
   );
   const [activeUntil, setActiveUntil] = useState(
-    presetToRange("last_7d").until,
+    presetToRange("last_14d").until,
   );
   const [pendingPreset, setPendingPreset] = useState<DatePreset | "custom">(
-    "last_7d",
+    "last_14d",
   );
   const [pendingSince, setPendingSince] = useState(
-    presetToRange("last_7d").since,
+    presetToRange("last_14d").since,
   );
   const [pendingUntil, setPendingUntil] = useState(
-    presetToRange("last_7d").until,
+    presetToRange("last_14d").until,
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCompare] = useState(true);
@@ -891,9 +891,9 @@ export default function DashboardPage() {
                 className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center
                   ${
                     isSelected
-                      ? "bg-blue-600 text-white rounded-full z-10 shadow-md shadow-blue-200 dark:shadow-none"
+                      ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full z-10 shadow-md shadow-zinc-200 dark:shadow-none"
                       : isInRange || isHovering
-                        ? "bg-blue-50 dark:bg-blue-500/10 text-blue-600"
+                        ? "bg-zinc-100 dark:bg-zinc-800/50 text-zinc-900 dark:text-white"
                         : isFuture
                           ? "text-zinc-200 dark:text-zinc-800 cursor-default"
                           : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full"
@@ -1069,7 +1069,7 @@ export default function DashboardPage() {
                         setPendingSince(r.since);
                         setPendingUntil(r.until);
                       }}
-                      className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? "bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none" : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
+                      className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-md shadow-zinc-200 dark:shadow-none" : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
                     >
                       {p.label}
                     </button>
@@ -1157,7 +1157,7 @@ export default function DashboardPage() {
                     </button>
                     <button
                       onClick={handleApply}
-                      className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-md shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-colors"
+                      className="px-5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-bold shadow-md shadow-zinc-200 dark:shadow-none hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors"
                     >
                       Aplicar
                     </button>
@@ -1185,15 +1185,15 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1">
               <div className="w-2 h-2 rounded-full bg-pink-500" />
-              <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
+              <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
                 Tienda Online ({(profile as any).ecommerce_platform})
               </h2>
             </div>
             {fetchingStore && !currentStore ? (
-              <div className="animate-pulse bg-zinc-100 dark:bg-zinc-800/50 rounded-[12px] h-[88px] w-full" />
+              <KlaviyoLoader loading={fetchingStore} color={PINK} labels={['Ticket Promedio', 'Pedidos', 'Ingresos']} />
             ) : currentStore ? (
               <>
-                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
                   <ShopifyMetric
                     icon={Receipt}
                     label="Ticket Promedio"
@@ -1348,15 +1348,15 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1">
               <div className="w-2 h-2 rounded-full bg-blue-500" />
-              <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
+              <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
                 Captación (Meta Ads)
               </h2>
             </div>
             {fetchingMeta && !currentMeta ? (
-              <div className="animate-pulse bg-zinc-100 dark:bg-zinc-800/50 rounded-[12px] h-[88px] w-full" />
+              <KlaviyoLoader loading={fetchingMeta} color={"#3b82f6"} labels={['Inversión', 'Alcance', 'Conv.', 'ROAS', 'Retorno']} />
             ) : currentMeta ? (
               <>
-                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex overflow-x-auto scrollbar-hide">
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex overflow-x-auto scrollbar-hide">
                   <ShopifyMetric
                     icon={DollarSign}
                     label="Inversión"
@@ -1562,7 +1562,7 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
+              <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
                 Retención (Klaviyo)
               </h2>
             </div>
@@ -1570,7 +1570,7 @@ export default function DashboardPage() {
               <KlaviyoLoader loading={fetchingKlaviyo} color={GREEN} />
             ) : currentKlaviyo ? (
               <>
-                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
                   <ShopifyMetric
                     icon={Package}
                     label="Entregas"

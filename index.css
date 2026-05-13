@@ -10,7 +10,7 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #f5f5f7;
+  background-color: #f4f4f5;
   color: #111;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -35,16 +35,18 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
 }
 
 .dark .glass {
   background: rgba(22, 22, 24, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 /* Card base */
 .card {
-  @apply bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.05] dark:border-white/[0.06] shadow-[0_1px_4px_rgba(0,0,0,0.06)];
+  @apply bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)];
 }
 
 /* Metric number animation */

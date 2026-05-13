@@ -3,13 +3,14 @@ import React, { useEffect, useState, useRef } from 'react';
 interface Props {
   loading: boolean;
   color?: string;
+  labels?: string[];
 }
 
 /**
  * Inline progress bar that matches the exact footprint of the metric cards row.
  * No layout shift: same height and border-radius as the cards.
  */
-export default function KlaviyoLoader({ loading, color = '#10b981' }: Props) {
+export default function KlaviyoLoader({ loading, color = '#10b981', labels = ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Klaviyo'] }: Props) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(true);
   const intervalRef = useRef<any>(null);
@@ -55,18 +56,13 @@ export default function KlaviyoLoader({ loading, color = '#10b981' }: Props) {
   if (!visible) return null;
 
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden">
-      {/* Same height as the metric cards: px-6 py-5 × 4 columns */}
-      <div className="grid grid-cols-2 lg:flex lg:flex-nowrap">
-        {[
-          'Entregas',
-          'Tasa de Apertura',
-          'Tasa de Clics',
-          'Ingresos Klaviyo',
-        ].map((label, i) => (
+    <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+      {/* Same height as the metric cards */}
+      <div className="grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+        {labels.map((label, i) => (
           <div
             key={label}
-            className="flex flex-col flex-1 px-6 py-5 border-b border-r border-zinc-100 dark:border-zinc-800 last:border-r-0"
+            className="flex flex-col flex-1 px-4 py-4 sm:px-6 sm:py-5 border-b border-r border-zinc-100 dark:border-zinc-800 [&:nth-child(odd)]:border-r [&:nth-child(even)]:border-r-0 sm:[&:nth-child(odd)]:border-r sm:[&:nth-child(even)]:border-r sm:[&:nth-child(3n)]:border-r-0 xl:border-b-0 xl:border-r xl:last:border-r-0"
           >
             {/* Icon + label row */}
             <div className="flex items-center gap-2 mb-2">

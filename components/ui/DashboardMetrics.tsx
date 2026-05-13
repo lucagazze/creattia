@@ -24,10 +24,10 @@ export const DashboardMetric = ({
   const isGreen = color === GREEN || color === '#10b981';
   const isPink = color === '#ec4899';
   
-  let activeBgClass = "bg-blue-50/30 dark:bg-blue-500/5";
+  let activeBgClass = "bg-blue-50/60 dark:bg-blue-500/5";
   let pulseClass = "bg-blue-500";
-  if (isGreen) { activeBgClass = "bg-emerald-50/30 dark:bg-emerald-500/5"; pulseClass = "bg-emerald-500"; }
-  if (isPink) { activeBgClass = "bg-pink-50/30 dark:bg-pink-500/5"; pulseClass = "bg-pink-500"; }
+  if (isGreen) { activeBgClass = "bg-emerald-50/60 dark:bg-emerald-500/5"; pulseClass = "bg-emerald-500"; }
+  if (isPink) { activeBgClass = "bg-pink-50/60 dark:bg-pink-500/5"; pulseClass = "bg-pink-500"; }
 
   return (
     <button
@@ -39,12 +39,12 @@ export const DashboardMetric = ({
         sm:[&:nth-child(3n)]:border-r-0
         xl:border-b-0 xl:border-r xl:last:border-r-0
         transition-all text-left group relative
-        ${active ? activeBgClass : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"}`}
+        ${active ? activeBgClass : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] dark:hover:shadow-none"}`}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           {Icon && <Icon className="w-4 h-4" style={{ color }} />}
-          <span className="text-[10px] sm:text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
+          <span className="text-[10px] sm:text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
             {label}
           </span>
         </div>
@@ -53,7 +53,7 @@ export const DashboardMetric = ({
         )}
       </div>
       <div className="flex items-end justify-between gap-2">
-        <div className="flex flex-col">
+        <div className="flex flex-col shrink-0">
           <span className="text-[17px] sm:text-[20px] font-bold text-zinc-900 dark:text-white leading-none mb-2">
             {loading ? "..." : value}
           </span>
@@ -70,7 +70,7 @@ export const DashboardMetric = ({
             </div>
           )}
         </div>
-        <div className="h-8 w-16 sm:h-10 sm:w-24 opacity-60 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="h-8 sm:h-10 flex-1 min-w-0 max-w-[250px] ml-2 sm:ml-6 opacity-60 group-hover:opacity-100 transition-opacity">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               <Area

@@ -5,6 +5,7 @@ import { ecommerce } from '../services/ecommerce';
 import { getPrevPeriod, today, daysAgo, presetToRange } from '../services/metaAds';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
+import KlaviyoLoader from '../components/ui/KlaviyoLoader';
 
 const PINK = '#ec4899';
 
@@ -16,14 +17,14 @@ export default function TiendaPage() {
   const [expandedMetric, setExpandedMetric] = useState<string | null>('s-revenue');
 
   // Date Picker State
-  const [activePreset, setActivePreset] = useState<any>('last_30d');
-  const [activeSince, setActiveSince] = useState(daysAgo(30));
+  const [activePreset, setActivePreset] = useState<any>('last_14d');
+  const [activeSince, setActiveSince] = useState(daysAgo(14));
   const [activeUntil, setActiveUntil] = useState(today());
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [pendingPreset, setPendingPreset] = useState<any>('last_30d');
-  const [pendingSince, setPendingSince] = useState(daysAgo(30));
+  const [pendingPreset, setPendingPreset] = useState<any>('last_14d');
+  const [pendingSince, setPendingSince] = useState(daysAgo(14));
   const [pendingUntil, setPendingUntil] = useState(today());
   const [hovering, setHovering] = useState<string | null>(null);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -138,16 +139,15 @@ export default function TiendaPage() {
             return (
               <button 
                 key={d} 
-                onMouseEnter={() => !isFuture && onHover(d)}
-                onClick={() => !isFuture && onDay(d)}
-                disabled={isFuture}
-                className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center
-                  ${isSelected ? 'bg-pink-600 text-white rounded-full z-10 shadow-md shadow-pink-200 dark:shadow-none' : 
-                    (isInRange || isHovering) ? 'bg-pink-50 dark:bg-pink-500/10 text-pink-600' : 
-                    isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' :
-                    'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'}
-                  ${isToday && !isSelected ? 'text-pink-600 dark:text-pink-500 ring-1 ring-pink-100 dark:ring-pink-900/30' : ''}
-                `}
+                onMouseEnter={() => !isFuture && onHover(d)} 
+                onClick={() => !isFuture && onDay(d)} 
+                disabled={isFuture} 
+                className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${
+                  isSelected ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full z-10 shadow-md shadow-zinc-200 dark:shadow-none' : 
+                  (isInRange || isHovering) ? 'bg-zinc-100 dark:bg-zinc-800/50 text-zinc-900 dark:text-white' : 
+                  isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 
+                  'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'
+                } ${isToday && !isSelected ? 'text-pink-600 dark:text-pink-500 ring-1 ring-pink-100 dark:ring-pink-900/30' : ''}`}
               >
                 {d.split('-')[2]}
               </button>
@@ -187,7 +187,7 @@ export default function TiendaPage() {
         </div>
 
         <div className="flex items-center gap-3 print:hidden">
-          <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-sm h-11 relative" ref={datePickerRef}>
+          <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] h-11 relative" ref={datePickerRef}>
               <button 
                 onClick={() => setShowDatePicker(!showDatePicker)} 
                 className="flex items-center gap-2 px-4 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group"
@@ -218,7 +218,7 @@ export default function TiendaPage() {
                 <div className="absolute left-0 md:left-auto md:right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-30 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[290px] sm:w-[320px] md:w-auto origin-top-left md:origin-top-right">
                   <div className="w-full md:w-[160px] border-b md:border-b-0 md:border-r border-zinc-50 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-hide">
                     {[{ id: 'today', label: 'Hoy' }, { id: 'yesterday', label: 'Ayer' }, { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_14d', label: 'Últimos 14 días' }, { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_30d', label: 'Últimos 30 días' }, { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' }, { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' }, { id: 'last_year', label: 'Año pasado' }].map(p => (
-                      <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-pink-600 text-white shadow-md shadow-pink-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                      <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-md shadow-zinc-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                     ))}
                   </div>
                   <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
@@ -230,7 +230,7 @@ export default function TiendaPage() {
                     </div>
                     <div className="w-full flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                       <button onClick={() => setShowDatePicker(false)} className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-zinc-500">Cancelar</button>
-                      <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-pink-600 text-white text-[12px] font-bold shadow-md shadow-pink-200 dark:shadow-none hover:bg-pink-700 transition-colors">Aplicar</button>
+                      <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-bold shadow-md shadow-zinc-200 dark:shadow-none hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors">Aplicar</button>
                     </div>
                   </div>
                 </div>
@@ -240,13 +240,9 @@ export default function TiendaPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-6 animate-pulse">
+        <div className="space-y-6">
           {/* Skeleton Top Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-zinc-100 dark:bg-zinc-800/50 border border-black/[0.03] dark:border-white/[0.03] rounded-[16px] h-[88px]" />
-            ))}
-          </div>
+          <KlaviyoLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']} />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Skeleton Chart */}
@@ -264,7 +260,7 @@ export default function TiendaPage() {
       ) : data ? (
         <div className="space-y-6">
           {/* Top Stats */}
-          <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+          <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
             <DashboardMetric 
               icon={Package}
               label="Pedidos" 
@@ -327,7 +323,7 @@ export default function TiendaPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             {/* Top Products */}
-            <div className="lg:col-span-2 bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-sm flex flex-col">
+            <div className="lg:col-span-2 bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] flex flex-col">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-8 h-8 rounded-xl bg-pink-500/10 flex items-center justify-center">
                   <Package className="w-4 h-4 text-pink-500" />
@@ -364,7 +360,7 @@ export default function TiendaPage() {
             </div>
 
             {/* Revenue Bar Chart */}
-            <div className="lg:col-span-3 bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-sm flex flex-col">
+            <div className="lg:col-span-3 bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] flex flex-col">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-pink-500/10 flex items-center justify-center">
@@ -445,7 +441,7 @@ export default function TiendaPage() {
           {/* Bottom row: Fulfillment + Orders trend */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Fulfillment Status */}
-            <div className="bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-sm">
+            <div className="bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-8 h-8 rounded-xl bg-pink-500/10 flex items-center justify-center">
                   <CheckCircle className="w-4 h-4 text-pink-500" />
@@ -487,7 +483,7 @@ export default function TiendaPage() {
             </div>
 
             {/* Orders trend */}
-            <div className="md:col-span-2 bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-sm">
+            <div className="md:col-span-2 bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-pink-500/10 flex items-center justify-center">
@@ -544,7 +540,7 @@ export default function TiendaPage() {
 
         </div>
       ) : (
-        <div className="bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-10 text-center shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-10 text-center shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
           <p className="text-zinc-500">No se encontraron datos en el rango seleccionado.</p>
         </div>
       )}
