@@ -43,8 +43,8 @@ const apiFetch = async (url: string, options: RequestInit, retryCount = 0): Prom
 const buildHeaders = (apiKey: string): HeadersInit => ({
   'Authorization': `Klaviyo-API-Key ${apiKey}`,
   'Revision': REVISION,
-  'Accept': 'application/vnd.api+json',
-  'Content-Type': 'application/vnd.api+json',
+  'Accept': 'application/json',
+  'Content-Type': 'application/json',
 });
 
 const apiPost = async (apiKey: string, endpoint: string, body: any): Promise<any> => {

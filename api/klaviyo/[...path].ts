@@ -26,13 +26,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const forwardHeaders: Record<string, string> = {};
   const auth = req.headers['authorization'];
   const rev = req.headers['revision'];
-  const ct = req.headers['content-type'];
-  const acc = req.headers['accept'];
 
   if (auth) forwardHeaders['Authorization'] = auth as string;
   if (rev)  forwardHeaders['Revision']      = rev as string;
-  if (ct)   forwardHeaders['Content-Type']  = ct as string;
-  if (acc)  forwardHeaders['Accept']        = acc as string;
+  forwardHeaders['Content-Type']  = 'application/vnd.api+json';
+  forwardHeaders['Accept']        = 'application/vnd.api+json';
 
   try {
     const fetchOptions: RequestInit = {
