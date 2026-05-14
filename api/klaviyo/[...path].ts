@@ -1,19 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Build the Klaviyo API URL from the path segments
-  const pathParam = req.query.path;
-  const klaviyoPath = Array.isArray(pathParam) ? pathParam.join('/') : (pathParam || '');
-  
-  // Build query string excluding 'path'
-  const queryString = new URLSearchParams();
-  for (const [key, value] of Object.entries(req.query)) {
-    if (key === 'path') continue;
-    if (Array.isArray(value)) value.forEach(v => queryString.append(key, v));
-    else if (value) queryString.set(key, value as string);
-  }
-  const qs = queryString.toString();
-  const targetUrl = `https://a.klaviyo.com/api/${klaviyoPath}${qs ? `?${qs}` : ''}`;
+  // Extract path and query directly from req.url to bypass Vercel parsing quirks
+  const match = req.url?.match(/^\/api\/klaviyo\/(.*)$/);
+  const pathAndQuery = match ? match[1] : '';
+  const targetUrl = `https://a.klaviyo.com/api/${pathAndQuery}`;
 
   // Set CORS headers early
   res.setHeader('Access-Control-Allow-Origin', '*');

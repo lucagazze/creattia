@@ -23,21 +23,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing Shopify domain or token' });
   }
 
-  // Build query string excluding 'path' and 'shop'
-  const queryString = new URLSearchParams();
-  for (const [key, value] of Object.entries(req.query)) {
-    if (key === 'path' || key === 'shop') continue;
-    if (Array.isArray(value)) value.forEach(v => queryString.append(key, v));
-    else if (value) queryString.set(key, value as string);
+  if (req.headers['x-debug-target']) {
+    return res.status(200).json({
+      pathParam: req.query.path,
+      shopifyPath,
+      query: req.query,
+      url: req.url,
+      domain,
+    });
   }
-  const qs = queryString.toString();
-  
+
+  // Extract path and query directly from req.url to bypass Vercel parsing quirks
+  const match = req.url?.match(/^\/api\/shopify\/(.*)$/);
+  const pathAndQuery = match ? match[1] : '';
   const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
   
   // Choose correct endpoint (Admin API vs OAuth)
-  let targetUrl = `https://${cleanDomain}/admin/api/2024-01/${shopifyPath}${qs ? `?${qs}` : ''}`;
-  if (shopifyPath.includes('oauth/access_token')) {
-    targetUrl = `https://${cleanDomain}/admin/${shopifyPath}${qs ? `?${qs}` : ''}`;
+  let targetUrl = `https://${cleanDomain}/admin/api/2024-01/${pathAndQuery}`;
+  if (pathAndQuery.includes('oauth/access_token')) {
+    targetUrl = `https://${cleanDomain}/admin/${pathAndQuery}`;
   }
 
   try {
