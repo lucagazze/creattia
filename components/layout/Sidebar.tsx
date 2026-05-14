@@ -23,12 +23,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   // Use viewAsProfile if active, otherwise use real profile
   const activeProfile = isViewingAs ? viewAsProfile : profile;
 
+  const hasTag = (tag: string) => {
+    if (!activeProfile) return false;
+    const tags = (activeProfile as any).client_tags;
+    // Default to 'tienda_online' if no tags exist
+    if (!tags || tags.length === 0) return tag === 'tienda_online';
+    return tags.includes(tag);
+  };
+
   const navItems = [
     { path: '/',          icon: Home,          label: 'Inicio',         condition: true },
     { path: '/captacion', icon: BarChart2,      label: 'C — Captación',  condition: !!activeProfile?.meta_account_id },
     { path: '/atencion',  icon: MessageCircle,  label: 'A — Atención',   condition: !!activeProfile?.chatwoot_token },
-    { path: '/retencion', icon: Mail,           label: 'R — Retención',  condition: !!activeProfile?.klaviyo_api_key },
-    { path: '/tienda',    icon: ShoppingBag,    label: 'Tienda Online',  condition: !!(activeProfile as any)?.ecommerce_platform },
+    { path: '/retencion', icon: Mail,           label: 'R — Retención',  condition: !!activeProfile?.klaviyo_api_key && hasTag('tienda_online') },
+    { path: '/tienda',    icon: ShoppingBag,    label: 'Tienda Online',  condition: !!(activeProfile as any)?.ecommerce_platform && hasTag('tienda_online') },
     { path: '/links',     icon: Link2,          label: 'Mis Accesos',    condition: true },
     { path: '/reportes',  icon: FileText,       label: 'Reportes',       condition: true },
   ].filter(item => item.condition);

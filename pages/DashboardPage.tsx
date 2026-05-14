@@ -488,6 +488,14 @@ export default function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [allClients, setAllClients] = useState<any[]>([]);
   const { setViewAsProfile } = useViewAs();
+  const [selectedMetaGoal, setSelectedMetaGoal] = useState<'purchases' | 'leads' | 'messages'>('purchases');
+
+  useEffect(() => {
+    const primaryTag = profile?.client_tags?.[0];
+    if (primaryTag === 'whatsapp') setSelectedMetaGoal('messages');
+    else if (primaryTag === 'lead_gen') setSelectedMetaGoal('leads');
+    else setSelectedMetaGoal('purchases'); // default to purchases for e-com or if empty
+  }, [profile?.client_tags]);
 
   // Load all clients if admin
   useEffect(() => {
@@ -580,27 +588,46 @@ export default function DashboardPage() {
             ),
           ]);
 
+          const extractActions = (actions: any[], type: 'purchases' | 'leads' | 'messages') => {
+            if (!actions || !Array.isArray(actions)) return 0;
+            if (type === 'messages') {
+              const msg = actions.find((a: any) => a.action_type === 'onsite_conversion.messaging_conversation_started_7d' || a.action_type === 'onsite_conversion.messaging_first_reply');
+              if (msg) return parseFloat(msg.value || 0);
+            }
+            if (type === 'leads') {
+              const lead = actions.find((a: any) => a.action_type === 'lead' || a.action_type === 'offsite_conversion.fb_pixel_lead' || a.action_type === 'onsite_conversion.lead_grouped');
+              if (lead) return parseFloat(lead.value || 0);
+            }
+            if (type === 'purchases') {
+              const purchase = actions.find((a: any) => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase' || a.action_type === 'omni_purchase');
+              if (purchase) return parseFloat(purchase.value || 0);
+            }
+            return 0;
+          };
+
           const sumInsights = (data: any[]) => {
             return data.reduce(
               (acc, d) => ({
                 spend: acc.spend + (d.spend || 0),
                 reach: acc.reach + (d.reach || 0),
-                results: acc.results + (d.results || 0),
+                purchases: acc.purchases + extractActions(d.actions, 'purchases'),
+                leads: acc.leads + extractActions(d.actions, 'leads'),
+                messages: acc.messages + extractActions(d.actions, 'messages'),
                 purchase_value: acc.purchase_value + (d.purchase_value || 0),
                 roas: acc.roas + (d.roas || 0),
               }),
-              { spend: 0, reach: 0, results: 0, purchase_value: 0, roas: 0 },
+              { spend: 0, reach: 0, purchases: 0, leads: 0, messages: 0, purchase_value: 0, roas: 0 },
             );
           };
 
           const currSummary = sumInsights(rawDaily);
-          if (rawDaily.length > 0)
-            currSummary.roas =
-              currSummary.purchase_value / (currSummary.spend || 1);
+          if (rawDaily.length > 0) {
+            currSummary.roas = currSummary.spend ? currSummary.purchase_value / currSummary.spend : 0;
+          }
           const prevSummary = sumInsights(rawPrevDaily);
-          if (rawPrevDaily.length > 0)
-            prevSummary.roas =
-              prevSummary.purchase_value / (prevSummary.spend || 1);
+          if (rawPrevDaily.length > 0) {
+            prevSummary.roas = prevSummary.spend ? prevSummary.purchase_value / prevSummary.spend : 0;
+          }
 
           const padded = [];
           let d = new Date(range.since + "T12:00:00");
@@ -609,13 +636,13 @@ export default function DashboardPage() {
             const iso = d.toISOString().split("T")[0];
             const match = rawDaily.find((rd: any) => rd.date === iso);
             padded.push(
-              match || {
-                date: iso,
-                spend: 0,
-                results: 0,
-                purchase_value: 0,
-                roas: 0,
-                reach: 0,
+              match ? {
+                ...match,
+                purchases: extractActions(match.actions, 'purchases'),
+                leads: extractActions(match.actions, 'leads'),
+                messages: extractActions(match.actions, 'messages')
+              } : {
+                date: iso, spend: 0, purchases: 0, leads: 0, messages: 0, purchase_value: 0, roas: 0, reach: 0,
               },
             );
             d.setDate(d.getDate() + 1);
@@ -627,13 +654,13 @@ export default function DashboardPage() {
             const iso = dp.toISOString().split("T")[0];
             const match = rawPrevDaily.find((rd: any) => rd.date === iso);
             paddedPrev.push(
-              match || {
-                date: iso,
-                spend: 0,
-                results: 0,
-                purchase_value: 0,
-                roas: 0,
-                reach: 0,
+              match ? {
+                ...match,
+                purchases: extractActions(match.actions, 'purchases'),
+                leads: extractActions(match.actions, 'leads'),
+                messages: extractActions(match.actions, 'messages')
+              } : {
+                date: iso, spend: 0, purchases: 0, leads: 0, messages: 0, purchase_value: 0, roas: 0, reach: 0,
               },
             );
             dp.setDate(dp.getDate() + 1);
@@ -929,58 +956,49 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {allClients.map((c) => {
-              const isSelected = viewAsProfile?.id === c.id;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => {
-                    const cp: any = {
-                      id: c.id,
-                      user_id: c.user_id,
-                      business_name: c.business_name,
-                      industry: c.industry,
-                      plan: c.plan,
-                      active: c.active,
-                      is_admin: false,
-                      meta_account_id: c.meta_account_id,
-                      klaviyo_api_key: c.klaviyo_api_key,
-                      chatwoot_url: c.chatwoot_url,
-                      chatwoot_token: c.chatwoot_token,
-                      ecommerce_platform: c.ecommerce_platform,
-                      shopify_domain: c.shopify_domain,
-                      shopify_access_token: c.shopify_access_token,
-                    };
-                    setViewAsProfile(isSelected ? null : cp);
-                  }}
-                  className={`flex-shrink-0 flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-[12px] transition-all ${
-                    isSelected
-                      ? "bg-violet-600 shadow-lg shadow-violet-300/20 dark:shadow-violet-900/30"
-                      : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <div
-                    className={`w-9 h-9 rounded-[10px] flex items-center justify-center text-[13px] font-black ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                    }`}
-                  >
-                    {c.business_name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <span
-                    className={`text-[10px] font-bold whitespace-nowrap max-w-[80px] truncate ${
-                      isSelected
-                        ? "text-white"
-                        : "text-zinc-500 dark:text-zinc-400"
-                    }`}
-                  >
-                    {c.business_name}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="relative mt-2">
+            <select
+              value={viewAsProfile?.id || ""}
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id) {
+                  setViewAsProfile(null);
+                  return;
+                }
+                const c = allClients.find((client) => client.id === id);
+                if (c) {
+                  const cp: any = {
+                    id: c.id,
+                    user_id: c.user_id,
+                    business_name: c.business_name,
+                    industry: c.industry,
+                    plan: c.plan,
+                    active: c.active,
+                    is_admin: false,
+                    meta_account_id: c.meta_account_id,
+                    klaviyo_api_key: c.klaviyo_api_key,
+                    chatwoot_url: c.chatwoot_url,
+                    chatwoot_token: c.chatwoot_token,
+                    ecommerce_platform: c.ecommerce_platform,
+                    shopify_domain: c.shopify_domain,
+                    shopify_access_token: c.shopify_access_token,
+                    client_tags: c.client_tags || [],
+                  };
+                  setViewAsProfile(cp);
+                }
+              }}
+              className="w-full h-11 pl-4 pr-10 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 text-[14px] font-bold text-zinc-900 dark:text-white outline-none appearance-none cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/50 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all shadow-sm"
+            >
+              <option value="" className="font-normal text-zinc-500">
+                Seleccionar cliente... (Mi Vista)
+              </option>
+              {allClients.map((c) => (
+                <option key={c.id} value={c.id} className="font-semibold text-zinc-900 dark:text-white">
+                  {c.business_name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
       )}
@@ -1353,7 +1371,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             {fetchingMeta ? (
-              <KlaviyoLoader loading={fetchingMeta} color={"#3b82f6"} labels={['Inversión', 'Alcance', 'Conv.', 'ROAS', 'Retorno']} />
+              <KlaviyoLoader loading={fetchingMeta} color={"#3b82f6"} labels={['Inversión', 'Alcance']} />
             ) : currentMeta ? (
               <>
                 <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex overflow-x-auto scrollbar-hide">
@@ -1407,148 +1425,135 @@ export default function DashboardPage() {
                       )
                     }
                   />
-                  <ShopifyMetric
-                    icon={Target}
-                    label="Conv."
-                    value={currentMeta.results || 0}
-                    change={getMetaChange(
-                      currentMeta?.results,
-                      prevMeta?.results,
-                    )}
-                    trend={
-                      (currentMeta?.results || 0) >= (prevMeta?.results || 0)
-                        ? "up"
-                        : "down"
-                    }
-                    data={metaDaily?.map((d: any) => ({
-                      val: d.results,
-                      date: d.date,
-                    }))}
-                    color={MAIN_COLOR}
-                    loading={fetchingMeta}
-                    active={expandedMetric === "meta-conv"}
-                    onClick={() =>
-                      setExpandedMetric(
-                        expandedMetric === "meta-conv" ? null : "meta-conv",
-                      )
-                    }
-                  />
-                  <ShopifyMetric
-                    icon={BarChart2}
-                    label="ROAS"
-                    value={`${currentMeta.roas?.toFixed(2) || 0}x`}
-                    change={getMetaChange(currentMeta?.roas, prevMeta?.roas)}
-                    trend={
-                      (currentMeta?.roas || 0) >= (prevMeta?.roas || 0)
-                        ? "up"
-                        : "down"
-                    }
-                    data={metaDaily?.map((d: any) => ({
-                      val: d.roas,
-                      date: d.date,
-                    }))}
-                    color={MAIN_COLOR}
-                    loading={fetchingMeta}
-                    active={expandedMetric === "meta-roas"}
-                    onClick={() =>
-                      setExpandedMetric(
-                        expandedMetric === "meta-roas" ? null : "meta-roas",
-                      )
-                    }
-                  />
-                  <ShopifyMetric
-                    icon={DollarSign}
-                    label="Retorno"
-                    value={`$ ${currentMeta.purchase_value?.toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
-                    change={getMetaChange(
-                      currentMeta?.purchase_value,
-                      prevMeta?.purchase_value,
-                    )}
-                    trend={
-                      (currentMeta?.purchase_value || 0) >=
-                      (prevMeta?.purchase_value || 0)
-                        ? "up"
-                        : "down"
-                    }
-                    data={metaDaily?.map((d: any) => ({
-                      val: d.purchase_value,
-                      date: d.date,
-                    }))}
-                    color={MAIN_COLOR}
-                    loading={fetchingMeta}
-                    active={expandedMetric === "meta-roas-v"}
-                    onClick={() =>
-                      setExpandedMetric(
-                        expandedMetric === "meta-roas-v" ? null : "meta-roas-v",
-                      )
-                    }
-                  />
+                  
+                  {selectedMetaGoal === 'purchases' && (
+                    <>
+                      <ShopifyMetric
+                        icon={Target}
+                        label="Compras"
+                        value={currentMeta.purchases || 0}
+                        change={getMetaChange(currentMeta?.purchases, prevMeta?.purchases)}
+                        trend={(currentMeta?.purchases || 0) >= (prevMeta?.purchases || 0) ? "up" : "down"}
+                        data={metaDaily?.map((d: any) => ({ val: d.purchases, date: d.date }))}
+                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-purchases"}
+                        onClick={() => setExpandedMetric(expandedMetric === "meta-purchases" ? null : "meta-purchases")}
+                      />
+                      <ShopifyMetric
+                        icon={BarChart2}
+                        label="ROAS"
+                        value={`${currentMeta.roas?.toFixed(2) || 0}x`}
+                        change={getMetaChange(currentMeta?.roas, prevMeta?.roas)}
+                        trend={(currentMeta?.roas || 0) >= (prevMeta?.roas || 0) ? "up" : "down"}
+                        data={metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))}
+                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-roas"}
+                        onClick={() => setExpandedMetric(expandedMetric === "meta-roas" ? null : "meta-roas")}
+                      />
+                      <ShopifyMetric
+                        icon={DollarSign}
+                        label="Retorno"
+                        value={`$ ${currentMeta.purchase_value?.toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
+                        change={getMetaChange(currentMeta?.purchase_value, prevMeta?.purchase_value)}
+                        trend={(currentMeta?.purchase_value || 0) >= (prevMeta?.purchase_value || 0) ? "up" : "down"}
+                        data={metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))}
+                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-roas-v"}
+                        onClick={() => setExpandedMetric(expandedMetric === "meta-roas-v" ? null : "meta-roas-v")}
+                      />
+                    </>
+                  )}
+
+                  {selectedMetaGoal === 'leads' && (
+                    <>
+                      <ShopifyMetric
+                        icon={Target}
+                        label="Leads"
+                        value={currentMeta.leads || 0}
+                        change={getMetaChange(currentMeta?.leads, prevMeta?.leads)}
+                        trend={(currentMeta?.leads || 0) >= (prevMeta?.leads || 0) ? "up" : "down"}
+                        data={metaDaily?.map((d: any) => ({ val: d.leads, date: d.date }))}
+                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-leads"}
+                        onClick={() => setExpandedMetric(expandedMetric === "meta-leads" ? null : "meta-leads")}
+                      />
+                      <ShopifyMetric
+                        icon={DollarSign}
+                        label="CPL"
+                        value={`$ ${((currentMeta.leads ? currentMeta.spend / currentMeta.leads : 0)).toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
+                        change={getMetaChange(
+                          currentMeta?.leads ? currentMeta.spend / currentMeta.leads : 0, 
+                          prevMeta?.leads ? prevMeta.spend / prevMeta.leads : 0
+                        )}
+                        trend={(currentMeta?.leads ? currentMeta.spend / currentMeta.leads : 0) <= (prevMeta?.leads ? prevMeta.spend / prevMeta.leads : 0) ? "up" : "down"}
+                        data={metaDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))}
+                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-cpl"}
+                        onClick={() => setExpandedMetric(expandedMetric === "meta-cpl" ? null : "meta-cpl")}
+                      />
+                    </>
+                  )}
+
+                  {selectedMetaGoal === 'messages' && (
+                    <>
+                      <ShopifyMetric
+                        icon={MessageSquare}
+                        label="Mensajes"
+                        value={currentMeta.messages || 0}
+                        change={getMetaChange(currentMeta?.messages, prevMeta?.messages)}
+                        trend={(currentMeta?.messages || 0) >= (prevMeta?.messages || 0) ? "up" : "down"}
+                        data={metaDaily?.map((d: any) => ({ val: d.messages, date: d.date }))}
+                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-messages"}
+                        onClick={() => setExpandedMetric(expandedMetric === "meta-messages" ? null : "meta-messages")}
+                      />
+                      <ShopifyMetric
+                        icon={DollarSign}
+                        label="Costo x Msj"
+                        value={`$ ${((currentMeta.messages ? currentMeta.spend / currentMeta.messages : 0)).toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
+                        change={getMetaChange(
+                          currentMeta?.messages ? currentMeta.spend / currentMeta.messages : 0, 
+                          prevMeta?.messages ? prevMeta.spend / prevMeta.messages : 0
+                        )}
+                        trend={(currentMeta?.messages ? currentMeta.spend / currentMeta.messages : 0) <= (prevMeta?.messages ? prevMeta.spend / prevMeta.messages : 0) ? "up" : "down"}
+                        data={metaDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))}
+                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-cpm"}
+                        onClick={() => setExpandedMetric(expandedMetric === "meta-cpm" ? null : "meta-cpm")}
+                      />
+                    </>
+                  )}
                 </div>
                 {expandedMetric?.startsWith("meta-") && (
                   <MetricDetailChart
                     label={
-                      expandedMetric === "meta-inversion"
-                        ? "Inversión"
-                        : expandedMetric === "meta-alcance"
-                          ? "Alcance"
-                          : expandedMetric === "meta-conv"
-                            ? "Conversiones"
-                            : expandedMetric === "meta-roas-v"
-                              ? "Retorno"
-                              : "ROAS"
+                      expandedMetric === "meta-inversion" ? "Inversión"
+                        : expandedMetric === "meta-alcance" ? "Alcance"
+                        : expandedMetric === "meta-purchases" ? "Compras"
+                        : expandedMetric === "meta-roas" ? "ROAS"
+                        : expandedMetric === "meta-roas-v" ? "Retorno"
+                        : expandedMetric === "meta-leads" ? "Leads"
+                        : expandedMetric === "meta-cpl" ? "CPL"
+                        : expandedMetric === "meta-messages" ? "Mensajes"
+                        : "Costo x Msj"
                     }
                     color={MAIN_COLOR}
                     data={
-                      expandedMetric === "meta-inversion"
-                        ? metaDaily?.map((d: any) => ({
-                            val: d.spend,
-                            date: d.date,
-                          }))
-                        : expandedMetric === "meta-alcance"
-                          ? metaDaily?.map((d: any) => ({
-                              val: d.reach,
-                              date: d.date,
-                            }))
-                          : expandedMetric === "meta-conv"
-                            ? metaDaily?.map((d: any) => ({
-                                val: d.results,
-                                date: d.date,
-                              }))
-                            : expandedMetric === "meta-roas-v"
-                              ? metaDaily?.map((d: any) => ({
-                                  val: d.purchase_value,
-                                  date: d.date,
-                                }))
-                              : metaDaily?.map((d: any) => ({
-                                  val: d.roas,
-                                  date: d.date,
-                                }))
+                      expandedMetric === "meta-inversion" ? metaDaily?.map((d: any) => ({ val: d.spend, date: d.date }))
+                        : expandedMetric === "meta-alcance" ? metaDaily?.map((d: any) => ({ val: d.reach, date: d.date }))
+                        : expandedMetric === "meta-purchases" ? metaDaily?.map((d: any) => ({ val: d.purchases, date: d.date }))
+                        : expandedMetric === "meta-roas" ? metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))
+                        : expandedMetric === "meta-roas-v" ? metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))
+                        : expandedMetric === "meta-leads" ? metaDaily?.map((d: any) => ({ val: d.leads, date: d.date }))
+                        : expandedMetric === "meta-cpl" ? metaDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))
+                        : expandedMetric === "meta-messages" ? metaDaily?.map((d: any) => ({ val: d.messages, date: d.date }))
+                        : expandedMetric === "meta-cpm" ? metaDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))
+                        : []
                     }
                     prevData={
-                      expandedMetric === "meta-inversion"
-                        ? prevMetaDaily?.map((d: any) => ({
-                            val: d.spend,
-                            date: d.date,
-                          }))
-                        : expandedMetric === "meta-alcance"
-                          ? prevMetaDaily?.map((d: any) => ({
-                              val: d.reach,
-                              date: d.date,
-                            }))
-                          : expandedMetric === "meta-conv"
-                            ? prevMetaDaily?.map((d: any) => ({
-                                val: d.results,
-                                date: d.date,
-                              }))
-                            : expandedMetric === "meta-roas-v"
-                              ? prevMetaDaily?.map((d: any) => ({
-                                  val: d.purchase_value,
-                                  date: d.date,
-                                }))
-                              : prevMetaDaily?.map((d: any) => ({
-                                  val: d.roas,
-                                  date: d.date,
-                                }))
+                      expandedMetric === "meta-inversion" ? prevMetaDaily?.map((d: any) => ({ val: d.spend, date: d.date }))
+                        : expandedMetric === "meta-alcance" ? prevMetaDaily?.map((d: any) => ({ val: d.reach, date: d.date }))
+                        : expandedMetric === "meta-purchases" ? prevMetaDaily?.map((d: any) => ({ val: d.purchases, date: d.date }))
+                        : expandedMetric === "meta-roas" ? prevMetaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))
+                        : expandedMetric === "meta-roas-v" ? prevMetaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))
+                        : expandedMetric === "meta-leads" ? prevMetaDaily?.map((d: any) => ({ val: d.leads, date: d.date }))
+                        : expandedMetric === "meta-cpl" ? prevMetaDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))
+                        : expandedMetric === "meta-messages" ? prevMetaDaily?.map((d: any) => ({ val: d.messages, date: d.date }))
+                        : expandedMetric === "meta-cpm" ? prevMetaDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))
+                        : []
                     }
                   />
                 )}

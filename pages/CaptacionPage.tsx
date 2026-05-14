@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, Download, RefreshCw, Calendar, ChevronDown,
-  Users, DollarSign, Target, BarChart2, Globe, Smartphone, User, Megaphone
+  Users, DollarSign, Target, BarChart2, Globe, Smartphone, User, Megaphone, MessageSquare
 } from 'lucide-react';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 import KlaviyoLoader from '../components/ui/KlaviyoLoader';
@@ -89,29 +89,57 @@ export default function CaptacionPage() {
   const [regionData, setRegionData] = useState<any[]>([]);
   const [platformData, setPlatformData] = useState<any[]>([]);
   const [ageData, setAgeData] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [expandedMetric, setExpandedMetric] = useState<string | null>('spend');
 
   const range = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
   const prevRange = getPrevPeriod(range.since, range.until);
 
-  const extractResults = (actions: any[]) => {
+  const isEcom = profile?.client_tags?.includes('tienda_online') || !profile?.client_tags || profile.client_tags.length === 0;
+  const isLead = profile?.client_tags?.includes('lead_gen');
+  const isWpp = profile?.client_tags?.includes('whatsapp');
+  
+  const resultsLabel = isWpp ? 'Mensajes' : isLead ? 'Leads' : 'Compras';
+  const cprLabel = isWpp ? 'Costo x Msj' : isLead ? 'CPL' : 'CPA';
+
+  const extractActions = (actions: any[], type: 'purchases' | 'leads' | 'messages' | 'ig_followers' | 'fb_likes') => {
     if (!actions || !Array.isArray(actions)) return 0;
-    
-    // STRICT MATCHING: Only count actual Purchases or Leads.
-    const purchase = actions.find(a => 
-      a.action_type === 'purchase' || 
-      a.action_type === 'offsite_conversion.fb_pixel_purchase' || 
-      a.action_type === 'omni_purchase'
-    );
-    if (purchase) return parseFloat(purchase.value || 0);
-
-    const lead = actions.find(a => 
-      a.action_type === 'lead' || 
-      a.action_type === 'offsite_conversion.fb_pixel_lead' || 
-      a.action_type === 'onsite_conversion.lead_grouped'
-    );
-    if (lead) return parseFloat(lead.value || 0);
-
+    if (type === 'messages') {
+      const msg = actions.find((a: any) => a.action_type === 'onsite_conversion.messaging_conversation_started_7d' || a.action_type === 'onsite_conversion.messaging_first_reply');
+      if (msg) return parseFloat(msg.value || 0);
+    }
+    if (type === 'leads') {
+      const lead = actions.find((a: any) => a.action_type === 'lead' || a.action_type === 'offsite_conversion.fb_pixel_lead' || a.action_type === 'onsite_conversion.lead_grouped');
+      if (lead) return parseFloat(lead.value || 0);
+    }
+    if (type === 'purchases') {
+      const purchase = actions.find((a: any) => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase' || a.action_type === 'omni_purchase');
+      if (purchase) return parseFloat(purchase.value || 0);
+    }
+    if (type === 'ig_followers') {
+      // Try every known Meta action_type for Instagram follows
+      const follow = actions.find((a: any) => {
+        const t: string = a.action_type || '';
+        return (
+          t === 'onsite_conversion.instagram_profile_follow' ||
+          t === 'instagram_profile.follow' ||
+          t === 'follow' ||
+          t === 'ig_profile.follow' ||
+          t === 'page_like_or_follow' ||
+          (t.includes('instagram') && t.includes('follow')) ||
+          t.includes('profile_follow') ||
+          t.includes('follower')
+        );
+      });
+      if (follow) return parseFloat(follow.value || 0);
+    }
+    if (type === 'fb_likes') {
+      const like = actions.find((a: any) =>
+        a.action_type === 'like' ||
+        a.action_type === 'page_engagement'
+      );
+      if (like) return parseFloat(like.value || 0);
+    }
     return 0;
   };
 
@@ -120,13 +148,15 @@ export default function CaptacionPage() {
     setLoading(true);
     try {
       const accountId = profile.meta_account_id;
-      const [rawDaily, rawPrevDaily, gender, regions, platform, age] = await Promise.all([
+      const [rawDaily, rawPrevDaily, gender, regions, platform, age, campaignInsights, prevCampaignInsights] = await Promise.all([
         metaAds.getInsightsDaily(accountId, 'spend,reach,actions,action_values,purchase_roas,impressions', undefined, range),
         metaAds.getInsightsDaily(accountId, 'spend,reach,actions,action_values,purchase_roas,impressions', undefined, prevRange),
         metaAds.getInsightsBreakdown(accountId, 'gender', range),
         metaAds.getInsightsBreakdown(accountId, 'region', range),
         metaAds.getInsightsBreakdown(accountId, 'publisher_platform', range),
         metaAds.getInsightsBreakdown(accountId, 'age', range),
+        metaAds.getInsightsAtCampaignLevel(accountId, 'campaign_name,spend,reach,actions,action_values,purchase_roas,objective', range),
+        metaAds.getInsightsAtCampaignLevel(accountId, 'campaign_name,spend,reach,actions,action_values,purchase_roas,objective', prevRange),
       ]);
 
       const processDaily = (raw: any[], r: any) => {
@@ -136,7 +166,10 @@ export default function CaptacionPage() {
         while (d <= end) {
           const iso = d.toISOString().split('T')[0];
           const match = raw.find((row: any) => row.date === iso);
-          padded.push(match || { date: iso, spend: 0, reach: 0, results: 0, purchase_value: 0, roas: 0 });
+          const purchases = extractActions(match?.actions, 'purchases');
+          const leads = extractActions(match?.actions, 'leads');
+          const messages = extractActions(match?.actions, 'messages');
+          padded.push(match ? { ...match, purchases, leads, messages, date: iso } : { date: iso, spend: 0, reach: 0, purchases: 0, leads: 0, messages: 0, purchase_value: 0, roas: 0 });
           d.setDate(d.getDate() + 1);
         }
         return padded;
@@ -145,39 +178,104 @@ export default function CaptacionPage() {
       setDaily(processDaily(rawDaily, range));
       setPrevDaily(processDaily(rawPrevDaily, prevRange));
 
-      const calcSummary = (raw: any[]) => {
-        const tot = raw.reduce((a: any, row: any) => ({
-          spend: a.spend + (row.spend || 0),
-          reach: a.reach + (row.reach || 0),
-          results: a.results + (row.results || 0),
-          purchase_value: a.purchase_value + (row.purchase_value || 0),
-          impressions: a.impressions + (row.impressions || 0),
-        }), { spend: 0, reach: 0, results: 0, purchase_value: 0, impressions: 0 });
-        tot.roas = tot.purchase_value / (tot.spend || 1);
+      // Reach must be taken from period-level campaign data (NOT summed daily)
+      // because summing daily reach counts the same person multiple times.
+      const calcSummaryFromCampaigns = (campaigns: any[], dailyRaw: any[]) => {
+        // Use campaign-level data for reach (unique users for the whole period)
+        const periodReach = campaigns.reduce((sum: number, c: any) => sum + parseInt(c.reach || 0), 0);
+        // Use daily data for spend, conversions (they accumulate correctly daily)
+        const tot = dailyRaw.reduce((a: any, row: any) => ({
+          spend: a.spend + parseFloat(row.spend || 0),
+          purchases: a.purchases + extractActions(row.actions, 'purchases'),
+          leads: a.leads + extractActions(row.actions, 'leads'),
+          messages: a.messages + extractActions(row.actions, 'messages'),
+          purchase_value: a.purchase_value + parseFloat(row.purchase_value || 0),
+          impressions: a.impressions + parseInt(row.impressions || 0),
+        }), { spend: 0, purchases: 0, leads: 0, messages: 0, purchase_value: 0, impressions: 0 });
+        tot.reach = periodReach;
+        tot.roas = tot.spend ? tot.purchase_value / tot.spend : 0;
+        tot.cpa = tot.purchases ? tot.spend / tot.purchases : 0;
+        tot.cpl = tot.leads ? tot.spend / tot.leads : 0;
+        tot.cpm = tot.messages ? tot.spend / tot.messages : 0;
         return tot;
       };
 
-      setSummary(calcSummary(rawDaily));
-      setPrevSummary(calcSummary(rawPrevDaily));
+      setSummary(calcSummaryFromCampaigns(campaignInsights, rawDaily));
+      setPrevSummary(calcSummaryFromCampaigns(prevCampaignInsights, rawPrevDaily));
+
+      const getPrimaryResult = (actions: any[]) => {
+        if (isEcom) return extractActions(actions, 'purchases');
+        if (isLead) return extractActions(actions, 'leads');
+        if (isWpp) return extractActions(actions, 'messages');
+        return extractActions(actions, 'purchases');
+      };
 
       setGenderData(gender.map((r: any) => ({
         name: r.gender === 'male' ? 'Hombre' : r.gender === 'female' ? 'Mujer' : 'Desconocido',
-        key: r.gender, spend: parseFloat(r.spend || 0), reach: parseInt(r.reach || 0), results: extractResults(r.actions)
+        key: r.gender, spend: parseFloat(r.spend || 0), reach: parseInt(r.reach || 0), results: getPrimaryResult(r.actions)
       })).sort((a: any, b: any) => b.spend - a.spend));
 
       setRegionData(regions.map((r: any) => ({
-        name: r.region, spend: parseFloat(r.spend || 0), reach: parseInt(r.reach || 0), results: extractResults(r.actions)
+        name: r.region, spend: parseFloat(r.spend || 0), reach: parseInt(r.reach || 0), results: getPrimaryResult(r.actions)
       })).sort((a: any, b: any) => b.spend - a.spend).slice(0, 10));
 
       setPlatformData(platform.map((r: any) => ({
         name: r.publisher_platform,
         label: r.publisher_platform === 'facebook' ? 'Facebook' : r.publisher_platform === 'instagram' ? 'Instagram' : r.publisher_platform === 'audience_network' ? 'Audience Net.' : r.publisher_platform,
-        spend: parseFloat(r.spend || 0), reach: parseInt(r.reach || 0), results: extractResults(r.actions)
+        spend: parseFloat(r.spend || 0), reach: parseInt(r.reach || 0), results: getPrimaryResult(r.actions)
       })).sort((a: any, b: any) => b.spend - a.spend));
 
       setAgeData(age.map((r: any) => ({
-        name: r.age, spend: parseFloat(r.spend || 0), reach: parseInt(r.reach || 0), results: extractResults(r.actions)
+        name: r.age, spend: parseFloat(r.spend || 0), reach: parseInt(r.reach || 0), results: getPrimaryResult(r.actions)
       })).sort((a: any, b: any) => a.name.localeCompare(b.name)));
+
+      setCampaigns(campaignInsights.map((c: any) => {
+        const purchases = extractActions(c.actions, 'purchases');
+        const leads = extractActions(c.actions, 'leads');
+        const messages = extractActions(c.actions, 'messages');
+        const ig_followers = extractActions(c.actions, 'ig_followers');
+        const fb_likes = extractActions(c.actions, 'fb_likes');
+        const spend = parseFloat(c.spend || 0);
+        
+        // Debug: log raw Meta data for Comunidad/Traffic campaigns
+        if (c.actions && (c.campaign_name?.includes('Comunidad') || c.campaign_name?.includes('Trafico') || c.campaign_name?.includes('Comunity'))) {
+          console.log(`[DEBUG COMUNIDAD] Campaign: "${c.campaign_name}"`);
+          console.log(`[DEBUG COMUNIDAD] All actions:`, JSON.stringify(c.actions, null, 2));
+          console.log(`[DEBUG COMUNIDAD] ig_followers resolved:`, ig_followers);
+        }
+        
+        let category = 'Otras Campañas';
+        const nameUpper = c.campaign_name?.toUpperCase() || '';
+        const objUpper = c.objective?.toUpperCase() || '';
+
+        if (objUpper.includes('SALES') || objUpper.includes('CONVERSIONS') || nameUpper.includes('VENTA') || nameUpper.includes('PURCHASE') || nameUpper.includes('COMPRA')) {
+          category = 'Ventas';
+        } else if (objUpper.includes('LEAD') || nameUpper.includes('LEAD') || nameUpper.includes('POTENCIAL')) {
+          category = 'Leads';
+        } else if (objUpper.includes('MESSAGES') || objUpper.includes('ENGAGEMENT') || nameUpper.includes('MENSAJE') || nameUpper.includes('WPP') || nameUpper.includes('WHATSAPP') || nameUpper.includes('CONV')) {
+          category = 'Mensajes';
+        } else if (objUpper.includes('TRAFFIC') || objUpper.includes('AWARENESS') || objUpper.includes('REACH') || nameUpper.includes('TRAFICO') || nameUpper.includes('COMUNIDAD') || nameUpper.includes('SEGUIDORES') || nameUpper.includes('INTERACCION')) {
+          category = 'Tráfico/Comunidad';
+        }
+
+        return {
+          id: c.campaign_id || c.campaign_name,
+          name: c.campaign_name,
+          spend,
+          reach: parseInt(c.reach || 0),
+          purchases,
+          leads,
+          messages,
+          ig_followers,
+          fb_likes,
+          cpa: purchases ? spend / purchases : 0,
+          cpl: leads ? spend / leads : 0,
+          cpm: messages ? spend / messages : 0,
+          purchase_value: parseFloat(c.action_values?.find((v: any) => v.action_type === 'purchase' || v.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || 0),
+          roas: parseFloat(c.purchase_roas?.[0]?.value || 0),
+          category
+        };
+      }).sort((a: any, b: any) => b.spend - a.spend));
 
     } catch (e) { console.error('CaptacionPage fetch error:', e); } finally { setLoading(false); }
   };
@@ -318,36 +416,245 @@ export default function CaptacionPage() {
 
       {/* KPI Cards */}
       {loading ? (
-        <KlaviyoLoader loading={loading} color={BLUE} labels={['Inversión', 'Alcance', 'Conv.', 'ROAS', 'Retorno']} />
+        <KlaviyoLoader loading={loading} color={BLUE} labels={['Inversión', 'Alcance']} />
       ) : summary ? (
-        <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
-          <DashboardMetric icon={DollarSign} label="Inversión" value={fmt(summary?.spend || 0, true)} change={getChange(summary?.spend, prevSummary?.spend)} trend={getChange(summary?.spend, prevSummary?.spend) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.spend, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'spend'} onClick={() => setExpandedMetric(expandedMetric === 'spend' ? null : 'spend')} />
-          <DashboardMetric icon={Users} label="Alcance" value={fmt(summary?.reach || 0)} change={getChange(summary?.reach, prevSummary?.reach)} trend={getChange(summary?.reach, prevSummary?.reach) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.reach, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'reach'} onClick={() => setExpandedMetric(expandedMetric === 'reach' ? null : 'reach')} />
-          <DashboardMetric icon={Target} label="Conv." value={fmt(summary?.results || 0)} change={getChange(summary?.results, prevSummary?.results)} trend={getChange(summary?.results, prevSummary?.results) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.results, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'results'} onClick={() => setExpandedMetric(expandedMetric === 'results' ? null : 'results')} />
-          <DashboardMetric icon={BarChart2} label="ROAS" value={`${(summary?.roas || 0).toFixed(2)}x`} change={getChange(summary?.roas, prevSummary?.roas)} trend={getChange(summary?.roas, prevSummary?.roas) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.roas, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'roas'} onClick={() => setExpandedMetric(expandedMetric === 'roas' ? null : 'roas')} />
-          <DashboardMetric icon={DollarSign} label="Retorno" value={fmt(summary?.purchase_value || 0, true)} change={getChange(summary?.purchase_value, prevSummary?.purchase_value)} trend={getChange(summary?.purchase_value, prevSummary?.purchase_value) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'revenue'} onClick={() => setExpandedMetric(expandedMetric === 'revenue' ? null : 'revenue')} />
+        <div className="space-y-6">
+          {(() => {
+            const activeTagsCount = [isEcom, isLead, isWpp].filter(Boolean).length;
+            
+            // Single row if only 1 tag is active (or none, defaulting to Ecom)
+            if (activeTagsCount <= 1) {
+              return (
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                  <DashboardMetric icon={DollarSign} label="Inversión" value={fmt(summary?.spend || 0, true)} change={getChange(summary?.spend, prevSummary?.spend)} trend={getChange(summary?.spend, prevSummary?.spend) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.spend, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'spend'} onClick={() => setExpandedMetric(expandedMetric === 'spend' ? null : 'spend')} />
+                  <DashboardMetric icon={Users} label="Alcance" value={fmt(summary?.reach || 0)} change={getChange(summary?.reach, prevSummary?.reach)} trend={getChange(summary?.reach, prevSummary?.reach) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.reach, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'reach'} onClick={() => setExpandedMetric(expandedMetric === 'reach' ? null : 'reach')} />
+                  {isEcom && (
+                    <>
+                      <DashboardMetric icon={Target} label="Compras" value={fmt(summary?.purchases || 0)} change={getChange(summary?.purchases, prevSummary?.purchases)} trend={getChange(summary?.purchases, prevSummary?.purchases) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.purchases, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'purchases'} onClick={() => setExpandedMetric(expandedMetric === 'purchases' ? null : 'purchases')} />
+                      <DashboardMetric icon={BarChart2} label="ROAS" value={`${(summary?.roas || 0).toFixed(2)}x`} change={getChange(summary?.roas, prevSummary?.roas)} trend={getChange(summary?.roas, prevSummary?.roas) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.roas, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'roas'} onClick={() => setExpandedMetric(expandedMetric === 'roas' ? null : 'roas')} />
+                      <DashboardMetric icon={DollarSign} label="Retorno" value={fmt(summary?.purchase_value || 0, true)} change={getChange(summary?.purchase_value, prevSummary?.purchase_value)} trend={getChange(summary?.purchase_value, prevSummary?.purchase_value) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'revenue'} onClick={() => setExpandedMetric(expandedMetric === 'revenue' ? null : 'revenue')} />
+                    </>
+                  )}
+                  {isLead && (
+                    <>
+                      <DashboardMetric icon={Target} label="Leads" value={fmt(summary?.leads || 0)} change={getChange(summary?.leads, prevSummary?.leads)} trend={getChange(summary?.leads, prevSummary?.leads) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.leads, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'leads'} onClick={() => setExpandedMetric(expandedMetric === 'leads' ? null : 'leads')} />
+                      <DashboardMetric icon={DollarSign} label="CPL" value={fmt(summary?.cpl || 0, true)} change={getChange(summary?.cpl, prevSummary?.cpl)} trend={getChange(summary?.cpl, prevSummary?.cpl) <= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'cpl'} onClick={() => setExpandedMetric(expandedMetric === 'cpl' ? null : 'cpl')} />
+                    </>
+                  )}
+                  {isWpp && (
+                    <>
+                      <DashboardMetric icon={MessageSquare} label="Mensajes" value={fmt(summary?.messages || 0)} change={getChange(summary?.messages, prevSummary?.messages)} trend={getChange(summary?.messages, prevSummary?.messages) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.messages, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'messages'} onClick={() => setExpandedMetric(expandedMetric === 'messages' ? null : 'messages')} />
+                      <DashboardMetric icon={DollarSign} label="Costo x Msj" value={fmt(summary?.cpm || 0, true)} change={getChange(summary?.cpm, prevSummary?.cpm)} trend={getChange(summary?.cpm, prevSummary?.cpm) <= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'cpm'} onClick={() => setExpandedMetric(expandedMetric === 'cpm' ? null : 'cpm')} />
+                    </>
+                  )}
+                </div>
+              );
+            }
+
+            // Helper: returns the MetricDetailChart if the expanded metric belongs to a given group
+            const generalMetrics = ['spend', 'reach'];
+            const ecomMetrics = ['purchases', 'roas', 'revenue'];
+            const leadMetrics = ['leads', 'cpl'];
+            const wppMetrics = ['messages', 'cpm'];
+
+            const chartData = expandedMetric ? (
+              expandedMetric === 'spend' ? daily?.map((d: any) => ({ val: d.spend, date: d.date })) :
+              expandedMetric === 'reach' ? daily?.map((d: any) => ({ val: d.reach, date: d.date })) :
+              expandedMetric === 'purchases' ? daily?.map((d: any) => ({ val: d.purchases, date: d.date })) :
+              expandedMetric === 'revenue' ? daily?.map((d: any) => ({ val: d.purchase_value, date: d.date })) :
+              expandedMetric === 'roas' ? daily?.map((d: any) => ({ val: d.roas, date: d.date })) :
+              expandedMetric === 'leads' ? daily?.map((d: any) => ({ val: d.leads, date: d.date })) :
+              expandedMetric === 'cpl' ? daily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date })) :
+              expandedMetric === 'messages' ? daily?.map((d: any) => ({ val: d.messages, date: d.date })) :
+              expandedMetric === 'cpm' ? daily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date })) : []
+            ) : [];
+            const prevChartData = expandedMetric ? (
+              expandedMetric === 'spend' ? prevDaily?.map((d: any) => ({ val: d.spend, date: d.date })) :
+              expandedMetric === 'reach' ? prevDaily?.map((d: any) => ({ val: d.reach, date: d.date })) :
+              expandedMetric === 'purchases' ? prevDaily?.map((d: any) => ({ val: d.purchases, date: d.date })) :
+              expandedMetric === 'revenue' ? prevDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date })) :
+              expandedMetric === 'roas' ? prevDaily?.map((d: any) => ({ val: d.roas, date: d.date })) :
+              expandedMetric === 'leads' ? prevDaily?.map((d: any) => ({ val: d.leads, date: d.date })) :
+              expandedMetric === 'cpl' ? prevDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date })) :
+              expandedMetric === 'messages' ? prevDaily?.map((d: any) => ({ val: d.messages, date: d.date })) :
+              expandedMetric === 'cpm' ? prevDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date })) : []
+            ) : [];
+            const chartLabel = expandedMetric === 'spend' ? 'Inversión' : expandedMetric === 'reach' ? 'Alcance' : expandedMetric === 'purchases' ? 'Compras' : expandedMetric === 'revenue' ? 'Retorno' : expandedMetric === 'roas' ? 'ROAS' : expandedMetric === 'leads' ? 'Leads' : expandedMetric === 'cpl' ? 'CPL' : expandedMetric === 'messages' ? 'Mensajes' : 'Costo x Msj';
+
+            const InlineChart = ({ forGroup }: { forGroup: string[] }) => (
+              expandedMetric && forGroup.includes(expandedMetric) ? (
+                <MetricDetailChart label={chartLabel} color={BLUE} data={chartData} prevData={prevChartData} />
+              ) : null
+            );
+
+            // Multiple rows for grouped layout when > 1 tag is active
+            return (
+              <>
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><BarChart2 className="w-3.5 h-3.5" /> Métricas Generales</h3>
+                  <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                    <DashboardMetric icon={DollarSign} label="Inversión" value={fmt(summary?.spend || 0, true)} change={getChange(summary?.spend, prevSummary?.spend)} trend={getChange(summary?.spend, prevSummary?.spend) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.spend, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'spend'} onClick={() => setExpandedMetric(expandedMetric === 'spend' ? null : 'spend')} />
+                    <DashboardMetric icon={Users} label="Alcance" value={fmt(summary?.reach || 0)} change={getChange(summary?.reach, prevSummary?.reach)} trend={getChange(summary?.reach, prevSummary?.reach) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.reach, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'reach'} onClick={() => setExpandedMetric(expandedMetric === 'reach' ? null : 'reach')} />
+                  </div>
+                  <InlineChart forGroup={generalMetrics} />
+                </div>
+
+                {/* When 3 tags: Ecom + Leads side by side, Mensajes full width below
+                    When 2 tags: both side by side
+                    Grid is always controlled per combination */}
+                {activeTagsCount === 3 ? (
+                  <div className="space-y-6">
+                    {/* Row 1: Ecom (left, 2-col) + Leads (right, 2-col) */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      {isEcom && (
+                        <div className="space-y-2">
+                          <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Globe className="w-3.5 h-3.5" /> Tienda Online</h3>
+                          <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 overflow-x-auto scrollbar-hide">
+                            <DashboardMetric icon={Target} label="Compras" value={fmt(summary?.purchases || 0)} change={getChange(summary?.purchases, prevSummary?.purchases)} trend={getChange(summary?.purchases, prevSummary?.purchases) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.purchases, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'purchases'} onClick={() => setExpandedMetric(expandedMetric === 'purchases' ? null : 'purchases')} />
+                            <DashboardMetric icon={BarChart2} label="ROAS" value={`${(summary?.roas || 0).toFixed(2)}x`} change={getChange(summary?.roas, prevSummary?.roas)} trend={getChange(summary?.roas, prevSummary?.roas) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.roas, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'roas'} onClick={() => setExpandedMetric(expandedMetric === 'roas' ? null : 'roas')} />
+                            <DashboardMetric icon={DollarSign} label="Retorno" value={fmt(summary?.purchase_value || 0, true)} change={getChange(summary?.purchase_value, prevSummary?.purchase_value)} trend={getChange(summary?.purchase_value, prevSummary?.purchase_value) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'revenue'} onClick={() => setExpandedMetric(expandedMetric === 'revenue' ? null : 'revenue')} />
+                          </div>
+                        </div>
+                      )}
+                      {isLead && (
+                        <div className="space-y-2">
+                          <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Clientes Potenciales</h3>
+                          <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 overflow-x-auto scrollbar-hide">
+                            <DashboardMetric icon={Target} label="Leads" value={fmt(summary?.leads || 0)} change={getChange(summary?.leads, prevSummary?.leads)} trend={getChange(summary?.leads, prevSummary?.leads) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.leads, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'leads'} onClick={() => setExpandedMetric(expandedMetric === 'leads' ? null : 'leads')} />
+                            <DashboardMetric icon={DollarSign} label="CPL" value={fmt(summary?.cpl || 0, true)} change={getChange(summary?.cpl, prevSummary?.cpl)} trend={getChange(summary?.cpl, prevSummary?.cpl) <= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'cpl'} onClick={() => setExpandedMetric(expandedMetric === 'cpl' ? null : 'cpl')} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Full-width chart spanning both columns */}
+                    <InlineChart forGroup={[...ecomMetrics, ...leadMetrics]} />
+                    {/* Row 2: Mensajes full width */}
+                    {isWpp && (
+                      <div className="space-y-2">
+                        <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mensajes (WhatsApp)</h3>
+                        <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                          <DashboardMetric icon={MessageSquare} label="Mensajes" value={fmt(summary?.messages || 0)} change={getChange(summary?.messages, prevSummary?.messages)} trend={getChange(summary?.messages, prevSummary?.messages) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.messages, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'messages'} onClick={() => setExpandedMetric(expandedMetric === 'messages' ? null : 'messages')} />
+                          <DashboardMetric icon={DollarSign} label="Costo x Msj" value={fmt(summary?.cpm || 0, true)} change={getChange(summary?.cpm, prevSummary?.cpm)} trend={getChange(summary?.cpm, prevSummary?.cpm) <= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'cpm'} onClick={() => setExpandedMetric(expandedMetric === 'cpm' ? null : 'cpm')} />
+                        </div>
+                        <InlineChart forGroup={wppMetrics} />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                      {isEcom && (
+                        <div className="space-y-2">
+                          <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Globe className="w-3.5 h-3.5" /> Tienda Online</h3>
+                          <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-3 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                            <DashboardMetric icon={Target} label="Compras" value={fmt(summary?.purchases || 0)} change={getChange(summary?.purchases, prevSummary?.purchases)} trend={getChange(summary?.purchases, prevSummary?.purchases) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.purchases, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'purchases'} onClick={() => setExpandedMetric(expandedMetric === 'purchases' ? null : 'purchases')} />
+                            <DashboardMetric icon={BarChart2} label="ROAS" value={`${(summary?.roas || 0).toFixed(2)}x`} change={getChange(summary?.roas, prevSummary?.roas)} trend={getChange(summary?.roas, prevSummary?.roas) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.roas, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'roas'} onClick={() => setExpandedMetric(expandedMetric === 'roas' ? null : 'roas')} />
+                            <DashboardMetric icon={DollarSign} label="Retorno" value={fmt(summary?.purchase_value || 0, true)} change={getChange(summary?.purchase_value, prevSummary?.purchase_value)} trend={getChange(summary?.purchase_value, prevSummary?.purchase_value) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'revenue'} onClick={() => setExpandedMetric(expandedMetric === 'revenue' ? null : 'revenue')} />
+                          </div>
+                        </div>
+                      )}
+                      {isLead && (
+                        <div className="space-y-2">
+                          <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Clientes Potenciales</h3>
+                          <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                            <DashboardMetric icon={Target} label="Leads" value={fmt(summary?.leads || 0)} change={getChange(summary?.leads, prevSummary?.leads)} trend={getChange(summary?.leads, prevSummary?.leads) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.leads, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'leads'} onClick={() => setExpandedMetric(expandedMetric === 'leads' ? null : 'leads')} />
+                            <DashboardMetric icon={DollarSign} label="CPL" value={fmt(summary?.cpl || 0, true)} change={getChange(summary?.cpl, prevSummary?.cpl)} trend={getChange(summary?.cpl, prevSummary?.cpl) <= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'cpl'} onClick={() => setExpandedMetric(expandedMetric === 'cpl' ? null : 'cpl')} />
+                          </div>
+                        </div>
+                      )}
+                      {isWpp && (
+                        <div className="space-y-2">
+                          <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mensajes (WhatsApp)</h3>
+                          <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+                            <DashboardMetric icon={MessageSquare} label="Mensajes" value={fmt(summary?.messages || 0)} change={getChange(summary?.messages, prevSummary?.messages)} trend={getChange(summary?.messages, prevSummary?.messages) >= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.messages, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'messages'} onClick={() => setExpandedMetric(expandedMetric === 'messages' ? null : 'messages')} />
+                            <DashboardMetric icon={DollarSign} label="Costo x Msj" value={fmt(summary?.cpm || 0, true)} change={getChange(summary?.cpm, prevSummary?.cpm)} trend={getChange(summary?.cpm, prevSummary?.cpm) <= 0 ? 'up' : 'down'} data={daily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'cpm'} onClick={() => setExpandedMetric(expandedMetric === 'cpm' ? null : 'cpm')} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* Full-width chart spanning all columns */}
+                    <InlineChart forGroup={[...ecomMetrics, ...leadMetrics, ...wppMetrics]} />
+                  </>
+                )}
+              </>
+            );
+          })()}
         </div>
       ) : null}
-      {/* Expanded Chart - CLONED FROM DASHBOARD */}
-      {expandedMetric && (
-        <MetricDetailChart 
-          label={expandedMetric === 'spend' ? 'Inversión' : expandedMetric === 'reach' ? 'Alcance' : expandedMetric === 'results' ? 'Conversiones' : expandedMetric === 'revenue' ? 'Retorno' : 'ROAS'}
-          color={BLUE}
-          data={
-            expandedMetric === 'spend' ? daily?.map((d: any) => ({ val: d.spend, date: d.date })) :
-            expandedMetric === 'reach' ? daily?.map((d: any) => ({ val: d.reach, date: d.date })) :
-            expandedMetric === 'results' ? daily?.map((d: any) => ({ val: d.results, date: d.date })) :
-            expandedMetric === 'revenue' ? daily?.map((d: any) => ({ val: d.purchase_value, date: d.date })) :
-            daily?.map((d: any) => ({ val: d.roas, date: d.date }))
-          }
-          prevData={
-            expandedMetric === 'spend' ? prevDaily?.map((d: any) => ({ val: d.spend, date: d.date })) :
-            expandedMetric === 'reach' ? prevDaily?.map((d: any) => ({ val: d.reach, date: d.date })) :
-            expandedMetric === 'results' ? prevDaily?.map((d: any) => ({ val: d.results, date: d.date })) :
-            expandedMetric === 'revenue' ? prevDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date })) :
-            prevDaily?.map((d: any) => ({ val: d.roas, date: d.date }))
-          }
-        />
+
+
+      {/* Campañas Activas */}
+      {campaigns && campaigns.length > 0 && (
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm p-6 mt-8 mb-8">
+          <SectionTitle icon={Megaphone} title="Rendimiento de Campañas" subtitle="Métricas detalladas por campaña activa" />
+          
+          {['Ventas', 'Leads', 'Mensajes', 'Tráfico/Comunidad', 'Otras Campañas'].map(category => {
+            const categoryCampaigns = campaigns.filter((c: any) => c.category === category);
+            if (categoryCampaigns.length === 0) return null;
+
+            return (
+              <div key={category} className="mt-6 mb-6 last:mb-0">
+                <h4 className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest mb-3 pl-1 border-l-2 border-violet-500">Campañas de {category}</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-zinc-100 dark:border-zinc-800">
+                        <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-l-lg">Campaña</th>
+                        <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Inversión</th>
+                        <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Alcance</th>
+                        
+                        {category === 'Ventas' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Compras</th>}
+                        {category === 'Ventas' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">ROAS</th>}
+                        {category === 'Ventas' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">CPA</th>}
+                        
+                        {category === 'Leads' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Leads</th>}
+                        {category === 'Leads' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">CPL</th>}
+                        
+                        {category === 'Mensajes' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Mensajes</th>}
+                        {category === 'Mensajes' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">Costo/Msj</th>}
+
+                        {category === 'Tráfico/Comunidad' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Costo/Mil (CPM)</th>}
+                        {category === 'Tráfico/Comunidad' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Seguidores IG</th>}
+                        {category === 'Tráfico/Comunidad' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">Me Gusta FB</th>}
+                        
+                        {category === 'Otras Campañas' && isEcom && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Compras</th>}
+                        {category === 'Otras Campañas' && isLead && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Leads</th>}
+                        {category === 'Otras Campañas' && isWpp && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">Mensajes</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">
+                      {categoryCampaigns.map((c: any) => (
+                        <tr key={c.id} className="border-b border-zinc-50 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                          <td className="py-4 px-4 font-bold max-w-[250px] truncate" title={c.name}>{c.name}</td>
+                          <td className="py-4 px-4">{fmt(c.spend, true)}</td>
+                          <td className="py-4 px-4">{fmt(c.reach)}</td>
+                          
+                          {category === 'Ventas' && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.purchases)}</td>}
+                          {category === 'Ventas' && <td className="py-4 px-4">{c.roas.toFixed(2)}x</td>}
+                          {category === 'Ventas' && <td className="py-4 px-4">{fmt(c.cpa, true)}</td>}
+                          
+                          {category === 'Leads' && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.leads)}</td>}
+                          {category === 'Leads' && <td className="py-4 px-4">{fmt(c.cpl, true)}</td>}
+                          
+                          {category === 'Mensajes' && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.messages)}</td>}
+                          {category === 'Mensajes' && <td className="py-4 px-4">{fmt(c.cpm, true)}</td>}
+                          
+                          {category === 'Tráfico/Comunidad' && <td className="py-4 px-4">{fmt((c.spend / (c.reach || 1)) * 1000, true)}</td>}
+                          {category === 'Tráfico/Comunidad' && <td className="py-4 px-4 text-violet-600 dark:text-violet-400 font-bold">{c.ig_followers > 0 ? fmt(c.ig_followers) : '—'}</td>}
+                          {category === 'Tráfico/Comunidad' && <td className="py-4 px-4 text-blue-600 dark:text-blue-400 font-bold">{c.fb_likes > 0 ? fmt(c.fb_likes) : '—'}</td>}
+                          
+                          {category === 'Otras Campañas' && isEcom && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.purchases)}</td>}
+                          {category === 'Otras Campañas' && isLead && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.leads)}</td>}
+                          {category === 'Otras Campañas' && isWpp && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.messages)}</td>}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Breakdowns grid */}

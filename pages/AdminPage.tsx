@@ -29,6 +29,7 @@ import {
   Sun,
   Moon,
   MonitorPlay,
+  Star,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useViewAs } from "../contexts/ViewAsContext";
@@ -53,8 +54,15 @@ interface ClientRow {
   shopify_access_token?: string;
   tiendanube_store_id?: string;
   tiendanube_access_token?: string;
+  client_tags?: string[];
   created_at: string;
 }
+
+const CLIENT_TAGS = [
+  { id: 'tienda_online', label: 'Tienda Online (E-commerce)', color: 'bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-400' },
+  { id: 'lead_gen', label: 'Clientes Potenciales (Leads)', color: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' },
+  { id: 'whatsapp', label: 'Conversaciones (WhatsApp)', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' },
+];
 
 const blank = () => ({
   email: "",
@@ -270,6 +278,7 @@ export default function AdminPage() {
       shopify_access_token: c.shopify_access_token || "",
       tiendanube_store_id: c.tiendanube_store_id || "",
       tiendanube_access_token: c.tiendanube_access_token || "",
+      client_tags: c.client_tags || [],
       new_password: "",
     });
     setEditingClient(c);
@@ -420,6 +429,7 @@ export default function AdminPage() {
           shopify_access_token: editForm.shopify_access_token || null,
           tiendanube_store_id: editForm.tiendanube_store_id || null,
           tiendanube_access_token: editForm.tiendanube_access_token || null,
+          client_tags: editForm.client_tags || [],
         })
         .eq("id", editingClient.id);
 
@@ -437,13 +447,17 @@ export default function AdminPage() {
       let order = 0;
       for (const link of clientLinks) {
         if (link.label && link.url) {
-          await db.links.upsert({
-            ...(link.id ? { id: link.id } : {}),
+          const payload = {
             client_id: editingClient.id,
             label: link.label,
             url: link.url,
             sort_order: order++,
-          });
+          };
+          if (link.id) {
+            await supabase.from("car_links").update(payload).eq("id", link.id);
+          } else {
+            await supabase.from("car_links").insert(payload);
+          }
         }
       }
       for (const id of linksToDelete) {
@@ -733,7 +747,20 @@ export default function AdminPage() {
                           {c.plan}
                         </span>
                       )}
-                      <span className="text-[11px] text-zinc-400">
+                      {c.client_tags && c.client_tags.length > 0 && (
+                        <div className="flex items-center gap-1.5 border-l border-zinc-200 dark:border-zinc-700 pl-3">
+                          {c.client_tags.map(tagId => {
+                            const tagInfo = CLIENT_TAGS.find(t => t.id === tagId);
+                            if (!tagInfo) return null;
+                            return (
+                              <span key={tagId} className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${tagInfo.color}`}>
+                                {tagInfo.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <span className="text-[11px] text-zinc-400 ml-auto">
                         {new Date(c.created_at).toLocaleDateString("es-AR", {
                           day: "2-digit",
                           month: "short",
@@ -792,6 +819,7 @@ export default function AdminPage() {
                           ecommerce_platform: c.ecommerce_platform,
                           shopify_domain: c.shopify_domain,
                           shopify_access_token: c.shopify_access_token,
+                          client_tags: c.client_tags || [],
                         };
                         setViewAsProfile(
                           viewAsProfile?.id === c.id ? null : clientProfile,
@@ -899,6 +927,74 @@ export default function AdminPage() {
             </div>
 
             <form onSubmit={saveConfig} className="p-6 space-y-6">
+              {/* Etiquetas / Tipo de Cliente */}
+              <SectionBox title="Tipo de Cliente y Objetivos" badge="Tags">
+                <div className="flex flex-col gap-2">
+                  <p className="text-[12px] text-zinc-500 mb-1">
+                    Seleccioná los objetivos de este cliente. Esto determinará qué métricas y secciones se mostrarán en su Dashboard.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {CLIENT_TAGS.map((tag) => {
+                      const isSelected = editForm.client_tags?.includes(tag.id);
+                      const isPrimary = editForm.client_tags?.[0] === tag.id;
+                      
+                      return (
+                        <div
+                          key={tag.id}
+                          className={`relative flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${
+                            isSelected
+                              ? "border-violet-500 bg-violet-50/50 dark:bg-violet-500/10"
+                              : "border-zinc-200 dark:border-zinc-700 hover:border-violet-300"
+                          }`}
+                        >
+                          <label className="flex items-center gap-3 cursor-pointer flex-1">
+                            <div className="mt-0.5">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const newTags = e.target.checked
+                                    ? [...(editForm.client_tags || []), tag.id]
+                                    : (editForm.client_tags || []).filter((t: string) => t !== tag.id);
+                                  ef("client_tags", newTags);
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <span className="text-[13px] font-semibold text-zinc-900 dark:text-white block">
+                                {tag.label}
+                              </span>
+                            </div>
+                          </label>
+                          
+                          {isSelected && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (isPrimary) return;
+                                const tags = [...(editForm.client_tags || [])];
+                                const index = tags.indexOf(tag.id);
+                                if (index > -1) {
+                                  tags.splice(index, 1);
+                                  tags.unshift(tag.id);
+                                  ef("client_tags", tags);
+                                }
+                              }}
+                              className={`p-1.5 rounded-lg transition-all ${isPrimary ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10 shadow-sm' : 'text-zinc-400 hover:text-amber-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                              title={isPrimary ? "Esta es la Métrica Principal del Inicio" : "Convertir en Métrica Principal"}
+                            >
+                              <Star className="w-4 h-4" fill={isPrimary ? "currentColor" : "none"} strokeWidth={isPrimary ? 0 : 2} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </SectionBox>
+
               {/* Meta Ads */}
               <SectionBox
                 title="Meta Ads"

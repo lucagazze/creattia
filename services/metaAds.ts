@@ -271,6 +271,23 @@ export const metaAds = {
     return res.data || [];
   },
 
+  // ── INSIGHTS AT CAMPAIGN LEVEL ──
+  getInsightsAtCampaignLevel: async (
+    accountId: string,
+    fields: string,
+    timeRange?: TimeRange,
+    datePreset?: DatePreset
+  ) => {
+    const params: Record<string, string> = { fields, level: 'campaign', limit: '200' };
+    if (timeRange) {
+      params.time_range = JSON.stringify(timeRange);
+    } else {
+      params.date_preset = datePreset || 'last_28d';
+    }
+    const res = await apiGet(`${accountId}/insights`, params);
+    return res.data || [];
+  },
+
   // ── ALL ADSETS FOR ACCOUNT (for optimization_goal lookup) ─
   getAccountAdsets: (accountId: string) =>
     apiGet(`${accountId}/adsets`, {
