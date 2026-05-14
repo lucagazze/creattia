@@ -30,10 +30,19 @@ import {
   Moon,
   MonitorPlay,
   Star,
+  KeyRound,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useViewAs } from "../contexts/ViewAsContext";
 import { db, ClientLink } from "../services/db";
+
+interface BusinessAccount {
+  id?: number;
+  user_id: string;
+  email: string;
+  source: 'car_clients' | 'car_business_accounts';
+  created_at: string;
+}
 
 interface ClientRow {
   id: string;
@@ -180,6 +189,20 @@ export default function AdminPage() {
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [linksToDelete, setLinksToDelete] = useState<number[]>([]);
 
+  // Business accounts state
+  const [businessAccounts, setBusinessAccounts] = useState<BusinessAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [newAccEmail, setNewAccEmail] = useState('');
+  const [newAccPwd, setNewAccPwd] = useState(() => genPwd());
+  const [showNewAccPwd, setShowNewAccPwd] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [deletingAccountUserId, setDeletingAccountUserId] = useState<string | null>(null);
+  const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(null);
+  const [changingPwdFor, setChangingPwdFor] = useState<string | null>(null);
+  const [changingPwd, setChangingPwd] = useState('');
+  const [showChangingPwd, setShowChangingPwd] = useState(false);
+  const [savingPwd, setSavingPwd] = useState(false);
+
   // Estados de conexión persistentes (locales al formulario por ahora)
   const [statuses, setStatuses] = useState<
     Record<string, "ok" | "error" | null>
@@ -267,6 +290,99 @@ export default function AdminPage() {
     }
   };
 
+  const loadAccounts = async (clientId: string, mainUserId: string | null) => {
+    setLoadingAccounts(true);
+    const accounts: BusinessAccount[] = [];
+    if (mainUserId && supabaseAdmin) {
+      const { data } = await supabaseAdmin.auth.admin.getUserById(mainUserId);
+      if (data?.user) {
+        accounts.push({
+          user_id: data.user.id,
+          email: data.user.email ?? '',
+          source: 'car_clients',
+          created_at: data.user.created_at,
+        });
+      }
+    }
+    const client = supabaseAdmin ?? supabase;
+    const { data: assoc } = await client
+      .from('car_business_accounts')
+      .select('*')
+      .eq('business_id', clientId)
+      .order('created_at', { ascending: true });
+    for (const acc of assoc ?? []) {
+      accounts.push({ id: acc.id, user_id: acc.user_id, email: acc.email, source: 'car_business_accounts', created_at: acc.created_at });
+    }
+    setBusinessAccounts(accounts);
+    setLoadingAccounts(false);
+  };
+
+  const handleCreateAccount = async (clientId: string, mainUserId: string | null) => {
+    if (!newAccEmail || !supabaseAdmin) return;
+    setCreatingAccount(true);
+    try {
+      const { data: auth, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+        email: newAccEmail,
+        password: newAccPwd,
+        email_confirm: true,
+      });
+      if (authErr) throw authErr;
+      const { error: dbErr } = await supabaseAdmin.from('car_business_accounts').insert({
+        business_id: clientId,
+        user_id: auth.user.id,
+        email: newAccEmail,
+      });
+      if (dbErr) throw dbErr;
+      showToast('Cuenta creada ✓', 'success');
+      setNewAccEmail('');
+      setNewAccPwd(genPwd());
+      loadAccounts(clientId, mainUserId);
+    } catch (err: any) {
+      showToast('Error: ' + err.message, 'error');
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
+  const handleDeleteAccount = async (acc: BusinessAccount, clientId: string, mainUserId: string | null) => {
+    if (!supabaseAdmin) return;
+    setDeletingAccountUserId(acc.user_id);
+    try {
+      if (acc.source === 'car_clients') {
+        const { error } = await supabaseAdmin.from('car_clients').update({ user_id: null }).eq('id', clientId);
+        if (error) throw error;
+        load();
+      } else {
+        const { error } = await supabaseAdmin.from('car_business_accounts').delete().eq('id', acc.id!);
+        if (error) throw error;
+      }
+      await supabaseAdmin.auth.admin.deleteUser(acc.user_id);
+      setBusinessAccounts((p) => p.filter((a) => a.user_id !== acc.user_id));
+      setConfirmDeleteUserId(null);
+      showToast('Cuenta eliminada ✓', 'success');
+    } catch (err: any) {
+      showToast('Error: ' + err.message, 'error');
+    } finally {
+      setDeletingAccountUserId(null);
+    }
+  };
+
+  const handleChangePwd = async (userId: string) => {
+    if (!changingPwd || !supabaseAdmin) return;
+    setSavingPwd(true);
+    try {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: changingPwd });
+      if (error) throw error;
+      showToast('Contraseña actualizada ✓', 'success');
+      setChangingPwdFor(null);
+      setChangingPwd('');
+    } catch (err: any) {
+      showToast('Error: ' + err.message, 'error');
+    } finally {
+      setSavingPwd(false);
+    }
+  };
+
   const openEdit = async (c: ClientRow) => {
     setEditForm({
       meta_account_id: c.meta_account_id || "",
@@ -282,14 +398,10 @@ export default function AdminPage() {
       new_password: "",
     });
     setEditingClient(c);
-    setLoadingLinks(true);
     setLinksToDelete([]);
-    try {
-      const links = await db.links.getByClientId(c.id);
-      setClientLinks(links);
-    } catch (e) {
-      console.error(e);
-    }
+    setLoadingLinks(true);
+    const links = await db.links.getByClientId(c.id).catch(() => []);
+    setClientLinks(links);
     setLoadingLinks(false);
   };
 
@@ -310,7 +422,7 @@ export default function AdminPage() {
     ]);
   };
 
-  const ef = (k: string, v: string) =>
+  const ef = (k: string, v: string | string[]) =>
     setEditForm((p: any) => ({ ...p, [k]: v }));
 
   const testShopify = async () => {
@@ -857,9 +969,18 @@ export default function AdminPage() {
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() =>
-                        setExpanded(expanded === c.id ? null : c.id)
-                      }
+                      onClick={() => {
+                        const next = expanded === c.id ? null : c.id;
+                        setExpanded(next);
+                        if (next) {
+                          setNewAccEmail('');
+                          setNewAccPwd(genPwd());
+                          setChangingPwdFor(null);
+                          setChangingPwd('');
+                          setConfirmDeleteUserId(null);
+                          loadAccounts(c.id, c.user_id ?? null);
+                        }
+                      }}
                       className="p-2 rounded-[7px] text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
                     >
                       {expanded === c.id ? (
@@ -872,35 +993,203 @@ export default function AdminPage() {
                 </div>
 
                 {expanded === c.id && (
-                  <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {c.meta_account_id ? (
-                      <DR
-                        label="Meta Account"
-                        value={
-                          metaAccounts.find((a) => a.id === c.meta_account_id)
-                            ?.name || c.meta_account_id
-                        }
-                      />
-                    ) : (
-                      <DR label="Meta Account" value="No configurado" />
-                    )}
-                    {c.klaviyo_api_key && (
-                      <DR
-                        label="Klaviyo API Key"
-                        value={c.klaviyo_api_key}
-                        secret
-                      />
-                    )}
-                    {c.chatwoot_url && (
-                      <DR label="Chatwoot URL" value={c.chatwoot_url} />
-                    )}
-                    {c.chatwoot_token && (
-                      <DR
-                        label="Chatwoot Token"
-                        value={c.chatwoot_token}
-                        secret
-                      />
-                    )}
+                  <div className="mt-3 pt-4 border-t border-zinc-100 dark:border-zinc-800 space-y-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-zinc-400">
+                      Cuentas con acceso
+                    </p>
+
+                    {/* Tabla */}
+                    <div className="rounded-[10px] border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-100 dark:border-zinc-800">
+                            <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.07em] text-zinc-400">Email</th>
+                            <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.07em] text-zinc-400 hidden sm:table-cell">Creada</th>
+                            <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.07em] text-zinc-400">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                          {loadingAccounts ? (
+                            <tr>
+                              <td colSpan={3} className="text-center py-6">
+                                <Loader2 className="w-4 h-4 animate-spin text-zinc-400 mx-auto" />
+                              </td>
+                            </tr>
+                          ) : businessAccounts.length === 0 ? (
+                            <tr>
+                              <td colSpan={3} className="text-center py-6 text-[12px] text-zinc-400">
+                                Sin cuentas
+                              </td>
+                            </tr>
+                          ) : (
+                            businessAccounts.map((acc) => (
+                              <React.Fragment key={acc.user_id}>
+                                <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                  <td className="px-4 py-3 text-[13px] font-mono text-zinc-700 dark:text-zinc-300">
+                                    {acc.email}
+                                  </td>
+                                  <td className="px-4 py-3 text-[12px] text-zinc-400 hidden sm:table-cell">
+                                    {new Date(acc.created_at).toLocaleDateString("es-AR")}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-1 justify-end">
+                                      {/* Cambiar contraseña */}
+                                      <button
+                                        onClick={() => {
+                                          if (changingPwdFor === acc.user_id) {
+                                            setChangingPwdFor(null);
+                                            setChangingPwd('');
+                                          } else {
+                                            setChangingPwdFor(acc.user_id);
+                                            setChangingPwd(genPwd());
+                                            setShowChangingPwd(false);
+                                            setConfirmDeleteUserId(null);
+                                          }
+                                        }}
+                                        className={`p-1.5 rounded-[6px] transition-all ${changingPwdFor === acc.user_id ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600' : 'text-zinc-400 hover:text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-500/10'}`}
+                                        title="Cambiar contraseña"
+                                      >
+                                        <KeyRound className="w-3.5 h-3.5" />
+                                      </button>
+                                      {/* Eliminar — paso 1 */}
+                                      {confirmDeleteUserId !== acc.user_id && (
+                                        <button
+                                          onClick={() => {
+                                            setConfirmDeleteUserId(acc.user_id);
+                                            setChangingPwdFor(null);
+                                            setChangingPwd('');
+                                          }}
+                                          className="p-1.5 rounded-[6px] text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                                          title="Eliminar cuenta"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {/* Cambiar contraseña — fila expandible */}
+                                {changingPwdFor === acc.user_id && (
+                                  <tr className="bg-violet-50/50 dark:bg-violet-500/5">
+                                    <td colSpan={3} className="px-4 py-3">
+                                      <div className="flex flex-col sm:flex-row gap-2 items-end">
+                                        <div className="flex-1 w-full">
+                                          <label className={labelCls}>Nueva contraseña</label>
+                                          <div className="relative">
+                                            <input
+                                              type={showChangingPwd ? "text" : "password"}
+                                              value={changingPwd}
+                                              onChange={(e) => setChangingPwd(e.target.value)}
+                                              className={inputCls + " pr-20 font-mono"}
+                                              placeholder="Mínimo 6 caracteres"
+                                            />
+                                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-1">
+                                              <button type="button" onClick={() => setShowChangingPwd((s) => !s)} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all">
+                                                {showChangingPwd ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                              </button>
+                                              <button type="button" onClick={() => copy(changingPwd, "Contraseña")} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Copiar">
+                                                <Copy className="w-3 h-3" />
+                                              </button>
+                                              <button type="button" onClick={() => setChangingPwd(genPwd())} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Generar">
+                                                <RefreshCw className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="flex gap-2 flex-shrink-0">
+                                          <button type="button" onClick={() => { setChangingPwdFor(null); setChangingPwd(''); }} className="h-10 px-3 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-[12px] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
+                                            Cancelar
+                                          </button>
+                                          <button type="button" onClick={() => handleChangePwd(acc.user_id)} disabled={savingPwd || !changingPwd} className="h-10 px-4 rounded-[9px] bg-violet-600 text-white text-[12px] font-semibold flex items-center gap-2 hover:bg-violet-700 transition-all disabled:opacity-50">
+                                            {savingPwd ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                            Guardar
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+
+                                {/* Eliminar — paso 2 confirmación */}
+                                {confirmDeleteUserId === acc.user_id && (
+                                  <tr className="bg-red-50/60 dark:bg-red-500/5">
+                                    <td colSpan={3} className="px-4 py-3">
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-[13px] text-red-600 dark:text-red-400 font-medium flex-1">
+                                          ¿Eliminar <span className="font-bold font-mono">{acc.email}</span>? Esta acción no se puede deshacer.
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setConfirmDeleteUserId(null)}
+                                          className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[12px] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex-shrink-0"
+                                        >
+                                          Cancelar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteAccount(acc, c.id, c.user_id ?? null)}
+                                          disabled={deletingAccountUserId === acc.user_id}
+                                          className="h-8 px-4 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 transition-all disabled:opacity-50 flex items-center gap-2 flex-shrink-0"
+                                        >
+                                          {deletingAccountUserId === acc.user_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                          Sí, eliminar
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Agregar cuenta */}
+                    <div className="flex flex-col sm:flex-row gap-2 items-end">
+                      <div className="flex-1 w-full">
+                        <label className={labelCls}>Email nueva cuenta</label>
+                        <input
+                          type="email"
+                          placeholder="email@empresa.com"
+                          value={newAccEmail}
+                          onChange={(e) => setNewAccEmail(e.target.value)}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div className="flex-1 w-full">
+                        <label className={labelCls}>Contraseña inicial</label>
+                        <div className="relative">
+                          <input
+                            type={showNewAccPwd ? "text" : "password"}
+                            value={newAccPwd}
+                            onChange={(e) => setNewAccPwd(e.target.value)}
+                            className={inputCls + " pr-20 font-mono"}
+                          />
+                          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-1">
+                            <button type="button" onClick={() => setShowNewAccPwd((s) => !s)} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all">
+                              {showNewAccPwd ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            </button>
+                            <button type="button" onClick={() => copy(newAccPwd, "Contraseña")} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Copiar">
+                              <Copy className="w-3 h-3" />
+                            </button>
+                            <button type="button" onClick={() => setNewAccPwd(genPwd())} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Generar nueva">
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCreateAccount(c.id, c.user_id ?? null)}
+                        disabled={creatingAccount || !newAccEmail || !supabaseAdmin}
+                        className="h-10 px-4 rounded-[9px] bg-violet-600 text-white text-[13px] font-semibold flex items-center gap-2 hover:bg-violet-700 transition-all disabled:opacity-50 flex-shrink-0 w-full sm:w-auto"
+                      >
+                        {creatingAccount ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+                        Agregar cuenta
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useViewAs } from '../contexts/ViewAsContext';
 import { ShoppingBag, DollarSign, Package, Calendar, ChevronDown, Receipt, Tag, TrendingUp, CheckCircle, Clock, BarChart2 } from 'lucide-react';
 import { ecommerce } from '../services/ecommerce';
 import { getPrevPeriod, today, daysAgo, presetToRange } from '../services/metaAds';
@@ -10,7 +11,9 @@ import KlaviyoLoader from '../components/ui/KlaviyoLoader';
 const PINK = '#ec4899';
 
 export default function TiendaPage() {
-  const { profile } = useAuth();
+  const { profile: authProfile } = useAuth();
+  const { viewAsProfile, isViewingAs } = useViewAs();
+  const profile = isViewingAs ? viewAsProfile : authProfile;
   const [data, setData] = useState<any>(null);
   const [prevData, setPrevData] = useState<any>(null);
   const [loading, setLoading] = useState(true);

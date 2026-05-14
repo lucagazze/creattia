@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useViewAs } from '../contexts/ViewAsContext';
 import { DatePreset, presetToRange, getPrevPeriod, today, daysAgo } from '../services/metaAds';
 import { klaviyo } from '../services/klaviyo';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
   Calendar, ChevronDown, TrendingUp, Mail, Zap, Package, MousePointerClick, DollarSign, MailOpen
 } from 'lucide-react';
@@ -44,7 +44,9 @@ const getKlaviyoChange = (curr?: number, prev?: number) => {
 
 export default function RetencionPage() {
   const { darkMode } = useTheme();
-  const { profile } = useAuth();
+  const { profile: authProfile } = useAuth();
+  const { viewAsProfile, isViewingAs } = useViewAs();
+  const profile = isViewingAs ? viewAsProfile : authProfile;
   
   const [activePreset, setActivePreset] = useState<DatePreset | 'custom'>('last_14d');
   const [activeSince, setActiveSince] = useState(daysAgo(14));
@@ -64,29 +66,54 @@ export default function RetencionPage() {
   const [hovering, setHovering] = useState<string | null>(null);
 
   const [fetchingKlaviyo, setFetchingKlaviyo] = useState(false);
+  const [fetchingDetailed, setFetchingDetailed] = useState(false);
   const [currentKlaviyo, setCurrentKlaviyo] = useState<any>(null);
   const [prevKlaviyo, setPrevKlaviyo] = useState<any>(null);
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
+  const [detailedStats, setDetailedStats] = useState<any>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleRow = (id: string) => setExpandedRows(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const [flowMsgs, setFlowMsgs] = useState<Record<string, any[]>>({});
+  const [loadingFlowMsgs, setLoadingFlowMsgs] = useState<Set<string>>(new Set());
+
+  const handleFlowExpand = async (flowId: string) => {
+    toggleRow(flowId);
+    if (!flowMsgs[flowId] && profile?.klaviyo_api_key) {
+      setLoadingFlowMsgs(prev => new Set([...prev, flowId]));
+      const msgs = await klaviyo.getFlowMessages(profile.klaviyo_api_key, flowId);
+      setFlowMsgs(prev => ({ ...prev, [flowId]: msgs }));
+      setLoadingFlowMsgs(prev => { const n = new Set(prev); n.delete(flowId); return n; });
+    }
+  };
 
   const [flows, setFlows] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [fetchingConfig, setFetchingConfig] = useState(false);
 
-  const fetchData = async (preset: string, since: string, until: string) => {
-    if (!since || !until) return;
-    const range = { since, until };
+  const fetchData = async (_preset: string, since: string, until: string) => {
+    if (!since || !until || !profile?.klaviyo_api_key) return;
+    const key = profile.klaviyo_api_key;
     const prevRange = getPrevPeriod(since, until);
-    
-    if (profile?.klaviyo_api_key) {
-      setFetchingKlaviyo(true);
-      try {
-        const [curr, prev] = await Promise.all([
-          klaviyo.getDashboardData(profile.klaviyo_api_key, range.since, range.until),
-          klaviyo.getDashboardData(profile.klaviyo_api_key, prevRange.since, prevRange.until)
-        ]);
-        setCurrentKlaviyo(curr); setPrevKlaviyo(prev);
-      } catch (err) { console.error("Klaviyo Fetch Error:", err); } finally { setFetchingKlaviyo(false); }
-    }
+
+    setFetchingKlaviyo(true);
+    setFetchingDetailed(true);
+    setCurrentKlaviyo(null);
+    setPrevKlaviyo(null);
+    setDetailedStats(null);
+
+    try {
+      const curr = await klaviyo.getDashboardData(key, since, until);
+      setCurrentKlaviyo(curr);
+      setFetchingKlaviyo(false);
+      const detailed = await klaviyo.getDetailedStats(key, since, until);
+      setDetailedStats(detailed);
+      setFetchingDetailed(false);
+    } catch (err) { console.error("Klaviyo Fetch Error:", err); setFetchingKlaviyo(false); setFetchingDetailed(false); }
+
+    try {
+      const prev = await klaviyo.getDashboardData(key, prevRange.since, prevRange.until);
+      setPrevKlaviyo(prev);
+    } catch { /* non-critical */ }
   };
 
   const fetchConfig = async () => {
@@ -233,160 +260,213 @@ export default function RetencionPage() {
         </div>
       )}
 
-      {/* Lists */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-6">
-        {/* Flujos Activos */}
-        <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-emerald-500" />
-              </div>
-              <h2 className="text-[15px] font-bold text-zinc-900 dark:text-white">Flujos de Trabajo</h2>
-            </div>
-            <span className="text-[12px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full">{flows.filter(f => f.attributes.status === 'live').length} activos</span>
-          </div>
-          <div className="space-y-3">
-            {fetchingConfig ? (
-              <div className="animate-pulse flex flex-col gap-3">
-                {[1,2,3].map(i => <div key={i} className="h-16 bg-zinc-100 dark:bg-zinc-800 rounded-[12px]"></div>)}
-              </div>
-            ) : flows.filter(f => f.attributes.status === 'live').length > 0 ? (
-              flows.filter(f => f.attributes.status === 'live').map((flow) => (
-                <div key={flow.id} className="space-y-2">
-                  <button 
-                    onClick={async () => {
-                      if (expandedMetric === `flow-${flow.id}`) {
-                        setExpandedMetric(null);
-                      } else {
-                        setExpandedMetric(`flow-${flow.id}`);
-                        if (!flow.messages) {
-                          const msgs = await klaviyo.getFlowMessages(profile?.klaviyo_api_key!, flow.id);
-                          setFlows(prev => prev.map(f => f.id === flow.id ? { ...f, messages: msgs } : f));
-                        }
-                      }
-                    }}
-                    className="w-full flex items-center justify-between p-4 rounded-[12px] border border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
-                  >
-                    <div>
-                      <h3 className="text-[13px] font-bold text-zinc-900 dark:text-white mb-1">{flow.attributes.name}</h3>
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-500">
-                        <span>{new Date(flow.attributes.updated).toLocaleDateString()}</span>
-                        <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
-                        <span>{flow.attributes.status}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase ${flow.attributes.status === 'live' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'}`}>
-                        {flow.attributes.status === 'live' ? 'Activo' : flow.attributes.status}
-                      </div>
-                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${expandedMetric === `flow-${flow.id}` ? 'rotate-180' : ''}`} />
-                    </div>
-                  </button>
-                  
-                  {expandedMetric === `flow-${flow.id}` && (
-                    <div className="pl-4 border-l-2 border-emerald-500/20 ml-2 space-y-2 animate-in slide-in-from-top-1 fade-in duration-200">
-                      {!flow.messages ? (
-                        <div className="flex items-center gap-2 p-2 text-[11px] text-zinc-400 italic">
-                          <div className="w-3 h-3 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                          Cargando mensajes...
-                        </div>
-                      ) : flow.messages.length > 0 ? (
-                        flow.messages.map((m: any) => (
-                          <div key={m.id} className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg flex items-center justify-between">
-                            <span className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">{m.attributes.name}</span>
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase">{m.attributes.channel}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[11px] text-zinc-400 italic p-2">No se encontraron mensajes en este flujo.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="text-[13px] text-zinc-500 font-medium text-center py-8">No hay flujos configurados.</p>
-            )}
-          </div>
-        </div>
+      {/* Tables */}
+      {profile?.klaviyo_api_key && (() => {
+        const fmtN = (n: number) => n > 0 ? n.toLocaleString('es-AR', { maximumFractionDigits: 0 }) : '—';
+        const fmtCurr = (n: number) => n > 0 ? `$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '—';
+        const fmtRate = (num: number, den: number) => den > 0 ? `${((num / den) * 100).toFixed(1)}%` : '—';
 
-        {/* Campañas */}
-        <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                <Mail className="w-4 h-4 text-emerald-500" />
-              </div>
-              <h2 className="text-[15px] font-bold text-zinc-900 dark:text-white">Campañas Recientes</h2>
-            </div>
-            <span className="text-[12px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-full">{campaigns.filter(c => c.attributes.status !== 'draft' && c.attributes.status !== 'Draft').length} enviadas</span>
+        const StatPill = ({ label, value, green }: { label: string; value: string; green?: boolean }) => (
+          <div className="flex flex-col items-center gap-0.5 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800/60 rounded-lg min-w-[68px]">
+            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest whitespace-nowrap">{label}</span>
+            <span className={`text-[12px] font-bold ${green ? 'text-emerald-500' : 'text-zinc-800 dark:text-zinc-100'}`}>{value}</span>
           </div>
-          <div className="space-y-3">
-            {fetchingConfig ? (
-              <div className="animate-pulse flex flex-col gap-3">
-                {[1,2,3].map(i => <div key={i} className="h-16 bg-zinc-100 dark:bg-zinc-800 rounded-[12px]"></div>)}
-              </div>
-            ) : campaigns.filter(c => c.attributes.status !== 'draft' && c.attributes.status !== 'Draft').length > 0 ? (
-              campaigns.filter(c => c.attributes.status !== 'draft' && c.attributes.status !== 'Draft').map((camp) => (
-                <div key={camp.id} className="space-y-2">
-                  <button 
-                    onClick={async () => {
-                      if (expandedMetric === `camp-${camp.id}`) {
-                        setExpandedMetric(null);
-                      } else {
-                        setExpandedMetric(`camp-${camp.id}`);
-                        if (!camp.messages) {
-                          const msgs = await klaviyo.getCampaignMessages(profile?.klaviyo_api_key!, camp.id);
-                          setCampaigns(prev => prev.map(c => c.id === camp.id ? { ...c, messages: msgs } : c));
-                        }
-                      }
-                    }}
-                    className="w-full flex items-center justify-between p-4 rounded-[12px] border border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
-                  >
-                    <div>
-                      <h3 className="text-[13px] font-bold text-zinc-900 dark:text-white mb-1">{camp.attributes.name}</h3>
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-zinc-500">
-                        <span>{new Date(camp.attributes.updated_at).toLocaleDateString()}</span>
-                        <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
-                        <span>{camp.attributes.status}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase ${camp.attributes.status === 'sent' || camp.attributes.status === 'Sent' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'}`}>
-                        {camp.attributes.status === 'sent' || camp.attributes.status === 'Sent' ? 'Enviada' : camp.attributes.status}
-                      </div>
-                      <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform ${expandedMetric === `camp-${camp.id}` ? 'rotate-180' : ''}`} />
-                    </div>
-                  </button>
+        );
 
-                  {expandedMetric === `camp-${camp.id}` && (
-                    <div className="pl-4 border-l-2 border-emerald-500/20 ml-2 space-y-2 animate-in slide-in-from-top-1 fade-in duration-200">
-                      {!camp.messages ? (
-                        <div className="flex items-center gap-2 p-2 text-[11px] text-zinc-400 italic">
-                          <div className="w-3 h-3 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                          Cargando mensajes...
-                        </div>
-                      ) : camp.messages.length > 0 ? (
-                        camp.messages.map((m: any) => (
-                          <div key={m.id} className="p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg flex items-center justify-between">
-                            <span className="text-[12px] font-medium text-zinc-700 dark:text-zinc-300">{m.attributes.label || m.attributes.name || 'Sin nombre'}</span>
-                            <span className="text-[10px] font-bold text-zinc-400 uppercase">{m.attributes.channel}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-[11px] text-zinc-400 italic p-2">No se encontraron mensajes.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="text-[13px] text-zinc-500 font-medium text-center py-8">No hay campañas registradas.</p>
-            )}
+        const StatsRow = ({ s, loading }: { s: any; loading: boolean }) => (
+          <div className="flex flex-wrap gap-1.5">
+            {loading
+              ? [1,2,3,4,5].map(i => <div key={i} className="h-[44px] w-[68px] bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)
+              : <>
+                  <StatPill label="Enviados" value={fmtN(s?.sent)} />
+                  <StatPill label="Apertura" value={fmtRate(s?.opens, s?.sent)} />
+                  <StatPill label="Clics"    value={fmtRate(s?.clicks, s?.sent)} />
+                  <StatPill label="Ingresos" value={fmtCurr(s?.revenue)} green={s?.revenue > 0} />
+                  <StatPill label="Pedidos"  value={fmtN(s?.orders)}    green={s?.orders > 0} />
+                </>
+            }
           </div>
-        </div>
-      </div>
+        );
+
+        if (detailedStats) console.log('[CAR] detailedStats keys — campaigns:', Object.keys(detailedStats.campaigns || {}), 'msgRevenue:', Object.keys(detailedStats.msgRevenue || {}), 'flowRevenue:', Object.keys(detailedStats.flowRevenue || {}));
+
+        const liveFlows = flows.filter(f => f.attributes.status === 'live');
+        const sentCamps = campaigns.filter(c => {
+          const s = (c.attributes.status || '').toLowerCase();
+          return s === 'sent' || s === 'sending';
+        });
+
+        return (
+          <div className="space-y-6 pt-2">
+            {/* Flows */}
+            <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Zap className="w-3.5 h-3.5 text-emerald-500" /></div>
+                  <h2 className="text-[14px] font-bold text-zinc-900 dark:text-white">Flujos de Automatización</h2>
+                </div>
+                <span className="text-[11px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{liveFlows.length} activos</span>
+              </div>
+              {fetchingConfig ? (
+                <div className="px-4 pb-4 space-y-1.5">{[1,2,3].map(i => <div key={i} className="h-9 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
+              ) : liveFlows.length === 0 ? (
+                <p className="text-[12px] text-zinc-400 text-center py-8">No hay flujos activos.</p>
+              ) : (
+                <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
+                  {liveFlows.map((flow: any) => {
+                    const open = expandedRows.has(flow.id);
+                    const flowRev = detailedStats?.flowRevenue?.[flow.id] || detailedStats?.flowRevenue?.[flow.attributes.name];
+                    const msgs = flowMsgs[flow.id] || [];
+                    const loadingMsgs = loadingFlowMsgs.has(flow.id);
+                    return (
+                      <div key={flow.id}>
+                        <button onClick={() => handleFlowExpand(flow.id)} className="w-full flex items-center justify-between px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors text-left">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 truncate">{flow.attributes.name}</span>
+                            <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">Activo</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-3">
+                            {fetchingDetailed
+                              ? <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
+                              : flowRev?.revenue > 0 && <span className="text-[11px] font-bold text-emerald-500">{fmtCurr(flowRev.revenue)}</span>}
+                            <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+                          </div>
+                        </button>
+                        {open && (
+                          <div className="px-4 pb-3 pt-1 space-y-2 bg-zinc-50/50 dark:bg-zinc-800/20">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Emails en este flujo</p>
+                              {loadingMsgs ? (
+                                <div className="space-y-1">{[1,2].map(i => <div key={i} className="h-12 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
+                              ) : msgs.length === 0 ? (
+                                <p className="text-[11px] text-zinc-400 italic px-1">No se encontraron emails.</p>
+                              ) : msgs.map((msg: any) => {
+                                const rev = detailedStats?.msgRevenue?.[msg.id] || detailedStats?.msgRevenue?.[msg.attributes.name];
+                                const eng = detailedStats?.msgEngagement?.[msg.id];
+                                const s = { ...eng, ...rev };
+                                const msgOpen = expandedRows.has(msg.id);
+                                const statsEl = fetchingDetailed
+                                  ? <div className="flex gap-2">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
+                                  : <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                                      <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.sent)}</span></span>
+                                      <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.opens, s?.sent)}</span></span>
+                                      <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.clicks, s?.sent)}</span></span>
+                                      <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s?.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s?.revenue || 0)}</span></span>
+                                      <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.orders || 0)}</span></span>
+                                    </div>;
+                                const statsElMobile = fetchingDetailed
+                                  ? <div className="flex gap-2">{[1,2,3,4].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
+                                  : <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                                      <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.sent)}</span></span>
+                                      <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.opens, s?.sent)}</span></span>
+                                      <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.clicks, s?.sent)}</span></span>
+                                      <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.orders || 0)}</span></span>
+                                    </div>;
+                                return (
+                                  <div key={msg.id} onClick={() => toggleRow(msg.id)} className="px-3 py-1.5 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-100 dark:border-zinc-800 sm:cursor-default cursor-pointer">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 truncate flex-1">{msg.attributes.name}</p>
+                                      {/* Desktop: all stats always visible */}
+                                      {fetchingDetailed
+                                        ? <div className="hidden sm:flex gap-2 shrink-0">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
+                                        : <div className="hidden sm:flex items-center gap-3 text-[11px] shrink-0 ml-3">
+                                            <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.sent)}</span></span>
+                                            <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.opens, s?.sent)}</span></span>
+                                            <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.clicks, s?.sent)}</span></span>
+                                            <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s?.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s?.revenue || 0)}</span></span>
+                                            <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.orders || 0)}</span></span>
+                                          </div>
+                                      }
+                                      {/* Mobile: ingresos preview + chevron */}
+                                      <div className="flex items-center gap-2 shrink-0 sm:hidden">
+                                        {!fetchingDetailed && s?.revenue > 0 && <span className="text-[11px] font-bold text-emerald-500">{fmtCurr(s.revenue)}</span>}
+                                        <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${msgOpen ? 'rotate-180' : ''}`} />
+                                      </div>
+                                    </div>
+                                    {/* Mobile: expanded stats (sin ingresos/pedidos, ya visible en header) */}
+                                    {msgOpen && <div className="sm:hidden pt-1">{statsElMobile}</div>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Campaigns */}
+            <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Mail className="w-3.5 h-3.5 text-emerald-500" /></div>
+                  <h2 className="text-[14px] font-bold text-zinc-900 dark:text-white">Campañas</h2>
+                </div>
+                <span className="text-[11px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{sentCamps.length} enviadas</span>
+              </div>
+              {fetchingConfig ? (
+                <div className="px-4 pb-4 space-y-1.5">{[1,2,3].map(i => <div key={i} className="h-9 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
+              ) : sentCamps.length === 0 ? (
+                <p className="text-[12px] text-zinc-400 text-center py-8">No hay campañas enviadas en este período.</p>
+              ) : (
+                <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
+                  {sentCamps.map((camp: any) => {
+                    const campEng = detailedStats?.campaigns?.[camp.attributes.name];
+                    const campRev = detailedStats?.msgRevenue?.[camp.messageId] || detailedStats?.msgRevenue?.[camp.id] || detailedStats?.msgRevenue?.[camp.messageLabel] || detailedStats?.msgRevenue?.[camp.attributes.name];
+                    const s = { ...campEng, ...campRev };
+                    const isSent = (camp.attributes.status || '').toLowerCase() === 'sent';
+                    return (
+                      <div key={camp.id}>
+                        <div onClick={() => toggleRow(camp.id)} className="flex items-center justify-between px-4 py-1.5 cursor-pointer sm:cursor-default">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 truncate">{camp.attributes.name}</span>
+                            <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${isSent ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'}`}>
+                              {isSent ? 'Enviada' : 'Enviando'}
+                            </span>
+                          </div>
+                          {/* Desktop: stats always visible */}
+                          {fetchingDetailed
+                            ? <div className="hidden sm:flex gap-2 shrink-0">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
+                            : <div className="hidden sm:flex items-center gap-3 text-[11px] shrink-0 ml-3">
+                                <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.sent)}</span></span>
+                                <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.opens, s?.sent)}</span></span>
+                                <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.clicks, s?.sent)}</span></span>
+                                <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s?.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s?.revenue || 0)}</span></span>
+                                <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.orders || 0)}</span></span>
+                              </div>
+                          }
+                          {/* Mobile: ingresos preview + chevron */}
+                          <div className="flex items-center gap-2 shrink-0 sm:hidden ml-2">
+                            {!fetchingDetailed && s?.revenue > 0 && <span className="text-[11px] font-bold text-emerald-500">{fmtCurr(s.revenue)}</span>}
+                            <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${expandedRows.has(camp.id) ? 'rotate-180' : ''}`} />
+                          </div>
+                        </div>
+                        {/* Mobile: stats expandable */}
+                        {expandedRows.has(camp.id) && (
+                          <div className="sm:hidden px-4 pb-2 pt-0.5">
+                            {fetchingDetailed
+                              ? <div className="flex gap-2">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
+                              : <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                                  <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.sent)}</span></span>
+                                  <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.opens, s?.sent)}</span></span>
+                                  <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.clicks, s?.sent)}</span></span>
+                                  <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.orders || 0)}</span></span>
+                                </div>
+                            }
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

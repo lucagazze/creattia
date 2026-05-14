@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ClientProfile {
@@ -95,13 +95,30 @@ export interface MonthlyReport {
 export const db = {
   profile: {
     async getByUserId(userId: string): Promise<ClientProfile | null> {
-      const { data, error } = await supabase
+      // Cuenta directa en car_clients
+      const { data } = await supabase
         .from('car_clients')
         .select('*')
         .eq('user_id', userId)
-        .single();
-      if (error) { console.error(error); return null; }
-      return data;
+        .maybeSingle();
+      if (data) return data;
+
+      // Cuenta asociada: buscar el business_id y leer el negocio con supabaseAdmin
+      // (necesario para bypasear RLS — el user_id del negocio no coincide con auth.uid())
+      const adminClient = supabaseAdmin ?? supabase;
+      const { data: link } = await adminClient
+        .from('car_business_accounts')
+        .select('business_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!link) return null;
+
+      const { data: business } = await adminClient
+        .from('car_clients')
+        .select('*')
+        .eq('id', link.business_id)
+        .maybeSingle();
+      return business ?? null;
     },
   },
 

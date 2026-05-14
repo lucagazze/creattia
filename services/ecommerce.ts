@@ -54,88 +54,9 @@ export const ecommerce = {
     }
   },
 
-  // Fetches real sessions & conversion from Shopify ShopifyQL (GraphQL Analytics)
-  getShopifyAnalytics: async (domain: string, token: string, since: string, until: string): Promise<{ totalSessions: number; conversionRate: number; dailySessions: Record<string, number>; dailyConvRate: Record<string, number> } | null> => {
-    try {
-      const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-      
-      // ShopifyQL query for sessions and conversion rate, grouped by day
-      const shopifyqlQuery = `FROM sessions SHOW sessions, conversion_rate SINCE ${since} UNTIL ${until} ORDER BY day`;
-      
-      const gqlQuery = `{
-        shopifyqlQuery(query: "${shopifyqlQuery}") {
-          __typename
-          ... on TableResponse {
-            tableData {
-              columns { name }
-              unformattedData { rowData }
-            }
-          }
-          ... on ParseError {
-            parseErrors { message code }
-          }
-        }
-      }`;
-
-      const res = await fetch(`${BASE}/graphql.json`, {
-        method: 'POST',
-        headers: {
-          'X-Shopify-Access-Token': token,
-          'X-Shop-Domain': cleanDomain,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: gqlQuery }),
-      });
-
-      if (!res.ok) {
-        console.warn('[Shopify ShopifyQL] HTTP error', res.status, '— falling back to estimation');
-        return null;
-      }
-
-      const json = await res.json();
-      const qlResult = json?.data?.shopifyqlQuery;
-
-      if (!qlResult || qlResult.__typename !== 'TableResponse') {
-        const parseErrors = qlResult?.parseErrors;
-        if (parseErrors) console.warn('[Shopify ShopifyQL] ParseErrors:', parseErrors);
-        else console.warn('[Shopify ShopifyQL] Unexpected response:', JSON.stringify(json).slice(0, 300));
-        return null;
-      }
-
-      const { columns, unformattedData } = qlResult.tableData;
-      const colNames: string[] = columns.map((c: any) => c.name);
-      const dayIdx = colNames.findIndex(c => c === 'day');
-      const sessIdx = colNames.findIndex(c => c === 'sessions');
-      const convIdx = colNames.findIndex(c => c === 'conversion_rate');
-
-      let totalSessions = 0;
-      let totalConvWeighted = 0;
-      const dailySessions: Record<string, number> = {};
-      const dailyConvRate: Record<string, number> = {};
-
-      for (const row of unformattedData.rowData) {
-        const dayVal = dayIdx >= 0 ? row[dayIdx] : null;
-        const sessVal = sessIdx >= 0 ? parseFloat(row[sessIdx]) || 0 : 0;
-        const convVal = convIdx >= 0 ? parseFloat(row[convIdx]) || 0 : 0;
-        
-        totalSessions += sessVal;
-        totalConvWeighted += convVal * sessVal; // weighted average
-
-        if (dayVal) {
-          const dateKey = String(dayVal).split('T')[0];
-          dailySessions[dateKey] = (dailySessions[dateKey] || 0) + sessVal;
-          dailyConvRate[dateKey] = convVal;
-        }
-      }
-
-      const conversionRate = totalSessions > 0 ? parseFloat((totalConvWeighted / totalSessions).toFixed(2)) : 0;
-      
-      console.log(`[Shopify ShopifyQL] Sessions: ${totalSessions}, ConvRate: ${conversionRate}%`);
-      return { totalSessions, conversionRate, dailySessions, dailyConvRate };
-    } catch (e) {
-      console.warn('[Shopify ShopifyQL] Exception, falling back to estimation:', e);
-      return null;
-    }
+  // ShopifyQL not available on standard Shopify plans — always estimate from orders
+  getShopifyAnalytics: async (_domain: string, _token: string, _since: string, _until: string): Promise<null> => {
+    return null;
   },
 
   getDashboardData: async (platform: string, domain: string, token: string, since: string, until: string) => {
