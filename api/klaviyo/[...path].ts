@@ -39,7 +39,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const fetchOptions: RequestInit = {
       method: req.method || 'GET',
-      headers: forwardHeaders,
+      headers: {
+        ...forwardHeaders,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
     };
 
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
