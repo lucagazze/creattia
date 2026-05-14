@@ -210,12 +210,73 @@ export const klaviyo = {
     }
   },
 
+  // Returns sent/opens/clicks per campaign or flow message name for the date range
+  getStatsByName: async (apiKey: string, since: string, until: string): Promise<Record<string, { sent: number; opens: number; clicks: number }>> => {
+    const cacheKey = `stats-by-name:${apiKey}:${since}:${until}`;
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+    try {
+      const metricsRes = await klaviyo.getMetrics(apiKey);
+      if (!metricsRes?.data) return {};
+      const metrics = metricsRes.data;
+      const findId = (names: string[]) => {
+        let found = metrics.find((m: any) => names.some((n: string) => m.attributes.name.toLowerCase() === n.toLowerCase()));
+        if (!found) found = metrics.find((m: any) => names.some((n: string) => m.attributes.name.toLowerCase().includes(n.toLowerCase())));
+        return found?.id;
+      };
+      const sentId  = findId(['Received Email', 'Email Recibido', 'Email Delivered', 'Delivered Email', 'Sent Email']);
+      const opensId = findId(['Opened Email', 'Email Abierto', 'Email Open']);
+      const clicksId = findId(['Clicked Email', 'Email Clicado', 'Email Click', 'Clicked Link in Email']);
+
+      const makeBody = (metricId: string) => ({
+        data: {
+          type: 'metric-aggregate',
+          attributes: {
+            metric_id: metricId,
+            measurements: ['count'],
+            by: ['Campaign Name'],
+            filter: [
+              `greater-or-equal(datetime,${since}T00:00:00Z)`,
+              `less-than(datetime,${until}T23:59:59Z)`,
+            ],
+            interval: 'day',
+            timezone: 'UTC',
+          },
+        },
+      });
+
+      const [sentRes, opensRes, clicksRes] = await Promise.all([
+        sentId  ? apiPost(apiKey, 'metric-aggregates', makeBody(sentId))  : null,
+        opensId ? apiPost(apiKey, 'metric-aggregates', makeBody(opensId)) : null,
+        clicksId ? apiPost(apiKey, 'metric-aggregates', makeBody(clicksId)) : null,
+      ]);
+
+      const result: Record<string, { sent: number; opens: number; clicks: number }> = {};
+      const sumByName = (res: any, field: 'sent' | 'opens' | 'clicks') => {
+        (res?.data?.attributes?.data || []).forEach((item: any) => {
+          const name = item.dimensions?.[0];
+          if (!name) return;
+          const total = (item.measurements?.count || []).reduce((a: number, b: number) => a + b, 0);
+          if (!result[name]) result[name] = { sent: 0, opens: 0, clicks: 0 };
+          result[name][field] = total;
+        });
+      };
+      sumByName(sentRes, 'sent');
+      sumByName(opensRes, 'opens');
+      sumByName(clicksRes, 'clicks');
+
+      setCache(cacheKey, result);
+      return result;
+    } catch (e) { return {}; }
+  },
+
   getFlows: async (apiKey: string) => {
     const cacheKey = `flows:${apiKey}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
     try {
-      const res = await apiFetch(`${BASE}/flows`, { headers: buildHeaders(apiKey) });
+      // Fetch all flows (including draft) so we can show everything
+      const res = await apiFetch(`${BASE}/flows?page%5Bsize%5D=50`, { headers: buildHeaders(apiKey) });
       if (!res.ok) return [];
       const json = await res.json();
       const data = json.data || [];
@@ -225,7 +286,7 @@ export const klaviyo = {
   },
 
   getCampaigns: async (apiKey: string) => {
-    const cacheKey = `campaigns:${apiKey}`;
+    const cacheKey = `campaigns:v2:${apiKey}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
     try {
@@ -234,7 +295,9 @@ export const klaviyo = {
       });
       if (!res.ok) return [];
       const json = await res.json();
-      const data = json.data || [];
+      const data = (json.data || []).sort((a: any, b: any) =>
+        new Date(b.attributes.updated_at).getTime() - new Date(a.attributes.updated_at).getTime()
+      );
       setCache(cacheKey, data);
       return data;
     } catch (e) { return []; }
@@ -242,16 +305,20 @@ export const klaviyo = {
 
   getFlowMessages: async (apiKey: string, flowId: string) => {
     try {
-      const actRes = await apiFetch(`${BASE}/flows/${flowId}/flow-actions`, { headers: buildHeaders(apiKey) });
+      const actRes = await apiFetch(
+        `${BASE}/flows/${flowId}/flow-actions?fields%5Bflow-action%5D=action_type,status`,
+        { headers: buildHeaders(apiKey) }
+      );
       if (!actRes.ok) return [];
       const actions = await actRes.json();
-      const msgPromises = (actions.data || [])
-        .filter((a: any) => a.type === 'flow-action')
-        .map((action: any) =>
-          apiFetch(`${BASE}/flow-actions/${action.id}/flow-messages`, {
-            headers: buildHeaders(apiKey),
-          }).then(r => r.ok ? r.json() : { data: [] })
-        );
+      const emailActions = (actions.data || []).filter(
+        (a: any) => a.type === 'flow-action' && a.attributes?.action_type === 'SEND_EMAIL'
+      );
+      const msgPromises = emailActions.map((action: any) =>
+        apiFetch(`${BASE}/flow-actions/${action.id}/flow-messages?fields%5Bflow-message%5D=name,channel,content`, {
+          headers: buildHeaders(apiKey),
+        }).then(r => r.ok ? r.json() : { data: [] })
+      );
       const results = await Promise.all(msgPromises);
       return results.flatMap(r => r.data || []);
     } catch (e) { return []; }
@@ -259,7 +326,10 @@ export const klaviyo = {
 
   getCampaignMessages: async (apiKey: string, campaignId: string) => {
     try {
-      const res = await apiFetch(`${BASE}/campaigns/${campaignId}/campaign-messages`, { headers: buildHeaders(apiKey) });
+      const res = await apiFetch(
+        `${BASE}/campaigns/${campaignId}/campaign-messages?fields%5Bcampaign-message%5D=label,channel,content`,
+        { headers: buildHeaders(apiKey) }
+      );
       if (!res.ok) return [];
       const json = await res.json();
       return json.data || [];
