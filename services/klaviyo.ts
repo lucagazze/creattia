@@ -26,8 +26,8 @@ function setCache(key: string, data: any) {
   resultCache[key] = { data, timestamp: Date.now() };
 }
 
-// ─── Concurrency limiter — max 2 simultaneous metric-aggregate calls ───
-const MAX_CONCURRENT = 2;
+// ─── Concurrency limiter — 1 slot to prevent cascading 429s ───
+const MAX_CONCURRENT = 1;
 let _inFlight = 0;
 const _waiters: (() => void)[] = [];
 
@@ -37,18 +37,42 @@ const acquire = (): Promise<void> => {
 };
 const release = () => { _inFlight--; _waiters.shift()?.(); };
 
-const enqueue = async <T>(fn: () => Promise<T>): Promise<T> => {
-  await acquire();
-  try { return await fn(); } finally { release(); }
+// Slot is released immediately after the HTTP call completes.
+// 429 retry happens OUTSIDE the lock so queued requests can proceed during the wait.
+const postAgg = async (apiKey: string, body: any, retryCount = 0): Promise<any> => {
+  let res: Response;
+  try {
+    res = await new Promise<Response>(async (resolve, reject) => {
+      await acquire();
+      try {
+        const r = await fetch(`${BASE}/metric-aggregates`, {
+          method: 'POST',
+          headers: buildHeaders(apiKey),
+          body: JSON.stringify(body),
+        });
+        resolve(r);
+      } catch (e) { reject(e); }
+      finally { release(); }
+    });
+  } catch (e) { console.error('[Klaviyo] metric-aggregates fetch error:', e); return null; }
+
+  if (res.status === 429) {
+    if (retryCount >= 3) { console.warn('[Klaviyo] metric-aggregates: rate limit exceeded, skipping'); return null; }
+    const retryAfter = res.headers.get('Retry-After');
+    const ms = retryAfter ? parseInt(retryAfter, 10) * 1000 : (retryCount + 1) * 2000;
+    await wait(ms);
+    return postAgg(apiKey, body, retryCount + 1);
+  }
+  if (!res.ok) { console.error(`[Klaviyo] metric-aggregates ${res.status}`); return null; }
+  return res.json();
 };
 
 const apiFetch = async (url: string, options: RequestInit, retryCount = 0): Promise<Response> => {
   const res = await fetch(url, options);
   if (res.status === 429) {
-    if (retryCount >= 5) return res;
+    if (retryCount >= 3) return res;
     const retryAfter = res.headers.get('Retry-After');
-    const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.pow(2, retryCount) * 1500;
-    await wait(waitMs);
+    await wait(retryAfter ? parseInt(retryAfter, 10) * 1000 : (retryCount + 1) * 1500);
     return apiFetch(url, options, retryCount + 1);
   }
   return res;
@@ -160,7 +184,7 @@ export const klaviyo = {
     until: string,
     measurements: string[] = ['sum_value'],
     by: string[] = []
-  ) => enqueue(() => apiPost(apiKey, 'metric-aggregates', buildAggBody(metricId, since, until, measurements, by))),
+  ) => postAgg(apiKey, buildAggBody(metricId, since, until, measurements, by)),
 
   getDashboardData: async (apiKey: string, since: string, until: string) => {
     const cacheKey = `dashboard:${apiKey}:${since}:${until}`;
@@ -192,7 +216,7 @@ export const klaviyo = {
       };
 
       const post = (id: string | undefined, measurements: string[], by: string[] = []) =>
-        id ? enqueue(() => apiPost(apiKey, 'metric-aggregates', buildAggBody(id, since, until, measurements, by))) : Promise.resolve(null);
+        id ? postAgg(apiKey, buildAggBody(id, since, until, measurements, by)) : Promise.resolve(null);
 
       const [revenueRes, attributedRes, sentRes, opensRes, clicksRes] = await Promise.all([
         post(mIds.revenue, ['sum_value', 'count']),
@@ -267,7 +291,7 @@ export const klaviyo = {
       });
 
       const postByName = (id: string | undefined) =>
-        id ? enqueue(() => apiPost(apiKey, 'metric-aggregates', makeBody(id))) : Promise.resolve(null);
+        id ? postAgg(apiKey, makeBody(id)) : Promise.resolve(null);
 
       const [sentRes, opensRes, clicksRes] = await Promise.all([
         postByName(sentId),
@@ -374,7 +398,7 @@ export const klaviyo = {
     });
 
     const p = (id: string | undefined, by: string, m: string[]) =>
-      id ? enqueue(() => apiPost(apiKey, 'metric-aggregates', makeBody(id, by, m))) : Promise.resolve(null);
+      id ? postAgg(apiKey, makeBody(id, by, m)) : Promise.resolve(null);
 
     const [cSent, cOpens, cClicks, msgRev, flowRev, mSent, mOpens, mClicks] = await Promise.all([
       p(mIds.sent,    'Campaign Name',       ['count']),

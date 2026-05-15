@@ -96,21 +96,20 @@ export default function RetencionPage() {
     setPrevKlaviyo(null);
     setDetailedStats(null);
 
-    const currP = klaviyo.getDashboardData(key, since, until);
-    const prevP = klaviyo.getDashboardData(key, prevRange.since, prevRange.until);
-    const detailedP = klaviyo.getDetailedStats(key, since, until);
-
+    // Stage 1: current period metrics — shows main KPIs as soon as possible
     try {
-      setCurrentKlaviyo(await currP);
-      setFetchingKlaviyo(false);
-    } catch (err) { console.error("Klaviyo Fetch Error:", err); setFetchingKlaviyo(false); }
+      setCurrentKlaviyo(await klaviyo.getDashboardData(key, since, until));
+    } catch (err) { console.error("Klaviyo Fetch Error:", err); }
+    setFetchingKlaviyo(false);
 
-    try {
-      setDetailedStats(await detailedP);
-      setFetchingDetailed(false);
-    } catch (err) { console.error("Klaviyo Detail Error:", err); setFetchingDetailed(false); }
-
-    try { setPrevKlaviyo(await prevP); } catch { /* non-critical */ }
+    // Stage 2: prev period + detailed stats — after stage 1, so they don't compete for rate limit
+    const [prevRes, detailedRes] = await Promise.allSettled([
+      klaviyo.getDashboardData(key, prevRange.since, prevRange.until),
+      klaviyo.getDetailedStats(key, since, until),
+    ]);
+    if (prevRes.status === 'fulfilled') setPrevKlaviyo(prevRes.value);
+    if (detailedRes.status === 'fulfilled') setDetailedStats(detailedRes.value);
+    setFetchingDetailed(false);
   };
 
   const fetchConfig = async () => {
