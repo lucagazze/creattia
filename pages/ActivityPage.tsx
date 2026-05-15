@@ -40,6 +40,7 @@ export default function ActivityPage() {
   const [range, setRange] = useState(30);
   const [search, setSearch] = useState('');
   const [expandedEmail, setExpandedEmail] = useState<string | null>(null);
+  const [expandedBusiness, setExpandedBusiness] = useState<string | null>(null);
 
   const load = async (days: number) => {
     try {
@@ -91,10 +92,16 @@ export default function ActivityPage() {
     return acc;
   }, {});
 
-  const filteredClients = clients.filter(c => 
+  const sortedClients = [...clients].sort((a, b) => {
+    const activityA = activityByClient[a.id]?.[0]?.created_at || '0';
+    const activityB = activityByClient[b.id]?.[0]?.created_at || '0';
+    return activityB.localeCompare(activityA);
+  });
+
+  const filteredClients = sortedClients.filter(c => 
     c.business_name?.toLowerCase().includes(search.toLowerCase()) ||
     c.accounts?.some((a: any) => a.email.toLowerCase().includes(search.toLowerCase()))
-  ).filter(c => activityByClient[c.id] || onlineUsers[c.id]);
+  );
 
   const todayStats = stats.find(s => s.day === new Date().toISOString().split('T')[0]);
   const yesterdayStats = stats.find(s => s.day === new Date(Date.now() - 86400000).toISOString().split('T')[0]);
@@ -255,18 +262,25 @@ export default function ActivityPage() {
         {filteredClients.map((c) => {
           const clientActivity = activityByClient[c.id] || [];
           const usersInActivity = [...new Set(clientActivity.map((a: any) => a.metadata?.user_email))].filter(Boolean);
+          const isBizExpanded = expandedBusiness === c.id;
           
           return (
             <div key={c.id} className="card overflow-hidden border-zinc-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all">
-              {/* Business Header */}
-              <div className="p-5 flex items-center justify-between bg-zinc-50/50 dark:bg-white/[0.01]">
+              {/* Business Header - Clickable to expand */}
+              <div 
+                onClick={() => setExpandedBusiness(isBizExpanded ? null : c.id)}
+                className="p-5 flex items-center justify-between bg-zinc-50/50 dark:bg-white/[0.01] cursor-pointer hover:bg-zinc-100/50 dark:hover:bg-white/[0.02] transition-colors group"
+              >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-emerald-500/20">
                     {c.business_name?.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="text-[15px] font-bold text-zinc-900 dark:text-white">{c.business_name}</h4>
+                      <h4 className="text-[15px] font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                        {c.business_name}
+                        {isBizExpanded ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+                      </h4>
                       {onlineUsers[c.id] && (
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-[9px] font-bold text-emerald-600 animate-pulse">
                           <div className="w-1 h-1 rounded-full bg-emerald-500" />
@@ -277,17 +291,26 @@ export default function ActivityPage() {
                     <p className="text-[11px] text-zinc-500">{c.niche || 'Sector no especificado'}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Última Actividad</p>
-                  <p className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">
-                    {clientActivity[0] ? new Date(clientActivity[0].created_at).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sin registros'}
-                  </p>
+                <div className="flex items-center gap-8">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Cuentas</p>
+                    <p className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">
+                      {[...new Set([...(c.accounts?.map((a: any) => a.email) || []), ...usersInActivity])].length} vinculadas
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Última Actividad</p>
+                    <p className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">
+                      {clientActivity[0] ? new Date(clientActivity[0].created_at).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sin registros'}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* Accounts Table */}
-              <div className="p-0 border-t border-zinc-100 dark:border-zinc-800">
-                <table className="w-full text-left border-collapse">
+              {/* Accounts Table - Only visible if expanded */}
+              {isBizExpanded && (
+                <div className="p-0 border-t border-zinc-100 dark:border-zinc-800 animate-in slide-in-from-top-2 duration-300">
+                  <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-zinc-100/30 dark:bg-zinc-800/20">
                       <th className="px-6 py-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Cuenta / Email</th>
@@ -352,7 +375,7 @@ export default function ActivityPage() {
                                   <span className="text-[12px] text-zinc-600 dark:text-zinc-400 font-medium">
                                     {userLastLog.location?.city ? `${userLastLog.location.city}, ${userLastLog.location.country}` : ''}
                                   </span>
-                                  <span className="text-[10px] text-zinc-400 font-mono">{userLastLog.ip || 'Sin IP'}</span>
+                                  <span className="text-[12px] text-zinc-400 font-mono">{userLastLog.ip || 'Sin IP'}</span>
                                 </div>
                               ) : '-'}
                             </td>
@@ -384,7 +407,7 @@ export default function ActivityPage() {
                                             <Globe className="w-4 h-4" />
                                           </div>
                                           <div className="flex flex-col">
-                                            <span className="text-[12px] font-bold text-zinc-700 dark:text-zinc-200">
+                                            <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-200">
                                               {log.ip || 'IP Privada/Desconocida'}
                                             </span>
                                             {log.location?.city && (
@@ -423,6 +446,7 @@ export default function ActivityPage() {
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           );
         })}
