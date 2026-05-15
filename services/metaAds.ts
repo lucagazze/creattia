@@ -194,7 +194,7 @@ export const metaAds = {
   getInsights: async (accountId: string, fields: string[] | string, preset?: DatePreset, range?: { since: string, until: string }, timeIncrement?: number, signal?: AbortSignal) => {
     const fieldsStr = Array.isArray(fields) ? fields.join(',') : fields;
     let url = `${BASE}/${accountId}/insights?fields=${fieldsStr}&access_token=${getToken()}&limit=500`;
-    if (range) url += `&time_range={"since":"${range.since}","until":"${range.until}"}`;
+    if (range) url += `&time_range={"since":"${range.since}","until":"${range.until || range.since}"}`;
     else if (preset) url += `&date_preset=${preset}`;
     if (timeIncrement) url += `&time_increment=${timeIncrement}`;
 

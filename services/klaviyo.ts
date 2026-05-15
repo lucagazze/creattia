@@ -437,8 +437,10 @@ export const klaviyo = {
 
   getFlowMessages: async (apiKey: string, flowId: string) => {
     try {
+      // Use filter endpoint instead of nested /flows/{id}/flow-actions
+      // to avoid 404 in Vercel production (deep nested paths unreliable with catch-all routing)
       const actRes = await apiFetch(
-        `${BASE}/flows/${flowId}/flow-actions`,
+        `${BASE}/flow-actions?filter=equals(flow.id,"${flowId}")&page[size]=50`,
         { headers: buildHeaders(apiKey) }
       );
       if (!actRes.ok) return [];
