@@ -68,18 +68,6 @@ export default function RetencionPage() {
   const [detailedStats, setDetailedStats] = useState<any>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const toggleRow = (id: string) => setExpandedRows(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const [flowMsgs, setFlowMsgs] = useState<Record<string, any[]>>({});
-  const [loadingFlowMsgs, setLoadingFlowMsgs] = useState<Set<string>>(new Set());
-
-  const handleFlowExpand = async (flowId: string) => {
-    toggleRow(flowId);
-    if (!(flowId in flowMsgs) && profile?.klaviyo_api_key) {
-      setLoadingFlowMsgs(prev => new Set([...prev, flowId]));
-      const msgs = await klaviyo.getFlowMessages(profile.klaviyo_api_key, flowId);
-      setFlowMsgs(prev => ({ ...prev, [flowId]: msgs }));
-      setLoadingFlowMsgs(prev => { const n = new Set(prev); n.delete(flowId); return n; });
-    }
-  };
 
   const [flows, setFlows] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -332,83 +320,28 @@ export default function RetencionPage() {
               ) : (
                 <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
                   {liveFlows.map((flow: any) => {
-                    const open = expandedRows.has(flow.id);
                     const flowRev = detailedStats?.flowRevenue?.[flow.id] || detailedStats?.flowRevenue?.[flow.attributes.name];
-                    const msgs = flowMsgs[flow.id] || [];
-                    const loadingMsgs = loadingFlowMsgs.has(flow.id);
+                    const s = { revenue: flowRev?.revenue || 0, orders: flowRev?.orders || 0 };
                     return (
-                      <div key={flow.id}>
-                        <button onClick={() => handleFlowExpand(flow.id)} className="w-full flex items-center justify-between px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors text-left">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 truncate">{flow.attributes.name}</span>
-                            <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">Activo</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-3">
-                            {fetchingDetailed
-                              ? <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
-                              : flowRev?.revenue > 0 && <span className="text-[11px] font-bold text-emerald-500">{fmtCurr(flowRev.revenue)}</span>}
-                            <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-                          </div>
-                        </button>
-                        {open && (
-                          <div className="px-4 pb-3 pt-1 space-y-2 bg-zinc-50/50 dark:bg-zinc-800/20">
-                            <div className="space-y-1">
-                              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">Emails en este flujo</p>
-                              {loadingMsgs ? (
-                                <div className="space-y-1">{[1,2].map(i => <div key={i} className="h-12 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
-                              ) : msgs.length === 0 ? (
-                                <p className="text-[11px] text-zinc-400 italic px-1">No se encontraron emails.</p>
-                              ) : msgs.map((msg: any) => {
-                                const rev = detailedStats?.msgRevenue?.[msg.id] || detailedStats?.msgRevenue?.[msg.attributes.name];
-                                const eng = detailedStats?.msgEngagement?.[msg.id];
-                                const s = { ...eng, ...rev };
-                                const msgOpen = expandedRows.has(msg.id);
-                                const statsEl = fetchingDetailed
-                                  ? <div className="flex gap-2">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
-                                  : <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
-                                      <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.sent)}</span></span>
-                                      <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.opens, s?.sent)}</span></span>
-                                      <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.clicks, s?.sent)}</span></span>
-                                      <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s?.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s?.revenue || 0)}</span></span>
-                                      <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.orders || 0)}</span></span>
-                                    </div>;
-                                const statsElMobile = fetchingDetailed
-                                  ? <div className="flex gap-2">{[1,2,3,4].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
-                                  : <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
-                                      <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.sent)}</span></span>
-                                      <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.opens, s?.sent)}</span></span>
-                                      <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.clicks, s?.sent)}</span></span>
-                                      <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.orders || 0)}</span></span>
-                                    </div>;
-                                return (
-                                  <div key={msg.id} onClick={() => toggleRow(msg.id)} className="px-3 py-1.5 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-100 dark:border-zinc-800 sm:cursor-default cursor-pointer">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <p className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 truncate flex-1">{msg.attributes.name}</p>
-                                      {/* Desktop: all stats always visible */}
-                                      {fetchingDetailed
-                                        ? <div className="hidden sm:flex gap-2 shrink-0">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
-                                        : <div className="hidden sm:flex items-center gap-3 text-[11px] shrink-0 ml-3">
-                                            <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.sent)}</span></span>
-                                            <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.opens, s?.sent)}</span></span>
-                                            <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s?.clicks, s?.sent)}</span></span>
-                                            <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s?.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s?.revenue || 0)}</span></span>
-                                            <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s?.orders || 0)}</span></span>
-                                          </div>
-                                      }
-                                      {/* Mobile: ingresos preview + chevron */}
-                                      <div className="flex items-center gap-2 shrink-0 sm:hidden">
-                                        {!fetchingDetailed && s?.revenue > 0 && <span className="text-[11px] font-bold text-emerald-500">{fmtCurr(s.revenue)}</span>}
-                                        <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${msgOpen ? 'rotate-180' : ''}`} />
-                                      </div>
-                                    </div>
-                                    {/* Mobile: expanded stats (sin ingresos/pedidos, ya visible en header) */}
-                                    {msgOpen && <div className="sm:hidden pt-1">{statsElMobile}</div>}
-                                  </div>
-                                );
-                              })}
+                      <div key={flow.id} className="flex items-center justify-between px-4 py-1.5">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 truncate">{flow.attributes.name}</span>
+                          <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">Activo</span>
+                        </div>
+                        {fetchingDetailed
+                          ? <div className="hidden sm:flex gap-2 shrink-0">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
+                          : <div className="hidden sm:flex items-center gap-3 text-[11px] shrink-0 ml-3">
+                              <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">—</span></span>
+                              <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">—</span></span>
+                              <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">—</span></span>
+                              <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s.revenue)}</span></span>
+                              <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s.orders)}</span></span>
                             </div>
-                          </div>
-                        )}
+                        }
+                        {/* Mobile */}
+                        <div className="flex items-center gap-2 shrink-0 sm:hidden ml-2">
+                          {!fetchingDetailed && s.revenue > 0 && <span className="text-[11px] font-bold text-emerald-500">{fmtCurr(s.revenue)}</span>}
+                        </div>
                       </div>
                     );
                   })}
