@@ -461,36 +461,42 @@ export const klaviyo = {
 
   getFlowMessages: async (apiKey: string, flowId: string) => {
     try {
-      // Nested path works now that proxy correctly routes multi-segment paths.
-      // page%5Bsize%5D: proxy flattener converts nested qs object back to page[size]=100.
-      const actRes = await apiFetch(
-        `${BASE}/flows/${flowId}/flow-actions?page%5Bsize%5D=100`,
+      // Use include= (same mechanism as getCampaigns uses include=campaign-messages).
+      // The /flows/{id}/flow-actions sub-resource path returns 404 in Klaviyo v2024-10-15.
+      const flowRes = await apiFetch(
+        `${BASE}/flows/${flowId}?include=flow-actions&fields%5Bflow-action%5D=action_type`,
         { headers: buildHeaders(apiKey) }
       );
-      if (!actRes.ok) {
-        console.error('[Klaviyo] flow-actions failed:', actRes.status, await actRes.text().catch(() => ''));
+      if (!flowRes.ok) {
+        console.error('[Klaviyo] GET flow?include=flow-actions:', flowRes.status, await flowRes.text().catch(() => ''));
         return [];
       }
-      const actions = await actRes.json();
-      console.log('[Klaviyo] flow-actions found:', actions.data?.length, 'flowId:', flowId);
-      const emailActions = (actions.data || []).filter(
-        (a: any) => a.attributes?.action_type === 'SEND_EMAIL'
+      const flowJson = await flowRes.json();
+      const emailActions = (flowJson.included || []).filter(
+        (a: any) => a.type === 'flow-action' && a.attributes?.action_type === 'SEND_EMAIL'
       );
-      console.log('[Klaviyo] email actions:', emailActions.length);
-      const msgPromises = emailActions.map((action: any) =>
-        apiFetch(`${BASE}/flow-actions/${action.id}/flow-messages?page%5Bsize%5D=50`, {
-          headers: buildHeaders(apiKey),
-        }).then(async r => {
-          if (!r.ok) {
-            console.error('[Klaviyo] flow-messages failed for action', action.id, r.status);
-            return { data: [] };
-          }
-          return r.json();
-        })
+      console.log('[Klaviyo] SEND_EMAIL actions via include:', emailActions.length);
+      if (emailActions.length === 0) return [];
+
+      // For each email action, get its messages via include
+      const msgResults = await Promise.all(
+        emailActions.map((action: any) =>
+          apiFetch(
+            `${BASE}/flow-actions/${action.id}?include=flow-messages&fields%5Bflow-message%5D=name`,
+            { headers: buildHeaders(apiKey) }
+          ).then(async r => {
+            if (!r.ok) {
+              console.error('[Klaviyo] GET flow-action?include=flow-messages:', r.status, action.id);
+              return [];
+            }
+            const j = await r.json();
+            return (j.included || []).filter((x: any) => x.type === 'flow-message' || x.type === 'flow-action-message');
+          }).catch(() => [])
+        )
       );
-      const results = await Promise.all(msgPromises);
-      const msgs = results.flatMap(r => r.data || []);
-      console.log('[Klaviyo] total flow messages:', msgs.length);
+
+      const msgs = msgResults.flat();
+      console.log('[Klaviyo] total flow messages:', msgs.length, 'for flow', flowId);
       return msgs;
     } catch (e) { console.error('[Klaviyo] getFlowMessages error:', e); return []; }
   },
