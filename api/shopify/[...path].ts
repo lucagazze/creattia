@@ -68,12 +68,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const shopifyRes = await fetch(targetUrl, fetchOptions);
     const contentType = shopifyRes.headers.get('content-type') || '';
 
+    // Forward Link header so client-side pagination cursor (page_info) works in production
+    const linkHeader = shopifyRes.headers.get('link');
+    if (linkHeader) res.setHeader('Link', linkHeader);
+
     if (contentType.includes('application/json')) {
       const data = await shopifyRes.json();
       return res.status(shopifyRes.status).json(data);
     } else {
       const text = await shopifyRes.text();
-      // If it's an error from Shopify but not JSON, send it as text or wrap it
       return res.status(shopifyRes.status).send(text);
     }
   } catch (error: any) {
