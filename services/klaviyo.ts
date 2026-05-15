@@ -323,25 +323,36 @@ export const klaviyo = {
     const cached = getCached(cacheKey);
     if (cached) return cached;
     try {
+      // Compound include: flow-actions + their flow-messages — all in 1 segment, no sub-resource paths
       const res = await apiFetch(
-        `${BASE}/flows?page%5Bsize%5D=50&include=flow-actions&fields%5Bflow-action%5D=action_type`,
+        `${BASE}/flows?page%5Bsize%5D=50&include=flow-actions.flow-messages&fields%5Bflow-action%5D=action_type&fields%5Bflow-message%5D=name`,
         { headers: buildHeaders(apiKey) }
       );
       if (!res.ok) return [];
       const json = await res.json();
-      // Build map: flowId -> [emailActionIds] — used by getFlowMessages to avoid multi-segment paths
-      const emailActionIds = new Set(
-        (json.included || [])
-          .filter((a: any) => a.type === 'flow-action' && a.attributes?.action_type === 'SEND_EMAIL')
-          .map((a: any) => a.id)
-      );
-      const actionMap: Record<string, string[]> = {};
+      const included: any[] = json.included || [];
+
+      // Index included objects by id
+      const byId: Record<string, any> = Object.fromEntries(included.map((x: any) => [x.id, x]));
+
+      // Build map: flowId -> [{id, attributes: {name}}] (email messages only)
+      const flowMsgsMap: Record<string, any[]> = {};
       (json.data || []).forEach((flow: any) => {
-        const rels = flow.relationships?.['flow-actions']?.data || [];
-        const ids = rels.map((r: any) => r.id).filter((id: string) => emailActionIds.has(id));
-        if (ids.length > 0) actionMap[flow.id] = ids;
+        const actionRefs = flow.relationships?.['flow-actions']?.data || [];
+        const msgs: any[] = [];
+        actionRefs.forEach((aRef: any) => {
+          const action = byId[aRef.id];
+          if (action?.attributes?.action_type !== 'SEND_EMAIL') return;
+          const msgRefs = action.relationships?.['flow-messages']?.data || [];
+          msgRefs.forEach((mRef: any) => {
+            const msg = byId[mRef.id];
+            if (msg) msgs.push(msg);
+          });
+        });
+        flowMsgsMap[flow.id] = msgs;
       });
-      setCache(`flow-action-ids:${apiKey}`, actionMap);
+      setCache(`flow-msgs:${apiKey}`, flowMsgsMap);
+
       const data = json.data || [];
       setCache(cacheKey, data);
       return data;
@@ -475,35 +486,13 @@ export const klaviyo = {
   },
 
   getFlowMessages: async (apiKey: string, flowId: string) => {
-    try {
-      // Get email action IDs from cache populated by getFlows (avoids multi-segment paths)
-      let actionMap: Record<string, string[]> = getCached(`flow-action-ids:${apiKey}`) || {};
-      if (!actionMap[flowId] && !Object.keys(actionMap).length) {
-        await klaviyo.getFlows(apiKey);
-        actionMap = getCached(`flow-action-ids:${apiKey}`) || {};
-      }
-      const actionIds = actionMap[flowId] || [];
-      if (actionIds.length === 0) return [];
-
-      // Fetch messages via 1-segment collection endpoint — no multi-segment paths
-      const msgResults = await Promise.all(
-        actionIds.map((actionId: string) =>
-          apiFetch(
-            `${BASE}/flow-messages?filter=equals(flow-action.id,"${actionId}")&fields%5Bflow-message%5D=name`,
-            { headers: buildHeaders(apiKey) }
-          ).then(async r => {
-            if (!r.ok) {
-              console.error('[Klaviyo] GET flow-messages?filter:', r.status, actionId);
-              return [];
-            }
-            const j = await r.json();
-            return j.data || [];
-          }).catch(() => [])
-        )
-      );
-
-      return msgResults.flat();
-    } catch (e) { console.error('[Klaviyo] getFlowMessages error:', e); return []; }
+    // Messages pre-fetched by getFlows via compound include — no additional API calls
+    let flowMsgsMap: Record<string, any[]> | null = getCached(`flow-msgs:${apiKey}`);
+    if (!flowMsgsMap) {
+      await klaviyo.getFlows(apiKey);
+      flowMsgsMap = getCached(`flow-msgs:${apiKey}`) || {};
+    }
+    return flowMsgsMap[flowId] || [];
   },
 
   getCampaignMessages: async (apiKey: string, campaignId: string) => {
