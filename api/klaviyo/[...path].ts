@@ -1,16 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+const KLAVIYO_REVISION = '2024-10-15';
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const pathParam = req.query['...path'] || req.query.path;
   const klaviyoPath = Array.isArray(pathParam) ? pathParam.join('/') : (pathParam || '');
 
-  // Use raw query string from req.url to preserve original encoding (brackets, commas, etc.)
-  const rawUrl = req.url || '';
-  const rawQsIdx = rawUrl.indexOf('?');
-  const rawQs = rawQsIdx >= 0 ? rawUrl.slice(rawQsIdx + 1) : '';
-  const targetUrl = `https://a.klaviyo.com/api/${klaviyoPath}${rawQs ? `?${rawQs}` : ''}`;
+  // Build query string from req.query (already decoded by Vercel), stripping routing params.
+  // URLSearchParams re-encodes special chars — Klaviyo accepts percent-encoded equivalents.
+  // This avoids the bug where req.url includes Vercel's internal catch-all params (e.g. path[0]=metrics).
+  const queryParts: Record<string, string | string[]> = { ...req.query };
+  delete queryParts['...path'];
+  delete queryParts['path'];
+  const qs = new URLSearchParams(queryParts as any).toString();
+  const targetUrl = `https://a.klaviyo.com/api/${klaviyoPath}${qs ? `?${qs}` : ''}`;
 
-  // Set CORS headers early
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Revision, Content-Type, Accept');
@@ -19,23 +23,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(204).end();
   }
 
-  // Forward critical headers correctly (case-insensitive in req.headers)
-  const forwardHeaders: Record<string, string> = {};
   const auth = req.headers['authorization'];
-  const rev = req.headers['revision'];
-
+  const forwardHeaders: Record<string, string> = {
+    'Revision': KLAVIYO_REVISION,
+    'Accept': 'application/vnd.api+json',
+  };
   if (auth) forwardHeaders['Authorization'] = auth as string;
-  if (rev)  forwardHeaders['Revision']      = rev as string;
-  forwardHeaders['Content-Type']  = 'application/vnd.api+json';
-  forwardHeaders['Accept']        = 'application/vnd.api+json';
+  // Only set Content-Type for requests that have a body
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    forwardHeaders['Content-Type'] = 'application/vnd.api+json';
+  }
 
   try {
     const fetchOptions: RequestInit = {
       method: req.method || 'GET',
-      headers: {
-        ...forwardHeaders,
-        'User-Agent': 'curl/8.4.0'
-      },
+      headers: { ...forwardHeaders, 'User-Agent': 'curl/8.4.0' },
     };
 
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
@@ -49,15 +51,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const klaviyoRes = await fetch(targetUrl, fetchOptions);
-    const contentType = klaviyoRes.headers.get('content-type') || '';
 
-    // Forward rate limit headers back
     ['retry-after', 'ratelimit-limit', 'ratelimit-remaining', 'ratelimit-reset'].forEach(h => {
       const val = klaviyoRes.headers.get(h);
       if (val) res.setHeader(h, val);
     });
 
     res.status(klaviyoRes.status);
+    const contentType = klaviyoRes.headers.get('content-type') || '';
+
+    if (!klaviyoRes.ok) {
+      const errText = await klaviyoRes.text();
+      console.error(`[Klaviyo Proxy] ${req.method} ${targetUrl} → ${klaviyoRes.status}:`, errText);
+      return res.send(errText);
+    }
 
     if (contentType.includes('application/json')) {
       const data = await klaviyoRes.json();
