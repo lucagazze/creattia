@@ -339,16 +339,17 @@ export const klaviyo = {
   },
 
   getDetailedStats: async (apiKey: string, since: string, until: string): Promise<{
-    campaigns:     Record<string, { sent: number; opens: number; clicks: number }>;
-    msgRevenue:    Record<string, { revenue: number; orders: number }>;
-    flowRevenue:   Record<string, { revenue: number; orders: number }>;
-    msgEngagement: Record<string, { sent: number; opens: number; clicks: number }>;
+    campaigns:      Record<string, { sent: number; opens: number; clicks: number }>;
+    msgRevenue:     Record<string, { revenue: number; orders: number }>;
+    flowRevenue:    Record<string, { revenue: number; orders: number }>;
+    msgEngagement:  Record<string, { sent: number; opens: number; clicks: number }>;
+    flowEngagement: Record<string, { sent: number; opens: number; clicks: number }>;
   }> => {
-    const cacheKey = `detailed5:${apiKey}:${since}:${until}`;
+    const cacheKey = `detailed6:${apiKey}:${since}:${until}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
 
-    const empty = { campaigns: {}, msgRevenue: {}, flowRevenue: {}, msgEngagement: {} };
+    const empty = { campaigns: {}, msgRevenue: {}, flowRevenue: {}, msgEngagement: {}, flowEngagement: {} };
     const metricsRes = await klaviyo.getMetrics(apiKey);
     if (!metricsRes?.data) return empty;
 
@@ -376,16 +377,19 @@ export const klaviyo = {
     const p = (id: string | undefined, by: string, m: string[]) =>
       id ? enqueue(() => apiPost(apiKey, 'metric-aggregates', makeBody(id, by, m))) : Promise.resolve(null);
 
-    const [cSent, cOpens, cClicks, msgRev, flowRev, mSent, mOpens, mClicks] = await Promise.all([
+    const [cSent, cOpens, cClicks, msgRev, flowRev, mSent, mOpens, mClicks, fSent, fOpens, fClicks] = await Promise.all([
       p(mIds.sent,    'Campaign Name',       ['count']),
       p(mIds.opens,   'Campaign Name',       ['count']),
       p(mIds.clicks,  'Campaign Name',       ['count']),
       p(mIds.revenue, '$attributed_message', ['sum_value', 'count']),
       p(mIds.revenue, '$attributed_flow',    ['sum_value', 'count']),
-      // '$message' groups email events by message ID — works for flow emails
       p(mIds.sent,   '$message', ['count']),
       p(mIds.opens,  '$message', ['count']),
       p(mIds.clicks, '$message', ['count']),
+      // '$flow' groups email events by flow ID — may return null if unsupported, handled gracefully
+      p(mIds.sent,   '$flow', ['count']),
+      p(mIds.opens,  '$flow', ['count']),
+      p(mIds.clicks, '$flow', ['count']),
     ]);
 
     const sumByDim = (res: any, key: 'sum_value' | 'count'): Record<string, number> => {
@@ -408,6 +412,9 @@ export const klaviyo = {
     const mSentMap  = sumByDim(mSent,  'count');
     const mOpensMap = sumByDim(mOpens, 'count');
     const mClickMap = sumByDim(mClicks,'count');
+    const fSentMap  = sumByDim(fSent,  'count');
+    const fOpensMap = sumByDim(fOpens, 'count');
+    const fClickMap = sumByDim(fClicks,'count');
 
     const campaigns: Record<string, any> = {};
     Object.keys(cSentMap).forEach(name => {
@@ -430,7 +437,13 @@ export const klaviyo = {
       msgEngagement[id] = { sent: mSentMap[id] || 0, opens: mOpensMap[id] || 0, clicks: mClickMap[id] || 0 };
     });
 
-    const result = { campaigns, msgRevenue, flowRevenue, msgEngagement };
+    const flowEngagement: Record<string, any> = {};
+    const allFlowIds = new Set([...Object.keys(fSentMap), ...Object.keys(fOpensMap), ...Object.keys(fClickMap)]);
+    allFlowIds.forEach(id => {
+      flowEngagement[id] = { sent: fSentMap[id] || 0, opens: fOpensMap[id] || 0, clicks: fClickMap[id] || 0 };
+    });
+
+    const result = { campaigns, msgRevenue, flowRevenue, msgEngagement, flowEngagement };
     setCache(cacheKey, result);
     return result;
   },
