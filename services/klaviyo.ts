@@ -438,16 +438,16 @@ export const klaviyo = {
   getFlowMessages: async (apiKey: string, flowId: string) => {
     try {
       const actRes = await apiFetch(
-        `${BASE}/flows/${flowId}/flow-actions?fields%5Bflow-action%5D=action_type,status`,
+        `${BASE}/flows/${flowId}/flow-actions`,
         { headers: buildHeaders(apiKey) }
       );
       if (!actRes.ok) return [];
       const actions = await actRes.json();
       const emailActions = (actions.data || []).filter(
-        (a: any) => a.type === 'flow-action' && a.attributes?.action_type === 'SEND_EMAIL'
+        (a: any) => a.attributes?.action_type === 'SEND_EMAIL'
       );
       const msgPromises = emailActions.map((action: any) =>
-        apiFetch(`${BASE}/flow-actions/${action.id}/flow-messages?fields%5Bflow-message%5D=name,channel,content`, {
+        apiFetch(`${BASE}/flow-actions/${action.id}/flow-messages`, {
           headers: buildHeaders(apiKey),
         }).then(r => r.ok ? r.json() : { data: [] })
       );

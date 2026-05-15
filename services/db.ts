@@ -156,7 +156,8 @@ export const db = {
 
   links: {
     async getByClientId(clientId: string): Promise<ClientLink[]> {
-      const { data, error } = await supabase
+      const client = supabaseAdmin ?? supabase;
+      const { data, error } = await client
         .from('car_links')
         .select('*')
         .eq('client_id', clientId)

@@ -62,3 +62,62 @@ body {
   50% { opacity: 0.4; }
 }
 .live-dot { animation: livePulse 2s ease-in-out infinite; }
+
+/* ─── Pre-print (applied BEFORE window.print() via JS to trigger re-renders) ── */
+/*
+  Strategy: add html.is-printing via JS, wait 350ms for ResizeObserver to fire
+  and Recharts to re-render with correct dimensions, THEN call window.print().
+  This fixes the blank-chart issue that @media print alone can't solve.
+*/
+html.is-printing,
+html.is-printing body {
+  background: white !important;
+  color: #18181b !important;
+}
+
+/* Hide sidebar + mobile header during pre-print phase */
+html.is-printing .print\:hidden {
+  display: none !important;
+}
+
+/* Main: remove h-screen + overflow-hidden so all content expands */
+html.is-printing main {
+  overflow: visible !important;
+  height: auto !important;
+}
+
+/* Scroll container: remove flex-grow + overflow-auto so it shows full content */
+html.is-printing main > div {
+  overflow: visible !important;
+  height: auto !important;
+  flex: none !important;
+}
+
+/* Charts: allow overflow so nothing gets clipped */
+html.is-printing .recharts-wrapper,
+html.is-printing .recharts-surface {
+  overflow: visible !important;
+}
+
+/* ─── Print ─────────────────────────────────────────────────────────────── */
+@media print {
+  html, body {
+    background: white !important;
+    color: #18181b !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print\:hidden { display: none !important; }
+  main { overflow: visible !important; height: auto !important; }
+  main > div { overflow: visible !important; height: auto !important; flex: none !important; }
+  .recharts-wrapper, .recharts-surface { overflow: visible !important; }
+  .space-y-6 > div, .space-y-8 > div, .space-y-4 > div, .grid > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  @page { margin: 1.5cm; size: A4 portrait; }
+}

@@ -291,7 +291,17 @@ export default function CaptacionPage() {
   }, []);
 
   const handleApply = () => { setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil); setShowDatePicker(false); };
-  const handleExportPDF = () => { window.print(); };
+  const handleExportPDF = () => {
+    const html = document.documentElement;
+    const wasDark = html.classList.contains('dark');
+    if (wasDark) html.classList.remove('dark');
+    html.classList.add('is-printing');
+    setTimeout(() => {
+      window.print();
+      html.classList.remove('is-printing');
+      if (wasDark) html.classList.add('dark');
+    }, 350);
+  };
 
   const fmtDateRange = (d: string) => {
     const parts = d.split('-');
@@ -347,7 +357,8 @@ export default function CaptacionPage() {
     );
   };
 
-  const getChange = (curr: number, prev: number) => !prev ? 0 : ((curr - prev) / prev) * 100;
+  const getChange = (curr: number | undefined | null, prev: number | undefined | null) =>
+    (curr == null || prev == null || prev === 0) ? undefined : ((curr - prev) / prev) * 100;
 
   const currentValData = daily.map((d, i) => ({ 
     date: d.date, 
@@ -370,7 +381,7 @@ export default function CaptacionPage() {
   return (
     <div className="max-w-[1600px] mx-auto space-y-8 print:space-y-6 print:p-0 print:max-w-none">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
@@ -414,6 +425,15 @@ export default function CaptacionPage() {
           </div>
           <button onClick={handleExportPDF} className="flex items-center gap-2 px-5 h-11 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full text-[13px] font-bold shadow-lg hover:opacity-90 transition-all"><Download className="w-4 h-4" />Exportar</button>
         </div>
+      </div>
+
+      <div className="hidden print:block mb-6 pb-4 border-b-2 border-zinc-200">
+        <div className="flex items-baseline justify-between mb-2">
+          <span className="text-[22px] font-black text-zinc-900 tracking-tight">ALGORITMIA</span>
+          <span className="text-[11px] text-zinc-400">{new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+        </div>
+        <p className="text-[13px] text-zinc-500 font-medium">Captación — Meta Ads</p>
+        <p className="text-[15px] font-bold text-zinc-900">Período: {fmtDateRange(activeSince)} — {fmtDateRange(activeUntil)}</p>
       </div>
 
       {/* KPI Cards */}

@@ -4,8 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { DatePreset, presetToRange, getPrevPeriod, today, daysAgo } from '../services/metaAds';
 import { klaviyo } from '../services/klaviyo';
-import { 
-  Calendar, ChevronDown, TrendingUp, Mail, Zap, Package, MousePointerClick, DollarSign, MailOpen
+import {
+  Calendar, ChevronDown, TrendingUp, Mail, Zap, Package, MousePointerClick, DollarSign, MailOpen, Download
 } from 'lucide-react';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 import KlaviyoLoader from '../components/ui/KlaviyoLoader';
@@ -34,9 +34,8 @@ const fmtDateRange = (d: string) => {
   return `${parts[2]} ${month}`;
 };
 
-const getKlaviyoChange = (curr?: number, prev?: number) => {
-  if (curr === undefined || prev === undefined) return 0;
-  if (!prev) return curr > 0 ? 100 : 0;
+const getKlaviyoChange = (curr?: number, prev?: number): number | undefined => {
+  if (curr == null || prev == null || prev === 0) return undefined;
   return ((curr - prev) / prev) * 100;
 };
 
@@ -144,6 +143,18 @@ export default function RetencionPage() {
 
   const handleApply = () => { setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil); setShowDatePicker(false); };
 
+  const handleExportPDF = () => {
+    const html = document.documentElement;
+    const wasDark = html.classList.contains('dark');
+    if (wasDark) html.classList.remove('dark');
+    html.classList.add('is-printing');
+    setTimeout(() => {
+      window.print();
+      html.classList.remove('is-printing');
+      if (wasDark) html.classList.add('dark');
+    }, 350);
+  };
+
   const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
     const touchStart = React.useRef<number>(0);
     const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
@@ -195,7 +206,7 @@ export default function RetencionPage() {
   return (
     <div className="max-w-[1600px] mx-auto space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
@@ -206,7 +217,8 @@ export default function RetencionPage() {
           <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Análisis de campañas, flujos de automatización y fidelización de clientes.</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 print:hidden">
+          <button onClick={handleExportPDF} className="flex items-center gap-2 px-5 h-11 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full text-[13px] font-bold shadow-lg hover:opacity-90 transition-all"><Download className="w-4 h-4" />Exportar</button>
           <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] h-11 relative" ref={datePickerRef}>
             <button onClick={() => setShowDatePicker(!showDatePicker)} className="flex items-center gap-2 px-4 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group">
               <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-emerald-500 transition-colors" />
@@ -239,6 +251,15 @@ export default function RetencionPage() {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="hidden print:block mb-6 pb-4 border-b-2 border-zinc-200">
+        <div className="flex items-baseline justify-between mb-2">
+          <span className="text-[22px] font-black text-zinc-900 tracking-tight">ALGORITMIA</span>
+          <span className="text-[11px] text-zinc-400">{new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+        </div>
+        <p className="text-[13px] text-zinc-500 font-medium">Retención — Klaviyo</p>
+        <p className="text-[15px] font-bold text-zinc-900">Período: {fmtDateRange(activeSince)} — {fmtDateRange(activeUntil)}</p>
       </div>
 
       {/* Main Metrics */}
@@ -467,6 +488,7 @@ export default function RetencionPage() {
           </div>
         );
       })()}
+      <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
   );
 }

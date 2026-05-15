@@ -57,7 +57,7 @@ export const DashboardMetric = ({
           <span className="text-[17px] sm:text-[20px] font-bold text-zinc-900 dark:text-white leading-none mb-2">
             {loading ? "..." : value}
           </span>
-          {!loading && change !== undefined && (
+          {!loading && change !== undefined && !isNaN(change) && (
             <div
               className={`flex items-center gap-1 text-[11px] sm:text-[12px] font-bold ${trend === "up" ? "text-emerald-500" : "text-rose-500"}`}
             >

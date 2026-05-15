@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
-import { ShoppingBag, DollarSign, Package, Calendar, ChevronDown, Receipt, Tag, TrendingUp, CheckCircle, Clock, BarChart2 } from 'lucide-react';
+import { ShoppingBag, DollarSign, Package, Calendar, ChevronDown, Receipt, Tag, TrendingUp, CheckCircle, Clock, BarChart2, Download } from 'lucide-react';
 import { ecommerce } from '../services/ecommerce';
 import { getPrevPeriod, today, daysAgo, presetToRange } from '../services/metaAds';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
@@ -72,8 +72,20 @@ export default function TiendaPage() {
     fetchData();
   }, [profile, activePreset, activeSince, activeUntil, refreshKey]);
 
-  const handleApply = () => { 
-    setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil); setRefreshKey(prev => prev + 1); setShowDatePicker(false); 
+  const handleApply = () => {
+    setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil); setRefreshKey(prev => prev + 1); setShowDatePicker(false);
+  };
+
+  const handleExportPDF = () => {
+    const html = document.documentElement;
+    const wasDark = html.classList.contains('dark');
+    if (wasDark) html.classList.remove('dark');
+    html.classList.add('is-printing');
+    setTimeout(() => {
+      window.print();
+      html.classList.remove('is-printing');
+      if (wasDark) html.classList.add('dark');
+    }, 350);
   };
 
   const fmtDateRange = (d: string, showYearForce?: boolean) => {
@@ -178,7 +190,7 @@ export default function TiendaPage() {
   return (
     <div className="max-w-[1600px] mx-auto animate-fade-in pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center">
@@ -190,6 +202,7 @@ export default function TiendaPage() {
         </div>
 
         <div className="flex items-center gap-3 print:hidden">
+          <button onClick={handleExportPDF} className="flex items-center gap-2 px-5 h-11 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full text-[13px] font-bold shadow-lg hover:opacity-90 transition-all"><Download className="w-4 h-4" />Exportar</button>
           <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] h-11 relative" ref={datePickerRef}>
               <button 
                 onClick={() => setShowDatePicker(!showDatePicker)} 
@@ -242,6 +255,15 @@ export default function TiendaPage() {
         </div>
       </div>
 
+      <div className="hidden print:block mb-6 pb-4 border-b-2 border-zinc-200">
+        <div className="flex items-baseline justify-between mb-2">
+          <span className="text-[22px] font-black text-zinc-900 tracking-tight">ALGORITMIA</span>
+          <span className="text-[11px] text-zinc-400">{new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+        </div>
+        <p className="text-[13px] text-zinc-500 font-medium">Tienda Online — {(profile as any)?.ecommerce_platform}</p>
+        <p className="text-[15px] font-bold text-zinc-900">Período: {fmtDateRange(activeSince, true)} — {fmtDateRange(activeUntil, true)}</p>
+      </div>
+
       {loading ? (
         <KlaviyoLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']} />
       ) : data ? (
@@ -252,7 +274,7 @@ export default function TiendaPage() {
                 icon={Package}
                 label="Pedidos" 
                 value={data.orders?.toLocaleString('es-AR') || '0'} 
-                change={prevData?.orders ? ((data.orders - prevData.orders) / prevData.orders) * 100 : 0} 
+                change={prevData?.orders ? ((data.orders - prevData.orders) / prevData.orders) * 100 : undefined}
                 trend={(data.orders || 0) >= (prevData?.orders || 0) ? 'up' : 'down'} 
                 data={data.daily?.map((d: any) => ({ val: d.orders, date: d.date }))} 
                 color={PINK} 
@@ -264,7 +286,7 @@ export default function TiendaPage() {
                 icon={DollarSign}
                 label="Ingresos" 
                 value={`$ ${data.revenue?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || '0'}`} 
-                change={prevData?.revenue ? ((data.revenue - prevData.revenue) / prevData.revenue) * 100 : 0} 
+                change={prevData?.revenue ? ((data.revenue - prevData.revenue) / prevData.revenue) * 100 : undefined}
                 trend={(data.revenue || 0) >= (prevData?.revenue || 0) ? 'up' : 'down'} 
                 data={data.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))} 
                 color={PINK} 
@@ -276,7 +298,7 @@ export default function TiendaPage() {
                 icon={Receipt}
                 label="Ticket Promedio" 
                 value={`$ ${data.aov?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || '0'}`} 
-                change={prevData?.aov ? ((data.aov - prevData.aov) / prevData.aov) * 100 : 0} 
+                change={prevData?.aov ? ((data.aov - prevData.aov) / prevData.aov) * 100 : undefined}
                 trend={(data.aov || 0) >= (prevData?.aov || 0) ? 'up' : 'down'} 
                 data={data.daily?.map((d: any) => ({ val: d.aov, date: d.date }))} 
                 color={PINK} 
@@ -499,6 +521,7 @@ export default function TiendaPage() {
           </div>
         </div>
         ) : null}
+      <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
   );
 }
