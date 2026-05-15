@@ -220,7 +220,7 @@ export default function RetencionPage() {
             <button onClick={() => setShowDatePicker(!showDatePicker)} className="flex items-center gap-2 px-4 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group">
               <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-emerald-500 transition-colors" />
               <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-200">
-                {activePreset === 'custom' ? `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}` : PRESETS.find(p => p.id === activePreset)?.label || activePreset}
+                {activePreset === 'custom' ? (activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}`) : PRESETS.find(p => p.id === activePreset)?.label || activePreset}
               </span>
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
             </button>
@@ -257,7 +257,7 @@ export default function RetencionPage() {
           <span className="text-[11px] text-zinc-400">{new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
         </div>
         <p className="text-[13px] text-zinc-500 font-medium">Retención — Klaviyo</p>
-        <p className="text-[15px] font-bold text-zinc-900">Período: {fmtDateRange(activeSince)} — {fmtDateRange(activeUntil)}</p>
+        <p className="text-[15px] font-bold text-zinc-900">Período: {activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} — ${fmtDateRange(activeUntil)}`}</p>
       </div>
 
       {/* Main Metrics */}
