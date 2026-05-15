@@ -773,11 +773,11 @@ export default function DashboardPage() {
     setShowDatePicker(false);
   };
 
-  const getMetaChange = (curr: number, prev: number) =>
-    !prev || isNaN(prev) ? 0 : ((curr - prev) / Math.abs(prev)) * 100;
-  const getKlaviyoChange = (curr: number, prev: number) =>
-    !prev || isNaN(prev) || !isFinite(prev)
-      ? 0
+  const getMetaChange = (curr: number | undefined, prev: number | undefined): number | undefined =>
+    curr == null || prev == null || prev === 0 || isNaN(prev) ? undefined : ((curr - prev) / Math.abs(prev)) * 100;
+  const getKlaviyoChange = (curr: number | undefined, prev: number | undefined): number | undefined =>
+    curr == null || prev == null || prev === 0 || isNaN(prev) || !isFinite(prev)
+      ? undefined
       : ((curr - prev) / Math.abs(prev)) * 100;
 
   const activeRange =
