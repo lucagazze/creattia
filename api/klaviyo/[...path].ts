@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.send(errText);
     }
 
-    if (contentType.includes('application/json')) {
+    if (contentType.includes('json')) {
       const data = await klaviyoRes.json();
       return res.json(data);
     } else {

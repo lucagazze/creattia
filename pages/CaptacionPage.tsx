@@ -101,6 +101,8 @@ export default function CaptacionPage() {
   const [expandedAdsets, setExpandedAdsets] = useState<Set<string>>(new Set());
   const [adsByAdset, setAdsByAdset] = useState<Record<string, any[]>>({});
   const [loadingAds, setLoadingAds] = useState<Set<string>>(new Set());
+  const [adInsightsByAdset, setAdInsightsByAdset] = useState<Record<string, Record<string, any>>>({});
+  const [expandedAd, setExpandedAd] = useState<string | null>(null);
 
   const range = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
   const prevRange = getPrevPeriod(range.since, range.until);
@@ -308,6 +310,8 @@ export default function CaptacionPage() {
     setAdsetsByCampaign({});
     setExpandedAdsets(new Set());
     setAdsByAdset({});
+    setAdInsightsByAdset({});
+    setExpandedAd(null);
     metaAds.getCampaigns(profile.meta_account_id)
       .then((res: any) => setActiveCampaigns((res.data || []).filter((c: any) => c.status === 'ACTIVE')))
       .catch(() => setActiveCampaigns([]))
@@ -358,10 +362,18 @@ export default function CaptacionPage() {
     if (adsByAdset[adsetId]) return;
     setLoadingAds(prev => new Set([...prev, adsetId]));
     try {
-      const res = await metaAds.getAds(adsetId);
-      setAdsByAdset(prev => ({ ...prev, [adsetId]: (res.data || []).filter((a: any) => a.status === 'ACTIVE') }));
+      const adFields = 'ad_id,spend,impressions,reach,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas';
+      const [adsRes, insights] = await Promise.all([
+        metaAds.getAds(adsetId),
+        metaAds.getAdInsightsForAdset(adsetId, adFields, range).catch(() => []),
+      ]);
+      setAdsByAdset(prev => ({ ...prev, [adsetId]: (adsRes.data || []).filter((a: any) => a.status === 'ACTIVE') }));
+      const byAdId: Record<string, any> = {};
+      (insights || []).forEach((i: any) => { if (i.ad_id) byAdId[i.ad_id] = i; });
+      setAdInsightsByAdset(prev => ({ ...prev, [adsetId]: byAdId }));
     } catch {
       setAdsByAdset(prev => ({ ...prev, [adsetId]: [] }));
+      setAdInsightsByAdset(prev => ({ ...prev, [adsetId]: {} }));
     } finally {
       setLoadingAds(prev => { const n = new Set(prev); n.delete(adsetId); return n; });
     }
@@ -836,22 +848,100 @@ export default function CaptacionPage() {
                               ) : ads.length === 0 ? (
                                 <p className="text-[11px] text-zinc-400 py-3 pl-2">Sin anuncios activos</p>
                               ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 py-3">
-                                  {ads.map(ad => (
-                                    <div key={ad.id} className="rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-zinc-50 dark:bg-zinc-800/50">
-                                      {ad.creative?.thumbnail_url ? (
-                                        <img src={ad.creative.thumbnail_url} alt={ad.name} className="w-full aspect-square object-cover" />
-                                      ) : (
-                                        <div className="w-full aspect-square bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                                          <Film className="w-6 h-6 text-zinc-300 dark:text-zinc-600" />
-                                        </div>
-                                      )}
-                                      <div className="p-2">
-                                        <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 truncate leading-tight mb-1" title={ad.name}>{ad.name || ad.creative?.name || 'Sin nombre'}</p>
-                                        <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">ACTIVO</span>
+                                <div className="flex flex-col gap-1.5 py-2">
+                                  {ads.map(ad => {
+                                    const adInsights = adInsightsByAdset[adset.id]?.[ad.id];
+                                    const adSpend = parseFloat(adInsights?.spend || 0);
+                                    const adActions = adInsights?.actions || [];
+                                    const adResults = (() => {
+                                      if (isEcom) return extractActions(adActions, 'purchases');
+                                      if (isLead) return extractActions(adActions, 'leads');
+                                      if (isWpp) return extractActions(adActions, 'messages');
+                                      return extractActions(adActions, 'purchases');
+                                    })();
+                                    const adCpa = adResults > 0 ? adSpend / adResults : 0;
+                                    const adImpr = parseInt(adInsights?.impressions || 0);
+                                    const adReach = parseInt(adInsights?.reach || 0);
+                                    const adCtr = parseFloat(adInsights?.inline_link_click_ctr || 0);
+                                    const adRoas = parseFloat(adInsights?.purchase_roas?.[0]?.value || 0);
+                                    const adValue = (() => {
+                                      const av = adInsights?.action_values || [];
+                                      const v = av.find((a: any) => a.action_type === 'purchase' || a.action_type === 'offsite_conversion.fb_pixel_purchase');
+                                      return v ? parseFloat(v.value) : 0;
+                                    })();
+                                    const isAdExpanded = expandedAd === ad.id;
+                                    return (
+                                      <div key={ad.id} className="rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50">
+                                        <button
+                                          onClick={() => setExpandedAd(isAdExpanded ? null : ad.id)}
+                                          className="w-full flex items-center gap-3 p-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
+                                        >
+                                          {ad.creative?.thumbnail_url ? (
+                                            <img src={ad.creative.thumbnail_url} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0 bg-zinc-100 dark:bg-zinc-800" />
+                                          ) : (
+                                            <div className="w-14 h-14 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                                              <Film className="w-5 h-5 text-zinc-300 dark:text-zinc-600" />
+                                            </div>
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate leading-tight" title={ad.name}>{ad.name || ad.creative?.name || 'Sin nombre'}</p>
+                                            <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 mt-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">ACTIVO</span>
+                                          </div>
+                                          <div className="flex items-center gap-4 flex-shrink-0 mr-1">
+                                            {adInsights ? (
+                                              <>
+                                                <div className="text-right hidden sm:block">
+                                                  <p className="text-[10px] text-zinc-400">Gasto</p>
+                                                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">${adSpend.toFixed(0)}</p>
+                                                </div>
+                                                <div className="text-right hidden sm:block">
+                                                  <p className="text-[10px] text-zinc-400">{resultsLabel}</p>
+                                                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">{adResults > 0 ? adResults.toFixed(0) : '—'}</p>
+                                                </div>
+                                                <div className="text-right hidden md:block">
+                                                  <p className="text-[10px] text-zinc-400">{cprLabel}</p>
+                                                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">{adCpa > 0 ? `$${adCpa.toFixed(2)}` : '—'}</p>
+                                                </div>
+                                              </>
+                                            ) : (
+                                              <p className="text-[10px] text-zinc-300 dark:text-zinc-600 hidden sm:block">Sin datos</p>
+                                            )}
+                                            <ChevronDown className={`w-4 h-4 text-zinc-300 dark:text-zinc-600 transition-transform duration-150 ${isAdExpanded ? 'rotate-180' : ''}`} />
+                                          </div>
+                                        </button>
+                                        {isAdExpanded && (
+                                          <div className="border-t border-zinc-100 dark:border-zinc-800 p-3 flex gap-4">
+                                            {ad.creative?.thumbnail_url && (
+                                              <img src={ad.creative.thumbnail_url} alt="" className="w-32 h-32 rounded-xl object-cover flex-shrink-0 bg-zinc-100 dark:bg-zinc-800" />
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 mb-3 truncate">{ad.name || ad.creative?.name || 'Sin nombre'}</p>
+                                              {adInsights ? (
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                  {[
+                                                    { label: 'Gasto', val: `$${adSpend.toFixed(2)}` },
+                                                    { label: resultsLabel, val: adResults > 0 ? adResults.toFixed(0) : '—' },
+                                                    { label: cprLabel, val: adCpa > 0 ? `$${adCpa.toFixed(2)}` : '—' },
+                                                    ...(isEcom ? [{ label: 'ROAS', val: adRoas > 0 ? `${adRoas.toFixed(2)}x` : '—' }, { label: 'Valor', val: adValue > 0 ? `$${adValue.toFixed(0)}` : '—' }] : []),
+                                                    { label: 'Impresiones', val: adImpr > 0 ? (adImpr >= 1000 ? `${(adImpr/1000).toFixed(1)}k` : String(adImpr)) : '—' },
+                                                    { label: 'Alcance', val: adReach > 0 ? (adReach >= 1000 ? `${(adReach/1000).toFixed(1)}k` : String(adReach)) : '—' },
+                                                    { label: 'CTR', val: adCtr > 0 ? `${adCtr.toFixed(2)}%` : '—' },
+                                                  ].map(({ label, val }) => (
+                                                    <div key={label} className="bg-zinc-50 dark:bg-zinc-800/60 rounded-lg px-2.5 py-2">
+                                                      <p className="text-[9px] font-semibold text-zinc-400 uppercase tracking-wide mb-0.5">{label}</p>
+                                                      <p className="text-[13px] font-bold text-zinc-800 dark:text-zinc-100">{val}</p>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              ) : (
+                                                <p className="text-[11px] text-zinc-400">Sin datos de rendimiento para el período seleccionado</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>

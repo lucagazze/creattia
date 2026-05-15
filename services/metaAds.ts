@@ -190,6 +190,17 @@ export const metaAds = {
       limit: '50',
     }),
 
+  // ── AD-LEVEL INSIGHTS for a specific adset ────────────────
+  getAdInsightsForAdset: async (adsetId: string, fields: string, timeRange: TimeRange): Promise<any[]> => {
+    const res = await apiGet(`${adsetId}/insights`, {
+      fields,
+      level: 'ad',
+      time_range: JSON.stringify(timeRange),
+      limit: '50',
+    });
+    return res?.data || [];
+  },
+
   // ── INSIGHTS ──────────────────────────────────────────────
   getInsights: async (accountId: string, fields: string[] | string, preset?: DatePreset, range?: { since: string, until: string }, timeIncrement?: number, signal?: AbortSignal) => {
     const fieldsStr = Array.isArray(fields) ? fields.join(',') : fields;
