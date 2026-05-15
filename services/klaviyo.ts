@@ -334,6 +334,10 @@ export const klaviyo = {
       const included: any[] = json.included || [];
       const byId: Record<string, any> = Object.fromEntries(included.map((x: any) => [x.id, x]));
 
+      // DEBUG — log first action to understand Klaviyo's response structure
+      const firstAction = included.find((x: any) => x.type === 'flow-action');
+      console.log('[Klaviyo DEBUG] flow-action sample:', JSON.stringify(firstAction, null, 2));
+
       // Build map: flowId -> synthetic message objects from SEND_EMAIL actions
       const flowMsgsMap: Record<string, any[]> = {};
       (json.data || []).forEach((flow: any) => {
