@@ -3,32 +3,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const KLAVIYO_REVISION = '2024-10-15';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const pathParam = req.query['...path'] || req.query.path;
-  const klaviyoPath = Array.isArray(pathParam) ? pathParam.join('/') : (pathParam || '');
-
-  // Build query string from req.query (already decoded by Vercel), stripping routing params.
-  // Vercel's qs parser converts bracket notation (e.g. page[size]=50) into nested objects.
-  // We flatten them back (page[size] → 50) so URLSearchParams serializes them correctly.
-  const rawQuery: Record<string, any> = { ...req.query };
-  delete rawQuery['...path'];
-  delete rawQuery['path'];
-
-  const flat: Record<string, string> = {};
-  const flatten = (obj: any, prefix = '') => {
-    for (const [k, v] of Object.entries(obj)) {
-      const key = prefix ? `${prefix}[${k}]` : k;
-      if (v !== null && v !== undefined && typeof v === 'object' && !Array.isArray(v)) {
-        flatten(v, key);
-      } else if (Array.isArray(v)) {
-        (v as any[]).forEach((item, i) => { flat[`${key}[${i}]`] = String(item ?? ''); });
-      } else {
-        flat[key] = String(v ?? '');
-      }
-    }
-  };
-  flatten(rawQuery);
-  const qs = new URLSearchParams(flat).toString();
-  const targetUrl = `https://a.klaviyo.com/api/${klaviyoPath}${qs ? `?${qs}` : ''}`;
+  // Extract path and query directly from req.url — same approach as the Shopify proxy.
+  // This bypasses Vercel's qs parser entirely, which was mangling bracket params
+  // (page%5Bsize%5D → nested object) and causing 404s for multi-segment paths.
+  const rawUrl = req.url || '';
+  const urlMatch = rawUrl.match(/^\/api\/klaviyo\/?([^?]*)(.*)?$/);
+  const klaviyoPath = urlMatch?.[1] || '';
+  const queryPart  = urlMatch?.[2] || '';
+  const targetUrl  = `https://a.klaviyo.com/api/${klaviyoPath}${queryPart}`;
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -39,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.headers['x-debug-proxy'] === '1') {
-    return res.status(200).json({ pathKeys: { spread: req.query['...path'], plain: req.query.path }, klaviyoPath, targetUrl, url: req.url });
+    return res.status(200).json({ rawUrl, klaviyoPath, queryPart, targetUrl });
   }
 
   const auth = req.headers['authorization'];
@@ -48,7 +30,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'Accept': 'application/vnd.api+json',
   };
   if (auth) forwardHeaders['Authorization'] = auth as string;
-  // Only set Content-Type for requests that have a body
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     forwardHeaders['Content-Type'] = 'application/vnd.api+json';
   }
