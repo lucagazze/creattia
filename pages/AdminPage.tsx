@@ -31,10 +31,12 @@ import {
   MonitorPlay,
   Star,
   KeyRound,
+  Clock,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useViewAs } from "../contexts/ViewAsContext";
 import { db, ClientLink } from "../services/db";
+import { usePresence } from "../contexts/PresenceContext";
 
 interface BusinessAccount {
   id?: number;
@@ -64,6 +66,7 @@ interface ClientRow {
   tiendanube_store_id?: string;
   tiendanube_access_token?: string;
   client_tags?: string[];
+  last_login?: string;
   created_at: string;
 }
 
@@ -234,6 +237,18 @@ export default function AdminPage() {
 
   useEffect(() => {
     load();
+    
+    // Subscribe to changes in car_clients for live updates (last_login, etc)
+    const channel = supabase
+      .channel('car_clients_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'car_clients' }, () => {
+        load();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const copy = (t: string, l: string) => {
@@ -586,6 +601,8 @@ export default function AdminPage() {
     }
   };
 
+  const { onlineUsers, onlineCount } = usePresence();
+
   if (profile && !profile.is_admin) return null;
 
   return (
@@ -606,6 +623,14 @@ export default function AdminPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Online Users Indicator */}
+          <div className="h-9 px-3 rounded-[9px] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 flex items-center gap-2 mr-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
+              {onlineCount} {onlineCount === 1 ? 'usuario activo' : 'usuarios activos'}
+            </span>
+          </div>
+
           <button
             onClick={toggleDarkMode}
             className="h-9 w-9 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center justify-center shadow-sm"
@@ -631,6 +656,29 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
+
+      {/* Online Users List (Detailed) */}
+      {onlineCount > 0 && (
+        <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-1 duration-500">
+          {Object.entries(onlineUsers).map(([userId, presences]) => {
+            const p = presences[0] as any;
+            return (
+              <div 
+                key={userId} 
+                className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white dark:bg-zinc-900 border border-black/[0.05] dark:border-white/[0.05] shadow-sm"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">
+                  {p.business_name}
+                </span>
+                <span className="text-[9px] font-medium text-zinc-400">
+                  {new Date(p.online_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Service role key warning */}
       {!supabaseAdmin && (
@@ -837,6 +885,12 @@ export default function AdminPage() {
                       <p className="text-[14px] font-semibold text-zinc-900 dark:text-white truncate">
                         {c.business_name}
                       </p>
+                      {onlineUsers[c.id] && (
+                        <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-[10px] font-bold text-emerald-600 animate-pulse">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          En línea
+                        </span>
+                      )}
                       {c.is_admin && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
                           Admin
@@ -872,8 +926,14 @@ export default function AdminPage() {
                           })}
                         </div>
                       )}
+                      {c.last_login && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          <Clock className="w-3 h-3" />
+                          <span>Activo {new Date(c.last_login).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      )}
                       <span className="text-[11px] text-zinc-400 ml-auto">
-                        {new Date(c.created_at).toLocaleDateString("es-AR", {
+                        Creado: {new Date(c.created_at).toLocaleDateString("es-AR", {
                           day: "2-digit",
                           month: "short",
                           year: "numeric",

@@ -187,4 +187,100 @@ export const db = {
       return data ?? [];
     },
   },
+
+  activity: {
+    async log(userId: string, clientId: string, action: string, metadata: any = {}) {
+      try {
+        // Use provided email or fallback
+        const userEmail = metadata.user_email || 'Desconocido';
+
+        let ip = 'unknown';
+        let location = {};
+
+        // Try multiple IP services to bypass CORS/failures
+        const services = [
+          'https://api.ipify.org?format=json',
+          'https://freeipapi.com/api/json',
+          'https://ipapi.co/json/'
+        ];
+
+        for (const service of services) {
+          try {
+            const res = await fetch(service, { timeout: 2000 } as any).catch(() => null);
+            if (res && res.ok) {
+              const data = await res.json();
+              ip = data.ip || data.ipAddress || data.ip_address || data.query || 'unknown';
+              location = {
+                city: data.city || data.cityName || data.city_name || '',
+                region: data.region || data.regionName || data.region_name || '',
+                country: data.country_name || data.countryName || data.country || '',
+                org: data.org || data.asName || data.isp || ''
+              };
+              if (ip !== 'unknown') break;
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+
+        // Group by IP AND Device (User Agent) to distinguish between different computers
+        const ua = metadata.ua || 'unknown';
+        const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+        
+        let query = supabase
+          .from('car_user_activity')
+          .select('id, metadata')
+          .eq('user_id', userId)
+          .eq('action', action)
+          .gt('created_at', oneHourAgo);
+
+        if (ip !== 'unknown') {
+          query = query.eq('ip', ip);
+        } else {
+          query = query.is('ip', null);
+        }
+
+        // Add filter for User Agent in metadata to separate different devices
+        const { data: allExisting } = await query.order('created_at', { ascending: false });
+        const existing = allExisting?.find(e => e.metadata?.ua === ua);
+
+        const { error: checkError } = { error: null }; // Mock checkError as we are doing manual find
+
+        if (existing) {
+          await supabase
+            .from('car_user_activity')
+            .update({
+              created_at: new Date().toISOString(),
+              metadata: { ...existing.metadata, ...metadata, user_email: userEmail, refreshes: (existing.metadata?.refreshes || 0) + 1 }
+            })
+            .eq('id', existing.id);
+        } else {
+          await supabase.from('car_user_activity').insert({
+            user_id: userId,
+            client_id: clientId,
+            action,
+            metadata: { ...metadata, user_email: userEmail, refreshes: 1 },
+            ip: ip === 'unknown' ? null : ip,
+            location
+          });
+        }
+      } catch (error) {
+        console.error('Error logging activity:', error);
+      }
+    },
+    async getStats(daysAgo: number = 7) {
+      const { data, error } = await supabase.rpc('get_daily_activity_stats', { days_ago: daysAgo });
+      if (error) { console.error(error); return []; }
+      return data ?? [];
+    },
+    async getRecent(limit: number = 50) {
+      const { data, error } = await supabase
+        .from('car_user_activity')
+        .select('*, client:car_clients(business_name)')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) { console.error(error); return []; }
+      return data ?? [];
+    }
+  },
 };

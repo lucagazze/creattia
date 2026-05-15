@@ -29,22 +29,26 @@ const ProtectedRoute = () => {
   return <Outlet />;
 };
 
+import { PresenceProvider } from './contexts/PresenceContext';
+
 export default function App() {
   return (
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          <ViewAsProvider>
-            <ToastProvider>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                
-                <Route element={<ProtectedRoute />}>
-                   <Route path="/*" element={<MainLayout />} />
-                </Route>
-              </Routes>
-            </ToastProvider>
-          </ViewAsProvider>
+          <PresenceProvider>
+            <ViewAsProvider>
+              <ToastProvider>
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
+                  
+                  <Route element={<ProtectedRoute />}>
+                     <Route path="/*" element={<MainLayout />} />
+                  </Route>
+                </Routes>
+              </ToastProvider>
+            </ViewAsProvider>
+          </PresenceProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

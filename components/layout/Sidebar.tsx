@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle
+  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -194,18 +194,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
               <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-3 mb-4">
                 Administración
               </p>
-              <Link
-                to="/admin"
-                onClick={() => window.innerWidth < 768 && setIsOpen(false)}
-                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 ${
-                  location.pathname === '/admin'
-                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
-                    : 'text-zinc-500 dark:text-zinc-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/5'
-                }`}
-              >
-                <Shield className="w-[18px] h-[18px]" />
-                <span>Gestión Clientes</span>
-              </Link>
+            <Link
+              to="/admin"
+              onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+              className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 ${
+                location.pathname === '/admin'
+                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/5'
+              }`}
+            >
+              <Shield className="w-[18px] h-[18px]" />
+              <span>Gestión Clientes</span>
+            </Link>
+            <Link
+              to="/admin/actividad"
+              onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+              className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 ${
+                location.pathname === '/admin/actividad'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                  : 'text-zinc-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/5'
+              }`}
+            >
+              <Activity className="w-[18px] h-[18px]" />
+              <span>Monitoreo Actividad</span>
+            </Link>
             </div>
           )}
         </nav>

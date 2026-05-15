@@ -19,16 +19,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (userId: string, email?: string) => {
     const p = await db.profile.getByUserId(userId);
     setProfile(p);
+    if (p) {
+      db.activity.log(userId, p.id, 'session_start', { 
+        user_email: email,
+        ua: navigator.userAgent,
+        screen: `${window.innerWidth}x${window.innerHeight}`
+      });
+    }
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) loadProfile(session.user.id).finally(() => setLoading(false));
+      if (session?.user) loadProfile(session.user.id, session.user.email).finally(() => setLoading(false));
       else setLoading(false);
     });
 
@@ -36,7 +43,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        loadProfile(session.user.id).finally(() => setLoading(false));
+        loadProfile(session.user.id, session.user.email).finally(() => setLoading(false));
       } else {
         setProfile(null);
         setLoading(false);
