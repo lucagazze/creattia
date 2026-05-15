@@ -38,6 +38,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(204).end();
   }
 
+  if (req.headers['x-debug-proxy'] === '1') {
+    return res.status(200).json({ pathKeys: { spread: req.query['...path'], plain: req.query.path }, klaviyoPath, targetUrl, url: req.url });
+  }
+
   const auth = req.headers['authorization'];
   const forwardHeaders: Record<string, string> = {
     'Revision': KLAVIYO_REVISION,

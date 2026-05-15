@@ -323,10 +323,25 @@ export const klaviyo = {
     const cached = getCached(cacheKey);
     if (cached) return cached;
     try {
-      // Fetch all flows (including draft) so we can show everything
-      const res = await apiFetch(`${BASE}/flows?page%5Bsize%5D=50`, { headers: buildHeaders(apiKey) });
+      const res = await apiFetch(
+        `${BASE}/flows?page%5Bsize%5D=50&include=flow-actions&fields%5Bflow-action%5D=action_type`,
+        { headers: buildHeaders(apiKey) }
+      );
       if (!res.ok) return [];
       const json = await res.json();
+      // Build map: flowId -> [emailActionIds] — used by getFlowMessages to avoid multi-segment paths
+      const emailActionIds = new Set(
+        (json.included || [])
+          .filter((a: any) => a.type === 'flow-action' && a.attributes?.action_type === 'SEND_EMAIL')
+          .map((a: any) => a.id)
+      );
+      const actionMap: Record<string, string[]> = {};
+      (json.data || []).forEach((flow: any) => {
+        const rels = flow.relationships?.['flow-actions']?.data || [];
+        const ids = rels.map((r: any) => r.id).filter((id: string) => emailActionIds.has(id));
+        if (ids.length > 0) actionMap[flow.id] = ids;
+      });
+      setCache(`flow-action-ids:${apiKey}`, actionMap);
       const data = json.data || [];
       setCache(cacheKey, data);
       return data;
@@ -461,43 +476,33 @@ export const klaviyo = {
 
   getFlowMessages: async (apiKey: string, flowId: string) => {
     try {
-      // Use include= (same mechanism as getCampaigns uses include=campaign-messages).
-      // The /flows/{id}/flow-actions sub-resource path returns 404 in Klaviyo v2024-10-15.
-      const flowRes = await apiFetch(
-        `${BASE}/flows/${flowId}?include=flow-actions&fields%5Bflow-action%5D=action_type`,
-        { headers: buildHeaders(apiKey) }
-      );
-      if (!flowRes.ok) {
-        console.error('[Klaviyo] GET flow?include=flow-actions:', flowRes.status, await flowRes.text().catch(() => ''));
-        return [];
+      // Get email action IDs from cache populated by getFlows (avoids multi-segment paths)
+      let actionMap: Record<string, string[]> = getCached(`flow-action-ids:${apiKey}`) || {};
+      if (!actionMap[flowId] && !Object.keys(actionMap).length) {
+        await klaviyo.getFlows(apiKey);
+        actionMap = getCached(`flow-action-ids:${apiKey}`) || {};
       }
-      const flowJson = await flowRes.json();
-      const emailActions = (flowJson.included || []).filter(
-        (a: any) => a.type === 'flow-action' && a.attributes?.action_type === 'SEND_EMAIL'
-      );
-      console.log('[Klaviyo] SEND_EMAIL actions via include:', emailActions.length);
-      if (emailActions.length === 0) return [];
+      const actionIds = actionMap[flowId] || [];
+      if (actionIds.length === 0) return [];
 
-      // For each email action, get its messages via include
+      // Fetch messages via 1-segment collection endpoint — no multi-segment paths
       const msgResults = await Promise.all(
-        emailActions.map((action: any) =>
+        actionIds.map((actionId: string) =>
           apiFetch(
-            `${BASE}/flow-actions/${action.id}?include=flow-messages&fields%5Bflow-message%5D=name`,
+            `${BASE}/flow-messages?filter=equals(flow-action.id,"${actionId}")&fields%5Bflow-message%5D=name`,
             { headers: buildHeaders(apiKey) }
           ).then(async r => {
             if (!r.ok) {
-              console.error('[Klaviyo] GET flow-action?include=flow-messages:', r.status, action.id);
+              console.error('[Klaviyo] GET flow-messages?filter:', r.status, actionId);
               return [];
             }
             const j = await r.json();
-            return (j.included || []).filter((x: any) => x.type === 'flow-message' || x.type === 'flow-action-message');
+            return j.data || [];
           }).catch(() => [])
         )
       );
 
-      const msgs = msgResults.flat();
-      console.log('[Klaviyo] total flow messages:', msgs.length, 'for flow', flowId);
-      return msgs;
+      return msgResults.flat();
     } catch (e) { console.error('[Klaviyo] getFlowMessages error:', e); return []; }
   },
 
