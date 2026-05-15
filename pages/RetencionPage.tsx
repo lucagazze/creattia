@@ -328,22 +328,46 @@ export default function RetencionPage() {
                       revenue: flowRev?.revenue || 0,
                       orders:  flowRev?.orders  || 0,
                     };
+                    const flowOpen = expandedRows.has(flow.id);
                     return (
-                      <div key={flow.id} className="flex items-center justify-between px-4 py-1.5 gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-shrink-0 max-w-[40%] sm:max-w-none sm:flex-1">
-                          <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 truncate">{flow.attributes.name}</span>
-                          <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">Activo</span>
+                      <div key={flow.id}>
+                        <div onClick={() => toggleRow(flow.id)} className="flex items-center justify-between px-4 py-1.5 cursor-pointer sm:cursor-default">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 truncate">{flow.attributes.name}</span>
+                            <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">Activo</span>
+                          </div>
+                          {/* Desktop: all metrics always visible */}
+                          {fetchingDetailed
+                            ? <div className="hidden sm:flex gap-2 shrink-0">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
+                            : <div className="hidden sm:flex items-center gap-3 text-[11px] shrink-0 ml-3">
+                                <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s.sent)}</span></span>
+                                <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s.opens, s.sent)}</span></span>
+                                <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s.clicks, s.sent)}</span></span>
+                                <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s.revenue)}</span></span>
+                                <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s.orders)}</span></span>
+                              </div>
+                          }
+                          {/* Mobile: ingresos + chevron */}
+                          <div className="flex items-center gap-2 shrink-0 sm:hidden ml-2">
+                            {!fetchingDetailed && s.revenue > 0 && <span className="text-[11px] font-bold text-emerald-500">{fmtCurr(s.revenue)}</span>}
+                            <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${flowOpen ? 'rotate-180' : ''}`} />
+                          </div>
                         </div>
-                        {fetchingDetailed
-                          ? <div className="flex gap-2 shrink-0">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
-                          : <div className="flex items-center gap-3 text-[11px] shrink-0">
-                              <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s.sent)}</span></span>
-                              <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s.opens, s.sent)}</span></span>
-                              <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s.clicks, s.sent)}</span></span>
-                              <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s.revenue)}</span></span>
-                              <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s.orders)}</span></span>
-                            </div>
-                        }
+                        {/* Mobile: expanded stats */}
+                        {flowOpen && (
+                          <div className="sm:hidden px-4 pb-2 pt-0.5">
+                            {fetchingDetailed
+                              ? <div className="flex gap-2">{[1,2,3,4,5].map(i => <div key={i} className="h-2.5 w-8 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse"/>)}</div>
+                              : <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                                  <span className="text-zinc-400">Env: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s.sent)}</span></span>
+                                  <span className="text-zinc-400">Ap: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s.opens, s.sent)}</span></span>
+                                  <span className="text-zinc-400">Cl: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtRate(s.clicks, s.sent)}</span></span>
+                                  <span className="text-zinc-400">Ingresos: <span className={`font-bold ${s.revenue > 0 ? 'text-emerald-500' : 'text-zinc-500'}`}>{fmtCurr(s.revenue)}</span></span>
+                                  <span className="text-zinc-400">Pedidos: <span className="font-bold text-zinc-700 dark:text-zinc-200">{fmtN(s.orders)}</span></span>
+                                </div>
+                            }
+                          </div>
+                        )}
                       </div>
                     );
                   })}
