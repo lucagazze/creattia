@@ -91,22 +91,26 @@ const buildAggBody = (
   until: string,
   measurements: string[],
   by: string[] = []
-) => ({
-  data: {
-    type: 'metric-aggregate',
-    attributes: {
-      metric_id: metricId,
-      measurements,
-      ...(by.length > 0 && { by }),
-      filter: [
-        `greater-or-equal(datetime,${since}T00:00:00Z)`,
-        `less-than(datetime,${until}T23:59:59Z)`,
-      ],
-      interval: 'day',
-      timezone: 'UTC',
+) => {
+  const daysDiff = (new Date(until).getTime() - new Date(since).getTime()) / 86_400_000;
+  const interval = daysDiff > 180 ? 'month' : daysDiff > 90 ? 'week' : 'day';
+  return {
+    data: {
+      type: 'metric-aggregate',
+      attributes: {
+        metric_id: metricId,
+        measurements,
+        ...(by.length > 0 && { by }),
+        filter: [
+          `greater-or-equal(datetime,${since}T00:00:00Z)`,
+          `less-than(datetime,${until}T23:59:59Z)`,
+        ],
+        interval,
+        timezone: 'UTC',
+      },
     },
-  },
-});
+  };
+};
 
 // ─── Parsers ───
 const sumMeasure = (res: any, key: 'sum_value' | 'count'): number => {

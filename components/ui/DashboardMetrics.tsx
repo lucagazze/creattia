@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, ChevronDown } from "lucide-react";
 
 const BLUE = "#3b82f6";
 const GREEN = "#10b981";
@@ -48,9 +48,9 @@ export const DashboardMetric = ({
             {label}
           </span>
         </div>
-        {active && (
-          <div className={`w-1.5 h-1.5 rounded-full ${pulseClass} animate-pulse`} />
-        )}
+        <ChevronDown
+          className={`w-3 h-3 text-zinc-300 dark:text-zinc-600 transition-transform duration-200 ${active ? 'rotate-180 opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+        />
       </div>
       <div className="flex items-end justify-between gap-2">
         <div className="flex flex-col shrink-0">

@@ -146,9 +146,11 @@ export default function CaptacionPage() {
   const fetchAll = async () => {
     if (!profile?.meta_account_id) return;
     setLoading(true);
+    setSummary(null);
+    setPrevSummary(null);
     try {
       const accountId = profile.meta_account_id;
-      const [rawDaily, rawPrevDaily, gender, regions, platform, age, campaignInsights, prevCampaignInsights] = await Promise.all([
+      const settled = await Promise.allSettled([
         metaAds.getInsightsDaily(accountId, 'spend,reach,actions,action_values,purchase_roas,impressions', undefined, range),
         metaAds.getInsightsDaily(accountId, 'spend,reach,actions,action_values,purchase_roas,impressions', undefined, prevRange),
         metaAds.getInsightsBreakdown(accountId, 'gender', range),
@@ -158,12 +160,19 @@ export default function CaptacionPage() {
         metaAds.getInsightsAtCampaignLevel(accountId, 'campaign_name,spend,reach,actions,action_values,purchase_roas,objective', range),
         metaAds.getInsightsAtCampaignLevel(accountId, 'campaign_name,spend,reach,actions,action_values,purchase_roas,objective', prevRange),
       ]);
+      const ok = <T,>(r: PromiseSettledResult<T>, fallback: T): T =>
+        r.status === 'fulfilled' ? r.value : fallback;
+      const [rawDaily, rawPrevDaily, gender, regions, platform, age, campaignInsights, prevCampaignInsights] = [
+        ok(settled[0], []), ok(settled[1], []), ok(settled[2], []), ok(settled[3], []),
+        ok(settled[4], []), ok(settled[5], []), ok(settled[6], []), ok(settled[7], []),
+      ];
 
       const processDaily = (raw: any[], r: any) => {
         const padded: any[] = [];
         let d = new Date(r.since + 'T12:00:00');
         const end = new Date(r.until + 'T12:00:00');
-        while (d <= end) {
+        let safetyLimit = 0;
+        while (d <= end && safetyLimit++ < 400) {
           const iso = d.toISOString().split('T')[0];
           const match = raw.find((row: any) => row.date === iso);
           const purchases = extractActions(match?.actions, 'purchases');
@@ -236,13 +245,6 @@ export default function CaptacionPage() {
         const ig_followers = extractActions(c.actions, 'ig_followers');
         const fb_likes = extractActions(c.actions, 'fb_likes');
         const spend = parseFloat(c.spend || 0);
-        
-        // Debug: log raw Meta data for Comunidad/Traffic campaigns
-        if (c.actions && (c.campaign_name?.includes('Comunidad') || c.campaign_name?.includes('Trafico') || c.campaign_name?.includes('Comunity'))) {
-          console.log(`[DEBUG COMUNIDAD] Campaign: "${c.campaign_name}"`);
-          console.log(`[DEBUG COMUNIDAD] All actions:`, JSON.stringify(c.actions, null, 2));
-          console.log(`[DEBUG COMUNIDAD] ig_followers resolved:`, ig_followers);
-        }
         
         let category = 'Otras Campañas';
         const nameUpper = c.campaign_name?.toUpperCase() || '';
@@ -330,14 +332,14 @@ export default function CaptacionPage() {
           <div className="w-8 flex justify-end">{onNext && <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group"><ChevronDown className="w-4 h-4 -rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" /></button>}</div>
         </div>
         <div key={`${year}-${month}`} className={`grid grid-cols-7 gap-y-1 ${animClass}`}>
-          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(d => <div key={d} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
+          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
           {days.map((d, i) => {
             if (!d) return <div key={`empty-${i}`} />;
             const isToday = d === todayStr; const isFuture = d > todayStr; const isSelected = d === since || d === until;
             const isInRange = since && until && d > since && d < until;
             const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
             return (
-              <button key={d} onMouseEnter={() => !isFuture && onHover(d)} onClick={() => !isFuture && onDay(d)} disabled={isFuture} className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${isSelected ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full z-10 shadow-md shadow-zinc-200 dark:shadow-none' : (isInRange || isHovering) ? 'bg-zinc-100 dark:bg-zinc-800/50 text-zinc-900 dark:text-white' : isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'} ${isToday && !isSelected ? 'text-blue-600 dark:text-blue-500 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''}`}>{d.split('-')[2]}</button>
+              <button key={d} onMouseEnter={() => !isFuture && onHover(d)} onClick={() => !isFuture && onDay(d)} disabled={isFuture} className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${isSelected ? 'bg-blue-600 text-white rounded-full z-10 shadow-md shadow-blue-200 dark:shadow-none' : (isInRange || isHovering) ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600' : isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'} ${isToday && !isSelected ? 'text-blue-600 dark:text-blue-500 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''}`}>{d.split('-')[2]}</button>
             );
           })}
         </div>
@@ -392,7 +394,7 @@ export default function CaptacionPage() {
               <div className="absolute left-0 md:left-auto md:right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-30 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[290px] sm:w-[320px] md:w-auto origin-top-left md:origin-top-right">
                   <div className="w-full md:w-[160px] border-b md:border-b-0 md:border-r border-zinc-50 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-hide">
                     {PRESETS.map(p => (
-                      <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-md shadow-zinc-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                      <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                     ))}
                   </div>
                   <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
@@ -404,7 +406,7 @@ export default function CaptacionPage() {
                     </div>
                     <div className="w-full flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                       <button onClick={() => setShowDatePicker(false)} className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-zinc-500">Cancelar</button>
-                      <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-bold shadow-md shadow-zinc-200 dark:shadow-none hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors">Aplicar</button>
+                      <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-md shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-colors">Aplicar</button>
                   </div>
                 </div>
               </div>

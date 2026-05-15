@@ -32,8 +32,8 @@ export const MainLayout = () => {
       />
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen relative">
-        {/* Mobile header */}
-        <div className="md:hidden h-14 border-b border-black/[0.06] dark:border-white/[0.05] flex items-center justify-between px-4 bg-white/80 dark:bg-[#161618]/80 backdrop-blur-xl sticky top-0 z-30">
+        {/* Mobile header — fixed so it never scrolls away */}
+        <div className="md:hidden h-14 border-b border-black/[0.06] dark:border-white/[0.05] flex items-center justify-between px-4 bg-white/80 dark:bg-[#161618]/80 backdrop-blur-xl fixed top-0 inset-x-0 z-30">
           <div className="flex items-center">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -60,6 +60,8 @@ export const MainLayout = () => {
         </div>
 
         <div className="flex-1 overflow-auto p-4 md:p-8 lg:p-10 w-full pb-24 md:pb-10">
+          {/* Spacer so content starts below the fixed mobile header */}
+          <div className="h-14 md:hidden" />
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/captacion" element={<CaptacionPage />} />

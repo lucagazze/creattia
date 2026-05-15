@@ -51,8 +51,6 @@ export default function RetencionPage() {
   const [activePreset, setActivePreset] = useState<DatePreset | 'custom'>('last_14d');
   const [activeSince, setActiveSince] = useState(daysAgo(14));
   const [activeUntil, setActiveUntil] = useState(today());
-  const activePrevRange = getPrevPeriod(activeSince, activeUntil);
-
   const [showDatePicker, setShowDatePicker] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
 
@@ -78,7 +76,7 @@ export default function RetencionPage() {
 
   const handleFlowExpand = async (flowId: string) => {
     toggleRow(flowId);
-    if (!flowMsgs[flowId] && profile?.klaviyo_api_key) {
+    if (!(flowId in flowMsgs) && profile?.klaviyo_api_key) {
       setLoadingFlowMsgs(prev => new Set([...prev, flowId]));
       const msgs = await klaviyo.getFlowMessages(profile.klaviyo_api_key, flowId);
       setFlowMsgs(prev => ({ ...prev, [flowId]: msgs }));
@@ -101,19 +99,21 @@ export default function RetencionPage() {
     setPrevKlaviyo(null);
     setDetailedStats(null);
 
-    try {
-      const curr = await klaviyo.getDashboardData(key, since, until);
-      setCurrentKlaviyo(curr);
-      setFetchingKlaviyo(false);
-      const detailed = await klaviyo.getDetailedStats(key, since, until);
-      setDetailedStats(detailed);
-      setFetchingDetailed(false);
-    } catch (err) { console.error("Klaviyo Fetch Error:", err); setFetchingKlaviyo(false); setFetchingDetailed(false); }
+    const currP = klaviyo.getDashboardData(key, since, until);
+    const prevP = klaviyo.getDashboardData(key, prevRange.since, prevRange.until);
+    const detailedP = klaviyo.getDetailedStats(key, since, until);
 
     try {
-      const prev = await klaviyo.getDashboardData(key, prevRange.since, prevRange.until);
-      setPrevKlaviyo(prev);
-    } catch { /* non-critical */ }
+      setCurrentKlaviyo(await currP);
+      setFetchingKlaviyo(false);
+    } catch (err) { console.error("Klaviyo Fetch Error:", err); setFetchingKlaviyo(false); }
+
+    try {
+      setDetailedStats(await detailedP);
+      setFetchingDetailed(false);
+    } catch (err) { console.error("Klaviyo Detail Error:", err); setFetchingDetailed(false); }
+
+    try { setPrevKlaviyo(await prevP); } catch { /* non-critical */ }
   };
 
   const fetchConfig = async () => {
@@ -135,7 +135,7 @@ export default function RetencionPage() {
       fetchData(activePreset, activeSince, activeUntil); 
       fetchConfig();
     } 
-  }, [profile, activePreset, activeSince, activeUntil]);
+  }, [profile?.id, activePreset, activeSince, activeUntil]);
 
   useEffect(() => {
     const click = (e: MouseEvent) => { if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) setShowDatePicker(false); };

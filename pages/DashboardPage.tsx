@@ -465,7 +465,6 @@ export default function DashboardPage() {
     presetToRange("last_14d").until,
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showCompare] = useState(true);
   const [hovering, setHovering] = useState("");
   const nowD = new Date();
   const [calYear, setCalYear] = useState(nowD.getFullYear());
@@ -483,7 +482,10 @@ export default function DashboardPage() {
   const [fetching90d, setFetching90d] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const datePickerRef = useRef<HTMLDivElement>(null);
+  const clientPickerRef = useRef<HTMLDivElement>(null);
+  const [showClientPicker, setShowClientPicker] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const fetchIdRef = useRef(0);
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [allClients, setAllClients] = useState<any[]>([]);
@@ -512,11 +514,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        datePickerRef.current &&
-        !datePickerRef.current.contains(event.target as Node)
-      )
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node))
         setShowDatePicker(false);
+      if (clientPickerRef.current && !clientPickerRef.current.contains(event.target as Node))
+        setShowClientPicker(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -526,6 +527,7 @@ export default function DashboardPage() {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    const myFetchId = ++fetchIdRef.current;
 
     try {
       await ensureMetaToken();
@@ -632,7 +634,8 @@ export default function DashboardPage() {
           const padded = [];
           let d = new Date(range.since + "T12:00:00");
           const end = new Date(range.until + "T12:00:00");
-          while (d <= end) {
+          let safetyLimit = 0;
+          while (d <= end && safetyLimit++ < 400) {
             const iso = d.toISOString().split("T")[0];
             const match = rawDaily.find((rd: any) => rd.date === iso);
             padded.push(
@@ -650,7 +653,8 @@ export default function DashboardPage() {
           const paddedPrev = [];
           let dp = new Date(prevRange.since + "T12:00:00");
           const endP = new Date(prevRange.until + "T12:00:00");
-          while (dp <= endP) {
+          let safetyLimitP = 0;
+          while (dp <= endP && safetyLimitP++ < 400) {
             const iso = dp.toISOString().split("T")[0];
             const match = rawPrevDaily.find((rd: any) => rd.date === iso);
             paddedPrev.push(
@@ -694,12 +698,13 @@ export default function DashboardPage() {
               prevRange.until,
             ),
           ]);
+          if (myFetchId !== fetchIdRef.current) return;
           setCurrentKlaviyo(curr);
           setPrevKlaviyo(prev);
         } catch (err) {
           console.error("Klaviyo Fetch Error:", err);
         } finally {
-          setFetchingKlaviyo(false);
+          if (myFetchId === fetchIdRef.current) setFetchingKlaviyo(false);
         }
       };
 
@@ -712,7 +717,8 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (profile) {
+    if (!profile) return;
+    const timer = setTimeout(() => {
       fetchData(activePreset, activeSince, activeUntil);
       const loadLinks = async () => {
         const data = await db.links.getByClientId(profile.id);
@@ -720,7 +726,8 @@ export default function DashboardPage() {
       };
       loadLinks();
       setLoadingInitial(false);
-    }
+    }, 150);
+    return () => clearTimeout(timer);
   }, [profile?.id, activePreset, activeSince, activeUntil, refreshKey]);
 
   useEffect(() => {
@@ -747,6 +754,7 @@ export default function DashboardPage() {
           setHistorical90d(store90.daily || []);
         }
       } catch (err) {
+        console.error("90d Store Fetch Error:", err);
       } finally {
         if (mounted) setFetching90d(false);
       }
@@ -755,7 +763,7 @@ export default function DashboardPage() {
     return () => {
       mounted = false;
     };
-  }, [profile?.id, refreshKey]);
+  }, [profile?.id]);
 
   const handleApply = () => {
     setActivePreset(pendingPreset);
@@ -889,9 +897,9 @@ export default function DashboardPage() {
           </div>
         </div>
         <div key={`${year}-${month}`} className={`grid grid-cols-7 gap-y-1 ${animClass}`}>
-          {["L", "M", "M", "J", "V", "S", "D"].map((d) => (
+          {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
             <div
-              key={d}
+              key={i}
               className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter"
             >
               {d}
@@ -956,54 +964,57 @@ export default function DashboardPage() {
               </button>
             )}
           </div>
-          <div className="relative mt-2">
-            <select
-              value={viewAsProfile?.id || ""}
-              onChange={(e) => {
-                const id = e.target.value;
-                if (!id) {
-                  setViewAsProfile(null);
-                  return;
-                }
-                const c = allClients.find((client) => client.id === id);
-                if (c) {
-                  const cp: any = {
-                    id: c.id,
-                    user_id: c.user_id,
-                    business_name: c.business_name,
-                    industry: c.industry,
-                    plan: c.plan,
-                    active: c.active,
-                    is_admin: false,
-                    meta_account_id: c.meta_account_id,
-                    klaviyo_api_key: c.klaviyo_api_key,
-                    chatwoot_url: c.chatwoot_url,
-                    chatwoot_token: c.chatwoot_token,
-                    ecommerce_platform: c.ecommerce_platform,
-                    shopify_domain: c.shopify_domain,
-                    shopify_access_token: c.shopify_access_token,
-                    client_tags: c.client_tags || [],
-                  };
-                  setViewAsProfile(cp);
-                }
-              }}
-              className="w-full h-11 pl-4 pr-10 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 text-[14px] font-bold text-zinc-900 dark:text-white outline-none appearance-none cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/50 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all shadow-sm"
+          <div className="relative mt-2" ref={clientPickerRef}>
+            <button
+              onClick={() => setShowClientPicker(!showClientPicker)}
+              className="w-full h-11 pl-4 pr-10 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 text-left text-[14px] cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/50 transition-all shadow-sm flex items-center"
             >
-              <option value="" className="font-normal text-zinc-500">
-                Seleccionar cliente... (Mi Vista)
-              </option>
-              {allClients.map((c) => (
-                <option key={c.id} value={c.id} className="font-semibold text-zinc-900 dark:text-white">
-                  {c.business_name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {viewAsProfile ? (
+                <span className="font-bold text-zinc-900 dark:text-white">{viewAsProfile.business_name}</span>
+              ) : (
+                <span className="font-normal text-zinc-400">Seleccionar cliente... (Mi Vista)</span>
+              )}
+              <ChevronDown className={`w-4 h-4 text-zinc-400 absolute right-4 transition-transform duration-200 ${showClientPicker ? 'rotate-180' : ''}`} />
+            </button>
+            {showClientPicker && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-150">
+                <button
+                  onClick={() => { setViewAsProfile(null); setShowClientPicker(false); }}
+                  className="w-full px-4 py-2.5 text-left text-[13px] font-normal text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  Seleccionar cliente... (Mi Vista)
+                </button>
+                <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+                {allClients.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setViewAsProfile({
+                        id: c.id, user_id: c.user_id, business_name: c.business_name,
+                        industry: c.industry, plan: c.plan, active: c.active, is_admin: false,
+                        meta_account_id: c.meta_account_id, klaviyo_api_key: c.klaviyo_api_key,
+                        chatwoot_url: c.chatwoot_url, chatwoot_token: c.chatwoot_token,
+                        ecommerce_platform: c.ecommerce_platform, shopify_domain: c.shopify_domain,
+                        shopify_access_token: c.shopify_access_token, client_tags: c.client_tags || [],
+                      } as any);
+                      setShowClientPicker(false);
+                    }}
+                    className={`w-full px-4 py-2.5 text-left text-[13px] font-bold transition-colors ${
+                      viewAsProfile?.id === c.id
+                        ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400'
+                        : 'text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    {c.business_name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
-        <div className="space-y">
+        <div>
           <div className="flex items-center gap-3 mb-2">
             <img
               src={
@@ -1602,7 +1613,7 @@ export default function DashboardPage() {
                   <ShopifyMetric
                     icon={MailOpen}
                     label="Tasa de Apertura"
-                    value={`${((currentKlaviyo.opens / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%`}
+                    value={`${(((currentKlaviyo.opens ?? 0) / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%`}
                     change={getKlaviyoChange(
                       (currentKlaviyo?.opens ?? 0) /
                         (currentKlaviyo?.sent || 1),
@@ -1635,7 +1646,7 @@ export default function DashboardPage() {
                   <ShopifyMetric
                     icon={MousePointerClick}
                     label="Tasa de Clics"
-                    value={`${((currentKlaviyo.clicks / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%`}
+                    value={`${(((currentKlaviyo.clicks ?? 0) / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%`}
                     change={getKlaviyoChange(
                       (currentKlaviyo?.clicks ?? 0) /
                         (currentKlaviyo?.sent || 1),

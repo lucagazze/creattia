@@ -46,7 +46,6 @@ export const ecommerce = {
         nextUrl = nextLink;
       }
 
-      console.log(`[Shopify] Fetched total ${allOrders.length} orders from ${cleanDomain}`);
       return allOrders;
     } catch (e) {
       console.error('[Shopify] Fetch Exception:', e);
@@ -86,12 +85,13 @@ export const ecommerce = {
 
     const start = new Date(`${since}T00:00:00`);
     const end = new Date(`${until}T23:59:59`);
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(start), limit = 0; d <= end && limit++ < 400; d.setDate(d.getDate() + 1)) {
       dailyData[d.toISOString().split('T')[0]] = { revenue: 0, orders: 0 };
     }
 
     validOrders.forEach((o: any) => {
-      const date = o.created_at.split('T')[0];
+      const date = o.created_at?.split('T')[0];
+      if (!date) return;
       if (dailyData[date]) {
         dailyData[date].revenue += parseFloat(o.total_price || 0);
         dailyData[date].orders += 1;
