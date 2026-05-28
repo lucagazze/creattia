@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   RefreshCw, Mail, Workflow, ChevronDown, ChevronRight,
   Eye, Key, ExternalLink, AlertCircle, X, Monitor, Smartphone,
-  Clock, Send, CalendarClock, Archive, Zap, Check, Copy,
+  Clock, Send, CalendarClock, Archive, Zap, Check, Copy, Trash2, Undo2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -45,20 +45,37 @@ interface KvFlowEmail {
 
 const KLAVIYO_REVISION = '2024-10-15';
 
-const kFetch = async (path: string, apiKey: string) => {
+const kRequest = async (path: string, apiKey: string, method: string = 'GET', body?: any) => {
+  const headers: Record<string, string> = {
+    Authorization: `Klaviyo-API-Key ${apiKey}`,
+    Revision: KLAVIYO_REVISION,
+    Accept: 'application/json',
+  };
+
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   const res = await fetch(`/api/klaviyo/${path}`, {
-    headers: {
-      Authorization: `Klaviyo-API-Key ${apiKey}`,
-      Revision: KLAVIYO_REVISION,
-      Accept: 'application/json',
-    },
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
   });
+
   if (!res.ok) {
     const txt = await res.text();
-    console.error('KLAVIYO ERROR RESPONSE FULL:', txt, 'FOR PATH:', path);
+    console.error('KLAVIYO ERROR RESPONSE FULL:', txt, 'FOR PATH:', path, 'METHOD:', method);
     throw new Error(`${res.status}: ${txt}`);
   }
+
+  if (res.status === 204) {
+    return null;
+  }
   return res.json();
+};
+
+const kFetch = async (path: string, apiKey: string) => {
+  return kRequest(path, apiKey, 'GET');
 };
 
 const fetchCampaigns = async (apiKey: string): Promise<KvCampaign[]> => {
@@ -152,6 +169,34 @@ const fetchFlowEmails = async (flowId: string, apiKey: string): Promise<KvFlowEm
 const fetchTemplateHtml = async (templateId: string, apiKey: string): Promise<string> => {
   const data = await kFetch(`templates/${templateId}`, apiKey);
   return data.data?.attributes?.html ?? '';
+};
+
+const deleteCampaignAPI = async (campaignId: string, apiKey: string): Promise<void> => {
+  await kRequest(`campaigns/${campaignId}`, apiKey, 'DELETE');
+};
+
+const cancelCampaignAPI = async (campaignId: string, apiKey: string): Promise<void> => {
+  await kRequest(`campaign-send-jobs/${campaignId}`, apiKey, 'PATCH', {
+    data: {
+      type: 'campaign-send-job',
+      id: campaignId,
+      attributes: {
+        action: 'cancel',
+      },
+    },
+  });
+};
+
+const revertCampaignAPI = async (campaignId: string, apiKey: string): Promise<void> => {
+  await kRequest(`campaign-send-jobs/${campaignId}`, apiKey, 'PATCH', {
+    data: {
+      type: 'campaign-send-job',
+      id: campaignId,
+      attributes: {
+        action: 'revert',
+      },
+    },
+  });
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -330,12 +375,41 @@ function PreviewModal({
 
 // ─── Campaign card ────────────────────────────────────────────────────────────
 
-function CampaignCard({ c, onPreview }: { c: KvCampaign; onPreview: () => void }) {
+function CampaignCard({
+  c,
+  onPreview,
+  onDelete,
+  onCancel,
+  onRevert,
+}: {
+  c: KvCampaign;
+  onPreview: () => void;
+  onDelete?: (id: string) => Promise<void>;
+  onCancel?: (id: string) => Promise<void>;
+  onRevert?: (id: string) => Promise<void>;
+}) {
   const st = CAMP_STATUS[c.status] ?? { label: c.status, cls: 'bg-zinc-100 dark:bg-white/10 text-zinc-500' };
   const dateLabel = c.status === 'Sent' ? fmtDate(c.send_time) :
     c.status === 'Scheduled' ? fmtDate(c.scheduled_at) : fmtDate(c.created_at);
   const dateIcon = c.status === 'Sent' ? <Send className="w-3 h-3" /> :
     c.status === 'Scheduled' ? <CalendarClock className="w-3 h-3" /> : <Clock className="w-3 h-3" />;
+
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAction = async (actionName: string, actionFn?: (id: string) => Promise<void>) => {
+    if (!actionFn) return;
+    setLoadingAction(actionName);
+    setError(null);
+    try {
+      await actionFn(c.id);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Error al procesar la acción');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-2xl px-5 py-4 flex items-start gap-4 hover:border-zinc-300 dark:hover:border-white/15 transition-all">
@@ -361,15 +435,80 @@ function CampaignCard({ c, onPreview }: { c: KvCampaign; onPreview: () => void }
           {dateIcon}
           <span>{dateLabel}</span>
         </div>
+        {error && (
+          <div className="mt-2 text-[11px] text-red-500 font-medium flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
+            <AlertCircle className="w-3 h-3 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
       </div>
-      {c.message?.template_id && (
-        <button
-          onClick={onPreview}
-          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-violet-600 hover:text-white transition-all"
-        >
-          <Eye className="w-3.5 h-3.5" />Ver
-        </button>
-      )}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {c.message?.template_id && (
+          <button
+            onClick={onPreview}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-violet-600 hover:text-white transition-all"
+          >
+            <Eye className="w-3.5 h-3.5" />Ver
+          </button>
+        )}
+
+        {c.status === 'Draft' && onDelete && (
+          <button
+            disabled={loadingAction !== null}
+            onClick={() => {
+              if (window.confirm(`¿Estás seguro de que querés eliminar la campaña "${c.name}" permanentemente de Klaviyo?`)) {
+                handleAction('delete', onDelete);
+              }
+            }}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
+          >
+            {loadingAction === 'delete' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+            Eliminar
+          </button>
+        )}
+
+        {c.status === 'Scheduled' && onRevert && (
+          <button
+            disabled={loadingAction !== null}
+            onClick={() => {
+              if (window.confirm(`¿Estás seguro de que querés volver la campaña "${c.name}" a borrador?`)) {
+                handleAction('revert', onRevert);
+              }
+            }}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 disabled:opacity-40 transition-all border border-zinc-200 dark:border-white/5"
+          >
+            {loadingAction === 'revert' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Undo2 className="w-3.5 h-3.5" />
+            )}
+            Borrador
+          </button>
+        )}
+
+        {(c.status === 'Scheduled' || c.status === 'Sending') && onCancel && (
+          <button
+            disabled={loadingAction !== null}
+            onClick={() => {
+              if (window.confirm(`¿Estás seguro de que querés cancelar el envío de la campaña "${c.name}"?`)) {
+                handleAction('cancel', onCancel);
+              }
+            }}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
+          >
+            {loadingAction === 'cancel' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <X className="w-3.5 h-3.5" />
+            )}
+            Cancelar
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -531,6 +670,24 @@ export default function KlaviyoMonitorPage() {
     setCampaigns([]); setFlows([]); setError(''); setLastSync(null);
     if (apiKey) sync(apiKey);
   }, [selectedId, apiKey, sync]);
+
+  const handleDeleteCampaign = useCallback(async (campaignId: string) => {
+    if (!apiKey) return;
+    await deleteCampaignAPI(campaignId, apiKey);
+    setCampaigns(prev => prev.filter(c => c.id !== campaignId));
+  }, [apiKey]);
+
+  const handleCancelCampaign = useCallback(async (campaignId: string) => {
+    if (!apiKey) return;
+    await cancelCampaignAPI(campaignId, apiKey);
+    setCampaigns(prev => prev.filter(c => c.id !== campaignId));
+  }, [apiKey]);
+
+  const handleRevertCampaign = useCallback(async (campaignId: string) => {
+    if (!apiKey) return;
+    await revertCampaignAPI(campaignId, apiKey);
+    setCampaigns(prev => prev.map(c => c.id === campaignId ? { ...c, status: 'Draft', scheduled_at: undefined, send_time: undefined } : c));
+  }, [apiKey]);
 
   const saveApiKey = async () => {
     if (!selectedId || !apiKeyInput.trim()) return;
@@ -730,6 +887,9 @@ export default function KlaviyoMonitorPage() {
                     title: c.name,
                     subject: c.message.subject,
                   })}
+                  onDelete={handleDeleteCampaign}
+                  onCancel={handleCancelCampaign}
+                  onRevert={handleRevertCampaign}
                 />
               ))}
             </div>
