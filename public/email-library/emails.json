@@ -30,5 +30,13 @@
     "desc": "Chestnut v1",
     "subject": "Chestnut Skirting Leather — In Stock Now",
     "klaviyo_subject": "{{ first_name }}, Chestnut Skirting Leather — In Stock Now"
+  },
+  {
+    "file": "TSF_Catalogo_LeathersInStock_v1.html",
+    "client": "TSF",
+    "angle": "Catálogo",
+    "desc": "Leathers In Stock v1",
+    "subject": "Three leathers. All in stock.",
+    "klaviyo_subject": "{{ first_name }}, three leathers in stock — ships same day"
   }
 ]
