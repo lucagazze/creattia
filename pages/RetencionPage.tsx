@@ -73,7 +73,9 @@ export default function RetencionPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [fetchingConfig, setFetchingConfig] = useState(false);
 
-  const fetchData = async (_preset: string, since: string, until: string) => {
+  const fetchIdRef = useRef(0);
+
+  const fetchData = async (_preset: string, since: string, until: string, fetchId: number) => {
     if (!since || !until || !profile?.klaviyo_api_key) return;
     const key = profile.klaviyo_api_key;
     const prevRange = getPrevPeriod(since, until);
@@ -86,8 +88,11 @@ export default function RetencionPage() {
 
     // Stage 1: current period metrics — shows main KPIs as soon as possible
     try {
-      setCurrentKlaviyo(await klaviyo.getDashboardData(key, since, until));
+      const current = await klaviyo.getDashboardData(key, since, until);
+      if (fetchId !== fetchIdRef.current) return;
+      setCurrentKlaviyo(current);
     } catch (err) { console.error("Klaviyo Fetch Error:", err); }
+    if (fetchId !== fetchIdRef.current) return;
     setFetchingKlaviyo(false);
 
     // Stage 2: prev period + detailed stats — after stage 1, so they don't compete for rate limit
@@ -95,6 +100,7 @@ export default function RetencionPage() {
       klaviyo.getDashboardData(key, prevRange.since, prevRange.until),
       klaviyo.getDetailedStats(key, since, until),
     ]);
+    if (fetchId !== fetchIdRef.current) return;
     if (prevRes.status === 'fulfilled') setPrevKlaviyo(prevRes.value);
     if (detailedRes.status === 'fulfilled') setDetailedStats(detailedRes.value);
     setFetchingDetailed(false);
@@ -114,11 +120,14 @@ export default function RetencionPage() {
     }
   };
 
-  useEffect(() => { 
-    if (profile) { 
-      fetchData(activePreset, activeSince, activeUntil); 
+  useEffect(() => {
+    if (!profile) return;
+    const id = ++fetchIdRef.current;
+    const timer = setTimeout(() => {
+      fetchData(activePreset, activeSince, activeUntil, id);
       fetchConfig();
-    } 
+    }, 150);
+    return () => clearTimeout(timer);
   }, [profile?.id, activePreset, activeSince, activeUntil]);
 
   useEffect(() => {

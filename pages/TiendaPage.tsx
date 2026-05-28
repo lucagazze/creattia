@@ -45,14 +45,15 @@ export default function TiendaPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       const p: any = profile;
       if (!p || !p.ecommerce_platform || !p.shopify_domain || !p.shopify_access_token) {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
         return;
       }
-      
-      setLoading(true);
+
+      if (!cancelled) setLoading(true);
       const range = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
       const prevRange = getPrevPeriod(range.since, range.until);
       try {
@@ -60,16 +61,18 @@ export default function TiendaPage() {
           ecommerce.getDashboardData(p.ecommerce_platform, p.shopify_domain, p.shopify_access_token, range.since, range.until),
           ecommerce.getDashboardData(p.ecommerce_platform, p.shopify_domain, p.shopify_access_token, prevRange.since, prevRange.until)
         ]);
+        if (cancelled) return;
         setData(res);
         setPrevData(prevRes);
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    
-    fetchData();
+
+    const timer = setTimeout(fetchData, 150);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [profile?.id, activePreset, activeSince, activeUntil, refreshKey]);
 
   const handleApply = () => {

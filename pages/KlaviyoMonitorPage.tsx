@@ -55,14 +55,15 @@ const kFetch = async (path: string, apiKey: string) => {
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`${res.status}: ${txt.slice(0, 200)}`);
+    console.error('KLAVIYO ERROR RESPONSE FULL:', txt, 'FOR PATH:', path);
+    throw new Error(`${res.status}: ${txt}`);
   }
   return res.json();
 };
 
 const fetchCampaigns = async (apiKey: string): Promise<KvCampaign[]> => {
   const data = await kFetch(
-    `campaigns?include=campaign-messages&sort=-created_at&page%5Bsize%5D=50`,
+    `campaigns?filter=equals(messages.channel,%22email%22)&include=campaign-messages&sort=-created_at&page%5Bsize%5D=50`,
     apiKey,
   );
   const msgMap = new Map<string, any>();

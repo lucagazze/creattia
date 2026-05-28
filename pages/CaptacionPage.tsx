@@ -155,7 +155,9 @@ export default function CaptacionPage() {
     return 0;
   };
 
-  const fetchAll = async () => {
+  const fetchIdRef = useRef(0);
+
+  const fetchAll = async (fetchId: number) => {
     if (!profile?.meta_account_id) return;
     setLoading(true);
     setSummary(null);
@@ -174,6 +176,7 @@ export default function CaptacionPage() {
       ]);
       const ok = <T,>(r: PromiseSettledResult<T>, fallback: T): T =>
         r.status === 'fulfilled' ? r.value : fallback;
+      if (fetchId !== fetchIdRef.current) return;
       const [rawDaily, rawPrevDaily, gender, regions, platform, age, campaignInsights, prevCampaignInsights] = [
         ok(settled[0], []), ok(settled[1], []), ok(settled[2], []), ok(settled[3], []),
         ok(settled[4], []), ok(settled[5], []), ok(settled[6], []), ok(settled[7], []),
@@ -294,7 +297,11 @@ export default function CaptacionPage() {
     } catch (e) { console.error('CaptacionPage fetch error:', e); } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchAll(); }, [profile?.id, activeSince, activeUntil, activePreset]);
+  useEffect(() => {
+    const id = ++fetchIdRef.current;
+    const timer = setTimeout(() => { fetchAll(id); }, 150);
+    return () => clearTimeout(timer);
+  }, [profile?.id, activeSince, activeUntil, activePreset]);
 
   // Click outside date picker
   useEffect(() => {
