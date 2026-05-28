@@ -247,6 +247,12 @@ export const AIChatFloat = () => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, isThinking]);
 
+  // Reset chat when active client changes
+  useEffect(() => {
+    setMessages([]);
+    setInput('');
+  }, [activeClientId]);
+
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -282,7 +288,8 @@ export const AIChatFloat = () => {
         body: JSON.stringify({
           messages: updatedMessages,
           profile,
-          activeClientId
+          activeClientId,
+          activeBusinessName
         }),
       });
 

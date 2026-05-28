@@ -103,10 +103,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'OpenAI API key not configured in environment' });
   }
 
-  const { messages, profile, activeClientId } = req.body as {
+  const { messages, profile, activeClientId, activeBusinessName } = req.body as {
     messages: Array<{ role: string; content: string }>;
     profile?: { id: string; is_admin: boolean; business_name: string };
     activeClientId?: string;
+    activeBusinessName?: string;
   };
 
   if (!messages || !Array.isArray(messages)) {
@@ -207,6 +208,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return targetClientId === userClientId;
   };
 
+  const activeClientText = activeBusinessName 
+    ? `El negocio seleccionado/activo actualmente en la pantalla del administrador es "${activeBusinessName}" (ID: ${fallbackClientId}).` 
+    : `El negocio del usuario actual es "${profile?.business_name || 'Desconocido'}" (ID: ${fallbackClientId}).`;
+
   const systemMessage = `Sos el asistente de marketing digital inteligente de Algoritmia.
 Tu nombre es "Algo". Respondés en español argentino, de manera amigable y profesional.
 
@@ -215,7 +220,8 @@ Cuando el usuario te pregunte sobre algún cliente, campaña, métricas, creativ
 1. Si no conoces el clientId del cliente mencionado, usa 'list_clients' para buscarlo.
 2. Si te preguntan sobre un cliente específico y ya tienes el clientId (o lo acabas de buscar), llama a la herramienta adecuada.
 3. Responde siempre basándote en los datos reales que te devuelven las herramientas. Sé específico con nombres, asuntos y fechas reales.
-4. Si el usuario te pregunta sin especificar un cliente, utiliza el clientId de fallback para buscar su información (ClientId activo/fallback: "${fallbackClientId || 'no logueado'}").
+4. Si el usuario te pregunta sin especificar un cliente, asume que se refiere al negocio activo actual en pantalla.
+   ${activeClientText}
 5. Si no hay datos disponibles o la llamada falla, explícalo de manera sencilla.
 
 REGLAS DE FORMATO Y CONTENIDO (MUY IMPORTANTES):
