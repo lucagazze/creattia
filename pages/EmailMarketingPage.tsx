@@ -33,6 +33,12 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
 
   useEffect(() => { setHeight(3000); setPreheader(''); }, [mode]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const onLoad = () => {
     try {
       const doc = iframeRef.current?.contentDocument;

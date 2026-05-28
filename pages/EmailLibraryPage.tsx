@@ -535,6 +535,14 @@ export default function EmailLibraryPage() {
     } catch {}
   }, []);
 
+  // ESC to close preview
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreview(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [preview]);
+
   const deleteEmails = (files: Set<string> | string[]) => {
     const set = files instanceof Set ? files : new Set(files);
     const deleted: string[] = JSON.parse(localStorage.getItem(STORAGE_DELETED_KEY) ?? '[]');
