@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Monitor, Smartphone, X, Mail } from 'lucide-react';
+import { Monitor, Smartphone, X, Mail, Check } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { db, EmailAssignment } from '../services/db';
@@ -26,8 +26,8 @@ const STATUS_COLOR: Record<string, string> = {
 
 // ── Preview overlay ──────────────────────────────────────────────────────────
 function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => void }) {
-  const [mode, setMode]         = useState<'desktop' | 'mobile'>('desktop');
-  const [height, setHeight]     = useState(3000);
+  const [mode, setMode]       = useState<'desktop' | 'mobile'>('desktop');
+  const [height, setHeight]   = useState(3000);
   const [preheader, setPreheader] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -60,57 +60,36 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
     <div className="fixed inset-0 z-[200] flex flex-col" onClick={onClose}>
 
       {/* Toolbar */}
-      <div
-        className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
         <div className="flex-1 min-w-0">
-          <p className="text-[12px] font-bold text-white truncate">{entry.subject || `${entry.angle} ${entry.desc}`}</p>
+          <p className="text-[12px] font-bold text-white truncate">
+            {entry.subject || `${entry.angle} ${entry.desc}`}
+          </p>
           {entry.klaviyo_subject && (
             <p className="text-[9px] text-zinc-500 truncate font-mono">{entry.klaviyo_subject}</p>
           )}
         </div>
-
-        {/* PC / Celular toggle */}
         <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5">
-          {(['desktop', 'mobile'] as const).map(m => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${
-                mode === m ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              {m === 'desktop' ? <Monitor className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
-              {m === 'desktop' ? 'PC' : 'Celular'}
-            </button>
-          ))}
+          <button onClick={() => setMode('desktop')}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+            <Monitor className="w-3 h-3" />PC
+          </button>
+          <button onClick={() => setMode('mobile')}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+            <Smartphone className="w-3 h-3" />Celular
+          </button>
         </div>
-
         <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Email viewer */}
-      <div
-        className="flex-1 overflow-auto"
-        style={{ background: mode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }}
-        onClick={onClose}
-      >
-        <div
-          style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Chrome */}
-          <div style={{
-            background: '#fff',
-            borderRadius: mode === 'desktop' ? '10px 10px 0 0' : 12,
-            border: '1px solid #d0d0d0',
-            borderBottom: mode === 'desktop' ? 'none' : '1px solid #d0d0d0',
-            padding: '10px 14px',
-            marginBottom: mode === 'desktop' ? 0 : 10,
-          }}>
+      <div className="flex-1 overflow-auto" style={{ background: mode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }} onClick={onClose}>
+        <div style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }} onClick={e => e.stopPropagation()}>
+
+          {/* Email chrome */}
+          <div style={{ background: '#fff', borderRadius: mode === 'desktop' ? '10px 10px 0 0' : 12, border: '1px solid #d0d0d0', borderBottom: mode === 'desktop' ? 'none' : '1px solid #d0d0d0', padding: '10px 14px', marginBottom: mode === 'desktop' ? 0 : 10 }}>
             {mode === 'desktop' && (
               <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
                 <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff5f57' }} />
@@ -118,10 +97,24 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
                 <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#28c840' }} />
               </div>
             )}
+            {mode === 'mobile' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #f0f0f0' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ color: '#c9a96e', fontSize: 9, fontWeight: 700, fontFamily: 'Arial' }}>TSF</span>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#111', fontFamily: 'Arial' }}>The Skirting Factory</div>
+                  <div style={{ fontSize: 9, color: '#888', fontFamily: 'Arial' }}>valentina@theskirtingfactoryllc.com</div>
+                </div>
+              </div>
+            )}
             <div style={{ fontSize: 10, fontFamily: 'Arial, sans-serif', lineHeight: 1.8 }}>
+              {mode === 'desktop' && (
+                <div><span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>De:</span><span style={{ color: '#1a73e8' }}>valentina@theskirtingfactoryllc.com</span></div>
+              )}
               <div>
                 <span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Asunto:</span>
-                <span style={{ color: '#111' }}>{entry.subject}</span>
+                <span style={{ color: '#111', fontWeight: mode === 'mobile' ? 600 : 400 }}>{entry.klaviyo_subject || entry.subject}</span>
               </div>
               <div>
                 <span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Vista Previa:</span>
@@ -130,7 +123,7 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
             </div>
           </div>
 
-          {/* Email */}
+          {/* Email iframe */}
           <div style={mode === 'desktop'
             ? { background: '#fff', border: '1px solid #d0d0d0', borderRadius: '0 0 8px 8px', overflow: 'hidden' }
             : { background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #d0d0d0', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }
@@ -211,36 +204,30 @@ export default function EmailMarketingPage() {
 
       {/* Grid */}
       {visible.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
           {visible.map(({ assignment, email }) => {
-            const thumbSrc = `/email-library/screenshots/${email.file.replace('.html', '.webp')}`;
             const useIframe = imgErrors.has(email.file);
-
             return (
               <div
                 key={`${assignment.id}`}
                 onClick={() => setPreview(email)}
-                className="group bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-white/[0.07] overflow-hidden shadow-sm hover:shadow-md hover:border-zinc-300 dark:hover:border-white/10 transition-all cursor-pointer"
+                className="group bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-white/[0.07] overflow-hidden shadow-sm hover:shadow-md hover:border-zinc-300 dark:hover:border-white/10 transition-all cursor-pointer w-full"
               >
                 {/* Thumbnail */}
-                <div className="relative overflow-hidden" style={{ height: 200 }}>
+                <div className="relative overflow-hidden w-full" style={{ aspectRatio: '3/4' }}>
                   {useIframe ? (
-                    <iframe
-                      src={`/email-library/${email.file}`}
-                      scrolling="no"
-                      style={{ width: 600, height: 866, border: 'none', transform: 'scale(0.276)', transformOrigin: 'top left', pointerEvents: 'none', display: 'block' }}
-                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800">
+                      <Mail className="w-6 h-6 text-zinc-300 dark:text-zinc-600" />
+                    </div>
                   ) : (
                     <img
-                      src={thumbSrc}
+                      src={`/email-library/screenshots/${email.file.replace('.html', '.webp')}`}
                       alt={email.subject}
                       onError={() => setImgErrors(prev => new Set([...prev, email.file]))}
                       draggable={false}
-                      style={{ width: '100%', height: 200, objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+                      className="absolute inset-0 w-full h-full object-cover object-top block"
                     />
                   )}
-
-                  {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                     <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-lg">
                       Ver email
@@ -253,7 +240,7 @@ export default function EmailMarketingPage() {
                   <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100 truncate leading-tight" title={email.subject}>
                     {email.subject || `${email.angle} ${email.desc}`}
                   </p>
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${STATUS_COLOR[assignment.status]}`}>
                       {STATUS_LABEL[assignment.status]}
                     </span>
