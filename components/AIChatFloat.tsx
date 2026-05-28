@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mic, ChevronUp, CornerDownLeft, X, Loader2, RotateCcw, Database } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -186,7 +187,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
               href={targetUrl}
               target={isInternal ? '_self' : '_blank'}
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white font-bold text-[13px] md:text-[14px] shadow-lg shadow-violet-500/20 hover:scale-[1.02] hover:shadow-violet-500/30 active:scale-[0.98] transition-all w-full sm:w-auto text-center"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-full bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white font-bold text-[12px] md:text-[12.5px] shadow-md shadow-violet-500/15 hover:scale-[1.01] active:scale-[0.98] transition-all text-center"
             >
               {linkText}
             </a>
@@ -248,6 +249,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
 export const AIChatFloat = () => {
   const { profile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
+  const { darkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -409,7 +411,7 @@ export const AIChatFloat = () => {
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800/80 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-900/50 dark:to-zinc-950/50 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center shadow-md overflow-hidden">
-              <img src="/assets/logoSinFondo.png" alt="Algoritmia" className="w-7 h-7 object-contain" />
+              <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-7 h-7 object-contain" />
             </div>
             <div>
               <p className="text-[14.5px] font-black text-zinc-800 dark:text-zinc-200 leading-none">Algo IA</p>
@@ -438,7 +440,7 @@ export const AIChatFloat = () => {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-4 pb-4">
               <div className="w-16 h-16 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 shadow-md flex items-center justify-center">
-                <img src="/assets/logoSinFondo.png" alt="Algoritmia" className="w-11 h-11 object-contain" />
+                <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-11 h-11 object-contain" />
               </div>
               <div className="text-center">
                 <p className="text-[15px] font-black text-zinc-700 dark:text-zinc-200">Hola 👋 Soy Algo</p>
@@ -453,7 +455,7 @@ export const AIChatFloat = () => {
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'assistant' && (
                 <div className="w-7 h-7 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 flex items-center justify-center flex-shrink-0 mr-2.5 mt-0.5 shadow-sm overflow-hidden">
-                  <img src="/assets/logoSinFondo.png" alt="" className="w-5 h-5 object-contain" />
+                  <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="" className="w-5 h-5 object-contain" />
                 </div>
               )}
               <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-[14px] md:text-[15px] leading-relaxed shadow-sm ${
@@ -473,7 +475,7 @@ export const AIChatFloat = () => {
           {isThinking && (
             <div className="flex justify-start">
               <div className="w-7 h-7 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 flex items-center justify-center flex-shrink-0 mr-2.5 mt-0.5 overflow-hidden">
-                <img src="/assets/logoSinFondo.png" alt="" className="w-5 h-5 object-contain" />
+                <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="" className="w-5 h-5 object-contain" />
               </div>
               <div className="bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 px-4 py-3 rounded-2xl rounded-bl-sm flex items-center gap-1.5 shadow-sm">
                 <div className="w-2 h-2 bg-violet-400 dark:bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -560,10 +562,6 @@ export const AIChatFloat = () => {
         />
 
         <div className="flex items-center gap-2 pr-2 flex-shrink-0">
-          <div className="hidden md:flex items-center gap-1.5 text-[10.5px] text-emerald-500 dark:text-emerald-400 font-black">
-            <Database className="w-3.5 h-3.5 animate-pulse" />
-            <span>IA CONECTADA</span>
-          </div>
           <button
             onClick={e => { e.stopPropagation(); setIsOpen(o => !o); }}
             className="hidden md:flex text-zinc-350 hover:text-zinc-500 dark:text-zinc-500 dark:hover:text-zinc-400 transition-colors"
