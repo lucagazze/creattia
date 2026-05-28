@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   Monitor, Smartphone, X, Mail, GripVertical,
   Copy, Check, Share2, Trash2, CheckSquare, Square,
-  Code2, ExternalLink, Camera,
+  Code2, ExternalLink, FileDown,
 } from 'lucide-react';
 
 interface EmailEntry {
@@ -13,6 +13,7 @@ interface EmailEntry {
   angle: string;
   desc: string;
   subject: string;
+  klaviyo_subject: string;
 }
 
 interface CtxMenu {
@@ -429,7 +430,19 @@ export default function EmailLibraryPage() {
                     <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100 truncate leading-tight" title={email.subject}>
                       {email.subject || `${email.angle} ${email.desc}`}
                     </p>
-                    <p className="text-[10px] text-zinc-400 truncate mt-0.5">{email.angle} {email.desc}</p>
+                    {/* Klaviyo subject — click to copy */}
+                    {email.klaviyo_subject && !selectMode && (
+                      <button
+                        className="group/ks w-full text-left flex items-center gap-1 mt-0.5"
+                        onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(email.klaviyo_subject); setCopied(email.file + '_subj'); setTimeout(() => setCopied(null), 1500); }}
+                        title="Copiar asunto Klaviyo"
+                      >
+                        <span className="text-[9px] text-zinc-400 dark:text-zinc-500 truncate font-mono group-hover/ks:text-violet-500 transition-colors">
+                          {copied === email.file + '_subj' ? '¡Copiado!' : email.klaviyo_subject}
+                        </span>
+                        <Copy className="w-2 h-2 text-zinc-400 flex-shrink-0 opacity-0 group-hover/ks:opacity-100 transition-opacity" />
+                      </button>
+                    )}
                     <div className="flex items-center gap-2 mt-1.5">
                       <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full text-white ${ANGLE_COLORS[email.angle] ?? 'bg-zinc-500'}`}>
                         {email.angle}
@@ -484,19 +497,30 @@ export default function EmailLibraryPage() {
           <div className="flex-shrink-0 flex items-center gap-3 px-5 py-3 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-bold text-white truncate">{preview.subject || `${preview.angle} ${preview.desc}`}</p>
-              <p className="text-[10px] text-zinc-500 truncate">{preview.client} · {preview.angle} {preview.desc}</p>
+              {preview.klaviyo_subject && (
+                <button
+                  onClick={() => navigator.clipboard.writeText(preview.klaviyo_subject)}
+                  className="flex items-center gap-1 text-left group/subj"
+                  title="Copiar asunto para Klaviyo"
+                >
+                  <span className="text-[10px] text-zinc-500 truncate group-hover/subj:text-zinc-300 transition-colors font-mono">
+                    {preview.klaviyo_subject}
+                  </span>
+                  <Copy className="w-2.5 h-2.5 text-zinc-600 group-hover/subj:text-zinc-400 flex-shrink-0 transition-colors" />
+                </button>
+              )}
             </div>
-            {/* Screenshot — opens full email in new tab for easy screenshotting */}
+            {/* PDF download — opens print page that auto-triggers print dialog */}
             <a
-              href={`/email-library/${preview.file}`}
+              href={`/print.html?email=${encodeURIComponent(preview.file)}`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              title="Abrir en nueva pestaña para hacer screenshot"
+              title="Descargar como PDF"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10"
             >
-              <Camera className="w-3.5 h-3.5" />
-              Screenshot
+              <FileDown className="w-3.5 h-3.5" />
+              PDF
             </a>
             <button onClick={() => copyShareLink(preview)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${

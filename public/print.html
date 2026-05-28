@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Email PDF</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; }
+  @media print {
+    body { margin: 0; }
+    #loading { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="loading" style="position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:13px;color:#888;z-index:9999;">
+  Preparando PDF…
+</div>
+<div id="content"></div>
+<script>
+(function() {
+  var p = new URLSearchParams(location.search);
+  var file = p.get('email');
+  if (!file) { document.getElementById('loading').textContent = 'No se especificó el email.'; return; }
+
+  fetch('/email-library/' + encodeURIComponent(file))
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+      // Remove <base> tags that might interfere, then write to a sandboxed container
+      // Write the email HTML into an iframe that fills the page
+      var iframe = document.createElement('iframe');
+      iframe.style.cssText = 'width:660px;border:none;display:block;margin:0 auto;';
+      iframe.scrolling = 'no';
+      document.getElementById('content').appendChild(iframe);
+
+      var doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(html);
+      doc.close();
+
+      // Auto-resize iframe to full email height
+      function resize() {
+        iframe.style.height = doc.documentElement.scrollHeight + 'px';
+      }
+
+      iframe.onload = function() {
+        resize();
+        document.getElementById('loading').style.display = 'none';
+        // Small delay so images finish loading
+        setTimeout(function() { window.print(); }, 600);
+      };
+    })
+    .catch(function(e) {
+      document.getElementById('loading').textContent = 'Error: ' + e.message;
+    });
+})();
+</script>
+</body>
+</html>
