@@ -11,7 +11,10 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   const title       = subject || file.replace('.html', '').replace(/_/g, ' ');
   const description = [client, angle].filter(Boolean).join(' · ') || 'Vista previa del email';
   const previewUrl  = `${BASE}/#/preview?email=${encodeURIComponent(file)}&subject=${encodeURIComponent(subject)}`;
-  const imageUrl    = `${BASE}/email-images/tsf_bite_logo.png`; // fallback OG image
+  const screenshotName = file ? file.replace('.html', '.png') : '';
+  const imageUrl = screenshotName
+    ? `${BASE}/email-library/screenshots/${encodeURIComponent(screenshotName)}`
+    : `${BASE}/email-images/tsf_bite_logo.png`;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
