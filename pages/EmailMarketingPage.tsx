@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Monitor, Smartphone, X, Mail, Check } from 'lucide-react';
+import { Monitor, Smartphone, X, Mail, Check, ArrowUpDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { db, EmailAssignment } from '../services/db';
@@ -154,6 +154,7 @@ export default function EmailMarketingPage() {
   const [preview, setPreview]         = useState<EmailEntry | null>(null);
   const [imgErrors, setImgErrors]     = useState<Set<string>>(new Set());
   const [loading, setLoading]         = useState(true);
+  const [sortDir, setSortDir]         = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
     if (!activeProfile?.id) return;
@@ -171,7 +172,12 @@ export default function EmailMarketingPage() {
 
   const visible = assignments
     .map(a => ({ assignment: a, email: emailMap[a.email_file] }))
-    .filter(({ email }) => !!email);
+    .filter(({ email }) => !!email)
+    .sort((a, b) => {
+      const ta = new Date(a.assignment.created_at).getTime();
+      const tb = new Date(b.assignment.created_at).getTime();
+      return sortDir === 'desc' ? tb - ta : ta - tb;
+    });
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -182,16 +188,27 @@ export default function EmailMarketingPage() {
   return (
     <div className="relative h-full flex flex-col">
       {/* Header */}
-      <div className="mb-8 max-w-5xl mx-auto w-full">
-        <h1 className="text-[24px] font-black text-zinc-900 dark:text-white tracking-tight">Email Marketing</h1>
-        <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mt-1">
-          {visible.length} email{visible.length !== 1 ? 's' : ''} preparado{visible.length !== 1 ? 's' : ''} para tu cuenta
-        </p>
+      <div className="mb-6 flex items-end justify-between">
+        <div>
+          <h1 className="text-[22px] font-black text-zinc-900 dark:text-white tracking-tight">Email Marketing</h1>
+          <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+            {visible.length} email{visible.length !== 1 ? 's' : ''} preparado{visible.length !== 1 ? 's' : ''} para tu cuenta
+          </p>
+        </div>
+        {visible.length > 0 && (
+          <button
+            onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 transition-all"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            {sortDir === 'desc' ? 'Más recientes' : 'Más antiguos'}
+          </button>
+        )}
       </div>
 
       {/* Empty state */}
       {visible.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-24 text-center max-w-5xl mx-auto w-full">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-white/5 flex items-center justify-center mb-4">
             <Mail className="w-7 h-7 text-zinc-400" />
           </div>
@@ -204,7 +221,7 @@ export default function EmailMarketingPage() {
 
       {/* Grid */}
       {visible.length > 0 && (
-        <div className="grid gap-3 max-w-5xl mx-auto w-full" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
           {visible.map(({ assignment, email }) => {
             const useIframe = imgErrors.has(email.file);
             return (
