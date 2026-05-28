@@ -186,7 +186,7 @@ export default function EmailMarketingPage() {
   );
 
   return (
-    <div className="relative h-full flex flex-col">
+    <div className="flex-1 min-w-0 flex flex-col relative">
       {/* Header */}
       <div className="mb-6 flex items-end justify-between">
         <div>
