@@ -167,7 +167,7 @@ const STATUS_DOT: Record<string, string> = {
   scheduled: 'bg-violet-500',
 };
 
-// ── Assign Modal ──────────────────────────────────────────────────────────────
+// ── Assign Modal (single email — manage existing + add) ───────────────────────
 function AssignModal({ email, allAssignments, clients, onClose, onRefresh }: {
   email: EmailEntry;
   allAssignments: EmailAssignment[];
@@ -176,69 +176,35 @@ function AssignModal({ email, allAssignments, clients, onClose, onRefresh }: {
   onRefresh: () => void;
 }) {
   const existing = allAssignments.filter(a => a.email_file === email.file);
-
   const [newClient, setNewClient]     = useState('');
   const [newStatus, setNewStatus]     = useState<'active' | 'inactive' | 'scheduled'>('active');
-  const [newApproved, setNewApproved] = useState(false);
+  const [newApproved, setNewApproved] = useState(true);
   const [saving, setSaving]           = useState(false);
-
   const assignedIds = new Set(existing.map(a => a.client_id));
   const available = clients.filter(c => !assignedIds.has(c.id));
+  const clientName = (id: string) => clients.find(c => c.id === id)?.business_name ?? id;
 
   const handleAdd = async () => {
     if (!newClient) return;
     setSaving(true);
     try {
       await db.emailAssignments.upsert({ email_file: email.file, client_id: newClient, status: newStatus, approved: newApproved });
-      onRefresh();
-      setNewClient('');
-      setNewStatus('active');
-      setNewApproved(false);
+      onRefresh(); setNewClient('');
     } catch (e) { console.error(e); }
     setSaving(false);
   };
 
-  const handleToggleApproved = async (a: EmailAssignment) => {
-    try {
-      await db.emailAssignments.upsert({ ...a, approved: !a.approved });
-      onRefresh();
-    } catch (e) { console.error(e); }
-  };
-
-  const handleChangeStatus = async (a: EmailAssignment, status: typeof newStatus) => {
-    try {
-      await db.emailAssignments.upsert({ ...a, status });
-      onRefresh();
-    } catch (e) { console.error(e); }
-  };
-
-  const handleRemove = async (id: number) => {
-    try {
-      await db.emailAssignments.delete(id);
-      onRefresh();
-    } catch (e) { console.error(e); }
-  };
-
-  const clientName = (id: string) => clients.find(c => c.id === id)?.business_name ?? id;
-
   return (
     <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-zinc-100 dark:border-white/5">
           <div>
             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Asignaciones</p>
             <p className="text-[14px] font-bold text-zinc-900 dark:text-white truncate max-w-[300px]">{email.subject || email.file}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all">
-            <X className="w-4 h-4" />
-          </button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all"><X className="w-4 h-4" /></button>
         </div>
-
-        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-
-          {/* Existing assignments */}
+        <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
           {existing.length > 0 && (
             <div className="space-y-2">
               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Asignados</p>
@@ -246,92 +212,153 @@ function AssignModal({ email, allAssignments, clients, onClose, onRefresh }: {
                 <div key={a.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/[0.07]">
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[a.status]}`} />
                   <span className="flex-1 text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{clientName(a.client_id)}</span>
-
-                  {/* Status select */}
-                  <select
-                    value={a.status}
-                    onChange={e => handleChangeStatus(a, e.target.value as any)}
-                    className="text-[10px] font-bold bg-zinc-100 dark:bg-white/5 border-0 rounded-lg px-2 py-1 text-zinc-600 dark:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-violet-500 cursor-pointer"
-                    style={{ colorScheme: 'light' }}
-                  >
+                  <select value={a.status} onChange={e => { db.emailAssignments.upsert({ ...a, status: e.target.value as any }).then(onRefresh); }}
+                    className="text-[10px] font-bold bg-zinc-100 dark:bg-white/5 border-0 rounded-lg px-2 py-1 text-zinc-600 dark:text-zinc-400 focus:outline-none cursor-pointer" style={{ colorScheme: 'light' }}>
                     {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value} style={{ color: '#111', background: '#fff' }}>{s.label}</option>)}
                   </select>
-
-                  {/* Approved toggle */}
-                  <button
-                    onClick={() => handleToggleApproved(a)}
-                    className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg transition-all ${
-                      a.approved
-                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                        : 'bg-zinc-100 dark:bg-white/5 text-zinc-400 hover:bg-emerald-500/10 hover:text-emerald-500'
-                    }`}
-                    title={a.approved ? 'Visible para el cliente — click para ocultar' : 'Oculto para el cliente — click para publicar'}
-                  >
+                  <button onClick={() => db.emailAssignments.upsert({ ...a, approved: !a.approved }).then(onRefresh)}
+                    className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg transition-all ${a.approved ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-zinc-100 dark:bg-white/5 text-zinc-400 hover:bg-emerald-500/10 hover:text-emerald-500'}`}>
                     {a.approved ? 'Visible' : 'Oculto'}
                   </button>
-
-                  <button onClick={() => handleRemove(a.id)} className="p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all">
-                    <X className="w-3 h-3" />
-                  </button>
+                  <button onClick={() => db.emailAssignments.delete(a.id).then(onRefresh)} className="p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"><X className="w-3 h-3" /></button>
                 </div>
               ))}
             </div>
           )}
-
-          {/* Add new */}
           {available.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2.5 pt-1">
               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Agregar cliente</p>
-
-              <select
-                value={newClient}
-                onChange={e => setNewClient(e.target.value)}
+              <select value={newClient} onChange={e => setNewClient(e.target.value)}
                 className="w-full text-[12px] font-semibold bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                style={{ colorScheme: 'light' }}
-              >
+                style={{ colorScheme: 'light' }}>
                 <option value="" style={{ color: '#111', background: '#fff' }}>Seleccionar cliente…</option>
                 {available.map(c => <option key={c.id} value={c.id} style={{ color: '#111', background: '#fff' }}>{c.business_name}</option>)}
               </select>
-
               <div className="flex gap-2">
                 {STATUS_OPTIONS.map(s => (
-                  <button
-                    key={s.value}
-                    onClick={() => setNewStatus(s.value)}
-                    className={`flex-1 py-2 rounded-xl text-[11px] font-bold border transition-all ${
-                      newStatus === s.value
-                        ? 'border-violet-500 bg-violet-500/10 text-violet-600 dark:text-violet-400'
-                        : 'border-zinc-200 dark:border-white/10 text-zinc-500 hover:border-zinc-300 dark:hover:border-white/20'
-                    }`}
-                  >
+                  <button key={s.value} onClick={() => setNewStatus(s.value)}
+                    className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${newStatus === s.value ? 'border-violet-500 bg-violet-500/10 text-violet-600 dark:text-violet-400' : 'border-zinc-200 dark:border-white/10 text-zinc-500 hover:border-zinc-300 dark:hover:border-white/20'}`}>
                     {s.label}
                   </button>
                 ))}
               </div>
-
-              <label className="flex items-center gap-2.5 cursor-pointer group">
-                <div
-                  onClick={() => setNewApproved(p => !p)}
-                  className={`w-9 h-5 rounded-full transition-all relative ${newApproved ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}
-                >
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${newApproved ? 'left-4' : 'left-0.5'}`} />
-                </div>
-                <span className="text-[12px] font-semibold text-zinc-700 dark:text-zinc-300">Visible para el cliente</span>
-              </label>
-
-              <button
-                onClick={handleAdd}
-                disabled={!newClient || saving}
-                className="w-full py-2.5 rounded-xl text-[12px] font-bold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                {saving ? 'Guardando…' : 'Agregar asignación'}
-              </button>
+              <div className="flex items-center justify-between">
+                <button onClick={() => setNewApproved(p => !p)} className="flex items-center gap-2.5">
+                  <div className={`w-9 h-5 rounded-full transition-all relative ${newApproved ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${newApproved ? 'left-4' : 'left-0.5'}`} />
+                  </div>
+                  <span className="text-[12px] font-semibold text-zinc-700 dark:text-zinc-300">Visible para el cliente</span>
+                </button>
+                <button onClick={handleAdd} disabled={!newClient || saving}
+                  className="px-4 py-2 rounded-xl text-[12px] font-bold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                  {saving ? '…' : 'Agregar'}
+                </button>
+              </div>
             </div>
           )}
+          {existing.length === 0 && available.length === 0 && <p className="text-[12px] text-zinc-400 text-center py-4">Todos los clientes están asignados.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          {existing.length === 0 && available.length === 0 && (
-            <p className="text-[12px] text-zinc-400 text-center py-4">Todos los clientes están asignados.</p>
+// ── Bulk Assign Modal (multiple emails → one client, fast) ────────────────────
+function BulkAssignModal({ files, clients, allAssignments, onClose, onDone }: {
+  files: string[];
+  clients: Pick<ClientProfile, 'id' | 'business_name'>[];
+  allAssignments: EmailAssignment[];
+  onClose: () => void;
+  onDone: (assignedFiles: string[]) => void;
+}) {
+  const [clientId, setClientId]   = useState('');
+  const [status, setStatus]       = useState<'active' | 'inactive' | 'scheduled'>('active');
+  const [approved, setApproved]   = useState(true);
+  const [saving, setSaving]       = useState(false);
+  const [done, setDone]           = useState(false);
+
+  const handleSave = async () => {
+    if (!clientId) return;
+    setSaving(true);
+    try {
+      await Promise.all(files.map(f =>
+        db.emailAssignments.upsert({ email_file: f, client_id: clientId, status, approved })
+      ));
+      setDone(true);
+      setTimeout(() => { onDone(files); }, 900);
+    } catch (e) { console.error(e); setSaving(false); }
+  };
+
+  const clientName = clients.find(c => c.id === clientId)?.business_name;
+  const alreadyAssigned = clientId
+    ? files.filter(f => allAssignments.some(a => a.email_file === f && a.client_id === clientId)).length
+    : 0;
+
+  return (
+    <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={done ? undefined : onClose}>
+      <div
+        className={`bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm transition-all duration-300 ${done ? 'scale-95 opacity-0' : 'scale-100 opacity-100'}`}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-zinc-100 dark:border-white/5">
+          <div>
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Asignación rápida</p>
+            <p className="text-[14px] font-bold text-zinc-900 dark:text-white">
+              {files.length} email{files.length !== 1 ? 's' : ''} seleccionado{files.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          {/* Client picker */}
+          <select value={clientId} onChange={e => setClientId(e.target.value)}
+            className="w-full text-[13px] font-semibold bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            style={{ colorScheme: 'light' }}>
+            <option value="" style={{ color: '#111', background: '#fff' }}>Seleccionar cliente…</option>
+            {clients.map(c => <option key={c.id} value={c.id} style={{ color: '#111', background: '#fff' }}>{c.business_name}</option>)}
+          </select>
+
+          {alreadyAssigned > 0 && (
+            <p className="text-[11px] text-amber-500 font-semibold">
+              {alreadyAssigned} de estos emails ya estaban asignados a {clientName} — se van a actualizar.
+            </p>
           )}
+
+          {/* Status */}
+          <div className="flex gap-2">
+            {STATUS_OPTIONS.map(s => (
+              <button key={s.value} onClick={() => setStatus(s.value)}
+                className={`flex-1 py-2 rounded-xl text-[11px] font-bold border transition-all ${status === s.value ? 'border-violet-500 bg-violet-500/10 text-violet-600 dark:text-violet-400' : 'border-zinc-200 dark:border-white/10 text-zinc-500 hover:border-zinc-300 dark:hover:border-white/20'}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Approved toggle */}
+          <button onClick={() => setApproved(p => !p)} className="w-full flex items-center gap-3 p-3 rounded-xl border border-zinc-200 dark:border-white/10 hover:border-violet-500/50 transition-all">
+            <div className={`w-10 h-6 rounded-full transition-all relative flex-shrink-0 ${approved ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${approved ? 'left-5' : 'left-1'}`} />
+            </div>
+            <div className="text-left">
+              <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">Visible para el cliente</p>
+              <p className="text-[10px] text-zinc-400">{approved ? 'El cliente va a ver estos emails' : 'Solo vos podés verlos'}</p>
+            </div>
+          </button>
+
+          {/* Save button */}
+          <button
+            onClick={handleSave}
+            disabled={!clientId || saving || done}
+            className={`w-full py-3 rounded-xl text-[13px] font-black transition-all ${
+              done
+                ? 'bg-emerald-500 text-white'
+                : 'bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-40 disabled:cursor-not-allowed'
+            }`}
+          >
+            {done ? `✓ ${files.length} emails asignados` : saving ? 'Guardando…' : `Asignar ${files.length} email${files.length !== 1 ? 's' : ''} a ${clientName ?? '…'}`}
+          </button>
         </div>
       </div>
     </div>
@@ -367,6 +394,8 @@ export default function EmailLibraryPage() {
   const [assignments, setAssignments]   = useState<EmailAssignment[]>([]);
   const [allClients, setAllClients]     = useState<Pick<ClientProfile, 'id' | 'business_name'>[]>([]);
   const [assignModal, setAssignModal]   = useState<EmailEntry | null>(null);
+  const [bulkAssign, setBulkAssign]     = useState(false);
+  const [justAssigned, setJustAssigned] = useState<Set<string>>(new Set());
   const dragIdx = useRef<number | null>(null);
 
   // Admin guard
@@ -555,10 +584,16 @@ export default function EmailLibraryPage() {
                   <X className="w-3.5 h-3.5" />Cancelar
                 </button>
                 {anySelected && (
-                  <button onClick={() => setConfirmStep(1)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500 text-white hover:bg-red-600 transition-all shadow">
-                    <Trash2 className="w-3.5 h-3.5" />Eliminar ({selected.size})
-                  </button>
+                  <>
+                    <button onClick={() => setBulkAssign(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-violet-600 text-white hover:bg-violet-700 transition-all shadow">
+                      <Users className="w-3.5 h-3.5" />Asignar ({selected.size})
+                    </button>
+                    <button onClick={() => setConfirmStep(1)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500 text-white hover:bg-red-600 transition-all shadow">
+                      <Trash2 className="w-3.5 h-3.5" />Eliminar ({selected.size})
+                    </button>
+                  </>
                 )}
               </>
             ) : (
@@ -586,8 +621,9 @@ export default function EmailLibraryPage() {
               const IFRAME_W = 600;
               const scale    = CARD_W / IFRAME_W;
               const IFRAME_H = Math.round(CARD_H / scale);
-              const isSelected  = selected.has(email.file);
-              const justCopied  = copied === email.file;
+              const isSelected   = selected.has(email.file);
+              const wasAssigned  = justAssigned.has(email.file);
+              const justCopied   = copied === email.file;
               const useIframe   = imgErrors.has(email.file);
               const lastSent    = getLastSent(email.file);
               const sentDateStr = lastSent
@@ -615,7 +651,9 @@ export default function EmailLibraryPage() {
                   className={`group relative bg-white dark:bg-zinc-900 rounded-2xl border overflow-hidden shadow-sm transition-all select-none ${
                     selectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
                   } ${
-                    isSelected
+                    wasAssigned
+                      ? 'border-emerald-500 ring-2 ring-emerald-500/40'
+                      : isSelected
                       ? 'border-violet-500 ring-2 ring-violet-500/30 scale-[1.02]'
                       : dragOver === idx
                         ? 'border-violet-500 scale-105 shadow-lg shadow-violet-500/20'
@@ -919,6 +957,24 @@ export default function EmailLibraryPage() {
           onStep1={() => setConfirmStep(2)}
           onStep2={() => deleteEmails(selected)}
           onCancel={() => setConfirmStep(0)}
+        />
+      )}
+
+      {/* Bulk assign modal */}
+      {bulkAssign && selected.size > 0 && (
+        <BulkAssignModal
+          files={[...selected]}
+          clients={allClients}
+          allAssignments={assignments}
+          onClose={() => setBulkAssign(false)}
+          onDone={assignedFiles => {
+            setBulkAssign(false);
+            loadAssignments();
+            setJustAssigned(new Set(assignedFiles));
+            setSelected(new Set());
+            setSelectMode(false);
+            setTimeout(() => setJustAssigned(new Set()), 2500);
+          }}
         />
       )}
 
