@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ViewAsProvider } from './contexts/ViewAsContext';
 import LoginPage from './pages/LoginPage';
+import EmailPreviewPublicPage from './pages/EmailPreviewPublicPage';
 
 const ProtectedRoute = () => {
   const { session, loading } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
               <ToastProvider>
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/preview" element={<EmailPreviewPublicPage />} />
                   
                   <Route element={<ProtectedRoute />}>
                      <Route path="/*" element={<MainLayout />} />

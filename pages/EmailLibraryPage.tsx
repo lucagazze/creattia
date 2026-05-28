@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Monitor, Smartphone, X, Mail, GripVertical, Copy, Check } from 'lucide-react';
+import { Monitor, Smartphone, X, Mail, GripVertical, Copy, Check, Share2 } from 'lucide-react';
 
 interface EmailEntry {
   file: string;
@@ -29,6 +29,7 @@ export default function EmailLibraryPage() {
   const [preview, setPreview] = useState<EmailEntry | null>(null);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const dragIdx = useRef<number | null>(null);
 
@@ -62,6 +63,14 @@ export default function EmailLibraryPage() {
   const filtered = activeClient === 'ALL' ? emails : emails.filter(e => e.client === activeClient);
 
   // Drag handlers
+  const copyShareLink = async (file: string) => {
+    const base = `${window.location.origin}${window.location.pathname}`;
+    const url = `${base}#/preview?email=${encodeURIComponent(file)}`;
+    await navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   const copyHtml = async (file: string) => {
     try {
       const res = await fetch(`/email-library/${file}`);
@@ -236,6 +245,17 @@ export default function EmailLibraryPage() {
             <p className="flex-1 text-[13px] font-bold text-zinc-300 truncate">
               {preview.client} — {preview.angle} {preview.desc}
             </p>
+            <button
+              onClick={() => preview && copyShareLink(preview.file)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
+                copiedLink
+                  ? 'bg-violet-500/20 border-violet-500/40 text-violet-400'
+                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+              {copiedLink ? 'Link copiado!' : 'Compartir'}
+            </button>
             <button
               onClick={() => preview && copyHtml(preview.file)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
