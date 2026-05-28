@@ -911,13 +911,23 @@ function CalendarView({
                   {dayCamp.map(c => {
                     const isSch = c.status === 'Scheduled';
                     const colorCls = isSch
-                      ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400 border border-violet-500/20'
-                      : 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-500/20';
+                      ? 'bg-violet-500/10 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 dark:hover:bg-violet-500/25'
+                      : 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/25';
+                    
+                    const handleBadgeClick = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      if (c.message?.template_id) {
+                        onPreview(c.message.template_id, c.name, c.message.subject);
+                      }
+                    };
+
                     return (
                       <div
                         key={c.id}
-                        className={`text-[9px] font-bold truncate rounded px-1 py-0.5 ${colorCls}`}
-                        title={c.name}
+                        onClick={handleBadgeClick}
+                        onDoubleClick={handleBadgeClick}
+                        className={`text-[9px] font-bold truncate rounded px-1 py-0.5 cursor-pointer transition-all active:scale-95 ${colorCls}`}
+                        title={`${c.name} (Clic para ver)`}
                       >
                         {c.name}
                       </div>
