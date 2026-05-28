@@ -182,6 +182,25 @@ const ACTION_STATUS: Record<string, { cls: string }> = {
 
 // ─── Preview Modal ────────────────────────────────────────────────────────────
 
+const sanitizeHtmlTemplates = (rawHtml: string): string => {
+  if (!rawHtml) return '';
+  let sanitized = rawHtml;
+  
+  // 1. Replace src/background/poster/srcset/href attributes containing {% or {{ to prevent invalid GET requests
+  sanitized = sanitized.replace(/(src|href|background|poster|srcset)=["']([^"']*(?:\{%|\{\{)[^"']*)["']/gi, (match, attr, value) => {
+    const lowerAttr = attr.toLowerCase();
+    if (lowerAttr === 'src' || lowerAttr === 'srcset') {
+      return `${attr}="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/>"`;
+    }
+    return `${attr}=""`;
+  });
+
+  // 2. Replace CSS url(...) containing {% or {{
+  sanitized = sanitized.replace(/url\([^)]*(?:\{%|\{\{)[^)]*\)/gi, "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"/>')");
+
+  return sanitized;
+};
+
 function PreviewModal({
   templateId, apiKey, title, subject, onClose,
 }: {
@@ -223,76 +242,82 @@ function PreviewModal({
   const blobUrl = html ? URL.createObjectURL(new Blob([html], { type: 'text/html' })) : '';
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-zinc-950">
-      {/* Toolbar */}
-      <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10">
-        <div className="flex-1 min-w-0">
-          <p className="text-[12px] font-bold text-white truncate">{title}</p>
-          {subject && <p className="text-[10px] text-zinc-500 truncate font-mono">{subject}</p>}
-        </div>
-        {html && (
-          <button
-            onClick={() => { navigator.clipboard.writeText(html); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${copied ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'}`}
-          >
-            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {copied ? 'Copiado!' : 'HTML'}
-          </button>
-        )}
-        {blobUrl && (
-          <a href={blobUrl} download={`${templateId}.html`}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
-            <ExternalLink className="w-3 h-3" />HTML
-          </a>
-        )}
-        <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5">
-          <button onClick={() => setMode('desktop')}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
-            <Monitor className="w-3 h-3" />PC
-          </button>
-          <button onClick={() => setMode('mobile')}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
-            <Smartphone className="w-3 h-3" />Móvil
-          </button>
-        </div>
-        <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      {/* Backdrop */}
+      <div className="absolute inset-0 cursor-default" onClick={onClose} />
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto" style={{ background: mode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }}>
-        {loading && (
-          <div className="flex items-center justify-center h-48">
-            <div className="w-5 h-5 border-2 border-zinc-600 border-t-violet-500 rounded-full animate-spin" />
+      {/* Modal Card */}
+      <div className="relative z-10 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col w-full max-w-4xl h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Toolbar */}
+        <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10">
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-bold text-white truncate">{title}</p>
+            {subject && <p className="text-[10px] text-zinc-500 truncate font-mono">{subject}</p>}
           </div>
-        )}
-        {error && (
-          <div className="flex items-center justify-center h-48">
-            <p className="text-red-400 text-sm">{error}</p>
+          {html && (
+            <button
+              onClick={() => { navigator.clipboard.writeText(html); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${copied ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'}`}
+            >
+              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              {copied ? 'Copiado!' : 'HTML'}
+            </button>
+          )}
+          {blobUrl && (
+            <a href={blobUrl} download={`${templateId}.html`}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+              <ExternalLink className="w-3 h-3" />HTML
+            </a>
+          )}
+          <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5">
+            <button onClick={() => setMode('desktop')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+              <Monitor className="w-3 h-3" />PC
+            </button>
+            <button onClick={() => setMode('mobile')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+              <Smartphone className="w-3 h-3" />Móvil
+            </button>
           </div>
-        )}
-        {html && !loading && (
-          <div style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }}>
-            <div style={{ background: '#fff', borderRadius: mode === 'desktop' ? '10px 10px 0 0' : 12, border: '1px solid #d0d0d0', borderBottom: 'none', padding: '10px 14px' }}>
-              {mode === 'desktop' && (
-                <div style={{ display: 'flex', gap: 5, marginBottom: 4 }}>
-                  <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff5f57' }} />
-                  <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#febc2e' }} />
-                  <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#28c840' }} />
-                </div>
-              )}
-              {subject && <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#111', fontFamily: 'system-ui' }}>{subject}</p>}
+          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto" style={{ background: mode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }}>
+          {loading && (
+            <div className="flex items-center justify-center h-full min-h-[200px]">
+              <div className="w-5 h-5 border-2 border-zinc-600 border-t-violet-500 rounded-full animate-spin" />
             </div>
-            <iframe
-              ref={iframeRef}
-              srcDoc={html}
-              onLoad={onIframeLoad}
-              sandbox="allow-same-origin allow-popups"
-              style={{ display: 'block', width: '100%', height: iframeH, border: '1px solid #d0d0d0', background: '#fff' }}
-            />
-          </div>
-        )}
+          )}
+          {error && (
+            <div className="flex items-center justify-center h-full min-h-[200px]">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+          {html && !loading && (
+            <div style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }}>
+              <div style={{ background: '#fff', borderRadius: mode === 'desktop' ? '10px 10px 0 0' : 12, border: '1px solid #d0d0d0', borderBottom: 'none', padding: '10px 14px' }}>
+                {mode === 'desktop' && (
+                  <div style={{ display: 'flex', gap: 5, marginBottom: 4 }}>
+                    <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff5f57' }} />
+                    <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#febc2e' }} />
+                    <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#28c840' }} />
+                  </div>
+                )}
+                {subject && <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#111', fontFamily: 'system-ui' }}>{subject}</p>}
+              </div>
+              <iframe
+                ref={iframeRef}
+                srcDoc={sanitizeHtmlTemplates(html)}
+                onLoad={onIframeLoad}
+                sandbox="allow-same-origin allow-popups"
+                style={{ display: 'block', width: '100%', height: iframeH, border: '1px solid #d0d0d0', background: '#fff' }}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
