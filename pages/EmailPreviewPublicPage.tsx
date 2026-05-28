@@ -8,9 +8,10 @@ export default function EmailPreviewPublicPage() {
   const params      = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
   const file        = params.get('email') ?? '';
   const subject     = params.get('subject') ?? '';
-  const [mode, setMode]           = useState<'desktop' | 'mobile'>('desktop');
-  const [preheader, setPreheader] = useState('');
-  const iframeRef   = useRef<HTMLIFrameElement>(null);
+  const [mode, setMode]               = useState<'desktop' | 'mobile'>('desktop');
+  const [preheader, setPreheader]     = useState('');
+  const [iframeHeight, setIframeHeight] = useState(3000);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const label       = file ? formatTitle(file) : 'Email Preview';
   const subjectLine = subject || label;
@@ -18,6 +19,9 @@ export default function EmailPreviewPublicPage() {
   useEffect(() => {
     document.title = file ? `${subjectLine} — Algoritmia` : 'Email Preview — Algoritmia';
   }, [file, subjectLine]);
+
+  // Reset height when switching modes so iframe re-measures
+  useEffect(() => { setIframeHeight(3000); }, [mode]);
 
   const injectAndExtract = () => {
     try {
@@ -28,6 +32,11 @@ export default function EmailPreviewPublicPage() {
         base.target = '_blank';
         doc.head.insertBefore(base, doc.head.firstChild);
       }
+      // Auto-resize to full email height
+      const h = doc.documentElement.scrollHeight || doc.body?.scrollHeight || 0;
+      if (h > 200) setIframeHeight(h + 40);
+
+      // Extract preheader
       const hidden = doc.querySelector<HTMLElement>(
         '[style*="display:none"],[style*="display: none"],[class*="preheader"],[class*="preview"]'
       );
@@ -43,7 +52,7 @@ export default function EmailPreviewPublicPage() {
     </div>
   );
 
-  const BG = mode === 'desktop' ? '#d0d0d0' : '#111';
+  const BG = mode === 'desktop' ? '#d0d0d0' : '#e8e8e8';
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: BG }}>
@@ -55,7 +64,6 @@ export default function EmailPreviewPublicPage() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 14px', gap: 10, position: 'sticky', top: 0, zIndex: 10,
       }}>
-        {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <div style={{ width: 26, height: 26, borderRadius: 6, background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <span style={{ color: '#fff', fontSize: 9, fontWeight: 900, fontFamily: 'Arial' }}>A</span>
@@ -65,7 +73,6 @@ export default function EmailPreviewPublicPage() {
           </span>
         </div>
 
-        {/* Toggle — big and thumb-friendly */}
         <div style={{ display: 'flex', background: '#f0f0f0', borderRadius: 10, padding: 3, gap: 2, flexShrink: 0 }}>
           {(['desktop', 'mobile'] as const).map(m => (
             <button key={m} onClick={() => setMode(m)} style={{
@@ -86,8 +93,8 @@ export default function EmailPreviewPublicPage() {
         </div>
       </div>
 
-      {/* ── EMAIL CHROME (outside phone for both modes) ── */}
-      <div style={{ flexShrink: 0, maxWidth: mode === 'desktop' ? 660 : 393, width: '100%', margin: '20px auto 0', padding: '0 12px' }}>
+      {/* ── EMAIL CHROME ── */}
+      <div style={{ flexShrink: 0, maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: '20px auto 0', padding: '0 12px' }}>
         <div style={{
           background: '#fff',
           borderRadius: mode === 'desktop' ? '10px 10px 0 0' : 12,
@@ -96,7 +103,6 @@ export default function EmailPreviewPublicPage() {
           padding: '12px 16px',
           marginBottom: mode === 'desktop' ? 0 : 12,
         }}>
-          {/* Desktop: mac dots */}
           {mode === 'desktop' && (
             <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f57' }} />
@@ -104,7 +110,6 @@ export default function EmailPreviewPublicPage() {
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#28c840' }} />
             </div>
           )}
-          {/* Mobile: sender row */}
           {mode === 'mobile' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f0f0f0' }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -116,7 +121,6 @@ export default function EmailPreviewPublicPage() {
               </div>
             </div>
           )}
-          {/* De / Asunto / Vista Previa */}
           <div style={{ fontSize: mode === 'desktop' ? 11 : 12, fontFamily: 'Arial, sans-serif', lineHeight: 1.8 }}>
             {mode === 'desktop' && (
               <div>
@@ -140,27 +144,26 @@ export default function EmailPreviewPublicPage() {
 
       {/* ── EMAIL BODY ── */}
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 12px 40px' }}>
-
         {mode === 'desktop' ? (
-          /* Desktop: max 660px, white card */
           <div style={{ width: '100%', maxWidth: 660, background: '#fff', border: '1px solid #d0d0d0', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
             <iframe
+              key="desktop"
               ref={iframeRef}
               src={`/email-library/${file}`}
               onLoad={injectAndExtract}
               scrolling="no"
-              style={{ width: '100%', height: 2400, border: 'none', display: 'block' }}
+              style={{ width: '100%', height: iframeHeight, border: 'none', display: 'block' }}
             />
           </div>
         ) : (
-          /* Mobile: phone-width card, scrollable */
-          <div style={{ width: '100%', maxWidth: 393, background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #d0d0d0', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <div style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #d0d0d0', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
             <iframe
+              key="mobile"
               ref={iframeRef}
               src={`/email-library/${file}`}
               onLoad={injectAndExtract}
               scrolling="no"
-              style={{ width: '100%', height: 2400, border: 'none', display: 'block' }}
+              style={{ width: '100%', height: iframeHeight, border: 'none', display: 'block' }}
             />
           </div>
         )}
@@ -168,7 +171,7 @@ export default function EmailPreviewPublicPage() {
 
       {/* Footer */}
       <div style={{ flexShrink: 0, paddingBottom: 16, textAlign: 'center' }}>
-        <p style={{ fontSize: 11, color: mode === 'desktop' ? '#999' : '#555', fontFamily: 'Arial' }}>
+        <p style={{ fontSize: 11, color: '#999', fontFamily: 'Arial' }}>
           Powered by <strong>Algoritmia</strong>
         </p>
       </div>

@@ -160,12 +160,20 @@ export default function EmailLibraryPage() {
   const [confirmStep, setConfirmStep]   = useState<0 | 1 | 2>(0);
   const [ctxMenu, setCtxMenu]           = useState<CtxMenu | null>(null);
   const [confirmSingle, setConfirmSingle] = useState<EmailEntry | null>(null);
+  const [previewPreheader, setPreviewPreheader] = useState('');
+  const [previewIframeHeight, setPreviewIframeHeight] = useState(3000);
   const dragIdx = useRef<number | null>(null);
 
   // Admin guard
   useEffect(() => {
     if (profile && !profile.is_admin) navigate('/', { replace: true });
   }, [profile, navigate]);
+
+  // Reset preview state when email or mode changes
+  useEffect(() => {
+    setPreviewPreheader('');
+    setPreviewIframeHeight(3000);
+  }, [preview?.file, previewMode]);
 
   // Load
   useEffect(() => {
@@ -280,7 +288,7 @@ export default function EmailLibraryPage() {
       </div>
 
       {/* Main */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col relative">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -456,6 +464,117 @@ export default function EmailLibraryPage() {
             })}
           </div>
         )}
+
+        {/* Preview Panel — absolute so sidebar stays visible */}
+        {preview && (
+          <div className="absolute inset-0 z-50 flex flex-col" onClick={() => setPreview(null)}>
+            {/* Dark action toolbar */}
+            <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-bold text-white truncate">{preview.subject || `${preview.angle} ${preview.desc}`}</p>
+                {preview.klaviyo_subject && (
+                  <button onClick={() => navigator.clipboard.writeText(preview.klaviyo_subject)} className="flex items-center gap-1 text-left group/subj" title="Copiar asunto Klaviyo">
+                    <span className="text-[9px] text-zinc-500 truncate group-hover/subj:text-zinc-300 transition-colors font-mono">{preview.klaviyo_subject}</span>
+                    <Copy className="w-2 h-2 text-zinc-600 group-hover/subj:text-zinc-400 flex-shrink-0 transition-colors" />
+                  </button>
+                )}
+              </div>
+              <a href={`/print.html?email=${encodeURIComponent(preview.file)}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+                <FileDown className="w-3 h-3" />PDF
+              </a>
+              <button onClick={() => copyShareLink(preview)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${copiedLink === preview.file ? 'bg-violet-500/20 border-violet-500/40 text-violet-400' : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'}`}>
+                {copiedLink === preview.file ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+                {copiedLink === preview.file ? 'Copiado!' : 'Link'}
+              </button>
+              <button onClick={() => copyHtml(preview)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${copied === preview.file ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'}`}>
+                {copied === preview.file ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                HTML
+              </button>
+              <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5">
+                <button onClick={() => setPreviewMode('desktop')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${previewMode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+                  <Monitor className="w-3 h-3" />PC
+                </button>
+                <button onClick={() => setPreviewMode('mobile')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${previewMode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+                  <Smartphone className="w-3 h-3" />Celular
+                </button>
+              </div>
+              <button onClick={() => setPreview(null)} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Email viewer — same look as public share page */}
+            <div className="flex-1 overflow-auto" style={{ background: previewMode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }} onClick={() => setPreview(null)}>
+
+              {/* Chrome + email body — same container, same width */}
+              <div style={{ maxWidth: previewMode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }} onClick={e => e.stopPropagation()}>
+
+                {/* Email chrome card */}
+                <div style={{ background: '#fff', borderRadius: previewMode === 'desktop' ? '10px 10px 0 0' : 12, border: '1px solid #d0d0d0', borderBottom: previewMode === 'desktop' ? 'none' : '1px solid #d0d0d0', padding: '10px 14px', marginBottom: previewMode === 'desktop' ? 0 : 10 }}>
+                  {previewMode === 'desktop' && (
+                    <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
+                      <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff5f57' }} />
+                      <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#febc2e' }} />
+                      <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#28c840' }} />
+                    </div>
+                  )}
+                  {previewMode === 'mobile' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #f0f0f0' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ color: '#c9a96e', fontSize: 9, fontWeight: 700, fontFamily: 'Arial' }}>TSF</span>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#111', fontFamily: 'Arial' }}>The Skirting Factory</div>
+                        <div style={{ fontSize: 9, color: '#888', fontFamily: 'Arial' }}>valentina@theskirtingfactoryllc.com</div>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, fontFamily: 'Arial, sans-serif', lineHeight: 1.8 }}>
+                    {previewMode === 'desktop' && (
+                      <div><span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>De:</span><span style={{ color: '#1a73e8' }}>valentina@theskirtingfactoryllc.com</span></div>
+                    )}
+                    <div><span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Asunto:</span><span style={{ color: '#111', fontWeight: previewMode === 'mobile' ? 600 : 400 }}>{preview.subject || `${preview.client} — ${preview.angle}`}</span></div>
+                    <div><span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Vista Previa:</span><span style={{ color: '#888', fontStyle: previewPreheader ? 'normal' : 'italic' }}>{previewPreheader || 'Cargando…'}</span></div>
+                  </div>
+                </div>
+
+                {/* Email iframe */}
+                <div style={previewMode === 'desktop'
+                  ? { background: '#fff', border: '1px solid #d0d0d0', borderRadius: '0 0 8px 8px', overflow: 'hidden' }
+                  : { background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #d0d0d0', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }
+                }>
+                  <iframe
+                    key={`${preview.file}-${previewMode}`}
+                    src={`/email-library/${preview.file}`}
+                    scrolling="no"
+                    onLoad={e => {
+                      try {
+                        const doc = (e.currentTarget as HTMLIFrameElement).contentDocument;
+                        if (!doc) return;
+                        if (doc.head && !doc.head.querySelector('base')) {
+                          const base = doc.createElement('base'); base.target = '_blank';
+                          doc.head.insertBefore(base, doc.head.firstChild);
+                        }
+                        const h = doc.documentElement.scrollHeight || doc.body?.scrollHeight || 0;
+                        if (h > 200) setPreviewIframeHeight(h + 40);
+                        const hidden = doc.querySelector<HTMLElement>('[style*="display:none"],[style*="display: none"],[class*="preheader"],[class*="preview"]');
+                        if (hidden?.textContent?.trim()) { setPreviewPreheader(hidden.textContent.trim().slice(0, 100)); return; }
+                        const first = doc.querySelector('p, td');
+                        if (first?.textContent?.trim()) setPreviewPreheader(first.textContent.trim().slice(0, 100));
+                      } catch {}
+                    }}
+                    style={{ width: '100%', height: previewIframeHeight, border: 'none', display: 'block' }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Context menu */}
@@ -492,92 +611,6 @@ export default function EmailLibraryPage() {
         />
       )}
 
-      {/* Preview Modal */}
-      {preview && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col" onClick={() => setPreview(null)}>
-          <div className="flex-shrink-0 flex items-center gap-3 px-5 py-3 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold text-white truncate">{preview.subject || `${preview.angle} ${preview.desc}`}</p>
-              {preview.klaviyo_subject && (
-                <button
-                  onClick={() => navigator.clipboard.writeText(preview.klaviyo_subject)}
-                  className="flex items-center gap-1 text-left group/subj"
-                  title="Copiar asunto para Klaviyo"
-                >
-                  <span className="text-[10px] text-zinc-500 truncate group-hover/subj:text-zinc-300 transition-colors font-mono">
-                    {preview.klaviyo_subject}
-                  </span>
-                  <Copy className="w-2.5 h-2.5 text-zinc-600 group-hover/subj:text-zinc-400 flex-shrink-0 transition-colors" />
-                </button>
-              )}
-            </div>
-            {/* PDF download — opens print page that auto-triggers print dialog */}
-            <a
-              href={`/print.html?email=${encodeURIComponent(preview.file)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              title="Descargar como PDF"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10"
-            >
-              <FileDown className="w-3.5 h-3.5" />
-              PDF
-            </a>
-            <button onClick={() => copyShareLink(preview)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
-                copiedLink === preview.file
-                  ? 'bg-violet-500/20 border-violet-500/40 text-violet-400'
-                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'
-              }`}>
-              {copiedLink === preview.file ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-              {copiedLink === preview.file ? 'Link copiado!' : 'Compartir'}
-            </button>
-            <button onClick={() => copyHtml(preview)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
-                copied === preview.file
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'
-              }`}>
-              {copied === preview.file ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              {copied === preview.file ? 'Copiado!' : 'Copiar HTML'}
-            </button>
-            <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
-              <button onClick={() => setPreviewMode('desktop')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${previewMode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
-                <Monitor className="w-3.5 h-3.5" />Desktop
-              </button>
-              <button onClick={() => setPreviewMode('mobile')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${previewMode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
-                <Smartphone className="w-3.5 h-3.5" />Mobile
-              </button>
-            </div>
-            <button onClick={() => setPreview(null)} className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-auto flex items-start justify-center" style={{ background: previewMode === 'desktop' ? '#d0d0d0' : '#1a1a1a' }}>
-            <div className="transition-all duration-300 overflow-hidden" onClick={e => e.stopPropagation()}
-              style={previewMode === 'desktop'
-                ? { width: '100%', minHeight: '100%' }
-                : { width: 375, margin: '32px auto', boxShadow: '0 8px 40px rgba(0,0,0,0.5)', borderRadius: 8 }
-              }>
-              <iframe
-                src={`/email-library/${preview.file}`}
-                onLoad={e => {
-                  try {
-                    const doc = (e.currentTarget as HTMLIFrameElement).contentDocument;
-                    if (doc?.head && !doc.head.querySelector('base')) {
-                      const base = doc.createElement('base'); base.target = '_blank';
-                      doc.head.insertBefore(base, doc.head.firstChild);
-                    }
-                  } catch {}
-                }}
-                style={{ width: '100%', height: 900, border: 'none', display: 'block' }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
