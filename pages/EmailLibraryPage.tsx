@@ -63,9 +63,10 @@ export default function EmailLibraryPage() {
   const filtered = activeClient === 'ALL' ? emails : emails.filter(e => e.client === activeClient);
 
   // Drag handlers
-  const copyShareLink = async (file: string) => {
+  const copyShareLink = async (email: EmailEntry) => {
     const base = `${window.location.origin}${window.location.pathname}`;
-    const url = `${base}#/preview?email=${encodeURIComponent(file)}`;
+    const subject = encodeURIComponent(`${email.client} — ${email.angle} ${email.desc}`.trim());
+    const url = `${base}#/preview?email=${encodeURIComponent(email.file)}&subject=${subject}`;
     await navigator.clipboard.writeText(url);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -246,7 +247,7 @@ export default function EmailLibraryPage() {
               {preview.client} — {preview.angle} {preview.desc}
             </p>
             <button
-              onClick={() => preview && copyShareLink(preview.file)}
+              onClick={() => preview && copyShareLink(preview)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
                 copiedLink
                   ? 'bg-violet-500/20 border-violet-500/40 text-violet-400'

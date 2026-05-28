@@ -10,23 +10,41 @@ function formatTitle(file: string) {
 
 export default function EmailPreviewPublicPage() {
   const params = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
-  const file = params.get('email') ?? '';
+  const file   = params.get('email') ?? '';
+  const subject = params.get('subject') ?? '';
   const [mode, setMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [preheader, setPreheader] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const label = file ? formatTitle(file) : 'Email Preview';
+  const subjectLine = subject || label;
 
   useEffect(() => {
-    document.title = file ? `${label} — Algoritmia` : 'Email Preview — Algoritmia';
-  }, [file, label]);
+    document.title = file ? `${subjectLine} — Algoritmia` : 'Email Preview — Algoritmia';
+  }, [file, subjectLine]);
 
   const injectBase = () => {
     try {
       const doc = iframeRef.current?.contentDocument;
-      if (doc?.head && !doc.head.querySelector('base')) {
+      if (!doc) return;
+      // Inject base target
+      if (doc.head && !doc.head.querySelector('base')) {
         const base = doc.createElement('base');
         base.target = '_blank';
         doc.head.insertBefore(base, doc.head.firstChild);
+      }
+      // Extract preheader: look for hidden preheader span/div, or first visible text
+      const hidden = doc.querySelector<HTMLElement>(
+        '[style*="display:none"],[style*="display: none"],[class*="preheader"],[class*="preview"]'
+      );
+      if (hidden?.textContent?.trim()) {
+        setPreheader(hidden.textContent.trim().slice(0, 120));
+        return;
+      }
+      // Fallback: first paragraph or td text
+      const first = doc.querySelector('p, td');
+      if (first?.textContent?.trim()) {
+        setPreheader(first.textContent.trim().slice(0, 120));
       }
     } catch {}
   };
@@ -97,11 +115,21 @@ export default function EmailPreviewPublicPage() {
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#febc2e' }} />
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#28c840' }} />
               </div>
-              <div style={{ fontSize: 11, color: '#666', fontFamily: 'Arial, sans-serif' }}>
-                <span style={{ fontWeight: 700, color: '#333' }}>De:</span> valentina@theskirtingfactoryllc.com
-              </div>
-              <div style={{ fontSize: 11, color: '#666', fontFamily: 'Arial, sans-serif', marginTop: 2 }}>
-                <span style={{ fontWeight: 700, color: '#333' }}>Asunto:</span> {label}
+              <div style={{ fontSize: 11, color: '#666', fontFamily: 'Arial, sans-serif', lineHeight: '1.7' }}>
+                <div>
+                  <span style={{ fontWeight: 700, color: '#333', display: 'inline-block', width: 76 }}>De:</span>
+                  <span style={{ color: '#1a73e8' }}>valentina@theskirtingfactoryllc.com</span>
+                </div>
+                <div>
+                  <span style={{ fontWeight: 700, color: '#333', display: 'inline-block', width: 76 }}>Asunto:</span>
+                  <span style={{ color: '#111' }}>{subjectLine}</span>
+                </div>
+                <div>
+                  <span style={{ fontWeight: 700, color: '#333', display: 'inline-block', width: 76 }}>Vista Previa:</span>
+                  <span style={{ color: '#888', fontStyle: preheader ? 'normal' : 'italic' }}>
+                    {preheader || 'Cargando…'}
+                  </span>
+                </div>
               </div>
             </div>
             {/* Email iframe */}
