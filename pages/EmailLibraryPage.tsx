@@ -504,8 +504,11 @@ export default function EmailLibraryPage() {
   const rbOrigin       = useRef<{x:number;y:number}|null>(null);
   const rbDragging     = useRef(false);
   const rbCurrent      = useRef<{x1:number;y1:number;x2:number;y2:number}|null>(null);
-  const wasDragging    = useRef(false);
-  const gridRef        = useRef<HTMLDivElement>(null);
+  const wasDragging       = useRef(false);
+  const gridRef           = useRef<HTMLDivElement>(null);
+  const selectedRef       = useRef<Set<string>>(new Set());
+  const rbPreDragSelected = useRef<Set<string>>(new Set());
+  const prevIntersecting  = useRef<Set<string>>(new Set());
 
   // Admin guard
   useEffect(() => {
@@ -523,6 +526,8 @@ export default function EmailLibraryPage() {
       if (target.closest('button, input, a, select, [data-drag-handle]')) return;
       e.preventDefault();
       rbOrigin.current = { x: e.clientX, y: e.clientY };
+      rbPreDragSelected.current = new Set(selectedRef.current);
+      prevIntersecting.current = new Set();
     };
     const onMove = (e: MouseEvent) => {
       if (!rbOrigin.current) return;
@@ -536,21 +541,28 @@ export default function EmailLibraryPage() {
       rbCurrent.current = r;
       setRubberRect({ ...r });
       setSelectMode(true);
+      // Real-time highlight: compute which cards are inside the rect right now
+      const L = Math.min(r.x1, r.x2), T = Math.min(r.y1, r.y2);
+      const R = Math.max(r.x1, r.x2), B = Math.max(r.y1, r.y2);
+      const nowIn = new Set<string>();
+      cardEls.current.forEach((el, file) => {
+        const cr = el.getBoundingClientRect();
+        if (cr.left < R && cr.right > L && cr.top < B && cr.bottom > T) nowIn.add(file);
+      });
+      const prev = prevIntersecting.current;
+      const changed = nowIn.size !== prev.size || [...nowIn].some(f => !prev.has(f)) || [...prev].some(f => !nowIn.has(f));
+      if (changed) {
+        prevIntersecting.current = nowIn;
+        setSelected(new Set([...rbPreDragSelected.current, ...nowIn]));
+      }
     };
     const onUp = () => {
       document.body.style.userSelect = '';
-      if (rbDragging.current && rbCurrent.current) {
-        const { x1, y1, x2, y2 } = rbCurrent.current;
-        const L = Math.min(x1, x2), T = Math.min(y1, y2), R = Math.max(x1, x2), B = Math.max(y1, y2);
-        const toAdd = new Set<string>();
-        cardEls.current.forEach((el, file) => {
-          const r = el.getBoundingClientRect();
-          if (r.left < R && r.right > L && r.top < B && r.bottom > T) toAdd.add(file);
-        });
-        if (toAdd.size > 0) { setSelected(prev => new Set([...prev, ...toAdd])); setSelectMode(true); }
+      if (rbDragging.current) {
         wasDragging.current = true;
         setTimeout(() => { wasDragging.current = false; }, 100);
       }
+      prevIntersecting.current = new Set();
       rbOrigin.current = null; rbDragging.current = false; rbCurrent.current = null;
       setRubberRect(null);
     };
@@ -714,6 +726,9 @@ export default function EmailLibraryPage() {
   };
 
   if (!profile?.is_admin) return null;
+
+  // Keep ref in sync so rubber band onDown can snapshot pre-drag selection
+  selectedRef.current = selected;
 
   const anySelected = selected.size > 0;
 
