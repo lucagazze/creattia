@@ -4,12 +4,24 @@ function formatTitle(file: string) {
   return file.replace('.html', '').replace(/_/g, ' ').replace(/\b(\w)/g, c => c.toUpperCase());
 }
 
+// SVG icons (no lucide dependency on public page)
+const IconMonitor = () => (
+  <svg width="13" height="12" viewBox="0 0 24 20" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="1" y="1" width="22" height="14" rx="2"/><line x1="8" y1="19" x2="16" y2="19"/><line x1="12" y1="15" x2="12" y2="19"/>
+  </svg>
+);
+const IconPhone = () => (
+  <svg width="10" height="13" viewBox="0 0 16 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="1" y="1" width="14" height="22" rx="3"/><circle cx="8" cy="18" r="1" fill="currentColor"/>
+  </svg>
+);
+
 export default function EmailPreviewPublicPage() {
-  const params      = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
-  const file        = params.get('email') ?? '';
-  const subject     = params.get('subject') ?? '';
-  const [mode, setMode]               = useState<'desktop' | 'mobile'>('desktop');
-  const [preheader, setPreheader]     = useState('');
+  const params    = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+  const file      = params.get('email') ?? '';
+  const subject   = params.get('subject') ?? '';
+  const [mode, setMode]                 = useState<'desktop' | 'mobile'>('desktop');
+  const [preheader, setPreheader]       = useState('');
   const [iframeHeight, setIframeHeight] = useState(3000);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -20,8 +32,7 @@ export default function EmailPreviewPublicPage() {
     document.title = file ? `${subjectLine} — Algoritmia` : 'Email Preview — Algoritmia';
   }, [file, subjectLine]);
 
-  // Reset height when switching modes so iframe re-measures
-  useEffect(() => { setIframeHeight(3000); }, [mode]);
+  useEffect(() => { setIframeHeight(3000); setPreheader(''); }, [mode]);
 
   const injectAndExtract = () => {
     try {
@@ -32,11 +43,8 @@ export default function EmailPreviewPublicPage() {
         base.target = '_blank';
         doc.head.insertBefore(base, doc.head.firstChild);
       }
-      // Auto-resize to full email height
       const h = doc.documentElement.scrollHeight || doc.body?.scrollHeight || 0;
       if (h > 200) setIframeHeight(h + 40);
-
-      // Extract preheader
       const hidden = doc.querySelector<HTMLElement>(
         '[style*="display:none"],[style*="display: none"],[class*="preheader"],[class*="preview"]'
       );
@@ -47,46 +55,48 @@ export default function EmailPreviewPublicPage() {
   };
 
   if (!file) return (
-    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', color: '#888', fontFamily: 'Arial', fontSize: 14 }}>
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#09090b', color: '#71717a', fontFamily: 'Arial', fontSize: 14 }}>
       Email no especificado.
     </div>
   );
 
-  const BG = mode === 'desktop' ? '#d0d0d0' : '#e8e8e8';
-
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: BG }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: mode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }}>
 
-      {/* ── TOP BAR ── */}
+      {/* ── DARK TOOLBAR — mismo estilo que el admin preview ── */}
       <div style={{
-        flexShrink: 0, background: '#fff', borderBottom: '1px solid #e0e0e0',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 14px', gap: 10, position: 'sticky', top: 0, zIndex: 10,
+        flexShrink: 0, background: '#09090b', borderBottom: '1px solid rgba(255,255,255,0.08)',
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 16px', position: 'sticky', top: 0, zIndex: 10,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <div style={{ width: 26, height: 26, borderRadius: 6, background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: 9, fontWeight: 900, fontFamily: 'Arial' }}>A</span>
+        {/* Logo + subject */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+            <div style={{ width: 22, height: 22, borderRadius: 5, background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ color: '#fff', fontSize: 8, fontWeight: 900, fontFamily: 'Arial' }}>A</span>
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', fontFamily: 'Arial', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {subjectLine}
+            </span>
           </div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#222', fontFamily: 'Arial', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {subjectLine}
-          </span>
         </div>
 
-        <div style={{ display: 'flex', background: '#f0f0f0', borderRadius: 10, padding: 3, gap: 2, flexShrink: 0 }}>
+        {/* PC / Celular toggle — mismo estilo dark que el admin */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 3, flexShrink: 0 }}>
           {(['desktop', 'mobile'] as const).map(m => (
-            <button key={m} onClick={() => setMode(m)} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              minWidth: 80, padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              fontSize: 12, fontWeight: 700, fontFamily: 'Arial', transition: 'all 0.15s',
-              background: mode === m ? '#fff' : 'transparent',
-              color: mode === m ? '#111' : '#999',
-              boxShadow: mode === m ? '0 1px 4px rgba(0,0,0,0.14)' : 'none',
-            }}>
-              {m === 'desktop'
-                ? <svg width="14" height="12" viewBox="0 0 24 20" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="1" width="22" height="14" rx="2"/><line x1="8" y1="19" x2="16" y2="19"/><line x1="12" y1="15" x2="12" y2="19"/></svg>
-                : <svg width="10" height="13" viewBox="0 0 16 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="1" width="14" height="22" rx="3"/><circle cx="8" cy="18" r="1" fill="currentColor"/></svg>
-              }
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 700, fontFamily: 'Arial', transition: 'all 0.15s',
+                background: mode === m ? '#7c3aed' : 'transparent',
+                color: mode === m ? '#fff' : '#71717a',
+                boxShadow: mode === m ? '0 1px 4px rgba(124,58,237,0.4)' : 'none',
+              }}
+            >
+              {m === 'desktop' ? <IconMonitor /> : <IconPhone />}
               {m === 'desktop' ? 'PC' : 'Celular'}
             </button>
           ))}
@@ -161,8 +171,8 @@ export default function EmailPreviewPublicPage() {
 
       {/* Footer */}
       <div style={{ flexShrink: 0, paddingBottom: 16, textAlign: 'center' }}>
-        <p style={{ fontSize: 11, color: '#999', fontFamily: 'Arial' }}>
-          Powered by <strong>Algoritmia</strong>
+        <p style={{ fontSize: 11, color: '#71717a', fontFamily: 'Arial' }}>
+          Powered by <strong style={{ color: '#a1a1aa' }}>Algoritmia</strong>
         </p>
       </div>
     </div>
