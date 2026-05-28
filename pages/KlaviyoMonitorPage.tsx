@@ -163,7 +163,11 @@ const fetchFlowEmails = async (flowId: string, apiKey: string): Promise<KvFlowEm
     })
   );
   
-  return results.filter((a: KvFlowEmail) => a.status.toLowerCase() === 'live');
+  return results.filter((a: KvFlowEmail) => 
+    a.status.toLowerCase() === 'live' && 
+    a.message !== undefined && 
+    a.message.template_id !== undefined
+  );
 };
 
 const fetchTemplateHtml = async (templateId: string, apiKey: string): Promise<string> => {
@@ -389,9 +393,11 @@ function CampaignCard({
   onRevert?: (id: string) => Promise<void>;
 }) {
   const st = CAMP_STATUS[c.status] ?? { label: c.status, cls: 'bg-zinc-100 dark:bg-white/10 text-zinc-500' };
-  const dateLabel = c.status === 'Sent' ? fmtDate(c.send_time) :
-    c.status === 'Scheduled' ? fmtDate(c.scheduled_at) : fmtDate(c.created_at);
-  const dateIcon = c.status === 'Sent' ? <Send className="w-3 h-3" /> :
+  const dateLabel = c.status === 'Sent' ? `Enviado el: ${fmtDate(c.send_time)}` :
+    c.status === 'Sending' ? `Enviando (iniciado el ${fmtDate(c.send_time)})` :
+    c.status === 'Scheduled' ? `Programado para: ${fmtDate(c.scheduled_at)}` :
+    `Creado el: ${fmtDate(c.created_at)}`;
+  const dateIcon = (c.status === 'Sent' || c.status === 'Sending') ? <Send className="w-3 h-3" /> :
     c.status === 'Scheduled' ? <CalendarClock className="w-3 h-3" /> : <Clock className="w-3 h-3" />;
 
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
