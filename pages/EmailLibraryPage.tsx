@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   Monitor, Smartphone, X, Mail, GripVertical,
   Copy, Check, Share2, Trash2, CheckSquare, Square,
-  Code2, ExternalLink, FileDown,
+  Code2, ExternalLink, FileDown, SendHorizonal, User,
 } from 'lucide-react';
 
 interface EmailEntry {
@@ -15,6 +15,8 @@ interface EmailEntry {
   subject: string;
   klaviyo_subject: string;
 }
+
+interface SentRecord { date: string; client: string; }
 
 interface CtxMenu {
   x: number;
@@ -32,6 +34,7 @@ const ANGLE_COLORS: Record<string, string> = {
 
 const STORAGE_KEY         = 'email-library-order';
 const STORAGE_DELETED_KEY = 'email-library-deleted';
+const STORAGE_SENT_KEY    = 'email-library-sent';
 
 // ── Double-confirm delete dialog ────────────────────────────────────────────
 function ConfirmDialog({ count, step, onStep1, onStep2, onCancel }: {
@@ -86,11 +89,12 @@ function ConfirmDialog({ count, step, onStep1, onStep2, onCancel }: {
 }
 
 // ── Context menu ─────────────────────────────────────────────────────────────
-function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onDelete, onClose }: {
+function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onMarkSent, onDelete, onClose }: {
   ctx: CtxMenu;
   onCopyHtml: (e: EmailEntry) => void;
   onShare: (e: EmailEntry) => void;
   onPreview: (e: EmailEntry) => void;
+  onMarkSent: (e: EmailEntry) => void;
   onDelete: (e: EmailEntry) => void;
   onClose: () => void;
 }) {
@@ -103,7 +107,6 @@ function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onDelete, onClose }:
     return () => { window.removeEventListener('mousedown', handler); window.removeEventListener('scroll', handler); };
   }, [onClose]);
 
-  // Clamp to viewport
   const W = 192;
   const x = Math.min(ctx.x, window.innerWidth - W - 8);
   const y = ctx.y;
@@ -137,6 +140,7 @@ function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onDelete, onClose }:
       {item(<Code2 className="w-3.5 h-3.5" />, 'Copiar HTML', () => onCopyHtml(ctx.email))}
       {item(<Share2 className="w-3.5 h-3.5" />, 'Copiar link', () => onShare(ctx.email))}
       {item(<FileDown className="w-3.5 h-3.5" />, 'Descargar PDF', () => window.open(`/print.html?email=${encodeURIComponent(ctx.email.file)}`, '_blank'))}
+      {item(<SendHorizonal className="w-3.5 h-3.5" />, 'Marcar enviado', () => onMarkSent(ctx.email))}
       <div className="my-1 border-t border-zinc-100 dark:border-white/5" />
       {item(<Trash2 className="w-3.5 h-3.5" />, 'Eliminar', () => onDelete(ctx.email), true)}
     </div>
@@ -152,7 +156,7 @@ export default function EmailLibraryPage() {
   const [clients, setClients]           = useState<string[]>([]);
   const [preview, setPreview]           = useState<EmailEntry | null>(null);
   const [previewMode, setPreviewMode]   = useState<'desktop' | 'mobile'>('desktop');
-  const [copied, setCopied]             = useState<string | null>(null);  // file name of copied item
+  const [copied, setCopied]             = useState<string | null>(null);
   const [copiedLink, setCopiedLink]     = useState<string | null>(null);
   const [dragOver, setDragOver]         = useState<number | null>(null);
   const [selectMode, setSelectMode]     = useState(false);
@@ -162,6 +166,12 @@ export default function EmailLibraryPage() {
   const [confirmSingle, setConfirmSingle] = useState<EmailEntry | null>(null);
   const [previewPreheader, setPreviewPreheader] = useState('');
   const [previewIframeHeight, setPreviewIframeHeight] = useState(3000);
+  // Feature 3: sent history
+  const [sentHistory, setSentHistory]   = useState<Record<string, SentRecord[]>>({});
+  // Feature 3: subject personalization
+  const [previewName, setPreviewName]   = useState('');
+  // Feature 1: track cards whose screenshot failed → fall back to iframe
+  const [imgErrors, setImgErrors]       = useState<Set<string>>(new Set());
   const dragIdx = useRef<number | null>(null);
 
   // Admin guard
@@ -169,13 +179,21 @@ export default function EmailLibraryPage() {
     if (profile && !profile.is_admin) navigate('/', { replace: true });
   }, [profile, navigate]);
 
+  // Load sent history
+  useEffect(() => {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_SENT_KEY) ?? '{}');
+      setSentHistory(data);
+    } catch {}
+  }, []);
+
   // Reset preview state when email or mode changes
   useEffect(() => {
     setPreviewPreheader('');
     setPreviewIframeHeight(3000);
   }, [preview?.file, previewMode]);
 
-  // Load
+  // Load emails
   useEffect(() => {
     fetch('/email-library/emails.json')
       .then(r => r.json())
@@ -200,11 +218,27 @@ export default function EmailLibraryPage() {
 
   const filtered = activeClient === 'ALL' ? emails : emails.filter(e => e.client === activeClient);
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const renderSubject = (subject: string, name: string) =>
+    name.trim() ? subject.replace(/\{\{\s*first_name\s*\}\}/g, name.trim()) : subject;
+
+  const markAsSent = useCallback((email: EmailEntry) => {
+    const record: SentRecord = { date: new Date().toISOString(), client: email.client };
+    setSentHistory(prev => {
+      const updated = { ...prev, [email.file]: [...(prev[email.file] ?? []), record] };
+      localStorage.setItem(STORAGE_SENT_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const getLastSent = (file: string): SentRecord | null => {
+    const records = sentHistory[file];
+    return records?.length ? records[records.length - 1] : null;
+  };
+
   // ── Actions ────────────────────────────────────────────────────────────────
   const getShareUrl = (email: EmailEntry) => {
-    // /api/preview serves proper OG meta tags so WhatsApp/Telegram show the email title
-    // then redirects to /#/preview for the actual viewer
-    const base = window.location.origin;
+    const base    = window.location.origin;
     const subject = encodeURIComponent(email.subject || `${email.client} — ${email.angle} ${email.desc}`.trim());
     const client  = encodeURIComponent(email.client);
     const angle   = encodeURIComponent(email.angle);
@@ -244,7 +278,7 @@ export default function EmailLibraryPage() {
   const toggleSelect = (file: string) => setSelected(prev => {
     const n = new Set(prev); n.has(file) ? n.delete(file) : n.add(file); return n;
   });
-  const selectAll  = () => setSelected(new Set(filtered.map(e => e.file)));
+  const selectAll   = () => setSelected(new Set(filtered.map(e => e.file)));
   const clearSelect = () => { setSelected(new Set()); setSelectMode(false); };
 
   // ── Drag ──────────────────────────────────────────────────────────────────
@@ -339,14 +373,18 @@ export default function EmailLibraryPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filtered.map((email, idx) => {
-              const CARD_W  = 220;
-              const CARD_H  = Math.round(CARD_W * 4 / 3);
+              const CARD_W   = 220;
+              const CARD_H   = Math.round(CARD_W * 4 / 3);
               const IFRAME_W = 600;
-              const scale   = CARD_W / IFRAME_W;
+              const scale    = CARD_W / IFRAME_W;
               const IFRAME_H = Math.round(CARD_H / scale);
-              const isSelected = selected.has(email.file);
-              const justCopied = copied === email.file;
-              const justShared = copiedLink === email.file;
+              const isSelected  = selected.has(email.file);
+              const justCopied  = copied === email.file;
+              const useIframe   = imgErrors.has(email.file);
+              const lastSent    = getLastSent(email.file);
+              const sentDateStr = lastSent
+                ? new Date(lastSent.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+                : null;
 
               return (
                 <div
@@ -377,7 +415,7 @@ export default function EmailLibraryPage() {
                   }`}
                   style={{ width: CARD_W }}
                 >
-                  {/* Checkbox (select mode) */}
+                  {/* Checkbox */}
                   {selectMode && (
                     <div className="absolute top-2 left-2 z-10">
                       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
@@ -395,7 +433,7 @@ export default function EmailLibraryPage() {
                     </div>
                   )}
 
-                  {/* Quick-copy badge (bottom-left on hover) */}
+                  {/* Quick-copy badge */}
                   {!selectMode && (
                     <button
                       className="absolute bottom-[72px] left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -403,9 +441,7 @@ export default function EmailLibraryPage() {
                       title="Copiar HTML"
                     >
                       <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold shadow transition-all ${
-                        justCopied
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-white/90 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200'
+                        justCopied ? 'bg-emerald-500 text-white' : 'bg-white/90 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200'
                       }`}>
                         {justCopied ? <Check className="w-3 h-3" /> : <Code2 className="w-3 h-3" />}
                         {justCopied ? '¡Copiado!' : 'HTML'}
@@ -413,17 +449,28 @@ export default function EmailLibraryPage() {
                     </button>
                   )}
 
-                  {/* Thumbnail */}
+                  {/* Thumbnail — Feature 1: PNG screenshot, fallback to iframe */}
                   <div className="relative overflow-hidden" style={{ width: CARD_W, height: CARD_H }}>
-                    <iframe
-                      src={`/email-library/${email.file}`}
-                      scrolling="no"
-                      style={{
-                        width: IFRAME_W, height: IFRAME_H, border: 'none',
-                        transform: `scale(${scale})`, transformOrigin: 'top left',
-                        pointerEvents: 'none', display: 'block',
-                      }}
-                    />
+                    {useIframe ? (
+                      <iframe
+                        src={`/email-library/${email.file}`}
+                        scrolling="no"
+                        style={{
+                          width: IFRAME_W, height: IFRAME_H, border: 'none',
+                          transform: `scale(${scale})`, transformOrigin: 'top left',
+                          pointerEvents: 'none', display: 'block',
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={`/email-library/screenshots/${email.file.replace('.html', '.png')}`}
+                        onError={() => setImgErrors(prev => new Set([...prev, email.file]))}
+                        draggable={false}
+                        style={{ width: CARD_W, height: CARD_H, objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+                      />
+                    )}
+
+                    {/* Hover overlay */}
                     {!selectMode && (
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                         <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-lg">
@@ -432,6 +479,14 @@ export default function EmailLibraryPage() {
                       </div>
                     )}
                     {isSelected && <div className="absolute inset-0 bg-violet-500/10" />}
+
+                    {/* Feature 5: Sent badge */}
+                    {sentDateStr && (
+                      <div className="absolute bottom-1.5 right-1.5 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500 shadow-sm">
+                        <Check className="w-2.5 h-2.5 text-white" />
+                        <span className="text-[9px] font-bold text-white">{sentDateStr}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Info */}
@@ -439,7 +494,6 @@ export default function EmailLibraryPage() {
                     <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100 truncate leading-tight" title={email.subject}>
                       {email.subject || `${email.angle} ${email.desc}`}
                     </p>
-                    {/* Klaviyo subject — click to copy */}
                     {email.klaviyo_subject && !selectMode && (
                       <button
                         className="group/ks w-full text-left flex items-center gap-1 mt-0.5"
@@ -465,20 +519,51 @@ export default function EmailLibraryPage() {
           </div>
         )}
 
-        {/* Preview Panel — absolute so sidebar stays visible */}
+        {/* Preview Panel */}
         {preview && (
           <div className="absolute inset-0 z-50 flex flex-col" onClick={() => setPreview(null)}>
             {/* Dark action toolbar */}
             <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-bold text-white truncate">{preview.subject || `${preview.angle} ${preview.desc}`}</p>
+                {/* Feature 3: show personalized subject in toolbar */}
+                <p className="text-[12px] font-bold text-white truncate">
+                  {renderSubject(preview.subject || `${preview.angle} ${preview.desc}`, previewName)}
+                </p>
                 {preview.klaviyo_subject && (
                   <button onClick={() => navigator.clipboard.writeText(preview.klaviyo_subject)} className="flex items-center gap-1 text-left group/subj" title="Copiar asunto Klaviyo">
-                    <span className="text-[9px] text-zinc-500 truncate group-hover/subj:text-zinc-300 transition-colors font-mono">{preview.klaviyo_subject}</span>
+                    <span className="text-[9px] text-zinc-500 truncate group-hover/subj:text-zinc-300 transition-colors font-mono">
+                      {renderSubject(preview.klaviyo_subject, previewName)}
+                    </span>
                     <Copy className="w-2 h-2 text-zinc-600 group-hover/subj:text-zinc-400 flex-shrink-0 transition-colors" />
                   </button>
                 )}
               </div>
+
+              {/* Feature 3: name input */}
+              <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg px-2">
+                <User className="w-3 h-3 text-zinc-500 flex-shrink-0" />
+                <input
+                  value={previewName}
+                  onChange={e => setPreviewName(e.target.value)}
+                  placeholder="Nombre…"
+                  className="w-16 py-1.5 bg-transparent text-[10px] text-zinc-300 placeholder-zinc-600 focus:outline-none"
+                />
+              </div>
+
+              {/* Feature 5: mark as sent */}
+              <button
+                onClick={() => markAsSent(preview)}
+                title="Marcar como enviado"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                  getLastSent(preview.file)
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                    : 'bg-white/5 border-white/10 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30'
+                }`}
+              >
+                <SendHorizonal className="w-3 h-3" />
+                {getLastSent(preview.file) ? 'Enviado ✓' : 'Enviado'}
+              </button>
+
               <a href={`/print.html?email=${encodeURIComponent(preview.file)}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
                 <FileDown className="w-3 h-3" />PDF
@@ -508,13 +593,11 @@ export default function EmailLibraryPage() {
               </button>
             </div>
 
-            {/* Email viewer — same look as public share page */}
+            {/* Email viewer */}
             <div className="flex-1 overflow-auto" style={{ background: previewMode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }} onClick={() => setPreview(null)}>
-
-              {/* Chrome + email body — same container, same width */}
               <div style={{ maxWidth: previewMode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }} onClick={e => e.stopPropagation()}>
 
-                {/* Email chrome card */}
+                {/* Email chrome */}
                 <div style={{ background: '#fff', borderRadius: previewMode === 'desktop' ? '10px 10px 0 0' : 12, border: '1px solid #d0d0d0', borderBottom: previewMode === 'desktop' ? 'none' : '1px solid #d0d0d0', padding: '10px 14px', marginBottom: previewMode === 'desktop' ? 0 : 10 }}>
                   {previewMode === 'desktop' && (
                     <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
@@ -538,7 +621,13 @@ export default function EmailLibraryPage() {
                     {previewMode === 'desktop' && (
                       <div><span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>De:</span><span style={{ color: '#1a73e8' }}>valentina@theskirtingfactoryllc.com</span></div>
                     )}
-                    <div><span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Asunto:</span><span style={{ color: '#111', fontWeight: previewMode === 'mobile' ? 600 : 400 }}>{preview.subject || `${preview.client} — ${preview.angle}`}</span></div>
+                    {/* Feature 3: personalized subject */}
+                    <div>
+                      <span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Asunto:</span>
+                      <span style={{ color: '#111', fontWeight: previewMode === 'mobile' ? 600 : 400 }}>
+                        {renderSubject(preview.subject || `${preview.client} — ${preview.angle}`, previewName)}
+                      </span>
+                    </div>
                     <div><span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Vista Previa:</span><span style={{ color: '#888', fontStyle: previewPreheader ? 'normal' : 'italic' }}>{previewPreheader || 'Cargando…'}</span></div>
                   </div>
                 </div>
@@ -584,6 +673,7 @@ export default function EmailLibraryPage() {
           onCopyHtml={copyHtml}
           onShare={copyShareLink}
           onPreview={e => { setPreview(e); setPreviewMode('desktop'); }}
+          onMarkSent={markAsSent}
           onDelete={e => { setConfirmSingle(e); setConfirmStep(1); }}
           onClose={() => setCtxMenu(null)}
         />
@@ -600,7 +690,7 @@ export default function EmailLibraryPage() {
         />
       )}
 
-      {/* Confirm: single (from context menu) */}
+      {/* Confirm: single */}
       {confirmStep > 0 && confirmSingle && (
         <ConfirmDialog
           count={1}
