@@ -62,7 +62,7 @@ const kFetch = async (path: string, apiKey: string) => {
 
 const fetchCampaigns = async (apiKey: string): Promise<KvCampaign[]> => {
   const data = await kFetch(
-    `campaigns/?filter=equals(messages.channel,'email')&include=campaign-messages&sort=-created_at&page%5Bsize%5D=50`,
+    `campaigns/?include=campaign-messages&sort=-created_at&page%5Bsize%5D=50`,
     apiKey,
   );
   const msgMap = new Map<string, any>();
