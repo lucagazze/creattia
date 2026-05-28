@@ -497,12 +497,12 @@ export const AIChatFloat = () => {
         </div>
 
         {/* ── Always-visible Quick Prompts Bar (Minimal wrapped tag chips) ── */}
-        <div className="flex flex-row flex-nowrap overflow-x-auto scrollbar-hide gap-2 px-5 py-2.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 px-5 py-2.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
           {quickPrompts.map((q, i) => (
             <button
               key={i}
               onClick={() => handleSend(q)}
-              className="text-[12px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-100 bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-800 px-3 py-1.5 rounded-full transition-all active:scale-95 shadow-none whitespace-nowrap"
+              className="text-[11px] md:text-[12px] font-bold text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-100 bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-800 px-2 py-2 md:px-3 md:py-2 rounded-xl transition-all active:scale-95 shadow-none text-center flex items-center justify-center leading-tight"
             >
               {q}
             </button>

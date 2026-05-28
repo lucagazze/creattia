@@ -1097,7 +1097,7 @@ export default function EmailMarketingPage() {
   if (!isDoneLoading) {
     const isFading = progress === 100;
     return (
-      <div className={`fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a] transition-all duration-500 ${isFading ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
+      <div className={`absolute inset-0 z-[50] flex flex-col items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a] transition-all duration-500 ${isFading ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
         <div className="w-full max-w-sm px-6 text-center space-y-5">
           {/* Glowing pulse mail icon */}
           <div className="relative mx-auto w-16 h-16 rounded-2xl bg-violet-600/10 flex items-center justify-center shadow-lg border border-violet-500/20 animate-pulse">
