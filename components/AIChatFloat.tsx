@@ -393,10 +393,9 @@ export const AIChatFloat = () => {
 
   const quickPrompts = [
     '¿Qué mails están programados?',
-    '¿Cómo me fue este mes en facturación?',
+    '¿Cómo me fue en facturación?',
     '¿Qué creativos están activos?',
-    '¿Cómo viene el ROAS y gasto en Meta Ads?',
-    '¿Cuáles son los flows activos?',
+    '¿Cómo viene el ROAS en Meta?',
   ];
 
   return (
@@ -498,12 +497,12 @@ export const AIChatFloat = () => {
         </div>
 
         {/* ── Always-visible Quick Prompts Bar (Minimal wrapped tag chips) ── */}
-        <div className="flex flex-wrap gap-1.5 px-5 py-2.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
+        <div className="flex flex-row flex-nowrap overflow-x-auto scrollbar-hide gap-1.5 px-5 py-2.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
           {quickPrompts.map((q, i) => (
             <button
               key={i}
               onClick={() => handleSend(q)}
-              className="text-[10.5px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 bg-zinc-50 dark:bg-zinc-900/40 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-800 px-2.5 py-1 rounded-full transition-all active:scale-95 shadow-none"
+              className="text-[10.5px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 bg-zinc-50 dark:bg-zinc-900/40 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-800 px-2.5 py-1 rounded-full transition-all active:scale-95 shadow-none whitespace-nowrap"
             >
               {q}
             </button>
