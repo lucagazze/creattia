@@ -43,9 +43,15 @@ interface KvFlowEmail {
 
 // ─── Klaviyo helpers ─────────────────────────────────────────────────────────
 
+const KLAVIYO_REVISION = '2024-10-15';
+
 const kFetch = async (path: string, apiKey: string) => {
   const res = await fetch(`/api/klaviyo/${path}`, {
-    headers: { Authorization: `Klaviyo-API-Key ${apiKey}` },
+    headers: {
+      Authorization: `Klaviyo-API-Key ${apiKey}`,
+      Revision: KLAVIYO_REVISION,
+      Accept: 'application/json',
+    },
   });
   if (!res.ok) {
     const txt = await res.text();
@@ -56,7 +62,7 @@ const kFetch = async (path: string, apiKey: string) => {
 
 const fetchCampaigns = async (apiKey: string): Promise<KvCampaign[]> => {
   const data = await kFetch(
-    `campaigns/?filter=any(messages.channel,["email"])&include=campaign-messages&sort=-created_at&page[size]=50`,
+    `campaigns/?filter=any(messages.channel,%5B%22email%22%5D)&include=campaign-messages&sort=-created_at&page%5Bsize%5D=50`,
     apiKey,
   );
   const msgMap = new Map<string, any>();
@@ -85,7 +91,7 @@ const fetchCampaigns = async (apiKey: string): Promise<KvCampaign[]> => {
 };
 
 const fetchFlows = async (apiKey: string): Promise<KvFlow[]> => {
-  const data = await kFetch(`flows/?sort=-updated&page[size]=50`, apiKey);
+  const data = await kFetch(`flows/?sort=-updated&page%5Bsize%5D=50`, apiKey);
   return (data.data ?? []).map((f: any) => ({
     id: f.id,
     name: f.attributes.name,
@@ -98,7 +104,7 @@ const fetchFlows = async (apiKey: string): Promise<KvFlow[]> => {
 
 const fetchFlowEmails = async (flowId: string, apiKey: string): Promise<KvFlowEmail[]> => {
   const data = await kFetch(
-    `flow-actions/?filter=equals(flow.id,"${flowId}")&filter=equals(action_type,"SEND_EMAIL")&include=flow-message&page[size]=50`,
+    `flow-actions/?filter=equals(flow.id,%22${flowId}%22)&filter=equals(action_type,%22SEND_EMAIL%22)&include=flow-message&page%5Bsize%5D=50`,
     apiKey,
   );
   const msgMap = new Map<string, any>();

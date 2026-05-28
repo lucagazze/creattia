@@ -6,14 +6,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const pathParam = req.query['...path'] || req.query.path;
   const klaviyoPath = Array.isArray(pathParam) ? pathParam.join('/') : (pathParam || '');
 
-  // Build query string from req.query (already decoded by Vercel), stripping routing params.
-  // URLSearchParams re-encodes special chars — Klaviyo accepts percent-encoded equivalents.
-  // This avoids the bug where req.url includes Vercel's internal catch-all params (e.g. path[0]=metrics).
-  const queryParts: Record<string, string | string[]> = { ...req.query };
-  delete queryParts['...path'];
-  delete queryParts['path'];
-  const qs = new URLSearchParams(queryParts as any).toString();
-  const targetUrl = `https://a.klaviyo.com/api/${klaviyoPath}${qs ? `?${qs}` : ''}`;
+  // Use the raw query string from req.url to preserve special chars (parens, brackets, quotes)
+  // that URLSearchParams would over-encode, breaking Klaviyo filter syntax.
+  const rawUrl = req.url || '';
+  const qIdx = rawUrl.indexOf('?');
+  let rawQs = qIdx !== -1 ? rawUrl.slice(qIdx + 1) : '';
+
+  // Strip Vercel's internal catch-all routing params from the query string
+  rawQs = rawQs
+    .split('&')
+    .filter(part => !part.startsWith('path=') && !part.startsWith('...path=') && !part.match(/^path\[/))
+    .join('&');
+
+  const targetUrl = `https://a.klaviyo.com/api/${klaviyoPath}${rawQs ? `?${rawQs}` : ''}`;
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
