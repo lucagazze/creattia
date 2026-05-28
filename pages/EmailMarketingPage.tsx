@@ -57,7 +57,7 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col">
+    <div className="fixed inset-0 md:left-[240px] z-50 flex flex-col">
 
       {/* Toolbar */}
       <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
