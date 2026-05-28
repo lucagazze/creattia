@@ -188,6 +188,25 @@ export const db = {
     },
   },
 
+  emailSent: {
+    async getAll(): Promise<Array<{ id: number; file: string; client: string; sent_at: string }>> {
+      const { data, error } = await supabase
+        .from('car_email_sent')
+        .select('id, file, client, sent_at')
+        .order('sent_at', { ascending: true });
+      if (error) { console.error(error); return []; }
+      return data ?? [];
+    },
+    async mark(file: string, client: string): Promise<void> {
+      const { error } = await supabase.from('car_email_sent').insert({ file, client });
+      if (error) throw error;
+    },
+    async unmark(file: string): Promise<void> {
+      const { error } = await supabase.from('car_email_sent').delete().eq('file', file);
+      if (error) throw error;
+    },
+  },
+
   activity: {
     async log(userId: string, clientId: string, action: string, metadata: any = {}) {
       try {

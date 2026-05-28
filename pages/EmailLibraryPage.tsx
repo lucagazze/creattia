@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { db } from '../services/db';
 import {
   Monitor, Smartphone, X, Mail, GripVertical,
   Copy, Check, Share2, Trash2, CheckSquare, Square,
@@ -184,12 +185,16 @@ export default function EmailLibraryPage() {
     if (profile && !profile.is_admin) navigate('/', { replace: true });
   }, [profile, navigate]);
 
-  // Load sent history
+  // Load sent history from Supabase
   useEffect(() => {
-    try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_SENT_KEY) ?? '{}');
-      setSentHistory(data);
-    } catch {}
+    db.emailSent.getAll().then(rows => {
+      const history: Record<string, SentRecord[]> = {};
+      for (const row of rows) {
+        if (!history[row.file]) history[row.file] = [];
+        history[row.file].push({ date: row.sent_at, client: row.client });
+      }
+      setSentHistory(history);
+    });
   }, []);
 
   // Reset preview state when email or mode changes
@@ -227,21 +232,15 @@ export default function EmailLibraryPage() {
   const renderSubject = (subject: string, name: string) =>
     subject.replace(/\{\{\s*first_name\s*\}\}/g, name.trim() || '(Nombre)');
 
-  const markAsSent = useCallback((email: EmailEntry) => {
+  const markAsSent = useCallback(async (email: EmailEntry) => {
     const record: SentRecord = { date: new Date().toISOString(), client: email.client };
-    setSentHistory(prev => {
-      const updated = { ...prev, [email.file]: [...(prev[email.file] ?? []), record] };
-      localStorage.setItem(STORAGE_SENT_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    setSentHistory(prev => ({ ...prev, [email.file]: [...(prev[email.file] ?? []), record] }));
+    try { await db.emailSent.mark(email.file, email.client); } catch (e) { console.error(e); }
   }, []);
 
-  const unmarkAsSent = useCallback((file: string) => {
-    setSentHistory(prev => {
-      const updated = { ...prev, [file]: [] };
-      localStorage.setItem(STORAGE_SENT_KEY, JSON.stringify(updated));
-      return updated;
-    });
+  const unmarkAsSent = useCallback(async (file: string) => {
+    setSentHistory(prev => ({ ...prev, [file]: [] }));
+    try { await db.emailSent.unmark(file); } catch (e) { console.error(e); }
   }, []);
 
   const getLastSent = (file: string): SentRecord | null => {
