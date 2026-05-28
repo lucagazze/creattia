@@ -499,16 +499,13 @@ export const AIChatFloat = () => {
           )}
         </div>
 
-        {/* ── Always-visible Quick Prompts Bar ── */}
-        <div 
-          className="flex items-center gap-2 px-5 py-2.5 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/30 overflow-x-auto flex-shrink-0"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
+        {/* ── Always-visible Quick Prompts Bar (Flex wrap for high readability) ── */}
+        <div className="flex flex-wrap gap-2 px-5 py-3 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/30 flex-shrink-0">
           {quickPrompts.map((q, i) => (
             <button
               key={i}
               onClick={() => handleSend(q)}
-              className="flex-shrink-0 text-[12px] font-black text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-violet-300 dark:hover:border-violet-800 hover:text-violet-700 dark:hover:text-violet-400 hover:bg-violet-50/30 dark:hover:bg-violet-950/25 px-4 py-2 rounded-full transition-all shadow-sm active:scale-95"
+              className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-750 border border-zinc-200 dark:border-zinc-700 px-3.5 py-1.5 rounded-full transition-all shadow-sm active:scale-95"
             >
               {q}
             </button>
