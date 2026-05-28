@@ -293,6 +293,16 @@ export default function EmailLibraryPage() {
             >
               <iframe
                 src={`/email-library/${preview.file}`}
+                onLoad={e => {
+                  try {
+                    const doc = (e.currentTarget as HTMLIFrameElement).contentDocument;
+                    if (doc?.head && !doc.head.querySelector('base')) {
+                      const base = doc.createElement('base');
+                      base.target = '_blank';
+                      doc.head.insertBefore(base, doc.head.firstChild);
+                    }
+                  } catch {}
+                }}
                 style={{
                   width: '100%',
                   height: 900,
