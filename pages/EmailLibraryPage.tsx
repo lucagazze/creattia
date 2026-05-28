@@ -584,12 +584,26 @@ export default function EmailLibraryPage() {
   const anySelected = selected.size > 0;
 
   return (
-    <div className="flex gap-6 h-full min-h-0">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6 h-full min-h-0">
 
       {/* Sidebar */}
-      <div className="w-44 flex-shrink-0">
-        <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] mb-3">Clientes</p>
-        <div className="space-y-1">
+      <div className="w-full md:w-44 flex-shrink-0">
+        <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] mb-3 hidden md:block">Clientes</p>
+        {/* Mobile: horizontal scrollable pills */}
+        <div className="flex md:hidden gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {['ALL', ...clients].map(c => (
+            <button key={c} onClick={() => setActiveClient(c)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[12px] font-bold transition-all ${
+                activeClient === c
+                  ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow'
+                  : 'bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400'
+              }`}>
+              {c === 'ALL' ? 'Todos' : c}
+            </button>
+          ))}
+        </div>
+        {/* Desktop: vertical list */}
+        <div className="hidden md:block space-y-1">
           {['ALL', ...clients].map(c => (
             <button key={c} onClick={() => setActiveClient(c)}
               className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-all ${
@@ -659,13 +673,16 @@ export default function EmailLibraryPage() {
             <p className="text-sm font-medium">No hay templates para este cliente.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"
+            onMouseDown={e => {
+              if (e.button !== 0) return;
+              const tag = (e.target as HTMLElement).tagName;
+              if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'A') return;
+              rbOrigin.current = { x: e.clientX, y: e.clientY };
+            }}
+          >
             {filtered.map((email, idx) => {
-              const CARD_W   = 220;
-              const CARD_H   = Math.round(CARD_W * 4 / 3);
-              const IFRAME_W = 600;
-              const scale    = CARD_W / IFRAME_W;
-              const IFRAME_H = Math.round(CARD_H / scale);
               const isSelected   = selected.has(email.file);
               const wasAssigned  = justAssigned.has(email.file);
               const justCopied   = copied === email.file;
@@ -685,12 +702,6 @@ export default function EmailLibraryPage() {
                   onDrop={() => onDrop(idx)}
                   onDragLeave={() => setDragOver(null)}
                   onDragEnd={() => setDragOver(null)}
-                  onMouseDown={e => {
-                    if (e.button !== 0) return;
-                    if (selectMode || e.ctrlKey || e.metaKey) {
-                      rbOrigin.current = { x: e.clientX, y: e.clientY };
-                    }
-                  }}
                   onClick={e => {
                     if (ctxMenu) { setCtxMenu(null); return; }
                     if (rbDragging.current) return; // was a drag, not a click
@@ -716,7 +727,7 @@ export default function EmailLibraryPage() {
                     e.preventDefault();
                     setCtxMenu({ x: e.clientX, y: e.clientY, email });
                   }}
-                  className={`group relative bg-white dark:bg-zinc-900 rounded-2xl border overflow-hidden shadow-sm transition-all select-none ${
+                  className={`group relative bg-white dark:bg-zinc-900 rounded-2xl border overflow-hidden shadow-sm transition-all select-none w-full ${
                     selectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
                   } ${
                     wasAssigned
@@ -727,7 +738,6 @@ export default function EmailLibraryPage() {
                         ? 'border-violet-500 scale-105 shadow-lg shadow-violet-500/20'
                         : 'border-zinc-200 dark:border-white/[0.07] hover:border-zinc-300 dark:hover:border-white/10 hover:shadow-md'
                   }`}
-                  style={{ width: CARD_W }}
                 >
                   {/* Checkbox */}
                   {selectMode && (
@@ -763,24 +773,18 @@ export default function EmailLibraryPage() {
                     </button>
                   )}
 
-                  {/* Thumbnail — Feature 1: PNG screenshot, fallback to iframe */}
-                  <div className="relative overflow-hidden" style={{ width: CARD_W, height: CARD_H }}>
+                  {/* Thumbnail */}
+                  <div className="relative overflow-hidden w-full" style={{ aspectRatio: '3/4' }}>
                     {useIframe ? (
-                      <iframe
-                        src={`/email-library/${email.file}`}
-                        scrolling="no"
-                        style={{
-                          width: IFRAME_W, height: IFRAME_H, border: 'none',
-                          transform: `scale(${scale})`, transformOrigin: 'top left',
-                          pointerEvents: 'none', display: 'block',
-                        }}
-                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800">
+                        <Mail className="w-6 h-6 text-zinc-300 dark:text-zinc-600" />
+                      </div>
                     ) : (
                       <img
                         src={`/email-library/screenshots/${email.file.replace('.html', '.webp')}`}
                         onError={() => setImgErrors(prev => new Set([...prev, email.file]))}
                         draggable={false}
-                        style={{ width: CARD_W, height: CARD_H, objectFit: 'cover', objectPosition: 'top', display: 'block' }}
+                        className="absolute inset-0 w-full h-full object-cover object-top block"
                       />
                     )}
 
