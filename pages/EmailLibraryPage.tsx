@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../services/db';
+import { db, EmailAssignment, ClientProfile } from '../services/db';
 import {
   Monitor, Smartphone, X, Mail, GripVertical,
   Copy, Check, Share2, Trash2, CheckSquare, Square,
-  Code2, ExternalLink, FileDown, SendHorizonal, User,
+  Code2, ExternalLink, FileDown, SendHorizonal, User, UserPlus, Users,
 } from 'lucide-react';
 
 interface EmailEntry {
@@ -90,7 +90,7 @@ function ConfirmDialog({ count, step, onStep1, onStep2, onCancel }: {
 }
 
 // ── Context menu ─────────────────────────────────────────────────────────────
-function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onMarkSent, onUnmarkSent, isSent, onDelete, onClose }: {
+function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onMarkSent, onUnmarkSent, isSent, onAssign, onDelete, onClose }: {
   ctx: CtxMenu;
   onCopyHtml: (e: EmailEntry) => void;
   onShare: (e: EmailEntry) => void;
@@ -98,6 +98,7 @@ function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onMarkSent, onUnmark
   onMarkSent: (e: EmailEntry) => void;
   onUnmarkSent: (file: string) => void;
   isSent: boolean;
+  onAssign: (e: EmailEntry) => void;
   onDelete: (e: EmailEntry) => void;
   onClose: () => void;
 }) {
@@ -147,8 +148,190 @@ function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onMarkSent, onUnmark
         ? item(<Check className="w-3.5 h-3.5" />, 'Desmarcar enviado', () => onUnmarkSent(ctx.email.file))
         : item(<SendHorizonal className="w-3.5 h-3.5" />, 'Marcar enviado', () => onMarkSent(ctx.email))
       }
+      {item(<Users className="w-3.5 h-3.5" />, 'Asignar a clientes', () => onAssign(ctx.email))}
       <div className="my-1 border-t border-zinc-100 dark:border-white/5" />
       {item(<Trash2 className="w-3.5 h-3.5" />, 'Eliminar', () => onDelete(ctx.email), true)}
+    </div>
+  );
+}
+
+const STATUS_OPTIONS = [
+  { value: 'active',    label: 'Activo',      color: 'text-emerald-500' },
+  { value: 'inactive',  label: 'Inactivo',    color: 'text-zinc-400' },
+  { value: 'scheduled', label: 'Programado',  color: 'text-violet-400' },
+] as const;
+
+const STATUS_DOT: Record<string, string> = {
+  active:    'bg-emerald-500',
+  inactive:  'bg-zinc-400',
+  scheduled: 'bg-violet-500',
+};
+
+// ── Assign Modal ──────────────────────────────────────────────────────────────
+function AssignModal({ email, allAssignments, clients, onClose, onRefresh }: {
+  email: EmailEntry;
+  allAssignments: EmailAssignment[];
+  clients: Pick<ClientProfile, 'id' | 'business_name'>[];
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const existing = allAssignments.filter(a => a.email_file === email.file);
+
+  const [newClient, setNewClient]     = useState('');
+  const [newStatus, setNewStatus]     = useState<'active' | 'inactive' | 'scheduled'>('active');
+  const [newApproved, setNewApproved] = useState(false);
+  const [saving, setSaving]           = useState(false);
+
+  const assignedIds = new Set(existing.map(a => a.client_id));
+  const available = clients.filter(c => !assignedIds.has(c.id));
+
+  const handleAdd = async () => {
+    if (!newClient) return;
+    setSaving(true);
+    try {
+      await db.emailAssignments.upsert({ email_file: email.file, client_id: newClient, status: newStatus, approved: newApproved });
+      onRefresh();
+      setNewClient('');
+      setNewStatus('active');
+      setNewApproved(false);
+    } catch (e) { console.error(e); }
+    setSaving(false);
+  };
+
+  const handleToggleApproved = async (a: EmailAssignment) => {
+    try {
+      await db.emailAssignments.upsert({ ...a, approved: !a.approved });
+      onRefresh();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleChangeStatus = async (a: EmailAssignment, status: typeof newStatus) => {
+    try {
+      await db.emailAssignments.upsert({ ...a, status });
+      onRefresh();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleRemove = async (id: number) => {
+    try {
+      await db.emailAssignments.delete(id);
+      onRefresh();
+    } catch (e) { console.error(e); }
+  };
+
+  const clientName = (id: string) => clients.find(c => c.id === id)?.business_name ?? id;
+
+  return (
+    <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-zinc-100 dark:border-white/5">
+          <div>
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Asignaciones</p>
+            <p className="text-[14px] font-bold text-zinc-900 dark:text-white truncate max-w-[300px]">{email.subject || email.file}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+
+          {/* Existing assignments */}
+          {existing.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Asignados</p>
+              {existing.map(a => (
+                <div key={a.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200 dark:border-white/[0.07]">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[a.status]}`} />
+                  <span className="flex-1 text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{clientName(a.client_id)}</span>
+
+                  {/* Status select */}
+                  <select
+                    value={a.status}
+                    onChange={e => handleChangeStatus(a, e.target.value as any)}
+                    className="text-[10px] font-bold bg-zinc-100 dark:bg-white/5 border-0 rounded-lg px-2 py-1 text-zinc-600 dark:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-violet-500 cursor-pointer"
+                  >
+                    {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+
+                  {/* Approved toggle */}
+                  <button
+                    onClick={() => handleToggleApproved(a)}
+                    className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg transition-all ${
+                      a.approved
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-zinc-100 dark:bg-white/5 text-zinc-400 hover:bg-emerald-500/10 hover:text-emerald-500'
+                    }`}
+                    title={a.approved ? 'Visible para el cliente — click para ocultar' : 'Oculto para el cliente — click para publicar'}
+                  >
+                    {a.approved ? 'Visible' : 'Oculto'}
+                  </button>
+
+                  <button onClick={() => handleRemove(a.id)} className="p-1 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add new */}
+          {available.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Agregar cliente</p>
+
+              <select
+                value={newClient}
+                onChange={e => setNewClient(e.target.value)}
+                className="w-full text-[12px] font-semibold bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Seleccionar cliente…</option>
+                {available.map(c => <option key={c.id} value={c.id}>{c.business_name}</option>)}
+              </select>
+
+              <div className="flex gap-2">
+                {STATUS_OPTIONS.map(s => (
+                  <button
+                    key={s.value}
+                    onClick={() => setNewStatus(s.value)}
+                    className={`flex-1 py-2 rounded-xl text-[11px] font-bold border transition-all ${
+                      newStatus === s.value
+                        ? 'border-violet-500 bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                        : 'border-zinc-200 dark:border-white/10 text-zinc-500 hover:border-zinc-300 dark:hover:border-white/20'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              <label className="flex items-center gap-2.5 cursor-pointer group">
+                <div
+                  onClick={() => setNewApproved(p => !p)}
+                  className={`w-9 h-5 rounded-full transition-all relative ${newApproved ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'}`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${newApproved ? 'left-4' : 'left-0.5'}`} />
+                </div>
+                <span className="text-[12px] font-semibold text-zinc-700 dark:text-zinc-300">Visible para el cliente</span>
+              </label>
+
+              <button
+                onClick={handleAdd}
+                disabled={!newClient || saving}
+                className="w-full py-2.5 rounded-xl text-[12px] font-bold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                {saving ? 'Guardando…' : 'Agregar asignación'}
+              </button>
+            </div>
+          )}
+
+          {existing.length === 0 && available.length === 0 && (
+            <p className="text-[12px] text-zinc-400 text-center py-4">Todos los clientes están asignados.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -178,12 +361,23 @@ export default function EmailLibraryPage() {
   const [previewName, setPreviewName]   = useState('');
   // Feature 1: track cards whose screenshot failed → fall back to iframe
   const [imgErrors, setImgErrors]       = useState<Set<string>>(new Set());
+  // Assignments + clients
+  const [assignments, setAssignments]   = useState<EmailAssignment[]>([]);
+  const [allClients, setAllClients]     = useState<Pick<ClientProfile, 'id' | 'business_name'>[]>([]);
+  const [assignModal, setAssignModal]   = useState<EmailEntry | null>(null);
   const dragIdx = useRef<number | null>(null);
 
   // Admin guard
   useEffect(() => {
     if (profile && !profile.is_admin) navigate('/', { replace: true });
   }, [profile, navigate]);
+
+  // Load assignments + clients
+  const loadAssignments = () => db.emailAssignments.getAll().then(setAssignments);
+  useEffect(() => {
+    loadAssignments();
+    db.clients.getAll().then(setAllClients);
+  }, []);
 
   // Load sent history from Supabase
   useEffect(() => {
@@ -518,11 +712,27 @@ export default function EmailLibraryPage() {
                         <Copy className="w-2 h-2 text-zinc-400 flex-shrink-0 opacity-0 group-hover/ks:opacity-100 transition-opacity" />
                       </button>
                     )}
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full text-white ${ANGLE_COLORS[email.angle] ?? 'bg-zinc-500'}`}>
                         {email.angle}
                       </span>
-                      <span className="text-[10px] font-bold text-zinc-400">{email.client}</span>
+                      {(() => {
+                        const asgns = assignments.filter(a => a.email_file === email.file);
+                        if (!asgns.length) return (
+                          <button onClick={e => { e.stopPropagation(); setAssignModal(email); }} className="flex items-center gap-0.5 text-[9px] text-zinc-400 hover:text-violet-500 transition-colors">
+                            <UserPlus className="w-2.5 h-2.5" />Asignar
+                          </button>
+                        );
+                        return asgns.map(a => (
+                          <span key={a.id} className="flex items-center gap-1">
+                            <div className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[a.status]}`} />
+                            <span className="text-[9px] font-bold text-zinc-500 dark:text-zinc-400">
+                              {allClients.find(c => c.id === a.client_id)?.business_name ?? '?'}
+                              {a.approved && <span className="text-emerald-500"> ✓</span>}
+                            </span>
+                          </span>
+                        ));
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -693,6 +903,7 @@ export default function EmailLibraryPage() {
           onMarkSent={markAsSent}
           onUnmarkSent={unmarkAsSent}
           isSent={!!getLastSent(ctxMenu.email.file)}
+          onAssign={e => { setAssignModal(e); }}
           onDelete={e => { setConfirmSingle(e); setConfirmStep(1); }}
           onClose={() => setCtxMenu(null)}
         />
@@ -706,6 +917,17 @@ export default function EmailLibraryPage() {
           onStep1={() => setConfirmStep(2)}
           onStep2={() => deleteEmails(selected)}
           onCancel={() => setConfirmStep(0)}
+        />
+      )}
+
+      {/* Assign modal */}
+      {assignModal && (
+        <AssignModal
+          email={assignModal}
+          allAssignments={assignments}
+          clients={allClients}
+          onClose={() => setAssignModal(null)}
+          onRefresh={loadAssignments}
         />
       )}
 

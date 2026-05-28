@@ -37,8 +37,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/atencion',  icon: MessageCircle,  label: 'A — Atención',   condition: !!activeProfile?.chatwoot_token },
     { path: '/retencion', icon: Mail,           label: 'R — Retención',  condition: !!activeProfile?.klaviyo_api_key && hasTag('tienda_online') },
     { path: '/tienda',    icon: ShoppingBag,    label: 'Tienda Online',  condition: !!(activeProfile as any)?.ecommerce_platform && hasTag('tienda_online') },
-    { path: '/links',     icon: Link2,          label: 'Mis Accesos',    condition: true },
-    { path: '/reportes',  icon: FileText,       label: 'Reportes',       condition: true },
+    { path: '/links',           icon: Link2,    label: 'Mis Accesos',      condition: true },
+    { path: '/email-marketing', icon: Mail,     label: 'Email Marketing',  condition: true },
+    { path: '/reportes',        icon: FileText, label: 'Reportes',         condition: true },
   ].filter(item => item.condition);
 
   const initials = activeProfile?.business_name

@@ -80,6 +80,16 @@ export interface ClientLink {
   sort_order: number;
 }
 
+export interface EmailAssignment {
+  id: number;
+  email_file: string;
+  client_id: string;
+  status: 'active' | 'inactive' | 'scheduled';
+  scheduled_at?: string;
+  approved: boolean;
+  created_at: string;
+}
+
 export interface MonthlyReport {
   id: number;
   client_id: string;
@@ -93,6 +103,18 @@ export interface MonthlyReport {
 // ─── DB helpers ───────────────────────────────────────────────────────────────
 
 export const db = {
+  clients: {
+    async getAll(): Promise<Pick<ClientProfile, 'id' | 'business_name'>[]> {
+      const client = supabaseAdmin ?? supabase;
+      const { data, error } = await client
+        .from('car_clients')
+        .select('id, business_name')
+        .order('business_name');
+      if (error) { console.error(error); return []; }
+      return data ?? [];
+    },
+  },
+
   profile: {
     async getByUserId(userId: string): Promise<ClientProfile | null> {
       // Cuenta directa en car_clients
@@ -203,6 +225,30 @@ export const db = {
     },
     async unmark(file: string): Promise<void> {
       const { error } = await supabase.from('car_email_sent').delete().eq('file', file);
+      if (error) throw error;
+    },
+  },
+
+  emailAssignments: {
+    async getAll(): Promise<EmailAssignment[]> {
+      const client = supabaseAdmin ?? supabase;
+      const { data, error } = await client.from('car_email_assignments').select('*').order('created_at', { ascending: false });
+      if (error) { console.error(error); return []; }
+      return data ?? [];
+    },
+    async getByClientId(clientId: string): Promise<EmailAssignment[]> {
+      const { data, error } = await supabase
+        .from('car_email_assignments').select('*')
+        .eq('client_id', clientId).eq('approved', true);
+      if (error) { console.error(error); return []; }
+      return data ?? [];
+    },
+    async upsert(a: Omit<EmailAssignment, 'id' | 'created_at'> & { id?: number }) {
+      const { error } = await supabase.from('car_email_assignments').upsert(a, { onConflict: 'email_file,client_id' });
+      if (error) throw error;
+    },
+    async delete(id: number) {
+      const { error } = await supabase.from('car_email_assignments').delete().eq('id', id);
       if (error) throw error;
     },
   },
