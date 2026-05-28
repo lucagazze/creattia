@@ -192,9 +192,13 @@ export default function EmailLibraryPage() {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const getShareUrl = (email: EmailEntry) => {
-    const base = `${window.location.origin}${window.location.pathname}`;
+    // /api/preview serves proper OG meta tags so WhatsApp/Telegram show the email title
+    // then redirects to /#/preview for the actual viewer
+    const base = window.location.origin;
     const subject = encodeURIComponent(email.subject || `${email.client} — ${email.angle} ${email.desc}`.trim());
-    return `${base}#/preview?email=${encodeURIComponent(email.file)}&subject=${subject}`;
+    const client  = encodeURIComponent(email.client);
+    const angle   = encodeURIComponent(email.angle);
+    return `${base}/api/preview?email=${encodeURIComponent(email.file)}&subject=${subject}&client=${client}&angle=${angle}`;
   };
 
   const copyShareLink = useCallback(async (email: EmailEntry) => {
