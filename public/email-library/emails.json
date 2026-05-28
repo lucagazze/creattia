@@ -1,5 +1,11 @@
 [
   {
+    "file": "TSF_Oferta_ImageOnly_v1.html",
+    "client": "TSF",
+    "angle": "Oferta",
+    "desc": "ImageOnly v1"
+  },
+  {
     "file": "TSF_Oferta_ProductGrid_v1.html",
     "client": "TSF",
     "angle": "Oferta",
