@@ -491,9 +491,9 @@ function CampaignCard({
               e.stopPropagation();
               onPreview();
             }}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-violet-600 hover:text-white transition-all"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-violet-600 hover:text-white transition-all border border-zinc-200 dark:border-white/5"
           >
-            <Eye className="w-3 h-3" />Ver
+            <Eye className="w-3.5 h-3.5" />Ver
           </button>
         )}
 
@@ -503,9 +503,9 @@ function CampaignCard({
               e.stopPropagation();
               onSchedule(c.id, c.message!.id);
             }}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-violet-600 hover:bg-violet-700 text-white transition-all"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-violet-600 hover:bg-violet-700 text-white transition-all border border-violet-600"
           >
-            <CalendarClock className="w-3 h-3" />
+            <CalendarClock className="w-3.5 h-3.5" />
             Programar
           </button>
         )}
@@ -519,12 +519,12 @@ function CampaignCard({
                 handleAction('delete', onDelete);
               }
             }}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
           >
             {loadingAction === 'delete' ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <Trash2 className="w-3 h-3" />
+              <Trash2 className="w-3.5 h-3.5" />
             )}
             Eliminar
           </button>
@@ -539,12 +539,12 @@ function CampaignCard({
                 handleAction('revert', onRevert);
               }
             }}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 disabled:opacity-40 transition-all border border-zinc-200 dark:border-white/5"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 disabled:opacity-40 transition-all border border-zinc-200 dark:border-white/5"
           >
             {loadingAction === 'revert' ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <Undo2 className="w-3 h-3" />
+              <Undo2 className="w-3.5 h-3.5" />
             )}
             Borrador
           </button>
@@ -559,12 +559,12 @@ function CampaignCard({
                 handleAction('cancel', onCancel);
               }
             }}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
           >
             {loadingAction === 'cancel' ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <X className="w-3 h-3" />
+              <X className="w-3.5 h-3.5" />
             )}
             Cancelar
           </button>
