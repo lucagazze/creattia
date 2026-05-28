@@ -63,7 +63,7 @@ const kFetch = async (path: string, apiKey: string) => {
 
 const fetchCampaigns = async (apiKey: string): Promise<KvCampaign[]> => {
   const data = await kFetch(
-    `campaigns?filter=equals(messages.channel,%22email%22)&include=campaign-messages&sort=-created_at&page%5Bsize%5D=50`,
+    `campaigns?filter=equals(messages.channel,%22email%22)&include=campaign-messages&sort=-created_at`,
     apiKey,
   );
   const msgMap = new Map<string, any>();
@@ -92,7 +92,7 @@ const fetchCampaigns = async (apiKey: string): Promise<KvCampaign[]> => {
 };
 
 const fetchFlows = async (apiKey: string): Promise<KvFlow[]> => {
-  const data = await kFetch(`flows?sort=-updated&page%5Bsize%5D=50`, apiKey);
+  const data = await kFetch(`flows?sort=-updated`, apiKey);
   return (data.data ?? []).map((f: any) => ({
     id: f.id,
     name: f.attributes.name,
@@ -105,7 +105,7 @@ const fetchFlows = async (apiKey: string): Promise<KvFlow[]> => {
 
 const fetchFlowEmails = async (flowId: string, apiKey: string): Promise<KvFlowEmail[]> => {
   const data = await kFetch(
-    `flows/${flowId}/flow-actions?filter=equals(action_type,%22SEND_EMAIL%22)&include=flow-messages&page%5Bsize%5D=50`,
+    `flows/${flowId}/flow-actions?filter=equals(action_type,%22SEND_EMAIL%22)&include=flow-messages`,
     apiKey,
   );
   const msgMap = new Map<string, any>();
