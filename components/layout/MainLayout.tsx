@@ -17,6 +17,7 @@ import MetaAdsPage from '../../pages/MetaAdsPage';
 import ActivityPage from '../../pages/ActivityPage';
 import EmailLibraryPage from '../../pages/EmailLibraryPage';
 import EmailMarketingPage from '../../pages/EmailMarketingPage';
+import KlaviyoMonitorPage from '../../pages/KlaviyoMonitorPage';
 
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -79,6 +80,7 @@ export const MainLayout = () => {
             <Route path="/admin/actividad" element={<ActivityPage />} />
             <Route path="/admin/meta" element={<MetaAdsPage />} />
             <Route path="/admin/emails" element={<EmailLibraryPage />} />
+            <Route path="/admin/klaviyo" element={<KlaviyoMonitorPage />} />
             <Route path="/email-marketing" element={<EmailMarketingPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

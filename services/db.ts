@@ -113,6 +113,20 @@ export const db = {
       if (error) { console.error(error); return []; }
       return data ?? [];
     },
+    async getAllWithIntegrations(): Promise<Pick<ClientProfile, 'id' | 'business_name' | 'klaviyo_api_key'>[]> {
+      const client = supabaseAdmin ?? supabase;
+      const { data, error } = await client
+        .from('car_clients')
+        .select('id, business_name, klaviyo_api_key')
+        .order('business_name');
+      if (error) { console.error(error); return []; }
+      return data ?? [];
+    },
+    async updateField(clientId: string, fields: Partial<ClientProfile>) {
+      const client = supabaseAdmin ?? supabase;
+      const { error } = await client.from('car_clients').update(fields).eq('id', clientId);
+      if (error) throw error;
+    },
   },
 
   profile: {
