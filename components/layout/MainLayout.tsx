@@ -15,6 +15,7 @@ import ReportsPage from '../../pages/ReportsPage';
 import AdminPage from '../../pages/AdminPage';
 import MetaAdsPage from '../../pages/MetaAdsPage';
 import ActivityPage from '../../pages/ActivityPage';
+import EmailLibraryPage from '../../pages/EmailLibraryPage';
 
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -76,6 +77,7 @@ export const MainLayout = () => {
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/admin/actividad" element={<ActivityPage />} />
             <Route path="/admin/meta" element={<MetaAdsPage />} />
+            <Route path="/admin/emails" element={<EmailLibraryPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

@@ -1,0 +1,20 @@
+[
+  {
+    "file": "TSF_Oferta_ProductGrid_v1.html",
+    "client": "TSF",
+    "angle": "Oferta",
+    "desc": "ProductGrid v1"
+  },
+  {
+    "file": "TSF_Oferta_ProductGrid_v2.html",
+    "client": "TSF",
+    "angle": "Oferta",
+    "desc": "ProductGrid v2"
+  },
+  {
+    "file": "TSF_Producto_Chestnut_v1.html",
+    "client": "TSF",
+    "angle": "Producto",
+    "desc": "Chestnut v1"
+  }
+]
