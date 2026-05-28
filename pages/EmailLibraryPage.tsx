@@ -752,7 +752,7 @@ export default function EmailLibraryPage() {
       </div>
 
       {/* Main */}
-      <div className="flex-1 min-w-0 flex flex-col relative">
+      <div ref={gridRef} className="flex-1 min-w-0 flex flex-col relative">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -808,7 +808,6 @@ export default function EmailLibraryPage() {
           </div>
         ) : (
           <div
-            ref={gridRef}
             className="grid gap-3"
             style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}
           >
