@@ -669,82 +669,8 @@ export default function CaptacionPage() {
       ) : null}
 
 
-      {/* Campañas Activas */}
-      {campaigns && campaigns.length > 0 && (
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm p-6 mt-8 mb-8">
-          <SectionTitle icon={Megaphone} title="Rendimiento de Campañas" subtitle="Métricas detalladas por campaña activa" />
-          
-          {['Ventas', 'Leads', 'Mensajes', 'Tráfico/Comunidad', 'Otras Campañas'].map(category => {
-            const categoryCampaigns = campaigns.filter((c: any) => c.category === category);
-            if (categoryCampaigns.length === 0) return null;
-
-            return (
-              <div key={category} className="mt-6 mb-6 last:mb-0">
-                <h4 className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest mb-3 pl-1 border-l-2 border-violet-500">Campañas de {category}</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-zinc-100 dark:border-zinc-800">
-                        <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-l-lg">Campaña</th>
-                        <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Inversión</th>
-                        <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Alcance</th>
-                        
-                        {category === 'Ventas' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Compras</th>}
-                        {category === 'Ventas' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">ROAS</th>}
-                        {category === 'Ventas' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">CPA</th>}
-                        
-                        {category === 'Leads' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Leads</th>}
-                        {category === 'Leads' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">CPL</th>}
-                        
-                        {category === 'Mensajes' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Mensajes</th>}
-                        {category === 'Mensajes' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">Costo/Msj</th>}
-
-                        {category === 'Tráfico/Comunidad' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Costo/Mil (CPM)</th>}
-                        {category === 'Tráfico/Comunidad' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Seguidores IG</th>}
-                        {category === 'Tráfico/Comunidad' && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">Me Gusta FB</th>}
-                        
-                        {category === 'Otras Campañas' && isEcom && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Compras</th>}
-                        {category === 'Otras Campañas' && isLead && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50">Leads</th>}
-                        {category === 'Otras Campañas' && isWpp && <th className="py-3 px-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800/50 rounded-r-lg">Mensajes</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">
-                      {categoryCampaigns.map((c: any) => (
-                        <tr key={c.id} className="border-b border-zinc-50 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                          <td className="py-4 px-4 font-bold max-w-[250px] truncate" title={c.name}>{c.name}</td>
-                          <td className="py-4 px-4">{fmt(c.spend, true)}</td>
-                          <td className="py-4 px-4">{fmt(c.reach)}</td>
-                          
-                          {category === 'Ventas' && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.purchases)}</td>}
-                          {category === 'Ventas' && <td className="py-4 px-4">{(c.roas || 0).toFixed(2)}x</td>}
-                          {category === 'Ventas' && <td className="py-4 px-4">{fmt(c.cpa, true)}</td>}
-                          
-                          {category === 'Leads' && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.leads)}</td>}
-                          {category === 'Leads' && <td className="py-4 px-4">{fmt(c.cpl, true)}</td>}
-                          
-                          {category === 'Mensajes' && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.messages)}</td>}
-                          {category === 'Mensajes' && <td className="py-4 px-4">{fmt(c.cpm, true)}</td>}
-                          
-                          {category === 'Tráfico/Comunidad' && <td className="py-4 px-4">{fmt((c.spend / (c.reach || 1)) * 1000, true)}</td>}
-                          {category === 'Tráfico/Comunidad' && <td className="py-4 px-4 text-violet-600 dark:text-violet-400 font-bold">{c.ig_followers > 0 ? fmt(c.ig_followers) : '—'}</td>}
-                          {category === 'Tráfico/Comunidad' && <td className="py-4 px-4 text-blue-600 dark:text-blue-400 font-bold">{c.fb_likes > 0 ? fmt(c.fb_likes) : '—'}</td>}
-                          
-                          {category === 'Otras Campañas' && isEcom && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.purchases)}</td>}
-                          {category === 'Otras Campañas' && isLead && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.leads)}</td>}
-                          {category === 'Otras Campañas' && isWpp && <td className="py-4 px-4 text-emerald-600 dark:text-emerald-500 font-bold">{fmt(c.messages)}</td>}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {/* Creativos Activos */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm p-6">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm p-6 mt-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">

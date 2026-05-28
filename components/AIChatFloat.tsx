@@ -10,7 +10,7 @@ interface Message {
 }
 
 // ── Markdown Renderer Component ───────────────────────────────────────────────
-const MarkdownRenderer = ({ content }: { content: string }) => {
+const MarkdownRenderer = ({ content, onLinkClick }: { content: string; onLinkClick?: () => void }) => {
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
   let currentList: React.ReactNode[] = [];
@@ -94,6 +94,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
               href={targetUrl}
               target={isInternal ? '_self' : '_blank'}
               rel="noopener noreferrer"
+              onClick={onLinkClick}
               className="text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 underline font-bold inline-flex items-center gap-0.5"
             >
               {linkText}
@@ -187,6 +188,7 @@ const MarkdownRenderer = ({ content }: { content: string }) => {
               href={targetUrl}
               target={isInternal ? '_self' : '_blank'}
               rel="noopener noreferrer"
+              onClick={onLinkClick}
               className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-full bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white font-bold text-[12px] md:text-[12.5px] shadow-md shadow-violet-500/15 hover:scale-[1.01] active:scale-[0.98] transition-all text-center"
             >
               {linkText}
@@ -403,24 +405,18 @@ export const AIChatFloat = () => {
       className="fixed left-1/2 -translate-x-1/2 z-50 transition-all duration-500 w-[95%] md:w-[840px] bottom-6 print:hidden"
     >
       {/* ── Chat panel ── */}
-      <div className={`absolute bottom-full mb-3 w-full bg-white/95 dark:bg-zinc-950/95 backdrop-blur-2xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-[0_15px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden transition-all duration-300 origin-bottom flex flex-col ${
+      <div className={`absolute bottom-full mb-3 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden transition-all duration-300 origin-bottom flex flex-col ${
         isOpen ? 'opacity-100 scale-100 h-[80vh] md:h-[580px]' : 'opacity-0 scale-95 h-0 pointer-events-none'
       }`}>
 
         {/* Header */}
-        <div className="flex justify-between items-center px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800/80 bg-gradient-to-r from-zinc-50 to-white dark:from-zinc-900/50 dark:to-zinc-950/50 flex-shrink-0">
+        <div className="flex justify-between items-center px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 flex items-center justify-center shadow-md overflow-hidden">
+            <div className="w-9 h-9 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow-md overflow-hidden">
               <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-7 h-7 object-contain" />
             </div>
             <div>
               <p className="text-[14.5px] font-black text-zinc-800 dark:text-zinc-200 leading-none">Algo IA</p>
-              <p className="text-[11.5px] text-zinc-400 dark:text-zinc-500 mt-1 flex items-center gap-1.5">
-                <Database className="w-3 h-3 text-emerald-500" /> 
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                  {activeBusinessName ? `Conectado a ${activeBusinessName}` : 'Asistente de Algoritmia'}
-                </span>
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -436,7 +432,7 @@ export const AIChatFloat = () => {
         </div>
 
         {/* Messages */}
-        <div ref={chatRef} className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/10 dark:bg-zinc-950/20">
+        <div ref={chatRef} className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/50 dark:bg-zinc-950">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full gap-4 pb-4">
               <div className="w-16 h-16 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 shadow-md flex items-center justify-center">
@@ -461,12 +457,12 @@ export const AIChatFloat = () => {
               <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-[14px] md:text-[15px] leading-relaxed shadow-sm ${
                 msg.role === 'user'
                   ? 'bg-black dark:bg-zinc-100 text-white dark:text-zinc-950 rounded-br-sm whitespace-pre-wrap font-bold'
-                  : 'bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/50 text-zinc-800 dark:text-zinc-200 rounded-bl-sm'
+                  : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-bl-sm'
               }`}>
                 {msg.role === 'user' ? (
                   msg.content
                 ) : (
-                  <MarkdownRenderer content={msg.content} />
+                  <MarkdownRenderer content={msg.content} onLinkClick={() => setIsOpen(false)} />
                 )}
               </div>
             </div>
@@ -501,13 +497,13 @@ export const AIChatFloat = () => {
           )}
         </div>
 
-        {/* ── Always-visible Quick Prompts Bar (Flex wrap for high readability) ── */}
-        <div className="flex flex-wrap gap-2 px-5 py-3 border-t border-zinc-100 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/30 flex-shrink-0">
+        {/* ── Always-visible Quick Prompts Bar (Minimal wrapped tag chips) ── */}
+        <div className="flex flex-wrap gap-1.5 px-5 py-2.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
           {quickPrompts.map((q, i) => (
             <button
               key={i}
               onClick={() => handleSend(q)}
-              className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-750 border border-zinc-200 dark:border-zinc-700 px-3.5 py-1.5 rounded-full transition-all shadow-sm active:scale-95"
+              className="text-[10.5px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 bg-zinc-50 dark:bg-zinc-900/40 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-800 px-2.5 py-1 rounded-full transition-all active:scale-95 shadow-none"
             >
               {q}
             </button>
@@ -518,8 +514,8 @@ export const AIChatFloat = () => {
       {/* ── Pill input bar ── */}
       <div
         onClick={() => { setIsOpen(true); setTimeout(() => inputRef.current?.focus(), 100); }}
-        className={`relative group bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl shadow-indigo-500/10 dark:shadow-black/30 rounded-full transition-all duration-300 cursor-text flex items-center px-2 py-2 md:px-3 ${
-          isOpen ? 'ring-2 ring-violet-500/20' : 'hover:scale-105 hover:bg-white dark:hover:bg-zinc-900'
+        className={`relative group bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 shadow-xl rounded-full transition-all duration-300 cursor-text flex items-center px-2 py-2 md:px-3 ${
+          isOpen ? 'ring-2 ring-violet-500/30' : 'hover:scale-105 hover:bg-white dark:hover:bg-zinc-700'
         }`}
       >
         <div
@@ -531,7 +527,7 @@ export const AIChatFloat = () => {
               ? 'bg-red-500 scale-110 shadow-red-500/50'
               : input.trim()
               ? 'bg-violet-600 hover:bg-violet-700 dark:bg-violet-500 dark:hover:bg-violet-600'
-              : 'bg-black hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700'
+              : 'bg-black hover:bg-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-900'
           }`}
         >
           {isThinking || isTranscribing
@@ -562,6 +558,10 @@ export const AIChatFloat = () => {
         />
 
         <div className="flex items-center gap-2 pr-2 flex-shrink-0">
+          <div className="hidden md:flex items-center gap-1.5 text-[10.5px] text-emerald-600 dark:text-emerald-500 font-black mr-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>IA CONECTADA</span>
+          </div>
           <button
             onClick={e => { e.stopPropagation(); setIsOpen(o => !o); }}
             className="hidden md:flex text-zinc-350 hover:text-zinc-500 dark:text-zinc-500 dark:hover:text-zinc-400 transition-colors"

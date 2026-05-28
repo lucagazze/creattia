@@ -394,7 +394,10 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
                 .eq('id', clientId)
                 .maybeSingle();
               
-              const adAccountId = clientData?.meta_account_id || CLIENT_META_MAP[clientId]?.adAccountId;
+              let adAccountId = clientData?.meta_account_id || CLIENT_META_MAP[clientId]?.adAccountId;
+              if (adAccountId && !adAccountId.startsWith('act_')) {
+                adAccountId = `act_${adAccountId}`;
+              }
               const token = await getMetaToken();
 
               if (!adAccountId) {
