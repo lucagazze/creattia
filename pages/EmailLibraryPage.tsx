@@ -89,12 +89,14 @@ function ConfirmDialog({ count, step, onStep1, onStep2, onCancel }: {
 }
 
 // ── Context menu ─────────────────────────────────────────────────────────────
-function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onMarkSent, onDelete, onClose }: {
+function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onMarkSent, onUnmarkSent, isSent, onDelete, onClose }: {
   ctx: CtxMenu;
   onCopyHtml: (e: EmailEntry) => void;
   onShare: (e: EmailEntry) => void;
   onPreview: (e: EmailEntry) => void;
   onMarkSent: (e: EmailEntry) => void;
+  onUnmarkSent: (file: string) => void;
+  isSent: boolean;
   onDelete: (e: EmailEntry) => void;
   onClose: () => void;
 }) {
@@ -140,7 +142,10 @@ function ContextMenu({ ctx, onCopyHtml, onShare, onPreview, onMarkSent, onDelete
       {item(<Code2 className="w-3.5 h-3.5" />, 'Copiar HTML', () => onCopyHtml(ctx.email))}
       {item(<Share2 className="w-3.5 h-3.5" />, 'Copiar link', () => onShare(ctx.email))}
       {item(<FileDown className="w-3.5 h-3.5" />, 'Descargar PDF', () => window.open(`/print.html?email=${encodeURIComponent(ctx.email.file)}`, '_blank'))}
-      {item(<SendHorizonal className="w-3.5 h-3.5" />, 'Marcar enviado', () => onMarkSent(ctx.email))}
+      {isSent
+        ? item(<Check className="w-3.5 h-3.5" />, 'Desmarcar enviado', () => onUnmarkSent(ctx.email.file))
+        : item(<SendHorizonal className="w-3.5 h-3.5" />, 'Marcar enviado', () => onMarkSent(ctx.email))
+      }
       <div className="my-1 border-t border-zinc-100 dark:border-white/5" />
       {item(<Trash2 className="w-3.5 h-3.5" />, 'Eliminar', () => onDelete(ctx.email), true)}
     </div>
@@ -226,6 +231,14 @@ export default function EmailLibraryPage() {
     const record: SentRecord = { date: new Date().toISOString(), client: email.client };
     setSentHistory(prev => {
       const updated = { ...prev, [email.file]: [...(prev[email.file] ?? []), record] };
+      localStorage.setItem(STORAGE_SENT_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const unmarkAsSent = useCallback((file: string) => {
+    setSentHistory(prev => {
+      const updated = { ...prev, [file]: [] };
       localStorage.setItem(STORAGE_SENT_KEY, JSON.stringify(updated));
       return updated;
     });
@@ -550,19 +563,24 @@ export default function EmailLibraryPage() {
                 />
               </div>
 
-              {/* Feature 5: mark as sent */}
-              <button
-                onClick={() => markAsSent(preview)}
-                title="Marcar como enviado"
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
-                  getLastSent(preview.file)
-                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
-                    : 'bg-white/5 border-white/10 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30'
-                }`}
-              >
-                <SendHorizonal className="w-3 h-3" />
-                {getLastSent(preview.file) ? 'Enviado ✓' : 'Enviado'}
-              </button>
+              {/* Feature 5: mark / unmark as sent */}
+              {getLastSent(preview.file) ? (
+                <button
+                  onClick={() => unmarkAsSent(preview.file)}
+                  title="Desmarcar enviado"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-red-500/15 hover:border-red-500/30 hover:text-red-400 transition-all"
+                >
+                  <Check className="w-3 h-3" />Enviado
+                </button>
+              ) : (
+                <button
+                  onClick={() => markAsSent(preview)}
+                  title="Marcar como enviado"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border bg-white/5 border-white/10 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all"
+                >
+                  <SendHorizonal className="w-3 h-3" />Enviado
+                </button>
+              )}
 
               <a href={`/print.html?email=${encodeURIComponent(preview.file)}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
@@ -674,6 +692,8 @@ export default function EmailLibraryPage() {
           onShare={copyShareLink}
           onPreview={e => { setPreview(e); setPreviewMode('desktop'); }}
           onMarkSent={markAsSent}
+          onUnmarkSent={unmarkAsSent}
+          isSent={!!getLastSent(ctxMenu.email.file)}
           onDelete={e => { setConfirmSingle(e); setConfirmStep(1); }}
           onClose={() => setCtxMenu(null)}
         />
