@@ -1,59 +1,160 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Email PDF</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #2a2a2a; font-family: Arial, sans-serif; min-height: 100vh; }
+
+  #controls {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #1a1a1a; border-bottom: 1px solid #333;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px; gap: 12px;
+  }
+  #controls .title { color: #aaa; font-size: 12px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #controls .btns { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  #controls button {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 8px; border: 1px solid #444;
+    font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s;
+    color: #aaa; background: transparent;
+  }
+  #controls button:hover { border-color: #666; color: #fff; }
+  #controls button.active { background: #fff; color: #111; border-color: #fff; }
+  #controls button.print-btn { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+  #controls button.print-btn:hover { background: #6d28d9; }
+
+  #stage {
+    margin-top: 56px; /* below fixed controls */
+    display: flex; justify-content: center;
+    padding: 32px 20px 48px;
+  }
+
+  /* The email wrapper — zoom scales it down for PDF */
+  #email-wrap {
+    background: #fff;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  }
+  #email-wrap.desktop { width: 600px; zoom: 0.75; }
+  #email-wrap.mobile  { width: 375px; zoom: 0.85; }
+
+  #email-wrap iframe {
+    display: block; border: none; width: 100%; height: 3000px;
+  }
+  #email-wrap.mobile iframe { width: 375px; }
+
+  /* PRINT ─────────────────────────────────── */
   @media print {
-    body { margin: 0; }
-    #loading { display: none !important; }
+    @page { size: A4 portrait; margin: 6mm; }
+    body { background: #fff; }
+    #controls { display: none !important; }
+    #stage { margin-top: 0; padding: 0; }
+    #email-wrap { box-shadow: none !important; }
+    #email-wrap.desktop { zoom: 0.72 !important; }
+    #email-wrap.mobile  { zoom: 0.55 !important; }
+    /* Avoid cutting images across pages */
+    #email-wrap img { page-break-inside: avoid; break-inside: avoid; }
   }
 </style>
 </head>
 <body>
-<div id="loading" style="position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:13px;color:#888;z-index:9999;">
-  Preparando PDF…
-</div>
-<div id="content"></div>
-<script>
-(function() {
-  var p = new URLSearchParams(location.search);
-  var file = p.get('email');
-  if (!file) { document.getElementById('loading').textContent = 'No se especificó el email.'; return; }
 
+<div id="controls">
+  <span class="title" id="ctrl-title">Preparando…</span>
+  <div class="btns">
+    <button id="btn-desktop" class="active" onclick="setMode('desktop')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Desktop
+    </button>
+    <button id="btn-mobile" onclick="setMode('mobile')">
+      <svg width="10" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>
+      Mobile
+    </button>
+    <button class="print-btn" onclick="window.print()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Descargar PDF
+    </button>
+  </div>
+</div>
+
+<div id="stage">
+  <div id="email-wrap" class="desktop">
+    <div id="loading" style="padding:40px;text-align:center;color:#888;font-size:13px;">Cargando email…</div>
+  </div>
+</div>
+
+<script>
+var params = new URLSearchParams(location.search);
+var file   = params.get('email') || '';
+var mode   = params.get('mode') || 'desktop';
+
+document.getElementById('ctrl-title').textContent = file.replace('.html','').replace(/_/g,' ');
+
+// Build iframe once
+var iframe = null;
+
+function buildIframe(html) {
+  var wrap = document.getElementById('email-wrap');
+  wrap.innerHTML = '';
+  iframe = document.createElement('iframe');
+  iframe.scrolling = 'no';
+  wrap.appendChild(iframe);
+
+  var doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+
+  // Auto-resize iframe to full email height after images load
+  iframe.onload = function() {
+    setTimeout(function() {
+      var h = iframe.contentDocument.documentElement.scrollHeight;
+      iframe.style.height = (h + 40) + 'px';
+      document.getElementById('loading') && (document.getElementById('loading').style.display = 'none');
+    }, 500);
+  };
+}
+
+function setMode(m) {
+  mode = m;
+  var wrap = document.getElementById('email-wrap');
+  wrap.classList.toggle('desktop', m === 'desktop');
+  wrap.classList.toggle('mobile',  m === 'mobile');
+
+  // Adjust iframe width for mobile media queries to trigger
+  if (iframe) {
+    iframe.style.width = m === 'mobile' ? '375px' : '100%';
+    // Force media query re-eval by reloading iframe src
+    var src = iframe.src || '';
+    if (src) { iframe.src = src; }
+  }
+  document.getElementById('btn-desktop').classList.toggle('active', m === 'desktop');
+  document.getElementById('btn-mobile').classList.toggle('active', m === 'mobile');
+  // Update URL so print dialog reflects chosen mode
+  var u = new URL(location.href);
+  u.searchParams.set('mode', m);
+  history.replaceState(null,'', u.toString());
+}
+
+// Load email HTML
+if (file) {
   fetch('/email-library/' + encodeURIComponent(file))
     .then(function(r) { return r.text(); })
     .then(function(html) {
-      // Remove <base> tags that might interfere, then write to a sandboxed container
-      // Write the email HTML into an iframe that fills the page
-      var iframe = document.createElement('iframe');
-      iframe.style.cssText = 'width:660px;border:none;display:block;margin:0 auto;';
-      iframe.scrolling = 'no';
-      document.getElementById('content').appendChild(iframe);
-
-      var doc = iframe.contentDocument || iframe.contentWindow.document;
-      doc.open();
-      doc.write(html);
-      doc.close();
-
-      // Auto-resize iframe to full email height
-      function resize() {
-        iframe.style.height = doc.documentElement.scrollHeight + 'px';
+      buildIframe(html);
+      setMode(mode);
+      // Auto-print only if ?print=1
+      if (params.get('print') === '1') {
+        setTimeout(function() { window.print(); }, 1200);
       }
-
-      iframe.onload = function() {
-        resize();
-        document.getElementById('loading').style.display = 'none';
-        // Small delay so images finish loading
-        setTimeout(function() { window.print(); }, 600);
-      };
     })
     .catch(function(e) {
       document.getElementById('loading').textContent = 'Error: ' + e.message;
     });
-})();
+} else {
+  document.getElementById('loading').textContent = 'No se especificó el email.';
+}
 </script>
 </body>
 </html>
