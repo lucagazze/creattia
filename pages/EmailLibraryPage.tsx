@@ -282,10 +282,10 @@ export default function EmailLibraryPage() {
           {/* Preview area */}
           <div
             className="flex-1 overflow-auto flex items-start justify-center py-8"
-            onClick={e => e.stopPropagation()}
           >
             <div
               className="shadow-2xl rounded-sm transition-all duration-300 overflow-hidden"
+              onClick={e => e.stopPropagation()}
               style={{
                 width: previewMode === 'desktop' ? 760 : 375,
                 background: previewMode === 'desktop' ? '#f0f0f0' : '#ffffff',
