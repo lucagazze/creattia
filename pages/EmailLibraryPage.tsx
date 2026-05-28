@@ -841,7 +841,7 @@ export default function EmailLibraryPage() {
 
         {/* Preview Panel */}
         {preview && (
-          <div className="absolute inset-0 z-50 flex flex-col" onClick={() => setPreview(null)}>
+          <div className="absolute inset-0 z-50 flex flex-col">
             {/* Dark action toolbar */}
             <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
               <div className="flex-1 min-w-0">
@@ -919,7 +919,7 @@ export default function EmailLibraryPage() {
             </div>
 
             {/* Email viewer */}
-            <div className="flex-1 overflow-auto" style={{ background: previewMode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }} onClick={() => setPreview(null)}>
+            <div className="flex-1 overflow-auto" style={{ background: previewMode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }}>
               <div style={{ maxWidth: previewMode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }} onClick={e => e.stopPropagation()}>
 
                 {/* Email chrome */}

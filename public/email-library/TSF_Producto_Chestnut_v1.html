@@ -23,7 +23,18 @@ body, #body {
 * {
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%
-    }</style></head>
+    }
+@media only screen and (max-width:480px) {
+  .product-col {
+    display: block !important;
+    width: 100% !important;
+    padding: 0 0 16px 0 !important;
+  }
+  .product-col img {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}</style></head>
 <body>
 <table border="0" cellpadding="0" cellspacing="0" style="background-color:#ffffff;" width="100%">
 <tr><td align="center" style="padding:32px 16px;">
@@ -36,7 +47,7 @@ body, #body {
 <p style="margin:0 0 24px 0;font-family:'Trirong',Georgia,serif;font-size:20px;font-weight:600;color:#000000 !important;">
 <span style="color:#000000 !important;">Chestnut Skirting Leather — in stock now</span></p>
 <p style="margin:0 0 16px 0;font-family:'Questrial',Arial,sans-serif;font-size:15px;line-height:1.7;color:#000000 !important;"><span style="color:#000000 !important;">{% if person.first_name %}{{ person.first_name }}{% else %}there{% endif %},</span></p><p style="margin:0 0 16px 0;font-family:'Questrial',Arial,sans-serif;font-size:15px;line-height:1.7;color:#000000 !important;"><span style="color:#000000 !important;">We just restocked the <strong>Chestnut Skirting Leather</strong> — full-grain Argentine veg-tan, 13-15oz. This is the hide that serious saddlers keep coming back to.</span></p><p style="margin:0 0 16px 0;font-family:'Questrial',Arial,sans-serif;font-size:15px;line-height:1.7;color:#000000 !important;"><span style="color:#000000 !important;">Consistent temper, consistent thickness, batch after batch. Same-day shipping from Greenville, TX if you order before 3PM CST.</span></p><p style="margin:0 0 16px 0;font-family:'Questrial',Arial,sans-serif;font-size:15px;line-height:1.7;color:#000000 !important;"><span style="color:#000000 !important;">We also have Latigo and Crazy Horse in stock if you need something different.</span></p><table border="0" cellpadding="0" cellspacing="0" style="margin-top:24px;margin-bottom:8px;" width="100%">
-<tr><td style="width:33%;padding:0 5px;vertical-align:top;">
+<tr><td class="product-col" style="width:33%;padding:0 5px;vertical-align:top;">
 <a href="https://www.theskirtingfactoryllc.com/products/american-raw-material-rose-skirting-copia" style="text-decoration:none;display:block;">
 <img alt="Chestnut Skirting Leather" src="https://www.theskirtingfactoryllc.com/cdn/shop/files/Nardelli_II_135.jpg?v=1773423236&amp;width=400" style="display:block;border-radius:2px;max-width:100%;" width="100%"/>
 </a>
@@ -44,7 +55,7 @@ body, #body {
 <tr><td style="background:#f5f0eb;padding:8px 10px;border-radius:2px;">
 <p style="margin:0;color:#111111;font-size:10px;font-family:'Questrial',Arial,sans-serif;letter-spacing:1px;text-transform:uppercase;font-weight:600;">Chestnut Skirting Leather</p>
 <p style="margin:3px 0 0;color:#c9a96e;font-size:11px;font-family:'Questrial',Arial,sans-serif;">Shop →</p>
-</td></tr></table></td><td style="width:33%;padding:0 5px;vertical-align:top;">
+</td></tr></table></td><td class="product-col" style="width:33%;padding:0 5px;vertical-align:top;">
 <a href="https://www.theskirtingfactoryllc.com/products/latigo-leather" style="text-decoration:none;display:block;">
 <img alt="Latigo Leather" src="https://www.theskirtingfactoryllc.com/cdn/shop/products/latigoleatherargentinianskirtingsidehide_3.jpg?v=1776288485&amp;width=400" style="display:block;border-radius:2px;max-width:100%;" width="100%"/>
 </a>
@@ -52,7 +63,7 @@ body, #body {
 <tr><td style="background:#f5f0eb;padding:8px 10px;border-radius:2px;">
 <p style="margin:0;color:#111111;font-size:10px;font-family:'Questrial',Arial,sans-serif;letter-spacing:1px;text-transform:uppercase;font-weight:600;">Latigo Leather</p>
 <p style="margin:3px 0 0;color:#c9a96e;font-size:11px;font-family:'Questrial',Arial,sans-serif;">Shop →</p>
-</td></tr></table></td><td style="width:33%;padding:0 5px;vertical-align:top;">
+</td></tr></table></td><td class="product-col" style="width:33%;padding:0 5px;vertical-align:top;">
 <a href="https://www.theskirtingfactoryllc.com/products/crazy-horse-9-10-oz-4mm" style="text-decoration:none;display:block;">
 <img alt="Crazy Horse 9-10oz" src="https://www.theskirtingfactoryllc.com/cdn/shop/files/CrazyHorse1.jpg?v=1698874719&amp;width=400" style="display:block;border-radius:2px;max-width:100%;" width="100%"/>
 </a>

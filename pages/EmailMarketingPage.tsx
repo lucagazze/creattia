@@ -57,7 +57,7 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col" onClick={onClose}>
+    <div className="absolute inset-0 z-50 flex flex-col">
 
       {/* Toolbar */}
       <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
@@ -85,7 +85,7 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
       </div>
 
       {/* Email viewer */}
-      <div className="flex-1 overflow-auto" style={{ background: mode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }} onClick={onClose}>
+      <div className="flex-1 overflow-auto" style={{ background: mode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }}>
         <div style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }} onClick={e => e.stopPropagation()}>
 
           {/* Email chrome */}
