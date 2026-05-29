@@ -95,13 +95,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       {/* Mobile backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-md z-[60] md:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-md z-[280] md:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-[70] w-[240px]
+        fixed inset-y-0 left-0 z-[300] w-[240px]
         bg-white dark:bg-[#09090b]
         border-r border-zinc-200 dark:border-white/[0.05]
         flex flex-col

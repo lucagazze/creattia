@@ -111,7 +111,6 @@ const MarkdownRenderer = ({ content, onLinkClick, onSend }: { content: string; o
               href={targetUrl}
               target={isInternal ? '_self' : '_blank'}
               rel="noopener noreferrer"
-              onClick={onLinkClick}
               className="text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 underline font-bold inline-flex items-center gap-0.5"
             >
               {linkText}
@@ -223,7 +222,6 @@ const MarkdownRenderer = ({ content, onLinkClick, onSend }: { content: string; o
               href={targetUrl}
               target={isInternal ? '_self' : '_blank'}
               rel="noopener noreferrer"
-              onClick={onLinkClick}
               className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-full bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white font-bold text-[12px] md:text-[12.5px] shadow-md shadow-violet-500/15 hover:scale-[1.01] active:scale-[0.98] transition-all text-center"
             >
               {linkText}
@@ -349,6 +347,8 @@ export const AIChatFloat = () => {
 
   const activeClientId = isViewingAs ? viewAsProfile?.id : profile?.id;
   const activeBusinessName = isViewingAs ? viewAsProfile?.business_name : profile?.business_name;
+  const activeKlaviyoKey = isViewingAs ? (viewAsProfile as any)?.klaviyo_api_key : profile?.klaviyo_api_key;
+  const activeMetaAccountId = isViewingAs ? (viewAsProfile as any)?.meta_account_id : profile?.meta_account_id;
 
   // Auto-scroll
   useEffect(() => {
@@ -423,7 +423,7 @@ export const AIChatFloat = () => {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: updatedMessages, profile, activeClientId, activeBusinessName }),
+        body: JSON.stringify({ messages: updatedMessages, profile, activeClientId, activeBusinessName, klaviyoApiKey: activeKlaviyoKey, metaAccountId: activeMetaAccountId }),
       });
 
       if (!res.ok) throw new Error('API error');
@@ -526,19 +526,26 @@ export const AIChatFloat = () => {
 
   const quickPrompts = [
     '¿Qué mails están programados?',
-    '¿Cómo me fue en facturación?',
-    '¿Qué creativos están activos?',
     '¿Cómo viene el ROAS en Meta?',
+  ];
+
+  const initialPrompts = [
+    { icon: '🎨', text: '¿Qué creativos están activos?' },
+    { icon: '📊', text: '¿Cómo viene el ROAS en Meta?' },
+    { icon: '📧', text: '¿Qué mails están programados?' },
+    { icon: '🛒', text: '¿Cuánto vendimos este mes?' },
+    { icon: '⚡', text: '¿Cómo están los flujos activos?' },
+    { icon: '🏆', text: '¿Cuál es mi campaña con más gasto?' },
   ];
 
   return (
     <div
       ref={containerRef}
-      className="fixed z-50 bottom-6 print:hidden w-[96%] left-1/2 -translate-x-1/2 md:w-[820px] md:left-[calc(50%+120px)]"
+      className="fixed z-[250] bottom-4 md:bottom-6 print:hidden w-[96%] left-1/2 -translate-x-1/2 md:w-[820px] md:left-[calc(50%+120px)]"
     >
       {/* ── Chat panel ── */}
-      <div className={`absolute bottom-full mb-3 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden transition-all duration-300 origin-bottom flex flex-col ${
-        isOpen ? 'opacity-100 scale-100 h-[80vh] md:h-[580px]' : 'opacity-0 scale-95 h-0 pointer-events-none'
+      <div className={`absolute bottom-full mb-2 md:mb-3 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden transition-all duration-300 origin-bottom flex flex-col ${
+        isOpen ? 'opacity-100 scale-100 h-[60vh] md:h-[560px]' : 'opacity-0 scale-95 h-0 pointer-events-none'
       }`}>
 
         {/* Header */}
@@ -566,15 +573,27 @@ export const AIChatFloat = () => {
         {/* Messages */}
         <div ref={chatRef} className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/50 dark:bg-zinc-950">
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full gap-4 pb-4">
-              <div className="w-16 h-16 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 shadow-md flex items-center justify-center">
-                <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-11 h-11 object-contain" />
-              </div>
-              <div className="text-center">
-                <p className="text-[15px] font-black text-zinc-700 dark:text-zinc-200">Hola 👋 Soy Algo</p>
-                <p className="text-[12.5px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-[320px] px-4 leading-relaxed">
-                  Tengo acceso a tus campañas, creativos de Meta Ads, correos programados en Email Marketing y ventas de e-commerce.
+            <div className="flex flex-col items-center justify-center h-full gap-3 px-4 pb-2">
+              <div className="flex flex-col items-center gap-2 mb-1">
+                <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md flex items-center justify-center">
+                  <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-8 h-8 object-contain" />
+                </div>
+                <p className="text-[14px] font-black text-zinc-700 dark:text-zinc-200">Hola 👋 Soy Algo</p>
+                <p className="text-[11.5px] text-zinc-400 dark:text-zinc-500 text-center max-w-[280px] leading-relaxed">
+                  Preguntame sobre tus campañas, creativos, emails o ventas.
                 </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 w-full max-w-[380px]">
+                {initialPrompts.map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSend(p.text)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-violet-400 dark:hover:border-violet-500/50 hover:bg-violet-50 dark:hover:bg-violet-500/5 active:scale-[0.97] transition-all text-left"
+                  >
+                    <span className="text-[15px] flex-shrink-0">{p.icon}</span>
+                    <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 leading-snug">{p.text}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -594,7 +613,7 @@ export const AIChatFloat = () => {
                 {msg.role === 'user' ? (
                   msg.content
                 ) : (
-                  <MarkdownRenderer content={msg.content} onLinkClick={() => setIsOpen(false)} onSend={(text) => handleSend(text)} />
+                  <MarkdownRenderer content={msg.content} onSend={(text) => handleSend(text)} />
                 )}
               </div>
             </div>
@@ -657,13 +676,13 @@ export const AIChatFloat = () => {
           )}
         </div>
 
-        {/* ── Always-visible Quick Prompts Bar (Minimal wrapped tag chips) ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 px-4 py-2 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
+        {/* ── Quick Prompts Bar — 2 chips ── */}
+        <div className="flex gap-2 px-4 py-2 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
           {quickPrompts.map((q, i) => (
             <button
               key={i}
               onClick={() => handleSend(q)}
-              className="text-[10.5px] md:text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-800 px-2 py-1.5 rounded-lg transition-all active:scale-95 text-center flex items-center justify-center leading-tight"
+              className="flex-1 text-[10.5px] font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700 px-2 py-1.5 rounded-lg active:scale-95 text-center leading-tight truncate"
             >
               {q}
             </button>

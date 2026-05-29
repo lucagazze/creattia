@@ -149,12 +149,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'OpenAI API key not configured in environment' });
   }
 
-  const { messages, profile, activeClientId, activeBusinessName } = req.body as {
+  const { messages, profile, activeClientId, activeBusinessName, klaviyoApiKey, metaAccountId } = req.body as {
     messages: Array<{ role: string; content: string }>;
-    profile?: { id: string; is_admin: boolean; business_name: string };
+    profile?: { id: string; is_admin: boolean; business_name: string; klaviyo_api_key?: string; meta_account_id?: string };
     activeClientId?: string;
     activeBusinessName?: string;
+    klaviyoApiKey?: string;
+    metaAccountId?: string;
   };
+
+  // API keys passed directly from client profile (bypass DB lookup)
+  const directKlaviyoKey = klaviyoApiKey || profile?.klaviyo_api_key;
+  const directMetaAccountId = metaAccountId || profile?.meta_account_id;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array is required' });
@@ -409,11 +415,16 @@ NUNCA omitir este bloque. SIEMPRE exactamente 3 opciones.`;
             if (!clientId || !isAuthorizedForClient(clientId)) {
               toolResult = { error: 'Access denied or missing clientId' };
             } else {
-              const clientData = await getClientData(clientId, 'klaviyo_api_key');
-              if (!clientData?.klaviyo_api_key) {
+              // Use API key passed directly from client (most reliable), fallback to DB lookup
+              let apiKey = (clientId === fallbackClientId) ? directKlaviyoKey : undefined;
+              if (!apiKey) {
+                const clientData = await getClientData(clientId, 'klaviyo_api_key');
+                apiKey = clientData?.klaviyo_api_key;
+              }
+              if (!apiKey) {
                 toolResult = { error: 'Client does not have Email Marketing API Key configured' };
               } else {
-                toolResult = await fetchKlaviyoData(clientData.klaviyo_api_key);
+                toolResult = await fetchKlaviyoData(apiKey);
               }
             }
           } else if (name === 'get_meta_ads_live_data') {
