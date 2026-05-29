@@ -78,22 +78,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? `Catálogo de productos de la tienda:\n${products.map(p => `- ${p.title} (Link de compra: https://${cleanDomainForLink}/products/${p.handle})`).join('\n')}`
       : 'No hay catálogo de productos de Shopify configurado.';
 
-    const systemMessage = `Sos Algor, el asistente de IA de la marca "${business_name}".
-Redactá un borrador de respuesta natural y amable.
+    const systemMessage = `You are Algor, the AI assistant for the brand "${business_name}".
+Your task is to draft a friendly, natural reply to a social media message.
 
-Detalles:
-- Usuario en red social: @${username}
-- Mensaje que envió: "${itemText}"
+CRITICAL INSTRUCTION - LANGUAGE DETECTION:
+- Identify the language of the customer's message: "${itemText}".
+- You MUST draft the reply in that EXACT same language (e.g., if the customer wrote in English, reply in English; if they wrote in Portuguese, reply in Portuguese).
+- If they wrote in Spanish, reply in Spanish using Argentine Spanish voseo (e.g., "vos", "tenés", "consultame").
+- NEVER reply in Spanish if the customer's message is in English, Portuguese, or any other language.
+
+Details:
+- Social media user: @${username}
+- Message sent: "${itemText}"
 
 ${productsContext}
 
-Reglas:
-1. Sé muy conciso (máximo 1 o 2 oraciones).
-2. DETECT LANGUAGE: Detectá en qué idioma está el mensaje del cliente (itemText). Deberás redactar la sugerencia en ese MISMO idioma (si escribió en inglés, respondé en inglés; si escribió en español, respondé en español usando el español argentino/voseo como "vos", "tenés", "consultame", etc.; si es en portugués, respondé en portugués).
-3. Si el usuario pregunta por un producto específico, disponibilidad, precio o cómo comprar, recomendá el producto del catálogo y colocá EXACTAMENTE el link correspondiente: https://${cleanDomainForLink}/products/[handle-del-producto]. No inventes handles que no estén en la lista.
-4. Si preguntan por compras, envíos o precios generales y no hay un producto específico coincidente en el catálogo, ofreceles siempre el link principal de la web de compra: https://${cleanDomainForLink}.
-5. No uses marcadores de posición (placeholders) como [precio] o [enlace]. La respuesta debe estar lista para enviarse.
-6. Devolvé ÚNICAMENTE el texto final de la respuesta sugerida, sin explicaciones ni prefijos.`;
+Rules:
+1. Be extremely concise (maximum 1 or 2 sentences).
+2. If they ask about a specific product, availability, price, or how to buy, recommend the product from the catalog and include EXACTLY the corresponding link: https://${cleanDomainForLink}/products/[product-handle]. Do not make up handles.
+3. If they ask about shopping, shipping, or general prices and there is no specific matching product in the catalog, always offer the main website link: https://${cleanDomainForLink}.
+4. Do not use placeholders like [price] or [link]. The reply must be ready to send.
+5. Output ONLY the final drafted text, without explanations, quotes, or prefixes.`;
 
     // 4. Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {

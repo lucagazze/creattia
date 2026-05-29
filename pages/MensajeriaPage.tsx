@@ -31,6 +31,7 @@ export default function MensajeriaPage() {
   // Filter States
   const [inboxFilter, setInboxFilter] = useState<'all' | 'comments' | 'messages'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [inboxMode, setInboxMode] = useState<'pending' | 'all'>('pending');
 
   // Selected Item for Detail Slide-Over
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -290,25 +291,41 @@ export default function MensajeriaPage() {
           const commentsList = post.comments?.data || [];
           commentsList.forEach((comment: any) => {
             const isFromPage = comment.username === igUsername;
-            const repliesList = comment.replies?.data || [];
-            const hasPageReply = repliesList.some((reply: any) => reply.username === igUsername);
+            if (!isFromPage) {
+              const repliesList = comment.replies?.data || [];
+              let isLastFromPage = false;
+              let latestText = comment.text;
+              let latestTimestamp = comment.timestamp;
 
-            if (!isFromPage && !hasPageReply) {
-              inboxItems.push({
-                id: comment.id,
-                type: 'ig_comment',
-                platform: 'instagram',
-                username: comment.username,
-                text: comment.text,
-                timestamp: comment.timestamp,
-                postCaption: post.caption,
-                postThumbnail: post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url,
-                permalink: post.permalink,
-                rawItem: comment,
-                postMediaType: post.media_type,
-                postMediaUrl: post.media_url,
-                postThumbnailUrl: post.thumbnail_url,
-              });
+              if (repliesList.length > 0) {
+                const sortedReplies = [...repliesList].sort(
+                  (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+                );
+                const latestReply = sortedReplies[sortedReplies.length - 1];
+                isLastFromPage = latestReply.username === igUsername;
+                if (!isLastFromPage) {
+                  latestText = latestReply.text || latestReply.message || comment.text;
+                  latestTimestamp = latestReply.timestamp || latestReply.created_time || comment.timestamp;
+                }
+              }
+
+              if (!isLastFromPage) {
+                inboxItems.push({
+                  id: comment.id,
+                  type: 'ig_comment',
+                  platform: 'instagram',
+                  username: comment.username,
+                  text: latestText,
+                  timestamp: latestTimestamp,
+                  postCaption: post.caption,
+                  postThumbnail: post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url,
+                  permalink: post.permalink,
+                  rawItem: comment,
+                  postMediaType: post.media_type,
+                  postMediaUrl: post.media_url,
+                  postThumbnailUrl: post.thumbnail_url,
+                });
+              }
             }
           });
         });
@@ -318,25 +335,41 @@ export default function MensajeriaPage() {
           const commentsList = post.comments?.data || [];
           commentsList.forEach((comment: any) => {
             const isFromPage = comment.from?.id === fbPageId;
-            const repliesList = comment.replies?.data || [];
-            const hasPageReply = repliesList.some((reply: any) => reply.from?.id === fbPageId || reply.username === igUsername);
+            if (!isFromPage) {
+              const repliesList = comment.replies?.data || [];
+              let isLastFromPage = false;
+              let latestText = comment.message;
+              let latestTimestamp = comment.created_time;
 
-            if (!isFromPage && !hasPageReply) {
-              inboxItems.push({
-                id: comment.id,
-                type: 'fb_comment',
-                platform: 'facebook',
-                username: comment.from?.name || comment.username || 'Usuario de Facebook',
-                text: comment.message,
-                timestamp: comment.created_time,
-                postMessage: post.message,
-                postThumbnail: post.full_picture,
-                permalink: post.permalink_url,
-                rawItem: comment,
-                postMediaType: post.full_picture ? 'IMAGE' : null,
-                postMediaUrl: post.full_picture,
-                postThumbnailUrl: post.full_picture,
-              });
+              if (repliesList.length > 0) {
+                const sortedReplies = [...repliesList].sort(
+                  (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+                );
+                const latestReply = sortedReplies[sortedReplies.length - 1];
+                isLastFromPage = latestReply.from?.id === fbPageId || latestReply.username === igUsername;
+                if (!isLastFromPage) {
+                  latestText = latestReply.message || latestReply.text || comment.message;
+                  latestTimestamp = latestReply.created_time || latestReply.timestamp || comment.created_time;
+                }
+              }
+
+              if (!isLastFromPage) {
+                inboxItems.push({
+                  id: comment.id,
+                  type: 'fb_comment',
+                  platform: 'facebook',
+                  username: comment.from?.name || comment.username || 'Usuario de Facebook',
+                  text: latestText,
+                  timestamp: latestTimestamp,
+                  postMessage: post.message,
+                  postThumbnail: post.full_picture,
+                  permalink: post.permalink_url,
+                  rawItem: comment,
+                  postMediaType: post.full_picture ? 'IMAGE' : null,
+                  postMediaUrl: post.full_picture,
+                  postThumbnailUrl: post.full_picture,
+                });
+              }
             }
           });
         });
@@ -368,22 +401,38 @@ export default function MensajeriaPage() {
             adCommentsResults.forEach((result) => {
               result.comments.forEach((comment: any) => {
                 const isFromPage = comment.from?.id === fbPageId || comment.username === igUsername;
-                const repliesList = comment.replies?.data || [];
-                const hasPageReply = repliesList.some((reply: any) => reply.from?.id === fbPageId || reply.username === igUsername);
+                if (!isFromPage) {
+                  const repliesList = comment.replies?.data || [];
+                  let isLastFromPage = false;
+                  let latestText = comment.text || comment.message || '';
+                  let latestTimestamp = comment.timestamp || comment.created_time;
 
-                if (!isFromPage && !hasPageReply) {
-                  inboxItems.push({
-                    id: comment.id,
-                    type: 'ad_comment',
-                    platform: comment.username ? 'instagram' : 'facebook',
-                    username: comment.username || comment.from?.name || 'Usuario de Ads',
-                    text: comment.text || comment.message || '',
-                    timestamp: comment.timestamp || comment.created_time,
-                    adName: result.adName,
-                    postThumbnail: null,
-                    permalink: result.adPermalink,
-                    rawItem: comment,
-                  });
+                  if (repliesList.length > 0) {
+                    const sortedReplies = [...repliesList].sort(
+                      (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+                    );
+                    const latestReply = sortedReplies[sortedReplies.length - 1];
+                    isLastFromPage = latestReply.from?.id === fbPageId || latestReply.username === igUsername;
+                    if (!isLastFromPage) {
+                      latestText = latestReply.text || latestReply.message || comment.text || comment.message || '';
+                      latestTimestamp = latestReply.timestamp || latestReply.created_time || comment.timestamp || comment.created_time;
+                    }
+                  }
+
+                  if (!isLastFromPage) {
+                    inboxItems.push({
+                      id: comment.id,
+                      type: 'ad_comment',
+                      platform: comment.username ? 'instagram' : 'facebook',
+                      username: comment.username || comment.from?.name || 'Usuario de Ads',
+                      text: latestText,
+                      timestamp: latestTimestamp,
+                      adName: result.adName,
+                      postThumbnail: null,
+                      permalink: result.adPermalink,
+                      rawItem: comment,
+                    });
+                  }
                 }
               });
             });
@@ -407,16 +456,24 @@ export default function MensajeriaPage() {
     return () => { active = false; };
   }, [clientId, igId, fbPageId, metaAccountId, refreshKey]);
 
+  // Mode-based items selection ('pending' vs 'all')
+  const currentModeItems = useMemo(() => {
+    if (inboxMode === 'pending') {
+      return pendingItems.filter(item => item.isPending);
+    }
+    return pendingItems;
+  }, [pendingItems, inboxMode]);
+
   // Filters for Inbox list
   const filteredPendingItems = useMemo(() => {
     if (inboxFilter === 'comments') {
-      return pendingItems.filter(item => ['ig_comment', 'fb_comment', 'ad_comment'].includes(item.type));
+      return currentModeItems.filter(item => ['ig_comment', 'fb_comment', 'ad_comment'].includes(item.type));
     }
     if (inboxFilter === 'messages') {
-      return pendingItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type));
+      return currentModeItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type));
     }
-    return pendingItems;
-  }, [pendingItems, inboxFilter]);
+    return currentModeItems;
+  }, [currentModeItems, inboxFilter]);
 
   // Filtered Shopify products
   const filteredProducts = useMemo(() => {
@@ -482,6 +539,38 @@ export default function MensajeriaPage() {
       ) : (
         <div className="space-y-6 animate-in fade-in duration-200">
           
+          {/* Primary Tab Switcher: Pendientes vs Todos */}
+          <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">
+            <button
+              onClick={() => setInboxMode('pending')}
+              className={`pb-3 text-[14px] font-black tracking-tight transition-all relative flex items-center gap-1.5 focus:outline-none ${
+                inboxMode === 'pending'
+                  ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 font-extrabold'
+                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 border-b-2 border-transparent'
+              }`}
+            >
+              <Inbox className="w-4 h-4" />
+              Bandeja de Pendientes
+              <span className="bg-violet-100 text-violet-755 dark:bg-violet-950/40 dark:text-violet-400 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1">
+                {pendingItems.filter(item => item.isPending).length}
+              </span>
+            </button>
+            <button
+              onClick={() => setInboxMode('all')}
+              className={`pb-3 text-[14px] font-black tracking-tight transition-all relative flex items-center gap-1.5 focus:outline-none ${
+                inboxMode === 'all'
+                  ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 font-extrabold'
+                  : 'text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300 border-b-2 border-transparent'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Todos los Mensajes
+              <span className="bg-zinc-150 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1">
+                {pendingItems.length}
+              </span>
+            </button>
+          </div>
+
           {/* Inbox Summary Info Banner */}
           <div className="flex items-center justify-between p-4 bg-violet-50/50 dark:bg-violet-950/10 border border-violet-100/50 dark:border-violet-900/20 rounded-2xl">
             <div className="flex items-center gap-2 text-violet-750 dark:text-violet-400">
@@ -501,9 +590,9 @@ export default function MensajeriaPage() {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-1 bg-zinc-150/80 dark:bg-zinc-800/60 border border-zinc-200/40 dark:border-zinc-700/65 p-0.5 rounded-xl">
               {[
-                { id: 'all', label: `Todos (${pendingItems.length})` },
-                { id: 'comments', label: `Comentarios (${pendingItems.filter(i => ['ig_comment', 'fb_comment', 'ad_comment'].includes(i.type)).length})` },
-                { id: 'messages', label: `Mensajes (${pendingItems.filter(i => ['ig_dm', 'fb_dm'].includes(i.type)).length})` }
+                { id: 'all', label: `Todos (${currentModeItems.length})` },
+                { id: 'comments', label: `Comentarios (${currentModeItems.filter(i => ['ig_comment', 'fb_comment', 'ad_comment'].includes(i.type)).length})` },
+                { id: 'messages', label: `Mensajes (${currentModeItems.filter(i => ['ig_dm', 'fb_dm'].includes(i.type)).length})` }
               ].map(f => (
                 <button
                   key={f.id}
@@ -521,7 +610,10 @@ export default function MensajeriaPage() {
 
             <div className="flex items-center gap-3 flex-wrap">
               <p className="text-[12px] text-zinc-405 font-bold">
-                Mostrando {filteredPendingItems.length} pendientes
+                {inboxMode === 'pending' 
+                  ? `Mostrando ${filteredPendingItems.length} pendientes` 
+                  : `Mostrando ${filteredPendingItems.length} mensajes`
+                }
               </p>
               
               {/* Density Toggle */}
@@ -556,9 +648,14 @@ export default function MensajeriaPage() {
               <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto text-green-500">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">¡Bandeja vacía!</h3>
+              <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">
+                {inboxMode === 'pending' ? '¡Bandeja vacía!' : 'No hay mensajes'}
+              </h3>
               <p className="text-[13px] text-zinc-500 dark:text-zinc-400 font-semibold leading-relaxed">
-                Buen trabajo. No tenés mensajes o comentarios pendientes en esta categoría.
+                {inboxMode === 'pending' 
+                  ? 'Buen trabajo. No tenés mensajes o comentarios pendientes en esta categoría.'
+                  : 'No se encontraron mensajes o comentarios en esta categoría.'
+                }
               </p>
             </div>
           ) : viewMode === 'grid' ? (
@@ -596,18 +693,29 @@ export default function MensajeriaPage() {
                         </div>
                       </div>
                       
-                      {/* Post Thumbnail if it's a comment */}
-                      {(item.postThumbnail || item.type === 'ad_comment') && (
-                        <div className="w-8 h-8 bg-zinc-100 dark:bg-zinc-850 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 flex-shrink-0">
-                          {item.postThumbnail ? (
-                            <img src={item.postThumbnail} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center text-violet-500">
-                              <Layers className="w-3.5 h-3.5" />
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {inboxMode === 'all' && (
+                          <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
+                            item.isPending
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-955/20 dark:text-emerald-400'
+                          }`}>
+                            {item.isPending ? 'Pendiente' : 'Respondido'}
+                          </span>
+                        )}
+                        
+                        {(item.postThumbnail || item.type === 'ad_comment') && (
+                          <div className="w-8 h-8 bg-zinc-100 dark:bg-zinc-850 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 flex-shrink-0">
+                            {item.postThumbnail ? (
+                              <img src={item.postThumbnail} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center text-violet-500">
+                                <Layers className="w-3.5 h-3.5" />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* User and message */}
@@ -682,6 +790,17 @@ export default function MensajeriaPage() {
                       {item.type === 'ad_comment' && item.adName && (
                         <span className="bg-violet-50 text-violet-650 dark:bg-violet-950/20 dark:text-violet-400 text-[9px] font-bold px-1.5 py-0.5 rounded max-w-[100px] truncate">
                           {item.adName}
+                        </span>
+                      )}
+                      
+                      {/* Status Badge in List View */}
+                      {inboxMode === 'all' && (
+                        <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0 ${
+                          item.isPending
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-955/20 dark:text-emerald-400'
+                        }`}>
+                          {item.isPending ? 'Pendiente' : 'Respondido'}
                         </span>
                       )}
                     </div>

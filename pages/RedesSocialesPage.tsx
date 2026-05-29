@@ -575,17 +575,20 @@ export default function RedesSocialesPage() {
                                 </div>
                               )}
                             </div>
-
+                            
                             {/* Description & metadata */}
-                            <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                            <div 
+                              onClick={() => openCommentsModal(m.id, m.permalink, 'instagram')}
+                              className="p-4 flex-1 flex flex-col justify-between space-y-3 cursor-pointer"
+                            >
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px] font-bold text-zinc-400">
                                   <span>{dateStr}</span>
-                                  <span className="uppercase text-[9px] tracking-widest text-zinc-350 dark:text-zinc-550">{m.media_type}</span>
+                                  <span className="uppercase text-[9px] tracking-widest text-zinc-350 dark:text-zinc-555">{m.media_type}</span>
                                 </div>
 
                                 {m.caption && (
-                                  <p className="text-[12.5px] text-zinc-750 dark:text-zinc-300 leading-snug break-words font-medium">
+                                  <p className="text-[12.5px] text-zinc-755 dark:text-zinc-300 leading-snug break-words font-medium">
                                     {isExpanded ? m.caption : `${m.caption.slice(0, 80)}${hasLongCaption ? '...' : ''}`}
                                     {hasLongCaption && (
                                       <button 
@@ -603,7 +606,7 @@ export default function RedesSocialesPage() {
                                 <div className="flex items-center gap-3 text-zinc-555 dark:text-zinc-400 text-[12px] font-bold">
                                   <span className="flex items-center gap-1 cursor-default"><Heart className="w-3.5 h-3.5 text-zinc-450" /> {m.like_count || 0}</span>
                                   <button 
-                                    onClick={() => openCommentsModal(m.id, m.permalink, 'instagram')}
+                                    onClick={(e) => { e.stopPropagation(); openCommentsModal(m.id, m.permalink, 'instagram'); }}
                                     className="flex items-center gap-1 hover:text-pink-500 transition-colors cursor-pointer"
                                     title="Ver y responder comentarios"
                                   >
@@ -612,15 +615,13 @@ export default function RedesSocialesPage() {
                                 </div>
                                 
                                 {m.permalink && (
-                                  <a 
-                                    href={m.permalink} 
-                                    target="_blank" 
-                                    rel="noreferrer" 
-                                    className="text-[11px] font-black text-pink-600 dark:text-pink-400 hover:text-pink-850 dark:hover:text-pink-300 flex items-center gap-1 hover:underline"
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); openCommentsModal(m.id, m.permalink, 'instagram'); }}
+                                    className="text-[11px] font-black text-pink-600 dark:text-pink-400 hover:text-pink-850 dark:hover:text-pink-300 flex items-center gap-1 hover:underline cursor-pointer"
                                   >
                                     Abrir post
                                     <ArrowUpRight className="w-3.5 h-3.5" />
-                                  </a>
+                                  </button>
                                 )}
                               </div>
                             </div>
@@ -776,7 +777,10 @@ export default function RedesSocialesPage() {
                             </div>
 
                             {/* Description & metadata */}
-                            <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                            <div 
+                              onClick={() => openCommentsModal(m.id, m.permalink_url, 'facebook')}
+                              className="p-4 flex-1 flex flex-col justify-between space-y-3 cursor-pointer"
+                            >
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px] font-bold text-zinc-400">
                                   <span>{dateStr}</span>
@@ -804,7 +808,7 @@ export default function RedesSocialesPage() {
                                 <div className="flex items-center gap-3 text-zinc-555 dark:text-zinc-400 text-[12px] font-bold">
                                   <span className="flex items-center gap-1 cursor-default"><ThumbsUp className="w-3.5 h-3.5 text-zinc-450" /> {m.likes?.summary?.total_count || 0}</span>
                                   <button 
-                                    onClick={() => openCommentsModal(m.id, m.permalink_url, 'facebook')}
+                                    onClick={(e) => { e.stopPropagation(); openCommentsModal(m.id, m.permalink_url, 'facebook'); }}
                                     className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
                                     title="Ver y responder comentarios"
                                   >
@@ -813,15 +817,13 @@ export default function RedesSocialesPage() {
                                 </div>
                                 
                                 {m.permalink_url && (
-                                  <a 
-                                    href={m.permalink_url} 
-                                    target="_blank" 
-                                    rel="noreferrer" 
-                                    className="text-[11px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-850 dark:hover:text-blue-300 flex items-center gap-1 hover:underline"
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); openCommentsModal(m.id, m.permalink_url, 'facebook'); }}
+                                    className="text-[11px] font-black text-blue-600 dark:text-blue-400 hover:text-blue-850 dark:hover:text-blue-300 flex items-center gap-1 hover:underline cursor-pointer"
                                   >
                                     Abrir post
                                     <ArrowUpRight className="w-3.5 h-3.5" />
-                                  </a>
+                                  </button>
                                 )}
                               </div>
                             </div>
