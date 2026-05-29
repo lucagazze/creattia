@@ -400,7 +400,7 @@ export default function ActivityPage() {
                                     Últimas 20 Conexiones
                                   </h5>
                                   <div className="space-y-2 w-full">
-                                    {userLogs.slice(0, 20).map((log, idx) => (
+                                    {userLogs.slice(0, 20).map((log: any, idx: number) => (
                                       <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm gap-3 group/item hover:border-emerald-500/30 transition-colors w-full">
                                         <div className="flex items-center gap-4">
                                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${log.action === 'session_start' ? 'bg-blue-50 text-blue-500 dark:bg-blue-500/10' : 'bg-zinc-50 text-zinc-400 dark:bg-zinc-800'}`}>

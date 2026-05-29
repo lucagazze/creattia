@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity, Library, Workflow, Instagram
+  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity, Library, Workflow, Instagram, Inbox
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -34,7 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const navItems = [
     { path: '/',          icon: Home,          label: 'Inicio',         condition: true },
     { path: '/captacion', icon: BarChart2,      label: 'C — Captación',  condition: !!activeProfile?.meta_account_id },
-    { path: '/redes-sociales', icon: Instagram, label: 'Redes Sociales', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id },
+    { path: '/redes-sociales', icon: Instagram, label: 'Redes Sociales', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
+    { path: '/mensajeria', icon: Inbox,         label: 'Mensajería',     condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
     { path: '/atencion',  icon: MessageCircle,  label: 'A — Atención',   condition: !!activeProfile?.chatwoot_token },
     { path: '/retencion', icon: Mail,           label: 'R — Retención',  condition: !!activeProfile?.klaviyo_api_key && hasTag('tienda_online') },
     { path: '/tienda',    icon: ShoppingBag,    label: 'Tienda Online',  condition: !!(activeProfile as any)?.ecommerce_platform && hasTag('tienda_online') },

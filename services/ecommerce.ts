@@ -64,7 +64,7 @@ export const ecommerce = {
     // Fetch orders and analytics in parallel
     const [orders, analyticsData] = await Promise.all([
       ecommerce.getShopifyOrders(domain, token, since, until),
-      ecommerce.getShopifyAnalytics(domain, token, since, until),
+      ecommerce.getShopifyAnalytics(domain, token, since, until) as Promise<any>,
     ]);
 
     if (!orders) return null;

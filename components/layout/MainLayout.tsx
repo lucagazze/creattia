@@ -20,6 +20,7 @@ import EmailLibraryPage from '../../pages/EmailLibraryPage';
 import EmailMarketingPage from '../../pages/EmailMarketingPage';
 import EmailMonitorPage from '../../pages/EmailMonitorPage';
 import RedesSocialesPage from '../../pages/RedesSocialesPage';
+import MensajeriaPage from '../../pages/MensajeriaPage';
 
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -74,6 +75,7 @@ export const MainLayout = () => {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/captacion" element={<CaptacionPage />} />
             <Route path="/redes-sociales" element={<RedesSocialesPage />} />
+            <Route path="/mensajeria" element={<MensajeriaPage />} />
             <Route path="/atencion" element={<AtencionPage />} />
             <Route path="/retencion" element={<RetencionPage />} />
             <Route path="/tienda" element={<TiendaPage />} />

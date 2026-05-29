@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   RefreshCw, Mail, Workflow, ChevronDown, ChevronRight, ChevronLeft,
   Eye, Key, ExternalLink, AlertCircle, X, Monitor, Smartphone,
-  Clock, Send, CalendarClock, Zap, Check, Copy, ArrowUpDown
+  Clock, Send, CalendarClock, Zap, Check, Copy, ArrowUpDown, Trash2, Undo2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';

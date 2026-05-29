@@ -356,6 +356,19 @@ export const metaAds = {
     return { data: accounts };
   },
 
+  getDiscoverableFacebookPages: async () => {
+    const res = await apiGet('me/accounts', {
+      fields: 'id,name,picture{url}',
+      limit: '100',
+    });
+    const pages = (res?.data || []).map((page: any) => ({
+      id: page.id,
+      name: page.name,
+      pictureUrl: page.picture?.data?.url
+    }));
+    return { data: pages };
+  },
+
   getInstagramProfile: (igId: string) =>
     apiGet(igId, {
       fields: 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,website',

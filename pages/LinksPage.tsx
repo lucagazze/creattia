@@ -73,7 +73,7 @@ export default function LinksPage() {
                 </div>
                 <div className="flex-1 min-w-0 relative">
                   <p className="text-[13.5px] font-bold text-zinc-900 dark:text-white truncate">
-                    {link.label || link.title}
+                    {link.label}
                   </p>
                   <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
                     {link.url?.replace(/^https?:\/\//,'').split('/')[0]}

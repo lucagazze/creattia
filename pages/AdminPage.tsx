@@ -197,6 +197,9 @@ export default function AdminPage() {
   const [testingIg, setTestingIg] = useState(false);
   const [discoveredIgAccounts, setDiscoveredIgAccounts] = useState<any[]>([]);
   const [loadingIgAccounts, setLoadingIgAccounts] = useState(false);
+  const [discoveredFbPages, setDiscoveredFbPages] = useState<any[]>([]);
+  const [loadingFbPages, setLoadingFbPages] = useState(false);
+  const [testingFbPage, setTestingFbPage] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "integrations" | "users" | "links">("general");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -239,6 +242,21 @@ export default function AdminPage() {
     }
   };
 
+  const loadDiscoveredFbPages = async (quiet = true) => {
+    setLoadingFbPages(true);
+    try {
+      const res = await metaAds.getDiscoverableFacebookPages();
+      setDiscoveredFbPages(res?.data || []);
+      if (!quiet) showToast("¡Páginas de Facebook sincronizadas! ✓", "success");
+    } catch (err: any) {
+      if (!quiet) {
+        showToast("Error al sincronizar Facebook: " + (err.message || "token inválido"), "error");
+      }
+    } finally {
+      setLoadingFbPages(false);
+    }
+  };
+
   useEffect(() => {
     metaAds
       .getAllAdAccounts()
@@ -246,6 +264,7 @@ export default function AdminPage() {
       .catch(() => {});
 
     loadDiscoveredIgAccounts(true);
+    loadDiscoveredFbPages(true);
   }, []);
 
   const f = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
@@ -582,6 +601,29 @@ export default function AdminPage() {
     }
   };
 
+  const testFacebookPage = async () => {
+    if (!editForm.fb_page_id) {
+      showToast("Ingresá o seleccioná un ID de Página de Facebook para probar", "warning");
+      return;
+    }
+    setTestingFbPage(true);
+    try {
+      const res = await metaAds.getFacebookPageInfo(editForm.fb_page_id);
+      if (!res || res.error)
+        throw new Error("No se pudo obtener la Página (verificá el ID de la Página y el Token General)");
+      showToast(`¡Conexión con Facebook Exitosa! (${res.name}) ✓`, "success");
+      setStatuses((p) => ({ ...p, facebook: "ok" }));
+    } catch (err: any) {
+      showToast(
+        "Error Facebook: " + (err.message || "Verificá la cuenta"),
+        "error",
+      );
+      setStatuses((p) => ({ ...p, facebook: "error" }));
+    } finally {
+      setTestingFbPage(false);
+    }
+  };
+
   const handleSelectIgAccount = (id: string) => {
     const selected = discoveredIgAccounts.find(acc => acc.igId === id);
     if (selected) {
@@ -589,14 +631,29 @@ export default function AdminPage() {
         ...p,
         ig_business_id: selected.igId,
         ig_username: selected.username,
-        fb_page_id: selected.pageId || "",
-        fb_page_name: selected.pageName || ""
+        fb_page_id: selected.pageId || p.fb_page_id || "",
+        fb_page_name: selected.pageName || p.fb_page_name || ""
       }));
     } else {
       setEditForm((p: any) => ({
         ...p,
         ig_business_id: "",
         ig_username: "",
+      }));
+    }
+  };
+
+  const handleSelectFbPage = (id: string) => {
+    const selected = discoveredFbPages.find(page => page.id === id);
+    if (selected) {
+      setEditForm((p: any) => ({
+        ...p,
+        fb_page_id: selected.id,
+        fb_page_name: selected.name
+      }));
+    } else {
+      setEditForm((p: any) => ({
+        ...p,
         fb_page_id: "",
         fb_page_name: ""
       }));
@@ -1488,6 +1545,86 @@ export default function AdminPage() {
                               Probar Conexión Instagram
                             </button>
                           </div>
+                        </div>
+                      </SectionBox>
+
+                      {/* Facebook Page (Social Hub) */}
+                      <SectionBox
+                        title="Facebook Page (Social Hub)"
+                        badge="f — Facebook"
+                        status={statuses.facebook}
+                      >
+                        <div className="space-y-4">
+                          <Field label="Seleccionar Página de Facebook Vinculada">
+                            <div className="flex gap-2">
+                              <select
+                                value={editForm.fb_page_id || ""}
+                                onChange={(e) => handleSelectFbPage(e.target.value)}
+                                className={`${inputCls} flex-1`}
+                                disabled={loadingFbPages}
+                              >
+                                <option value="">-- Seleccionar página auto-detectada --</option>
+                                {discoveredFbPages.map((page) => (
+                                  <option key={page.id} value={page.id}>
+                                    {page.name} ({page.id})
+                                  </option>
+                                ))}
+                                {editForm.fb_page_id && !discoveredFbPages.some(page => page.id === editForm.fb_page_id) && (
+                                  <option value={editForm.fb_page_id}>
+                                    {editForm.fb_page_name || "Página actual"} ({editForm.fb_page_id})
+                                  </option>
+                                )}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => loadDiscoveredFbPages(false)}
+                                disabled={loadingFbPages}
+                                title="Sincronizar/Refrescar páginas desde Meta"
+                                className="px-3 rounded-lg border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center transition-all"
+                              >
+                                <RefreshCw className={`w-3.5 h-3.5 ${loadingFbPages ? "animate-spin" : ""}`} />
+                              </button>
+                            </div>
+                          </Field>
+
+                          <div className="border border-zinc-100 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50/50 dark:bg-zinc-800/20">
+                            <details className="group">
+                              <summary className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 cursor-pointer select-none flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
+                                Configuración Manual / Detalles del ID
+                              </summary>
+                              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Field label="Facebook Page ID Manual">
+                                  <input
+                                    type="text"
+                                    value={editForm.fb_page_id || ""}
+                                    onChange={(e) => ef("fb_page_id", e.target.value)}
+                                    placeholder="10000000000000"
+                                    className={inputCls}
+                                  />
+                                </Field>
+                                <Field label="Facebook Page Name Manual">
+                                  <input
+                                    type="text"
+                                    value={editForm.fb_page_name || ""}
+                                    onChange={(e) => ef("fb_page_name", e.target.value)}
+                                    placeholder="Mi Página de Facebook"
+                                    className={inputCls}
+                                  />
+                                </Field>
+                              </div>
+                            </details>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={testFacebookPage}
+                            disabled={testingFbPage || !editForm.fb_page_id}
+                            className="w-full h-9 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                          >
+                            {testingFbPage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Facebook className="w-3 h-3" />}
+                            Probar Conexión Facebook
+                          </button>
                         </div>
                       </SectionBox>
 

@@ -21,6 +21,9 @@ export interface ClientProfile {
   tiendanube_access_token?: string;
   active?: boolean;
   is_admin?: boolean;
+  client_tags?: string[];
+  fb_page_id?: string;
+  fb_page_name?: string;
   created_at: string;
 }
 
