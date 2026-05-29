@@ -992,7 +992,7 @@ export default function EmailLibraryPage() {
                   {renderSubject(preview.subject || `${preview.angle} ${preview.desc}`, previewName)}
                 </p>
                 {preview.klaviyo_subject && (
-                  <button onClick={() => navigator.clipboard.writeText(preview.klaviyo_subject)} className="flex items-center gap-1 text-left group/subj" title="Copiar asunto Klaviyo">
+                  <button onClick={() => navigator.clipboard.writeText(preview.klaviyo_subject)} className="flex items-center gap-1 text-left group/subj" title="Copiar asunto del correo">
                     <span className="text-[9px] text-zinc-500 truncate group-hover/subj:text-zinc-300 transition-colors font-mono">
                       {renderSubject(preview.klaviyo_subject, previewName)}
                     </span>

@@ -42,7 +42,7 @@ async function fetchKlaviyoData(apiKey: string) {
         Accept: 'application/json',
       },
     });
-    if (!res.ok) throw new Error(`Klaviyo API error: ${res.status}`);
+    if (!res.ok) throw new Error(`Email Marketing API error: ${res.status}`);
     return res.json();
   };
 
@@ -88,8 +88,8 @@ async function fetchKlaviyoData(apiKey: string) {
 
     return { campaigns, flows };
   } catch (error: any) {
-    console.error('Klaviyo error:', error);
-    return { error: error.message || 'Error fetching Klaviyo data' };
+    console.error('Email error:', error);
+    return { error: error.message || 'Error fetching Email Marketing data' };
   }
 }
 
@@ -148,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       type: 'function',
       function: {
         name: 'get_klaviyo_data',
-        description: 'Get live campaigns (sent, scheduled, and draft emails with subjects/send dates) and active flows directly from Klaviyo for a client.',
+        description: 'Get live campaigns (sent, scheduled, and draft emails with subjects/send dates) and active flows directly from the email marketing provider for a client.',
         parameters: {
           type: 'object',
           properties: {
@@ -229,7 +229,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const systemMessage = `Sos el asistente de marketing digital inteligente de Algoritmia.
 Tu nombre es "Algo". Respondés en español argentino, de manera amigable y profesional.
 
-Tienes acceso a herramientas para buscar información real de todos los clientes (campañas de Klaviyo, métricas de Meta Ads, métricas de Email, facturación de e-commerce de Shopify o Tiendanube, asignaciones de mails, creativos de anuncios e Instagram posts).
+Tienes acceso a herramientas para buscar información real de todos los clientes (campañas de Email Marketing, métricas de Meta Ads, métricas de Email, facturación de e-commerce de Shopify o Tiendanube, asignaciones de mails, creativos de anuncios e Instagram posts).
 
 Cuando el usuario te pregunte sobre algún cliente, campaña, métricas, facturación, creativos o mails:
 1. Si no conoces el clientId del cliente mencionado, usa 'list_clients' para buscarlo.
@@ -250,7 +250,7 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
     ` + "`" + `[Ver Creativos en Captación](/#/captacion)` + "`" + `
   * Si hablás de facturación, ventas o e-commerce (Shopify/Tiendanube):
     ` + "`" + `[Ver Rendimiento en Tienda](/#/tienda)` + "`" + `
-  * Si hablás de correos programados, flujos o campañas de Klaviyo:
+  * Si hablás de correos programados, flujos o campañas de Email Marketing:
     ` + "`" + `[Ver Email Marketing](/#/email-marketing)` + "`" + `
   * Para métricas generales, PDFs o reportes mensuales:
     ` + "`" + `[Ver Reportes Mensuales](/#/reportes)` + "`" + `
@@ -367,7 +367,7 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
                 .maybeSingle();
 
               if (!clientData?.klaviyo_api_key) {
-                toolResult = { error: 'Client does not have Klaviyo API Key configured' };
+                toolResult = { error: 'Client does not have Email Marketing API Key configured' };
               } else {
                 toolResult = await fetchKlaviyoData(clientData.klaviyo_api_key);
               }

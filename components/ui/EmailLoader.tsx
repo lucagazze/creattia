@@ -11,7 +11,7 @@ interface Props {
  * Inline progress bar that matches the exact footprint of the metric cards row.
  * No layout shift: same height and border-radius as the cards.
  */
-export default function KlaviyoLoader({ loading, color = '#10b981', labels = ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Klaviyo'], children }: Props) {
+export default function EmailLoader({ loading, color = '#10b981', labels = ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'], children }: Props) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(true);
   const intervalRef = useRef<any>(null);

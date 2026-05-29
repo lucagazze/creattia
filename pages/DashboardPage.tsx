@@ -53,7 +53,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import KlaviyoLoader from "../components/ui/KlaviyoLoader";
+import EmailLoader from "../components/ui/EmailLoader";
 
 const BLUE = "#3b82f6";
 const GREEN = "#10b981";
@@ -1227,7 +1227,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             {fetchingStore ? (
-              <KlaviyoLoader loading={fetchingStore} color={PINK} labels={['Ticket Promedio', 'Pedidos', 'Ingresos']} />
+              <EmailLoader loading={fetchingStore} color={PINK} labels={['Ticket Promedio', 'Pedidos', 'Ingresos']} />
             ) : currentStore ? (
               <>
                 <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
@@ -1390,7 +1390,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             {fetchingMeta ? (
-              <KlaviyoLoader loading={fetchingMeta} color={"#3b82f6"} labels={['Inversión', 'Alcance']} />
+              <EmailLoader loading={fetchingMeta} color={"#3b82f6"} labels={['Inversión', 'Alcance']} />
             ) : currentMeta ? (
               <>
                 <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex overflow-x-auto scrollbar-hide">
@@ -1581,17 +1581,17 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Klaviyo Section */}
+        {/* Email Marketing Section */}
         {profile?.klaviyo_api_key && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-1">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
               <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
-                Retención (Klaviyo)
+                Retención (Email Marketing)
               </h2>
             </div>
             {fetchingKlaviyo ? (
-              <KlaviyoLoader loading={fetchingKlaviyo} color={GREEN} />
+              <EmailLoader loading={fetchingKlaviyo} color={GREEN} />
             ) : currentKlaviyo ? (
               <>
                 <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
@@ -1688,7 +1688,7 @@ export default function DashboardPage() {
                   />
                   {isEcommerce && <ShopifyMetric
                     icon={DollarSign}
-                    label="Ingresos Klaviyo"
+                    label="Ingresos Email"
                     value={`$ ${currentKlaviyo.attributed?.toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
                     change={getKlaviyoChange(
                       currentKlaviyo?.attributed ?? 0,
@@ -1717,7 +1717,7 @@ export default function DashboardPage() {
                       expandedMetric === "k-revenue"
                         ? "Ingresos Tienda Online"
                         : expandedMetric === "k-attr"
-                          ? "Ingresos Klaviyo"
+                          ? "Ingresos Email"
                           : expandedMetric === "k-sent"
                             ? "Entregas"
                             : expandedMetric === "k-click-rate"
@@ -1797,7 +1797,7 @@ export default function DashboardPage() {
               </h3>
               <p className="text-[13px] text-zinc-400 max-w-md">
                 Contacta con el administrador para que configure tus
-                integraciones de Meta Ads, Klaviyo o tu Tienda y comiences a ver
+                integraciones de Meta Ads, Email Marketing o tu Tienda y comiences a ver
                 tus datos en tiempo real.
               </p>
             </div>

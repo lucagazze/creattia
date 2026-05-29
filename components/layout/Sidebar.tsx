@@ -232,16 +232,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
               <span>Email Library</span>
             </Link>
             <Link
-              to="/admin/klaviyo"
+              to="/admin/email-monitor"
               onClick={() => window.innerWidth < 768 && setIsOpen(false)}
               className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 ${
-                location.pathname === '/admin/klaviyo'
+                location.pathname === '/admin/email-monitor'
                   ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
                   : 'text-zinc-500 dark:text-zinc-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/5'
               }`}
             >
               <Workflow className="w-[18px] h-[18px]" />
-              <span>Klaviyo Monitor</span>
+              <span>Email Monitor</span>
             </Link>
             </div>
           )}

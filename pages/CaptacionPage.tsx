@@ -12,7 +12,7 @@ import {
   Users, DollarSign, Target, BarChart2, Globe, Smartphone, User, Megaphone, MessageSquare, Layers, Film, X
 } from 'lucide-react';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
-import KlaviyoLoader from '../components/ui/KlaviyoLoader';
+import EmailLoader from '../components/ui/EmailLoader';
 
 const BLUE = '#3b82f6';
 const GREEN = '#10b981';
@@ -486,7 +486,7 @@ export default function CaptacionPage() {
 
       {/* KPI Cards */}
       {loading ? (
-        <KlaviyoLoader loading={loading} color={BLUE} labels={['Inversión', 'Alcance']} />
+        <EmailLoader loading={loading} color={BLUE} labels={['Inversión', 'Alcance']} />
       ) : summary ? (
         <div className="space-y-6">
           {(() => {

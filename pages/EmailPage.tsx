@@ -6,7 +6,7 @@ export default function EmailPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-[26px] font-bold tracking-[-0.03em] text-zinc-900 dark:text-white">
-            Email Marketing (Klaviyo)
+            Email Marketing
           </h1>
           <p className="text-[14px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-medium">
             Rendimiento de tus envíos y flujos automatizados.

@@ -515,7 +515,7 @@ function CampaignCard({
             disabled={loadingAction !== null}
             onClick={(e) => {
               e.stopPropagation();
-              if (window.confirm(`¿Estás seguro de que querés eliminar la campaña "${c.name}" permanentemente de Klaviyo?`)) {
+              if (window.confirm(`¿Estás seguro de que querés eliminar la campaña "${c.name}" permanentemente de Email Marketing?`)) {
                 handleAction('delete', onDelete);
               }
             }}
@@ -1030,7 +1030,7 @@ function CalendarView({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-export default function KlaviyoMonitorPage() {
+export default function EmailMonitorPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
@@ -1144,7 +1144,7 @@ export default function KlaviyoMonitorPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[22px] font-black text-zinc-900 dark:text-white tracking-tight">Klaviyo Monitor</h1>
+          <h1 className="text-[22px] font-black text-zinc-900 dark:text-white tracking-tight">Email Monitor</h1>
           <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mt-0.5">
             Campañas y flows por cliente
             {lastSync && ` · sync ${lastSync.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`}
@@ -1180,7 +1180,7 @@ export default function KlaviyoMonitorPage() {
       {!selectedId && (
         <div className="flex flex-col items-center justify-center py-20 text-zinc-400">
           <Workflow className="w-10 h-10 mb-3 opacity-30" />
-          <p className="text-sm font-medium">Seleccioná un cliente para ver sus emails de Klaviyo.</p>
+          <p className="text-sm font-medium">Seleccioná un cliente para ver sus emails de Email Marketing.</p>
         </div>
       )}
 
@@ -1193,11 +1193,11 @@ export default function KlaviyoMonitorPage() {
             </div>
             <div className="flex-1">
               <p className="text-[14px] font-bold text-zinc-900 dark:text-white mb-1">
-                {selectedClient?.business_name} no tiene API key de Klaviyo
+                {selectedClient?.business_name} no tiene API key de Email Marketing
               </p>
               <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mb-4">
-                Ingresá la Private API Key del account de Klaviyo del cliente.
-                La encontrás en <strong>Klaviyo → Settings → API Keys</strong>.
+                Ingresá la Private API Key de la cuenta de Email Marketing del cliente.
+                La encontrás en <strong>Configuración → API Keys</strong>.
               </p>
               <div className="flex gap-2">
                 <input

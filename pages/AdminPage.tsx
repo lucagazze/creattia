@@ -957,7 +957,7 @@ export default function AdminPage() {
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-[5px] border ${c.klaviyo_api_key ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20" : "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
                       >
-                        Klaviyo: {c.klaviyo_api_key ? "Conectado" : "No conf."}
+                        Email: {c.klaviyo_api_key ? "Conectado" : "No conf."}
                       </span>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-[5px] border ${c.chatwoot_url ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/20" : "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
@@ -1383,14 +1383,14 @@ export default function AdminPage() {
                 </button>
               </SectionBox>
 
-              {/* Klaviyo */}
+              {/* Email Marketing */}
               <SectionBox
-                title="Klaviyo"
+                title="Email Marketing"
                 badge="R — Retención"
                 status={statuses.klaviyo}
               >
                 <div className="grid grid-cols-1 gap-4">
-                  <Field label="API Key de Klaviyo (Privada)">
+                  <Field label="API Key de Email Marketing (Privada)">
                     <input
                       type="text"
                       value={editForm.klaviyo_api_key}
@@ -1410,7 +1410,7 @@ export default function AdminPage() {
                     ) : (
                       <Mail className="w-3 h-3" />
                     )}
-                    Probar Conexión Klaviyo
+                    Probar Conexión de Email
                   </button>
                 </div>
               </SectionBox>

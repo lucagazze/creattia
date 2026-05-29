@@ -466,7 +466,7 @@ function CampaignCard({
             disabled={loadingAction !== null}
             onClick={(e) => {
               e.stopPropagation();
-              if (window.confirm(`¿Estás seguro de que querés eliminar la campaña "${c.name}" permanentemente de Klaviyo?`)) {
+              if (window.confirm(`¿Estás seguro de que querés eliminar la campaña "${c.name}" permanentemente de Email Marketing?`)) {
                 handleAction('delete', onDelete);
               }
             }}
@@ -1110,7 +1110,7 @@ export default function EmailMarketingPage() {
               Email Marketing
             </h2>
             <p className="text-[12px] text-zinc-400 dark:text-zinc-500">
-              {apiKey ? 'Conectando con Klaviyo...' : 'Cargando asignaciones locales...'}
+              {apiKey ? 'Conectando con el servidor de Email...' : 'Cargando asignaciones locales...'}
             </p>
           </div>
 
@@ -1147,7 +1147,7 @@ export default function EmailMarketingPage() {
           <div>
             <h1 className="text-[22px] font-black text-zinc-900 dark:text-white tracking-tight">Email Marketing</h1>
             <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Monitoreo de envíos en tiempo real de Klaviyo
+              Monitoreo de envíos en tiempo real
               {lastSync && ` · sync ${lastSync.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`}
             </p>
           </div>

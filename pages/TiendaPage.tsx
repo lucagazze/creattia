@@ -6,7 +6,7 @@ import { ecommerce } from '../services/ecommerce';
 import { getPrevPeriod, today, daysAgo, presetToRange } from '../services/metaAds';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
-import KlaviyoLoader from '../components/ui/KlaviyoLoader';
+import EmailLoader from '../components/ui/EmailLoader';
 
 const PINK = '#ec4899';
 
@@ -268,7 +268,7 @@ export default function TiendaPage() {
       </div>
 
       {loading ? (
-        <KlaviyoLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']} />
+        <EmailLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']} />
       ) : data ? (
           <div className="space-y-6">
             {/* Top Stats */}

@@ -440,7 +440,7 @@ export const AIChatFloat = () => {
               <div className="text-center">
                 <p className="text-[15px] font-black text-zinc-700 dark:text-zinc-200">Hola 👋 Soy Algo</p>
                 <p className="text-[12.5px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-[320px] px-4 leading-relaxed">
-                  Tengo acceso a tus campañas, creativos de Meta Ads, correos programados en Klaviyo y ventas de e-commerce.
+                  Tengo acceso a tus campañas, creativos de Meta Ads, correos programados en Email Marketing y ventas de e-commerce.
                 </p>
               </div>
             </div>
