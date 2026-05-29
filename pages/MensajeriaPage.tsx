@@ -29,9 +29,15 @@ export default function MensajeriaPage() {
   const [loadingDraft, setLoadingDraft] = useState<Record<string, boolean>>({});
 
   // Filter States
-  const [inboxFilter, setInboxFilter] = useState<'all' | 'comments' | 'messages'>('all');
+  const [inboxSection, setInboxSection] = useState<'messages' | 'comments'>('messages');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [inboxMode, setInboxMode] = useState<'pending' | 'all'>('pending');
+
+  // Comment Moderations local states
+  const [activeReplyCommentIds, setActiveReplyCommentIds] = useState<Record<string, boolean>>({});
+  const [likedCommentIds, setLikedCommentIds] = useState<Record<string, boolean>>({});
+  const [likingCommentIds, setLikingCommentIds] = useState<Record<string, boolean>>({});
+  const [bulkDraftsLoading, setBulkDraftsLoading] = useState(false);
 
   // Selected Item for Detail Slide-Over
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -123,18 +129,42 @@ export default function MensajeriaPage() {
     }
   };
 
+  // Helper to determine if a comment thread is unanswered/pending
+  const isCommentPending = (comment: any) => {
+    const isFromPage = comment.username === igUsername || comment.from?.id === fbPageId;
+    if (isFromPage) return false;
+    
+    const repliesList = comment.replies?.data || [];
+    if (repliesList.length === 0) return true;
+    
+    const sortedReplies = [...repliesList].sort(
+      (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+    );
+    const latestReply = sortedReplies[sortedReplies.length - 1];
+    const lastIsFromPage = latestReply.username === igUsername || latestReply.from?.id === fbPageId;
+    return !lastIsFromPage;
+  };
+
   // AI draft generator
-  const generateAiDraft = async (item: any) => {
+  const generateAiDraft = async (item: any, allPostComments?: any[]) => {
     setLoadingDraft(prev => ({ ...prev, [item.id]: true }));
     setInboxReplyErrors(prev => ({ ...prev, [item.id]: null }));
     try {
+      const otherCommentsList = allPostComments
+        ? allPostComments
+            .filter(c => c.id !== item.id)
+            .map(c => `@${c.username || c.from?.name}: ${c.text || c.message || ''}`)
+        : [];
+
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
-          itemText: item.text,
-          username: item.username,
+          itemText: item.text || item.message || '',
+          username: item.username || item.from?.name || '',
+          postCaption: selectedItem?.postCaption || '',
+          otherComments: otherCommentsList,
         }),
       });
       if (!res.ok) throw new Error(`Draft reply error: ${res.status}`);
@@ -152,6 +182,180 @@ export default function MensajeriaPage() {
       }));
     } finally {
       setLoadingDraft(prev => ({ ...prev, [item.id]: false }));
+    }
+  };
+
+  // Bulk draft generation for all pending comments in the slide-over
+  const handleBulkDrafts = async (postComments: any[]) => {
+    const pendingComments = postComments.filter(c => isCommentPending(c));
+    if (pendingComments.length === 0) return;
+    
+    setBulkDraftsLoading(true);
+    
+    const promises = pendingComments.map(async (comment) => {
+      setLoadingDraft(prev => ({ ...prev, [comment.id]: true }));
+      try {
+        const usernameStr = comment.username || comment.from?.name || 'usuario';
+        const itemTextStr = comment.text || comment.message || '';
+        
+        // Collect other comments in this post for context
+        const otherCommentsList = postComments
+          .filter(c => c.id !== comment.id)
+          .map(c => `@${c.username || c.from?.name || 'usuario'}: ${c.text || c.message || ''}`);
+
+        const res = await fetch('/api/draft-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId,
+            itemText: itemTextStr,
+            username: usernameStr,
+            postCaption: selectedItem?.postCaption || '',
+            otherComments: otherCommentsList,
+          }),
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.draft) {
+            setInboxReplies(prev => ({ ...prev, [comment.id]: data.draft }));
+          }
+        }
+      } catch (err) {
+        console.error(`Error generating bulk draft for comment ${comment.id}:`, err);
+      } finally {
+        setLoadingDraft(prev => ({ ...prev, [comment.id]: false }));
+      }
+    });
+    
+    await Promise.all(promises);
+    setBulkDraftsLoading(false);
+  };
+
+  // Toggle liking a comment
+  const handleLikeComment = async (commentId: string) => {
+    if (likingCommentIds[commentId]) return;
+    setLikingCommentIds(prev => ({ ...prev, [commentId]: true }));
+    
+    const isCurrentlyLiked = !!likedCommentIds[commentId];
+    try {
+      const platform = selectedItem?.platform || 'instagram';
+      if (isCurrentlyLiked) {
+        await metaAds.unlikeComment(commentId, platform, igId);
+        setLikedCommentIds(prev => ({ ...prev, [commentId]: false }));
+        if (selectedItem?.comments) {
+          selectedItem.comments = selectedItem.comments.map((c: any) => 
+            c.id === commentId ? { ...c, like_count: Math.max(0, (c.like_count || 0) - 1) } : c
+          );
+        }
+      } else {
+        await metaAds.likeComment(commentId, platform, igId);
+        setLikedCommentIds(prev => ({ ...prev, [commentId]: true }));
+        if (selectedItem?.comments) {
+          selectedItem.comments = selectedItem.comments.map((c: any) => 
+            c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling comment like:', err);
+    } finally {
+      setLikingCommentIds(prev => ({ ...prev, [commentId]: false }));
+    }
+  };
+
+  // Submit response for a specific comment inside slide-over
+  const handleCommentReplySubmit = async (e: React.FormEvent, commentId: string, commentPlatform: 'instagram' | 'facebook') => {
+    e.preventDefault();
+    const replyText = inboxReplies[commentId]?.trim();
+    if (!replyText) return;
+
+    setSubmittingInboxReply(prev => ({ ...prev, [commentId]: true }));
+    setInboxReplyErrors(prev => ({ ...prev, [commentId]: null }));
+
+    try {
+      if (commentPlatform === 'instagram') {
+        await metaAds.replyToInstagramComment(commentId, replyText);
+      } else {
+        await metaAds.replyToFacebookComment(commentId, replyText);
+      }
+
+      // Add reply locally to the UI
+      if (selectedItem?.comments) {
+        selectedItem.comments = selectedItem.comments.map((c: any) => {
+          if (c.id === commentId) {
+            const existingReplies = c.replies?.data || [];
+            const newReply = {
+              id: `local_${Date.now()}`,
+              username: igUsername || 'Página',
+              text: replyText,
+              timestamp: new Date().toISOString(),
+              from: { id: fbPageId, name: 'Página' }
+            };
+            return {
+              ...c,
+              replies: {
+                data: [...existingReplies, newReply]
+              }
+            };
+          }
+          return c;
+        });
+      }
+
+      // Clean up reply text
+      setInboxReplies(prev => {
+        const copy = { ...prev };
+        delete copy[commentId];
+        return copy;
+      });
+
+      // Close the reply input
+      setActiveReplyCommentIds(prev => ({ ...prev, [commentId]: false }));
+
+      // Recalculate pending comments and counts in pendingItems
+      setPendingItems(prevItems => 
+        prevItems.map(item => {
+          if (item.id === selectedItem.id) {
+            const updatedComments = item.comments.map((c: any) => {
+              if (c.id === commentId) {
+                const existingReplies = c.replies?.data || [];
+                const newReply = {
+                  id: `local_${Date.now()}`,
+                  username: igUsername || 'Página',
+                  text: replyText,
+                  timestamp: new Date().toISOString(),
+                  from: { id: fbPageId, name: 'Página' }
+                };
+                return {
+                  ...c,
+                  replies: {
+                    data: [...existingReplies, newReply]
+                  }
+                };
+              }
+              return c;
+            });
+            const updatedPending = updatedComments.filter(isCommentPending);
+            return {
+              ...item,
+              comments: updatedComments,
+              pendingCount: updatedPending.length,
+              isPending: updatedPending.length > 0,
+            };
+          }
+          return item;
+        })
+      );
+
+    } catch (err: any) {
+      console.error('Error replying to comment:', err);
+      setInboxReplyErrors(prev => ({
+        ...prev,
+        [commentId]: 'No se pudo enviar la respuesta. Puede que el token no tenga permisos de escritura o haya expirado.',
+      }));
+    } finally {
+      setSubmittingInboxReply(prev => ({ ...prev, [commentId]: false }));
     }
   };
 
@@ -245,136 +449,145 @@ export default function MensajeriaPage() {
 
         const resolvedIgMedia = (igMediaRes as any)?.data || igMediaRes || [];
         const resolvedFbMedia = (fbMediaRes as any)?.data || fbMediaRes || [];
-
         const inboxItems: any[] = [];
 
         // 1. Instagram Direct Messages
         if (igDMsRes?.data) {
           igDMsRes.data.forEach((conv: any) => {
-            if (conv.unread_count > 0) {
-              const lastMsg = conv.messages?.data?.[0];
-              const participant = conv.participants?.data?.find((p: any) => p.id !== fbPageId);
-              inboxItems.push({
-                id: conv.id,
-                type: 'ig_dm',
-                platform: 'instagram',
-                username: participant?.name || lastMsg?.from?.username || 'Usuario de Instagram',
-                text: lastMsg?.message || '(Mensaje de voz o archivo de imagen)',
-                timestamp: lastMsg?.created_time || conv.updated_time,
-                rawItem: conv,
-              });
-            }
+            const lastMsg = conv.messages?.data?.[0];
+            const participant = conv.participants?.data?.find((p: any) => p.id !== fbPageId);
+            inboxItems.push({
+              id: conv.id,
+              type: 'ig_dm',
+              platform: 'instagram',
+              username: participant?.name || lastMsg?.from?.username || 'Usuario de Instagram',
+              text: lastMsg?.message || '(Mensaje de voz o archivo de imagen)',
+              timestamp: lastMsg?.created_time || conv.updated_time,
+              rawItem: conv,
+              isPending: conv.unread_count > 0,
+            });
           });
         }
 
         // 2. Facebook Messenger Messages
         if (fbDMsRes?.data) {
           fbDMsRes.data.forEach((conv: any) => {
-            if (conv.unread_count > 0) {
-              const lastMsg = conv.messages?.data?.[0];
-              const participant = conv.participants?.data?.find((p: any) => p.id !== fbPageId);
-              inboxItems.push({
-                id: conv.id,
-                type: 'fb_dm',
-                platform: 'facebook',
-                username: participant?.name || lastMsg?.from?.name || 'Usuario de Messenger',
-                text: lastMsg?.message || '(Mensaje de voz o archivo de imagen)',
-                timestamp: lastMsg?.created_time || conv.updated_time,
-                rawItem: conv,
-              });
-            }
+            const lastMsg = conv.messages?.data?.[0];
+            const participant = conv.participants?.data?.find((p: any) => p.id !== fbPageId);
+            inboxItems.push({
+              id: conv.id,
+              type: 'fb_dm',
+              platform: 'facebook',
+              username: participant?.name || lastMsg?.from?.name || 'Usuario de Messenger',
+              text: lastMsg?.message || '(Mensaje de voz o archivo de imagen)',
+              timestamp: lastMsg?.created_time || conv.updated_time,
+              rawItem: conv,
+              isPending: conv.unread_count > 0,
+            });
           });
         }
 
-        // 3. Unanswered Instagram Comments
+        // 3. Instagram Comments (grouped by post)
         resolvedIgMedia.forEach((post: any) => {
           const commentsList = post.comments?.data || [];
-          commentsList.forEach((comment: any) => {
-            const isFromPage = comment.username === igUsername;
-            if (!isFromPage) {
+          const userComments = commentsList.filter((comment: any) => comment.username !== igUsername);
+          if (userComments.length > 0) {
+            const pendingList = userComments.filter((comment: any) => {
               const repliesList = comment.replies?.data || [];
-              let isLastFromPage = false;
-              let latestText = comment.text;
-              let latestTimestamp = comment.timestamp;
+              if (repliesList.length === 0) return true;
+              const sortedReplies = [...repliesList].sort(
+                (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+              );
+              const latestReply = sortedReplies[sortedReplies.length - 1];
+              const lastIsFromPage = latestReply.username === igUsername;
+              return !lastIsFromPage;
+            });
 
-              if (repliesList.length > 0) {
-                const sortedReplies = [...repliesList].sort(
-                  (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
-                );
-                const latestReply = sortedReplies[sortedReplies.length - 1];
-                isLastFromPage = latestReply.username === igUsername;
-                if (!isLastFromPage) {
-                  latestText = latestReply.text || latestReply.message || comment.text;
-                  latestTimestamp = latestReply.timestamp || latestReply.created_time || comment.timestamp;
+            let latestTimestamp = post.timestamp || new Date().toISOString();
+            userComments.forEach((c: any) => {
+              const cTime = new Date(c.timestamp).getTime();
+              if (cTime > new Date(latestTimestamp).getTime()) {
+                latestTimestamp = c.timestamp;
+              }
+              const repliesList = c.replies?.data || [];
+              repliesList.forEach((r: any) => {
+                const rTime = new Date(r.timestamp || r.created_time).getTime();
+                if (rTime > new Date(latestTimestamp).getTime()) {
+                  latestTimestamp = r.timestamp || r.created_time;
                 }
-              }
+              });
+            });
 
-              if (!isLastFromPage) {
-                inboxItems.push({
-                  id: comment.id,
-                  type: 'ig_comment',
-                  platform: 'instagram',
-                  username: comment.username,
-                  text: latestText,
-                  timestamp: latestTimestamp,
-                  postCaption: post.caption,
-                  postThumbnail: post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url,
-                  permalink: post.permalink,
-                  rawItem: comment,
-                  postMediaType: post.media_type,
-                  postMediaUrl: post.media_url,
-                  postThumbnailUrl: post.thumbnail_url,
-                });
-              }
-            }
-          });
+            inboxItems.push({
+              id: post.id,
+              type: 'post_comments',
+              platform: 'instagram',
+              username: 'Comentarios de Instagram',
+              text: post.caption || '(Sin descripción)',
+              timestamp: latestTimestamp,
+              postCaption: post.caption,
+              postThumbnail: post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url,
+              permalink: post.permalink,
+              comments: userComments,
+              pendingCount: pendingList.length,
+              totalCount: userComments.length,
+              isPending: pendingList.length > 0,
+              rawItem: post,
+            });
+          }
         });
 
-        // 4. Unanswered Facebook Comments
+        // 4. Facebook Comments (grouped by post)
         resolvedFbMedia.forEach((post: any) => {
           const commentsList = post.comments?.data || [];
-          commentsList.forEach((comment: any) => {
-            const isFromPage = comment.from?.id === fbPageId;
-            if (!isFromPage) {
+          const userComments = commentsList.filter((comment: any) => comment.from?.id !== fbPageId);
+          if (userComments.length > 0) {
+            const pendingList = userComments.filter((comment: any) => {
               const repliesList = comment.replies?.data || [];
-              let isLastFromPage = false;
-              let latestText = comment.message;
-              let latestTimestamp = comment.created_time;
+              if (repliesList.length === 0) return true;
+              const sortedReplies = [...repliesList].sort(
+                (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+              );
+              const latestReply = sortedReplies[sortedReplies.length - 1];
+              const lastIsFromPage = latestReply.from?.id === fbPageId || latestReply.username === igUsername;
+              return !lastIsFromPage;
+            });
 
-              if (repliesList.length > 0) {
-                const sortedReplies = [...repliesList].sort(
-                  (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
-                );
-                const latestReply = sortedReplies[sortedReplies.length - 1];
-                isLastFromPage = latestReply.from?.id === fbPageId || latestReply.username === igUsername;
-                if (!isLastFromPage) {
-                  latestText = latestReply.message || latestReply.text || comment.message;
-                  latestTimestamp = latestReply.created_time || latestReply.timestamp || comment.created_time;
+            let latestTimestamp = post.created_time || new Date().toISOString();
+            userComments.forEach((c: any) => {
+              const cTime = new Date(c.created_time).getTime();
+              if (cTime > new Date(latestTimestamp).getTime()) {
+                latestTimestamp = c.created_time;
+              }
+              const repliesList = c.replies?.data || [];
+              repliesList.forEach((r: any) => {
+                const rTime = new Date(r.timestamp || r.created_time).getTime();
+                if (rTime > new Date(latestTimestamp).getTime()) {
+                  latestTimestamp = r.timestamp || r.created_time;
                 }
-              }
+              });
+            });
 
-              if (!isLastFromPage) {
-                inboxItems.push({
-                  id: comment.id,
-                  type: 'fb_comment',
-                  platform: 'facebook',
-                  username: comment.from?.name || comment.username || 'Usuario de Facebook',
-                  text: latestText,
-                  timestamp: latestTimestamp,
-                  postMessage: post.message,
-                  postThumbnail: post.full_picture,
-                  permalink: post.permalink_url,
-                  rawItem: comment,
-                  postMediaType: post.full_picture ? 'IMAGE' : null,
-                  postMediaUrl: post.full_picture,
-                  postThumbnailUrl: post.full_picture,
-                });
-              }
-            }
-          });
+            inboxItems.push({
+              id: post.id,
+              type: 'post_comments',
+              platform: 'facebook',
+              username: 'Comentarios de Facebook',
+              text: post.message || '(Sin descripción)',
+              timestamp: latestTimestamp,
+              postCaption: post.message,
+              postThumbnail: post.full_picture,
+              permalink: post.permalink_url,
+              comments: userComments,
+              pendingCount: pendingList.length,
+              totalCount: userComments.length,
+              isPending: pendingList.length > 0,
+              rawItem: post,
+            });
+          }
         });
 
-        // 5. Unanswered Meta Ads Comments
+        // 5. Meta Ads Comments (grouped by story)
         if (adsRes?.data) {
           const activeAds = adsRes.data.filter((ad: any) => ad.status === 'ACTIVE' && ad.creative?.effective_object_story_id);
           const activeStoryIds = Array.from(new Set(activeAds.map((ad: any) => ad.creative.effective_object_story_id))) as string[];
@@ -399,42 +612,61 @@ export default function MensajeriaPage() {
             const adCommentsResults = await Promise.all(adCommentsPromises);
             
             adCommentsResults.forEach((result) => {
-              result.comments.forEach((comment: any) => {
-                const isFromPage = comment.from?.id === fbPageId || comment.username === igUsername;
-                if (!isFromPage) {
+              const commentsList = result.comments || [];
+              const userComments = commentsList.filter((comment: any) => comment.from?.id !== fbPageId && comment.username !== igUsername);
+              if (userComments.length > 0) {
+                const pendingList = userComments.filter((comment: any) => {
                   const repliesList = comment.replies?.data || [];
-                  let isLastFromPage = false;
-                  let latestText = comment.text || comment.message || '';
-                  let latestTimestamp = comment.timestamp || comment.created_time;
+                  if (repliesList.length === 0) return true;
+                  const sortedReplies = [...repliesList].sort(
+                    (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+                  );
+                  const latestReply = sortedReplies[sortedReplies.length - 1];
+                  const lastIsFromPage = latestReply.from?.id === fbPageId || latestReply.username === igUsername;
+                  return !lastIsFromPage;
+                });
 
-                  if (repliesList.length > 0) {
-                    const sortedReplies = [...repliesList].sort(
-                      (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
-                    );
-                    const latestReply = sortedReplies[sortedReplies.length - 1];
-                    isLastFromPage = latestReply.from?.id === fbPageId || latestReply.username === igUsername;
-                    if (!isLastFromPage) {
-                      latestText = latestReply.text || latestReply.message || comment.text || comment.message || '';
-                      latestTimestamp = latestReply.timestamp || latestReply.created_time || comment.timestamp || comment.created_time;
+                let latestTimestamp = new Date().toISOString();
+                let hasTime = false;
+                userComments.forEach((c: any) => {
+                  const timestampStr = c.timestamp || c.created_time;
+                  if (timestampStr) {
+                    const cTime = new Date(timestampStr).getTime();
+                    if (!hasTime || cTime > new Date(latestTimestamp).getTime()) {
+                      latestTimestamp = timestampStr;
+                      hasTime = true;
                     }
                   }
+                  const repliesList = c.replies?.data || [];
+                  repliesList.forEach((r: any) => {
+                    const rTimestampStr = r.timestamp || r.created_time;
+                    if (rTimestampStr) {
+                      const rTime = new Date(rTimestampStr).getTime();
+                      if (!hasTime || rTime > new Date(latestTimestamp).getTime()) {
+                        latestTimestamp = rTimestampStr;
+                        hasTime = true;
+                      }
+                    }
+                  });
+                });
 
-                  if (!isLastFromPage) {
-                    inboxItems.push({
-                      id: comment.id,
-                      type: 'ad_comment',
-                      platform: comment.username ? 'instagram' : 'facebook',
-                      username: comment.username || comment.from?.name || 'Usuario de Ads',
-                      text: latestText,
-                      timestamp: latestTimestamp,
-                      adName: result.adName,
-                      postThumbnail: null,
-                      permalink: result.adPermalink,
-                      rawItem: comment,
-                    });
-                  }
-                }
-              });
+                inboxItems.push({
+                  id: result.storyId,
+                  type: 'post_comments',
+                  platform: userComments[0]?.username ? 'instagram' : 'facebook',
+                  username: `Comentarios de Anuncio: ${result.adName}`,
+                  text: `Anuncio: ${result.adName}`,
+                  timestamp: latestTimestamp,
+                  postCaption: `Anuncio: ${result.adName}`,
+                  postThumbnail: null,
+                  permalink: result.adPermalink,
+                  comments: userComments,
+                  pendingCount: pendingList.length,
+                  totalCount: userComments.length,
+                  isPending: pendingList.length > 0,
+                  rawItem: result,
+                });
+              }
             });
           }
         }
@@ -457,23 +689,37 @@ export default function MensajeriaPage() {
   }, [clientId, igId, fbPageId, metaAccountId, refreshKey]);
 
   // Mode-based items selection ('pending' vs 'all')
-  const currentModeItems = useMemo(() => {
-    if (inboxMode === 'pending') {
-      return pendingItems.filter(item => item.isPending);
+  const currentSectionItems = useMemo(() => {
+    if (inboxSection === 'messages') {
+      return pendingItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type));
     }
-    return pendingItems;
-  }, [pendingItems, inboxMode]);
+    return pendingItems.filter(item => item.type === 'post_comments');
+  }, [pendingItems, inboxSection]);
 
-  // Filters for Inbox list
+  // Secondary filter by pending vs all
   const filteredPendingItems = useMemo(() => {
-    if (inboxFilter === 'comments') {
-      return currentModeItems.filter(item => ['ig_comment', 'fb_comment', 'ad_comment'].includes(item.type));
+    if (inboxMode === 'pending') {
+      return currentSectionItems.filter(item => item.isPending);
     }
-    if (inboxFilter === 'messages') {
-      return currentModeItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type));
-    }
-    return currentModeItems;
-  }, [currentModeItems, inboxFilter]);
+    return currentSectionItems;
+  }, [currentSectionItems, inboxMode]);
+
+  // Counts for Badges
+  const pendingMessagesCount = useMemo(() => {
+    return pendingItems.filter(item => item.isPending && ['ig_dm', 'fb_dm'].includes(item.type)).length;
+  }, [pendingItems]);
+
+  const pendingCommentsCount = useMemo(() => {
+    return pendingItems.filter(item => item.isPending && item.type === 'post_comments').length;
+  }, [pendingItems]);
+
+  const allMessagesCount = useMemo(() => {
+    return pendingItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type)).length;
+  }, [pendingItems]);
+
+  const allCommentsCount = useMemo(() => {
+    return pendingItems.filter(item => item.type === 'post_comments').length;
+  }, [pendingItems]);
 
   // Filtered Shopify products
   const filteredProducts = useMemo(() => {
@@ -536,38 +782,39 @@ export default function MensajeriaPage() {
             Este cliente no tiene vinculadas cuentas de Instagram o Facebook Page. Habilitalas desde la Gestión de Clientes.
           </p>
         </div>
-      ) : (
+       ) : (
         <div className="space-y-6 animate-in fade-in duration-200">
-          
-          {/* Primary Tab Switcher: Pendientes vs Todos */}
+          {/* Primary Tab Switcher: Mensajería Directa (DMs) vs Comentarios de Publicaciones */}
           <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">
             <button
-              onClick={() => setInboxMode('pending')}
+              onClick={() => setInboxSection('messages')}
               className={`pb-3 text-[14px] font-black tracking-tight transition-all relative flex items-center gap-1.5 focus:outline-none ${
-                inboxMode === 'pending'
+                inboxSection === 'messages'
                   ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 font-extrabold'
                   : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 border-b-2 border-transparent'
               }`}
             >
-              <Inbox className="w-4 h-4" />
-              Bandeja de Pendientes
-              <span className="bg-violet-100 text-violet-755 dark:bg-violet-950/40 dark:text-violet-400 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1">
-                {pendingItems.filter(item => item.isPending).length}
-              </span>
+              📥 Mensajería Directa (DMs)
+              {pendingMessagesCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                  {pendingMessagesCount}
+                </span>
+              )}
             </button>
             <button
-              onClick={() => setInboxMode('all')}
+              onClick={() => setInboxSection('comments')}
               className={`pb-3 text-[14px] font-black tracking-tight transition-all relative flex items-center gap-1.5 focus:outline-none ${
-                inboxMode === 'all'
+                inboxSection === 'comments'
                   ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 font-extrabold'
                   : 'text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300 border-b-2 border-transparent'
               }`}
             >
-              <MessageSquare className="w-4 h-4" />
-              Todos los Mensajes
-              <span className="bg-zinc-150 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1">
-                {pendingItems.length}
-              </span>
+              💬 Comentarios de Publicaciones
+              {pendingCommentsCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                  {pendingCommentsCount}
+                </span>
+              )}
             </button>
           </div>
 
@@ -580,7 +827,7 @@ export default function MensajeriaPage() {
               </p>
             </div>
             {!fbPageId && (
-              <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0">
+              <span className="bg-amber-100 text-amber-800 dark:bg-amber-955/40 dark:text-amber-400 text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0">
                 Facebook sin conectar
               </span>
             )}
@@ -589,30 +836,33 @@ export default function MensajeriaPage() {
           {/* Inbox Sub-Filters */}
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-1 bg-zinc-150/80 dark:bg-zinc-800/60 border border-zinc-200/40 dark:border-zinc-700/65 p-0.5 rounded-xl">
-              {[
-                { id: 'all', label: `Todos (${currentModeItems.length})` },
-                { id: 'comments', label: `Comentarios (${currentModeItems.filter(i => ['ig_comment', 'fb_comment', 'ad_comment'].includes(i.type)).length})` },
-                { id: 'messages', label: `Mensajes (${currentModeItems.filter(i => ['ig_dm', 'fb_dm'].includes(i.type)).length})` }
-              ].map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => setInboxFilter(f.id as any)}
-                  className={`px-3 py-1.5 rounded-lg text-[11.5px] font-bold transition-all ${
-                    inboxFilter === f.id
-                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm font-black'
-                      : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+              <button
+                onClick={() => setInboxMode('pending')}
+                className={`px-3 py-1.5 rounded-lg text-[11.5px] font-bold transition-all ${
+                  inboxMode === 'pending'
+                    ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm font-black'
+                    : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-200'
+                }`}
+              >
+                Solo Pendientes ({inboxSection === 'messages' ? pendingMessagesCount : pendingCommentsCount})
+              </button>
+              <button
+                onClick={() => setInboxMode('all')}
+                className={`px-3 py-1.5 rounded-lg text-[11.5px] font-bold transition-all ${
+                  inboxMode === 'all'
+                    ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm font-black'
+                    : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-205'
+                }`}
+              >
+                Mostrar Todos ({inboxSection === 'messages' ? allMessagesCount : allCommentsCount})
+              </button>
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
               <p className="text-[12px] text-zinc-405 font-bold">
                 {inboxMode === 'pending' 
                   ? `Mostrando ${filteredPendingItems.length} pendientes` 
-                  : `Mostrando ${filteredPendingItems.length} mensajes`
+                  : `Mostrando ${filteredPendingItems.length} totales`
                 }
               </p>
               
@@ -659,7 +909,7 @@ export default function MensajeriaPage() {
               </p>
             </div>
           ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in fade-in duration-200">
               {filteredPendingItems.map((item: any) => (
                 <div 
                   key={item.id} 
@@ -683,9 +933,9 @@ export default function MensajeriaPage() {
                           <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-200 block leading-tight">
                             {item.type === 'ig_dm' && 'Mensaje (Direct)'}
                             {item.type === 'fb_dm' && 'Mensaje (Messenger)'}
-                            {item.type === 'ig_comment' && 'Comentario'}
-                            {item.type === 'fb_comment' && 'Comentario'}
-                            {item.type === 'ad_comment' && `Comentario (Anuncio)`}
+                            {item.type === 'post_comments' && item.platform === 'instagram' && 'Comentarios IG'}
+                            {item.type === 'post_comments' && item.platform === 'facebook' && 'Comentarios FB'}
+                            {item.type === 'post_comments' && !['instagram','facebook'].includes(item.platform) && 'Comentarios'}
                           </span>
                           <span className="text-[9.5px] text-zinc-400 font-bold block mt-0.5">
                             {new Date(item.timestamp).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -704,7 +954,7 @@ export default function MensajeriaPage() {
                           </span>
                         )}
                         
-                        {(item.postThumbnail || item.type === 'ad_comment') && (
+                        {(item.postThumbnail) && (
                           <div className="w-8 h-8 bg-zinc-100 dark:bg-zinc-850 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 flex-shrink-0">
                             {item.postThumbnail ? (
                               <img src={item.postThumbnail} alt="" className="w-full h-full object-cover" />

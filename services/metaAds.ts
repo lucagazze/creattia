@@ -194,6 +194,22 @@ const apiPostPageActive = async (endpoint: string, params: Record<string, string
   return json;
 };
 
+const apiDeletePageActive = async (endpoint: string, params: Record<string, string> = {}): Promise<any> => {
+  const activePageId = localStorage.getItem('active_fb_page_id') || '';
+  const token = activePageId ? await getPageAccessToken(activePageId) : getToken();
+  const url = new URL(`${BASE}/${endpoint}`);
+  url.searchParams.set('access_token', token);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString(), {
+    method: 'DELETE',
+  });
+  const json = await res.json();
+  if (json?.error) {
+    throw new Error(json.error.message || `Meta API error`);
+  }
+  return json;
+};
+
 export const metaAds = {
   // ── ALL AD ACCOUNTS (paginado) ─────────────────────────────
   getAllAdAccounts: async () => {
@@ -528,4 +544,20 @@ export const metaAds = {
       fields: 'id,text,timestamp,from,username,like_count,replies{id,text,from,username,timestamp}',
       limit: '50',
     }),
+
+  likeComment: async (commentId: string, platform: 'instagram' | 'facebook', igUserId?: string) => {
+    if (platform === 'instagram' && igUserId) {
+      return apiPostPageActive(`${igUserId}/likes`, { comment_id: commentId });
+    } else {
+      return apiPostPageActive(`${commentId}/likes`);
+    }
+  },
+
+  unlikeComment: async (commentId: string, platform: 'instagram' | 'facebook', igUserId?: string) => {
+    if (platform === 'instagram' && igUserId) {
+      return apiDeletePageActive(`${igUserId}/likes`, { comment_id: commentId });
+    } else {
+      return apiDeletePageActive(`${commentId}/likes`);
+    }
+  },
 };

@@ -27,10 +27,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }
 
-  const { clientId, itemText, username } = req.body as {
+  const { clientId, itemText, username, postCaption, otherComments } = req.body as {
     clientId: string;
     itemText: string;
     username: string;
+    postCaption?: string;
+    otherComments?: string[];
   };
 
   if (!clientId || !itemText) {
@@ -90,6 +92,8 @@ CRITICAL INSTRUCTION - LANGUAGE DETECTION:
 Details:
 - Social media user: @${username}
 - Message sent: "${itemText}"
+${postCaption ? `- Caption/Text of the post (context): "${postCaption}"` : ''}
+${otherComments && otherComments.length > 0 ? `- Other comments in the same post (context):\n${otherComments.map(c => `  * ${c}`).join('\n')}` : ''}
 
 ${productsContext}
 
@@ -98,7 +102,8 @@ Rules:
 2. If they ask about a specific product, availability, price, or how to buy, recommend the product from the catalog and include EXACTLY the corresponding link: https://${cleanDomainForLink}/products/[product-handle]. Do not make up handles.
 3. If they ask about shopping, shipping, or general prices and there is no specific matching product in the catalog, always offer the main website link: https://${cleanDomainForLink}.
 4. Do not use placeholders like [price] or [link]. The reply must be ready to send.
-5. Output ONLY the final drafted text, without explanations, quotes, or prefixes.`;
+5. Output ONLY the final drafted text, without explanations, quotes, or prefixes.
+6. If the user asks about a specific product (its availability, if you sell it, or how to get it) and the product is NOT present in the catalog listed above, you MUST explicitly state that the product is currently not available or not in stock, and invite them to browse the online store at https://${cleanDomainForLink} to see all other products.`;
 
     // 4. Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {

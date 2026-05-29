@@ -588,7 +588,7 @@ export const AIChatFloat = () => {
       ref={containerRef}
       className={`fixed print:hidden transition-all duration-300 ${
         isOpen
-          ? 'inset-0 w-full h-[100dvh] bg-white dark:bg-zinc-950 flex flex-col justify-start p-0 left-0 top-0 translate-x-0 z-[350] md:inset-auto md:bg-transparent md:backdrop-blur-none md:p-0 md:fixed md:z-[250] md:bottom-6 md:w-[820px] md:left-[calc(50%+120px)] md:-translate-x-1/2'
+          ? 'inset-0 w-full h-[100dvh] bg-white dark:bg-zinc-950 flex flex-col justify-start p-0 left-0 top-0 translate-x-0 z-[350] md:inset-auto md:bg-transparent md:backdrop-blur-none md:p-0 md:fixed md:z-[250] md:bottom-6 md:w-[820px] md:h-auto md:left-[calc(50%+120px)] md:-translate-x-1/2'
           : 'bottom-2 w-[96%] left-1/2 -translate-x-1/2 md:bottom-6 md:w-[820px] md:left-[calc(50%+120px)] z-[250]'
       }`}
     >

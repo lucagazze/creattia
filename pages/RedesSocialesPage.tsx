@@ -65,10 +65,182 @@ export default function RedesSocialesPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittingReply, setSubmittingReply] = useState(false);
 
+  // States for per-comment replies
+  const [commentReplies, setCommentReplies] = useState<Record<string, string>>({});
+  const [commentRepliesLoadingDraft, setCommentRepliesLoadingDraft] = useState<Record<string, boolean>>({});
+  const [commentRepliesSubmitting, setCommentRepliesSubmitting] = useState<Record<string, boolean>>({});
+  const [commentRepliesErrors, setCommentRepliesErrors] = useState<Record<string, string | null>>({});
+  const [activeReplyCommentIds, setActiveReplyCommentIds] = useState<Record<string, boolean>>({});
+  const [bulkDraftsLoading, setBulkDraftsLoading] = useState(false);
+
+  // Likes local state optimization
+  const [likedCommentIds, setLikedCommentIds] = useState<Record<string, boolean>>({});
+  const [likingCommentIds, setLikingCommentIds] = useState<Record<string, boolean>>({});
+
   // Resolve IDs from client profile
   const igId = (profile as any)?.ig_business_id;
   const igUsername = (profile as any)?.ig_username;
   const fbPageId = (profile as any)?.fb_page_id;
+
+  // Helper to determine if a comment thread is unanswered/pending
+  const isCommentPending = (comment: any) => {
+    const isFromPage = comment.username === igUsername || comment.from?.id === fbPageId;
+    if (isFromPage) return false;
+    
+    const repliesList = comment.replies?.data || [];
+    if (repliesList.length === 0) return true;
+    
+    const sortedReplies = [...repliesList].sort(
+      (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+    );
+    const latestReply = sortedReplies[sortedReplies.length - 1];
+    const lastIsFromPage = latestReply.username === igUsername || latestReply.from?.id === fbPageId;
+    return !lastIsFromPage;
+  };
+
+  // Bulk draft generation for all pending comments in the modal
+  const handleBulkDrafts = async () => {
+    const pendingComments = comments.filter(c => isCommentPending(c));
+    if (pendingComments.length === 0) return;
+    
+    setBulkDraftsLoading(true);
+    
+    const postCaptionContext = igMedia.find(m => m.id === selectedPostId)?.caption || fbMedia.find(m => m.id === selectedPostId)?.message || '';
+    
+    const promises = pendingComments.map(async (comment) => {
+      setCommentRepliesLoadingDraft(prev => ({ ...prev, [comment.id]: true }));
+      try {
+        const usernameStr = comment.username || comment.from?.name || 'usuario';
+        const itemTextStr = comment.text || comment.message || '';
+        
+        // Collect other comments in this post for context
+        const otherCommentsList = comments
+          .filter(c => c.id !== comment.id)
+          .map(c => `@${c.username || c.from?.name || 'usuario'}: ${c.text || c.message || ''}`);
+
+        const res = await fetch('/api/draft-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId,
+            itemText: itemTextStr,
+            username: usernameStr,
+            postCaption: postCaptionContext,
+            otherComments: otherCommentsList,
+          }),
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.draft) {
+            setCommentReplies(prev => ({ ...prev, [comment.id]: data.draft }));
+          }
+        }
+      } catch (err) {
+        console.error(`Error generating bulk draft for comment ${comment.id}:`, err);
+      } finally {
+        setCommentRepliesLoadingDraft(prev => ({ ...prev, [comment.id]: false }));
+      }
+    });
+    
+    await Promise.all(promises);
+    setBulkDraftsLoading(false);
+  };
+
+  // Submit response for a specific comment (inline)
+  const handleSubmitPerComment = async (e: React.FormEvent, commentId: string) => {
+    e.preventDefault();
+    const replyText = commentReplies[commentId]?.trim();
+    if (!replyText || !selectedPostId) return;
+    
+    setCommentRepliesSubmitting(prev => ({ ...prev, [commentId]: true }));
+    setCommentRepliesErrors(prev => ({ ...prev, [commentId]: null }));
+    
+    try {
+      if (selectedPostType === 'instagram') {
+        await metaAds.replyToInstagramComment(commentId, replyText);
+      } else {
+        await metaAds.replyToFacebookComment(commentId, replyText);
+      }
+      
+      // Clear input and reload comments
+      setCommentReplies(prev => {
+        const copy = { ...prev };
+        delete copy[commentId];
+        return copy;
+      });
+      
+      // Hide the input block
+      setActiveReplyCommentIds(prev => ({ ...prev, [commentId]: false }));
+      
+      await fetchComments(selectedPostId, selectedPostType);
+    } catch (err: any) {
+      console.error(`Failed to submit reply to comment ${commentId}:`, err);
+      setCommentRepliesErrors(prev => ({
+        ...prev,
+        [commentId]: 'No se pudo enviar la respuesta. Verifica tus permisos o hazlo desde la plataforma original.'
+      }));
+    } finally {
+      setCommentRepliesSubmitting(prev => ({ ...prev, [commentId]: false }));
+    }
+  };
+
+  // Single comment AI draft generator (inline)
+  const handleSingleCommentDraft = async (commentId: string, itemText: string, username: string) => {
+    setCommentRepliesLoadingDraft(prev => ({ ...prev, [commentId]: true }));
+    setCommentRepliesErrors(prev => ({ ...prev, [commentId]: null }));
+    try {
+      const postCaptionContext = igMedia.find(m => m.id === selectedPostId)?.caption || fbMedia.find(m => m.id === selectedPostId)?.message || '';
+      const otherCommentsList = comments
+        .filter(c => c.id !== commentId)
+        .map(c => `@${c.username || c.from?.name || 'usuario'}: ${c.text || c.message || ''}`);
+
+      const res = await fetch('/api/draft-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          itemText,
+          username,
+          postCaption: postCaptionContext,
+          otherComments: otherCommentsList,
+        }),
+      });
+      if (!res.ok) throw new Error(`Draft reply error: ${res.status}`);
+      const data = await res.json();
+      if (data.draft) {
+        setCommentReplies(prev => ({ ...prev, [commentId]: data.draft }));
+      }
+    } catch (err: any) {
+      console.error(`Failed to generate draft for comment ${commentId}:`, err);
+      setCommentRepliesErrors(prev => ({ ...prev, [commentId]: 'No se pudo generar el borrador.' }));
+    } finally {
+      setCommentRepliesLoadingDraft(prev => ({ ...prev, [commentId]: false }));
+    }
+  };
+
+  // Toggle liking a comment (local updates for high responsiveness)
+  const handleLikeComment = async (commentId: string) => {
+    if (likingCommentIds[commentId]) return;
+    setLikingCommentIds(prev => ({ ...prev, [commentId]: true }));
+    
+    const isCurrentlyLiked = !!likedCommentIds[commentId];
+    try {
+      if (isCurrentlyLiked) {
+        await metaAds.unlikeComment(commentId, selectedPostType, igId);
+        setLikedCommentIds(prev => ({ ...prev, [commentId]: false }));
+        setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: Math.max(0, (c.like_count || 0) - 1) } : c));
+      } else {
+        await metaAds.likeComment(commentId, selectedPostType, igId);
+        setLikedCommentIds(prev => ({ ...prev, [commentId]: true }));
+        setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c));
+      }
+    } catch (err) {
+      console.error('Error toggling comment like:', err);
+    } finally {
+      setLikingCommentIds(prev => ({ ...prev, [commentId]: false }));
+    }
+  };
 
   // Track page ID in localStorage to enable token retrieval in services
   useEffect(() => {
@@ -153,6 +325,13 @@ export default function RedesSocialesPage() {
     setReplyingTo(null);
     setCommentInput('');
     setSubmitError(null);
+    setCommentReplies({});
+    setCommentRepliesLoadingDraft({});
+    setCommentRepliesSubmitting({});
+    setCommentRepliesErrors({});
+    setActiveReplyCommentIds({});
+    setLikedCommentIds({});
+    setLikingCommentIds({});
   };
 
   const handleSubmitComment = async (e: React.FormEvent) => {
@@ -900,10 +1079,30 @@ export default function RedesSocialesPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {comments.some(isCommentPending) && (
+                    <button
+                      onClick={handleBulkDrafts}
+                      disabled={bulkDraftsLoading}
+                      className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12.5px] font-black transition-all shadow-md shadow-violet-500/10 cursor-pointer disabled:opacity-50"
+                    >
+                      {bulkDraftsLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                      Generar borradores con IA para todos ({comments.filter(isCommentPending).length})
+                    </button>
+                  )}
+
                   {comments.map((comment: any) => {
                     const dateStr = comment.timestamp
                       ? new Date(comment.timestamp).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                       : '';
+                    const isLiked = !!likedCommentIds[comment.id];
+                    const isLiking = !!likingCommentIds[comment.id];
+                    const isPending = isCommentPending(comment);
+                    const showInlineForm = isPending || !!activeReplyCommentIds[comment.id];
+
                     return (
                       <div 
                         key={comment.id}
@@ -911,34 +1110,104 @@ export default function RedesSocialesPage() {
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[13px] text-zinc-800 dark:text-zinc-200">@{comment.username}</span>
-                          <span className="text-[10px] text-zinc-400">{dateStr}</span>
+                          <div className="flex items-center gap-2">
+                            {isPending && (
+                              <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/20 dark:text-amber-400 text-[8.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                                Pendiente
+                              </span>
+                            )}
+                            <span className="text-[10px] text-zinc-400">{dateStr}</span>
+                          </div>
                         </div>
-                        <p className="text-[12.5px] text-zinc-705 dark:text-zinc-300 leading-snug break-words font-medium">{comment.text}</p>
+                        <p className="text-[12.5px] text-zinc-705 dark:text-zinc-300 leading-snug break-words font-medium">{comment.text || comment.message}</p>
                         
                         <div className="flex items-center justify-between pt-1.5 border-t border-zinc-50 dark:border-zinc-850/40">
-                          <span className="text-[11px] text-zinc-400 flex items-center gap-1">
-                            {selectedPostType === 'instagram' ? <Heart className="w-3 h-3 text-zinc-400" /> : <ThumbsUp className="w-3 h-3 text-zinc-400" />}
-                            {comment.like_count || 0}
-                          </span>
                           <button
-                            onClick={() => setReplyingTo({ id: comment.id, username: comment.username })}
+                            onClick={() => handleLikeComment(comment.id)}
+                            disabled={isLiking}
+                            className={`text-[11px] font-bold flex items-center gap-1.5 hover:underline cursor-pointer disabled:opacity-50 transition-colors ${
+                              isLiked 
+                                ? selectedPostType === 'instagram' 
+                                  ? 'text-red-500 dark:text-red-400' 
+                                  : 'text-blue-600 dark:text-blue-450' 
+                                : 'text-zinc-405 hover:text-zinc-600 dark:hover:text-zinc-350'
+                            }`}
+                          >
+                            {selectedPostType === 'instagram' ? (
+                              <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current text-red-500' : ''}`} />
+                            ) : (
+                              <ThumbsUp className={`w-3.5 h-3.5 ${isLiked ? 'fill-current text-blue-600' : ''}`} />
+                            )}
+                            {comment.like_count || 0}
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              setActiveReplyCommentIds(prev => ({ ...prev, [comment.id]: !prev[comment.id] }));
+                              setReplyingTo({ id: comment.id, username: comment.username });
+                            }}
                             className="text-[11px] font-bold text-violet-550 hover:text-violet-750 dark:hover:text-violet-400 hover:underline cursor-pointer"
                           >
                             Responder
                           </button>
                         </div>
 
+                        {/* Inline Reply Form */}
+                        {showInlineForm && (
+                          <form onSubmit={(e) => handleSubmitPerComment(e, comment.id)} className="mt-3 space-y-2 pt-2.5 border-t border-zinc-100 dark:border-zinc-850/50">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder={`Responder a @${comment.username}...`}
+                                value={commentReplies[comment.id] || ''}
+                                onChange={(e) => setCommentReplies(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                                className="flex-1 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[12px] text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                disabled={commentRepliesSubmitting[comment.id] || commentRepliesLoadingDraft[comment.id]}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSingleCommentDraft(comment.id, comment.text || comment.message || '', comment.username || comment.from?.name || '')}
+                                disabled={commentRepliesLoadingDraft[comment.id] || commentRepliesSubmitting[comment.id]}
+                                className="px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/25 dark:hover:bg-violet-900/40 text-violet-650 dark:text-violet-400 rounded-xl text-[11px] font-bold border border-violet-100/50 dark:border-violet-900/25 flex items-center justify-center cursor-pointer"
+                                title="Generar borrador con IA"
+                              >
+                                {commentRepliesLoadingDraft[comment.id] ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={commentRepliesSubmitting[comment.id] || commentRepliesLoadingDraft[comment.id] || !commentReplies[comment.id]?.trim()}
+                                className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[11px] font-bold disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                              >
+                                {commentRepliesSubmitting[comment.id] ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  'Enviar'
+                                )}
+                              </button>
+                            </div>
+                            {commentRepliesErrors[comment.id] && (
+                              <p className="text-[10px] text-red-500 font-semibold">{commentRepliesErrors[comment.id]}</p>
+                            )}
+                          </form>
+                        )}
+
                         {/* Nested Replies */}
                         {comment.replies?.data && comment.replies.data.length > 0 && (
-                          <div className="pl-4 mt-2 space-y-2 border-l-2 border-zinc-100 dark:border-zinc-800">
+                          <div className="pl-4 mt-2 space-y-2 border-l-2 border-zinc-150 dark:border-zinc-805">
                             {comment.replies.data.map((reply: any) => {
                               const rDateStr = reply.timestamp || reply.created_time
                                 ? new Date(reply.timestamp || reply.created_time).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                                 : '';
+                              const replyUser = reply.username || reply.from?.name || 'Página';
+                              const isPage = replyUser === igUsername || reply.from?.id === fbPageId;
                               return (
                                 <div key={reply.id} className="bg-zinc-50 dark:bg-zinc-950/40 p-2.5 rounded-xl text-[11.5px] space-y-1">
                                   <div className="flex items-center justify-between font-bold text-zinc-600 dark:text-zinc-400">
-                                    <span>@{reply.username || reply.from?.name || 'Página'}</span>
+                                    <span>@{replyUser}</span>
                                     <span className="text-[9px] text-zinc-400 font-normal">{rDateStr}</span>
                                   </div>
                                   <p className="text-zinc-650 dark:text-zinc-300 leading-snug font-medium">{reply.text || reply.message}</p>
