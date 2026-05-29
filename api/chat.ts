@@ -238,8 +238,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       type: 'function',
       function: {
         name: 'get_ecommerce_data',
-        description: "This month's ecommerce data: revenue, orders count, AOV from Shopify/Tiendanube. Use for questions about sales, revenue, or orders.",
-        parameters: { type: 'object', properties: { clientId: { type: 'string' } }, required: ['clientId'] },
+        description: 'Shopify/Tiendanube e-commerce sales data: revenue, orders, AOV. Use for questions about sales, revenue, or orders.',
+        parameters: { type: 'object', properties: {
+          clientId: { type: 'string', description: 'Client UUID' },
+          days: { type: 'number', description: 'Days to look back: 7, 14, 30, 90. Default 30 (or this month).' }
+        }, required: ['clientId'] },
       },
     },
     {
@@ -544,14 +547,21 @@ END every response with exactly:
           }
 
         } else if (name === 'get_ecommerce_data') {
-          const { clientId } = args;
+          const { clientId, days } = args;
           if (!clientId || !isAuthorizedForClient(clientId)) { toolResult = { error: 'Access denied' }; }
           else {
             const client = await getClientData(clientId, 'ecommerce_platform,shopify_domain,shopify_access_token,tiendanube_store_id,tiendanube_access_token');
             if (!client) { toolResult = { error: 'Client not found' }; }
             else {
               const now = new Date();
-              const sinceIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+              let sinceIso: string;
+              if (days) {
+                const sinceDate = new Date();
+                sinceDate.setDate(now.getDate() - days);
+                sinceIso = sinceDate.toISOString();
+              } else {
+                sinceIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+              }
               const untilIso = now.toISOString();
               if (client.ecommerce_platform === 'shopify') {
                 try {
