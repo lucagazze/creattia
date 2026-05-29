@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 import EmailLoader from '../components/ui/EmailLoader';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 
 const MAIN_COLOR = '#10b981'; // Green (Emerald) for Retention
 
@@ -321,12 +322,8 @@ export default function RetencionPage() {
         return (
           <div className="space-y-6 pt-2">
             {/* Flows */}
-            <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-              {fetchingConfig && (
-                <div className="h-[2px] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                  <div className="h-full bg-emerald-500 animate-[loadbar_1.5s_ease-in-out_infinite]" style={{ animation: 'loadbar 1.5s ease-in-out infinite' }} />
-                </div>
-              )}
+            <div className="relative bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+              <TopLoadingBar loading={fetchingConfig} color="#10b981" inline />
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Zap className="w-3.5 h-3.5 text-emerald-500" /></div>
@@ -401,12 +398,8 @@ export default function RetencionPage() {
             </div>
 
             {/* Campaigns */}
-            <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-              {fetchingConfig && (
-                <div className="h-[2px] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                  <div className="h-full bg-emerald-500" style={{ animation: 'loadbar 1.8s ease-in-out infinite' }} />
-                </div>
-              )}
+            <div className="relative bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+              <TopLoadingBar loading={fetchingConfig} color="#10b981" inline />
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Mail className="w-3.5 h-3.5 text-emerald-500" /></div>
@@ -477,10 +470,7 @@ export default function RetencionPage() {
           </div>
         );
       })()}
-      <style>{`
-        @media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }
-        @keyframes loadbar { 0% { transform: translateX(-100%); } 50% { transform: translateX(60%); } 100% { transform: translateX(200%); } }
-      `}</style>
+      <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
   );
 }
