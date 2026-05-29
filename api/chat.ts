@@ -278,7 +278,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ? `ACTIVE CLIENT: "${profile?.business_name || 'User'}" — clientId="${fallbackClientId}". Always pass this exact clientId.`
     : 'No active client. Use list_clients to find one.';
 
-  const systemMessage = `You are Algo, Algoritmia's AI assistant. Respond in Argentine Spanish (vos, tenés, etc.) — friendly and professional.
+  const systemMessage = `You are Algor, Algoritmia's AI assistant. Respond in Argentine Spanish (vos, tenés, etc.) — friendly and professional.
 
 ${activeClientText}
 

@@ -382,16 +382,82 @@ export const AIChatFloat = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen, isRecording, isTranscribing]);
 
-  // Escape key
+  // Wake Word Detection ("Oye Algor")
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && isOpen) setIsOpen(false); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isOpen]);
+    let recognition: any = null;
+    let isStopping = false;
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition || isOpen || isRecording || isTranscribing || isThinking) {
+      return;
+    }
+
+    try {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'es-AR';
+
+      recognition.onresult = (event: any) => {
+        const lastResultIndex = event.resultIndex;
+        const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
+        console.log('[Wake Word check]:', transcript);
+        if (
+          transcript.includes('oye algor') || 
+          transcript.includes('hola algor') || 
+          transcript.includes('algor') || 
+          transcript.includes('oye algo') || 
+          transcript.includes('hola algo') ||
+          transcript.includes('al gore')
+        ) {
+          setIsOpen(true);
+          setTimeout(() => {
+            startRecording();
+          }, 350);
+        }
+      };
+
+      recognition.onerror = (e: any) => {
+        if (e.error === 'not-allowed') {
+          isStopping = true;
+        }
+      };
+
+      recognition.onend = () => {
+        if (!isStopping && !isOpen && !isRecording && !isTranscribing && !isThinking) {
+          try { recognition.start(); } catch {}
+        }
+      };
+
+      recognition.start();
+    } catch (e) {
+      console.error('[Wake Word init error]:', e);
+    }
+
+    return () => {
+      isStopping = true;
+      if (recognition) {
+        try { recognition.stop(); } catch {}
+      }
+    };
+  }, [isOpen, isRecording, isTranscribing, isThinking]);
 
   const handleSend = async (textOverride?: string) => {
     const text = (textOverride ?? input).trim();
     if (!text || isThinking) return;
+
+    // Voice navigation routing command parser
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('llevame a') || lowerText.includes('ir a') || lowerText.includes('abrir') || lowerText.includes('ver') || lowerText.includes('navegar a')) {
+      if (lowerText.includes('captación') || lowerText.includes('captacion')) handleNavigate('/captacion');
+      else if (lowerText.includes('tienda')) handleNavigate('/tienda');
+      else if (lowerText.includes('atención') || lowerText.includes('atencion')) handleNavigate('/atencion');
+      else if (lowerText.includes('retención') || lowerText.includes('retencion')) handleNavigate('/retencion');
+      else if (lowerText.includes('reportes')) handleNavigate('/reportes');
+      else if (lowerText.includes('links') || lowerText.includes('mis accesos') || lowerText.includes('acceso')) handleNavigate('/links');
+      else if (lowerText.includes('email marketing')) handleNavigate('/email-marketing');
+      else if (lowerText.includes('inicio') || lowerText.includes('dashboard') || lowerText.includes('principal')) handleNavigate('/');
+    }
 
     const userMsg: Message = { role: 'user', content: text };
     const updatedMessages = [...messages, userMsg];
@@ -556,9 +622,9 @@ export const AIChatFloat = () => {
       className="fixed z-[250] bottom-2 md:bottom-6 print:hidden w-[96%] left-1/2 -translate-x-1/2 md:w-[820px] md:left-[calc(50%+120px)]"
     >
       {/* ── Chat panel ── */}
-      <div className={`absolute bottom-full mb-2 md:mb-3 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden transition-all duration-300 origin-bottom flex flex-col ${
+      <div className={`absolute bottom-full mb-2 md:mb-3 w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden spring-transition origin-bottom flex flex-col ${
         isOpen ? 'opacity-100 scale-100 h-[calc(100svh-9rem)] md:h-[640px]' : 'opacity-0 scale-95 h-0 pointer-events-none'
-      }`}>
+      } ${isThinking ? 'siri-glow border-violet-500/50' : ''}`}>
 
         {/* Header */}
         <div className="flex justify-between items-center px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
@@ -567,7 +633,7 @@ export const AIChatFloat = () => {
               <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-7 h-7 object-contain" />
             </div>
             <div>
-              <p className="text-[14.5px] font-black text-zinc-800 dark:text-zinc-200 leading-none">Algo IA</p>
+              <p className="text-[14.5px] font-black text-zinc-800 dark:text-zinc-200 leading-none">Algor IA</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -590,7 +656,7 @@ export const AIChatFloat = () => {
                 <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md flex items-center justify-center">
                   <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-8 h-8 object-contain" />
                 </div>
-                <p className="text-[14px] font-black text-zinc-700 dark:text-zinc-200">Hola 👋 Soy Algo</p>
+                <p className="text-[14px] font-black text-zinc-700 dark:text-zinc-200">Hola 👋 Soy Algor</p>
                 <p className="text-[11.5px] text-zinc-400 dark:text-zinc-500 text-center max-w-[280px] leading-relaxed">
                   Preguntame sobre tus campañas, creativos, emails o ventas.
                 </p>
@@ -693,9 +759,9 @@ export const AIChatFloat = () => {
       {/* ── Pill input bar ── */}
       <div
         onClick={() => { setIsOpen(true); setTimeout(() => inputRef.current?.focus(), 100); }}
-        className={`relative group bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 shadow-xl rounded-full transition-all duration-300 cursor-text flex items-center px-2 py-2 md:px-3 ${
+        className={`relative group bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 shadow-xl rounded-full spring-transition cursor-text flex items-center px-2 py-2 md:px-3 ${
           isOpen ? 'ring-2 ring-violet-500/30' : 'hover:scale-105 hover:bg-white dark:hover:bg-zinc-700'
-        }`}
+        } ${isThinking ? 'siri-glow border-violet-500/50' : ''}`}
       >
         <div
           onClick={handleMicClick}

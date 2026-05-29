@@ -90,11 +90,13 @@ const ShopifyMetric = ({
 }: any) => {
   const isGreen = color === GREEN || color === '#10b981';
   const isPink = color === PINK || color === '#ec4899';
+  const isViolet = color === '#8b5cf6';
   
   let activeBgClass = "bg-blue-50/60 dark:bg-blue-500/5";
   let pulseClass = "bg-blue-500";
   if (isGreen) { activeBgClass = "bg-emerald-50/60 dark:bg-emerald-500/5"; pulseClass = "bg-emerald-500"; }
   if (isPink) { activeBgClass = "bg-pink-50/60 dark:bg-pink-500/5"; pulseClass = "bg-pink-500"; }
+  if (isViolet) { activeBgClass = "bg-violet-50/60 dark:bg-violet-500/5"; pulseClass = "bg-violet-500"; }
 
   return (
     <button
@@ -793,6 +795,35 @@ export default function DashboardPage() {
       : presetToRange(activePreset);
   const activePrevRange = getPrevPeriod(activeRange.since, activeRange.until);
 
+  const showMER = !!(profile as any)?.ecommerce_platform && !!profile?.meta_account_id;
+  const currentMER = (currentStore && currentMeta && currentMeta.spend > 0)
+    ? currentStore.revenue / currentMeta.spend
+    : 0;
+  const prevMER = (prevStore && prevMeta && prevMeta.spend > 0)
+    ? prevStore.revenue / prevMeta.spend
+    : 0;
+  const merChange = (currentMER > 0 && prevMER > 0)
+    ? ((currentMER - prevMER) / prevMER) * 100
+    : undefined;
+
+  const merDaily = (currentStore && currentStore.daily) ? currentStore.daily.map((d: any) => {
+    const metaDay = metaDaily?.find((md: any) => md.date === d.date);
+    const spend = metaDay ? metaDay.spend : 0;
+    return {
+      date: d.date,
+      val: spend > 0 ? d.revenue / spend : 0
+    };
+  }) : [];
+
+  const prevMerDaily = (prevStore && prevStore.daily) ? prevStore.daily.map((d: any, idx: number) => {
+    const metaDay = prevMetaDaily?.[idx];
+    const spend = metaDay ? metaDay.spend : 0;
+    return {
+      date: d.date,
+      val: spend > 0 ? d.revenue / spend : 0
+    };
+  }) : [];
+
   const fmtDateRange = (d: string, showYearForce?: boolean) => {
     if (!d) return '';
     const parts = d.split("-");
@@ -1306,72 +1337,96 @@ export default function DashboardPage() {
                       )
                     }
                   />
+                  {showMER && (
+                    <ShopifyMetric
+                      icon={Zap}
+                      label="M.E.R. (Eficiencia)"
+                      value={`${currentMER.toFixed(2)}x`}
+                      change={merChange}
+                      trend={currentMER >= prevMER ? "up" : "down"}
+                      data={merDaily}
+                      color="#8b5cf6"
+                      loading={fetchingStore || fetchingMeta}
+                      active={expandedMetric === "mer-efficiency"}
+                      onClick={() =>
+                        setExpandedMetric(
+                          expandedMetric === "mer-efficiency" ? null : "mer-efficiency"
+                        )
+                      }
+                    />
+                  )}
                 </div>
-                {expandedMetric?.startsWith("s-") && (
+                {(expandedMetric?.startsWith("s-") || expandedMetric === "mer-efficiency") && (
                   <MetricDetailChart
                     label={
-                      expandedMetric === "s-revenue"
-                        ? "Ingresos"
-                        : expandedMetric === "s-orders"
-                          ? "Pedidos"
-                          : expandedMetric === "s-aov"
-                            ? "Ticket Promedio"
-                            : expandedMetric === "s-sessions"
-                              ? "Sesiones"
-                              : "Tasa de Conversión"
+                      expandedMetric === "mer-efficiency"
+                        ? "M.E.R. (Eficiencia)"
+                        : expandedMetric === "s-revenue"
+                          ? "Ingresos"
+                          : expandedMetric === "s-orders"
+                            ? "Pedidos"
+                            : expandedMetric === "s-aov"
+                              ? "Ticket Promedio"
+                              : expandedMetric === "s-sessions"
+                                ? "Sesiones"
+                                : "Tasa de Conversión"
                     }
-                    color={PINK}
+                    color={expandedMetric === "mer-efficiency" ? "#8b5cf6" : PINK}
                     data={
-                      expandedMetric === "s-revenue"
-                        ? currentStore?.daily?.map((d: any) => ({
-                            val: d.revenue,
-                            date: d.date,
-                          }))
-                        : expandedMetric === "s-orders"
+                      expandedMetric === "mer-efficiency"
+                        ? merDaily
+                        : expandedMetric === "s-revenue"
                           ? currentStore?.daily?.map((d: any) => ({
-                              val: d.orders,
+                              val: d.revenue,
                               date: d.date,
                             }))
-                          : expandedMetric === "s-aov"
+                          : expandedMetric === "s-orders"
                             ? currentStore?.daily?.map((d: any) => ({
-                                val: d.aov,
+                                val: d.orders,
                                 date: d.date,
                               }))
-                            : expandedMetric === "s-sessions"
+                            : expandedMetric === "s-aov"
                               ? currentStore?.daily?.map((d: any) => ({
-                                  val: d.sessions,
+                                  val: d.aov,
                                   date: d.date,
                                 }))
-                              : currentStore?.daily?.map((d: any) => ({
-                                  val: d.conversionRate,
-                                  date: d.date,
-                                })) || []
+                              : expandedMetric === "s-sessions"
+                                ? currentStore?.daily?.map((d: any) => ({
+                                    val: d.sessions,
+                                    date: d.date,
+                                  }))
+                                : currentStore?.daily?.map((d: any) => ({
+                                    val: d.conversionRate,
+                                    date: d.date,
+                                  })) || []
                     }
                     prevData={
-                      expandedMetric === "s-revenue"
-                        ? prevStore?.daily?.map((d: any) => ({
-                            val: d.revenue,
-                            date: d.date,
-                          }))
-                        : expandedMetric === "s-orders"
+                      expandedMetric === "mer-efficiency"
+                        ? prevMerDaily
+                        : expandedMetric === "s-revenue"
                           ? prevStore?.daily?.map((d: any) => ({
-                              val: d.orders,
+                              val: d.revenue,
                               date: d.date,
                             }))
-                          : expandedMetric === "s-aov"
+                          : expandedMetric === "s-orders"
                             ? prevStore?.daily?.map((d: any) => ({
-                                val: d.aov,
+                                val: d.orders,
                                 date: d.date,
                               }))
-                            : expandedMetric === "s-sessions"
+                            : expandedMetric === "s-aov"
                               ? prevStore?.daily?.map((d: any) => ({
-                                  val: d.sessions,
+                                  val: d.aov,
                                   date: d.date,
                                 }))
-                              : prevStore?.daily?.map((d: any) => ({
-                                  val: d.conversionRate,
-                                  date: d.date,
-                                })) || []
+                              : expandedMetric === "s-sessions"
+                                ? prevStore?.daily?.map((d: any) => ({
+                                    val: d.sessions,
+                                    date: d.date,
+                                  }))
+                                : prevStore?.daily?.map((d: any) => ({
+                                    val: d.conversionRate,
+                                    date: d.date,
+                                  })) || []
                     }
                   />
                 )}
