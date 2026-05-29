@@ -104,6 +104,9 @@ const INDUSTRIES = [
   "Otro",
 ];
 
+const toAuthEmail = (input: string) =>
+  input.includes('@') ? input.trim() : `${input.trim().toLowerCase()}@car.algoritmia.com`;
+
 const inputCls =
   "w-full h-10 rounded-[9px] border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 px-3.5 text-[13px] text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all";
 const labelCls =
@@ -266,7 +269,7 @@ export default function AdminPage() {
     try {
       const { data: auth, error: authErr } =
         await supabaseAdmin.auth.admin.createUser({
-          email: form.email,
+          email: toAuthEmail(form.email),
           password: form.password,
           email_confirm: true,
         });
@@ -336,8 +339,9 @@ export default function AdminPage() {
     if (!newAccEmail || !supabaseAdmin) return;
     setCreatingAccount(true);
     try {
+      const authEmail = toAuthEmail(newAccEmail);
       const { data: auth, error: authErr } = await supabaseAdmin.auth.admin.createUser({
-        email: newAccEmail,
+        email: authEmail,
         password: newAccPwd,
         email_confirm: true,
       });
@@ -345,7 +349,7 @@ export default function AdminPage() {
       const { error: dbErr } = await supabaseAdmin.from('car_business_accounts').insert({
         business_id: clientId,
         user_id: auth.user.id,
-        email: newAccEmail,
+        email: authEmail,
       });
       if (dbErr) throw dbErr;
       showToast('Cuenta creada ✓', 'success');
@@ -728,13 +732,15 @@ export default function AdminPage() {
             {/* Acceso */}
             <SectionBox title="Acceso al Portal">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Email *">
+                <Field label="Email o usuario *">
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={form.email}
                     onChange={(e) => f("email", e.target.value)}
-                    placeholder="cliente@empresa.com"
+                    placeholder="fransa o cliente@empresa.com"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     className={inputCls}
                   />
                 </Field>
@@ -1213,10 +1219,12 @@ export default function AdminPage() {
                     {/* Agregar cuenta */}
                     <div className="flex flex-col sm:flex-row gap-2 items-end">
                       <div className="flex-1 w-full">
-                        <label className={labelCls}>Email nueva cuenta</label>
+                        <label className={labelCls}>Email o usuario nueva cuenta</label>
                         <input
-                          type="email"
-                          placeholder="email@empresa.com"
+                          type="text"
+                          placeholder="usuario o email@empresa.com"
+                          autoCapitalize="none"
+                          autoCorrect="off"
                           value={newAccEmail}
                           onChange={(e) => setNewAccEmail(e.target.value)}
                           className={inputCls}

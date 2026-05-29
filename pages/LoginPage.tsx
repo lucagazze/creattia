@@ -5,6 +5,9 @@ import { useToast } from '../components/Toast';
 import { Loader2, Moon, Sun, EyeOff, Eye } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
+const toAuthEmail = (input: string) =>
+  input.includes('@') ? input.trim() : `${input.trim().toLowerCase()}@car.algoritmia.com`;
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +21,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: toAuthEmail(email), password });
       if (error) throw error;
       showToast('Bienvenido al ecosistema Algoritmia', 'success');
       navigate('/');
@@ -75,11 +78,13 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-3">
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="Email"
+                placeholder="Email o usuario"
+                autoCapitalize="none"
+                autoCorrect="off"
                 className={`w-full h-11 px-4 rounded-xl border text-[16px] md:text-[14px] font-medium outline-none transition-all duration-200 ${
                   darkMode 
                     ? 'bg-[#111] border-white/10 text-white placeholder:text-zinc-600 focus:border-white/20 focus:bg-[#161618]' 
