@@ -111,6 +111,38 @@ export default function MensajesDMPage() {
     };
   }, [fbPageId]);
 
+  // Background preview loader helper for Instagram conversations
+  const fetchInstagramPreviews = useCallback((items: ConvItem[], activeSignal = { active: true }) => {
+    const igItems = items.filter(c => c.platform === 'instagram');
+    igItems.forEach(async (conv) => {
+      try {
+        const res = await metaAds.getConversationMessages(conv.id, 1);
+        if (!activeSignal.active) return;
+        const msg = res?.data?.[0];
+        if (msg) {
+          const isFromMe = msg.from?.id === fbPageId;
+          setConversations(prev => {
+            const exists = prev.some(c => c.id === conv.id);
+            if (!exists) return prev;
+            return prev.map(c => {
+              if (c.id === conv.id) {
+                return {
+                  ...c,
+                  lastMessage: msg.message || '📎 Archivo adjunto o mensaje de voz',
+                  isPending: !isFromMe,
+                  timestamp: msg.created_time || c.timestamp
+                };
+              }
+              return c;
+            }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          });
+        }
+      } catch (e) {
+        console.error('Error loading dynamic IG preview:', e);
+      }
+    });
+  }, [fbPageId]);
+
   // ── Initial load ───────────────────────────────────────────────
   useEffect(() => {
     if (!fbPageId) return;
@@ -156,6 +188,7 @@ export default function MensajesDMPage() {
       items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setConversations(items);
       setLoading(false);
+      fetchInstagramPreviews(items, { active });
     };
 
     load();
@@ -196,6 +229,7 @@ export default function MensajesDMPage() {
           (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
       });
+      fetchInstagramPreviews(newItems);
     } finally {
       setLoadingMore(false);
     }
