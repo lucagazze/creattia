@@ -65,7 +65,7 @@ const MarkdownRenderer = ({ content, onSend, onNavigate }: { content: string; on
                 src={url} 
                 alt={alt} 
                 className="max-h-48 object-cover w-full hover:scale-105 transition-transform duration-300"
-                onError={(e) => {
+                onError={(e: any) => {
                   (e.target as HTMLImageElement).src = '/assets/logoSinFondo.png';
                 }}
               />
@@ -112,7 +112,7 @@ const MarkdownRenderer = ({ content, onSend, onNavigate }: { content: string; on
               href={isInternal ? undefined : targetUrl}
               target={isInternal ? undefined : '_blank'}
               rel="noopener noreferrer"
-              onClick={isInternal && onNavigate ? (e) => { e.preventDefault(); onNavigate(targetUrl); } : undefined}
+              onClick={isInternal && onNavigate ? (e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); onNavigate(targetUrl); } : undefined}
               className="text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
             >
               {linkText}
@@ -224,7 +224,7 @@ const MarkdownRenderer = ({ content, onSend, onNavigate }: { content: string; on
               href={isInternal ? undefined : targetUrl}
               target={isInternal ? undefined : '_blank'}
               rel="noopener noreferrer"
-              onClick={isInternal && onNavigate ? (e) => { e.preventDefault(); onNavigate(targetUrl); } : undefined}
+              onClick={isInternal && onNavigate ? (e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); onNavigate(targetUrl); } : undefined}
               className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-full bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white font-bold text-[12px] md:text-[12.5px] shadow-md shadow-violet-500/15 hover:scale-[1.01] active:scale-[0.98] transition-all text-center cursor-pointer"
             >
               {linkText}
@@ -429,14 +429,14 @@ export const AIChatFloat = () => {
           }));
           setThinkingSteps(steps);
         } else if (data.type === 'tool_done') {
-          setThinkingSteps(prev => prev.map(s => s.tool === data.tool ? { ...s, done: true } : s));
+          setThinkingSteps((prev: ThinkingStep[]) => prev.map((s: ThinkingStep) => s.tool === data.tool ? { ...s, done: true } : s));
         } else if (data.type === 'done') {
           receivedFinalMessage = true;
-          setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+          setMessages((prev: Message[]) => [...prev, { role: 'assistant', content: data.reply }]);
           setThinkingSteps([]);
         } else if (data.type === 'error') {
           receivedFinalMessage = true;
-          setMessages(prev => [...prev, { role: 'assistant', content: '❌ Hubo un problema técnico. Intentá de nuevo.' }]);
+          setMessages((prev: Message[]) => [...prev, { role: 'assistant', content: '❌ Hubo un problema técnico. Intentá de nuevo.' }]);
           setThinkingSteps([]);
         }
       } catch { /* ignore parse errors */ }
@@ -472,16 +472,16 @@ export const AIChatFloat = () => {
         const data = await res.json();
         if (data.reply) {
           receivedFinalMessage = true;
-          setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+          setMessages((prev: Message[]) => [...prev, { role: 'assistant', content: data.reply }]);
         }
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '❌ Hubo un problema técnico. Intentá de nuevo.' }]);
+      setMessages((prev: Message[]) => [...prev, { role: 'assistant', content: '❌ Hubo un problema técnico. Intentá de nuevo.' }]);
       receivedFinalMessage = true;
     } finally {
       // Safety net: if done event never arrived, show error
       if (!receivedFinalMessage) {
-        setMessages(prev => [...prev, { role: 'assistant', content: '❌ No pude obtener respuesta. Intentá de nuevo.' }]);
+        setMessages((prev: Message[]) => [...prev, { role: 'assistant', content: '❌ No pude obtener respuesta. Intentá de nuevo.' }]);
       }
       setIsThinking(false);
       setThinkingSteps([]);
@@ -623,7 +623,7 @@ export const AIChatFloat = () => {
             </div>
           )}
 
-          {messages.map((msg, i) => (
+          {messages.map((msg: Message, i: number) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'assistant' && (
                 <div className="w-7 h-7 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 flex items-center justify-center flex-shrink-0 mr-2.5 mt-0.5 shadow-sm overflow-hidden">
@@ -659,7 +659,7 @@ export const AIChatFloat = () => {
                 ) : (
                   <div className="space-y-2">
                     <p className="text-[9px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.15em] mb-2.5">Analizando...</p>
-                    {thinkingSteps.map((step, i) => (
+                    {thinkingSteps.map((step: ThinkingStep, i: number) => (
                       <div
                         key={step.tool + i}
                         className="flex items-center gap-2.5 animate-in fade-in slide-in-from-left-2 duration-300"
@@ -736,8 +736,8 @@ export const AIChatFloat = () => {
           ref={inputRef}
           type="text"
           value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !isThinking && !isTranscribing && handleSend()}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && !isThinking && !isTranscribing && handleSend()}
           placeholder={
             isRecording ? 'Escuchando...'
             : isTranscribing ? 'Transcribiendo...'
@@ -755,7 +755,7 @@ export const AIChatFloat = () => {
             <span>IA CONECTADA</span>
           </div>
           <button
-            onClick={e => { e.stopPropagation(); setIsOpen(o => !o); }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); setIsOpen((o: boolean) => !o); }}
             className="hidden md:flex text-zinc-350 hover:text-zinc-500 dark:text-zinc-500 dark:hover:text-zinc-400 transition-colors"
           >
             <ChevronUp className={`w-5.5 h-5.5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />

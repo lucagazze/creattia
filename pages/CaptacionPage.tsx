@@ -46,7 +46,16 @@ const fmtVal = (v: number) => {
 
 // ── Creative Preview Modal ────────────────────────────────────────────────────
 const CreativePreviewModal = ({ preview, onClose }: {
-  preview: { url: string; isVideo: boolean; videoId?: string; adId?: string; name?: string };
+  preview: {
+    url: string;
+    isVideo: boolean;
+    videoId?: string;
+    adId?: string;
+    creativeId?: string;
+    name?: string;
+    previewShareableLink?: string;
+    effectiveObjectStoryId?: string;
+  };
   onClose: () => void;
 }) => {
   const [imgLoaded, setImgLoaded] = React.useState(false);
@@ -58,12 +67,13 @@ const CreativePreviewModal = ({ preview, onClose }: {
   // Fetch video preview — tries Ad Previews API first (most reliable)
   React.useEffect(() => {
     if (!preview.isVideo) return;
-    if (!preview.adId && !preview.videoId) return;
+    if (!preview.adId && !preview.creativeId && !preview.videoId) return;
     setVideoLoading(true);
     setVideoSrc(null);
     setEmbedHtml(null);
     const params = new URLSearchParams();
     if (preview.adId) params.set('adId', preview.adId);
+    if (preview.creativeId) params.set('creativeId', preview.creativeId);
     if (preview.videoId) params.set('videoId', preview.videoId);
     fetch(`/api/meta-video?${params}`)
       .then(r => r.ok ? r.json() : null)
@@ -73,7 +83,7 @@ const CreativePreviewModal = ({ preview, onClose }: {
       })
       .catch(() => {})
       .finally(() => setVideoLoading(false));
-  }, [preview.adId, preview.videoId, preview.isVideo]);
+  }, [preview.adId, preview.creativeId, preview.videoId, preview.isVideo]);
 
   // Progress bar for images
   React.useEffect(() => {
@@ -177,7 +187,7 @@ const CreativePreviewModal = ({ preview, onClose }: {
                 </div>
               </div>
               <a
-                href={`https://www.facebook.com/ads/library/?id=${preview.adId}`}
+                href={preview.previewShareableLink || (preview.effectiveObjectStoryId ? `https://facebook.com/${preview.effectiveObjectStoryId}` : `https://facebook.com/ads/preview/?ad_id=${preview.adId}`)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-5 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-[13px] font-bold rounded-full transition-all shadow-lg"
@@ -262,7 +272,16 @@ export default function CaptacionPage() {
   const [campaignMap, setCampaignMap] = useState<Record<string, string>>({});
   const [adInsightsMap, setAdInsightsMap] = useState<Record<string, any>>({});
   const [loadingAds, setLoadingAds] = useState(false);
-  const [activePreview, setActivePreview] = useState<{ url: string; isVideo: boolean; videoId?: string; adId?: string; name?: string } | null>(null);
+  const [activePreview, setActivePreview] = useState<{
+    url: string;
+    isVideo: boolean;
+    videoId?: string;
+    adId?: string;
+    creativeId?: string;
+    name?: string;
+    previewShareableLink?: string;
+    effectiveObjectStoryId?: string;
+  } | null>(null);
 
   const range = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
   const prevRange = getPrevPeriod(range.since, range.until);
@@ -952,7 +971,16 @@ export default function CaptacionPage() {
                   {/* Thumbnail — full width, tall, prominent */}
                   <div
                     className="relative w-full h-52 bg-zinc-100 dark:bg-zinc-800 cursor-pointer group overflow-hidden flex-shrink-0"
-                    onClick={() => previewUrl && setActivePreview({ url: previewUrl, isVideo, videoId: ad.creative?.video_id, adId: ad.id, name: ad.name })}
+                    onClick={() => previewUrl && setActivePreview({
+                      url: previewUrl,
+                      isVideo,
+                      videoId: ad.creative?.video_id,
+                      adId: ad.id,
+                      creativeId: ad.creative?.id,
+                      name: ad.name,
+                      previewShareableLink: ad.preview_shareable_link,
+                      effectiveObjectStoryId: ad.creative?.effective_object_story_id
+                    })}
                   >
                     {thumbUrl ? (
                       <>
@@ -1027,27 +1055,36 @@ export default function CaptacionPage() {
                     <div className="flex gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-auto">
                       {/* Ver creativo */}
                       <button
-                        onClick={() => previewUrl && setActivePreview({ url: previewUrl, isVideo, videoId: ad.creative?.video_id, adId: ad.id, name: ad.name })}
+                        onClick={() => previewUrl && setActivePreview({
+                          url: previewUrl,
+                          isVideo,
+                          videoId: ad.creative?.video_id,
+                          adId: ad.id,
+                          creativeId: ad.creative?.id,
+                          name: ad.name,
+                          previewShareableLink: ad.preview_shareable_link,
+                          effectiveObjectStoryId: ad.creative?.effective_object_story_id
+                        })}
                         className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-white/[0.05] hover:text-zinc-900 dark:hover:text-white"
                         title="Ver creativo"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         Ver
                       </button>
-                      {/* Facebook Ads Library */}
+                      {/* Ver en Facebook */}
                       <a
-                        href={`https://www.facebook.com/ads/library/?id=${ad.id}`}
+                        href={ad.preview_shareable_link || (ad.creative?.effective_object_story_id ? `https://facebook.com/${ad.creative.effective_object_story_id}` : `https://facebook.com/ads/preview/?ad_id=${ad.id}`)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-[#1877F2] bg-[#1877F2]/8 dark:bg-[#1877F2]/10 hover:bg-[#1877F2]/15 dark:hover:bg-[#1877F2]/20"
-                        title="Ver en Facebook Ads Library"
+                        title="Ver anuncio en Facebook"
                       >
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                         FB
                       </a>
                       {/* Instagram */}
                       <a
-                        href={`https://www.instagram.com/`}
+                        href={ad.creative?.instagram_permalink_url || 'https://www.instagram.com/'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-pink-500 dark:text-pink-400 bg-pink-50 dark:bg-pink-500/10 hover:bg-pink-100 dark:hover:bg-pink-500/15"

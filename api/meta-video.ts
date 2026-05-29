@@ -20,10 +20,10 @@ async function getMetaToken(): Promise<string> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { adId, videoId } = req.query;
+  const { adId, creativeId, videoId } = req.query;
 
-  if (!adId && !videoId) {
-    return res.status(400).json({ error: 'adId or videoId required' });
+  if (!adId && !creativeId && !videoId) {
+    return res.status(400).json({ error: 'adId, creativeId or videoId required' });
   }
 
   try {
@@ -32,8 +32,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const base = 'https://graph.facebook.com/v21.0';
 
-    // Strategy 1: Use Meta Ad Previews API — returns embeddable iframe HTML
-    // This is the most reliable method for ad creatives including videos
+    // Strategy 1: Use Meta Ad Previews API on the Creative ID (most reliable)
+    if (creativeId && typeof creativeId === 'string') {
+      const previewRes = await fetch(
+        `${base}/${creativeId}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${token}`
+      );
+
+      if (previewRes.ok) {
+        const previewData = await previewRes.json();
+        const previewHtml = previewData?.data?.[0]?.body;
+        if (previewHtml) {
+          res.setHeader('Cache-Control', 'public, max-age=1800');
+          return res.status(200).json({
+            source: null,
+            embed_html: previewHtml,
+            type: 'ad_preview',
+          });
+        }
+      }
+    }
+
+    // Strategy 1b: Use Meta Ad Previews API on the Ad ID
     if (adId && typeof adId === 'string') {
       const previewRes = await fetch(
         `${base}/${adId}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${token}`
