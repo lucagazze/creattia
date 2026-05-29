@@ -1310,8 +1310,8 @@ export default function RedesSocialesPage() {
                               <div className="flex-1 min-w-0">
                                 {/* Username and text inline */}
                                 <div className="leading-snug break-words">
-                                  <span className="font-extrabold text-zinc-900 dark:text-zinc-150 mr-1.5">@{commentUser}</span>
-                                  <span className="text-zinc-750 dark:text-zinc-300 font-medium">{commentText}</span>
+                                  <span className="font-extrabold text-zinc-900 dark:text-white mr-1.5">@{commentUser}</span>
+                                  <span className="text-zinc-700 dark:text-zinc-100 font-medium">{commentText}</span>
                                 </div>
 
                                 {/* Meta row */}
@@ -1391,8 +1391,8 @@ export default function RedesSocialesPage() {
                                           </div>
                                           <div className="flex-1 min-w-0">
                                             <div className="leading-snug break-words">
-                                              <span className="font-extrabold text-zinc-850 dark:text-zinc-200 mr-1.5">@{replyUser}</span>
-                                              <span className="text-zinc-650 dark:text-zinc-350 font-medium">{reply.text || reply.message}</span>
+                                              <span className="font-extrabold text-zinc-800 dark:text-white mr-1.5">@{replyUser}</span>
+                                              <span className="text-zinc-600 dark:text-zinc-200 font-medium">{reply.text || reply.message}</span>
                                             </div>
                                             <div className="text-[9px] text-zinc-400 mt-1 font-bold">{rDateStr}</div>
                                           </div>
