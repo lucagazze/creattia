@@ -195,6 +195,8 @@ export default function AdminPage() {
   const [testingIg, setTestingIg] = useState(false);
   const [discoveredIgAccounts, setDiscoveredIgAccounts] = useState<any[]>([]);
   const [loadingIgAccounts, setLoadingIgAccounts] = useState(false);
+  const [activeTab, setActiveTab] = useState<"general" | "integrations" | "users" | "links">("general");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Custom links state
   const [clientLinks, setClientLinks] = useState<ClientLink[]>([]);
@@ -426,7 +428,12 @@ export default function AdminPage() {
   };
 
   const openEdit = async (c: ClientRow) => {
+    setActiveTab("general");
     setEditForm({
+      business_name: c.business_name || "",
+      industry: c.industry || "",
+      plan: c.plan || "",
+      active: c.active,
       meta_account_id: c.meta_account_id || "",
       ig_business_id: c.ig_business_id || "",
       ig_username: c.ig_username || "",
@@ -617,6 +624,10 @@ export default function AdminPage() {
       const { error } = await supabase
         .from("car_clients")
         .update({
+          business_name: editForm.business_name || null,
+          industry: editForm.industry || null,
+          plan: editForm.plan || null,
+          active: editForm.active,
           meta_account_id: editForm.meta_account_id || null,
           ig_business_id: editForm.ig_business_id || null,
           ig_username: editForm.ig_username || null,
@@ -678,6 +689,10 @@ export default function AdminPage() {
   };
 
   const { onlineUsers, onlineCount } = usePresence();
+
+  const filteredClients = clients.filter((c) =>
+    c.business_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (profile && !profile.is_admin) return null;
 
@@ -923,424 +938,100 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Clients list */}
-      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_24px_rgba(0,0,0,0.06)] overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-          <Users className="w-4 h-4 text-zinc-400" />
-          <h2 className="text-[15px] font-semibold text-zinc-900 dark:text-white">
-            Clientes
-          </h2>
-          <span className="ml-auto text-[12px] font-semibold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full">
-            {clients.length}
-          </span>
+      {/* Search and Clients List */}
+      <div className="space-y-4">
+        {/* Search Bar */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Buscar cliente..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-11 pl-11 pr-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-[14px] focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all outline-none"
+          />
+          <svg
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
         </div>
 
+        {/* Clients Grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-16 gap-3">
+          <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.04] dark:border-white/[0.04]">
             <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
-            <span className="text-[13px] text-zinc-500">Cargando...</span>
+            <span className="text-[13px] text-zinc-500">Cargando clientes...</span>
           </div>
-        ) : clients.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
+        ) : filteredClients.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.04] dark:border-white/[0.04]">
             <Building2 className="w-10 h-10 text-zinc-300 dark:text-zinc-700" />
             <p className="text-[14px] font-medium text-zinc-500">
-              No hay clientes aún
-            </p>
-            <p className="text-[12px] text-zinc-400">
-              Creá el primer cliente con el botón de arriba
+              No se encontraron clientes
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {clients.map((c) => (
-              <div key={c.id} className="px-6 py-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0">
-                    {c.business_name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-[14px] font-semibold text-zinc-900 dark:text-white truncate">
-                        {c.business_name}
-                      </p>
-                      {onlineUsers[c.id] && (
-                        <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-[10px] font-bold text-emerald-600 animate-pulse">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          En línea
-                        </span>
-                      )}
-                      {c.is_admin && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                          Admin
-                        </span>
-                      )}
-                      <span
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${c.active ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}
-                      >
-                        {c.active ? "Activo" : "Inactivo"}
-                      </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredClients.map((c) => {
+              const active = !!(
+                c.meta_account_id ||
+                c.klaviyo_api_key ||
+                c.chatwoot_url ||
+                c.ecommerce_platform ||
+                (c as any).ig_business_id
+              );
+              const isCurrentlyViewing = viewAsProfile?.id === c.id;
+
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => openEdit(c)}
+                  className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/80 rounded-xl px-5 py-4 cursor-pointer hover:border-violet-300 dark:hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/[0.02] dark:hover:shadow-none transition-all flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-850 border border-zinc-200/60 dark:border-zinc-700/60 flex items-center justify-center text-zinc-700 dark:text-zinc-300 text-[13px] font-semibold flex-shrink-0 group-hover:scale-105 transition-transform">
+                      {c.business_name.slice(0, 2).toUpperCase()}
                     </div>
-                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                      {c.industry && (
-                        <span className="text-[11px] text-zinc-500">
-                          {c.industry}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14px] font-medium text-zinc-900 dark:text-white truncate">
+                          {c.business_name}
+                        </span>
+                        {onlineUsers[c.id] && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="En línea" />
+                        )}
+                      </div>
+                      {isCurrentlyViewing && (
+                        <span className="text-[10px] text-violet-600 dark:text-violet-400 font-semibold block mt-0.5">
+                          Sesión Activa
                         </span>
                       )}
-                      {c.plan && (
-                        <span className="text-[11px] font-medium text-violet-600 dark:text-violet-400">
-                          {c.plan}
-                        </span>
-                      )}
-                      {c.client_tags && c.client_tags.length > 0 && (
-                        <div className="flex items-center gap-1.5 border-l border-zinc-200 dark:border-zinc-700 pl-3">
-                          {c.client_tags.map(tagId => {
-                            const tagInfo = CLIENT_TAGS.find(t => t.id === tagId);
-                            if (!tagInfo) return null;
-                            return (
-                              <span key={tagId} className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${tagInfo.color}`}>
-                                {tagInfo.label}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {c.last_login && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                          <Clock className="w-3 h-3" />
-                          <span>Activo {new Date(c.last_login).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      )}
-                      <span className="text-[11px] text-zinc-400 ml-auto">
-                        Creado: {new Date(c.created_at).toLocaleDateString("es-AR", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-[5px] border ${c.meta_account_id ? "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20" : "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                      >
-                        Meta:{" "}
-                        {c.meta_account_id
-                          ? metaAccounts.find((a) => a.id === c.meta_account_id)
-                              ?.name || c.meta_account_id
-                          : "No configurado"}
-                      </span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-[5px] border ${c.klaviyo_api_key ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20" : "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                      >
-                        Email: {c.klaviyo_api_key ? "Conectado" : "No conf."}
-                      </span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-[5px] border ${c.chatwoot_url ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/20" : "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                      >
-                        Chat: {c.chatwoot_url ? "Conectado" : "No conf."}
-                      </span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-[5px] border ${c.ecommerce_platform ? "bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-200 dark:border-pink-500/20" : "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                      >
-                        Tienda:{" "}
-                        {c.ecommerce_platform === "shopify"
-                          ? "Shopify"
-                          : c.ecommerce_platform === "tiendanube"
-                            ? "Tiendanube"
-                            : "No conf."}
-                      </span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-[5px] border ${(c as any).ig_business_id ? "bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-500/10 dark:to-purple-500/10 text-pink-600 dark:text-pink-400 border-pink-200 dark:border-pink-500/20" : "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                      >
-                        IG: {(c as any).ig_username ? `@${(c as any).ig_username}` : "No conf."}
-                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={async () => {
-                        // Build a ClientProfile-like object from the ClientRow
-                        const clientProfile: any = {
-                          id: c.id,
-                          user_id: c.user_id,
-                          business_name: c.business_name,
-                          industry: c.industry,
-                          plan: c.plan,
-                          active: c.active,
-                          is_admin: c.is_admin,
-                          meta_account_id: c.meta_account_id,
-                          ig_business_id: (c as any).ig_business_id,
-                          ig_username: (c as any).ig_username,
-                          klaviyo_api_key: c.klaviyo_api_key,
-                          chatwoot_url: c.chatwoot_url,
-                          chatwoot_token: c.chatwoot_token,
-                          ecommerce_platform: c.ecommerce_platform,
-                          shopify_domain: c.shopify_domain,
-                          shopify_access_token: c.shopify_access_token,
-                          client_tags: c.client_tags || [],
-                        };
-                        setViewAsProfile(
-                          viewAsProfile?.id === c.id ? null : clientProfile,
-                        );
-                        if (viewAsProfile?.id !== c.id) navigate("/");
-                      }}
-                      className={`p-2 rounded-[7px] transition-all text-[10px] font-bold flex items-center gap-1 ${
-                        viewAsProfile?.id === c.id
-                          ? "bg-violet-600 text-white shadow-md shadow-violet-300/20"
-                          : "text-zinc-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-500/10"
-                      }`}
-                      title="Ver como este cliente"
-                    >
-                      <MonitorPlay className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">
-                        {viewAsProfile?.id === c.id ? "Viendo" : "Ver"}
+
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {active ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Activo
                       </span>
-                    </button>
-                    <button
-                      onClick={() => toggleActive(c)}
-                      className={`p-2 rounded-[7px] transition-all ${c.active ? "text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" : "text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"}`}
-                      title={c.active ? "Desactivar" : "Activar"}
-                    >
-                      {c.active ? (
-                        <X className="w-3.5 h-3.5" />
-                      ) : (
-                        <Check className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => openEdit(c)}
-                      className="p-2 rounded-[7px] text-zinc-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all"
-                      title="Configurar Integraciones"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        const next = expanded === c.id ? null : c.id;
-                        setExpanded(next);
-                        if (next) {
-                          setNewAccEmail('');
-                          setNewAccPwd(genPwd());
-                          setChangingPwdFor(null);
-                          setChangingPwd('');
-                          setConfirmDeleteUserId(null);
-                          loadAccounts(c.id, c.user_id ?? null);
-                        }
-                      }}
-                      className="p-2 rounded-[7px] text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
-                    >
-                      {expanded === c.id ? (
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                        Inactivo
+                      </span>
+                    )}
                   </div>
                 </div>
-
-                {expanded === c.id && (
-                  <div className="mt-3 pt-4 border-t border-zinc-100 dark:border-zinc-800 space-y-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.07em] text-zinc-400">
-                      Cuentas con acceso
-                    </p>
-
-                    {/* Tabla */}
-                    <div className="rounded-[10px] border border-zinc-100 dark:border-zinc-800 overflow-hidden">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-100 dark:border-zinc-800">
-                            <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.07em] text-zinc-400">Email</th>
-                            <th className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.07em] text-zinc-400 hidden sm:table-cell">Creada</th>
-                            <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.07em] text-zinc-400">Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                          {loadingAccounts ? (
-                            <tr>
-                              <td colSpan={3} className="text-center py-6">
-                                <Loader2 className="w-4 h-4 animate-spin text-zinc-400 mx-auto" />
-                              </td>
-                            </tr>
-                          ) : businessAccounts.length === 0 ? (
-                            <tr>
-                              <td colSpan={3} className="text-center py-6 text-[12px] text-zinc-400">
-                                Sin cuentas
-                              </td>
-                            </tr>
-                          ) : (
-                            businessAccounts.map((acc) => (
-                              <React.Fragment key={acc.user_id}>
-                                <tr className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                                  <td className="px-4 py-3 text-[13px] font-mono text-zinc-700 dark:text-zinc-300">
-                                    {acc.email}
-                                  </td>
-                                  <td className="px-4 py-3 text-[12px] text-zinc-400 hidden sm:table-cell">
-                                    {new Date(acc.created_at).toLocaleDateString("es-AR")}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <div className="flex items-center gap-1 justify-end">
-                                      {/* Cambiar contraseña */}
-                                      <button
-                                        onClick={() => {
-                                          if (changingPwdFor === acc.user_id) {
-                                            setChangingPwdFor(null);
-                                            setChangingPwd('');
-                                          } else {
-                                            setChangingPwdFor(acc.user_id);
-                                            setChangingPwd(genPwd());
-                                            setShowChangingPwd(false);
-                                            setConfirmDeleteUserId(null);
-                                          }
-                                        }}
-                                        className={`p-1.5 rounded-[6px] transition-all ${changingPwdFor === acc.user_id ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600' : 'text-zinc-400 hover:text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-500/10'}`}
-                                        title="Cambiar contraseña"
-                                      >
-                                        <KeyRound className="w-3.5 h-3.5" />
-                                      </button>
-                                      {/* Eliminar — paso 1 */}
-                                      {confirmDeleteUserId !== acc.user_id && (
-                                        <button
-                                          onClick={() => {
-                                            setConfirmDeleteUserId(acc.user_id);
-                                            setChangingPwdFor(null);
-                                            setChangingPwd('');
-                                          }}
-                                          className="p-1.5 rounded-[6px] text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
-                                          title="Eliminar cuenta"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-
-                                {/* Cambiar contraseña — fila expandible */}
-                                {changingPwdFor === acc.user_id && (
-                                  <tr className="bg-violet-50/50 dark:bg-violet-500/5">
-                                    <td colSpan={3} className="px-4 py-3">
-                                      <div className="flex flex-col sm:flex-row gap-2 items-end">
-                                        <div className="flex-1 w-full">
-                                          <label className={labelCls}>Nueva contraseña</label>
-                                          <div className="relative">
-                                            <input
-                                              type={showChangingPwd ? "text" : "password"}
-                                              value={changingPwd}
-                                              onChange={(e) => setChangingPwd(e.target.value)}
-                                              className={inputCls + " pr-20 font-mono"}
-                                              placeholder="Mínimo 6 caracteres"
-                                            />
-                                            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-1">
-                                              <button type="button" onClick={() => setShowChangingPwd((s) => !s)} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all">
-                                                {showChangingPwd ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                                              </button>
-                                              <button type="button" onClick={() => copy(changingPwd, "Contraseña")} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Copiar">
-                                                <Copy className="w-3 h-3" />
-                                              </button>
-                                              <button type="button" onClick={() => setChangingPwd(genPwd())} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Generar">
-                                                <RefreshCw className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="flex gap-2 flex-shrink-0">
-                                          <button type="button" onClick={() => { setChangingPwdFor(null); setChangingPwd(''); }} className="h-10 px-3 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-[12px] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
-                                            Cancelar
-                                          </button>
-                                          <button type="button" onClick={() => handleChangePwd(acc.user_id)} disabled={savingPwd || !changingPwd} className="h-10 px-4 rounded-[9px] bg-violet-600 text-white text-[12px] font-semibold flex items-center gap-2 hover:bg-violet-700 transition-all disabled:opacity-50">
-                                            {savingPwd ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                                            Guardar
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-
-                                {/* Eliminar — paso 2 confirmación */}
-                                {confirmDeleteUserId === acc.user_id && (
-                                  <tr className="bg-red-50/60 dark:bg-red-500/5">
-                                    <td colSpan={3} className="px-4 py-3">
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-[13px] text-red-600 dark:text-red-400 font-medium flex-1">
-                                          ¿Eliminar <span className="font-bold font-mono">{acc.email}</span>? Esta acción no se puede deshacer.
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() => setConfirmDeleteUserId(null)}
-                                          className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[12px] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex-shrink-0"
-                                        >
-                                          Cancelar
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteAccount(acc, c.id, c.user_id ?? null)}
-                                          disabled={deletingAccountUserId === acc.user_id}
-                                          className="h-8 px-4 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 transition-all disabled:opacity-50 flex items-center gap-2 flex-shrink-0"
-                                        >
-                                          {deletingAccountUserId === acc.user_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                                          Sí, eliminar
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Agregar cuenta */}
-                    <div className="flex flex-col sm:flex-row gap-2 items-end">
-                      <div className="flex-1 w-full">
-                        <label className={labelCls}>Email o usuario nueva cuenta</label>
-                        <input
-                          type="text"
-                          placeholder="usuario o email@empresa.com"
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          value={newAccEmail}
-                          onChange={(e) => setNewAccEmail(e.target.value)}
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="flex-1 w-full">
-                        <label className={labelCls}>Contraseña inicial</label>
-                        <div className="relative">
-                          <input
-                            type={showNewAccPwd ? "text" : "password"}
-                            value={newAccPwd}
-                            onChange={(e) => setNewAccPwd(e.target.value)}
-                            className={inputCls + " pr-20 font-mono"}
-                          />
-                          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-1">
-                            <button type="button" onClick={() => setShowNewAccPwd((s) => !s)} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all">
-                              {showNewAccPwd ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                            </button>
-                            <button type="button" onClick={() => copy(newAccPwd, "Contraseña")} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Copiar">
-                              <Copy className="w-3 h-3" />
-                            </button>
-                            <button type="button" onClick={() => setNewAccPwd(genPwd())} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Generar nueva">
-                              <RefreshCw className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCreateAccount(c.id, c.user_id ?? null)}
-                        disabled={creatingAccount || !newAccEmail || !supabaseAdmin}
-                        className="h-10 px-4 rounded-[9px] bg-violet-600 text-white text-[13px] font-semibold flex items-center gap-2 hover:bg-violet-700 transition-all disabled:opacity-50 flex-shrink-0 w-full sm:w-auto"
-                      >
-                        {creatingAccount ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
-                        Agregar cuenta
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1348,498 +1039,805 @@ export default function AdminPage() {
       {/* Editing Modal */}
       {editingClient && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-zinc-200 dark:border-zinc-800">
-            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center sticky top-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur z-10">
-              <h3 className="text-[16px] font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 text-violet-500" /> Integraciones:{" "}
-                {editingClient.business_name}
-              </h3>
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-4xl h-[85vh] flex overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 flex-col md:flex-row animate-in fade-in zoom-in-95 duration-200">
+            {/* Sidebar navigation */}
+            <div className="w-full md:w-64 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-150 dark:border-zinc-800 p-5 flex flex-col justify-between flex-shrink-0">
+              <div className="space-y-6">
+                {/* Client Profile Header */}
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white text-[16px] font-bold shadow-md shadow-violet-500/10">
+                    {editingClient.business_name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-zinc-900 dark:text-white truncate text-[14px]">
+                      {editingClient.business_name}
+                    </h4>
+                    <p className="text-[10px] text-zinc-400">
+                      ID: {editingClient.id.slice(0, 8)}...
+                    </p>
+                  </div>
+                </div>
+
+                {/* View As Button in Sidebar */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const clientProfile: any = {
+                      id: editingClient.id,
+                      user_id: editingClient.user_id,
+                      business_name: editingClient.business_name,
+                      industry: editingClient.industry,
+                      plan: editingClient.plan,
+                      active: editingClient.active,
+                      is_admin: editingClient.is_admin,
+                      meta_account_id: editingClient.meta_account_id,
+                      ig_business_id: (editingClient as any).ig_business_id,
+                      ig_username: (editingClient as any).ig_username,
+                      klaviyo_api_key: editingClient.klaviyo_api_key,
+                      chatwoot_url: editingClient.chatwoot_url,
+                      chatwoot_token: editingClient.chatwoot_token,
+                      ecommerce_platform: editingClient.ecommerce_platform,
+                      shopify_domain: editingClient.shopify_domain,
+                      shopify_access_token: editingClient.shopify_access_token,
+                      client_tags: editingClient.client_tags || [],
+                    };
+                    setViewAsProfile(
+                      viewAsProfile?.id === editingClient.id ? null : clientProfile,
+                    );
+                    setEditingClient(null);
+                    if (viewAsProfile?.id !== editingClient.id) navigate("/");
+                  }}
+                  className={`w-full py-2 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-2 transition-all border ${
+                    viewAsProfile?.id === editingClient.id
+                      ? "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-500/10"
+                      : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850"
+                  }`}
+                >
+                  <MonitorPlay className="w-4 h-4" />
+                  {viewAsProfile?.id === editingClient.id ? "Detener Vista" : "Ver como Cliente"}
+                </button>
+
+                {/* Vertical Navigation Tabs */}
+                <nav className="flex flex-col gap-1">
+                  {[
+                    { id: "general", label: "General", icon: UserPlus },
+                    { id: "integrations", label: "Conexiones / API", icon: Globe },
+                    { id: "users", label: "Usuarios / Accesos", icon: Users },
+                    { id: "links", label: "Accesos Directos", icon: Copy },
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveTab(tab.id as any)}
+                        className={`w-full py-2 px-3 rounded-lg text-[12px] font-semibold flex items-center gap-2.5 transition-all text-left ${
+                          isActive
+                            ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold"
+                            : "text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/60 dark:hover:bg-zinc-850"
+                        }`}
+                      >
+                        <Icon className={`w-3.5 h-3.5 ${isActive ? "text-violet-500" : "text-zinc-400"}`} />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              {/* Close Modal Button */}
               <button
+                type="button"
                 onClick={() => setEditingClient(null)}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+                className="w-full py-2 px-3 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-center transition-all bg-white dark:bg-zinc-900"
               >
-                <X className="w-5 h-5" />
+                Cerrar Panel
               </button>
             </div>
 
-            <form onSubmit={saveConfig} className="p-6 space-y-6">
-              {/* Etiquetas / Tipo de Cliente */}
-              <SectionBox title="Tipo de Cliente y Objetivos" badge="Tags">
-                <div className="flex flex-col gap-2">
-                  <p className="text-[12px] text-zinc-500 mb-1">
-                    Seleccioná los objetivos de este cliente. Esto determinará qué métricas y secciones se mostrarán en su Dashboard.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {CLIENT_TAGS.map((tag) => {
-                      const isSelected = editForm.client_tags?.includes(tag.id);
-                      const isPrimary = editForm.client_tags?.[0] === tag.id;
-                      
-                      return (
-                        <div
-                          key={tag.id}
-                          className={`relative flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${
-                            isSelected
-                              ? "border-violet-500 bg-violet-50/50 dark:bg-violet-500/10"
-                              : "border-zinc-200 dark:border-zinc-700 hover:border-violet-300"
-                          }`}
-                        >
-                          <label className="flex items-center gap-3 cursor-pointer flex-1">
-                            <div className="mt-0.5">
-                              <input
-                                type="checkbox"
-                                className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  const newTags = e.target.checked
-                                    ? [...(editForm.client_tags || []), tag.id]
-                                    : (editForm.client_tags || []).filter((t: string) => t !== tag.id);
-                                  ef("client_tags", newTags);
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <span className="text-[13px] font-semibold text-zinc-900 dark:text-white block">
-                                {tag.label}
-                              </span>
-                            </div>
-                          </label>
-                          
-                          {isSelected && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                if (isPrimary) return;
-                                const tags = [...(editForm.client_tags || [])];
-                                const index = tags.indexOf(tag.id);
-                                if (index > -1) {
-                                  tags.splice(index, 1);
-                                  tags.unshift(tag.id);
-                                  ef("client_tags", tags);
-                                }
-                              }}
-                              className={`p-1.5 rounded-lg transition-all ${isPrimary ? 'text-amber-500 bg-amber-50 dark:bg-amber-500/10 shadow-sm' : 'text-zinc-400 hover:text-amber-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
-                              title={isPrimary ? "Esta es la Métrica Principal del Inicio" : "Convertir en Métrica Principal"}
-                            >
-                              <Star className="w-4 h-4" fill={isPrimary ? "currentColor" : "none"} strokeWidth={isPrimary ? 0 : 2} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </SectionBox>
+            {/* Content pane */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              {/* Header inside pane */}
+              <div className="px-6 py-4 border-b border-zinc-150 dark:border-zinc-850 flex justify-between items-center bg-white dark:bg-zinc-900">
+                <h3 className="text-[15px] font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                  {activeTab === "general" && <UserPlus className="w-4 h-4 text-violet-500" />}
+                  {activeTab === "integrations" && <Globe className="w-4 h-4 text-violet-500" />}
+                  {activeTab === "users" && <Users className="w-4 h-4 text-violet-500" />}
+                  {activeTab === "links" && <Copy className="w-4 h-4 text-violet-500" />}
+                  {activeTab === "general" && "Configuración General"}
+                  {activeTab === "integrations" && "Conexiones e Integraciones"}
+                  {activeTab === "users" && "Usuarios con Acceso"}
+                  {activeTab === "links" && "Accesos Directos"}
+                </h3>
+              </div>
 
-              {/* Meta Ads */}
-              <SectionBox
-                title="Meta Ads"
-                badge="C — Captación"
-                status={statuses.meta}
-              >
-                <Field label="Ad Account">
-                  <select
-                    value={editForm.meta_account_id}
-                    onChange={(e) => ef("meta_account_id", e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">Seleccionar cuenta...</option>
-                    {metaAccounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.name} ({acc.id})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <button
-                  type="button"
-                  onClick={testMeta}
-                  disabled={testingMeta || !editForm.meta_account_id}
-                  className="w-full h-9 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
-                >
-                  {testingMeta ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Facebook className="w-3 h-3" />
-                  )}
-                  Probar Conexión Meta
-                </button>
-
-                {/* Instagram fields */}
-                <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700/60">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                    </div>
-                    <span className="text-[11px] font-bold uppercase tracking-[0.07em] text-zinc-500 dark:text-zinc-400">Instagram Business</span>
-                    {editForm.ig_business_id && (
-                      <span className="text-[10px] bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 px-2 py-0.5 rounded-full font-bold border border-pink-200 dark:border-pink-500/20">Configurado</span>
-                    )}
-                  </div>
-                  <div className="space-y-4">
-                    <Field label="Seleccionar Cuenta de Instagram Vinculada">
-                      <div className="flex gap-2">
-                        <select
-                          value={editForm.ig_business_id || ""}
-                          onChange={(e) => handleSelectIgAccount(e.target.value)}
-                          className={`${inputCls} flex-1`}
-                          disabled={loadingIgAccounts}
-                        >
-                          <option value="">-- Seleccionar cuenta auto-detectada --</option>
-                          {discoveredIgAccounts.map((acc) => (
-                            <option key={acc.igId} value={acc.igId}>
-                              {acc.name || acc.username} (@{acc.username}) — FB Page: {acc.pageName}
-                            </option>
-                          ))}
-                          {editForm.ig_business_id && !discoveredIgAccounts.some(acc => acc.igId === editForm.ig_business_id) && (
-                            <option value={editForm.ig_business_id}>
-                              {editForm.ig_username ? `@${editForm.ig_username}` : "Cuenta actual"} ({editForm.ig_business_id})
-                            </option>
-                          )}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => loadDiscoveredIgAccounts(false)}
-                          disabled={loadingIgAccounts}
-                          title="Sincronizar/Refrescar cuentas desde Meta"
-                          className="px-3 rounded-lg border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center transition-all"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${loadingIgAccounts ? "animate-spin" : ""}`} />
-                        </button>
-                      </div>
-                    </Field>
-
-                    <div className="border border-zinc-100 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50/50 dark:bg-zinc-800/20">
-                      <details className="group">
-                        <summary className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 cursor-pointer select-none flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                          <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
-                          Configuración Manual / Detalles del ID
-                        </summary>
-                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <Field label="Instagram Business ID Manual">
-                            <input
-                              type="text"
-                              value={editForm.ig_business_id || ""}
-                              onChange={(e) => ef("ig_business_id", e.target.value)}
-                              placeholder="17841400000000000"
-                              className={inputCls}
-                            />
-                          </Field>
-                          <Field label="Instagram Username Manual (sin @)">
-                            <input
-                              type="text"
-                              value={editForm.ig_username || ""}
-                              onChange={(e) => ef("ig_username", e.target.value.replace('@', ''))}
-                              placeholder="mi_cuenta"
-                              className={inputCls}
-                            />
-                          </Field>
-                        </div>
-                      </details>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={testInstagram}
-                      disabled={testingIg || !editForm.ig_business_id}
-                      className="w-full h-9 rounded-lg border border-pink-200 dark:border-pink-500/30 bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[11px] font-bold hover:bg-pink-100 transition-all flex items-center justify-center gap-2"
-                    >
-                      {testingIg ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                      )}
-                      Probar Conexión Instagram
-                    </button>
-                  </div>
-                </div>
-              </SectionBox>
-
-              {/* Email Marketing */}
-              <SectionBox
-                title="Email Marketing"
-                badge="R — Retención"
-                status={statuses.klaviyo}
-              >
-                <div className="grid grid-cols-1 gap-4">
-                  <Field label="API Key de Email Marketing (Privada)">
-                    <input
-                      type="text"
-                      value={editForm.klaviyo_api_key}
-                      onChange={(e) => ef("klaviyo_api_key", e.target.value)}
-                      placeholder="pk_xxxxxxxxxxxxxxxx"
-                      className={inputCls}
-                    />
-                  </Field>
-                  <button
-                    type="button"
-                    onClick={testKlaviyo}
-                    disabled={testingKlaviyo || !editForm.klaviyo_api_key}
-                    className="w-full h-9 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
-                  >
-                    {testingKlaviyo ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Mail className="w-3 h-3" />
-                    )}
-                    Probar Conexión de Email
-                  </button>
-                </div>
-              </SectionBox>
-
-              {/* Chatwoot */}
-              <SectionBox
-                title="Chatwoot"
-                badge="A — Atención"
-                status={statuses.chatwoot}
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label="URL del chat">
-                    <input
-                      type="url"
-                      value={editForm.chatwoot_url}
-                      onChange={(e) => ef("chatwoot_url", e.target.value)}
-                      placeholder="https://app.chatwoot.com"
-                      className={inputCls}
-                    />
-                  </Field>
-                  <Field label="Token del widget">
-                    <input
-                      type="text"
-                      value={editForm.chatwoot_token}
-                      onChange={(e) => ef("chatwoot_token", e.target.value)}
-                      placeholder="token_xxxxxx"
-                      className={inputCls}
-                    />
-                  </Field>
-                </div>
-                <button
-                  type="button"
-                  onClick={testChatwoot}
-                  disabled={testingChatwoot || !editForm.chatwoot_url}
-                  className="w-full h-9 rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
-                >
-                  {testingChatwoot ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <MessageSquare className="w-3 h-3" />
-                  )}
-                  Probar Conexión Chatwoot
-                </button>
-              </SectionBox>
-
-              {/* E-commerce */}
-              <SectionBox
-                title="Tienda Online (E-commerce)"
-                badge="T — Tienda"
-                status={statuses.shopify}
-              >
-                <div className="grid grid-cols-1 gap-4">
-                  <Field label="Plataforma">
-                    <select
-                      value={editForm.ecommerce_platform}
-                      onChange={(e) => ef("ecommerce_platform", e.target.value)}
-                      className={inputCls}
-                    >
-                      <option value="">No configurado</option>
-                      <option value="shopify">Shopify</option>
-                      <option value="tiendanube">Tiendanube</option>
-                    </select>
-                  </Field>
-
-                  {editForm.ecommerce_platform === "shopify" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Field label="Dominio Shopify">
-                        <input
-                          type="text"
-                          value={editForm.shopify_domain}
-                          onChange={(e) => ef("shopify_domain", e.target.value)}
-                          placeholder="mitienda.myshopify.com"
-                          className={inputCls}
-                        />
-                      </Field>
-                      <Field label="Access Token (Admin API)">
-                        <input
-                          type="text"
-                          value={editForm.shopify_access_token}
-                          onChange={(e) =>
-                            ef("shopify_access_token", e.target.value)
-                          }
-                          placeholder="shpat_xxxxxx"
-                          className={inputCls}
-                        />
-                      </Field>
-                      <div className="md:col-span-2">
-                        <button
-                          type="button"
-                          onClick={testShopify}
-                          disabled={testingShopify}
-                          className="w-full h-9 rounded-lg border border-violet-200 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 text-[12px] font-bold hover:bg-violet-100 dark:hover:bg-violet-500/20 transition-all flex items-center justify-center gap-2"
-                        >
-                          {testingShopify ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
-                              Probando conexión...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5" /> Probar
-                              Conexión con Shopify
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {editForm.ecommerce_platform === "tiendanube" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Field label="ID de Tienda (Store ID)">
-                        <input
-                          type="text"
-                          value={editForm.tiendanube_store_id}
-                          onChange={(e) =>
-                            ef("tiendanube_store_id", e.target.value)
-                          }
-                          placeholder="1234567"
-                          className={inputCls}
-                        />
-                      </Field>
-                      <Field label="Access Token">
-                        <input
-                          type="text"
-                          value={editForm.tiendanube_access_token}
-                          onChange={(e) =>
-                            ef("tiendanube_access_token", e.target.value)
-                          }
-                          placeholder="bearer token..."
-                          className={inputCls}
-                        />
-                      </Field>
-                    </div>
-                  )}
-                </div>
-              </SectionBox>
-
-              {/* Password Change */}
-              <SectionBox title="Acceso y Seguridad">
-                <div className="grid grid-cols-1 gap-4">
-                  <Field label="Nueva Contraseña (dejar vacío para no cambiar)">
-                    <div className="relative">
-                      <input
-                        type={showPwd ? "text" : "password"}
-                        value={editForm.new_password}
-                        onChange={(e) => ef("new_password", e.target.value)}
-                        placeholder="Mínimo 6 caracteres"
-                        className={inputCls + " pr-20"}
-                      />
-                      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setShowPwd((s) => !s)}
-                          className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-all"
-                        >
-                          {showPwd ? (
-                            <EyeOff className="w-3.5 h-3.5" />
-                          ) : (
-                            <Eye className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => ef("new_password", genPwd())}
-                          className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-all"
-                          title="Generar"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </Field>
-                </div>
-              </SectionBox>
-
-              {/* Custom Links */}
-              <SectionBox title="Accesos Directos" badge="L — Links">
-                <div className="space-y-4">
-                  {loadingLinks ? (
-                    <div className="flex justify-center py-4">
-                      <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {clientLinks.map((link, idx) => (
-                        <div
-                          key={idx}
-                          className="flex gap-2 items-start bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-lg border border-zinc-100 dark:border-zinc-700"
-                        >
-                          <div className="flex-1 space-y-2">
-                            <input
-                              type="text"
-                              placeholder="Nombre (ej: Carpeta Ads)"
-                              value={link.label}
-                              onChange={(e) => {
-                                const nl = [...clientLinks];
-                                nl[idx].label = e.target.value;
-                                setClientLinks(nl);
-                              }}
-                              className={inputCls}
-                            />
-                            <input
-                              type="url"
-                              placeholder="URL (ej: https://drive.google.com/...)"
-                              value={link.url}
-                              onChange={(e) => {
-                                const nl = [...clientLinks];
-                                nl[idx].url = e.target.value;
-                                setClientLinks(nl);
-                              }}
-                              className={inputCls}
-                            />
-                          </div>
+              {/* Form body */}
+              <form onSubmit={saveConfig} className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col justify-between">
+                <div className="space-y-6">
+                  {activeTab === "general" && (
+                    <div className="space-y-6">
+                      <Field label="Estado del Cliente">
+                        <div className="flex items-center gap-3">
                           <button
                             type="button"
-                            onClick={() => handleRemoveLink(idx, link)}
-                            className="mt-1 p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg"
+                            onClick={() => ef("active", !editForm.active)}
+                            className={`w-10 h-6 rounded-full transition-all relative outline-none border border-transparent ${
+                              editForm.active ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-700"
+                            }`}
                           >
-                            <X className="w-4 h-4" />
+                            <div
+                              className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all shadow-sm ${
+                                editForm.active ? "right-1" : "left-1"
+                              }`}
+                            />
                           </button>
+                          <span className="text-[12px] font-semibold text-zinc-700 dark:text-zinc-300">
+                            {editForm.active ? "Cliente Activo" : "Cliente Inactivo (Bloquea accesos de usuario)"}
+                          </span>
                         </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={handleAddLink}
-                        className="w-full h-9 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 text-[12px] font-semibold hover:border-violet-500 hover:text-violet-500 transition-all flex items-center justify-center gap-2 bg-zinc-50/50 dark:bg-zinc-800/30"
+                      </Field>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <Field label="Nombre de la Empresa">
+                          <input
+                            type="text"
+                            required
+                            value={editForm.business_name || ""}
+                            onChange={(e) => ef("business_name", e.target.value)}
+                            className={inputCls}
+                          />
+                        </Field>
+                        <Field label="Industria">
+                          <select
+                            value={editForm.industry || ""}
+                            onChange={(e) => ef("industry", e.target.value)}
+                            className={inputCls}
+                          >
+                            {INDUSTRIES.map((i) => (
+                              <option key={i}>{i}</option>
+                            ))}
+                          </select>
+                        </Field>
+                      </div>
+                      <Field label="Plan C.A.R">
+                        <div className="flex gap-2">
+                          {PLANS.map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => ef("plan", p)}
+                              className={`flex-1 h-10 rounded-[9px] border text-[12px] font-semibold transition-all ${
+                                editForm.plan === p
+                                  ? "border-violet-500 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400"
+                                  : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300"
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+
+                      {/* Objetivos */}
+                      <SectionBox title="Tipo de Cliente y Objetivos" badge="Tags">
+                        <div className="flex flex-col gap-2">
+                          <p className="text-[11px] text-zinc-500 mb-1">
+                            Seleccioná los objetivos de este cliente. Esto determinará qué métricas y secciones se mostrarán en su Dashboard.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {CLIENT_TAGS.map((tag) => {
+                              const isSelected = editForm.client_tags?.includes(tag.id);
+                              const isPrimary = editForm.client_tags?.[0] === tag.id;
+                              return (
+                                <div
+                                  key={tag.id}
+                                  onClick={() => {
+                                    let list = [...(editForm.client_tags || [])];
+                                    if (isSelected) {
+                                      list = list.filter((x) => x !== tag.id);
+                                    } else {
+                                      list.push(tag.id);
+                                    }
+                                    ef("client_tags", list);
+                                  }}
+                                  className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col gap-1 relative ${
+                                    isSelected
+                                      ? "border-violet-500 bg-violet-50/50 dark:bg-violet-500/5"
+                                      : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${tag.color}`}>
+                                      {tag.label}
+                                    </span>
+                                    {isSelected && (
+                                      <Check className="w-3.5 h-3.5 text-violet-500 ml-auto" />
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-zinc-400 mt-1">
+                                    {tag.desc}
+                                  </p>
+                                  {isSelected && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const list = [tag.id, ...(editForm.client_tags || []).filter((x: string) => x !== tag.id)];
+                                        ef("client_tags", list);
+                                      }}
+                                      className={`mt-2 py-1 px-2 rounded text-[9px] font-bold uppercase tracking-wider flex items-center justify-center gap-1 self-start border transition-all ${
+                                        isPrimary
+                                          ? "bg-violet-600 text-white border-violet-600"
+                                          : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50"
+                                      }`}
+                                    >
+                                      <Star className="w-3 h-3" fill={isPrimary ? "currentColor" : "none"} strokeWidth={isPrimary ? 0 : 2} />
+                                      {isPrimary ? "Métrica Principal" : "Hacer Principal"}
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </SectionBox>
+                    </div>
+                  )}
+
+                  {activeTab === "integrations" && (
+                    <div className="space-y-6">
+                      {/* E-commerce */}
+                      <SectionBox
+                        title="Plataforma de E-commerce"
+                        badge="S / T — Tienda"
+                        status={statuses.shopify}
                       >
-                        + Agregar Acceso Directo
-                      </button>
+                        <Field label="Plataforma Integrada">
+                          <select
+                            value={editForm.ecommerce_platform}
+                            onChange={(e) => ef("ecommerce_platform", e.target.value)}
+                            className={inputCls}
+                          >
+                            <option value="">Ninguna / Desconectada</option>
+                            <option value="shopify">Shopify</option>
+                            <option value="tiendanube">Tiendanube</option>
+                          </select>
+                        </Field>
+
+                        {editForm.ecommerce_platform === "shopify" && (
+                          <div className="mt-3 p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl space-y-3 border border-zinc-100 dark:border-zinc-800">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <Field label="Dominio Shopify (ej: mi-tienda.myshopify.com)">
+                                <input
+                                  type="text"
+                                  value={editForm.shopify_domain}
+                                  onChange={(e) => ef("shopify_domain", e.target.value)}
+                                  placeholder="tienda.myshopify.com"
+                                  className={inputCls}
+                                />
+                              </Field>
+                              <Field label="Admin Access Token (shpat_...)">
+                                <input
+                                  type="password"
+                                  value={editForm.shopify_access_token}
+                                  onChange={(e) => ef("shopify_access_token", e.target.value)}
+                                  placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxx"
+                                  className={inputCls}
+                                />
+                              </Field>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={testShopify}
+                              disabled={testingShopify || !editForm.shopify_domain || !editForm.shopify_access_token}
+                              className="w-full h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold hover:bg-zinc-50 transition-all flex items-center justify-center gap-2"
+                            >
+                              {testingShopify ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                              Probar Conexión Shopify
+                            </button>
+                          </div>
+                        )}
+
+                        {editForm.ecommerce_platform === "tiendanube" && (
+                          <div className="mt-3 p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl space-y-3 border border-zinc-100 dark:border-zinc-800">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <Field label="Store ID Tiendanube">
+                                <input
+                                  type="text"
+                                  value={editForm.tiendanube_store_id}
+                                  onChange={(e) => ef("tiendanube_store_id", e.target.value)}
+                                  placeholder="1234567"
+                                  className={inputCls}
+                                />
+                              </Field>
+                              <Field label="Access Token Tiendanube">
+                                <input
+                                  type="password"
+                                  value={editForm.tiendanube_access_token}
+                                  onChange={(e) => ef("tiendanube_access_token", e.target.value)}
+                                  placeholder="Token de acceso API"
+                                  className={inputCls}
+                                />
+                              </Field>
+                            </div>
+                          </div>
+                        )}
+                      </SectionBox>
+
+                      {/* Meta Ads & Instagram */}
+                      <SectionBox
+                        title="Meta Ads & Instagram"
+                        badge="C — Captación"
+                        status={statuses.meta}
+                      >
+                        <Field label="Cuenta publicitaria de Meta">
+                          <select
+                            value={editForm.meta_account_id}
+                            onChange={(e) => ef("meta_account_id", e.target.value)}
+                            className={inputCls}
+                          >
+                            <option value="">Seleccionar cuenta...</option>
+                            {metaAccounts.map((acc) => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.name} ({acc.id})
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                        <button
+                          type="button"
+                          onClick={testMeta}
+                          disabled={testingMeta || !editForm.meta_account_id}
+                          className="w-full h-9 mt-2 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                        >
+                          {testingMeta ? <Loader2 className="w-3 h-3 animate-spin" /> : <Facebook className="w-3 h-3" />}
+                          Probar Conexión Meta
+                        </button>
+
+                        {/* Instagram fields */}
+                        <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700/60">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                            </div>
+                            <span className="text-[11px] font-bold uppercase tracking-[0.07em] text-zinc-500 dark:text-zinc-400">Instagram Business</span>
+                            {editForm.ig_business_id && (
+                              <span className="text-[10px] bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 px-2 py-0.5 rounded-full font-bold border border-pink-200 dark:border-pink-500/20">Configurado</span>
+                            )}
+                          </div>
+                          <div className="space-y-4">
+                            <Field label="Seleccionar Cuenta de Instagram Vinculada">
+                              <div className="flex gap-2">
+                                <select
+                                  value={editForm.ig_business_id || ""}
+                                  onChange={(e) => handleSelectIgAccount(e.target.value)}
+                                  className={`${inputCls} flex-1`}
+                                  disabled={loadingIgAccounts}
+                                >
+                                  <option value="">-- Seleccionar cuenta auto-detectada --</option>
+                                  {discoveredIgAccounts.map((acc) => (
+                                    <option key={acc.igId} value={acc.igId}>
+                                      {acc.name || acc.username} (@{acc.username}) — FB Page: {acc.pageName}
+                                    </option>
+                                  ))}
+                                  {editForm.ig_business_id && !discoveredIgAccounts.some(acc => acc.igId === editForm.ig_business_id) && (
+                                    <option value={editForm.ig_business_id}>
+                                      {editForm.ig_username ? `@${editForm.ig_username}` : "Cuenta actual"} ({editForm.ig_business_id})
+                                    </option>
+                                  )}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => loadDiscoveredIgAccounts(false)}
+                                  disabled={loadingIgAccounts}
+                                  title="Sincronizar/Refrescar cuentas desde Meta"
+                                  className="px-3 rounded-lg border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center transition-all"
+                                >
+                                  <RefreshCw className={`w-3.5 h-3.5 ${loadingIgAccounts ? "animate-spin" : ""}`} />
+                                </button>
+                              </div>
+                            </Field>
+
+                            <div className="border border-zinc-100 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50/50 dark:bg-zinc-800/20">
+                              <details className="group">
+                                <summary className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 cursor-pointer select-none flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                  <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
+                                  Configuración Manual / Detalles del ID
+                                </summary>
+                                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <Field label="Instagram Business ID Manual">
+                                    <input
+                                      type="text"
+                                      value={editForm.ig_business_id || ""}
+                                      onChange={(e) => ef("ig_business_id", e.target.value)}
+                                      placeholder="17841400000000000"
+                                      className={inputCls}
+                                    />
+                                  </Field>
+                                  <Field label="Instagram Username Manual (sin @)">
+                                    <input
+                                      type="text"
+                                      value={editForm.ig_username || ""}
+                                      onChange={(e) => ef("ig_username", e.target.value.replace('@', ''))}
+                                      placeholder="mi_cuenta"
+                                      className={inputCls}
+                                    />
+                                  </Field>
+                                </div>
+                              </details>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={testInstagram}
+                              disabled={testingIg || !editForm.ig_business_id}
+                              className="w-full h-9 rounded-lg border border-pink-200 dark:border-pink-500/30 bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[11px] font-bold hover:bg-pink-100 transition-all flex items-center justify-center gap-2"
+                            >
+                              {testingIg ? <Loader2 className="w-3 h-3 animate-spin" /> : <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>}
+                              Probar Conexión Instagram
+                            </button>
+                          </div>
+                        </div>
+                      </SectionBox>
+
+                      {/* Klaviyo */}
+                      <SectionBox
+                        title="Klaviyo Email Marketing"
+                        badge="K — Email"
+                        status={statuses.klaviyo}
+                      >
+                        <Field label="Klaviyo API Private Key (pk_...)">
+                          <input
+                            type="password"
+                            value={editForm.klaviyo_api_key}
+                            onChange={(e) => ef("klaviyo_api_key", e.target.value)}
+                            placeholder="pk_xxxxxxxxxxxxxxxxxxxx"
+                            className={inputCls}
+                          />
+                        </Field>
+                        <button
+                          type="button"
+                          onClick={testKlaviyo}
+                          disabled={testingKlaviyo || !editForm.klaviyo_api_key}
+                          className="w-full h-9 mt-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold hover:bg-zinc-50 transition-all flex items-center justify-center gap-2"
+                        >
+                          {testingKlaviyo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                          Probar Conexión Klaviyo
+                        </button>
+                      </SectionBox>
+
+                      {/* Chatwoot */}
+                      <SectionBox
+                        title="Chatwoot Support System"
+                        badge="S — Soporte"
+                        status={statuses.chatwoot}
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <Field label="URL Chatwoot (ej: https://chat.empresa.com)">
+                            <input
+                              type="text"
+                              value={editForm.chatwoot_url}
+                              onChange={(e) => ef("chatwoot_url", e.target.value)}
+                              placeholder="https://chatwoot.com"
+                              className={inputCls}
+                            />
+                          </Field>
+                          <Field label="User/Agent Access Token">
+                            <input
+                              type="password"
+                              value={editForm.chatwoot_token}
+                              onChange={(e) => ef("chatwoot_token", e.target.value)}
+                              placeholder="Token de acceso personal"
+                              className={inputCls}
+                            />
+                          </Field>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={testChatwoot}
+                          disabled={testingChatwoot || !editForm.chatwoot_url || !editForm.chatwoot_token}
+                          className="w-full h-9 mt-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold hover:bg-zinc-50 transition-all flex items-center justify-center gap-2"
+                        >
+                          {testingChatwoot ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                          Probar Conexión Chatwoot
+                        </button>
+                      </SectionBox>
+                    </div>
+                  )}
+
+                  {activeTab === "users" && (
+                    <div className="space-y-6">
+                      <SectionBox title="Cuentas con Acceso / Usuarios" badge="Usuarios">
+                        <div className="space-y-4">
+                          {loadingAccounts ? (
+                            <div className="flex justify-center py-6">
+                              <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
+                            </div>
+                          ) : (
+                            <div className="rounded-[10px] border border-zinc-150 dark:border-zinc-800 overflow-hidden">
+                              <table className="w-full text-left">
+                                <thead>
+                                  <tr className="bg-zinc-50 dark:bg-zinc-850 border-b border-zinc-150 dark:border-zinc-800">
+                                    <th className="px-4 py-2 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Email</th>
+                                    <th className="px-4 py-2 text-[11px] font-bold text-zinc-500 uppercase tracking-wider hidden sm:table-cell">Creado</th>
+                                    <th className="px-4 py-2 text-[11px] font-bold text-zinc-500 uppercase tracking-wider text-right">Acciones</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                  {businessAccounts.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={3} className="text-center py-6 text-[12px] text-zinc-400">
+                                        Sin cuentas de acceso configuradas.
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    businessAccounts.map((acc) => (
+                                      <React.Fragment key={acc.user_id}>
+                                        <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                          <td className="px-4 py-3 text-[13px] font-mono text-zinc-700 dark:text-zinc-300 truncate max-w-[200px]">
+                                            {acc.email}
+                                          </td>
+                                          <td className="px-4 py-3 text-[11px] text-zinc-400 hidden sm:table-cell">
+                                            {new Date(acc.created_at).toLocaleDateString("es-AR")}
+                                          </td>
+                                          <td className="px-4 py-3">
+                                            <div className="flex items-center gap-1.5 justify-end">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  if (changingPwdFor === acc.user_id) {
+                                                    setChangingPwdFor(null);
+                                                    setChangingPwd('');
+                                                  } else {
+                                                    setChangingPwdFor(acc.user_id);
+                                                    setChangingPwd(genPwd());
+                                                    setShowChangingPwd(false);
+                                                    setConfirmDeleteUserId(null);
+                                                  }
+                                                }}
+                                                className={`p-1.5 rounded-lg transition-all ${
+                                                  changingPwdFor === acc.user_id
+                                                    ? "bg-violet-100 dark:bg-violet-500/20 text-violet-600"
+                                                    : "text-zinc-400 hover:text-violet-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                                                }`}
+                                                title="Cambiar contraseña"
+                                              >
+                                                <KeyRound className="w-3.5 h-3.5" />
+                                              </button>
+                                              {confirmDeleteUserId !== acc.user_id && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setConfirmDeleteUserId(acc.user_id);
+                                                    setChangingPwdFor(null);
+                                                    setChangingPwd('');
+                                                  }}
+                                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-zinc-800 transition-all"
+                                                  title="Eliminar cuenta"
+                                                >
+                                                  <X className="w-3.5 h-3.5" />
+                                                </button>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
+
+                                        {changingPwdFor === acc.user_id && (
+                                          <tr className="bg-violet-50/50 dark:bg-violet-500/5">
+                                            <td colSpan={3} className="px-4 py-3">
+                                              <div className="flex flex-col sm:flex-row gap-2 items-end">
+                                                <div className="flex-1 w-full">
+                                                  <label className={labelCls}>Nueva contraseña</label>
+                                                  <div className="relative">
+                                                    <input
+                                                      type={showChangingPwd ? "text" : "password"}
+                                                      value={changingPwd}
+                                                      onChange={(e) => setChangingPwd(e.target.value)}
+                                                      className={inputCls + " pr-20 font-mono"}
+                                                      placeholder="Mínimo 6 caracteres"
+                                                    />
+                                                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-1">
+                                                      <button type="button" onClick={() => setShowChangingPwd((s) => !s)} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all">
+                                                        {showChangingPwd ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                                      </button>
+                                                      <button type="button" onClick={() => copy(changingPwd, "Contraseña")} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Copiar">
+                                                        <Copy className="w-3 h-3" />
+                                                      </button>
+                                                      <button type="button" onClick={() => setChangingPwd(genPwd())} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Generar">
+                                                        <RefreshCw className="w-3 h-3" />
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                                <div className="flex gap-2 flex-shrink-0">
+                                                  <button type="button" onClick={() => { setChangingPwdFor(null); setChangingPwd(''); }} className="h-10 px-3 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-[12px] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
+                                                    Cancelar
+                                                  </button>
+                                                  <button type="button" onClick={() => handleChangePwd(acc.user_id)} disabled={savingPwd || !changingPwd} className="h-10 px-4 rounded-[9px] bg-violet-600 text-white text-[12px] font-semibold flex items-center gap-2 hover:bg-violet-700 transition-all disabled:opacity-50">
+                                                    {savingPwd ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                    Guardar
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        )}
+
+                                        {confirmDeleteUserId === acc.user_id && (
+                                          <tr className="bg-red-50/60 dark:bg-red-500/5">
+                                            <td colSpan={3} className="px-4 py-3">
+                                              <div className="flex items-center gap-3">
+                                                <span className="text-[12px] text-red-600 dark:text-red-400 font-medium flex-1">
+                                                  ¿Eliminar <span className="font-bold font-mono text-[11px] bg-red-100 dark:bg-red-500/20 px-1 py-0.5 rounded">{acc.email}</span>?
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setConfirmDeleteUserId(null)}
+                                                  className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[11px] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex-shrink-0"
+                                                >
+                                                  Cancelar
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleDeleteAccount(acc, editingClient.id, editingClient.user_id ?? null)}
+                                                  disabled={deletingAccountUserId === acc.user_id}
+                                                  className="h-8 px-4 rounded-lg bg-red-500 text-white text-[11px] font-bold hover:bg-red-600 transition-all disabled:opacity-50 flex items-center gap-2 flex-shrink-0"
+                                                >
+                                                  {deletingAccountUserId === acc.user_id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                                  Sí, eliminar
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </React.Fragment>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Agregar cuenta */}
+                          <div className="mt-4 pt-4 border-t border-zinc-150 dark:border-zinc-800 space-y-3">
+                            <h5 className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">
+                              Crear Nueva Cuenta de Acceso
+                            </h5>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="w-full">
+                                <label className={labelCls}>Usuario o Email</label>
+                                <input
+                                  type="text"
+                                  placeholder="usuario o email@empresa.com"
+                                  autoCapitalize="none"
+                                  autoCorrect="off"
+                                  value={newAccEmail}
+                                  onChange={(e) => setNewAccEmail(e.target.value)}
+                                  className={inputCls}
+                                />
+                              </div>
+                              <div className="w-full">
+                                <label className={labelCls}>Contraseña Inicial</label>
+                                <div className="relative">
+                                  <input
+                                    type={showNewAccPwd ? "text" : "password"}
+                                    value={newAccPwd}
+                                    onChange={(e) => setNewAccPwd(e.target.value)}
+                                    className={inputCls + " pr-20 font-mono"}
+                                  />
+                                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-1">
+                                    <button type="button" onClick={() => setShowNewAccPwd((s) => !s)} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all">
+                                      {showNewAccPwd ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                    </button>
+                                    <button type="button" onClick={() => copy(newAccPwd, "Contraseña")} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Copiar">
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                    <button type="button" onClick={() => setNewAccPwd(genPwd())} className="p-1.5 rounded text-zinc-400 hover:text-zinc-600 transition-all" title="Generar nueva">
+                                      <RefreshCw className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCreateAccount(editingClient.id, editingClient.user_id ?? null)}
+                              disabled={creatingAccount || !newAccEmail || !supabaseAdmin}
+                              className="w-full h-10 rounded-[9px] bg-violet-600 text-white text-[12px] font-semibold flex items-center justify-center gap-2 hover:bg-violet-700 transition-all disabled:opacity-50"
+                            >
+                              {creatingAccount ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+                              Agregar cuenta de acceso
+                            </button>
+                          </div>
+                        </div>
+                      </SectionBox>
+                    </div>
+                  )}
+
+                  {activeTab === "links" && (
+                    <div className="space-y-6">
+                      <SectionBox title="Accesos Directos" badge="L — Links">
+                        <div className="space-y-4">
+                          {loadingLinks ? (
+                            <div className="flex justify-center py-4">
+                              <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {clientLinks.map((link, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex gap-2 items-start bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-150 dark:border-zinc-800"
+                                >
+                                  <div className="flex-1 space-y-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Nombre (ej: Carpeta Ads)"
+                                      value={link.label}
+                                      onChange={(e) => {
+                                        const nl = [...clientLinks];
+                                        nl[idx].label = e.target.value;
+                                        setClientLinks(nl);
+                                      }}
+                                      className={inputCls}
+                                    />
+                                    <input
+                                      type="url"
+                                      placeholder="URL (ej: https://drive.google.com/...)"
+                                      value={link.url}
+                                      onChange={(e) => {
+                                        const nl = [...clientLinks];
+                                        nl[idx].url = e.target.value;
+                                        setClientLinks(nl);
+                                      }}
+                                      className={inputCls}
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveLink(idx, link)}
+                                    className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-55 dark:hover:bg-zinc-800 rounded-lg transition-all"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={handleAddLink}
+                                className="w-full h-10 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 text-[12px] font-semibold hover:border-violet-500 hover:text-violet-500 transition-all flex items-center justify-center gap-2 bg-zinc-50/30 dark:bg-zinc-850/30"
+                              >
+                                + Agregar Acceso Directo
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </SectionBox>
                     </div>
                   )}
                 </div>
-              </SectionBox>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                <button
-                  type="button"
-                  onClick={() => setEditingClient(null)}
-                  className="h-10 px-5 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-[13px] font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingConfig}
-                  className="h-10 px-6 rounded-[9px] bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[13px] font-semibold shadow hover:-translate-y-[1px] transition-all disabled:opacity-50 flex items-center gap-2"
-                >
-                  {savingConfig ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Check className="w-4 h-4" />
-                  )}
-                  Guardar Configuración
-                </button>
-              </div>
-            </form>
+                {/* Footer buttons */}
+                <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-zinc-150 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setEditingClient(null)}
+                    className="h-10 px-5 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-[13px] font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingConfig}
+                    className="h-10 px-6 rounded-[9px] bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[13px] font-semibold shadow-[0_2px_8px_rgba(109,40,217,0.25)] hover:shadow-[0_4px_12px_rgba(109,40,217,0.35)] hover:-translate-y-[1px] transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {savingConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Guardar Cambios
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
