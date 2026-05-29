@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!token) return res.status(500).json({ error: 'No Meta token configured' });
 
     const metaRes = await fetch(
-      `https://graph.facebook.com/v21.0/${videoId}?fields=source,picture,format&access_token=${token}`
+      `https://graph.facebook.com/v21.0/${videoId}?fields=source,picture,embed_html,embeddable,format&access_token=${token}`
     );
 
     if (!metaRes.ok) {
@@ -40,10 +40,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const data = await metaRes.json();
 
+    // Try to extract highest quality thumbnail from format array
+    let bestThumbnail = data.picture || null;
+    if (Array.isArray(data.format)) {
+      const sorted = [...data.format].sort((a: any, b: any) => (b.width || 0) - (a.width || 0));
+      if (sorted[0]?.picture) bestThumbnail = sorted[0].picture;
+    }
+
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.status(200).json({
       source: data.source || null,
-      picture: data.picture || null,
+      picture: bestThumbnail,
+      embed_html: data.embed_html || null,
+      embeddable: data.embeddable || false,
     });
   } catch (e: any) {
     return res.status(500).json({ error: e.message });

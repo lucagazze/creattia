@@ -51,17 +51,22 @@ const CreativePreviewModal = ({ preview, onClose }: {
 }) => {
   const [imgLoaded, setImgLoaded] = React.useState(false);
   const [videoSrc, setVideoSrc] = React.useState<string | null>(null);
+  const [embedHtml, setEmbedHtml] = React.useState<string | null>(null);
   const [videoLoading, setVideoLoading] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
 
-  // Fetch actual video source URL
+  // Fetch actual video source URL + embed HTML
   React.useEffect(() => {
     if (!preview.isVideo || !preview.videoId) return;
     setVideoLoading(true);
     setVideoSrc(null);
+    setEmbedHtml(null);
     fetch(`/api/meta-video?videoId=${preview.videoId}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.source) setVideoSrc(d.source); })
+      .then(d => {
+        if (d?.source) setVideoSrc(d.source);
+        if (d?.embed_html) setEmbedHtml(d.embed_html);
+      })
       .catch(() => {})
       .finally(() => setVideoLoading(false));
   }, [preview.videoId, preview.isVideo]);
@@ -122,35 +127,54 @@ const CreativePreviewModal = ({ preview, onClose }: {
       >
         {preview.isVideo ? (
           videoLoading ? (
-            /* Loading video */
             <div className="w-[min(90vw,560px)] h-[min(88vh,420px)] rounded-2xl bg-zinc-900 border border-white/10 flex flex-col items-center justify-center gap-4">
               <div className="w-12 h-12 rounded-full border-2 border-zinc-700 border-t-violet-500 animate-spin" />
               <span className="text-[12px] font-bold text-zinc-500">Cargando video...</span>
             </div>
           ) : videoSrc ? (
-            /* Actual video player */
-            <video
-              src={videoSrc}
-              controls
-              autoPlay
-              className="rounded-2xl shadow-2xl border border-white/10 bg-black"
-              style={{ maxWidth: '90vw', maxHeight: '88vh', minWidth: 'min(90vw, 400px)' }}
+            /* Direct MP4 player */
+            <div className="flex flex-col items-center gap-3">
+              <video
+                src={videoSrc}
+                controls
+                autoPlay
+                playsInline
+                className="rounded-2xl shadow-2xl border border-white/10 bg-black"
+                style={{ maxWidth: '90vw', maxHeight: '80vh', minWidth: 'min(90vw, 400px)' }}
+              />
+            </div>
+          ) : embedHtml ? (
+            /* Embed HTML from Meta (iframe) */
+            <div
+              className="rounded-2xl overflow-hidden shadow-2xl"
+              style={{ minWidth: 'min(90vw, 560px)', minHeight: '420px' }}
+              dangerouslySetInnerHTML={{ __html: embedHtml }}
             />
           ) : (
-            /* Fallback: thumbnail with note */
-            <div className="relative">
-              <img
-                src={preview.url}
-                alt={preview.name}
-                className="rounded-2xl shadow-2xl border border-white/10"
-                style={{ maxWidth: '90vw', maxHeight: '88vh', minWidth: 'min(90vw, 420px)', objectFit: 'contain' }}
-              />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="bg-black/70 backdrop-blur-sm px-4 py-2 rounded-xl text-center">
-                  <p className="text-white/70 text-[12px] font-bold">Video no disponible directamente</p>
-                  <p className="text-white/40 text-[11px] mt-0.5">Ver en Meta Ads Manager</p>
+            /* Fallback: thumbnail + open externally */
+            <div className="flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
+              <div className="relative rounded-2xl overflow-hidden" style={{ maxWidth: 'min(90vw, 500px)' }}>
+                <img
+                  src={preview.url}
+                  alt={preview.name}
+                  className="w-full rounded-2xl shadow-2xl border border-white/10"
+                  style={{ maxHeight: '70vh', objectFit: 'contain' }}
+                />
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-white/10 border border-white/30 flex items-center justify-center backdrop-blur-sm">
+                    <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </div>
                 </div>
               </div>
+              <a
+                href={`https://www.facebook.com/video/${preview.videoId}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-[13px] font-bold rounded-full transition-all shadow-lg"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                Ver en Facebook
+              </a>
             </div>
           )
         ) : (
@@ -849,7 +873,7 @@ export default function CaptacionPage() {
         )}
 
         {activeAds.length > 0 && (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {activeAds.filter(ad => parseFloat(adInsightsMap[ad.id]?.spend || 0) > 0).map(ad => {
               const insights = adInsightsMap[ad.id];
               const adSpend = parseFloat(insights?.spend || 0);
@@ -871,80 +895,84 @@ export default function CaptacionPage() {
                 return v ? parseFloat(v.value) : 0;
               })();
 
-              return (
-                <div key={ad.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 shadow-sm flex flex-col sm:flex-row gap-4 p-4 hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
-                  {/* Thumbnail / Image Preview */}
-                  {(() => {
-                    const isVideo = ad.creative?.object_type === 'VIDEO' || !!ad.creative?.video_id;
-                    const previewUrl = ad.creative?.image_url || ad.creative?.thumbnail_url;
-                    return (
-                      <div
-                        className="relative w-full sm:w-36 h-36 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex-shrink-0 group cursor-pointer"
-                        onClick={() => previewUrl && setActivePreview({ url: previewUrl, isVideo, videoId: ad.creative?.video_id, name: ad.name })}
-                      >
-                        {previewUrl ? (
-                          <>
-                            <img src={ad.creative?.thumbnail_url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300" />
-                            {/* Hover overlay */}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-all duration-200">
-                              {isVideo ? (
-                                <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg opacity-80 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-200">
-                                  <svg className="w-4 h-4 text-zinc-900 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                </div>
-                              ) : (
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <svg className="w-7 h-7 text-white drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
-                                </div>
-                              )}
-                            </div>
-                            {/* Video badge */}
-                            {isVideo && (
-                              <div className="absolute bottom-1.5 left-1.5 bg-black/70 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1">
-                                <Film className="w-2.5 h-2.5" /> Video
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-zinc-400">
-                            <Film className="w-7 h-7 opacity-40" />
-                            <span className="text-[10px] font-bold opacity-40">Sin vista previa</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
+              const isVideo = ad.creative?.object_type === 'VIDEO' || !!ad.creative?.video_id;
+              const previewUrl = ad.creative?.image_url || ad.creative?.thumbnail_url;
+              const thumbUrl = ad.creative?.thumbnail_url;
 
-                  {/* Info and Metrics Grid */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate leading-tight" title={ad.name}>{ad.name || ad.creative?.name || 'Sin nombre'}</p>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex-shrink-0">ACTIVO</span>
+              return (
+                <div key={ad.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 shadow-sm hover:shadow-lg hover:border-zinc-300 dark:hover:border-zinc-700 transition-all duration-200 flex flex-col">
+                  {/* Thumbnail — full width, tall, prominent */}
+                  <div
+                    className="relative w-full h-52 bg-zinc-100 dark:bg-zinc-800 cursor-pointer group overflow-hidden flex-shrink-0"
+                    onClick={() => previewUrl && setActivePreview({ url: previewUrl, isVideo, videoId: ad.creative?.video_id, name: ad.name })}
+                  >
+                    {thumbUrl ? (
+                      <>
+                        {/* Blurred background fill for any letterboxing */}
+                        <img src={thumbUrl} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60" aria-hidden />
+                        {/* Main thumbnail, centered with contain */}
+                        <img src={thumbUrl} alt={ad.name} className="relative z-10 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" />
+                        {/* Dark hover overlay */}
+                        <div className="absolute inset-0 z-20 bg-black/0 group-hover:bg-black/30 transition-all duration-200 flex items-center justify-center">
+                          <div className={`flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-all duration-200 ${isVideo ? 'bg-white/90 scale-90 group-hover:scale-100' : 'bg-black/50 opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100'}`}>
+                            {isVideo ? (
+                              <svg className="w-6 h-6 text-zinc-900 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            ) : (
+                              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-zinc-400">
+                        <Film className="w-10 h-10 opacity-20" />
+                        <span className="text-[11px] font-bold opacity-30">Sin vista previa</span>
                       </div>
+                    )}
+                    {/* Badges */}
+                    <div className="absolute top-2.5 left-2.5 z-30 flex gap-1.5">
+                      {isVideo && (
+                        <div className="flex items-center gap-1 bg-black/70 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider">
+                          <Film className="w-3 h-3" /> Video
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute top-2.5 right-2.5 z-30">
+                      <span className="text-[9px] font-black px-2 py-1 rounded-lg bg-emerald-500/90 backdrop-blur-sm text-white uppercase tracking-wider">Activo</span>
+                    </div>
+                  </div>
+
+                  {/* Info + Metrics */}
+                  <div className="p-4 flex flex-col gap-3 flex-1">
+                    <div>
+                      <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 leading-snug" title={ad.name}>
+                        {ad.name || ad.creative?.name || 'Sin nombre'}
+                      </p>
                       {ad.creative?.object_type && (
-                        <p className="text-[9px] text-zinc-400 mt-0.5 font-medium uppercase tracking-wider">{ad.creative.object_type}</p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5 font-semibold uppercase tracking-wider">{ad.creative.object_type}</p>
                       )}
                     </div>
 
-                    {insights ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+                    {insights && (
+                      <div className="grid grid-cols-4 gap-2">
                         {[
-                          { label: 'Gasto', val: `$${adSpend.toFixed(0)}` },
-                          { label: resultsLabel, val: adResults > 0 ? adResults.toFixed(0) : '—' },
-                          { label: cprLabel, val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—' },
-                          ...(isEcom ? [{ label: 'ROAS', val: adRoas > 0 ? `${adRoas.toFixed(2)}x` : '—' }, { label: 'Valor', val: adValue > 0 ? `$${adValue.toFixed(0)}` : '—' }] : []),
-                          { label: 'Impresiones', val: adImpr > 0 ? fmtVal(adImpr) : '—' },
-                          { label: 'Alcance', val: adReach > 0 ? fmtVal(adReach) : '—' },
-                          { label: 'CTR', val: adCtr > 0 ? `${adCtr.toFixed(2)}%` : '—' },
-                        ].map(({ label, val }) => (
-                          <div key={label} className="bg-zinc-50 dark:bg-zinc-800/40 rounded-lg p-2 border border-zinc-100/50 dark:border-white/[0.02]">
-                            <p className="text-[9px] font-semibold text-zinc-400 uppercase tracking-wide mb-0.5">{label}</p>
-                            <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100">{val}</p>
+                          { label: 'Gasto', val: `$${adSpend.toFixed(0)}`, highlight: false },
+                          { label: resultsLabel, val: adResults > 0 ? String(adResults.toFixed(0)) : '—', highlight: adResults > 0 },
+                          { label: cprLabel, val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—', highlight: false },
+                          ...(isEcom ? [
+                            { label: 'ROAS', val: adRoas > 0 ? `${adRoas.toFixed(2)}x` : '—', highlight: adRoas > 1 },
+                            { label: 'Valor', val: adValue > 0 ? `$${adValue.toFixed(0)}` : '—', highlight: false },
+                          ] : []),
+                          { label: 'Impr.', val: adImpr > 0 ? fmtVal(adImpr) : '—', highlight: false },
+                          { label: 'Alcance', val: adReach > 0 ? fmtVal(adReach) : '—', highlight: false },
+                          { label: 'CTR', val: adCtr > 0 ? `${adCtr.toFixed(2)}%` : '—', highlight: false },
+                        ].map(({ label, val, highlight }) => (
+                          <div key={label} className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-2.5 border border-zinc-100 dark:border-white/[0.04]">
+                            <p className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide mb-1">{label}</p>
+                            <p className={`text-[12px] font-bold leading-none ${highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-800 dark:text-zinc-100'}`}>{val}</p>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <p className="text-[11px] text-zinc-400 italic mt-3">Sin datos de rendimiento en este período</p>
                     )}
                   </div>
                 </div>
