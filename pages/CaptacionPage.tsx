@@ -44,6 +44,126 @@ const fmtVal = (v: number) => {
 
 
 
+// ── Creative Preview Modal ────────────────────────────────────────────────────
+const CreativePreviewModal = ({ preview, onClose }: { preview: { url: string; isVideo: boolean; name?: string }; onClose: () => void }) => {
+  const [loaded, setLoaded] = React.useState(false);
+  const [progress, setProgress] = React.useState(0);
+
+  React.useEffect(() => {
+    setLoaded(false);
+    setProgress(0);
+    const start = Date.now();
+    const tick = setInterval(() => {
+      const elapsed = Date.now() - start;
+      // Simulate progress: fast to 80%, then slow until image loads
+      setProgress(Math.min(80, (elapsed / 2000) * 80));
+    }, 50);
+    return () => clearInterval(tick);
+  }, [preview.url]);
+
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const handleLoad = () => {
+    setProgress(100);
+    setTimeout(() => setLoaded(true), 200);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      {/* Loading bar */}
+      {!loaded && (
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/5 z-20">
+          <div
+            className="h-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-200 rounded-full"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all z-20 backdrop-blur-sm"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      {/* Ad name label */}
+      {preview.name && (
+        <div className="absolute top-4 left-4 right-16 z-20">
+          <p className="text-white/70 text-[12px] font-bold truncate max-w-[60vw]">{preview.name}</p>
+          {preview.isVideo && (
+            <div className="inline-flex items-center gap-1 mt-1 bg-white/10 px-2 py-0.5 rounded-full">
+              <Film className="w-3 h-3 text-white/60" />
+              <span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Vista previa de video</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Image container */}
+      <div
+        className="relative animate-in zoom-in-95 duration-200"
+        style={{ maxWidth: '88vw', maxHeight: '85vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Skeleton while loading */}
+        {!loaded && (
+          <div
+            className="absolute inset-0 rounded-2xl bg-zinc-800 animate-pulse flex items-center justify-center"
+            style={{ minWidth: preview.isVideo ? '400px' : '280px', minHeight: preview.isVideo ? '400px' : '280px' }}
+          >
+            <div className="flex flex-col items-center gap-3 text-zinc-600">
+              {preview.isVideo
+                ? <Film className="w-12 h-12 opacity-30" />
+                : <div className="w-12 h-12 rounded-full border-2 border-zinc-600 border-t-violet-500 animate-spin" />
+              }
+              <span className="text-[11px] font-bold opacity-40">Cargando...</span>
+            </div>
+          </div>
+        )}
+
+        <img
+          src={preview.url}
+          alt={preview.name || 'Creative Preview'}
+          onLoad={handleLoad}
+          className={`rounded-2xl shadow-2xl border border-white/10 transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          style={{
+            maxWidth: '88vw',
+            maxHeight: '85vh',
+            width: 'auto',
+            height: 'auto',
+            // Scale up small images (like video thumbnails) for better visibility
+            minWidth: preview.isVideo ? 'min(88vw, 500px)' : 'min(88vw, 320px)',
+            minHeight: preview.isVideo ? 'min(85vh, 500px)' : 'auto',
+            objectFit: preview.isVideo ? 'contain' : 'contain',
+            imageRendering: preview.isVideo ? 'auto' : 'auto',
+          }}
+        />
+
+        {/* Video play overlay */}
+        {preview.isVideo && loaded && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <div className="w-16 h-16 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/20 shadow-2xl">
+              <svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+            <p className="mt-3 text-white/50 text-[11px] font-bold bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full">
+              Solo disponible en Ads Manager
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const SectionTitle = ({ icon: Icon, title, subtitle }: any) => (
   <div className="flex items-center gap-3 mb-4">
     <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
@@ -96,7 +216,7 @@ export default function CaptacionPage() {
   const [activeAds, setActiveAds] = useState<any[]>([]);
   const [adInsightsMap, setAdInsightsMap] = useState<Record<string, any>>({});
   const [loadingAds, setLoadingAds] = useState(false);
-  const [activeImagePreview, setActiveImagePreview] = useState<string | null>(null);
+  const [activePreview, setActivePreview] = useState<{ url: string; isVideo: boolean; name?: string } | null>(null);
 
   const range = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
   const prevRange = getPrevPeriod(range.since, range.until);
@@ -744,24 +864,39 @@ export default function CaptacionPage() {
                 <div key={ad.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 shadow-sm flex flex-col sm:flex-row gap-4 p-4 hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
                   {/* Thumbnail / Image Preview */}
                   {(() => {
+                    const isVideo = ad.creative?.object_type === 'VIDEO' || !!ad.creative?.video_id;
                     const previewUrl = ad.creative?.image_url || ad.creative?.thumbnail_url;
                     return (
                       <div
-                        className="relative w-full sm:w-32 h-32 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex-shrink-0 group cursor-pointer"
-                        onClick={() => previewUrl && setActiveImagePreview(previewUrl)}
+                        className="relative w-full sm:w-36 h-36 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex-shrink-0 group cursor-pointer"
+                        onClick={() => previewUrl && setActivePreview({ url: previewUrl, isVideo, name: ad.name })}
                       >
                         {previewUrl ? (
                           <>
-                            <img src={ad.creative?.thumbnail_url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-200" />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-all duration-200">
-                              <span className="opacity-0 group-hover:opacity-100 bg-white/90 dark:bg-zinc-900/90 text-zinc-900 dark:text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow transition-all duration-200 scale-95 group-hover:scale-100">
-                                Ampliar
-                              </span>
+                            <img src={ad.creative?.thumbnail_url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300" />
+                            {/* Hover overlay */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-all duration-200">
+                              {isVideo ? (
+                                <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg opacity-80 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-200">
+                                  <svg className="w-4 h-4 text-zinc-900 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                </div>
+                              ) : (
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                  <svg className="w-7 h-7 text-white drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+                                </div>
+                              )}
                             </div>
+                            {/* Video badge */}
+                            {isVideo && (
+                              <div className="absolute bottom-1.5 left-1.5 bg-black/70 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1">
+                                <Film className="w-2.5 h-2.5" /> Video
+                              </div>
+                            )}
                           </>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Film className="w-6 h-6 text-zinc-300 dark:text-zinc-600" />
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-zinc-400">
+                            <Film className="w-7 h-7 opacity-40" />
+                            <span className="text-[10px] font-bold opacity-40">Sin vista previa</span>
                           </div>
                         )}
                       </div>
@@ -808,32 +943,8 @@ export default function CaptacionPage() {
         )}
       </div>
 
-      {/* Lightbox / Modal for Image Preview */}
-      {activeImagePreview && (
-        <div
-          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-150"
-          onClick={() => setActiveImagePreview(null)}
-        >
-          <button
-            onClick={() => setActiveImagePreview(null)}
-            className="absolute top-4 right-4 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all z-10"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <div
-            className="relative animate-in zoom-in-95 duration-200 flex items-center justify-center"
-            style={{ maxWidth: '90vw', maxHeight: '90vh' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <img
-              src={activeImagePreview}
-              alt="Ad Creative Preview"
-              className="rounded-2xl shadow-2xl border border-white/10"
-              style={{ maxWidth: '90vw', maxHeight: '90vh', width: 'auto', height: 'auto', minWidth: '300px', objectFit: 'contain' }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Lightbox / Modal for Creative Preview */}
+      {activePreview && <CreativePreviewModal preview={activePreview} onClose={() => setActivePreview(null)} />}
 
       {/* Breakdowns grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
