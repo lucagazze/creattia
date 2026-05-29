@@ -87,16 +87,19 @@ const ShopifyMetric = ({
   active,
   onClick,
   icon: Icon,
+  info,
 }: any) => {
   const isGreen = color === GREEN || color === '#10b981';
   const isPink = color === PINK || color === '#ec4899';
   const isViolet = color === '#8b5cf6';
+  const isRed = color === RED || color === '#ef4444' || color === '#rose-500' || color === '#f43f5e';
   
   let activeBgClass = "bg-blue-50/60 dark:bg-blue-500/5";
   let pulseClass = "bg-blue-500";
   if (isGreen) { activeBgClass = "bg-emerald-50/60 dark:bg-emerald-500/5"; pulseClass = "bg-emerald-500"; }
   if (isPink) { activeBgClass = "bg-pink-50/60 dark:bg-pink-500/5"; pulseClass = "bg-pink-500"; }
   if (isViolet) { activeBgClass = "bg-violet-50/60 dark:bg-violet-500/5"; pulseClass = "bg-violet-500"; }
+  if (isRed) { activeBgClass = "bg-rose-50/60 dark:bg-rose-500/5"; pulseClass = "bg-rose-500"; }
 
   return (
     <button
@@ -107,7 +110,7 @@ const ShopifyMetric = ({
         sm:[&:nth-child(odd)]:border-r sm:[&:nth-child(even)]:border-r
         sm:[&:nth-child(3n)]:border-r-0
         xl:border-b-0 xl:border-r xl:last:border-r-0
-        transition-all text-left group relative
+        transition-all text-left group relative overflow-hidden
         ${active ? activeBgClass : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] dark:hover:shadow-none"}`}
     >
       <div className="flex items-center justify-between mb-2">
@@ -155,6 +158,19 @@ const ShopifyMetric = ({
         </ResponsiveContainer>
       </div>
     </div>
+    {info && (
+      <div className="absolute inset-0 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out pointer-events-none flex flex-col justify-center px-4 py-3 sm:px-5 z-10">
+        <div className="flex items-center gap-1.5 mb-1.5 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 ease-out">
+          {Icon && <Icon className="w-3.5 h-3.5" style={{ color }} />}
+          <span className="text-[9px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
+            {label}
+          </span>
+        </div>
+        <p className="text-[11px] sm:text-[12px] leading-relaxed font-medium text-zinc-600 dark:text-zinc-300 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 delay-[50ms] ease-out">
+          {info}
+        </p>
+      </div>
+    )}
   </button>
   );
 };
@@ -1284,6 +1300,7 @@ export default function DashboardPage() {
                         expandedMetric === "s-aov" ? null : "s-aov",
                       )
                     }
+                    info="El Ticket Promedio es el valor medio de cada compra realizada en la tienda. Refleja cuánto gasta un cliente en promedio por transacción."
                   />
                   <ShopifyMetric
                     icon={Package}
@@ -1310,6 +1327,7 @@ export default function DashboardPage() {
                         expandedMetric === "s-orders" ? null : "s-orders",
                       )
                     }
+                    info="Pedidos es la cantidad total de transacciones o compras completadas con éxito en la plataforma de ecommerce durante el período."
                   />
                   <ShopifyMetric
                     icon={DollarSign}
@@ -1336,6 +1354,7 @@ export default function DashboardPage() {
                         expandedMetric === "s-revenue" ? null : "s-revenue",
                       )
                     }
+                    info="Ingresos representa la facturación bruta total de la tienda online (ventas totales) antes de descontar costos de pauta, envíos o devoluciones."
                   />
                   {showMER && (
                     <ShopifyMetric
@@ -1345,7 +1364,7 @@ export default function DashboardPage() {
                       change={merChange}
                       trend={currentMER >= prevMER ? "up" : "down"}
                       data={merDaily}
-                      color="#8b5cf6"
+                      color={RED}
                       loading={fetchingStore || fetchingMeta}
                       active={expandedMetric === "mer-efficiency"}
                       onClick={() =>
@@ -1353,6 +1372,7 @@ export default function DashboardPage() {
                           expandedMetric === "mer-efficiency" ? null : "mer-efficiency"
                         )
                       }
+                      info="Marketing Efficiency Ratio (M.E.R.) mide la eficiencia global de marketing. Es el ingreso total de la tienda dividido por la inversión publicitaria total."
                     />
                   )}
                 </div>
@@ -1371,7 +1391,7 @@ export default function DashboardPage() {
                                 ? "Sesiones"
                                 : "Tasa de Conversión"
                     }
-                    color={expandedMetric === "mer-efficiency" ? "#8b5cf6" : PINK}
+                    color={expandedMetric === "mer-efficiency" ? RED : PINK}
                     data={
                       expandedMetric === "mer-efficiency"
                         ? merDaily
@@ -1473,6 +1493,7 @@ export default function DashboardPage() {
                           : "meta-inversion",
                       )
                     }
+                    info="La Inversión publicitaria es la suma total del presupuesto gastado en pauta dentro de Meta Ads durante el período seleccionado."
                   />
                   <ShopifyMetric
                     icon={Users}
@@ -1498,6 +1519,7 @@ export default function DashboardPage() {
                           : "meta-alcance",
                       )
                     }
+                    info="El Alcance representa el número total de personas (usuarios únicos) que vieron tus anuncios al menos una vez en las plataformas de Meta."
                   />
                   
                   {selectedMetaGoal === 'purchases' && (
@@ -1511,6 +1533,7 @@ export default function DashboardPage() {
                         data={metaDaily?.map((d: any) => ({ val: d.purchases, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-purchases"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-purchases" ? null : "meta-purchases")}
+                        info="Compras totales es el número acumulado de ventas en la tienda atribuidas a la interacción directa con tus anuncios de Meta Ads."
                       />
                       <ShopifyMetric
                         icon={BarChart2}
@@ -1521,6 +1544,7 @@ export default function DashboardPage() {
                         data={metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-roas"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-roas" ? null : "meta-roas")}
+                        info="Return on Ad Spend (ROAS) es el retorno de inversión publicitaria. Se calcula como los ingresos atribuidos a Meta divididos por la inversión en pauta."
                       />
                       <ShopifyMetric
                         icon={DollarSign}
@@ -1531,6 +1555,7 @@ export default function DashboardPage() {
                         data={metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-roas-v"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-roas-v" ? null : "meta-roas-v")}
+                        info="Retorno es el valor monetario (ingresos) generado por las compras que son atribuidas directamente a tus campañas de anuncios en Meta."
                       />
                     </>
                   )}
@@ -1546,6 +1571,7 @@ export default function DashboardPage() {
                         data={metaDaily?.map((d: any) => ({ val: d.leads, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-leads"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-leads" ? null : "meta-leads")}
+                        info="Leads representa la cantidad de clientes potenciales capturados a través de formularios o eventos registrados desde tus anuncios en Meta."
                       />
                       <ShopifyMetric
                         icon={DollarSign}
@@ -1559,6 +1585,7 @@ export default function DashboardPage() {
                         data={metaDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-cpl"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-cpl" ? null : "meta-cpl")}
+                        info="Costo por Lead (CPL) representa el valor promedio invertido para capturar a cada cliente potencial (Inversión total dividida por número de Leads)."
                       />
                     </>
                   )}
@@ -1574,6 +1601,7 @@ export default function DashboardPage() {
                         data={metaDaily?.map((d: any) => ({ val: d.messages, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-messages"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-messages" ? null : "meta-messages")}
+                        info="Mensajes es la cantidad de conversaciones por chat (Messenger, Instagram Direct o WhatsApp) iniciadas directamente por usuarios desde tus anuncios."
                       />
                       <ShopifyMetric
                         icon={DollarSign}
@@ -1587,6 +1615,7 @@ export default function DashboardPage() {
                         data={metaDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-cpm"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-cpm" ? null : "meta-cpm")}
+                        info="Costo por Mensaje es el valor promedio invertido para que un usuario inicie una nueva conversación desde tus anuncios (Inversión / Mensajes)."
                       />
                     </>
                   )}
@@ -1672,6 +1701,7 @@ export default function DashboardPage() {
                         expandedMetric === "k-sent" ? null : "k-sent",
                       )
                     }
+                    info="Total de correos electrónicos de campañas y flujos automatizados de Klaviyo que fueron entregados con éxito a los destinatarios."
                   />
                   <ShopifyMetric
                     icon={MailOpen}
@@ -1705,6 +1735,7 @@ export default function DashboardPage() {
                         expandedMetric === "k-open-rate" ? null : "k-open-rate",
                       )
                     }
+                    info="Porcentaje de correos entregados que fueron abiertos por los usuarios. Mide el interés y efectividad de tus líneas de asunto."
                   />
                   <ShopifyMetric
                     icon={MousePointerClick}
@@ -1740,6 +1771,7 @@ export default function DashboardPage() {
                           : "k-click-rate",
                       )
                     }
+                    info="Porcentaje de destinatarios que hicieron clic en uno o más enlaces del correo. Mide la relevancia de tu contenido y llamados a la acción."
                   />
                   {isEcommerce && <ShopifyMetric
                     icon={DollarSign}
@@ -1764,6 +1796,7 @@ export default function DashboardPage() {
                         expandedMetric === "k-attr" ? null : "k-attr",
                       )
                     }
+                    info="Ingresos Email es la facturación total generada en tu tienda online atribuible directamente a tus campañas y flujos de Klaviyo."
                   />}
                 </div>
                 {expandedMetric?.startsWith("k-") && (

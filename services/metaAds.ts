@@ -355,6 +355,36 @@ export const metaAds = {
       limit: String(limit),
     }),
 
+  getInstagramMediaComments: (mediaId: string) =>
+    apiGet(`${mediaId}/comments`, {
+      fields: 'id,text,timestamp,username,like_count',
+      limit: '50',
+    }),
+
+  replyToInstagramComment: async (commentId: string, message: string) => {
+    const url = new URL(`${BASE}/${commentId}/replies`);
+    url.searchParams.set('access_token', getToken());
+    url.searchParams.set('message', message);
+    const res = await fetch(url.toString(), { method: 'POST' });
+    const json = await res.json();
+    if (json?.error) {
+      throw new Error(json.error.message || `Meta API error ${res.status}`);
+    }
+    return json;
+  },
+
+  createInstagramMediaComment: async (mediaId: string, message: string) => {
+    const url = new URL(`${BASE}/${mediaId}/comments`);
+    url.searchParams.set('access_token', getToken());
+    url.searchParams.set('message', message);
+    const res = await fetch(url.toString(), { method: 'POST' });
+    const json = await res.json();
+    if (json?.error) {
+      throw new Error(json.error.message || `Meta API error ${res.status}`);
+    }
+    return json;
+  },
+
   // Recent account activity — changes made in the last N days (pauses, budget edits, new ads)
   getAccountActivities: (accountId: string, days = 7) => {
     const since = Math.floor(Date.now() / 1000) - days * 86400;

@@ -329,6 +329,22 @@ const MarkdownRenderer = ({ content, onSend, onNavigate }: { content: string; on
   );
 };
 
+const getInitialMessage = (businessName?: string): Message => ({
+  role: 'assistant',
+  content: `¡Hola! Estoy aquí para ayudarte con datos y análisis sobre "${businessName || 'The Skirting Factory'}". Puedo proporcionarte información sobre:
+Email Marketing: Campañas programadas, enviadas y flujos activos.
+Meta Ads: Datos en vivo sobre campañas, gasto, resultados y creativos activos.
+E-commerce: Ventas, ingresos y órdenes de tu tienda.
+Instagram: Publicaciones recientes y su rendimiento.
+
+Si tenés alguna consulta específica, ¡no dudes en preguntar!
+
+[[FOLLOWUP]] ¿Qué información específica te gustaría saber?
+[[OPT]] Revisar las campañas de email programadas.
+[[OPT]] Ver el rendimiento de las campañas de Meta Ads.
+[[OPT]] Decime las últimas cinco publicaciones de la cuenta.`
+});
+
 // ── Main Floating Chat Component ──────────────────────────────────────────────
 export const AIChatFloat = () => {
   const { profile } = useAuth();
@@ -367,9 +383,9 @@ export const AIChatFloat = () => {
 
   // Reset chat when active client changes
   useEffect(() => {
-    setMessages([]);
+    setMessages([getInitialMessage(activeBusinessName)]);
     setInput('');
-  }, [activeClientId]);
+  }, [activeClientId, activeBusinessName]);
 
   // Close on outside click
   useEffect(() => {
@@ -403,6 +419,7 @@ export const AIChatFloat = () => {
       else if (lowerText.includes('reportes')) handleNavigate('/reportes');
       else if (lowerText.includes('links') || lowerText.includes('mis accesos') || lowerText.includes('acceso')) handleNavigate('/links');
       else if (lowerText.includes('email marketing')) handleNavigate('/email-marketing');
+      else if (lowerText.includes('redes sociales') || lowerText.includes('facebook') || lowerText.includes('instagram')) handleNavigate('/redes-sociales');
       else if (lowerText.includes('inicio') || lowerText.includes('dashboard') || lowerText.includes('principal')) handleNavigate('/');
     }
 
@@ -524,7 +541,10 @@ export const AIChatFloat = () => {
           if (r.ok) {
             const { text } = await r.json();
             if (text && text.trim()) {
-              handleSend(text.trim());
+              setInput(text.trim());
+              setTimeout(() => {
+                inputRef.current?.focus();
+              }, 100);
             }
           }
         } catch (e) { console.error('Transcription error:', e); }
@@ -547,7 +567,7 @@ export const AIChatFloat = () => {
     else startRecording();
   };
 
-  const clearChat = () => { setMessages([]); setInput(''); setThinkingSteps([]); };
+  const clearChat = () => { setMessages([getInitialMessage(activeBusinessName)]); setInput(''); setThinkingSteps([]); };
 
   const quickPrompts = [
     '¿Qué mails están programados?',
