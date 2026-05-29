@@ -51,22 +51,13 @@ async function getClientData(clientId: string, fields: string): Promise<any> {
   return data;
 }
 
-// ── Klaviyo fetch — uses same proxy as the frontend (guaranteed same behavior) ──
+// ── Klaviyo fetch — calls Klaviyo directly on the server-side ──
 async function fetchKlaviyoData(apiKey: string) {
-  // Route through /api/klaviyo proxy: same path as EmailMarketingPage uses.
-  // The proxy converts Accept: application/json → application/vnd.api+json for Klaviyo.
-  // VERCEL_URL is provided by Vercel at runtime for the current deployment.
-  const deploymentBase = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.VERCEL_BRANCH_URL
-    ? `https://${process.env.VERCEL_BRANCH_URL}`
-    : 'http://localhost:5174';
-
-  const proxyBase = `${deploymentBase}/api/klaviyo`;
+  const proxyBase = 'https://a.klaviyo.com/api';
   const h = {
     Authorization: `Klaviyo-API-Key ${apiKey}`,
     Revision: '2024-10-15',
-    Accept: 'application/json',
+    Accept: 'application/vnd.api+json',
   };
 
   const kvFetch = async (path: string) => {
