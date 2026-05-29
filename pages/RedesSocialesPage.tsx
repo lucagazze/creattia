@@ -326,7 +326,7 @@ export default function RedesSocialesPage() {
                     >
                       {m.media_url || m.thumbnail_url ? (
                         <img 
-                          src={m.media_url || m.thumbnail_url} 
+                          src={m.media_type === 'VIDEO' ? (m.thumbnail_url || m.media_url) : (m.media_url || m.thumbnail_url)} 
                           alt="" 
                           className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" 
                           loading="lazy"
