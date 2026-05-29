@@ -338,7 +338,6 @@ export const metaAds = {
     return res.data || [];
   },
 
-  // ── INSTAGRAM ─────────────────────────────────────────────
   getDiscoverableInstagramAccounts: async () => {
     const res = await apiGet('me/accounts', {
       fields: 'name,instagram_business_account{id,username,name,profile_picture_url}',
@@ -348,6 +347,7 @@ export const metaAds = {
       .filter((page: any) => page.instagram_business_account)
       .map((page: any) => ({
         pageName: page.name,
+        pageId: page.id,
         igId: page.instagram_business_account.id,
         username: page.instagram_business_account.username,
         name: page.instagram_business_account.name,
@@ -363,13 +363,13 @@ export const metaAds = {
 
   getInstagramMedia: (igId: string, limit = 12) =>
     apiGet(`${igId}/media`, {
-      fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url',
+      fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,comments{id,text,timestamp,username,like_count,replies{id,text,timestamp,username}}',
       limit: String(limit),
     }),
 
   getInstagramMediaComments: (mediaId: string) =>
     apiGet(`${mediaId}/comments`, {
-      fields: 'id,text,timestamp,username,like_count',
+      fields: 'id,text,timestamp,username,like_count,replies{id,text,timestamp,username}',
       limit: '50',
     }),
 
@@ -406,4 +406,69 @@ export const metaAds = {
       limit:  '60',
     });
   },
+
+  // ── FACEBOOK ORGANIC ──────────────────────────────────────
+  getFacebookPageInfo: (pageId: string) =>
+    apiGet(pageId, {
+      fields: 'id,name,fan_count,followers_count,picture{url},about',
+    }),
+
+  getFacebookPageFeed: (pageId: string, limit = 24) =>
+    apiGet(`${pageId}/feed`, {
+      fields: 'id,message,created_time,full_picture,permalink_url,shares,likes.summary(true),comments.summary(true),comments{id,message,created_time,from,like_count,replies{id,message,from,created_time}}',
+      limit: String(limit),
+    }),
+
+  getFacebookPostComments: (postId: string) =>
+    apiGet(`${postId}/comments`, {
+      fields: 'id,text,timestamp,from,username,like_count,replies{id,text,from,username,timestamp}',
+      limit: '50',
+    }),
+
+  replyToFacebookComment: async (commentId: string, message: string) => {
+    const url = new URL(`${BASE}/${commentId}/comments`);
+    url.searchParams.set('access_token', getToken());
+    url.searchParams.set('message', message);
+    const res = await fetch(url.toString(), { method: 'POST' });
+    const json = await res.json();
+    if (json?.error) {
+      throw new Error(json.error.message || `Meta API error ${res.status}`);
+    }
+    return json;
+  },
+
+  // ── CONVERSATIONS (DMs) ──────────────────────────────────
+  getPageConversations: (pageId: string, platform: 'messenger' | 'instagram' = 'messenger') =>
+    apiGet(`${pageId}/conversations`, {
+      fields: 'id,participants,unread_count,updated_time,messages.limit(1){id,message,from,created_time}',
+      platform,
+      limit: '20',
+    }),
+
+  getConversationMessages: (convId: string) =>
+    apiGet(`${convId}/messages`, {
+      fields: 'id,message,from,created_time',
+      limit: '30',
+    }),
+
+  replyToConversation: async (convId: string, text: string) => {
+    const url = `${BASE}/${convId}/messages?access_token=${getToken()}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: { text } })
+    });
+    const json = await res.json();
+    if (json?.error) {
+      throw new Error(json.error.message || `Meta API error`);
+    }
+    return json;
+  },
+
+  // Helper to fetch comments of an Ad's creative
+  getAdCreativeComments: (storyId: string) =>
+    apiGet(`${storyId}/comments`, {
+      fields: 'id,text,timestamp,from,username,like_count,replies{id,text,from,username,timestamp}',
+      limit: '50',
+    }),
 };

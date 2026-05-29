@@ -71,6 +71,8 @@ interface ClientRow {
   client_tags?: string[];
   last_login?: string;
   created_at: string;
+  fb_page_id?: string;
+  fb_page_name?: string;
 }
 
 const CLIENT_TAGS = [
@@ -447,6 +449,8 @@ export default function AdminPage() {
       tiendanube_access_token: c.tiendanube_access_token || "",
       client_tags: c.client_tags || [],
       new_password: "",
+      fb_page_id: c.fb_page_id || "",
+      fb_page_name: c.fb_page_name || "",
     });
     setStatuses({});
     setEditingClient(c);
@@ -584,13 +588,17 @@ export default function AdminPage() {
       setEditForm((p: any) => ({
         ...p,
         ig_business_id: selected.igId,
-        ig_username: selected.username
+        ig_username: selected.username,
+        fb_page_id: selected.pageId || "",
+        fb_page_name: selected.pageName || ""
       }));
     } else {
       setEditForm((p: any) => ({
         ...p,
         ig_business_id: "",
-        ig_username: ""
+        ig_username: "",
+        fb_page_id: "",
+        fb_page_name: ""
       }));
     }
   };
@@ -640,6 +648,8 @@ export default function AdminPage() {
           tiendanube_store_id: editForm.tiendanube_store_id || null,
           tiendanube_access_token: editForm.tiendanube_access_token || null,
           client_tags: editForm.client_tags || [],
+          fb_page_id: editForm.fb_page_id || null,
+          fb_page_name: editForm.fb_page_name || null,
         })
         .eq("id", editingClient.id);
 
