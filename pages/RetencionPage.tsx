@@ -322,15 +322,23 @@ export default function RetencionPage() {
           <div className="space-y-6 pt-2">
             {/* Flows */}
             <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+              {fetchingConfig && (
+                <div className="h-[2px] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                  <div className="h-full bg-emerald-500 animate-[loadbar_1.5s_ease-in-out_infinite]" style={{ animation: 'loadbar 1.5s ease-in-out infinite' }} />
+                </div>
+              )}
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Zap className="w-3.5 h-3.5 text-emerald-500" /></div>
                   <h2 className="text-[14px] font-bold text-zinc-900 dark:text-white">Flujos de Automatización</h2>
                 </div>
-                <span className="text-[11px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{liveFlows.length} activos</span>
+                {fetchingConfig
+                  ? <span className="text-[11px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full animate-pulse">Cargando…</span>
+                  : <span className="text-[11px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{liveFlows.length} activos</span>
+                }
               </div>
               {fetchingConfig ? (
-                <div className="px-4 pb-4 space-y-1.5">{[1,2,3].map(i => <div key={i} className="h-9 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
+                <div className="px-4 pb-4 space-y-1.5">{[1,2,3,4].map(i => <div key={i} className="h-9 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
               ) : liveFlows.length === 0 ? (
                 <p className="text-[12px] text-zinc-400 text-center py-8">No hay flujos activos.</p>
               ) : (
@@ -394,15 +402,23 @@ export default function RetencionPage() {
 
             {/* Campaigns */}
             <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+              {fetchingConfig && (
+                <div className="h-[2px] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                  <div className="h-full bg-emerald-500" style={{ animation: 'loadbar 1.8s ease-in-out infinite' }} />
+                </div>
+              )}
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Mail className="w-3.5 h-3.5 text-emerald-500" /></div>
                   <h2 className="text-[14px] font-bold text-zinc-900 dark:text-white">Campañas</h2>
                 </div>
-                <span className="text-[11px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{sentCamps.length} enviadas</span>
+                {fetchingConfig
+                  ? <span className="text-[11px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full animate-pulse">Cargando…</span>
+                  : <span className="text-[11px] font-bold text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">{sentCamps.length} enviadas</span>
+                }
               </div>
               {fetchingConfig ? (
-                <div className="px-4 pb-4 space-y-1.5">{[1,2,3].map(i => <div key={i} className="h-9 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
+                <div className="px-4 pb-4 space-y-1.5">{[1,2,3,4,5].map(i => <div key={i} className="h-9 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
               ) : sentCamps.length === 0 ? (
                 <p className="text-[12px] text-zinc-400 text-center py-8">No hay campañas enviadas en este período.</p>
               ) : (
@@ -461,7 +477,10 @@ export default function RetencionPage() {
           </div>
         );
       })()}
-      <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
+      <style>{`
+        @media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }
+        @keyframes loadbar { 0% { transform: translateX(-100%); } 50% { transform: translateX(60%); } 100% { transform: translateX(200%); } }
+      `}</style>
     </div>
   );
 }

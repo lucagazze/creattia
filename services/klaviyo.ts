@@ -26,16 +26,20 @@ function setCache(key: string, data: any) {
   resultCache[key] = { data, timestamp: Date.now() };
 }
 
-// ─── Concurrency limiter — max 2 simultaneous metric-aggregate calls ───
-const MAX_CONCURRENT = 2;
+// ─── Concurrency limiter — strictly 1 at a time with delay ───────────────────
+// Klaviyo rate limit: ~10 req/s. Serial + 350ms gap = ~2-3 req/s, safe.
+const MIN_DELAY_MS = 350;
 let _inFlight = 0;
 const _waiters: (() => void)[] = [];
 
 const acquire = (): Promise<void> => {
-  if (_inFlight < MAX_CONCURRENT) { _inFlight++; return Promise.resolve(); }
+  if (_inFlight < 1) { _inFlight++; return Promise.resolve(); }
   return new Promise(resolve => _waiters.push(() => { _inFlight++; resolve(); }));
 };
-const release = () => { _inFlight--; _waiters.shift()?.(); };
+const release = () => {
+  // Brief pause before releasing to next waiter → enforces rate spacing
+  setTimeout(() => { _inFlight--; _waiters.shift()?.(); }, MIN_DELAY_MS);
+};
 
 const enqueue = async <T>(fn: () => Promise<T>): Promise<T> => {
   await acquire();

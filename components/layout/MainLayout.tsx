@@ -66,7 +66,7 @@ export const MainLayout = () => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 md:p-8 lg:p-10 w-full pb-40 md:pb-32 print:overflow-visible print:h-auto print:p-6">
+        <div className="flex-1 overflow-auto p-4 md:p-8 lg:p-10 w-full pb-48 md:pb-40 xl:pb-44 print:overflow-visible print:h-auto print:p-6">
           {/* Spacer so content starts below the fixed mobile header */}
           <div className="h-14 md:hidden" />
           <Routes>

@@ -20,40 +20,66 @@ async function getMetaToken(): Promise<string> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { videoId } = req.query;
-  if (!videoId || typeof videoId !== 'string') {
-    return res.status(400).json({ error: 'videoId required' });
+  const { adId, videoId } = req.query;
+
+  if (!adId && !videoId) {
+    return res.status(400).json({ error: 'adId or videoId required' });
   }
 
   try {
     const token = await getMetaToken();
     if (!token) return res.status(500).json({ error: 'No Meta token configured' });
 
-    const metaRes = await fetch(
-      `https://graph.facebook.com/v21.0/${videoId}?fields=source,picture,embed_html,embeddable,format&access_token=${token}`
-    );
+    const base = 'https://graph.facebook.com/v21.0';
 
-    if (!metaRes.ok) {
-      const err = await metaRes.text();
-      return res.status(metaRes.status).json({ error: `Meta API error: ${err}` });
+    // Strategy 1: Use Meta Ad Previews API — returns embeddable iframe HTML
+    // This is the most reliable method for ad creatives including videos
+    if (adId && typeof adId === 'string') {
+      const previewRes = await fetch(
+        `${base}/${adId}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${token}`
+      );
+
+      if (previewRes.ok) {
+        const previewData = await previewRes.json();
+        const previewHtml = previewData?.data?.[0]?.body;
+        if (previewHtml) {
+          res.setHeader('Cache-Control', 'public, max-age=1800');
+          return res.status(200).json({
+            source: null,
+            embed_html: previewHtml,
+            type: 'ad_preview',
+          });
+        }
+      }
     }
 
-    const data = await metaRes.json();
+    // Strategy 2: Try video source URL (may 403 on some tokens)
+    if (videoId && typeof videoId === 'string') {
+      const videoRes = await fetch(
+        `${base}/${videoId}?fields=source,picture,format&access_token=${token}`
+      );
 
-    // Try to extract highest quality thumbnail from format array
-    let bestThumbnail = data.picture || null;
-    if (Array.isArray(data.format)) {
-      const sorted = [...data.format].sort((a: any, b: any) => (b.width || 0) - (a.width || 0));
-      if (sorted[0]?.picture) bestThumbnail = sorted[0].picture;
+      if (videoRes.ok) {
+        const data = await videoRes.json();
+        let bestThumbnail = data.picture || null;
+        if (Array.isArray(data.format)) {
+          const sorted = [...data.format].sort((a: any, b: any) => (b.width || 0) - (a.width || 0));
+          if (sorted[0]?.picture) bestThumbnail = sorted[0].picture;
+        }
+
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.status(200).json({
+          source: data.source || null,
+          picture: bestThumbnail,
+          embed_html: null,
+          type: 'video_source',
+        });
+      }
     }
 
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    return res.status(200).json({
-      source: data.source || null,
-      picture: bestThumbnail,
-      embed_html: data.embed_html || null,
-      embeddable: data.embeddable || false,
-    });
+    // No preview available
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ source: null, embed_html: null, type: 'none' });
   } catch (e: any) {
     return res.status(500).json({ error: e.message });
   }

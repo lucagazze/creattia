@@ -46,7 +46,7 @@ const fmtVal = (v: number) => {
 
 // ── Creative Preview Modal ────────────────────────────────────────────────────
 const CreativePreviewModal = ({ preview, onClose }: {
-  preview: { url: string; isVideo: boolean; videoId?: string; name?: string };
+  preview: { url: string; isVideo: boolean; videoId?: string; adId?: string; name?: string };
   onClose: () => void;
 }) => {
   const [imgLoaded, setImgLoaded] = React.useState(false);
@@ -55,13 +55,17 @@ const CreativePreviewModal = ({ preview, onClose }: {
   const [videoLoading, setVideoLoading] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
 
-  // Fetch actual video source URL + embed HTML
+  // Fetch video preview — tries Ad Previews API first (most reliable)
   React.useEffect(() => {
-    if (!preview.isVideo || !preview.videoId) return;
+    if (!preview.isVideo) return;
+    if (!preview.adId && !preview.videoId) return;
     setVideoLoading(true);
     setVideoSrc(null);
     setEmbedHtml(null);
-    fetch(`/api/meta-video?videoId=${preview.videoId}`)
+    const params = new URLSearchParams();
+    if (preview.adId) params.set('adId', preview.adId);
+    if (preview.videoId) params.set('videoId', preview.videoId);
+    fetch(`/api/meta-video?${params}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d?.source) setVideoSrc(d.source);
@@ -69,7 +73,7 @@ const CreativePreviewModal = ({ preview, onClose }: {
       })
       .catch(() => {})
       .finally(() => setVideoLoading(false));
-  }, [preview.videoId, preview.isVideo]);
+  }, [preview.adId, preview.videoId, preview.isVideo]);
 
   // Progress bar for images
   React.useEffect(() => {
@@ -144,11 +148,17 @@ const CreativePreviewModal = ({ preview, onClose }: {
               />
             </div>
           ) : embedHtml ? (
-            /* Embed HTML from Meta (iframe) */
+            /* Meta Ad Preview iframe — resized to fit screen */
             <div
-              className="rounded-2xl overflow-hidden shadow-2xl"
-              style={{ minWidth: 'min(90vw, 560px)', minHeight: '420px' }}
-              dangerouslySetInnerHTML={{ __html: embedHtml }}
+              className="rounded-2xl overflow-hidden shadow-2xl bg-zinc-900 border border-white/10"
+              style={{ width: 'min(90vw, 420px)', maxHeight: '90vh' }}
+              onClick={e => e.stopPropagation()}
+              dangerouslySetInnerHTML={{
+                __html: embedHtml
+                  .replace(/width="\d+"/g, 'width="100%"')
+                  .replace(/width:\s*\d+px/g, 'width:100%')
+                  .replace(/<iframe/g, '<iframe style="width:100%;max-height:80vh;border:none;"')
+              }}
             />
           ) : (
             /* Fallback: thumbnail + open externally */
@@ -252,7 +262,7 @@ export default function CaptacionPage() {
   const [campaignMap, setCampaignMap] = useState<Record<string, string>>({});
   const [adInsightsMap, setAdInsightsMap] = useState<Record<string, any>>({});
   const [loadingAds, setLoadingAds] = useState(false);
-  const [activePreview, setActivePreview] = useState<{ url: string; isVideo: boolean; videoId?: string; name?: string } | null>(null);
+  const [activePreview, setActivePreview] = useState<{ url: string; isVideo: boolean; videoId?: string; adId?: string; name?: string } | null>(null);
 
   const range = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
   const prevRange = getPrevPeriod(range.since, range.until);
@@ -942,7 +952,7 @@ export default function CaptacionPage() {
                   {/* Thumbnail — full width, tall, prominent */}
                   <div
                     className="relative w-full h-52 bg-zinc-100 dark:bg-zinc-800 cursor-pointer group overflow-hidden flex-shrink-0"
-                    onClick={() => previewUrl && setActivePreview({ url: previewUrl, isVideo, videoId: ad.creative?.video_id, name: ad.name })}
+                    onClick={() => previewUrl && setActivePreview({ url: previewUrl, isVideo, videoId: ad.creative?.video_id, adId: ad.id, name: ad.name })}
                   >
                     {thumbUrl ? (
                       <>
