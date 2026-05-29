@@ -128,12 +128,12 @@ export default function MensajesDMPage() {
     const load = async () => {
       const [igRes, fbRes] = await Promise.all([
         igId
-          ? metaAds.getInstagramConversations(fbPageId, igId).catch(err => {
+          ? metaAds.getInstagramConversations(fbPageId, igId, undefined, 15).catch(err => {
               if (active) setIgError(err.message);
               return null;
             })
           : Promise.resolve(null),
-        metaAds.getPageConversations(fbPageId, 'messenger').catch(err => {
+        metaAds.getPageConversations(fbPageId, 'messenger', undefined, 15).catch(err => {
           if (active) setFbError(err.message);
           return null;
         }),
@@ -169,10 +169,10 @@ export default function MensajesDMPage() {
     try {
       const [igRes, fbRes] = await Promise.all([
         igHasMore && igId && igNextCursor
-          ? metaAds.getInstagramConversations(fbPageId, igId, igNextCursor).catch(() => null)
+          ? metaAds.getInstagramConversations(fbPageId, igId, igNextCursor, 15).catch(() => null)
           : Promise.resolve(null),
         fbHasMore && fbNextCursor
-          ? metaAds.getPageConversations(fbPageId, 'messenger', fbNextCursor).catch(() => null)
+          ? metaAds.getPageConversations(fbPageId, 'messenger', fbNextCursor, 15).catch(() => null)
           : Promise.resolve(null),
       ]);
 
@@ -204,10 +204,11 @@ export default function MensajesDMPage() {
   // Infinite scroll observer for conversation list
   useEffect(() => {
     const sentinel = listEndRef.current;
-    if (!sentinel) return;
+    const container = listContainerRef.current;
+    if (!sentinel || !container) return;
     const obs = new IntersectionObserver(
       entries => { if (entries[0].isIntersecting) loadMore(); },
-      { threshold: 0.1 }
+      { root: container, rootMargin: '350px' }
     );
     obs.observe(sentinel);
     return () => obs.disconnect();
@@ -225,6 +226,36 @@ export default function MensajesDMPage() {
       const res = await metaAds.getConversationMessages(conv.id);
       const msgs = (res?.data || []).reverse();
       setConvMessages(msgs);
+
+      // Update local conversation preview and status with actual message
+      if (res?.data && res.data.length > 0) {
+        const latestMsg = res.data[0]; // res.data is ordered newest first
+        const latestText = latestMsg.message || '📎 Archivo adjunto o mensaje de voz';
+        const isFromMe = latestMsg.from?.id === fbPageId;
+        
+        setConversations(prev => prev.map(c => {
+          if (c.id === conv.id) {
+            return {
+              ...c,
+              lastMessage: latestText,
+              isPending: !isFromMe
+            };
+          }
+          return c;
+        }));
+        
+        setSelectedConv(prev => {
+          if (prev && prev.id === conv.id) {
+            return {
+              ...prev,
+              lastMessage: latestText,
+              isPending: !isFromMe
+            };
+          }
+          return prev;
+        });
+      }
+
       // cursor for older messages (before the current batch)
       const before = res?.paging?.cursors?.before;
       if (before && res?.paging?.previous) {
@@ -396,7 +427,7 @@ export default function MensajesDMPage() {
 
   // ── Render ─────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full max-w-[1400px] mx-auto animate-in fade-in duration-300">
+    <div className="flex flex-col h-full w-full max-w-none animate-in fade-in duration-300">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-zinc-200/60 dark:border-zinc-800/60 flex-shrink-0">

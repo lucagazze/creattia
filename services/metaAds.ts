@@ -526,11 +526,11 @@ export const metaAds = {
 
   // Facebook Messenger conversations — full fields including last message preview.
   // cursor: paging.cursors.after from a previous response (for pagination)
-  getPageConversations: (pageId: string, platform: 'messenger' | 'instagram' = 'messenger', cursor?: string) => {
+  getPageConversations: (pageId: string, platform: 'messenger' | 'instagram' = 'messenger', cursor?: string, limit = 15) => {
     const params: Record<string, string> = {
       fields: 'id,participants,unread_count,updated_time,messages.limit(1){id,message,from,created_time}',
       platform,
-      limit: '10',
+      limit: String(limit),
     };
     if (cursor) params.after = cursor;
     return apiGetPage(pageId, `${pageId}/conversations`, params);
@@ -538,11 +538,11 @@ export const metaAds = {
 
   // Instagram Direct conversations — minimal fields only (IG rejects nested message fields).
   // cursor: paging.cursors.after from a previous response (for pagination)
-  getInstagramConversations: (fbPageId: string, igUserId: string, cursor?: string) => {
+  getInstagramConversations: (fbPageId: string, igUserId: string, cursor?: string, limit = 15) => {
     const params: Record<string, string> = {
       fields: 'id,participants,unread_count,updated_time',
       platform: 'instagram',
-      limit: '10',
+      limit: String(limit),
     };
     if (cursor) params.after = cursor;
     return apiGetPage(fbPageId, `${fbPageId}/conversations`, params);
