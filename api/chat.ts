@@ -175,8 +175,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     {
       type: 'function',
       function: {
+        name: 'get_meta_ads_live_data',
+        description: 'Get live Meta Ads performance data from the Meta API: account-level insights (spend, reach, impressions, purchases/leads/messages, ROAS, CPA/CPL), list of active campaigns with names and objectives, and count of active ads. Use this whenever the user asks about Meta Ads performance, spend, ROAS, results, campaigns, or how their ads are doing.',
+        parameters: {
+          type: 'object',
+          properties: {
+            clientId: { type: 'string', description: 'The UUID of the client' },
+            days: { type: 'number', description: 'Number of days to look back: 7, 14, 30, or 90. Default is 14.' },
+          },
+          required: ['clientId'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'get_meta_ads_creatives',
-        description: 'Get the active Meta Ads creatives/ads with their names, status, and image thumbnail URLs. Helpful when users ask to see ad creatives/images.',
+        description: 'Get the count and names of active Meta Ads creatives/ads. Use ONLY when the user specifically asks how many creatives are active or what their names are. Do NOT use for performance metrics — use get_meta_ads_live_data for that.',
         parameters: {
           type: 'object',
           properties: {
@@ -229,19 +244,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const systemMessage = `Sos el asistente de marketing digital inteligente de Algoritmia.
 Tu nombre es "Algo". Respondés en español argentino, de manera amigable y profesional.
 
-Tienes acceso a herramientas para buscar información real de todos los clientes (campañas de Email Marketing, métricas de Meta Ads, métricas de Email, facturación de e-commerce de Shopify o Tiendanube, asignaciones de mails, creativos de anuncios e Instagram posts).
+Tenés acceso a herramientas reales para consultar datos de clientes: Meta Ads, Email Marketing (Klaviyo), e-commerce (Shopify/Tiendanube), Instagram y emails asignados.
 
-Cuando el usuario te pregunte sobre algún cliente, campaña, métricas, facturación, creativos o mails:
-1. Si no conoces el clientId del cliente mencionado, usa 'list_clients' para buscarlo.
-2. Si te preguntan sobre un cliente específico y ya tienes el clientId (o lo acabas de buscar), llama a la herramienta adecuada.
-3. Responde siempre basándote en los datos reales que te devuelven las herramientas. Sé específico con nombres, asuntos y fechas reales.
-4. Si el usuario te pregunta sin especificar un cliente, asume que se refiere al negocio activo actual en pantalla.
-   ${activeClientText}
-5. Si no hay datos disponibles o la llamada a las APIs falla, responde indicando de forma sencilla que no tenés una respuesta para esa pregunta en este momento.
+CUÁNDO USAR CADA HERRAMIENTA:
+- 'get_meta_ads_live_data': SIEMPRE que el usuario pregunte sobre rendimiento de Meta Ads (gasto, ROAS, resultados, campañas activas, cómo le va en publicidad). Esta es la herramienta principal para Meta.
+- 'get_meta_ads_creatives': Solo cuando pregunten cuántos creativos/anuncios están activos o sus nombres. NO para métricas de rendimiento.
+- 'get_klaviyo_data': Para campañas y flujos de email marketing.
+- 'get_assigned_emails': Para ver emails asignados/programados desde la biblioteca.
+- 'get_ecommerce_data': Para ventas, ingresos y pedidos de la tienda.
+- 'get_instagram_posts': Para posts recientes de Instagram.
+- 'list_clients': Para encontrar el clientId de un cliente por nombre (solo si no lo sabés).
+
+FLUJO DE TRABAJO:
+1. Si no conocés el clientId del cliente mencionado, usá 'list_clients' primero.
+2. Si el usuario no especifica cliente, asumí que es el negocio activo en pantalla: ${activeClientText}
+3. Respondé siempre con datos reales de las herramientas. Sé específico con números, nombres y fechas.
+4. Si una herramienta falla, decilo de forma simple y natural.
 
 REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
-- Da respuestas súper naturales, claras, intuitivas y muy fáciles de leer para alguien que no entiende nada de marketing o tecnología.
-- Usa preferentemente viñetas (por puntos) para resumir la información y hacerla fácil de leer de un vistazo. Evita textos largos o explicaciones técnicas complejas.
+- RESPUESTA DE MAILS PROGRAMADOS: Si el usuario te pregunta qué mails/correos están programados, debés responder detallando ÚNICAMENTE el nombre/asunto del correo y para cuándo está programado (fecha de envío). NO muestres bajo ningún concepto datos de bajo nivel como "Estado: Activo", "Aprobado: Sí", "Fecha de creación", etc.
+- Da respuestas súper lógicas, acertadas, claras, naturales y muy fáciles de leer. Evita dar datos o detalles técnicos irrelevantes que entorpezcan la lectura.
+- Usa preferentemente viñetas (por puntos) cortas para resumir la información y hacerla fácil de leer de un vistazo.
 - Usa tablas solo si es sumamente necesario para estructurar datos numéricos o calendarios.
 - NO muestres imágenes ni creativos directamente en el chat (NO utilices el formato de imagen markdown \`![alt](url)\`). En su lugar, describilos de forma breve en una lista por puntos y ofrece el botón con el link correspondiente para ir a verlos en la plataforma.
 - SIEMPRE que el usuario pregunte sobre algo que tenga una sección visual en la plataforma (anuncios, ventas, mails, reportes, etc.), debés incluir el link/botón de redirección correspondiente al final de tu respuesta, en su propia línea de texto. Esto renderizará un botón Call-To-Action premium en la interfaz.
@@ -383,6 +406,101 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
                 .eq('client_id', clientId);
               toolResult = data || [];
             }
+          } else if (name === 'get_meta_ads_live_data') {
+            const { clientId, days = 14 } = args as { clientId: string; days?: number };
+            if (!clientId || !isAuthorizedForClient(clientId)) {
+              toolResult = { error: 'Access denied or missing clientId' };
+            } else {
+              const { data: clientData } = await supabase
+                .from('car_clients')
+                .select('meta_account_id')
+                .eq('id', clientId)
+                .maybeSingle();
+
+              let adAccountId = clientData?.meta_account_id || CLIENT_META_MAP[clientId]?.adAccountId;
+              if (adAccountId && !adAccountId.startsWith('act_')) adAccountId = `act_${adAccountId}`;
+              const token = await getMetaToken();
+
+              if (!adAccountId) {
+                toolResult = { error: 'Meta Ad Account ID no configurado para este cliente.' };
+              } else if (!token) {
+                toolResult = { error: 'Token de Meta Ads no configurado en el sistema.' };
+              } else {
+                try {
+                  const preset = days <= 7 ? 'last_7d' : days <= 14 ? 'last_14d' : days <= 30 ? 'last_30d' : 'last_90d';
+                  const base = `https://graph.facebook.com/v21.0`;
+
+                  const [insightsRes, campaignsRes, adsRes] = await Promise.all([
+                    fetch(`${base}/${adAccountId}/insights?fields=spend,reach,impressions,actions,action_values,purchase_roas&date_preset=${preset}&access_token=${token}`),
+                    fetch(`${base}/${adAccountId}/campaigns?fields=name,status,objective,daily_budget,lifetime_budget&effective_status=["ACTIVE"]&limit=50&access_token=${token}`),
+                    fetch(`${base}/${adAccountId}/ads?fields=id,name&effective_status=["ACTIVE"]&limit=100&access_token=${token}`),
+                  ]);
+
+                  if (!insightsRes.ok) {
+                    const errBody = await insightsRes.text();
+                    throw new Error(`Meta insights error ${insightsRes.status}: ${errBody}`);
+                  }
+
+                  const [insightsJson, campaignsJson, adsJson] = await Promise.all([
+                    insightsRes.json(),
+                    campaignsRes.json(),
+                    adsRes.json(),
+                  ]);
+
+                  const ins = insightsJson.data?.[0] || {};
+                  const spend = parseFloat(ins.spend || 0);
+                  const reach = parseInt(ins.reach || 0);
+                  const impressions = parseInt(ins.impressions || 0);
+
+                  const acts: any[] = ins.actions || [];
+                  const findAction = (...types: string[]) => {
+                    const a = acts.find((x: any) => types.includes(x.action_type));
+                    return a ? parseFloat(a.value) : 0;
+                  };
+                  const purchases = findAction('purchase', 'offsite_conversion.fb_pixel_purchase', 'omni_purchase');
+                  const leads = findAction('lead', 'offsite_conversion.fb_pixel_lead', 'onsite_conversion.lead_grouped');
+                  const messages = findAction('onsite_conversion.messaging_conversation_started_7d', 'onsite_conversion.messaging_first_reply');
+
+                  const avs: any[] = ins.action_values || [];
+                  const revEntry = avs.find((x: any) => ['purchase', 'offsite_conversion.fb_pixel_purchase', 'omni_purchase'].includes(x.action_type));
+                  const revenue = revEntry ? parseFloat(revEntry.value) : 0;
+                  const roas = spend > 0 && revenue > 0 ? +(revenue / spend).toFixed(2) : 0;
+
+                  const campaigns = (campaignsJson.data || []).map((c: any) => ({
+                    name: c.name,
+                    objective: c.objective,
+                    budget: c.daily_budget
+                      ? `$${(parseFloat(c.daily_budget) / 100).toLocaleString('es-AR', { maximumFractionDigits: 0 })}/día`
+                      : c.lifetime_budget
+                      ? `$${(parseFloat(c.lifetime_budget) / 100).toLocaleString('es-AR', { maximumFractionDigits: 0 })} total`
+                      : 'Sin dato',
+                  }));
+
+                  const activeAds = (adsJson.data || []);
+
+                  toolResult = {
+                    period: `Últimos ${days} días`,
+                    spend: +spend.toFixed(2),
+                    reach,
+                    impressions,
+                    purchases,
+                    leads,
+                    messages,
+                    revenue: +revenue.toFixed(2),
+                    roas,
+                    cpa: purchases > 0 ? +(spend / purchases).toFixed(2) : 0,
+                    cpl: leads > 0 ? +(spend / leads).toFixed(2) : 0,
+                    costPerMessage: messages > 0 ? +(spend / messages).toFixed(2) : 0,
+                    activeCampaignsCount: campaigns.length,
+                    activeCampaigns: campaigns,
+                    activeAdsCount: activeAds.length,
+                    activeAdNames: activeAds.slice(0, 15).map((a: any) => a.name),
+                  };
+                } catch (e: any) {
+                  toolResult = { error: `Error al obtener datos de Meta: ${e.message}` };
+                }
+              }
+            }
           } else if (name === 'get_meta_ads_creatives') {
             const { clientId } = args as { clientId: string };
             if (!clientId || !isAuthorizedForClient(clientId)) {
@@ -393,11 +511,9 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
                 .select('meta_account_id')
                 .eq('id', clientId)
                 .maybeSingle();
-              
+
               let adAccountId = clientData?.meta_account_id || CLIENT_META_MAP[clientId]?.adAccountId;
-              if (adAccountId && !adAccountId.startsWith('act_')) {
-                adAccountId = `act_${adAccountId}`;
-              }
+              if (adAccountId && !adAccountId.startsWith('act_')) adAccountId = `act_${adAccountId}`;
               const token = await getMetaToken();
 
               if (!adAccountId) {
@@ -406,10 +522,15 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
                 toolResult = { error: 'Meta Ads access token not configured in system.' };
               } else {
                 try {
-                  const res = await fetch(`https://graph.facebook.com/v21.0/${adAccountId}/ads?fields=id,name,status,creative{id,name,thumbnail_url,object_type}&limit=30&access_token=${token}`);
+                  const res = await fetch(`https://graph.facebook.com/v21.0/${adAccountId}/ads?fields=id,name,status&effective_status=["ACTIVE"]&limit=100&access_token=${token}`);
                   if (!res.ok) throw new Error(`Meta status ${res.status}`);
                   const json = await res.json();
-                  toolResult = json.data || [];
+                  const ads = json.data || [];
+                  toolResult = {
+                    totalActive: ads.length,
+                    names: ads.map((a: any) => a.name),
+                    note: 'Para ver los creativos con imágenes, usar el botón de Captación en la plataforma.',
+                  };
                 } catch (e: any) {
                   toolResult = { error: e.message };
                 }

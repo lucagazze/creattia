@@ -255,19 +255,47 @@ export default function CaptacionPage() {
         const fb_likes = extractActions(c.actions, 'fb_likes');
         const spend = parseFloat(c.spend || 0);
         
-        let category = 'Otras Campañas';
         const nameUpper = c.campaign_name?.toUpperCase() || '';
         const objUpper = c.objective?.toUpperCase() || '';
 
-        if (objUpper.includes('SALES') || objUpper.includes('CONVERSIONS') || nameUpper.includes('VENTA') || nameUpper.includes('PURCHASE') || nameUpper.includes('COMPRA')) {
-          category = 'Ventas';
-        } else if (objUpper.includes('LEAD') || nameUpper.includes('LEAD') || nameUpper.includes('POTENCIAL')) {
-          category = 'Leads';
-        } else if (objUpper.includes('MESSAGES') || objUpper.includes('ENGAGEMENT') || nameUpper.includes('MENSAJE') || nameUpper.includes('WPP') || nameUpper.includes('WHATSAPP') || nameUpper.includes('CONV')) {
+        // Name signals take priority over objective (WAP/WHATSAPP before SALES)
+        const nameIsWpp = nameUpper.includes('WAP') || nameUpper.includes('WPP') || nameUpper.includes('WHATSAPP') || nameUpper.includes('MENSAJ');
+        const nameIsLead = nameUpper.includes('LEAD') || nameUpper.includes('POTENCIAL') || nameUpper.includes('FORMULARIO');
+        const nameIsTraffic = nameUpper.includes('TRAFICO') || nameUpper.includes('COMUNIDAD') || nameUpper.includes('SEGUIDORES') || nameUpper.includes('INTERACCION');
+        const nameIsSales = nameUpper.includes('VENTA') || nameUpper.includes('COMPRA') || nameUpper.includes('PURCHASE');
+
+        let category = 'Otras Campañas';
+        if (nameIsWpp) {
           category = 'Mensajes';
-        } else if (objUpper.includes('TRAFFIC') || objUpper.includes('AWARENESS') || objUpper.includes('REACH') || nameUpper.includes('TRAFICO') || nameUpper.includes('COMUNIDAD') || nameUpper.includes('SEGUIDORES') || nameUpper.includes('INTERACCION')) {
+        } else if (nameIsLead) {
+          category = 'Leads';
+        } else if (nameIsTraffic) {
           category = 'Tráfico/Comunidad';
+        } else if (nameIsSales) {
+          category = 'Ventas';
+        } else if (objUpper.includes('MESSAGES') || objUpper.includes('ENGAGEMENT')) {
+          category = 'Mensajes';
+        } else if (objUpper.includes('LEAD')) {
+          category = 'Leads';
+        } else if (objUpper.includes('SALES') || objUpper.includes('CONVERSIONS')) {
+          category = 'Ventas';
+        } else if (objUpper.includes('TRAFFIC') || objUpper.includes('AWARENESS') || objUpper.includes('REACH')) {
+          category = 'Tráfico/Comunidad';
+        } else {
+          // Last resort: infer from actual results
+          const maxResult = Math.max(purchases, leads, messages);
+          if (maxResult > 0) {
+            if (messages === maxResult) category = 'Mensajes';
+            else if (leads === maxResult) category = 'Leads';
+            else category = 'Ventas';
+          }
         }
+
+        const primaryMetric: 'purchases' | 'leads' | 'messages' | 'other' =
+          category === 'Mensajes' ? 'messages'
+          : category === 'Leads' ? 'leads'
+          : category === 'Ventas' ? 'purchases'
+          : 'other';
 
         return {
           id: c.campaign_id || c.campaign_name,
@@ -284,7 +312,8 @@ export default function CaptacionPage() {
           cpm: messages ? spend / messages : 0,
           purchase_value: parseFloat(c.action_values?.find((v: any) => v.action_type === 'purchase' || v.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || 0),
           roas: parseFloat(c.purchase_roas?.[0]?.value || 0),
-          category
+          category,
+          primaryMetric,
         };
       }).sort((a: any, b: any) => b.spend - a.spend));
 
