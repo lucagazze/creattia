@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, ChevronUp, CornerDownLeft, X, Loader2, RotateCcw, Database } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -27,7 +28,7 @@ const TOOL_META: Record<string, { label: string; icon: string }> = {
 };
 
 // ── Markdown Renderer Component ───────────────────────────────────────────────
-const MarkdownRenderer = ({ content, onLinkClick, onSend }: { content: string; onLinkClick?: () => void; onSend?: (text: string) => void }) => {
+const MarkdownRenderer = ({ content, onSend, onNavigate }: { content: string; onSend?: (text: string) => void; onNavigate?: (path: string) => void }) => {
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
   let currentList: React.ReactNode[] = [];
@@ -108,10 +109,11 @@ const MarkdownRenderer = ({ content, onLinkClick, onSend }: { content: string; o
           nextParts.push(
             <a
               key={url + index}
-              href={targetUrl}
-              target={isInternal ? '_self' : '_blank'}
+              href={isInternal ? undefined : targetUrl}
+              target={isInternal ? undefined : '_blank'}
               rel="noopener noreferrer"
-              className="text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 underline font-bold inline-flex items-center gap-0.5"
+              onClick={isInternal && onNavigate ? (e) => { e.preventDefault(); onNavigate(targetUrl); } : undefined}
+              className="text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 underline font-bold inline-flex items-center gap-0.5 cursor-pointer"
             >
               {linkText}
             </a>
@@ -219,10 +221,11 @@ const MarkdownRenderer = ({ content, onLinkClick, onSend }: { content: string; o
         elements.push(
           <div key={i} className="my-3">
             <a
-              href={targetUrl}
-              target={isInternal ? '_self' : '_blank'}
+              href={isInternal ? undefined : targetUrl}
+              target={isInternal ? undefined : '_blank'}
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-full bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white font-bold text-[12px] md:text-[12.5px] shadow-md shadow-violet-500/15 hover:scale-[1.01] active:scale-[0.98] transition-all text-center"
+              onClick={isInternal && onNavigate ? (e) => { e.preventDefault(); onNavigate(targetUrl); } : undefined}
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-full bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white font-bold text-[12px] md:text-[12.5px] shadow-md shadow-violet-500/15 hover:scale-[1.01] active:scale-[0.98] transition-all text-center cursor-pointer"
             >
               {linkText}
             </a>
@@ -331,6 +334,13 @@ export const AIChatFloat = () => {
   const { profile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const { darkMode } = useTheme();
+  const navigate = useNavigate();
+
+  const handleNavigate = (url: string) => {
+    // Convert "/#/email-marketing" → "/email-marketing" for useNavigate
+    const path = url.startsWith('/#') ? url.slice(2) : url.startsWith('#/') ? url.slice(1) : url;
+    navigate(path);
+  };
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -613,7 +623,7 @@ export const AIChatFloat = () => {
                 {msg.role === 'user' ? (
                   msg.content
                 ) : (
-                  <MarkdownRenderer content={msg.content} onSend={(text) => handleSend(text)} />
+                  <MarkdownRenderer content={msg.content} onSend={(text) => handleSend(text)} onNavigate={handleNavigate} />
                 )}
               </div>
             </div>

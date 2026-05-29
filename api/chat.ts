@@ -53,7 +53,12 @@ async function getClientData(clientId: string, fields: string): Promise<any> {
 
 // ── Optimized Klaviyo fetch ───────────────────────────────────────────────────
 async function fetchKlaviyoData(apiKey: string) {
-  const h = { Authorization: `Klaviyo-API-Key ${apiKey}`, Revision: '2024-10-15', Accept: 'application/json' };
+  // Use the same headers as the /api/klaviyo proxy (JSON:API format required by Klaviyo)
+  const h = {
+    Authorization: `Klaviyo-API-Key ${apiKey}`,
+    Revision: '2024-10-15',
+    Accept: 'application/vnd.api+json',
+  };
   const kvFetch = (path: string) =>
     fetch(`https://a.klaviyo.com/api/${path}`, { headers: h })
       .then(r => { if (!r.ok) throw new Error(`Klaviyo ${r.status}`); return r.json(); });
@@ -305,7 +310,7 @@ END every response with exactly:
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openAiKey}` },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4o-mini',
           messages: apiMessages,
           tools,
           tool_choice: 'auto',
