@@ -394,26 +394,32 @@ export const AIChatFloat = () => {
 
     try {
       recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = false;
+      recognition.continuous = false;
+      recognition.interimResults = true;
       recognition.lang = 'es-AR';
 
       recognition.onresult = (event: any) => {
-        const lastResultIndex = event.resultIndex;
-        const transcript = event.results[lastResultIndex][0].transcript.toLowerCase().trim();
-        console.log('[Wake Word check]:', transcript);
-        if (
-          transcript.includes('oye algor') || 
-          transcript.includes('hola algor') || 
-          transcript.includes('algor') || 
-          transcript.includes('oye algo') || 
-          transcript.includes('hola algo') ||
-          transcript.includes('al gore')
-        ) {
-          setIsOpen(true);
-          setTimeout(() => {
-            startRecording();
-          }, 350);
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcript = event.results[i][0].transcript.toLowerCase();
+          console.log('[Wake Word interim check]:', transcript);
+          if (
+            transcript.includes('oye algor') || 
+            transcript.includes('hola algor') || 
+            transcript.includes('algor') || 
+            transcript.includes('oye algo') || 
+            transcript.includes('hola algo') ||
+            transcript.includes('al gore') ||
+            transcript.includes('algón') ||
+            transcript.includes('algol')
+          ) {
+            isStopping = true;
+            try { recognition.stop(); } catch {}
+            setIsOpen(true);
+            setTimeout(() => {
+              startRecording();
+            }, 350);
+            break;
+          }
         }
       };
 
