@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X, 
-  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare
+  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -50,6 +50,10 @@ export default function RedesSocialesPage() {
   const [expandedCaptions, setExpandedCaptions] = useState<Record<string, boolean>>({});
   const [expandedFbCaptions, setExpandedFbCaptions] = useState<Record<string, boolean>>({});
 
+  // Video Playing & AI Draft Suggestion States
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(false);
+
   // Comments modal/side-sheet state
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostPermalink, setSelectedPostPermalink] = useState<string | null>(null);
@@ -65,6 +69,45 @@ export default function RedesSocialesPage() {
   const igId = (profile as any)?.ig_business_id;
   const igUsername = (profile as any)?.ig_username;
   const fbPageId = (profile as any)?.fb_page_id;
+
+  // Track page ID in localStorage to enable token retrieval in services
+  useEffect(() => {
+    if (fbPageId) {
+      localStorage.setItem('active_fb_page_id', fbPageId);
+    }
+  }, [fbPageId]);
+
+  const generateSocialCommentDraft = async () => {
+    if (!replyingTo || !selectedPostId) return;
+    const commentToReply = comments.find(c => c.id === replyingTo.id);
+    if (!commentToReply) return;
+
+    setLoadingDraft(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch('/api/draft-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          itemText: commentToReply.text || commentToReply.message || '',
+          username: replyingTo.username,
+        }),
+      });
+      if (!res.ok) throw new Error(`Draft reply error: ${res.status}`);
+      const data = await res.json();
+      if (data.draft) {
+        setCommentInput(data.draft);
+      } else {
+        throw new Error('El borrador generado está vacío.');
+      }
+    } catch (err: any) {
+      console.error('Failed to generate AI draft:', err);
+      setSubmitError('No se pudo generar el borrador con IA. Reintentá o respondé manualmente.');
+    } finally {
+      setLoadingDraft(false);
+    }
+  };
 
   const fetchComments = async (postId: string, type: 'instagram' | 'facebook') => {
     setLoadingComments(true);
@@ -449,39 +492,66 @@ export default function RedesSocialesPage() {
                             key={m.id} 
                             className="group bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl overflow-hidden shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300 flex flex-col justify-between"
                           >
-                            {/* Thumbnail Container */}
-                            <div 
-                              onClick={() => openCommentsModal(m.id, m.permalink, 'instagram')}
-                              className="aspect-square w-full bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden flex items-center justify-center border-b border-zinc-100 dark:border-zinc-800/60 cursor-pointer"
-                              title="Ver comentarios"
-                            >
-                              {m.media_url || m.thumbnail_url ? (
-                                <img 
-                                  src={m.media_type === 'VIDEO' ? (m.thumbnail_url || m.media_url) : (m.media_url || m.thumbnail_url)} 
-                                  alt="" 
-                                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" 
-                                  loading="lazy"
+                             {/* Thumbnail Container */}
+                            <div className="aspect-square w-full bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden flex items-center justify-center border-b border-zinc-100 dark:border-zinc-800/60">
+                              {playingVideoId === m.id ? (
+                                <video 
+                                  src={m.media_url} 
+                                  controls 
+                                  autoPlay 
+                                  className="w-full h-full object-contain bg-black" 
                                 />
                               ) : (
-                                <ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-700 animate-pulse" />
-                              )}
-                              
-                              <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white p-1.5 rounded-lg text-xs flex items-center justify-center">
-                                {m.media_type === 'VIDEO' && <Video className="w-3.5 h-3.5" />}
-                                {m.media_type === 'CAROUSEL_ALBUM' && <Layers className="w-3.5 h-3.5" />}
-                                {m.media_type === 'IMAGE' && <ImageIcon className="w-3.5 h-3.5" />}
-                              </div>
+                                <div 
+                                  onClick={() => {
+                                    if (m.media_type === 'VIDEO') {
+                                      setPlayingVideoId(m.id);
+                                    } else {
+                                      openCommentsModal(m.id, m.permalink, 'instagram');
+                                    }
+                                  }}
+                                  className="w-full h-full relative cursor-pointer"
+                                  title={m.media_type === 'VIDEO' ? "Reproducir video" : "Ver comentarios"}
+                                >
+                                  {m.media_url || m.thumbnail_url ? (
+                                    <img 
+                                      src={m.media_type === 'VIDEO' ? (m.thumbnail_url || m.media_url) : (m.media_url || m.thumbnail_url)} 
+                                      alt="" 
+                                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" 
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-700 animate-pulse" />
+                                  )}
 
-                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-6 text-white font-bold select-none">
-                                <div className="flex items-center gap-1.5 text-[14px]">
-                                  <Heart className="w-5 h-5 fill-white text-white" />
-                                  <span>{fmtNumber(m.like_count || 0)}</span>
+                                  {m.media_type === 'VIDEO' && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 hover:bg-black/30 transition-colors">
+                                      <div className="w-14 h-14 rounded-full bg-white/90 hover:bg-white text-pink-600 flex items-center justify-center shadow-lg hover:scale-105 transition-all">
+                                        <svg className="w-6 h-6 fill-current ml-1" viewBox="0 0 24 24">
+                                          <path d="M8 5v14l11-7z" />
+                                        </svg>
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white p-1.5 rounded-lg text-xs flex items-center justify-center">
+                                    {m.media_type === 'VIDEO' && <Video className="w-3.5 h-3.5" />}
+                                    {m.media_type === 'CAROUSEL_ALBUM' && <Layers className="w-3.5 h-3.5" />}
+                                    {m.media_type === 'IMAGE' && <ImageIcon className="w-3.5 h-3.5" />}
+                                  </div>
+
+                                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-6 text-white font-bold select-none">
+                                    <div className="flex items-center gap-1.5 text-[14px]">
+                                      <Heart className="w-5 h-5 fill-white text-white" />
+                                      <span>{fmtNumber(m.like_count || 0)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-[14px]">
+                                      <MessageCircle className="w-5 h-5 fill-white text-white" />
+                                      <span>{fmtNumber(m.comments_count || 0)}</span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[14px]">
-                                  <MessageCircle className="w-5 h-5 fill-white text-white" />
-                                  <span>{fmtNumber(m.comments_count || 0)}</span>
-                                </div>
-                              </div>
+                              )}
                             </div>
 
                             {/* Description & metadata */}
@@ -862,18 +932,40 @@ export default function RedesSocialesPage() {
 
             {/* Footer Input Area */}
             <div className="p-4 border-t border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-900/40 space-y-3 flex-shrink-0">
-              {/* Replying indicator */}
-              {replyingTo && (
-                <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100/50 dark:border-violet-900/30 text-[11.5px] text-violet-600 dark:text-violet-400 font-bold animate-in fade-in duration-100">
-                  <span>Respondiendo a @{replyingTo.username}</span>
-                  <button 
-                    onClick={() => setReplyingTo(null)}
-                    className="p-0.5 hover:bg-violet-150 dark:hover:bg-violet-900/30 rounded-lg text-violet-500 transition-colors"
+              {/* Replying indicator & IA button */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {replyingTo ? (
+                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100/50 dark:border-violet-900/30 text-[11.5px] text-violet-600 dark:text-violet-400 font-bold animate-in fade-in duration-100">
+                    <span>Respondiendo a @{replyingTo.username}</span>
+                    <button 
+                      onClick={() => setReplyingTo(null)}
+                      className="p-0.5 hover:bg-violet-150 dark:hover:bg-violet-900/30 rounded-lg text-violet-500 transition-colors ml-2"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-[11.5px] text-zinc-400 font-bold">
+                    Elegí un comentario para responder directamente.
+                  </div>
+                )}
+
+                {replyingTo && (
+                  <button
+                    type="button"
+                    onClick={generateSocialCommentDraft}
+                    disabled={submittingReply || loadingDraft}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/25 dark:hover:bg-violet-900/40 text-violet-650 dark:text-violet-400 rounded-xl text-[11px] font-black border border-violet-100/50 dark:border-violet-900/25 transition-all shadow-sm cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    {loadingDraft ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    Borrador con IA (Algor)
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Error messages / Fallback */}
               {submitError && (

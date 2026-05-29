@@ -109,6 +109,31 @@ export const AD_INSIGHT_FIELDS = [
   'purchase_roas',
 ].join(',');
 
+const getPageAccessToken = async (pageId: string): Promise<string> => {
+  try {
+    const cacheKey = `fb_pat_${pageId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return cached;
+
+    const userToken = (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
+    if (!userToken) return '';
+
+    const url = new URL(`${BASE}/me/accounts`);
+    url.searchParams.set('access_token', userToken);
+    url.searchParams.set('limit', '100');
+    const res = await fetch(url.toString()).then(r => r.json());
+    
+    const page = (res?.data || []).find((p: any) => p.id === pageId);
+    if (page?.access_token) {
+      localStorage.setItem(cacheKey, page.access_token);
+      return page.access_token;
+    }
+  } catch (e) {
+    console.error('Error getting page access token:', e);
+  }
+  return (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
+};
+
 const apiGet = async (endpoint: string, params: Record<string, string> = {}): Promise<any> => {
   const url = new URL(`${BASE}/${endpoint}`);
   url.searchParams.set('access_token', getToken());
@@ -117,6 +142,54 @@ const apiGet = async (endpoint: string, params: Record<string, string> = {}): Pr
   const json = await res.json();
   if (json?.error) {
     throw new Error(json.error.message || `Meta API error ${res.status}`);
+  }
+  return json;
+};
+
+const apiGetPage = async (pageId: string, endpoint: string, params: Record<string, string> = {}): Promise<any> => {
+  const token = await getPageAccessToken(pageId);
+  const url = new URL(`${BASE}/${endpoint}`);
+  url.searchParams.set('access_token', token);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  const json = await res.json();
+  if (json?.error) {
+    throw new Error(json.error.message || `Meta API error ${res.status}`);
+  }
+  return json;
+};
+
+const apiGetPageActive = async (endpoint: string, params: Record<string, string> = {}): Promise<any> => {
+  const activePageId = localStorage.getItem('active_fb_page_id') || '';
+  const token = activePageId ? await getPageAccessToken(activePageId) : getToken();
+  const url = new URL(`${BASE}/${endpoint}`);
+  url.searchParams.set('access_token', token);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  const json = await res.json();
+  if (json?.error) {
+    throw new Error(json.error.message || `Meta API error ${res.status}`);
+  }
+  return json;
+};
+
+const apiPostPageActive = async (endpoint: string, params: Record<string, string> = {}, body?: any): Promise<any> => {
+  const activePageId = localStorage.getItem('active_fb_page_id') || '';
+  const token = activePageId ? await getPageAccessToken(activePageId) : getToken();
+  const url = new URL(`${BASE}/${endpoint}`);
+  url.searchParams.set('access_token', token);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const fetchOptions: RequestInit = {
+    method: 'POST',
+  };
+  if (body) {
+    fetchOptions.headers = { 'Content-Type': 'application/json' };
+    fetchOptions.body = JSON.stringify(body);
+  }
+  const res = await fetch(url.toString(), fetchOptions);
+  const json = await res.json();
+  if (json?.error) {
+    throw new Error(json.error.message || `Meta API error`);
   }
   return json;
 };
@@ -370,44 +443,33 @@ export const metaAds = {
   },
 
   getInstagramProfile: (igId: string) =>
-    apiGet(igId, {
-      fields: 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,website',
+    apiGetPageActive(igId, {
+      fields: 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,white_list,website',
+    }).catch(err => {
+      // If we queried a field that fails or standard profile fields
+      return apiGetPageActive(igId, {
+        fields: 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,website',
+      });
     }),
 
   getInstagramMedia: (igId: string, limit = 12) =>
-    apiGet(`${igId}/media`, {
+    apiGetPageActive(`${igId}/media`, {
       fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,comments{id,text,timestamp,username,like_count,replies{id,text,timestamp,username}}',
       limit: String(limit),
     }),
 
   getInstagramMediaComments: (mediaId: string) =>
-    apiGet(`${mediaId}/comments`, {
+    apiGetPageActive(`${mediaId}/comments`, {
       fields: 'id,text,timestamp,username,like_count,replies{id,text,timestamp,username}',
       limit: '50',
     }),
 
   replyToInstagramComment: async (commentId: string, message: string) => {
-    const url = new URL(`${BASE}/${commentId}/replies`);
-    url.searchParams.set('access_token', getToken());
-    url.searchParams.set('message', message);
-    const res = await fetch(url.toString(), { method: 'POST' });
-    const json = await res.json();
-    if (json?.error) {
-      throw new Error(json.error.message || `Meta API error ${res.status}`);
-    }
-    return json;
+    return apiPostPageActive(`${commentId}/replies`, { message });
   },
 
   createInstagramMediaComment: async (mediaId: string, message: string) => {
-    const url = new URL(`${BASE}/${mediaId}/comments`);
-    url.searchParams.set('access_token', getToken());
-    url.searchParams.set('message', message);
-    const res = await fetch(url.toString(), { method: 'POST' });
-    const json = await res.json();
-    if (json?.error) {
-      throw new Error(json.error.message || `Meta API error ${res.status}`);
-    }
-    return json;
+    return apiPostPageActive(`${mediaId}/comments`, { message });
   },
 
   // Recent account activity — changes made in the last N days (pauses, budget edits, new ads)
@@ -422,65 +484,47 @@ export const metaAds = {
 
   // ── FACEBOOK ORGANIC ──────────────────────────────────────
   getFacebookPageInfo: (pageId: string) =>
-    apiGet(pageId, {
+    apiGetPage(pageId, pageId, {
       fields: 'id,name,fan_count,followers_count,picture{url},about',
     }),
 
   getFacebookPageFeed: (pageId: string, limit = 24) =>
-    apiGet(`${pageId}/feed`, {
+    apiGetPage(pageId, `${pageId}/feed`, {
       fields: 'id,message,created_time,full_picture,permalink_url,shares,likes.summary(true),comments.summary(true),comments{id,message,created_time,from,like_count,replies{id,message,from,created_time}}',
       limit: String(limit),
     }),
 
   getFacebookPostComments: (postId: string) =>
-    apiGet(`${postId}/comments`, {
+    apiGetPageActive(`${postId}/comments`, {
       fields: 'id,text,timestamp,from,username,like_count,replies{id,text,from,username,timestamp}',
       limit: '50',
     }),
 
   replyToFacebookComment: async (commentId: string, message: string) => {
-    const url = new URL(`${BASE}/${commentId}/comments`);
-    url.searchParams.set('access_token', getToken());
-    url.searchParams.set('message', message);
-    const res = await fetch(url.toString(), { method: 'POST' });
-    const json = await res.json();
-    if (json?.error) {
-      throw new Error(json.error.message || `Meta API error ${res.status}`);
-    }
-    return json;
+    return apiPostPageActive(`${commentId}/comments`, { message });
   },
 
   // ── CONVERSATIONS (DMs) ──────────────────────────────────
   getPageConversations: (pageId: string, platform: 'messenger' | 'instagram' = 'messenger') =>
-    apiGet(`${pageId}/conversations`, {
+    apiGetPage(pageId, `${pageId}/conversations`, {
       fields: 'id,participants,unread_count,updated_time,messages.limit(1){id,message,from,created_time}',
       platform,
       limit: '20',
     }),
 
   getConversationMessages: (convId: string) =>
-    apiGet(`${convId}/messages`, {
+    apiGetPageActive(`${convId}/messages`, {
       fields: 'id,message,from,created_time',
       limit: '30',
     }),
 
   replyToConversation: async (convId: string, text: string) => {
-    const url = `${BASE}/${convId}/messages?access_token=${getToken()}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: { text } })
-    });
-    const json = await res.json();
-    if (json?.error) {
-      throw new Error(json.error.message || `Meta API error`);
-    }
-    return json;
+    return apiPostPageActive(`${convId}/messages`, {}, { message: { text } });
   },
 
   // Helper to fetch comments of an Ad's creative
   getAdCreativeComments: (storyId: string) =>
-    apiGet(`${storyId}/comments`, {
+    apiGetPageActive(`${storyId}/comments`, {
       fields: 'id,text,timestamp,from,username,like_count,replies{id,text,from,username,timestamp}',
       limit: '50',
     }),

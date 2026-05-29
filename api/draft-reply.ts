@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : 'No hay catálogo de productos de Shopify configurado.';
 
     const systemMessage = `Sos Algor, el asistente de IA de la marca "${business_name}".
-Redactá un borrador de respuesta natural, amable y en español argentino (usá el voseo: vos, tenés, consultame, etc.) para responder a un cliente.
+Redactá un borrador de respuesta natural y amable.
 
 Detalles:
 - Usuario en red social: @${username}
@@ -89,9 +89,11 @@ ${productsContext}
 
 Reglas:
 1. Sé muy conciso (máximo 1 o 2 oraciones).
-2. Si el usuario pregunta por un producto específico, disponibilidad, precio o cómo comprar, recomendá el producto del catálogo y colocá EXACTAMENTE el link correspondiente: https://${cleanDomainForLink}/products/[handle-del-producto]. No inventes handles que no estén en la lista.
-3. No uses marcadores de posición (placeholders) como [precio] o [enlace]. La respuesta debe estar lista para enviarse.
-4. Devolvé ÚNICAMENTE el texto final de la respuesta sugerida, sin explicaciones ni prefijos.`;
+2. DETECT LANGUAGE: Detectá en qué idioma está el mensaje del cliente (itemText). Deberás redactar la sugerencia en ese MISMO idioma (si escribió en inglés, respondé en inglés; si escribió en español, respondé en español usando el español argentino/voseo como "vos", "tenés", "consultame", etc.; si es en portugués, respondé en portugués).
+3. Si el usuario pregunta por un producto específico, disponibilidad, precio o cómo comprar, recomendá el producto del catálogo y colocá EXACTAMENTE el link correspondiente: https://${cleanDomainForLink}/products/[handle-del-producto]. No inventes handles que no estén en la lista.
+4. Si preguntan por compras, envíos o precios generales y no hay un producto específico coincidente en el catálogo, ofreceles siempre el link principal de la web de compra: https://${cleanDomainForLink}.
+5. No uses marcadores de posición (placeholders) como [precio] o [enlace]. La respuesta debe estar lista para enviarse.
+6. Devolvé ÚNICAMENTE el texto final de la respuesta sugerida, sin explicaciones ni prefijos.`;
 
     // 4. Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {

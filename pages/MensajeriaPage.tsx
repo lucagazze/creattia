@@ -30,6 +30,7 @@ export default function MensajeriaPage() {
 
   // Filter States
   const [inboxFilter, setInboxFilter] = useState<'all' | 'comments' | 'messages'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // Selected Item for Detail Slide-Over
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -48,6 +49,13 @@ export default function MensajeriaPage() {
   const ecommercePlatform = (profile as any)?.ecommerce_platform;
   const shopifyDomain = (profile as any)?.shopify_domain;
   const shopifyAccessToken = (profile as any)?.shopify_access_token;
+
+  // Track page ID in localStorage to enable token retrieval in services
+  useEffect(() => {
+    if (fbPageId) {
+      localStorage.setItem('active_fb_page_id', fbPageId);
+    }
+  }, [fbPageId]);
 
   // Load Shopify products via proxy if integrated
   useEffect(() => {
@@ -297,6 +305,9 @@ export default function MensajeriaPage() {
                 postThumbnail: post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url,
                 permalink: post.permalink,
                 rawItem: comment,
+                postMediaType: post.media_type,
+                postMediaUrl: post.media_url,
+                postThumbnailUrl: post.thumbnail_url,
               });
             }
           });
@@ -322,6 +333,9 @@ export default function MensajeriaPage() {
                 postThumbnail: post.full_picture,
                 permalink: post.permalink_url,
                 rawItem: comment,
+                postMediaType: post.full_picture ? 'IMAGE' : null,
+                postMediaUrl: post.full_picture,
+                postThumbnailUrl: post.full_picture,
               });
             }
           });
@@ -504,12 +518,39 @@ export default function MensajeriaPage() {
                 </button>
               ))}
             </div>
-            <p className="text-[12px] text-zinc-400 font-bold">
-              Mostrando {filteredPendingItems.length} pendientes
-            </p>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="text-[12px] text-zinc-405 font-bold">
+                Mostrando {filteredPendingItems.length} pendientes
+              </p>
+              
+              {/* Density Toggle */}
+              <div className="flex items-center gap-1 bg-zinc-150/80 dark:bg-zinc-800/60 border border-zinc-200/40 dark:border-zinc-700/65 p-0.5 rounded-lg">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-2.5 py-1 rounded-md text-[10.5px] font-black transition-all ${
+                    viewMode === 'list'
+                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm font-black'
+                      : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  Lista
+                </button>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-2.5 py-1 rounded-md text-[10.5px] font-black transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  Cuadrícula
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Grid layout of pending cards */}
+          {/* Grid or List layout of pending items */}
           {filteredPendingItems.length === 0 ? (
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200/65 dark:border-zinc-800/65 rounded-3xl p-12 text-center max-w-md mx-auto space-y-4 shadow-sm animate-in zoom-in-95 duration-200">
               <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto text-green-500">
@@ -520,8 +561,8 @@ export default function MensajeriaPage() {
                 Buen trabajo. No tenés mensajes o comentarios pendientes en esta categoría.
               </p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in fade-in duration-200">
               {filteredPendingItems.map((item: any) => (
                 <div 
                   key={item.id} 
@@ -607,6 +648,63 @@ export default function MensajeriaPage() {
                 </div>
               ))}
             </div>
+          ) : (
+            /* High density list view */
+            <div className="border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl bg-white dark:bg-zinc-900 overflow-hidden divide-y divide-zinc-150 dark:divide-zinc-850 shadow-sm animate-in fade-in duration-200">
+              {filteredPendingItems.map((item: any) => (
+                <div
+                  key={item.id}
+                  onClick={() => setSelectedItem(item)}
+                  className="px-4 py-2.5 flex items-center justify-between gap-4 hover:bg-zinc-50/60 dark:hover:bg-zinc-850/45 cursor-pointer transition-colors group text-[12.5px]"
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {/* Platform Icon */}
+                    {item.platform === 'instagram' ? (
+                      <Instagram className="w-4 h-4 text-pink-505 flex-shrink-0" />
+                    ) : (
+                      <span className="w-4 h-4 text-blue-500 font-black text-xs text-center flex-shrink-0">f</span>
+                    )}
+
+                    {/* Username */}
+                    <span className="font-bold text-zinc-850 dark:text-zinc-200 flex-shrink-0">
+                      @{item.username}
+                    </span>
+
+                    {/* Tags (Type, Campaign name if Ads) */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wide">
+                        {item.type === 'ig_dm' && 'DM'}
+                        {item.type === 'fb_dm' && 'Messenger'}
+                        {item.type === 'ig_comment' && 'Comentario'}
+                        {item.type === 'fb_comment' && 'Comentario'}
+                        {item.type === 'ad_comment' && 'Comentario Ad'}
+                      </span>
+                      {item.type === 'ad_comment' && item.adName && (
+                        <span className="bg-violet-50 text-violet-650 dark:bg-violet-950/20 dark:text-violet-400 text-[9px] font-bold px-1.5 py-0.5 rounded max-w-[100px] truncate">
+                          {item.adName}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Message content snippet */}
+                    <p className="text-zinc-500 dark:text-zinc-450 truncate italic font-semibold flex-1">
+                      "{item.text}"
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {/* Timestamp */}
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold">
+                      {new Date(item.timestamp).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                {/* Hover indicator */}
+                    <span className="text-violet-650 dark:text-violet-400 font-black opacity-0 group-hover:opacity-100 transition-opacity text-[11px]">
+                      Responder →
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -676,18 +774,44 @@ export default function MensajeriaPage() {
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                   {/* Context Card (if it's a comment) */}
                   {(selectedItem.postCaption || selectedItem.postMessage) && (
-                    <div className="p-4 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex gap-3 shadow-sm">
-                      {selectedItem.postThumbnail && (
-                        <div className="w-14 h-14 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0 border border-zinc-200 dark:border-zinc-800">
-                          <img src={selectedItem.postThumbnail} alt="" className="w-full h-full object-cover" />
+                    <div className="p-4 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-3 shadow-sm">
+                      <div className="flex gap-3">
+                        {selectedItem.postThumbnail && (
+                          <div className="w-14 h-14 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0 border border-zinc-200 dark:border-zinc-800">
+                            <img src={selectedItem.postThumbnail} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] font-black text-zinc-405 uppercase tracking-widest block mb-0.5">Publicación de Contexto</span>
+                          <p className="text-[12px] text-zinc-650 dark:text-zinc-400 font-semibold line-clamp-2 leading-relaxed">
+                            {selectedItem.postCaption || selectedItem.postMessage}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Interactive Media Player (for Videos/Images/Carousels) */}
+                      {selectedItem.postMediaUrl && (
+                        <div className="border-t border-zinc-100 dark:border-zinc-800/80 pt-3 mt-1">
+                          {selectedItem.postMediaType === 'VIDEO' ? (
+                            <div className="rounded-xl overflow-hidden bg-black max-w-[280px] border border-zinc-200 dark:border-zinc-800 mx-auto shadow-sm">
+                              <video
+                                src={selectedItem.postMediaUrl}
+                                poster={selectedItem.postThumbnailUrl || selectedItem.postThumbnail}
+                                controls
+                                className="w-full max-h-64 object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="rounded-xl overflow-hidden max-w-[280px] border border-zinc-200 dark:border-zinc-800 mx-auto shadow-sm">
+                              <img
+                                src={selectedItem.postMediaUrl}
+                                alt="Post Media"
+                                className="w-full max-h-64 object-cover"
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[10px] font-black text-zinc-450 uppercase tracking-widest block mb-0.5">Publicación de Contexto</span>
-                        <p className="text-[12px] text-zinc-650 dark:text-zinc-400 font-semibold line-clamp-2 leading-relaxed">
-                          {selectedItem.postCaption || selectedItem.postMessage}
-                        </p>
-                      </div>
                     </div>
                   )}
 
