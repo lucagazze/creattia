@@ -18,18 +18,36 @@ const CLIENT_META_MAP: Record<string, { igId?: string; username?: string; adAcco
   '51a050d9-5f32-4f95-8724-8eefff9666d6': { igId: '17841463377689897', username: 'selecta' },
 };
 
-// Agency settings / token helpers
-async function getMetaToken() {
+// In-memory caches to avoid repeated DB lookups on every request
+let metaTokenCache: { value: string; expiresAt: number } | null = null;
+const clientCache: Record<string, { data: any; expiresAt: number }> = {};
+
+async function getMetaToken(): Promise<string> {
+  const now = Date.now();
+  if (metaTokenCache && metaTokenCache.expiresAt > now) return metaTokenCache.value;
   try {
     const { data } = await supabase
       .from('AgencySettings')
       .select('value')
       .eq('key', 'meta_ads_token')
       .maybeSingle();
-    return data?.value || '';
+    const value = data?.value || '';
+    metaTokenCache = { value, expiresAt: now + 5 * 60 * 1000 }; // 5 min cache
+    return value;
   } catch {
     return '';
   }
+}
+
+async function getClientData(clientId: string, fields: string): Promise<any> {
+  const cacheKey = `${clientId}:${fields}`;
+  const now = Date.now();
+  if (clientCache[cacheKey] && clientCache[cacheKey].expiresAt > now) {
+    return clientCache[cacheKey].data;
+  }
+  const { data } = await supabase.from('car_clients').select(fields).eq('id', clientId).maybeSingle();
+  clientCache[cacheKey] = { data, expiresAt: now + 2 * 60 * 1000 }; // 2 min cache
+  return data;
 }
 
 // Klaviyo Helper function
@@ -324,14 +342,11 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
       apiMessages.push(assistantMessage);
 
       if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
-        for (const toolCall of assistantMessage.tool_calls) {
+        // Execute all tool calls in parallel for maximum speed
+        const toolResults = await Promise.all(assistantMessage.tool_calls.map(async (toolCall: any) => {
           const { name, arguments: argsString } = toolCall.function;
-          let args = {};
-          try {
-            args = JSON.parse(argsString);
-          } catch (e) {
-            console.error('Error parsing arguments for tool', name, e);
-          }
+          let args: any = {};
+          try { args = JSON.parse(argsString); } catch {}
 
           let toolResult: any = null;
 
@@ -383,12 +398,7 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
             if (!clientId || !isAuthorizedForClient(clientId)) {
               toolResult = { error: 'Access denied or missing clientId' };
             } else {
-              const { data: clientData } = await supabase
-                .from('car_clients')
-                .select('klaviyo_api_key')
-                .eq('id', clientId)
-                .maybeSingle();
-
+              const clientData = await getClientData(clientId, 'klaviyo_api_key');
               if (!clientData?.klaviyo_api_key) {
                 toolResult = { error: 'Client does not have Email Marketing API Key configured' };
               } else {
@@ -411,15 +421,14 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
             if (!clientId || !isAuthorizedForClient(clientId)) {
               toolResult = { error: 'Access denied or missing clientId' };
             } else {
-              const { data: clientData } = await supabase
-                .from('car_clients')
-                .select('meta_account_id')
-                .eq('id', clientId)
-                .maybeSingle();
+              // Fetch client data and token in parallel
+              const [clientData, token] = await Promise.all([
+                getClientData(clientId, 'meta_account_id'),
+                getMetaToken(),
+              ]);
 
               let adAccountId = clientData?.meta_account_id || CLIENT_META_MAP[clientId]?.adAccountId;
               if (adAccountId && !adAccountId.startsWith('act_')) adAccountId = `act_${adAccountId}`;
-              const token = await getMetaToken();
 
               if (!adAccountId) {
                 toolResult = { error: 'Meta Ad Account ID no configurado para este cliente.' };
@@ -506,23 +515,21 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
             if (!clientId || !isAuthorizedForClient(clientId)) {
               toolResult = { error: 'Access denied or missing clientId' };
             } else {
-              const { data: clientData } = await supabase
-                .from('car_clients')
-                .select('meta_account_id')
-                .eq('id', clientId)
-                .maybeSingle();
+              const [clientData, token2] = await Promise.all([
+                getClientData(clientId, 'meta_account_id'),
+                getMetaToken(),
+              ]);
 
               let adAccountId = clientData?.meta_account_id || CLIENT_META_MAP[clientId]?.adAccountId;
               if (adAccountId && !adAccountId.startsWith('act_')) adAccountId = `act_${adAccountId}`;
-              const token = await getMetaToken();
 
               if (!adAccountId) {
                 toolResult = { error: 'Meta Ad Account ID not configured for this client.' };
-              } else if (!token) {
+              } else if (!token2) {
                 toolResult = { error: 'Meta Ads access token not configured in system.' };
               } else {
                 try {
-                  const res = await fetch(`https://graph.facebook.com/v21.0/${adAccountId}/ads?fields=id,name,status&effective_status=["ACTIVE"]&limit=100&access_token=${token}`);
+                  const res = await fetch(`https://graph.facebook.com/v21.0/${adAccountId}/ads?fields=id,name,status&effective_status=["ACTIVE"]&limit=100&access_token=${token2}`);
                   if (!res.ok) throw new Error(`Meta status ${res.status}`);
                   const json = await res.json();
                   const ads = json.data || [];
@@ -564,11 +571,7 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
             if (!clientId || !isAuthorizedForClient(clientId)) {
               toolResult = { error: 'Access denied or missing clientId' };
             } else {
-              const { data: client } = await supabase
-                .from('car_clients')
-                .select('ecommerce_platform, shopify_domain, shopify_access_token, tiendanube_store_id, tiendanube_access_token')
-                .eq('id', clientId)
-                .maybeSingle();
+              const client = await getClientData(clientId, 'ecommerce_platform, shopify_domain, shopify_access_token, tiendanube_store_id, tiendanube_access_token');
 
               if (!client) {
                 toolResult = { error: 'Client profile not found' };
@@ -657,12 +660,17 @@ REGLAS DE TONO, CONTENIDO Y FORMATO (MUY IMPORTANTES):
             toolResult = { error: `Tool ${name} not implemented` };
           }
 
-          apiMessages.push({
-            role: 'tool',
+          return {
+            role: 'tool' as const,
             tool_call_id: toolCall.id,
-            name: name,
+            name,
             content: JSON.stringify(toolResult),
-          } as any);
+          };
+        }));
+
+        // Add all tool results to messages at once
+        for (const result of toolResults) {
+          apiMessages.push(result as any);
         }
       } else {
         finalReply = assistantMessage.content || '';
