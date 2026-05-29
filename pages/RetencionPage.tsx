@@ -260,28 +260,28 @@ export default function RetencionPage() {
       {/* Main Metrics */}
       {profile?.klaviyo_api_key && (
         <div className="space-y-4">
-          {fetchingKlaviyo ? (
-            <div className="relative bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] overflow-hidden grid grid-cols-2 lg:grid-cols-4">
-              <TopLoadingBar loading={true} color={MAIN_COLOR} inline />
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="px-6 py-5 border-r border-zinc-100 dark:border-zinc-800 last:border-r-0 space-y-3">
-                  <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-700 rounded-full animate-pulse" />
-                  <div className="h-7 w-24 bg-zinc-200 dark:bg-zinc-700 rounded-lg animate-pulse" />
-                  <div className="h-8 w-full bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse opacity-50" />
-                </div>
-              ))}
-            </div>
-          ) : currentKlaviyo ? (
-            <div className="space-y-4">
-              <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+          <div className="relative bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+            <TopLoadingBar loading={fetchingKlaviyo} color={MAIN_COLOR} inline />
+            {fetchingKlaviyo ? (
+              <div className="grid grid-cols-2 lg:grid-cols-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="px-6 py-5 border-r border-zinc-100 dark:border-zinc-800 last:border-r-0 space-y-3">
+                    <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-700 rounded-full animate-pulse" />
+                    <div className="h-7 w-24 bg-zinc-200 dark:bg-zinc-700 rounded-lg animate-pulse" />
+                    <div className="h-8 w-full bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse opacity-50" />
+                  </div>
+                ))}
+              </div>
+            ) : currentKlaviyo ? (
+              <div className="grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
                 <DashboardMetric icon={Package} label="Entregas" value={currentKlaviyo ? currentKlaviyo.sent?.toLocaleString('es-AR') : '...'} change={getKlaviyoChange(currentKlaviyo?.sent, prevKlaviyo?.sent)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} />
                 <DashboardMetric icon={MailOpen} label="Tasa de Apertura" value={currentKlaviyo ? `${((currentKlaviyo.opens / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-open-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-open-rate' ? null : 'k-open-rate')} />
                 <DashboardMetric icon={MousePointerClick} label="Tasa de Clics" value={currentKlaviyo ? `${((currentKlaviyo.clicks / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.clicks / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.clicks / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.clicks / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.clicks / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-click-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-click-rate' ? null : 'k-click-rate')} />
                 <DashboardMetric icon={DollarSign} label="Ingresos Email" value={currentKlaviyo ? `$ ${currentKlaviyo.attributed?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '...'} change={getKlaviyoChange(currentKlaviyo?.attributed, prevKlaviyo?.attributed)} trend={(currentKlaviyo?.attributed || 0) >= (prevKlaviyo?.attributed || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyAttributed || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-attr'} onClick={() => setExpandedMetric(expandedMetric === 'k-attr' ? null : 'k-attr')} />
               </div>
-              {expandedMetric?.startsWith('k-') && (<MetricDetailChart label={expandedMetric === 'k-revenue' ? 'Ingresos Tienda Online' : expandedMetric === 'k-attr' ? 'Ingresos Email' : expandedMetric === 'k-sent' ? 'Entregas' : expandedMetric === 'k-click-rate' ? 'Tasa de Clics' : 'Tasa de Apertura'} color={MAIN_COLOR} data={expandedMetric === 'k-revenue' ? (currentKlaviyo?.dailyRevenue || []) : expandedMetric === 'k-attr' ? (currentKlaviyo?.dailyAttributed || []) : expandedMetric === 'k-sent' ? (currentKlaviyo?.dailySent || []) : expandedMetric === 'k-click-rate' ? (currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []) : (currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || [])} />)}
-            </div>
-          ) : null}
+            ) : null}
+          </div>
+          {expandedMetric?.startsWith('k-') && currentKlaviyo && (<MetricDetailChart label={expandedMetric === 'k-revenue' ? 'Ingresos Tienda Online' : expandedMetric === 'k-attr' ? 'Ingresos Email' : expandedMetric === 'k-sent' ? 'Entregas' : expandedMetric === 'k-click-rate' ? 'Tasa de Clics' : 'Tasa de Apertura'} color={MAIN_COLOR} data={expandedMetric === 'k-revenue' ? (currentKlaviyo?.dailyRevenue || []) : expandedMetric === 'k-attr' ? (currentKlaviyo?.dailyAttributed || []) : expandedMetric === 'k-sent' ? (currentKlaviyo?.dailySent || []) : expandedMetric === 'k-click-rate' ? (currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || []) : (currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / (currentKlaviyo.dailySent[i]?.val || 1)) * 100), date: d.date })) || [])} />)}
         </div>
       )}
 
@@ -324,7 +324,7 @@ export default function RetencionPage() {
           <div className="space-y-6 pt-2">
             {/* Flows */}
             <div className="relative bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-              <TopLoadingBar loading={fetchingConfig} color="#10b981" inline />
+              <TopLoadingBar loading={fetchingConfig || fetchingDetailed} color="#10b981" inline />
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Zap className="w-3.5 h-3.5 text-emerald-500" /></div>
@@ -400,7 +400,7 @@ export default function RetencionPage() {
 
             {/* Campaigns */}
             <div className="relative bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-              <TopLoadingBar loading={fetchingConfig} color="#10b981" inline />
+              <TopLoadingBar loading={fetchingConfig || fetchingDetailed} color="#10b981" inline />
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Mail className="w-3.5 h-3.5 text-emerald-500" /></div>
