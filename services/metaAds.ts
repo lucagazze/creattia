@@ -506,7 +506,7 @@ export const metaAds = {
 
   getFacebookPageFeed: (pageId: string, limit = 24) =>
     apiGetPage(pageId, `${pageId}/feed`, {
-      fields: 'id,message,created_time,full_picture,permalink_url,shares,likes.summary(true),comments.summary(true),comments{id,message,created_time,from,like_count,replies{id,message,from,created_time}}',
+      fields: 'id,message,created_time,full_picture,permalink_url,shares,likes.summary(true),comments.summary(true){id,message,created_time,from,like_count,replies{id,message,from,created_time}}',
       limit: String(limit),
     }),
 

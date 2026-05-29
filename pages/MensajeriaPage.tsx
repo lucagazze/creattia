@@ -58,6 +58,9 @@ export default function MensajeriaPage() {
   // Loading and Error States
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dmsError, setDmsError] = useState<string | null>(null);
+  const [fbFeedError, setFbFeedError] = useState<string | null>(null);
+  const [igFeedError, setIgFeedError] = useState<string | null>(null);
 
   // Data States
   const [pendingItems, setPendingItems] = useState<any[]>([]);
@@ -467,6 +470,9 @@ export default function MensajeriaPage() {
     let active = true;
     setLoading(true);
     setError(null);
+    setDmsError(null);
+    setFbFeedError(null);
+    setIgFeedError(null);
 
     const loadData = async () => {
       try {
@@ -482,6 +488,7 @@ export default function MensajeriaPage() {
         if (igId) {
           igMediaPromise = metaAds.getInstagramMedia(igId, 24).catch(err => {
             console.error('Error fetching Instagram Media for inbox:', err);
+            setIgFeedError(err.message || String(err));
             return [];
           });
         }
@@ -490,14 +497,17 @@ export default function MensajeriaPage() {
         if (fbPageId) {
           fbMediaPromise = metaAds.getFacebookPageFeed(fbPageId, 24).catch(err => {
             console.error('Error fetching Facebook Page Feed for inbox:', err);
+            setFbFeedError(err.message || String(err));
             return [];
           });
           fbDMsPromise = metaAds.getPageConversations(fbPageId, 'messenger').catch(err => {
             console.error('Error fetching Facebook DMs:', err);
+            setDmsError(err.message || String(err));
             return null;
           });
           igDMsPromise = metaAds.getPageConversations(fbPageId, 'instagram').catch(err => {
             console.error('Error fetching Instagram DMs via Page:', err);
+            setDmsError(err.message || String(err));
             return null;
           });
         }
@@ -970,6 +980,55 @@ export default function MensajeriaPage() {
               </div>
             </div>
           </div>
+
+          {/* Permission Error Banners */}
+          {inboxSection === 'messages' && dmsError && (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-3xl flex items-start gap-3 mb-6 animate-in fade-in duration-200">
+              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-amber-800 dark:text-amber-400 text-[13.5px]">Error al cargar Mensajes Directos (DMs)</h4>
+                <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
+                  No se pudieron cargar los chats de Facebook o Instagram. Esto ocurre si el token no tiene los permisos necesarios de lectura de mensajes o la cuenta de Instagram no está vinculada correctamente:
+                </p>
+                <code className="block mt-2.5 p-2 bg-amber-100/60 dark:bg-amber-950/40 rounded-xl text-[11px] font-mono break-all text-amber-800 dark:text-amber-300">
+                  {dmsError}
+                </code>
+              </div>
+            </div>
+          )}
+
+          {inboxSection === 'comments' && (fbFeedError || igFeedError) && (
+            <div className="space-y-4 mb-6">
+              {fbFeedError && (
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-3xl flex items-start gap-3 animate-in fade-in duration-200">
+                  <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-amber-800 dark:text-amber-400 text-[13.5px]">Error de permisos en Facebook Feed</h4>
+                    <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
+                      No se pudo obtener el feed orgánico de Facebook. Comprueba los permisos de tu token:
+                    </p>
+                    <code className="block mt-2.5 p-2 bg-amber-100/60 dark:bg-amber-950/40 rounded-xl text-[11px] font-mono break-all text-amber-800 dark:text-amber-300">
+                      {fbFeedError}
+                    </code>
+                  </div>
+                </div>
+              )}
+              {igFeedError && (
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-3xl flex items-start gap-3 animate-in fade-in duration-200">
+                  <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-amber-800 dark:text-amber-400 text-[13.5px]">Error al cargar Feed de Instagram</h4>
+                    <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
+                      No se pudieron obtener las publicaciones de Instagram. Comprueba los permisos de tu token:
+                    </p>
+                    <code className="block mt-2.5 p-2 bg-amber-100/60 dark:bg-amber-950/40 rounded-xl text-[11px] font-mono break-all text-amber-800 dark:text-amber-300">
+                      {igFeedError}
+                    </code>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Grid or List layout of pending items */}
           {filteredPendingItems.length === 0 ? (
