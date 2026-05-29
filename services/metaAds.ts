@@ -193,7 +193,7 @@ export const metaAds = {
   // ── ALL ADS FOR ACCOUNT ──────────────────────────────────
   getAccountAds: (accountId = META_AD_ACCOUNT) =>
     apiGet(`${accountId}/ads`, {
-      fields: 'id,name,status,campaign_id,creative{id,name,thumbnail_url,image_url,object_type,video_id,instagram_permalink_url,permalink_url}',
+      fields: 'id,name,status,campaign_id,creative{id,name,thumbnail_url,image_url,object_type,video_id}',
       limit: '150',
     }),
 

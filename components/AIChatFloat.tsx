@@ -390,6 +390,35 @@ export const AIChatFloat = () => {
     setIsThinking(true);
     setThinkingSteps([]);
 
+    let receivedFinalMessage = false;
+
+    const processEvent = (raw: string) => {
+      const dataLine = raw.split('\n').find(l => l.startsWith('data: '));
+      if (!dataLine) return;
+      try {
+        const data = JSON.parse(dataLine.slice(6));
+        if (data.type === 'thinking') {
+          const steps: ThinkingStep[] = (data.steps || []).map((s: any) => ({
+            tool: s.tool,
+            label: s.label || TOOL_META[s.tool]?.label || s.tool,
+            icon: s.icon || TOOL_META[s.tool]?.icon || '⚙️',
+            done: false,
+          }));
+          setThinkingSteps(steps);
+        } else if (data.type === 'tool_done') {
+          setThinkingSteps(prev => prev.map(s => s.tool === data.tool ? { ...s, done: true } : s));
+        } else if (data.type === 'done') {
+          receivedFinalMessage = true;
+          setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+          setThinkingSteps([]);
+        } else if (data.type === 'error') {
+          receivedFinalMessage = true;
+          setMessages(prev => [...prev, { role: 'assistant', content: '❌ Hubo un problema técnico. Intentá de nuevo.' }]);
+          setThinkingSteps([]);
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -397,50 +426,40 @@ export const AIChatFloat = () => {
         body: JSON.stringify({ messages: updatedMessages, profile, activeClientId, activeBusinessName }),
       });
 
-      if (!res.ok || !res.body) throw new Error('API error');
+      if (!res.ok) throw new Error('API error');
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+      // SSE streaming path
+      if (res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split('\n\n');
-        buffer = events.pop() ?? '';
-
-        for (const event of events) {
-          const dataLine = event.split('\n').find(l => l.startsWith('data: '));
-          if (!dataLine) continue;
-          try {
-            const data = JSON.parse(dataLine.slice(6));
-
-            if (data.type === 'thinking') {
-              // Initialize steps — all pending
-              const steps: ThinkingStep[] = (data.steps || []).map((s: any) => ({
-                tool: s.tool,
-                label: s.label || TOOL_META[s.tool]?.label || s.tool,
-                icon: s.icon || TOOL_META[s.tool]?.icon || '⚙️',
-                done: false,
-              }));
-              setThinkingSteps(steps);
-            } else if (data.type === 'tool_done') {
-              setThinkingSteps(prev => prev.map(s => s.tool === data.tool ? { ...s, done: true } : s));
-            } else if (data.type === 'done') {
-              setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-              setThinkingSteps([]);
-            } else if (data.type === 'error') {
-              setMessages(prev => [...prev, { role: 'assistant', content: '❌ Hubo un problema técnico. Intentá de nuevo.' }]);
-              setThinkingSteps([]);
-            }
-          } catch { /* ignore parse errors */ }
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split('\n\n');
+          buffer = events.pop() ?? '';
+          for (const event of events) processEvent(event);
+        }
+        // Process any remaining buffer that didn't end with \n\n
+        if (buffer.trim()) processEvent(buffer);
+      } else {
+        // Fallback: JSON response
+        const data = await res.json();
+        if (data.reply) {
+          receivedFinalMessage = true;
+          setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
         }
       }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: '❌ Hubo un problema técnico. Intentá de nuevo.' }]);
-      setThinkingSteps([]);
+      receivedFinalMessage = true;
     } finally {
+      // Safety net: if done event never arrived, show error
+      if (!receivedFinalMessage) {
+        setMessages(prev => [...prev, { role: 'assistant', content: '❌ No pude obtener respuesta. Intentá de nuevo.' }]);
+      }
       setIsThinking(false);
       setThinkingSteps([]);
     }

@@ -265,9 +265,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return targetClientId === userClientId;
   };
 
-  const activeClientText = activeBusinessName
-    ? `El negocio seleccionado/activo actualmente en la pantalla es "${activeBusinessName}" (ID: ${fallbackClientId}). Cuando el usuario pregunta sobre su negocio sin especificar, SIEMPRE usá este clientId: ${fallbackClientId}.`
-    : `El negocio del usuario actual es "${profile?.business_name || 'Desconocido'}" (ID: ${fallbackClientId}). SIEMPRE usá este clientId: ${fallbackClientId}.`;
+  const activeClientText = (activeBusinessName && fallbackClientId)
+    ? `CLIENTE ACTIVO: "${activeBusinessName}" — clientId="${fallbackClientId}". En CADA llamada a herramientas usá EXACTAMENTE este clientId sin modificarlo.`
+    : (fallbackClientId
+      ? `CLIENTE ACTIVO: "${profile?.business_name || 'Usuario'}" — clientId="${fallbackClientId}". En CADA llamada a herramientas usá EXACTAMENTE este clientId.`
+      : 'No hay cliente activo seleccionado. Usá list_clients para encontrarlo.');
 
   const systemMessage = `Sos el asistente de marketing digital inteligente de Algoritmia.
 Tu nombre es "Algo". Respondés en español argentino, de manera amigable y profesional.

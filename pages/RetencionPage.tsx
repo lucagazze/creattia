@@ -261,7 +261,8 @@ export default function RetencionPage() {
       {profile?.klaviyo_api_key && (
         <div className="space-y-4">
           {fetchingKlaviyo ? (
-            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] overflow-hidden grid grid-cols-2 lg:grid-cols-4">
+            <div className="relative bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] overflow-hidden grid grid-cols-2 lg:grid-cols-4">
+              <TopLoadingBar loading={true} color={MAIN_COLOR} inline />
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="px-6 py-5 border-r border-zinc-100 dark:border-zinc-800 last:border-r-0 space-y-3">
                   <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-700 rounded-full animate-pulse" />
