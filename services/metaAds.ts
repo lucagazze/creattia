@@ -506,13 +506,13 @@ export const metaAds = {
 
   getFacebookPageFeed: (pageId: string, limit = 24) =>
     apiGetPage(pageId, `${pageId}/feed`, {
-      fields: 'id,message,created_time,full_picture,permalink_url,shares,likes.summary(true),comments.summary(true){id,message,created_time,from,like_count,replies{id,message,from,created_time}}',
+      fields: 'id,message,created_time,full_picture,source,permalink_url,shares,likes.summary(true),comments.summary(true){id,message,created_time,from,like_count,replies{id,message,from,created_time}}',
       limit: String(limit),
     }),
 
   getFacebookPostComments: (postId: string) =>
     apiGetPageActive(`${postId}/comments`, {
-      fields: 'id,text,timestamp,from,username,like_count,replies{id,text,from,username,timestamp}',
+      fields: 'id,message,created_time,from,like_count,replies{id,message,from,created_time}',
       limit: '50',
     }),
 

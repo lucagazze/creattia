@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X, 
-  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles
+  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -1019,35 +1019,61 @@ export default function RedesSocialesPage() {
                             key={m.id} 
                             className="group bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl overflow-hidden shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300 flex flex-col justify-between"
                           >
-                            <div 
-                              onClick={() => openCommentsModal(m.id, m.permalink_url, 'facebook')}
-                              className="aspect-square w-full bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden flex items-center justify-center border-b border-zinc-100 dark:border-zinc-800/60 cursor-pointer"
-                              title="Ver comentarios"
-                            >
-                              {m.full_picture ? (
-                                <img 
-                                  src={m.full_picture} 
-                                  alt="" 
-                                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" 
-                                  loading="lazy"
+                            <div className="aspect-square w-full bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden flex items-center justify-center border-b border-zinc-100 dark:border-zinc-800/60">
+                              {playingVideoId === m.id ? (
+                                <video 
+                                  src={m.source} 
+                                  controls 
+                                  autoPlay 
+                                  className="w-full h-full object-contain bg-black" 
                                 />
                               ) : (
-                                <div className="w-full h-full bg-blue-50 dark:bg-blue-950/20 flex flex-col items-center justify-center p-6 text-center text-blue-600/70 dark:text-blue-400/70">
-                                  <MessageSquare className="w-12 h-12 mb-2 opacity-50" />
-                                  <span className="text-[12px] font-bold">Publicación de Estado</span>
+                                <div 
+                                  onClick={() => openCommentsModal(m.id, m.permalink_url, 'facebook')}
+                                  className="w-full h-full relative cursor-pointer"
+                                  title="Ver comentarios"
+                                >
+                                  {m.full_picture ? (
+                                    <img 
+                                      src={m.full_picture} 
+                                      alt="" 
+                                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" 
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-blue-50 dark:bg-blue-950/20 flex flex-col items-center justify-center p-6 text-center text-blue-600/70 dark:text-blue-400/70">
+                                      <MessageSquare className="w-12 h-12 mb-2 opacity-50" />
+                                      <span className="text-[12px] font-bold">Publicación de Estado</span>
+                                    </div>
+                                  )}
+
+                                  {/* Play Icon/Button - If source is present (meaning it is a video post on Facebook) */}
+                                  {m.source && (
+                                    <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setPlayingVideoId(m.id);
+                                        }}
+                                        className="pointer-events-auto w-14 h-14 rounded-full bg-white/90 hover:bg-white text-blue-600 flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+                                      >
+                                        <Play className="w-6 h-6 fill-blue-600 text-blue-600 ml-1" />
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-6 text-white font-bold select-none z-10">
+                                    <div className="flex items-center gap-1.5 text-[14px]">
+                                      <ThumbsUp className="w-5 h-5 fill-white text-white" />
+                                      <span>{fmtNumber(m.likes?.summary?.total_count || 0)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-[14px]">
+                                      <MessageCircle className="w-5 h-5 fill-white text-white" />
+                                      <span>{fmtNumber(m.comments?.summary?.total_count || 0)}</span>
+                                    </div>
+                                  </div>
                                 </div>
                               )}
-
-                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-6 text-white font-bold select-none">
-                                <div className="flex items-center gap-1.5 text-[14px]">
-                                  <ThumbsUp className="w-5 h-5 fill-white text-white" />
-                                  <span>{fmtNumber(m.likes?.summary?.total_count || 0)}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-[14px]">
-                                  <MessageCircle className="w-5 h-5 fill-white text-white" />
-                                  <span>{fmtNumber(m.comments?.summary?.total_count || 0)}</span>
-                                </div>
-                              </div>
                             </div>
 
                             {/* Description & metadata */}
@@ -1171,11 +1197,11 @@ export default function RedesSocialesPage() {
                   {activePost ? (
                     <>
                       {/* Media Player */}
-                      {activePost.media_type === 'VIDEO' || activePost.media_url?.includes('.mp4') ? (
-                        <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200 dark:border-zinc-800 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
+                      {activePost.media_type === 'VIDEO' || activePost.media_url?.includes('.mp4') || activePost.source ? (
+                        <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
                           <video
-                            src={activePost.media_url}
-                            poster={activePost.thumbnail_url}
+                            src={activePost.media_url || activePost.source}
+                            poster={activePost.thumbnail_url || activePost.full_picture}
                             controls
                             className="w-full h-full object-contain"
                           />
@@ -1257,8 +1283,11 @@ export default function RedesSocialesPage() {
                         )}
 
                         {comments.map((comment: any) => {
-                          const dateStr = comment.timestamp
-                            ? new Date(comment.timestamp).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                          const commentUser = comment.username || comment.from?.name || 'Usuario';
+                          const commentText = comment.text || comment.message || '';
+                          const commentDate = comment.timestamp || comment.created_time;
+                          const dateStr = commentDate
+                            ? new Date(commentDate).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                             : '';
                           const isLiked = !!likedCommentIds[comment.id];
                           const isLiking = !!likingCommentIds[comment.id];
@@ -1272,14 +1301,14 @@ export default function RedesSocialesPage() {
                             >
                               {/* Avatar circle */}
                               <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-850 flex items-center justify-center font-bold text-[10px] text-zinc-500 dark:text-zinc-400 flex-shrink-0">
-                                {comment.username ? comment.username.slice(0,2).toUpperCase() : 'U'}
+                                {commentUser ? commentUser.slice(0,2).toUpperCase() : 'U'}
                               </div>
 
                               <div className="flex-1 min-w-0">
                                 {/* Username and text inline */}
                                 <div className="leading-snug break-words">
-                                  <span className="font-extrabold text-zinc-900 dark:text-zinc-150 mr-1.5">@{comment.username}</span>
-                                  <span className="text-zinc-750 dark:text-zinc-300 font-medium">{comment.text || comment.message}</span>
+                                  <span className="font-extrabold text-zinc-900 dark:text-zinc-150 mr-1.5">@{commentUser}</span>
+                                  <span className="text-zinc-750 dark:text-zinc-300 font-medium">{commentText}</span>
                                 </div>
 
                                 {/* Meta row */}
@@ -1293,7 +1322,7 @@ export default function RedesSocialesPage() {
                                   <button
                                     onClick={() => {
                                       setActiveReplyCommentIds(prev => ({ ...prev, [comment.id]: !prev[comment.id] }));
-                                      setReplyingTo({ id: comment.id, username: comment.username });
+                                      setReplyingTo({ id: comment.id, username: commentUser });
                                     }}
                                     className="text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
                                   >
@@ -1306,7 +1335,7 @@ export default function RedesSocialesPage() {
                                   <form onSubmit={(e) => handleSubmitPerComment(e, comment.id)} className="mt-3.5 space-y-2 pt-3 border-t border-zinc-100 dark:border-zinc-850/40">
                                     <div className="flex gap-2">
                                       <AutoResizeTextarea
-                                        placeholder={`Responder a @${comment.username}...`}
+                                        placeholder={`Responder a @${commentUser}...`}
                                         value={commentReplies[comment.id] || ''}
                                         onChange={(e) => setCommentReplies(prev => ({ ...prev, [comment.id]: e.target.value }))}
                                         className="flex-1 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-xl text-[12px] text-zinc-850 dark:text-zinc-200 placeholder:text-zinc-450 focus:outline-none focus:ring-1 focus:ring-violet-500 leading-normal"
@@ -1314,7 +1343,7 @@ export default function RedesSocialesPage() {
                                       />
                                       <button
                                         type="button"
-                                        onClick={() => handleSingleCommentDraft(comment.id, comment.text || comment.message || '', comment.username || comment.from?.name || '')}
+                                        onClick={() => handleSingleCommentDraft(comment.id, commentText, commentUser)}
                                         disabled={commentRepliesLoadingDraft[comment.id] || commentRepliesSubmitting[comment.id]}
                                         className="px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/25 dark:hover:bg-violet-900/40 text-violet-650 dark:text-violet-400 rounded-xl text-[11px] font-bold border border-violet-100/50 dark:border-violet-900/25 flex items-center justify-center cursor-pointer"
                                         title="Generar borrador con IA"
