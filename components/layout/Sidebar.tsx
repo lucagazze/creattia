@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity, Library, Workflow, Instagram, Inbox
+  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity, Library, Workflow, Instagram, Inbox, MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -31,18 +31,36 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     return tags.includes(tag);
   };
 
-  const navItems = [
+  const metricsItems = [
     { path: '/',          icon: Home,          label: 'Inicio',         condition: true },
-    { path: '/captacion', icon: BarChart2,      label: 'C — Captación',  condition: !!activeProfile?.meta_account_id },
-    { path: '/redes-sociales', icon: Instagram, label: 'Redes Sociales', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
-    { path: '/mensajeria', icon: Inbox,         label: 'Mensajería',     condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
-    { path: '/atencion',  icon: MessageCircle,  label: 'A — Atención',   condition: !!activeProfile?.chatwoot_token },
-    { path: '/retencion', icon: Mail,           label: 'R — Retención',  condition: !!activeProfile?.klaviyo_api_key && hasTag('tienda_online') },
     { path: '/tienda',    icon: ShoppingBag,    label: 'Tienda Online',  condition: !!(activeProfile as any)?.ecommerce_platform && hasTag('tienda_online') },
-    { path: '/links',           icon: Link2,    label: 'Mis Accesos',      condition: true },
-    { path: '/email-marketing', icon: Mail,     label: 'Email Marketing',  condition: true },
+    { path: '/captacion', icon: BarChart2,      label: 'Captación',      condition: !!activeProfile?.meta_account_id },
+    { path: '/retencion', icon: Mail,           label: 'Retención',      condition: !!activeProfile?.klaviyo_api_key && hasTag('tienda_online') },
     { path: '/reportes',        icon: FileText, label: 'Reportes',         condition: true },
   ].filter(item => item.condition);
+
+  const interactionItems = [
+    { path: '/redes-sociales', icon: Instagram, label: 'Publicaciones', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
+    { path: '/mensajeria?section=messages', icon: Inbox, label: 'Mensajes Directos', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
+    { path: '/mensajeria?section=comments', icon: MessageSquare, label: 'Comentarios', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
+    { path: '/email-marketing', icon: Mail,     label: 'Email Marketing',  condition: true },
+    { path: '/atencion',  icon: MessageCircle,  label: 'Atención',   condition: !!activeProfile?.chatwoot_token },
+  ].filter(item => item.condition);
+
+  const configItems = [
+    { path: '/links',           icon: Link2,    label: 'Mis Accesos',      condition: true },
+  ].filter(item => item.condition);
+
+  const isActivePath = (itemPath: string) => {
+    const [path, search] = itemPath.split('?');
+    if (search) {
+      return location.pathname === path && location.search === `?${search}`;
+    }
+    if (path === '/') {
+      return location.pathname === '/';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   const initials = activeProfile?.business_name
     ? activeProfile.business_name.slice(0, 2).toUpperCase()
@@ -162,36 +180,101 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-8 scrollbar-hide">
-          {/* Main Section */}
-          <div className="space-y-1">
-            <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-3 mb-4">
-              Mi Dashboard
-            </p>
-            {navItems.map(({ path, icon: Icon, label }) => {
-              const isActive = location.pathname === path ||
-                (path !== '/' && location.pathname.startsWith(path));
-              return (
-                <Link
-                  key={path}
-                  to={path}
-                  onClick={() => window.innerWidth < 768 && setIsOpen(false)}
-                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-150 active:scale-[0.98] ${
-                    isActive
-                      ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-lg shadow-black/15 dark:shadow-white/5'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:shadow-sm'
-                  }`}
-                >
-                  <Icon className={`w-[17px] h-[17px] flex-shrink-0 transition-all duration-150 ${
-                    isActive
-                      ? 'text-white dark:text-zinc-900'
-                      : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 group-hover:scale-110'
-                  }`} />
-                  <span className="tracking-tight flex-1">{label}</span>
-                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-violet-400 dark:bg-violet-500" />}
-                </Link>
-              );
-            })}
-          </div>
+          {/* Métricas y Dashboard */}
+          {metricsItems.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-3 mb-3">
+                Métricas & Dashboard
+              </p>
+              {metricsItems.map(({ path, icon: Icon, label }) => {
+                const isActive = isActivePath(path);
+                return (
+                  <Link
+                    key={path}
+                    to={path}
+                    onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+                    className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-150 active:scale-[0.98] ${
+                      isActive
+                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-lg shadow-black/15 dark:shadow-white/5'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:shadow-sm'
+                    }`}
+                  >
+                    <Icon className={`w-[17px] h-[17px] flex-shrink-0 transition-all duration-150 ${
+                      isActive
+                        ? 'text-white dark:text-zinc-900'
+                        : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 group-hover:scale-110'
+                    }`} />
+                    <span className="tracking-tight flex-1">{label}</span>
+                    {isActive && <div className="w-1.5 h-1.5 rounded-full bg-violet-400 dark:bg-violet-500" />}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Redes Sociales e Interacciones */}
+          {interactionItems.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-3 mb-3 mt-1">
+                Redes Sociales & Canales
+              </p>
+              {interactionItems.map(({ path, icon: Icon, label }) => {
+                const isActive = isActivePath(path);
+                return (
+                  <Link
+                    key={path}
+                    to={path}
+                    onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+                    className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-150 active:scale-[0.98] ${
+                      isActive
+                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-lg shadow-black/15 dark:shadow-white/5'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:shadow-sm'
+                    }`}
+                  >
+                    <Icon className={`w-[17px] h-[17px] flex-shrink-0 transition-all duration-150 ${
+                      isActive
+                        ? 'text-white dark:text-zinc-900'
+                        : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 group-hover:scale-110'
+                    }`} />
+                    <span className="tracking-tight flex-1">{label}</span>
+                    {isActive && <div className="w-1.5 h-1.5 rounded-full bg-violet-400 dark:bg-violet-500" />}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Configuración y Enlaces */}
+          {configItems.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] px-3 mb-3 mt-1">
+                Mis Enlaces
+              </p>
+              {configItems.map(({ path, icon: Icon, label }) => {
+                const isActive = isActivePath(path);
+                return (
+                  <Link
+                    key={path}
+                    to={path}
+                    onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+                    className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-150 active:scale-[0.98] ${
+                      isActive
+                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-lg shadow-black/15 dark:shadow-white/5'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:shadow-sm'
+                    }`}
+                  >
+                    <Icon className={`w-[17px] h-[17px] flex-shrink-0 transition-all duration-150 ${
+                      isActive
+                        ? 'text-white dark:text-zinc-900'
+                        : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 group-hover:scale-110'
+                    }`} />
+                    <span className="tracking-tight flex-1">{label}</span>
+                    {isActive && <div className="w-1.5 h-1.5 rounded-full bg-violet-400 dark:bg-violet-500" />}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {/* Admin Section — only visible when NOT viewing as another client */}
           {profile?.is_admin && !isViewingAs && (

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Instagram, Heart, MessageCircle, Layers, Loader2, RefreshCw, X, 
   ArrowUpRight, AlertCircle, MessageSquare, CheckCircle2, ThumbsUp, Inbox, Info, Sparkles,
@@ -15,6 +16,7 @@ export default function MensajeriaPage() {
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const clientId = profile?.id;
 
+  const location = useLocation();
   const [refreshKey, setRefreshKey] = useState(0);
   
   // Loading and Error States
@@ -29,7 +31,24 @@ export default function MensajeriaPage() {
   const [loadingDraft, setLoadingDraft] = useState<Record<string, boolean>>({});
 
   // Filter States
-  const [inboxSection, setInboxSection] = useState<'messages' | 'comments'>('messages');
+  const [inboxSection, setInboxSection] = useState<'messages' | 'comments'>(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const sec = searchParams.get('section');
+    if (sec === 'comments') return 'comments';
+    return 'messages';
+  });
+
+  // Sync tab with URL search parameter
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const sec = searchParams.get('section');
+    if (sec === 'comments') {
+      setInboxSection('comments');
+    } else if (sec === 'messages') {
+      setInboxSection('messages');
+    }
+  }, [location.search]);
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [inboxMode, setInboxMode] = useState<'pending' | 'all'>('pending');
 

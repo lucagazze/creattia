@@ -383,7 +383,7 @@ export const AIChatFloat = () => {
 
   // Reset chat when active client changes
   useEffect(() => {
-    setMessages([getInitialMessage(activeBusinessName)]);
+    setMessages([]);
     setInput('');
   }, [activeClientId, activeBusinessName]);
 
@@ -567,7 +567,7 @@ export const AIChatFloat = () => {
     else startRecording();
   };
 
-  const clearChat = () => { setMessages([getInitialMessage(activeBusinessName)]); setInput(''); setThinkingSteps([]); };
+  const clearChat = () => { setMessages([]); setInput(''); setThinkingSteps([]); };
 
   const quickPrompts = [
     '¿Qué mails están programados?',

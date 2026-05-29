@@ -84,9 +84,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 Your task is to draft a friendly, natural reply to a social media message.
 
 CRITICAL INSTRUCTION - LANGUAGE DETECTION:
-- Identify the language of the customer's message: "${itemText}".
-- You MUST draft the reply in that EXACT same language (e.g., if the customer wrote in English, reply in English; if they wrote in Portuguese, reply in Portuguese).
-- If they wrote in Spanish, reply in Spanish using Argentine Spanish voseo (e.g., "vos", "tenés", "consultame").
+- Closely analyze the language of the customer's message: "${itemText}".
+- You MUST draft the reply in that EXACT same language. If the customer wrote in English, you MUST reply in English. If they wrote in Spanish, you MUST reply in Spanish (using Argentine Spanish voseo: e.g., "vos", "tenés", "consultame"). If they wrote in Portuguese, you MUST reply in Portuguese.
+- NEVER mix languages. If the comment is in English, do NOT output a single word in Spanish (such as "Hola", "Gracias", or "conseguilo"). The entire response must be 100% in English.
 - NEVER reply in Spanish if the customer's message is in English, Portuguese, or any other language.
 
 Details:
@@ -116,7 +116,7 @@ Rules:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemMessage },
-          { role: 'user', content: `Generá el borrador para @${username}` }
+          { role: 'user', content: `Customer comment to reply to: "${itemText}"\nGenerate the drafted reply now for user @${username}:` }
         ],
         temperature: 0.5,
         max_tokens: 150,

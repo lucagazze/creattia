@@ -41,7 +41,8 @@ import {
   Receipt,
   Tag,
   MailOpen,
-  MousePointerClick
+  MousePointerClick,
+  Info
 } from "lucide-react";
 import {
   AreaChart,
@@ -110,68 +111,73 @@ const ShopifyMetric = ({
         sm:[&:nth-child(odd)]:border-r sm:[&:nth-child(even)]:border-r
         sm:[&:nth-child(3n)]:border-r-0
         xl:border-b-0 xl:border-r xl:last:border-r-0
-        transition-all text-left group relative overflow-hidden
+        transition-all text-left group relative overflow-visible
         ${active ? activeBgClass : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] dark:hover:shadow-none"}`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          {Icon && <Icon className="w-4 h-4" style={{ color }} />}
-          <span className="text-[10px] sm:text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
+      <div className="flex items-center justify-between mb-2 w-full">
+        <div className="flex items-center gap-2 min-w-0 relative">
+          {Icon && <Icon className="w-4 h-4 flex-shrink-0" style={{ color }} />}
+          <span className="text-[10px] sm:text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest truncate">
             {label}
           </span>
+          {info && (
+            <div className="relative inline-block group/info flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              <Info className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 hover:text-violet-500 dark:hover:text-violet-400 transition-colors cursor-help" />
+              {/* Premium micro-tooltip */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 sm:w-64 p-3 bg-zinc-900/95 dark:bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 dark:border-zinc-800 text-white text-[11px] rounded-2xl shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-200 z-[150] pointer-events-none">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  {Icon && <Icon className="w-3 h-3 text-violet-400" />}
+                  <span className="font-bold text-violet-400 uppercase tracking-widest text-[9px]">
+                    {label}
+                  </span>
+                </div>
+                <p className="leading-relaxed font-medium text-zinc-200 normal-case tracking-normal">
+                  {info}
+                </p>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900/95 dark:border-t-zinc-950/95" />
+              </div>
+            </div>
+          )}
         </div>
         {active && (
-          <div className={`w-1.5 h-1.5 rounded-full ${pulseClass} animate-pulse`} />
+          <div className={`w-1.5 h-1.5 rounded-full ${pulseClass} animate-pulse flex-shrink-0`} />
         )}
       </div>
-    <div className="flex items-end justify-between gap-2">
-      <div className="flex flex-col shrink-0">
-        <span className="text-[17px] sm:text-[20px] font-bold text-zinc-900 dark:text-white leading-none mb-2">
-          {loading ? "..." : value}
-        </span>
-        {!loading && change !== undefined && (
-          <div
-            className={`flex items-center gap-1 text-[11px] sm:text-[12px] font-bold ${trend === "up" ? "text-emerald-500" : "text-rose-500"}`}
-          >
-            {trend === "up" ? (
-              <TrendingUp className="w-3 h-3" />
-            ) : (
-              <TrendingUp className="w-3 h-3 rotate-180" />
-            )}
-            {Math.abs(change).toFixed(1)}%
-          </div>
-        )}
-      </div>
-      <div className="h-8 sm:h-10 flex-1 min-w-0 max-w-[250px] ml-2 sm:ml-6 opacity-60 group-hover:opacity-100 transition-opacity">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <Area
-              type="monotone"
-              dataKey="val"
-              stroke={color}
-              fill={color}
-              fillOpacity={0.1}
-              strokeWidth={2}
-              dot={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-    {info && (
-      <div className="absolute inset-0 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out pointer-events-none flex flex-col justify-center px-4 py-3 sm:px-5 z-10">
-        <div className="flex items-center gap-1.5 mb-1.5 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 ease-out">
-          {Icon && <Icon className="w-3.5 h-3.5" style={{ color }} />}
-          <span className="text-[9px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
-            {label}
+      <div className="flex items-end justify-between gap-2 w-full">
+        <div className="flex flex-col shrink-0">
+          <span className="text-[17px] sm:text-[20px] font-bold text-zinc-900 dark:text-white leading-none mb-2">
+            {loading ? "..." : value}
           </span>
+          {!loading && change !== undefined && (
+            <div
+              className={`flex items-center gap-1 text-[11px] sm:text-[12px] font-bold ${trend === "up" ? "text-emerald-500" : "text-rose-500"}`}
+            >
+              {trend === "up" ? (
+                <TrendingUp className="w-3 h-3" />
+              ) : (
+                <TrendingUp className="w-3 h-3 rotate-180" />
+              )}
+              {Math.abs(change).toFixed(1)}%
+            </div>
+          )}
         </div>
-        <p className="text-[11px] sm:text-[12px] leading-relaxed font-medium text-zinc-600 dark:text-zinc-300 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 delay-[50ms] ease-out">
-          {info}
-        </p>
+        <div className="h-8 sm:h-10 flex-1 min-w-0 max-w-[250px] ml-2 sm:ml-6 opacity-60 group-hover:opacity-100 transition-opacity">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <Area
+                type="monotone"
+                dataKey="val"
+                stroke={color}
+                fill={color}
+                fillOpacity={0.1}
+                strokeWidth={2}
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </div>
-    )}
-  </button>
+    </button>
   );
 };
 

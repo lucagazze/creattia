@@ -313,7 +313,8 @@ NAVIGATION LINKS (use on its own line when helpful):
 END every response with exactly:
 [[FOLLOWUP]]One specific follow-up question relevant to the answer
 [[OPT]]First concrete action
-[[OPT]]Second concrete action`;
+[[OPT]]Second concrete action
+CRITICAL: You MUST output EXACTLY TWO follow-up actions (using [[OPT]]). Never output more than two, and never output less than two. This is a strict constraint for a clean and optimized display across all devices (both desktop and mobile).`;
 
   try {
     // ── Speculative pre-fetching ─────────────────────────────────────────────
