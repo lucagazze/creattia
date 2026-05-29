@@ -137,7 +137,7 @@ const CreativePreviewModal = ({ preview, onClose }: {
       <div
         className="relative animate-in zoom-in-95 duration-200 flex items-center justify-center"
         style={{ maxWidth: '90vw', maxHeight: '88vh' }}
-        onClick={e => e.stopPropagation()}
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
         {preview.isVideo ? (
           videoLoading ? (
@@ -162,7 +162,7 @@ const CreativePreviewModal = ({ preview, onClose }: {
             <div
               className="rounded-2xl overflow-hidden shadow-2xl bg-zinc-900 border border-white/10"
               style={{ width: 'min(90vw, 420px)', maxHeight: '90vh' }}
-              onClick={e => e.stopPropagation()}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
               dangerouslySetInnerHTML={{
                 __html: embedHtml
                   .replace(/width="\d+"/g, 'width="100%"')
@@ -172,7 +172,7 @@ const CreativePreviewModal = ({ preview, onClose }: {
             />
           ) : (
             /* Fallback: thumbnail + open externally */
-            <div className="flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col items-center gap-4" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
               <div className="relative rounded-2xl overflow-hidden" style={{ maxWidth: 'min(90vw, 500px)' }}>
                 <img
                   src={preview.url}
