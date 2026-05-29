@@ -966,6 +966,8 @@ export default function RedesSocialesPage() {
 
             </div>
           )}
+        </div>
+      )}
 
       {/* Instagram Comments Slide-Over Panel */}
       {selectedPostId && (
