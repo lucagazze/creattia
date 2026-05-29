@@ -382,71 +382,12 @@ export const AIChatFloat = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen, isRecording, isTranscribing]);
 
-  // Wake Word Detection ("Oye Algor")
+  // Escape key
   useEffect(() => {
-    let recognition: any = null;
-    let isStopping = false;
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition || isOpen || isRecording || isTranscribing || isThinking) {
-      return;
-    }
-
-    try {
-      recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = 'es-AR';
-
-      recognition.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcript = event.results[i][0].transcript.toLowerCase();
-          console.log('[Wake Word interim check]:', transcript);
-          if (
-            transcript.includes('oye algor') || 
-            transcript.includes('hola algor') || 
-            transcript.includes('algor') || 
-            transcript.includes('oye algo') || 
-            transcript.includes('hola algo') ||
-            transcript.includes('al gore') ||
-            transcript.includes('algón') ||
-            transcript.includes('algol')
-          ) {
-            isStopping = true;
-            try { recognition.stop(); } catch {}
-            setIsOpen(true);
-            setTimeout(() => {
-              startRecording();
-            }, 350);
-            break;
-          }
-        }
-      };
-
-      recognition.onerror = (e: any) => {
-        if (e.error === 'not-allowed') {
-          isStopping = true;
-        }
-      };
-
-      recognition.onend = () => {
-        if (!isStopping && !isOpen && !isRecording && !isTranscribing && !isThinking) {
-          try { recognition.start(); } catch {}
-        }
-      };
-
-      recognition.start();
-    } catch (e) {
-      console.error('[Wake Word init error]:', e);
-    }
-
-    return () => {
-      isStopping = true;
-      if (recognition) {
-        try { recognition.stop(); } catch {}
-      }
-    };
-  }, [isOpen, isRecording, isTranscribing, isThinking]);
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && isOpen) setIsOpen(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isOpen]);
 
   const handleSend = async (textOverride?: string) => {
     const text = (textOverride ?? input).trim();
