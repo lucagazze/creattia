@@ -528,7 +528,8 @@ export const metaAds = {
     apiGetPage(pageId, `${pageId}/conversations`, {
       fields: 'id,participants,unread_count,updated_time,messages.limit(1){id,message,from,created_time}',
       platform,
-      limit: '25',
+      folder: 'inbox',
+      limit: '50',
     }),
 
   // Instagram Direct conversations — base node is the Facebook Page ID (linked to the IG account).
@@ -537,7 +538,8 @@ export const metaAds = {
     apiGetPage(fbPageId, `${fbPageId}/conversations`, {
       fields: 'id,participants,unread_count,updated_time,messages.limit(1){id,message,from,created_time}',
       platform: 'instagram',
-      limit: '25',
+      folder: 'inbox',
+      limit: '50',
     }),
 
   // Fetch up to 15 messages for AI draft context
