@@ -676,18 +676,6 @@ export const AIChatFloat = () => {
           )}
         </div>
 
-        {/* ── Quick Prompts Bar — 2 chips ── */}
-        <div className="flex gap-2 px-4 py-2 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0">
-          {quickPrompts.map((q, i) => (
-            <button
-              key={i}
-              onClick={() => handleSend(q)}
-              className="flex-1 text-[10.5px] font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700 px-2 py-1.5 rounded-lg active:scale-95 text-center leading-tight truncate"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* ── Pill input bar ── */}
