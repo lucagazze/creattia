@@ -684,9 +684,9 @@ function CalendarView({
   const todayStr = new Date().toLocaleDateString('sv-SE');
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
       {/* Calendar Grid (left 2 cols) */}
-      <div className="md:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-3xl p-5 space-y-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+      <div className="xl:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-3xl p-5 md:p-6 space-y-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-zinc-900 dark:text-white capitalize">
             {monthYearLabel}
@@ -715,7 +715,7 @@ function CalendarView({
 
         <div className="grid grid-cols-7 gap-1 text-center">
           {days.map((day, idx) => {
-            if (!day) return <div key={`empty-${idx}`} className="min-h-[110px] md:min-h-[130px] border border-dashed border-zinc-100 dark:border-white/[0.03] rounded-2xl opacity-20" />;
+            if (!day) return <div key={`empty-${idx}`} className="min-h-[60px] sm:min-h-[90px] md:min-h-[110px] xl:min-h-[120px] border border-dashed border-zinc-100 dark:border-white/[0.03] rounded-xl sm:rounded-2xl opacity-20" />;
             const dayCamp = getCampaignsForDate(day);
             const isToday = day.toLocaleDateString('sv-SE') === todayStr;
             const isSelected = day.toLocaleDateString('sv-SE') === selectedDateStr;
@@ -724,9 +724,9 @@ function CalendarView({
               <button
                 key={day.toISOString()}
                 onClick={() => setSelectedDateStr(day.toLocaleDateString('sv-SE'))}
-                className={`relative rounded-2xl flex flex-col items-stretch justify-start min-h-[110px] md:min-h-[130px] p-2 transition-all hover:bg-zinc-50 dark:hover:bg-white/5 border ${
-                  isSelected 
-                    ? 'bg-violet-600/10 border-violet-500/30 dark:border-violet-500/20' 
+                className={`relative rounded-xl sm:rounded-2xl flex flex-col items-stretch justify-start min-h-[60px] sm:min-h-[90px] md:min-h-[110px] xl:min-h-[120px] p-1.5 sm:p-2 transition-all hover:bg-zinc-50 dark:hover:bg-white/5 border ${
+                  isSelected
+                    ? 'bg-violet-600/10 border-violet-500/30 dark:border-violet-500/20'
                     : 'border-zinc-100 dark:border-white/5'
                 }`}
               >
@@ -806,9 +806,9 @@ function CalendarView({
       </div>
 
       {/* Agenda/Upcoming List (right 1 col) */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-3xl p-5 space-y-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-3xl p-5 md:p-6 flex flex-col gap-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
         <div>
-          <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
+          <h3 className="text-[15px] font-bold text-zinc-900 dark:text-white tracking-tight">
             Próximos Envíos
           </h3>
           <p className="text-[11px] text-zinc-400 mt-0.5">
@@ -817,40 +817,65 @@ function CalendarView({
         </div>
 
         {scheduledCampaigns.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-zinc-400">
+          <div className="flex flex-col items-center justify-center py-10 text-zinc-400 flex-1">
             <CalendarClock className="w-8 h-8 opacity-20 mb-2" />
             <p className="text-xs italic text-center">No hay envíos programados actualmente.</p>
           </div>
         ) : (
-          <div className="space-y-3 overflow-y-auto max-h-[400px] pr-1">
+          <div className="space-y-2.5 overflow-y-auto flex-1 pr-0.5">
             {scheduledCampaigns.map(c => {
               const diffMs = new Date(c.send_time ?? c.scheduled_at ?? '').getTime() - Date.now();
               const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-              const countdownLabel = diffDays === 1 ? 'Mañana' :
-                diffDays === 0 ? 'Hoy' :
-                diffDays < 0 ? 'Pasado' : `Faltan ${diffDays} días`;
+              const isUrgent = diffDays <= 2;
+              const isToday = diffDays === 0;
+              const isTomorrow = diffDays === 1;
 
               return (
                 <div
                   key={c.id}
                   onClick={() => c.message?.template_id && onPreview(c.message.template_id, c.name, c.message.subject)}
-                  className="group relative p-3.5 bg-zinc-50 dark:bg-white/[0.02] border border-zinc-100 dark:border-white/5 rounded-2xl cursor-pointer hover:border-violet-500/30 dark:hover:border-violet-500/20 transition-all flex flex-col gap-2"
+                  className={`group relative flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all border ${
+                    isUrgent
+                      ? 'bg-red-50/60 dark:bg-red-500/5 border-red-200/60 dark:border-red-500/15 hover:border-red-400/40 dark:hover:border-red-500/30'
+                      : 'bg-zinc-50 dark:bg-white/[0.02] border-zinc-100 dark:border-white/5 hover:border-violet-400/30 dark:hover:border-violet-500/20 hover:bg-violet-50/30 dark:hover:bg-violet-500/5'
+                  }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 line-clamp-1 group-hover:text-violet-500 dark:group-hover:text-violet-400 transition-colors">
+                  {/* Countdown block */}
+                  <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center ${
+                    isToday ? 'bg-red-500 text-white' :
+                    isTomorrow ? 'bg-orange-500 text-white' :
+                    isUrgent ? 'bg-red-500/15 text-red-600 dark:text-red-400' :
+                    'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                  }`}>
+                    {isToday ? (
+                      <span className="text-[11px] font-black uppercase tracking-tight">Hoy</span>
+                    ) : isTomorrow ? (
+                      <span className="text-[10px] font-black uppercase tracking-tight leading-tight text-center">Maña<br/>na</span>
+                    ) : diffDays < 0 ? (
+                      <span className="text-[10px] font-black uppercase tracking-tight">Past.</span>
+                    ) : (
+                      <>
+                        <span className="text-[18px] font-black leading-none">{diffDays}</span>
+                        <span className="text-[8px] font-bold uppercase tracking-widest opacity-70">días</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[12px] font-bold truncate transition-colors leading-snug ${
+                      isUrgent
+                        ? 'text-red-700 dark:text-red-300 group-hover:text-red-800 dark:group-hover:text-red-200'
+                        : 'text-zinc-800 dark:text-zinc-200 group-hover:text-violet-600 dark:group-hover:text-violet-400'
+                    }`}>
                       {c.name}
                     </p>
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                      diffDays <= 1 
-                        ? 'bg-red-500/10 text-red-500' 
-                        : 'bg-violet-500/10 text-violet-500'
-                    }`}>
-                      {countdownLabel}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-                    <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>{fmtDate(c.send_time ?? c.scheduled_at)}</span>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Clock className="w-3 h-3 text-zinc-400 flex-shrink-0" />
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                        {fmtDate(c.send_time ?? c.scheduled_at)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
