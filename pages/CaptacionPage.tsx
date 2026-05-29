@@ -980,7 +980,7 @@ export default function CaptacionPage() {
 
               const isVideo = ad.creative?.object_type === 'VIDEO' || !!ad.creative?.video_id;
               const previewUrl = ad.creative?.image_url || ad.creative?.thumbnail_url;
-              const thumbUrl = ad.creative?.thumbnail_url;
+              const thumbUrl = ad.creative?.image_url || ad.creative?.thumbnail_url;
 
               return (
                 <div key={ad.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 shadow-sm hover:shadow-lg hover:border-zinc-300 dark:hover:border-zinc-700 transition-all duration-200 flex flex-col">
