@@ -187,7 +187,12 @@ const CreativePreviewModal = ({ preview, onClose }: {
                 </div>
               </div>
               <a
-                href={preview.previewShareableLink || (preview.effectiveObjectStoryId ? `https://facebook.com/${preview.effectiveObjectStoryId}` : `https://facebook.com/ads/preview/?ad_id=${preview.adId}`)}
+                href={preview.effectiveObjectStoryId ? (
+                  preview.effectiveObjectStoryId.includes('_') ? (() => {
+                    const [pageId, postId] = preview.effectiveObjectStoryId.split('_');
+                    return `https://www.facebook.com/permalink.php?story_fbid=${postId}&id=${pageId}`;
+                  })() : `https://facebook.com/${preview.effectiveObjectStoryId}`
+                ) : `https://www.facebook.com/ads/library/?id=${preview.creativeId || preview.adId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-5 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-[13px] font-bold rounded-full transition-all shadow-lg"
@@ -1073,7 +1078,12 @@ export default function CaptacionPage() {
                       </button>
                       {/* Ver en Facebook */}
                       <a
-                        href={ad.preview_shareable_link || (ad.creative?.effective_object_story_id ? `https://facebook.com/${ad.creative.effective_object_story_id}` : `https://facebook.com/ads/preview/?ad_id=${ad.id}`)}
+                        href={ad.creative?.effective_object_story_id ? (
+                          ad.creative.effective_object_story_id.includes('_') ? (() => {
+                            const [pageId, postId] = ad.creative.effective_object_story_id.split('_');
+                            return `https://www.facebook.com/permalink.php?story_fbid=${postId}&id=${pageId}`;
+                          })() : `https://facebook.com/${ad.creative.effective_object_story_id}`
+                        ) : `https://www.facebook.com/ads/library/?id=${ad.creative?.id || ad.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-[#1877F2] bg-[#1877F2]/8 dark:bg-[#1877F2]/10 hover:bg-[#1877F2]/15 dark:hover:bg-[#1877F2]/20"
