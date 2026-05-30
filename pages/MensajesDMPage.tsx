@@ -97,8 +97,8 @@ export default function MensajesDMPage() {
   // ── Build a ConvItem from raw API data ─────────────────────────
   const buildConv = useCallback((conv: any, platform: 'instagram' | 'facebook'): ConvItem => {
     const lastMsg  = conv.messages?.data?.[0];
-    const other    = conv.participants?.data?.find((p: any) => p.id !== fbPageId);
-    const isFromMe = lastMsg?.from?.id === fbPageId;
+    const other    = conv.participants?.data?.find((p: any) => p.id !== fbPageId && (!igId || p.id !== igId));
+    const isFromMe = lastMsg?.from?.id === fbPageId || (igId && lastMsg?.from?.id === igId);
     return {
       id: conv.id,
       platform,
@@ -109,7 +109,7 @@ export default function MensajesDMPage() {
       isPending: lastMsg ? !isFromMe : conv.unread_count > 0,
       rawItem: conv,
     };
-  }, [fbPageId]);
+  }, [fbPageId, igId]);
 
   // Background preview loader helper for Instagram conversations
   const fetchInstagramPreviews = useCallback((items: ConvItem[], activeSignal = { active: true }) => {
@@ -120,7 +120,7 @@ export default function MensajesDMPage() {
         if (!activeSignal.active) return;
         const msg = res?.data?.[0];
         if (msg) {
-          const isFromMe = msg.from?.id === fbPageId;
+          const isFromMe = msg.from?.id === fbPageId || (igId && msg.from?.id === igId);
           setConversations(prev => {
             const exists = prev.some(c => c.id === conv.id);
             if (!exists) return prev;
@@ -141,7 +141,7 @@ export default function MensajesDMPage() {
         console.error('Error loading dynamic IG preview:', e);
       }
     });
-  }, [fbPageId]);
+  }, [fbPageId, igId]);
 
   // ── Initial load ───────────────────────────────────────────────
   useEffect(() => {
@@ -265,7 +265,7 @@ export default function MensajesDMPage() {
       if (res?.data && res.data.length > 0) {
         const latestMsg = res.data[0]; // res.data is ordered newest first
         const latestText = latestMsg.message || '📎 Archivo adjunto o mensaje de voz';
-        const isFromMe = latestMsg.from?.id === fbPageId;
+        const isFromMe = latestMsg.from?.id === fbPageId || (igId && latestMsg.from?.id === igId);
         
         setConversations(prev => prev.map(c => {
           if (c.id === conv.id) {
@@ -308,7 +308,7 @@ export default function MensajesDMPage() {
     } finally {
       setLoadingMessages(false);
     }
-  }, [fbPageId]);
+  }, [fbPageId, igId]);
 
   // Load older messages (scroll up to reveal)
   const loadOlderMessages = useCallback(async () => {
@@ -394,7 +394,7 @@ export default function MensajesDMPage() {
     setReplyError(null);
     try {
       const history = convMessages.slice(-15).map(m => {
-        const isMe = m.from?.id === fbPageId;
+        const isMe = m.from?.id === fbPageId || (igId && m.from?.id === igId);
         return `${isMe ? 'Marca' : selectedConv.username}: ${m.message || '(archivo)'}`;
       });
       const res = await fetch('/api/draft-reply', {
@@ -735,7 +735,7 @@ export default function MensajesDMPage() {
                     </div>
                   ) : (
                     convMessages.map((msg: any) => {
-                      const isMe    = msg.from?.id === fbPageId;
+                      const isMe    = msg.from?.id === fbPageId || (igId && msg.from?.id === igId);
                       const timeStr = msg.created_time
                         ? new Date(msg.created_time).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                         : '';

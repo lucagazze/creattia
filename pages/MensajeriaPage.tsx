@@ -574,7 +574,7 @@ export default function MensajeriaPage() {
         if (igDMsRes?.data) {
           igDMsRes.data.forEach((conv: any) => {
             const lastMsg = conv.messages?.data?.[0];
-            const participant = conv.participants?.data?.find((p: any) => p.id !== fbPageId);
+            const participant = conv.participants?.data?.find((p: any) => p.id !== fbPageId && (!igId || p.id !== igId));
             inboxItems.push({
               id: conv.id,
               type: 'ig_dm',
@@ -1380,7 +1380,7 @@ export default function MensajeriaPage() {
                         ) : (
                           <>
                             {(conversationMessages[selectedItem.id] || (selectedItem.rawItem?.messages?.data ? [...selectedItem.rawItem.messages.data].reverse() : [])).map((msg: any) => {
-                              const isMe = msg.from?.id === fbPageId;
+                              const isMe = msg.from?.id === fbPageId || (igId && msg.from?.id === igId);
                               const senderName = isMe ? 'Yo' : selectedItem.username;
                               const timeStr = msg.created_time
                                 ? new Date(msg.created_time).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
