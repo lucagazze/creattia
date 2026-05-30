@@ -201,6 +201,8 @@ export default function AdminPage() {
   const [discoveredFbPages, setDiscoveredFbPages] = useState<any[]>([]);
   const [loadingFbPages, setLoadingFbPages] = useState(false);
   const [testingFbPage, setTestingFbPage] = useState(false);
+  // Client Facebook connection modal (admin connects on behalf of client)
+  const [clientPagesModal, setClientPagesModal] = useState<{ pages: any[]; clientId: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"general" | "integrations" | "users" | "links">("general");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -275,30 +277,48 @@ export default function AdminPage() {
       const params = new URLSearchParams(hash.replace("#", "?"));
       const accessToken = params.get("access_token");
       if (accessToken) {
-        const saveToken = async () => {
-          setSavingConfig(true);
-          try {
-            const { error } = await supabase
-              .from("AgencySettings")
-              .upsert({ key: "meta_ads_token", value: accessToken }, { onConflict: "key" });
-            if (error) {
-              showToast("Error al guardar el token de Facebook: " + error.message, "error");
-            } else {
-              localStorage.setItem("meta_ads_token", accessToken);
-              showToast("¡Cuenta de Facebook vinculada con éxito! ✓", "success");
-              // Reload discoverable accounts/pages automatically
-              loadDiscoveredIgAccounts(true);
-              loadDiscoveredFbPages(true);
+        // Clear hash immediately
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
+        const pendingClientId = localStorage.getItem('fb_pending_client_id');
+
+        if (pendingClientId) {
+          // ── CLIENT connection flow ──────────────────────────────────────────
+          // Admin connected on behalf of a client. Fetch accessible pages and
+          // show a picker so admin can select the client's page.
+          localStorage.removeItem('fb_pending_client_id');
+          fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${accessToken}&limit=100&fields=id,name,access_token,instagram_business_account{id,username,name}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.error) throw new Error(data.error.message);
+              const pages = (data.data || []).map((p: any) => ({ ...p, _userToken: accessToken }));
+              setClientPagesModal({ pages, clientId: pendingClientId });
+            })
+            .catch(err => showToast('Error al cargar páginas de Facebook: ' + err.message, 'error'));
+        } else {
+          // ── AGENCY connection flow (existing behavior) ──────────────────────
+          const saveToken = async () => {
+            setSavingConfig(true);
+            try {
+              const { error } = await supabase
+                .from("AgencySettings")
+                .upsert({ key: "meta_ads_token", value: accessToken }, { onConflict: "key" });
+              if (error) {
+                showToast("Error al guardar el token de Facebook: " + error.message, "error");
+              } else {
+                localStorage.setItem("meta_ads_token", accessToken);
+                showToast("¡Cuenta de Facebook de Agencia vinculada! ✓", "success");
+                loadDiscoveredIgAccounts(true);
+                loadDiscoveredFbPages(true);
+              }
+            } catch (err: any) {
+              showToast("Error inesperado: " + (err.message || String(err)), "error");
+            } finally {
+              setSavingConfig(false);
             }
-          } catch (err: any) {
-            showToast("Error inesperado: " + (err.message || String(err)), "error");
-          } finally {
-            setSavingConfig(false);
-            // Clear hash parameters from URL
-            window.history.replaceState(null, "", window.location.pathname + window.location.search);
-          }
-        };
-        saveToken();
+          };
+          saveToken();
+        }
       }
     }
   }, []);
@@ -332,6 +352,48 @@ export default function AdminPage() {
 
     const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=token`;
     window.location.href = oauthUrl;
+  };
+
+  // Connect Facebook on behalf of a specific client (admin flow)
+  const handleConnectFacebookForClient = () => {
+    if (!editingClient) return;
+    localStorage.setItem('fb_pending_client_id', editingClient.id);
+    handleMetaLogin(); // Same OAuth flow, but the redirect handler checks fb_pending_client_id
+  };
+
+  // Save the selected page as the client's connected Facebook page
+  const handleSaveClientPage = async (page: any, clientId: string) => {
+    try {
+      const igId = page.instagram_business_account?.id || null;
+      const igUsername = page.instagram_business_account?.username || null;
+      const updateData: any = {
+        fb_page_id: page.id,
+        fb_page_name: page.name,
+        fb_page_access_token: page.access_token,
+      };
+      if (igId) { updateData.ig_business_id = igId; updateData.ig_username = igUsername; }
+
+      const { error } = await supabase.from('car_clients').update(updateData).eq('id', clientId);
+      if (error) throw error;
+
+      metaAds.setClientPageToken(page.id, page.access_token);
+      setClientPagesModal(null);
+      showToast(`✅ "${page.name}" vinculada al cliente`, 'success');
+      load();
+      // Update the open edit panel if we're editing this client
+      if (editingClient?.id === clientId) {
+        setEditForm((p: any) => ({
+          ...p,
+          fb_page_id: page.id,
+          fb_page_name: page.name,
+          fb_page_access_token: page.access_token,
+          ...(igId ? { ig_business_id: igId, ig_username: igUsername } : {}),
+        }));
+        setEditingClient((prev: any) => prev ? ({ ...prev, ...updateData }) : null);
+      }
+    } catch (err: any) {
+      showToast('Error al guardar: ' + err.message, 'error');
+    }
   };
 
   const f = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
@@ -546,6 +608,7 @@ export default function AdminPage() {
       new_password: "",
       fb_page_id: c.fb_page_id || "",
       fb_page_name: c.fb_page_name || "",
+      fb_page_access_token: (c as any).fb_page_access_token || "",
     });
     setStatuses({});
     setEditingClient(c);
@@ -788,6 +851,7 @@ export default function AdminPage() {
           client_tags: editForm.client_tags || [],
           fb_page_id: editForm.fb_page_id || null,
           fb_page_name: editForm.fb_page_name || null,
+          fb_page_access_token: editForm.fb_page_access_token || null,
         })
         .eq("id", editingClient.id);
 
@@ -1671,19 +1735,35 @@ export default function AdminPage() {
                             <div className="flex items-start gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-400 font-bold leading-normal">
                               <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
                               <div>
-                                <p>Token de Cliente: Conectado correctamente</p>
-                                <p className="text-[9.5px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-0.5">El cliente vinculó su cuenta y los permisos de mensajería/comentarios están activos.</p>
+                                <p>Token de Página: Conectado ✓ — Mensajes, comentarios e Instagram activos</p>
+                                <p className="text-[9.5px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-0.5">
+                                  Página: {(editingClient as any).fb_page_name || editingClient.fb_page_id}
+                                  {(editingClient as any).ig_username ? ` · @${(editingClient as any).ig_username}` : ''}
+                                </p>
                               </div>
                             </div>
                           ) : (
                             <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 font-bold leading-normal">
                               <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
                               <div>
-                                <p>Token de Cliente: Desconectado / Sin Vincular</p>
-                                <p className="text-[9.5px] text-amber-600/80 dark:text-amber-400/80 font-medium mt-0.5">El cliente debe conectar su Facebook/Instagram desde su bandeja de mensajes o comentarios para autorizar la integración.</p>
+                                <p>Sin token de página — mensajería y comentarios no funcionan</p>
+                                <p className="text-[9.5px] text-amber-600/80 dark:text-amber-400/80 font-medium mt-0.5">Conectá la página desde acá abajo o pedile al cliente que lo haga desde su bandeja.</p>
                               </div>
                             </div>
                           )}
+
+                          {/* Admin connect button */}
+                          <button
+                            type="button"
+                            onClick={handleConnectFacebookForClient}
+                            className="w-full h-9 rounded-lg bg-[#1877F2] hover:bg-[#166FE5] text-white text-[11px] font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-[#1877F2]/20"
+                          >
+                            <Facebook className="w-3.5 h-3.5" />
+                            {(editingClient as any)?.fb_page_access_token ? 'Reconectar Facebook para este cliente' : 'Conectar Facebook para este cliente'}
+                          </button>
+                          <p className="text-[9.5px] text-zinc-400 dark:text-zinc-500 text-center -mt-1">
+                            Vas a iniciar sesión con tu Facebook → seleccionás la página del cliente → queda conectado automáticamente.
+                          </p>
 
                           <Field label="Seleccionar Página de Facebook Vinculada">
                             <div className="flex gap-2">
@@ -1723,25 +1803,40 @@ export default function AdminPage() {
                                 <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
                                 Configuración Manual / Detalles del ID
                               </summary>
-                              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <Field label="Facebook Page ID Manual">
+                              <div className="mt-3 space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <Field label="Facebook Page ID">
+                                    <input
+                                      type="text"
+                                      value={editForm.fb_page_id || ""}
+                                      onChange={(e) => ef("fb_page_id", e.target.value)}
+                                      placeholder="10000000000000"
+                                      className={inputCls}
+                                    />
+                                  </Field>
+                                  <Field label="Facebook Page Name">
+                                    <input
+                                      type="text"
+                                      value={editForm.fb_page_name || ""}
+                                      onChange={(e) => ef("fb_page_name", e.target.value)}
+                                      placeholder="Mi Página de Facebook"
+                                      className={inputCls}
+                                    />
+                                  </Field>
+                                </div>
+                                <Field label="Page Access Token (pegar desde Graph API Explorer)">
                                   <input
-                                    type="text"
-                                    value={editForm.fb_page_id || ""}
-                                    onChange={(e) => ef("fb_page_id", e.target.value)}
-                                    placeholder="10000000000000"
+                                    type="password"
+                                    value={editForm.fb_page_access_token || ""}
+                                    onChange={(e) => ef("fb_page_access_token", e.target.value)}
+                                    placeholder="EAAxxxxxxxxxxxxxxxx"
                                     className={inputCls}
                                   />
                                 </Field>
-                                <Field label="Facebook Page Name Manual">
-                                  <input
-                                    type="text"
-                                    value={editForm.fb_page_name || ""}
-                                    onChange={(e) => ef("fb_page_name", e.target.value)}
-                                    placeholder="Mi Página de Facebook"
-                                    className={inputCls}
-                                  />
-                                </Field>
+                                <p className="text-[9px] text-zinc-400 dark:text-zinc-500">
+                                  Obtenelo en developers.facebook.com → Graph API Explorer → seleccioná la página → copiá el Access Token.
+                                  Guardá el formulario para aplicarlo.
+                                </p>
                               </div>
                             </details>
                           </div>
@@ -2115,6 +2210,65 @@ export default function AdminPage() {
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Client Facebook Page Picker Modal ────────────────────────────── */}
+      {clientPagesModal && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" onClick={() => setClientPagesModal(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="relative bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-200 dark:border-zinc-700 shadow-2xl p-6 max-w-[420px] w-full max-h-[80vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-2xl bg-[#1877F2]/10 flex items-center justify-center">
+                <Facebook className="w-5 h-5 text-[#1877F2]" />
+              </div>
+              <div>
+                <h2 className="text-[16px] font-black text-zinc-900 dark:text-white">Seleccioná la Página del Cliente</h2>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Elegí qué página vincular a este cliente</p>
+              </div>
+            </div>
+
+            {clientPagesModal.pages.length === 0 ? (
+              <div className="text-center py-8 text-zinc-400 text-[13px]">
+                <p>No se encontraron páginas con tu cuenta.</p>
+                <p className="text-[11px] mt-1">Asegurate de ser admin de la página del cliente.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {clientPagesModal.pages.map((page: any) => (
+                  <button
+                    key={page.id}
+                    onClick={() => handleSaveClientPage(page, clientPagesModal.clientId)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-[#1877F2] dark:hover:border-[#1877F2]/60 hover:bg-[#1877F2]/5 dark:hover:bg-[#1877F2]/10 transition-all text-left active:scale-[0.98]"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-[#1877F2]/10 flex items-center justify-center flex-shrink-0">
+                      <Facebook className="w-4.5 h-4.5 text-[#1877F2]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-bold text-zinc-900 dark:text-white truncate">{page.name}</p>
+                      <p className="text-[10px] text-zinc-400 font-mono">{page.id}</p>
+                      {page.instagram_business_account && (
+                        <p className="text-[10px] text-pink-500 font-bold mt-0.5">
+                          IG: @{page.instagram_business_account.username}
+                        </p>
+                      )}
+                    </div>
+                    <Check className="w-4 h-4 text-zinc-300 dark:text-zinc-600 flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setClientPagesModal(null)}
+              className="w-full mt-4 h-10 rounded-xl border border-zinc-200 dark:border-zinc-700 text-[13px] font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       )}
