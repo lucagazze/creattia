@@ -256,10 +256,10 @@ export default function MensajesDMPage() {
 
   // ── Initial load ───────────────────────────────────────────────
   useEffect(() => {
-    // Wait for BOTH the page ID and the page token before loading.
-    // Without the token injected first, getPageAccessToken() falls back
-    // to the agency token which has no access to client pages.
-    if (!fbPageId || !fbPageToken) return;
+    if (!fbPageId) {
+      setLoading(false); // No page connected — show the connect UI, not a spinner
+      return;
+    }
     let active = true;
     setLoading(true);
     setIgError(null);
@@ -307,7 +307,7 @@ export default function MensajesDMPage() {
 
     load();
     return () => { active = false; };
-  }, [fbPageId, fbPageToken, igId, refreshKey, buildConv]);
+  }, [fbPageId, igId, refreshKey, buildConv]);
 
   // ── Load more conversations (pagination) ───────────────────────
   const loadMore = useCallback(async () => {
