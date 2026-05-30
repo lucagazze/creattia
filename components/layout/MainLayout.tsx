@@ -1,10 +1,11 @@
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Menu, Sun, Moon } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { AIChatFloat } from '../AIChatFloat';
 import { useTheme } from '../../contexts/ThemeContext';
+import { metaAds } from '../../services/metaAds';
 
 // Lazy-loaded pages — each becomes a separate JS chunk (code splitting)
 // Only the page the user navigates to gets downloaded
@@ -44,6 +45,15 @@ export const MainLayout = () => {
   const { darkMode, toggleDarkMode } = useTheme();
   const { profile } = useAuth();
   const location = useLocation();
+
+  // Load client-specific token into metaAds cache
+  useEffect(() => {
+    const clientToken = (profile as any)?.fb_page_access_token;
+    const clientPageId = (profile as any)?.fb_page_id;
+    if (clientPageId && clientToken) {
+      metaAds.setClientPageToken(clientPageId, clientToken);
+    }
+  }, [profile]);
 
   const isFixedPage = location.pathname === '/mensajeria';
 

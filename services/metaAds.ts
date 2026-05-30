@@ -122,6 +122,8 @@ const pageTokensCache: Record<string, string> = {};
 
 const getPageAccessToken = async (pageId: string): Promise<string> => {
   try {
+    if (pageTokensCache[pageId]) return pageTokensCache[pageId];
+
     const userToken = (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
     if (!userToken) return '';
 
@@ -610,6 +612,12 @@ export const metaAds = {
       return apiDeletePageActive(`${igUserId}/likes`, { comment_id: commentId });
     } else {
       return apiDeletePageActive(`${commentId}/likes`);
+    }
+  },
+
+  setClientPageToken: (pageId: string, token: string) => {
+    if (pageId && token) {
+      pageTokensCache[pageId] = token;
     }
   },
 };
