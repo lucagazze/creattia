@@ -39,10 +39,19 @@ type ConvItem = {
 export default function MensajesDMPage() {
   const { isViewingAs, viewAsProfile } = useViewAs();
   const { profile: authProfile, user } = useAuth();
-  const profile  = isViewingAs ? viewAsProfile : authProfile;
-  const clientId = profile?.id;
-  const fbPageId = (profile as any)?.fb_page_id;
-  const igId     = (profile as any)?.ig_business_id;
+  const profile      = isViewingAs ? viewAsProfile : authProfile;
+  const clientId     = profile?.id;
+  const fbPageId     = (profile as any)?.fb_page_id;
+  const igId         = (profile as any)?.ig_business_id;
+  const fbPageToken  = (profile as any)?.fb_page_access_token as string | undefined;
+
+  // ── Inject the client's Page Access Token as soon as profile loads ─
+  // This MUST happen before conversations load to avoid falling back to the agency token.
+  useEffect(() => {
+    if (fbPageId && fbPageToken) {
+      metaAds.setClientPageToken(fbPageId, fbPageToken);
+    }
+  }, [fbPageId, fbPageToken]);
 
   // ── Conversation list state ──────────────────────────────────────
   const [loading, setLoading]         = useState(true);
@@ -157,9 +166,13 @@ export default function MensajesDMPage() {
           fb_page_access_token: page.access_token
         })
         .eq('id', clientId);
-        
+
       if (error) throw error;
-      
+
+      // Persist Page Access Token to localStorage and in-memory cache immediately
+      // so conversations load correctly on the next render without waiting for the DB
+      metaAds.setClientPageToken(page.id, page.access_token);
+
       // Reload page state
       alert(`¡Vinculado con éxito! Página: ${page.name}${igUsername ? `, Instagram: @${igUsername}` : ''}`);
       setShowConnectModal(false);
@@ -243,7 +256,10 @@ export default function MensajesDMPage() {
 
   // ── Initial load ───────────────────────────────────────────────
   useEffect(() => {
-    if (!fbPageId) return;
+    // Wait for BOTH the page ID and the page token before loading.
+    // Without the token injected first, getPageAccessToken() falls back
+    // to the agency token which has no access to client pages.
+    if (!fbPageId || !fbPageToken) return;
     let active = true;
     setLoading(true);
     setIgError(null);
@@ -291,7 +307,7 @@ export default function MensajesDMPage() {
 
     load();
     return () => { active = false; };
-  }, [fbPageId, igId, refreshKey, buildConv]);
+  }, [fbPageId, fbPageToken, igId, refreshKey, buildConv]);
 
   // ── Load more conversations (pagination) ───────────────────────
   const loadMore = useCallback(async () => {

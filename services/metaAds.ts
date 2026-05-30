@@ -7,15 +7,8 @@ export const initMetaToken = async (): Promise<void> => {
   try {
     const { data } = await supabase.from('AgencySettings').select('value').eq('key', 'meta_ads_token').maybeSingle();
     if (data?.value) localStorage.setItem('meta_ads_token', data.value);
-    
-    // Clear old expired page access tokens from localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('fb_pat_')) {
-        localStorage.removeItem(key);
-        i--;
-      }
-    }
+    // Note: fb_pat_{pageId} keys are intentionally kept in localStorage — they are
+    // client Page Access Tokens stored during the connection flow and needed for messaging.
   } catch { /* silently ignore */ }
 };
 
@@ -122,12 +115,23 @@ const pageTokensCache: Record<string, string> = {};
 
 const getPageAccessToken = async (pageId: string): Promise<string> => {
   try {
+    // 1. In-memory cache (fastest — set by setClientPageToken or previous lookup)
     if (pageTokensCache[pageId]) return pageTokensCache[pageId];
 
+    // 2. localStorage: token saved during the connection flow (most reliable for client pages)
+    //    Key: fb_pat_{pageId} — set when client links their page or on setClientPageToken
+    const lsKey = `fb_pat_${pageId}`;
+    const savedToken = localStorage.getItem(lsKey);
+    if (savedToken) {
+      pageTokensCache[pageId] = savedToken; // warm the memory cache
+      return savedToken;
+    }
+
+    // 3. Fallback: try /me/accounts with the agency token
+    //    This only works for pages the agency token has direct admin access to (i.e. Algoritmia's own pages)
     const userToken = (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
     if (!userToken) return '';
 
-    // Cache key incorporates a signature of the userToken to automatically invalidate when it changes
     const cacheKey = `${pageId}_${userToken.slice(-10)}`;
     if (pageTokensCache[cacheKey]) return pageTokensCache[cacheKey];
 
@@ -135,7 +139,7 @@ const getPageAccessToken = async (pageId: string): Promise<string> => {
     url.searchParams.set('access_token', userToken);
     url.searchParams.set('limit', '100');
     const res = await fetch(url.toString()).then(r => r.json());
-    
+
     const page = (res?.data || []).find((p: any) => p.id === pageId);
     if (page?.access_token) {
       pageTokensCache[cacheKey] = page.access_token;
@@ -618,6 +622,8 @@ export const metaAds = {
   setClientPageToken: (pageId: string, token: string) => {
     if (pageId && token) {
       pageTokensCache[pageId] = token;
+      // Also persist to localStorage so it survives page reloads
+      localStorage.setItem(`fb_pat_${pageId}`, token);
     }
   },
 };
