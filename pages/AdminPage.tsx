@@ -267,6 +267,72 @@ export default function AdminPage() {
     loadDiscoveredFbPages(true);
   }, []);
 
+  // Handle Facebook Login Redirect Callback (Hash Parameters)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token=")) {
+      const params = new URLSearchParams(hash.replace("#", "?"));
+      const accessToken = params.get("access_token");
+      if (accessToken) {
+        const saveToken = async () => {
+          setSavingConfig(true);
+          try {
+            const { error } = await supabase
+              .from("AgencySettings")
+              .upsert({ key: "meta_ads_token", value: accessToken }, { onConflict: "key" });
+            if (error) {
+              showToast("Error al guardar el token de Facebook: " + error.message, "error");
+            } else {
+              localStorage.setItem("meta_ads_token", accessToken);
+              showToast("¡Cuenta de Facebook vinculada con éxito! ✓", "success");
+              // Reload discoverable accounts/pages automatically
+              loadDiscoveredIgAccounts(true);
+              loadDiscoveredFbPages(true);
+            }
+          } catch (err: any) {
+            showToast("Error inesperado: " + (err.message || String(err)), "error");
+          } finally {
+            setSavingConfig(false);
+            // Clear hash parameters from URL
+            window.history.replaceState(null, "", window.location.pathname + window.location.search);
+          }
+        };
+        saveToken();
+      }
+    }
+  }, []);
+
+  const handleMetaLogin = () => {
+    const appId = '1248660836711922'; // The Meta App ID
+    const redirectUri = window.location.origin + window.location.pathname;
+    const scopes = [
+      'read_insights',
+      'publish_video',
+      'catalog_management',
+      'pages_show_list',
+      'ads_management',
+      'ads_read',
+      'business_management',
+      'pages_messaging',
+      'instagram_basic',
+      'instagram_manage_comments',
+      'instagram_manage_insights',
+      'instagram_content_publish',
+      'leads_retrieval',
+      'whatsapp_business_management',
+      'instagram_manage_messages',
+      'pages_read_engagement',
+      'pages_manage_metadata',
+      'pages_read_user_content',
+      'pages_manage_ads',
+      'pages_manage_posts',
+      'pages_manage_engagement'
+    ].join(',');
+
+    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=token`;
+    window.location.href = oauthUrl;
+  };
+
   const f = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -805,6 +871,13 @@ export default function AdminPage() {
             className="h-9 px-3 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 text-[13px] font-medium"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Actualizar
+          </button>
+          <button
+            onClick={handleMetaLogin}
+            disabled={savingConfig}
+            className="h-9 px-3.5 rounded-[9px] border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 text-[13px] font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
+          >
+            <Facebook className="w-4 h-4" /> Conectar Facebook
           </button>
           <button
             onClick={() => setShowForm(!showForm)}
