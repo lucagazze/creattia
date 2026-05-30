@@ -33,6 +33,7 @@ import {
   Star,
   KeyRound,
   Clock,
+  Instagram,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useViewAs } from "../contexts/ViewAsContext";
@@ -515,6 +516,15 @@ export default function AdminPage() {
   };
 
   const openEdit = async (c: ClientRow) => {
+    if (c.fb_page_id) {
+      localStorage.setItem('active_fb_page_id', c.fb_page_id);
+      if ((c as any).fb_page_access_token) {
+        metaAds.setClientPageToken(c.fb_page_id, (c as any).fb_page_access_token);
+      }
+    } else {
+      localStorage.removeItem('active_fb_page_id');
+    }
+
     setActiveTab("general");
     setEditForm({
       business_name: c.business_name || "",
@@ -544,6 +554,11 @@ export default function AdminPage() {
     const links = await db.links.getByClientId(c.id).catch(() => []);
     setClientLinks(links);
     setLoadingLinks(false);
+  };
+
+  const closeEdit = () => {
+    setEditingClient(null);
+    localStorage.removeItem('active_fb_page_id');
   };
 
   const handleRemoveLink = (idx: number, link: ClientLink) => {
@@ -812,7 +827,7 @@ export default function AdminPage() {
       }
 
       showToast("Actualizado correctamente ✓", "success");
-      setEditingClient(null);
+      closeEdit();
       load();
     } catch (err: any) {
       showToast("Error al guardar: " + err.message, "error");
@@ -1153,6 +1168,27 @@ export default function AdminPage() {
                           Sesión Activa
                         </span>
                       )}
+
+                      {/* Meta / Instagram Connection info */}
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {c.fb_page_id && (c as any).fb_page_access_token ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20" title={`Página: ${c.fb_page_name || 'Desconocida'}`}>
+                            <Facebook className="w-2.5 h-2.5" />
+                            {c.fb_page_name || 'FB Conectado'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold text-zinc-400 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/30">
+                            <Facebook className="w-2.5 h-2.5" />
+                            Meta desconectado
+                          </span>
+                        )}
+                        {c.ig_username && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold text-pink-600 dark:text-pink-400 bg-pink-50 dark:bg-pink-500/10 border border-pink-100 dark:border-pink-500/20">
+                            <Instagram className="w-2.5 h-2.5" />
+                            @{c.ig_username}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -1224,7 +1260,7 @@ export default function AdminPage() {
                     setViewAsProfile(
                       viewAsProfile?.id === editingClient.id ? null : clientProfile,
                     );
-                    setEditingClient(null);
+                    closeEdit();
                     if (viewAsProfile?.id !== editingClient.id) navigate("/");
                   }}
                   className={`w-full py-2 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-2 transition-all border ${
@@ -1269,7 +1305,7 @@ export default function AdminPage() {
               {/* Close Modal Button */}
               <button
                 type="button"
-                onClick={() => setEditingClient(null)}
+                onClick={() => closeEdit()}
                 className="w-full py-2 px-3 rounded-lg border border-zinc-200 dark:border-zinc-800 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-center transition-all bg-white dark:bg-zinc-900"
               >
                 Cerrar Panel
@@ -1628,6 +1664,24 @@ export default function AdminPage() {
                         status={statuses.facebook}
                       >
                         <div className="space-y-4">
+                          {editingClient && (editingClient as any).fb_page_access_token ? (
+                            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-400 font-bold leading-normal">
+                              <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p>Token de Cliente: Conectado correctamente</p>
+                                <p className="text-[9.5px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-0.5">El cliente vinculó su cuenta y los permisos de mensajería/comentarios están activos.</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 font-bold leading-normal">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p>Token de Cliente: Desconectado / Sin Vincular</p>
+                                <p className="text-[9.5px] text-amber-600/80 dark:text-amber-400/80 font-medium mt-0.5">El cliente debe conectar su Facebook/Instagram desde su bandeja de mensajes o comentarios para autorizar la integración.</p>
+                              </div>
+                            </div>
+                          )}
+
                           <Field label="Seleccionar Página de Facebook Vinculada">
                             <div className="flex gap-2">
                               <select
@@ -2042,7 +2096,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-zinc-150 dark:border-zinc-800">
                   <button
                     type="button"
-                    onClick={() => setEditingClient(null)}
+                    onClick={() => closeEdit()}
                     className="h-10 px-5 rounded-[9px] border border-zinc-200 dark:border-zinc-700 text-[13px] font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
                   >
                     Cancelar
