@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Instagram, MessageCircle, Loader2, RefreshCw, AlertCircle, MessageSquare,
-  Sparkles, Send, Heart, X, ArrowUpRight, CheckCircle2, ThumbsUp, Play
+  Sparkles, Send, Heart, X, ArrowUpRight, CheckCircle2, ThumbsUp, Play, Facebook
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { metaAds } from '../services/metaAds';
 import { db } from '../services/db';
+import { supabaseAdmin } from '../services/supabase';
 import EmailLoader from '../components/ui/EmailLoader';
 
 interface AutoResizeTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -72,6 +73,173 @@ export default function ComentariosPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
 
+  // ── Connection flow state ─────────────────────────────────────────
+  const [connectingUserToken, setConnectingUserToken] = useState<string | null>(null);
+  const [selectablePages, setSelectablePages] = useState<any[]>([]);
+  const [loadingPages, setLoadingPages] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [errorConnecting, setErrorConnecting] = useState<string | null>(null);
+
+  // Handle Facebook Login Redirect Callback (Hash Parameters)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token=")) {
+      const match = hash.match(/access_token=([^&]+)/);
+      const userToken = match ? match[1] : null;
+      if (userToken) {
+        // Clear hash from URL immediately to prevent re-triggering
+        window.history.replaceState(null, "", window.location.pathname + window.location.search + '#/comentarios');
+        
+        // Open modal and load user pages
+        setConnectingUserToken(userToken);
+        setShowConnectModal(true);
+        loadUserPages(userToken);
+      }
+    }
+  }, []);
+
+  const loadUserPages = async (token: string) => {
+    setLoadingPages(true);
+    setErrorConnecting(null);
+    try {
+      const url = `https://graph.facebook.com/v21.0/me/accounts?access_token=${token}&limit=100&fields=id,name,access_token,instagram_business_account{id,username,name}`;
+      const res = await fetch(url).then(r => r.json());
+      if (res.error) throw new Error(res.error.message || 'Error de Facebook');
+      
+      setSelectablePages(res.data || []);
+    } catch (err: any) {
+      console.error(err);
+      setErrorConnecting(err.message || 'No se pudieron cargar tus páginas.');
+    } finally {
+      setLoadingPages(false);
+    }
+  };
+
+  const handleStartConnection = () => {
+    const appId = '1248660836711922'; // Meta App ID
+    const redirectUri = window.location.origin + window.location.pathname + '#/comentarios';
+    const scopes = [
+      'pages_show_list',
+      'pages_messaging',
+      'instagram_basic',
+      'instagram_manage_comments',
+      'instagram_manage_insights',
+      'instagram_manage_messages',
+      'pages_read_engagement',
+      'pages_manage_metadata',
+      'pages_read_user_content',
+      'pages_manage_ads',
+      'pages_manage_posts',
+      'pages_manage_engagement'
+    ].join(',');
+
+    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=token`;
+    window.location.href = oauthUrl;
+  };
+
+  const handleLinkPage = async (page: any) => {
+    if (!clientId) return;
+    setLoadingPages(true);
+    try {
+      const igId = page.instagram_business_account?.id || null;
+      const igUsername = page.instagram_business_account?.username || null;
+      
+      // Update in Supabase via supabaseAdmin to bypass any RLS
+      const { error } = await supabaseAdmin
+        .from('car_clients')
+        .update({
+          fb_page_id: page.id,
+          fb_page_name: page.name,
+          ig_business_id: igId,
+          ig_username: igUsername,
+          fb_page_access_token: page.access_token
+        })
+        .eq('id', clientId);
+        
+      if (error) throw error;
+      
+      // Reload page state
+      alert(`¡Vinculado con éxito! Página: ${page.name}${igUsername ? `, Instagram: @${igUsername}` : ''}`);
+      setShowConnectModal(false);
+      window.location.reload();
+    } catch (err: any) {
+      console.error(err);
+      setErrorConnecting(err.message || 'Error al guardar la vinculación.');
+    } finally {
+      setLoadingPages(false);
+    }
+  };
+
+  const renderConnectModal = () => {
+    return (
+      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowConnectModal(false)} />
+        <div className="relative bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-6 max-w-[450px] w-full text-left flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="pb-4 border-b border-zinc-150 dark:border-zinc-800 flex items-center justify-between">
+            <h3 className="text-[16px] font-black text-zinc-900 dark:text-white flex items-center gap-2">
+              <Facebook className="w-5 h-5 text-blue-600" />
+              Seleccioná tu página
+            </h3>
+            <button onClick={() => setShowConnectModal(false)} className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto py-4 space-y-3">
+            {loadingPages ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-7 h-7 animate-spin text-violet-500" />
+                <p className="text-[12px] text-zinc-400 font-bold">Buscando tus páginas comerciales...</p>
+              </div>
+            ) : errorConnecting ? (
+              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-xl flex items-start gap-2 text-[11px] text-red-700 dark:text-red-400 font-bold">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                {errorConnecting}
+              </div>
+            ) : selectablePages.length === 0 ? (
+              <div className="text-center py-10 space-y-2">
+                <p className="text-[12px] font-bold text-zinc-550 dark:text-zinc-400">No encontramos páginas vinculadas.</p>
+                <p className="text-[11px] text-zinc-400">Asegurate de iniciar sesión con una cuenta de Facebook que administre tu página comercial de Instagram.</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-[12px] text-zinc-450 font-bold mb-1">
+                  Elegí la página de Facebook que querés conectar. Si tiene una cuenta de Instagram vinculada, se conectará automáticamente.
+                </p>
+                {selectablePages.map(page => {
+                  const hasIg = !!page.instagram_business_account;
+                  return (
+                    <button
+                      key={page.id}
+                      onClick={() => handleLinkPage(page)}
+                      className="w-full text-left p-3 border border-zinc-200 dark:border-zinc-800 hover:border-violet-300 dark:hover:border-violet-800 hover:bg-violet-50/20 dark:hover:bg-violet-950/10 rounded-2xl flex items-center justify-between transition-all group active:scale-[0.99]"
+                    >
+                      <div className="min-w-0 flex-1 pr-3">
+                        <p className="text-[13px] font-bold text-zinc-800 dark:text-zinc-250 truncate group-hover:text-violet-600 dark:group-hover:text-violet-400">{page.name}</p>
+                        <p className="text-[10px] text-zinc-400 font-bold mt-0.5 uppercase tracking-wider flex items-center gap-1">
+                           <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                           FB Page
+                        </p>
+                      </div>
+                      {hasIg ? (
+                        <div className="flex-shrink-0 bg-pink-50 dark:bg-pink-950/20 border border-pink-100 dark:border-pink-900/30 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
+                          <Instagram className="w-3.5 h-3.5 text-pink-600 dark:text-pink-400" />
+                          <span className="text-[10.5px] font-black text-pink-600 dark:text-pink-400">@{page.instagram_business_account.username}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] bg-zinc-50 dark:bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-lg font-bold">Sin Instagram</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Helper: is comment pending?
   const isCommentPending = useCallback((comment: any, postPlatform: 'instagram' | 'facebook') => {
     const isFromPage = comment.username === igUsername || comment.from?.id === fbPageId;
@@ -92,7 +260,7 @@ export default function ComentariosPage() {
 
   // Load data
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId || (!fbPageId && !igId)) return;
     let active = true;
     setLoading(true);
     setIgError(null);
@@ -330,9 +498,27 @@ export default function ComentariosPage() {
 
   if (!fbPageId && !igId) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
-        <MessageSquare className="w-12 h-12 text-zinc-300 dark:text-zinc-700" />
-        <h2 className="text-[18px] font-black text-zinc-700 dark:text-zinc-300">Sin cuentas conectadas</h2>
+      <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center max-w-lg mx-auto space-y-6">
+        <div className="w-16 h-16 rounded-2xl bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center">
+          <MessageSquare className="w-8 h-8 text-violet-500" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-[20px] font-black text-zinc-900 dark:text-white tracking-tight">Conectá tu cuenta de Instagram y Facebook</h2>
+          <p className="text-[13px] text-zinc-550 dark:text-zinc-450 leading-relaxed font-semibold">
+            Vinculá tus redes sociales en segundos para poder recibir, leer y responder todos tus comentarios de Instagram y Facebook directamente desde esta bandeja de entrada unificada.
+          </p>
+        </div>
+        
+        <button
+          onClick={handleStartConnection}
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[13.5px] font-black shadow-md shadow-blue-600/20 transition-all active:scale-[0.98]"
+        >
+          <Facebook className="w-4 h-4" />
+          Conectar con Facebook
+        </button>
+
+        {/* Modal for selecting pages */}
+        {showConnectModal && renderConnectModal()}
       </div>
     );
   }
