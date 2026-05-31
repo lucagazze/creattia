@@ -26,9 +26,13 @@ export const chatwoot = {
     return (await chatwoot.getProfile(url, token)).account_id;
   },
 
-  async getConversationsPage(url: string, token: string, status = 'open', page = 1) {
+  async getConversationsPage(url: string, token: string, status = 'open', page = 1, inboxId?: number) {
     const accountId = await chatwoot.getAccountId(url, token);
-    const data = await proxy(url, token, `/api/v1/accounts/${accountId}/conversations?status=${status}&page=${page}`);
+    let path = `/api/v1/accounts/${accountId}/conversations?status=${status}&page=${page}`;
+    if (inboxId !== undefined) {
+      path += `&inbox_id=${inboxId}`;
+    }
+    const data = await proxy(url, token, path);
     const payload = data?.data?.payload || data?.payload || [];
     const meta = data?.data?.meta || data?.meta || {};
     return { payload, hasMore: payload.length === 25, meta };
@@ -42,6 +46,39 @@ export const chatwoot = {
   async getSummary(url: string, token: string, since: number, until: number) {
     const accountId = await chatwoot.getAccountId(url, token);
     return proxy(url, token, `/api/v1/accounts/${accountId}/reports/summary?since=${since}&until=${until}`);
+  },
+
+  async getConversationsMeta(url: string, token: string, status = 'open', inboxId?: number) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    let path = `/api/v1/accounts/${accountId}/conversations/meta?status=${status}`;
+    if (inboxId !== undefined) {
+      path += `&inbox_id=${inboxId}`;
+    }
+    return proxy(url, token, path);
+  },
+
+  async getAgents(url: string, token: string) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    const data = await proxy(url, token, `/api/v1/accounts/${accountId}/agents`);
+    return Array.isArray(data) ? data : (data?.payload || data?.data || []);
+  },
+
+  async getReportsSummary(url: string, token: string, since: number, until: number, type = 'account', id?: number) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    let path = `/api/v2/accounts/${accountId}/reports/summary?since=${since}&until=${until}&type=${type}`;
+    if (id !== undefined) {
+      path += `&id=${id}`;
+    }
+    return proxy(url, token, path);
+  },
+
+  async getReportsTimeSeries(url: string, token: string, metric: string, since: number, until: number, type = 'account', id?: number) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    let path = `/api/v2/accounts/${accountId}/reports?metric=${metric}&since=${since}&until=${until}&type=${type}`;
+    if (id !== undefined) {
+      path += `&id=${id}`;
+    }
+    return proxy(url, token, path);
   },
 
   async getMessages(url: string, token: string, conversationId: number) {
