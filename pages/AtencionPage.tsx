@@ -218,6 +218,35 @@ export default function AtencionPage() {
   const [customLinks, setCustomLinks] = useState<any[]>([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
 
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; conv: any } | null>(null);
+  const ctxRef = useRef<HTMLDivElement>(null);
+  const [statusFilter, setStatusFilter] = useState<'open' | 'resolved' | 'pending'>('open');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [failedMsgIds, setFailedMsgIds] = useState<Set<string>>(new Set());
+  const [summary, setSummary] = useState<any>(null);
+  const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'priority'>('latest');
+  const [expanded, setExpanded] = useState(false);
+  const [canReplyOnly, setCanReplyOnly] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const selectedRef = useRef<any>(null);
+  selectedRef.current = selected;
+
 
   const getInboxIdForChannel = useCallback((chKey: string) => {
     if (chKey === 'all') return undefined;
@@ -297,35 +326,6 @@ export default function AtencionPage() {
 
     loadChannelMetas();
   }, [cwUrl, cwToken, inboxes, statusFilter]);
-
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [error, setError] = useState<string | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; conv: any } | null>(null);
-  const ctxRef = useRef<HTMLDivElement>(null);
-  const [statusFilter, setStatusFilter] = useState<'open' | 'resolved' | 'pending'>('open');
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [loadingMsgs, setLoadingMsgs] = useState(false);
-  const [reply, setReply] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [failedMsgIds, setFailedMsgIds] = useState<Set<string>>(new Set());
-  const [summary, setSummary] = useState<any>(null);
-  const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'priority'>('latest');
-  const [expanded, setExpanded] = useState(false);
-  const [canReplyOnly, setCanReplyOnly] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [bulkLoading, setBulkLoading] = useState(false);
-  const [generatingDraft, setGeneratingDraft] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-
-  const selectedRef = useRef<any>(null);
-  selectedRef.current = selected;
 
   const loadConversations = useCallback(async () => {
     if (!cwUrl || !cwToken) return;
