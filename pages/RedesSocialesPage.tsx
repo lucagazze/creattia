@@ -735,7 +735,7 @@ export default function RedesSocialesPage() {
   };
 
   return (
-    <div className="space-y-6 md:space-y-8 w-full pt-6 px-4 md:px-6 lg:px-8 animate-in fade-in duration-300">
+    <div className="space-y-5 md:space-y-8 w-full pt-4 md:pt-6 px-3 md:px-6 lg:px-8 animate-in fade-in duration-300">
       
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">
@@ -748,40 +748,42 @@ export default function RedesSocialesPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap justify-start md:justify-end">
           {/* Tab Selector Buttons */}
-          <div className="flex items-center gap-1.5 bg-zinc-150/80 dark:bg-zinc-800/60 p-1 rounded-2xl border border-zinc-250/20 dark:border-zinc-700/60">
+          <div className="flex items-center gap-1 bg-zinc-150/80 dark:bg-zinc-800/60 p-1 rounded-2xl border border-zinc-250/20 dark:border-zinc-700/60">
             <button
               onClick={() => setActiveTab('instagram')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-black transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-black transition-all ${
                 activeTab === 'instagram'
                   ? 'bg-pink-500 text-white shadow-md shadow-pink-500/20'
                   : 'text-zinc-550 hover:text-zinc-850 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40'
               }`}
             >
-              <Instagram className="w-4 h-4" />
-              Instagram
+              <Instagram className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Instagram</span>
+              <span className="xs:hidden">IG</span>
             </button>
             <button
               onClick={() => setActiveTab('facebook')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-black transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-black transition-all ${
                 activeTab === 'facebook'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
                   : 'text-zinc-555 hover:text-zinc-850 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40'
               }`}
             >
-              <span className="w-4 h-4 font-black flex items-center justify-center text-[16px] leading-none">f</span>
-              Facebook
+              <span className="w-3.5 h-3.5 font-black flex items-center justify-center text-[15px] leading-none">f</span>
+              <span className="hidden xs:inline">Facebook</span>
+              <span className="xs:hidden">FB</span>
             </button>
           </div>
 
           {/* Pending comments button */}
           <button
             onClick={handleOpenPendingPanel}
-            className="relative flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[13px] font-black shadow-md shadow-amber-500/20 transition-all active:scale-95"
+            className="relative flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[12px] font-black shadow-md shadow-amber-500/20 transition-all active:scale-95"
           >
-            <MessageCircle className="w-4 h-4" />
-            Pendientes
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Pendientes</span>
             {pendingLoaded && (
               <span className="absolute -top-1.5 -right-1.5 bg-white text-amber-600 text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 border border-amber-200 shadow-sm">
                 {pendingItems.filter(i => !pendingReplied[i.comment.id]).length}
@@ -792,11 +794,11 @@ export default function RedesSocialesPage() {
           <button
             onClick={() => setRefreshKey(k => k + 1)}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-[12px] font-black shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-[12px] font-black shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
             title="Recargar datos"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Recargar
+            <span className="hidden sm:inline">Recargar</span>
           </button>
         </div>
       </div>
@@ -891,32 +893,33 @@ export default function RedesSocialesPage() {
                   )}
 
                   {/* Feed Filters */}
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700 p-0.5 rounded-xl">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700 p-0.5 rounded-xl overflow-x-auto no-scrollbar flex-shrink-0">
                       {[
-                        { id: 'all', label: 'Todo', icon: Instagram },
-                        { id: 'IMAGE', label: 'Imágenes', icon: ImageIcon },
-                        { id: 'VIDEO', label: 'Videos/Reels', icon: Video },
-                        { id: 'CAROUSEL_ALBUM', label: 'Caruseles', icon: Layers }
+                        { id: 'all', label: 'Todo', labelMobile: 'Todo', icon: Instagram },
+                        { id: 'IMAGE', label: 'Imágenes', labelMobile: 'Fotos', icon: ImageIcon },
+                        { id: 'VIDEO', label: 'Videos', labelMobile: 'Videos', icon: Video },
+                        { id: 'CAROUSEL_ALBUM', label: 'Carruseles', labelMobile: 'Álbums', icon: Layers }
                       ].map(f => {
                         const Icon = f.icon;
                         return (
                           <button
                             key={f.id}
                             onClick={() => setMediaFilter(f.id as any)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all ${
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all whitespace-nowrap ${
                               mediaFilter === f.id
                                 ? 'bg-white dark:bg-zinc-900 text-zinc-850 dark:text-white shadow-sm'
                                 : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-200'
                             }`}
                           >
-                            <Icon className="w-3.5 h-3.5" />
-                            {f.label}
+                            <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="hidden sm:inline">{f.label}</span>
+                            <span className="sm:hidden">{f.labelMobile}</span>
                           </button>
                         );
                       })}
                     </div>
-                    <p className="text-[12.5px] text-zinc-400 font-bold">{filteredMedia.length} posts encontrados</p>
+                    <p className="text-[12px] text-zinc-400 font-bold flex-shrink-0">{filteredMedia.length} posts</p>
                   </div>
 
                   {/* Grid of posts */}
@@ -1160,31 +1163,31 @@ export default function RedesSocialesPage() {
                   )}
 
                   {/* Feed Filters */}
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700 p-0.5 rounded-xl">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700 p-0.5 rounded-xl overflow-x-auto no-scrollbar flex-shrink-0">
                       {[
                         { id: 'all', label: 'Todo', icon: MessageCircle },
                         { id: 'PHOTO', label: 'Con Fotos', icon: ImageIcon },
-                        { id: 'TEXT', label: 'Solo Texto', icon: MessageSquare }
+                        { id: 'TEXT', label: 'Texto', icon: MessageSquare }
                       ].map(f => {
                         const Icon = f.icon;
                         return (
                           <button
                             key={f.id}
                             onClick={() => setFbMediaFilter(f.id as any)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all ${
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all whitespace-nowrap ${
                               fbMediaFilter === f.id
                                 ? 'bg-white dark:bg-zinc-900 text-zinc-850 dark:text-white shadow-sm'
                                 : 'text-zinc-550 hover:text-zinc-850 dark:hover:text-zinc-200'
                             }`}
                           >
-                            <Icon className="w-3.5 h-3.5" />
+                            <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                             {f.label}
                           </button>
                         );
                       })}
                     </div>
-                    <p className="text-[12.5px] text-zinc-400 font-bold">{filteredFbMedia.length} posts encontrados</p>
+                    <p className="text-[12px] text-zinc-400 font-bold flex-shrink-0">{filteredFbMedia.length} posts</p>
                   </div>
 
                   {/* Grid of Facebook posts */}
@@ -1345,13 +1348,13 @@ export default function RedesSocialesPage() {
         return (
           <div className="fixed inset-0 z-[350] flex justify-end animate-in fade-in duration-200">
             {/* Backdrop */}
-            <div 
+            <div
               onClick={closeCommentsModal}
               className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
             />
-            
+
             {/* Slide-over panel container */}
-            <div className="relative w-full max-w-4xl h-full bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-300 ease-out z-10">
+            <div className="relative w-full md:max-w-4xl h-full bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-300 ease-out z-10">
               
               {/* Header */}
               <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/85 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between flex-shrink-0">
@@ -1719,7 +1722,7 @@ export default function RedesSocialesPage() {
           <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={() => setShowPendingPanel(false)} />
 
           {/* Panel */}
-          <div className="w-full max-w-[520px] bg-white dark:bg-zinc-950 flex flex-col h-full shadow-2xl border-l border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-right duration-250">
+          <div className="w-full sm:max-w-[520px] bg-white dark:bg-zinc-950 flex flex-col h-full shadow-2xl border-l border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-right duration-250">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0">
               <div className="flex items-center gap-3">
