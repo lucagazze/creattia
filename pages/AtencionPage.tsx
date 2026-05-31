@@ -387,6 +387,7 @@ export default function AtencionPage() {
 
   const [assignFilter, setAssignFilter] = useState<'all' | 'mine' | 'unassigned'>('all');
   const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email' | 'other'>('all');
+  const [listCollapsed, setListCollapsed] = useState(false);
 
   const contact = (c: any) => c.meta?.sender || c.contact_inbox?.contact || {};
   const getChannel = (c: any) => {
@@ -474,7 +475,14 @@ export default function AtencionPage() {
   });
 
   const filtered = assignFiltered.filter(c => {
-    if (canReplyOnly && c.can_reply === false) return false;
+    if (canReplyOnly) {
+      const ch = getChannel(c);
+      const isMeta = ['whatsapp', 'instagram', 'facebook'].includes(ch);
+      const lastIncoming = c.messages?.find((m: any) => m.message_type === 0);
+      const timeSinceLastIncoming = lastIncoming ? (Date.now() / 1000 - lastIncoming.created_at) : null;
+      const canReply = !isMeta || c.can_reply !== false || (timeSinceLastIncoming !== null && timeSinceLastIncoming < 86400) || (Date.now() / 1000 - (c.last_activity_at || c.created_at)) < 86400;
+      if (!canReply) return false;
+    }
     if (!search.trim()) return true;
     const s = search.toLowerCase();
     const name = (c.meta?.sender?.name || '').toLowerCase();
@@ -554,38 +562,15 @@ export default function AtencionPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
-
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Atención · Chatwoot
-          </div>
-          {summary && (
-            <div className="hidden sm:flex items-center gap-4 text-[11px] text-zinc-400 font-medium">
-              <span><b className="text-zinc-700 dark:text-zinc-300">{summary.resolutions_count ?? 0}</b> resueltas hoy</span>
-              <span><b className="text-zinc-700 dark:text-zinc-300">{fmtSeconds(summary.avg_first_response_time)}</b> 1er resp.</span>
-              <span><b className="text-zinc-700 dark:text-zinc-300">{fmtSeconds(summary.avg_resolution_time)}</b> resolución</span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <a href={cwUrl} target="_blank" rel="noreferrer"
-              className="flex items-center gap-1 text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline">
-              Abrir Chatwoot <ExternalLink className="w-3 h-3" />
-            </a>
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col h-full w-full overflow-hidden">
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT: conversation list */}
-        <div className={`${expanded ? 'w-full' : selected ? 'hidden md:flex md:w-[260px]' : 'w-full md:w-[320px]'} flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-all duration-300`}>
+        <div className={`
+          ${listCollapsed ? 'hidden' : expanded ? 'w-full' : selected ? 'hidden md:flex md:w-[260px]' : 'w-full md:w-[320px]'}
+          flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-all duration-300
+        `}>
 
           {/* Search + controls */}
           <div className="p-3 border-b border-zinc-100 dark:border-zinc-800 space-y-2">
@@ -679,7 +664,7 @@ export default function AtencionPage() {
               <button key={t.key} onClick={() => setAssignFilter(t.key as any)}
                 className={`flex-1 py-2 flex items-center justify-center gap-1 transition-colors border-b-2 ${assignFilter === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}>
                 {t.label}
-                {t.count > 0 && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${assignFilter === t.key ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>{t.count}</span>}
+                {t.count > 0 && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ml-1 flex-shrink-0 ${assignFilter === t.key ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>{t.count}</span>}
               </button>
             ))}
           </div>
@@ -785,7 +770,7 @@ export default function AtencionPage() {
                             {fmtTime(activityTimestamp)}
                           </span>
                           {unread > 0 && !isSelected && (
-                            <span className="w-4.5 h-4.5 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center">
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0 shadow-sm">
                               {unread > 9 ? '9+' : unread}
                             </span>
                           )}
@@ -848,6 +833,17 @@ export default function AtencionPage() {
                   className="md:hidden p-1.5 -ml-1 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+                <button
+                  onClick={() => setListCollapsed(v => !v)}
+                  className="hidden md:flex p-1.5 -ml-1 rounded-lg text-zinc-550 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                  title={listCollapsed ? "Mostrar lista de chats" : "Ocultar lista de chats"}
+                >
+                  <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="18" height="18" x="3" y="3" rx="2" />
+                    <path d="M9 3v18" />
+                    {listCollapsed ? <path d="m14 15 3-3-3-3" /> : <path d="m16 9-3 3 3 3" />}
+                  </svg>
                 </button>
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
                   {CHANNEL_ICON[getChannel(selected)]}

@@ -56,7 +56,7 @@ export const MainLayout = () => {
     }
   }, [profile]);
 
-  const isFixedPage = location.pathname === '/mensajeria';
+  const isFixedPage = location.pathname === '/mensajeria' || location.pathname === '/atencion';
 
   return (
     <div className="flex min-h-screen bg-[#f5f5f7] dark:bg-[#0a0a0a] text-zinc-900 dark:text-zinc-100 transition-colors duration-300 print:bg-white">
@@ -98,9 +98,11 @@ export const MainLayout = () => {
         </div>
 
         <div className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
-          isFixedPage 
-            ? 'overflow-hidden p-4 md:p-6 h-[calc(100vh-56px)] md:h-screen flex flex-col' 
-            : 'overflow-auto p-4 md:p-8 lg:p-10 pb-48 md:pb-40 xl:pb-44'
+          location.pathname === '/atencion'
+            ? 'overflow-hidden p-0 h-[calc(100vh-56px)] md:h-screen flex flex-col'
+            : isFixedPage 
+              ? 'overflow-hidden p-4 md:p-6 h-[calc(100vh-56px)] md:h-screen flex flex-col' 
+              : 'overflow-auto p-4 md:p-8 lg:p-10 pb-48 md:pb-40 xl:pb-44'
         }`}>
           {/* Spacer so content starts below the fixed mobile header */}
           <div className="h-14 md:hidden" />
