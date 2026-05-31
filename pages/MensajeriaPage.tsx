@@ -1068,19 +1068,9 @@ export default function MensajeriaPage() {
   };
 
   const getComputedActivityTimestamp = (c: any) => {
-    const sortedMsgs = [...(c?.messages || [])].sort((x, y) => {
-      const timeX = typeof x.created_at === 'number' ? x.created_at : new Date(x.created_at).getTime() / 1000;
-      const timeY = typeof y.created_at === 'number' ? y.created_at : new Date(y.created_at).getTime() / 1000;
-      return timeX - timeY;
-    });
-    const lastRealMsg = [...sortedMsgs].reverse().find((m: any) => m?.message_type !== 2) || c?.last_non_activity_message;
-    // Use last real message time first — ignores Chatwoot activity events (auto-assign, policy changes, etc.)
-    // that update last_activity_at and bubble up old conversations
-    const ts = lastRealMsg?.created_at || c?.last_non_activity_message?.created_at || c?.last_activity_at || c?.created_at;
+    const ts = c?.last_non_activity_message?.created_at || c?.last_activity_at || c?.created_at;
     if (!ts) return 0;
-    if (typeof ts === 'number') {
-      return ts > 10000000000 ? ts / 1000 : ts;
-    }
+    if (typeof ts === 'number') return ts > 10000000000 ? ts / 1000 : ts;
     const d = new Date(ts).getTime();
     return isNaN(d) ? 0 : d / 1000;
   };
