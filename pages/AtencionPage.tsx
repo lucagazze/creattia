@@ -267,7 +267,7 @@ export default function AtencionPage() {
                 </button>
               );
             })}
-          </div>
+
             {/* Load more button */}
             {hasMore && !loading && (
               <button onClick={loadMore} disabled={loadingMore}
