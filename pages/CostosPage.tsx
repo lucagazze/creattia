@@ -8,13 +8,16 @@ import {
   Info, Coins, Sparkles, Loader2, Landmark, Check, HelpCircle
 } from 'lucide-react';
 
-interface ProductCost {
-  productId: string;
+interface CatalogVariant {
+  id: string;
   title: string;
-  cost: number;
-  margin: number;
-  packagingCost: number;
-  lastUpdated: string;
+  price: number;
+}
+
+interface CatalogProduct {
+  id: string;
+  title: string;
+  variants: CatalogVariant[];
 }
 
 interface AdditionalCostItem {
@@ -29,12 +32,93 @@ interface AdditionalCostItem {
   platform: string;
 }
 
-const DEFAULT_PRODUCTS = [
-  { id: 'prod_1', title: 'Remera Algodón Premium', price: 15000 },
-  { id: 'prod_2', title: 'Pantalón Cargo Black', price: 32000 },
-  { id: 'prod_3', title: 'Zapatillas Urban Run', price: 58000 },
-  { id: 'prod_4', title: 'Buzo Oversize Grey', price: 28000 }
+const MOCK_CATALOG: CatalogProduct[] = [
+  {
+    id: 'prod_1',
+    title: 'Remera Algodón Premium',
+    variants: [
+      { id: 'var_1_1', title: 'Talle S / Negro', price: 15000 },
+      { id: 'var_1_2', title: 'Talle M / Negro', price: 15000 },
+      { id: 'var_1_3', title: 'Talle L / Blanco', price: 15500 }
+    ]
+  },
+  {
+    id: 'prod_2',
+    title: 'Pantalón Cargo Black',
+    variants: [
+      { id: 'var_2_1', title: 'Talle 38', price: 32000 },
+      { id: 'var_2_2', title: 'Talle 40', price: 32000 },
+      { id: 'var_2_3', title: 'Talle 42', price: 34000 }
+    ]
+  },
+  {
+    id: 'prod_3',
+    title: 'Zapatillas Urban Run',
+    variants: [
+      { id: 'var_3_1', title: 'Talle 40', price: 58000 },
+      { id: 'var_3_2', title: 'Talle 41', price: 58000 },
+      { id: 'var_3_3', title: 'Talle 42', price: 58000 }
+    ]
+  },
+  {
+    id: 'prod_4',
+    title: 'Buzo Oversize Grey',
+    variants: [
+      { id: 'var_4_1', title: 'Talle Único', price: 28000 }
+    ]
+  },
+  {
+    id: 'prod_5',
+    title: 'Campera Bomber Leather',
+    variants: [
+      { id: 'var_5_1', title: 'Talle M', price: 75000 },
+      { id: 'var_5_2', title: 'Talle L', price: 75000 }
+    ]
+  },
+  {
+    id: 'prod_6',
+    title: 'Gorra Streetwear Cap',
+    variants: [
+      { id: 'var_6_1', title: 'Negro', price: 12000 },
+      { id: 'var_6_2', title: 'Beige', price: 12000 }
+    ]
+  },
+  {
+    id: 'prod_7',
+    title: 'Medias Element Pack x3',
+    variants: [
+      { id: 'var_7_1', title: 'Pack x3', price: 8000 }
+    ]
+  },
+  {
+    id: 'prod_8',
+    title: 'Bermuda Jean Denim',
+    variants: [
+      { id: 'var_8_1', title: 'Talle 40', price: 22000 },
+      { id: 'var_8_2', title: 'Talle 42', price: 22000 }
+    ]
+  }
 ];
+
+const DEFAULT_VARIANT_COSTS: Record<string, { cost: number; packagingCost: number }> = {
+  'var_1_1': { cost: 4500, packagingCost: 350 },
+  'var_1_2': { cost: 4500, packagingCost: 350 },
+  'var_1_3': { cost: 4650, packagingCost: 350 },
+  'var_2_1': { cost: 9600, packagingCost: 350 },
+  'var_2_2': { cost: 9600, packagingCost: 350 },
+  'var_2_3': { cost: 10200, packagingCost: 350 },
+  'var_3_1': { cost: 17400, packagingCost: 350 },
+  'var_3_2': { cost: 17400, packagingCost: 350 },
+  'var_3_3': { cost: 17400, packagingCost: 350 },
+  'var_4_1': { cost: 8400, packagingCost: 350 },
+  'var_5_1': { cost: 22500, packagingCost: 500 },
+  'var_5_2': { cost: 22500, packagingCost: 500 },
+  'var_6_1': { cost: 3600, packagingCost: 200 },
+  'var_6_2': { cost: 3600, packagingCost: 200 },
+  'var_7_1': { cost: 2400, packagingCost: 150 },
+  'var_8_1': { cost: 6600, packagingCost: 300 },
+  'var_8_2': { cost: 6600, packagingCost: 300 }
+};
 
 export default function CostosPage() {
   const { profile: authProfile } = useAuth();
@@ -61,7 +145,12 @@ export default function CostosPage() {
   };
 
   // State values
-  const [productCosts, setProductCosts] = useState<ProductCost[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [variantCosts, setVariantCosts] = useState<Record<string, { cost: number; packagingCost: number }>>({});
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [massPercentage, setMassPercentage] = useState('30');
+
   const [platformCommissions, setPlatformCommissions] = useState({
     shopify: 2.0,
     tiendanube: 1.5,
@@ -108,7 +197,18 @@ export default function CostosPage() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.productCosts) setProductCosts(parsed.productCosts);
+        if (parsed.variantCosts) {
+          setVariantCosts(parsed.variantCosts);
+        } else if (parsed.productCosts) {
+          // Convert legacy structure if it exists
+          const legacy: Record<string, { cost: number; packagingCost: number }> = {};
+          parsed.productCosts.forEach((p: any) => {
+            legacy[p.productId] = { cost: p.cost, packagingCost: p.packagingCost || 350 };
+          });
+          setVariantCosts(legacy);
+        } else {
+          setVariantCosts(DEFAULT_VARIANT_COSTS);
+        }
         if (parsed.platformCommissions) setPlatformCommissions(parsed.platformCommissions);
         if (parsed.paymentFees) setPaymentFees(parsed.paymentFees);
         if (parsed.gateways) setGateways(parsed.gateways);
@@ -116,20 +216,17 @@ export default function CostosPage() {
         if (parsed.additionalCosts) setAdditionalCosts(parsed.additionalCosts);
       } catch (e) {
         console.error('Error loading costs from localstorage:', e);
+        setVariantCosts(DEFAULT_VARIANT_COSTS);
       }
     } else {
-      // Set defaults for the tables
-      setProductCosts([
-        { productId: 'prod_1', title: 'Remera Algodón Premium', cost: 4500, margin: 70, packagingCost: 350, lastUpdated: new Date().toISOString().split('T')[0] },
-        { productId: 'prod_2', title: 'Pantalón Cargo Black', cost: 9800, margin: 69.3, packagingCost: 350, lastUpdated: new Date().toISOString().split('T')[0] }
-      ]);
+      setVariantCosts(DEFAULT_VARIANT_COSTS);
     }
   }, [profileId]);
 
   // Save helper
   const saveToLocalStorage = (updatedData: any) => {
     const currentData = {
-      productCosts,
+      variantCosts,
       platformCommissions,
       paymentFees,
       gateways,
@@ -140,35 +237,18 @@ export default function CostosPage() {
     localStorage.setItem(`car_costs_${profileId}`, JSON.stringify(currentData));
   };
 
-  // ─── SECTION 1: PRODUCT COSTS ──────────────────────────────────────────
-  const [shopifySearch, setShopifySearch] = useState('');
-  const [shopifyProducts, setShopifyProducts] = useState<any[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  
-  // Custom inputs for product cost config
-  const [customCost, setCustomCost] = useState('');
-  const [customPackaging, setCustomPackaging] = useState('350');
-  const [customMargin, setCustomMargin] = useState('');
-
-  // Shopify Products fetch
-  const searchShopifyProducts = useCallback(async (query: string) => {
+  // Shopify/Tiendanube Product Catalog Fetching
+  const loadProductCatalog = useCallback(async () => {
     const isShopify = profile?.ecommerce_platform === 'shopify' && profile?.shopify_domain && profile?.shopify_access_token;
     if (!isShopify) {
-      // Mock search
-      setLoadingProducts(true);
-      setTimeout(() => {
-        const filtered = DEFAULT_PRODUCTS.filter(p => p.title.toLowerCase().includes(query.toLowerCase()));
-        setShopifyProducts(filtered);
-        setLoadingProducts(false);
-      }, 300);
+      setCatalogProducts(MOCK_CATALOG);
       return;
     }
     
     setLoadingProducts(true);
     try {
       const cleanDomain = profile.shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const url = `/api/shopify/products.json?limit=8${query ? `&title=${encodeURIComponent(query)}` : ''}`;
+      const url = `/api/shopify/products.json?limit=100`;
       const response = await fetch(url, {
         headers: {
           'x-shopify-domain': cleanDomain,
@@ -177,72 +257,85 @@ export default function CostosPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setShopifyProducts(data?.products || []);
+        const apiProds = data?.products || [];
+        const mapped: CatalogProduct[] = apiProds.map((p: any) => {
+          const variants = p.variants && p.variants.length > 0
+            ? p.variants.map((v: any) => ({
+                id: String(v.id),
+                title: v.title,
+                price: parseFloat(v.price) || 0
+              }))
+            : [{
+                id: String(p.id),
+                title: 'Único',
+                price: parseFloat(p.price) || 0
+              }];
+          return {
+            id: String(p.id),
+            title: p.title,
+            variants
+          };
+        });
+        setCatalogProducts(mapped);
+      } else {
+        setCatalogProducts(MOCK_CATALOG);
       }
     } catch (err) {
       console.error('Error fetching shopify products:', err);
+      setCatalogProducts(MOCK_CATALOG);
     } finally {
       setLoadingProducts(false);
     }
   }, [profile?.shopify_domain, profile?.shopify_access_token, profile?.ecommerce_platform]);
 
   useEffect(() => {
-    searchShopifyProducts(shopifySearch);
-  }, [shopifySearch, searchShopifyProducts]);
+    loadProductCatalog();
+  }, [loadProductCatalog]);
 
-  const handleSelectProduct = (prod: any) => {
-    setSelectedProduct(prod);
-    const price = prod.variants?.[0]?.price || prod.price || 0;
-    if (price) {
-      // default cost is 30% of price
-      const estimatedCost = Math.round(price * 0.3);
-      setCustomCost(String(estimatedCost));
-      // margin = ((price - cost) / price) * 100
-      const marginVal = parseFloat((((price - estimatedCost) / price) * 100).toFixed(1));
-      setCustomMargin(String(marginVal));
-    } else {
-      setCustomCost('');
-      setCustomMargin('');
-    }
-  };
-
-  const handleCostChange = (val: string) => {
-    setCustomCost(val);
-    const price = selectedProduct?.variants?.[0]?.price || selectedProduct?.price || 0;
-    if (price && val) {
-      const costNum = parseFloat(val);
-      const marginVal = parseFloat((((price - costNum) / price) * 100).toFixed(1));
-      setCustomMargin(String(marginVal));
-    }
-  };
-
-  const handleAddProductCost = () => {
-    if (!selectedProduct || !customCost) return;
-    
-    const newCostItem: ProductCost = {
-      productId: selectedProduct.id || selectedProduct.product_id || String(Date.now()),
-      title: selectedProduct.title,
-      cost: parseFloat(customCost) || 0,
-      margin: parseFloat(customMargin) || 0,
-      packagingCost: parseFloat(customPackaging) || 0,
-      lastUpdated: new Date().toISOString().split('T')[0]
+  const handleUpdateCost = (variantId: string, cost: number, packagingCost: number) => {
+    const updated = {
+      ...variantCosts,
+      [variantId]: { cost, packagingCost }
     };
-
-    const updated = [newCostItem, ...productCosts.filter(p => p.productId !== newCostItem.productId)];
-    setProductCosts(updated);
-    saveToLocalStorage({ productCosts: updated });
-    setSelectedProduct(null);
-    setShopifySearch('');
-    setCustomCost('');
-    showToast('Costo de producto configurado con éxito.', 'success');
+    setVariantCosts(updated);
+    saveToLocalStorage({ variantCosts: updated });
   };
 
-  const handleDeleteProductCost = (id: string) => {
-    const updated = productCosts.filter(p => p.productId !== id);
-    setProductCosts(updated);
-    saveToLocalStorage({ productCosts: updated });
-    showToast('Costo de producto eliminado.', 'info');
+  const handleApplyMassEdit = () => {
+    const pct = parseFloat(massPercentage);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      showToast('Por favor ingrese un porcentaje válido entre 0 y 100.', 'warning');
+      return;
+    }
+
+    const updated = { ...variantCosts };
+    catalogProducts.forEach(prod => {
+      prod.variants.forEach(variant => {
+        const calculatedCost = Math.round(variant.price * (pct / 100));
+        const currentPackaging = updated[variant.id]?.packagingCost ?? 350;
+        updated[variant.id] = {
+          cost: calculatedCost,
+          packagingCost: currentPackaging
+        };
+      });
+    });
+
+    setVariantCosts(updated);
+    saveToLocalStorage({ variantCosts: updated });
+    showToast(`Se aplicó el costo del ${pct}% de forma masiva a todos los productos.`, 'success');
   };
+
+  const calculateMargin = (price: number, cost: number, packagingCost: number) => {
+    if (!price) return 0;
+    const marginVal = ((price - cost - packagingCost) / price) * 100;
+    return parseFloat(marginVal.toFixed(1));
+  };
+
+  const filteredCatalog = useMemo(() => {
+    return catalogProducts.filter(p => 
+      p.title.toLowerCase().includes(catalogSearch.toLowerCase())
+    );
+  }, [catalogProducts, catalogSearch]);
 
   // ─── SECTION 2: PLATFORM COMMISSIONS ──────────────────────────────────
   const handleSavePlatformCommissions = () => {
@@ -486,177 +579,159 @@ export default function CostosPage() {
           {openAccordions.productos && (
             <div className="p-6 border-t border-zinc-100 dark:border-white/[0.03] space-y-6">
               
-              {/* Product Configuration Search */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h4 className="text-[13px] font-bold text-zinc-800 dark:text-zinc-300">
-                    Configurar Costo de Producto
-                  </h4>
-                  
-                  {/* Search box */}
-                  <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <input 
-                      type="text"
-                      placeholder="Buscar producto de la tienda..."
-                      value={shopifySearch}
-                      onChange={e => setShopifySearch(e.target.value)}
-                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.05] text-[13px] focus:outline-none focus:border-violet-500 transition-colors"
-                    />
-                  </div>
-
-                  {/* Search results */}
-                  {shopifySearch && (
-                    <div className="border border-zinc-100 dark:border-white/[0.05] bg-zinc-50 dark:bg-zinc-900/60 rounded-xl overflow-hidden max-h-[200px] overflow-y-auto divide-y divide-zinc-100 dark:divide-white/[0.03]">
-                      {loadingProducts ? (
-                        <div className="p-4 flex items-center justify-center text-zinc-400 text-[12px]">
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          Buscando catálogo...
-                        </div>
-                      ) : shopifyProducts.length === 0 ? (
-                        <div className="p-4 text-zinc-400 text-[12px] text-center">
-                          No se encontraron productos.
-                        </div>
-                      ) : (
-                        shopifyProducts.map(p => (
-                          <button
-                            key={p.id}
-                            onClick={() => handleSelectProduct(p)}
-                            className="w-full p-3 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors text-left flex justify-between items-center text-[12px]"
-                          >
-                            <span className="font-bold text-zinc-800 dark:text-zinc-200 truncate pr-4">{p.title}</span>
-                            <span className="font-black text-violet-500 shrink-0">
-                              ${(p.variants?.[0]?.price || p.price || 0).toLocaleString('es-AR')}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-
-                  {/* Form to configure selected product */}
-                  {selectedProduct && (
-                    <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-white/[0.03] space-y-4 animate-in fade-in duration-200">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-[10px] uppercase font-black text-violet-500">Producto Seleccionado</p>
-                          <h5 className="text-[13px] font-bold text-zinc-800 dark:text-zinc-100">{selectedProduct.title}</h5>
-                        </div>
-                        <button 
-                          onClick={() => setSelectedProduct(null)} 
-                          className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-bold text-zinc-400 mb-1">Costo Unitario</label>
-                          <input 
-                            type="number"
-                            placeholder="0"
-                            value={customCost}
-                            onChange={e => handleCostChange(e.target.value)}
-                            className="w-full h-10 px-3 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/[0.05] text-[12px] font-bold text-zinc-900 dark:text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-zinc-400 mb-1">Embalaje / Envase</label>
-                          <input 
-                            type="number"
-                            placeholder="350"
-                            value={customPackaging}
-                            onChange={e => setCustomPackaging(e.target.value)}
-                            className="w-full h-10 px-3 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/[0.05] text-[12px] font-bold text-zinc-900 dark:text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-zinc-400 mb-1">Margen Neto (%)</label>
-                          <input 
-                            type="text"
-                            disabled
-                            value={customMargin ? `${customMargin}%` : '-'}
-                            className="w-full h-10 px-3 rounded-lg bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-white/[0.05] text-[12px] font-bold text-zinc-500 dark:text-zinc-400 cursor-not-allowed"
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handleAddProductCost}
-                        className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[12px] font-bold shadow-md transition-all active:scale-[0.98]"
-                      >
-                        Guardar Costo
-                      </button>
-                    </div>
-                  )}
+              {/* Edición Masiva & Search Toolbar */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+                {/* Search bar */}
+                <div className="relative">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                  <input 
+                    type="text"
+                    placeholder="Filtrar productos por nombre..."
+                    value={catalogSearch}
+                    onChange={e => setCatalogSearch(e.target.value)}
+                    className="w-full h-11 pl-10 pr-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.05] text-[13px] focus:outline-none focus:border-violet-500 transition-colors"
+                  />
                 </div>
 
-                {/* Info Box */}
-                <div className="p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-150 dark:border-white/[0.02] flex flex-col justify-center">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-[13px] font-bold text-zinc-800 dark:text-zinc-200 mb-1">Costos de Mercadería</h4>
-                      <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                        Definir los costos unitarios de tus productos permite que la plataforma calcule la ganancia neta exacta en el Dashboard principal restando el costo de mercadería vendida (COGS) de tu facturación bruta.
-                      </p>
-                    </div>
+                {/* Mass percentage edit */}
+                <div className="flex items-center gap-2 justify-end bg-zinc-50 dark:bg-white/[0.02] p-2 px-3 rounded-xl border border-zinc-150 dark:border-white/[0.04]">
+                  <Sparkles className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                  <span className="text-[11.5px] font-bold text-zinc-650 dark:text-zinc-300">Costo Masivo:</span>
+                  <div className="relative">
+                    <input 
+                      type="number"
+                      placeholder="30"
+                      value={massPercentage}
+                      onChange={e => setMassPercentage(e.target.value)}
+                      className="w-16 h-8 px-2 pr-5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-250 dark:border-white/[0.08] text-[12px] font-black text-center text-zinc-900 dark:text-white focus:outline-none focus:border-violet-500"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 font-bold text-[10px]">%</span>
                   </div>
+                  <span className="text-[10px] text-zinc-400">del precio</span>
+                  <button
+                    onClick={handleApplyMassEdit}
+                    className="h-8 px-3 bg-violet-600 hover:bg-violet-750 text-white rounded-lg text-[11.5px] font-bold shadow-md transition-all active:scale-[0.98]"
+                  >
+                    Aplicar a todos
+                  </button>
                 </div>
               </div>
 
-              {/* Table of Configured Costs */}
-              <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-white/[0.03]">
-                <h4 className="text-[13px] font-bold text-zinc-900 dark:text-white">
-                  Costos de Productos Guardados
-                </h4>
-
-                <div className="overflow-x-auto border border-zinc-150 dark:border-white/[0.05] rounded-xl">
-                  <table className="w-full text-[12px] text-left border-collapse">
-                    <thead>
-                      <tr className="bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-150 dark:border-white/[0.05] text-zinc-400 font-bold">
-                        <th className="p-3">Producto</th>
-                        <th className="p-3">Costo de Producto</th>
-                        <th className="p-3">Embalaje / Caja</th>
-                        <th className="p-3">Margen Proyectado</th>
-                        <th className="p-3">Última Actualización</th>
-                        <th className="p-3 text-right">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.03]">
-                      {productCosts.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="p-4 text-center text-zinc-400">
-                            No hay costos de productos configurados todavía.
-                          </td>
+              {/* Table / List */}
+              <div className="space-y-4">
+                {loadingProducts ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-zinc-400 text-[12px] gap-2">
+                    <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
+                    Cargando catálogo de productos...
+                  </div>
+                ) : filteredCatalog.length === 0 ? (
+                  <div className="py-12 text-center text-zinc-400 text-[12px]">
+                    No se encontraron productos en el catálogo.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-zinc-150 dark:border-white/[0.05] rounded-2xl bg-white dark:bg-[#111113]">
+                    <table className="w-full text-[12px] text-left border-collapse">
+                      <thead>
+                        <tr className="bg-zinc-50 dark:bg-zinc-900/60 border-b border-zinc-150 dark:border-white/[0.05] text-zinc-400 font-bold select-none">
+                          <th className="p-3.5 pl-5">Producto / Variante</th>
+                          <th className="p-3.5">Precio de Venta</th>
+                          <th className="p-3.5">Costo Unitario</th>
+                          <th className="p-3.5">Caja / Embalaje</th>
+                          <th className="p-3.5 text-center">Margen Neto</th>
                         </tr>
-                      ) : (
-                        productCosts.map(p => (
-                          <tr key={p.productId} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.01]">
-                            <td className="p-3 font-bold text-zinc-800 dark:text-zinc-200">{p.title}</td>
-                            <td className="p-3 font-black text-emerald-600 dark:text-emerald-400">${p.cost.toLocaleString('es-AR')}</td>
-                            <td className="p-3 text-zinc-500">${p.packagingCost}</td>
-                            <td className="p-3">
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-[11px]">
-                                {p.margin}%
-                              </span>
-                            </td>
-                            <td className="p-3 text-zinc-400">{p.lastUpdated}</td>
-                            <td className="p-3 text-right">
-                              <button
-                                onClick={() => handleDeleteProductCost(p.productId)}
-                                className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.03]">
+                        {filteredCatalog.map(p => {
+                          const hasMultipleVariants = p.variants.length > 1;
+                          return (
+                            <React.Fragment key={p.id}>
+                              {/* Product Header Row (if multiple variants) */}
+                              {hasMultipleVariants && (
+                                <tr className="bg-zinc-50/40 dark:bg-white/[0.005] select-none">
+                                  <td colSpan={5} className="p-3.5 pl-5 font-bold text-zinc-800 dark:text-zinc-200">
+                                    <div className="flex items-center gap-2">
+                                      <ShoppingBag className="w-3.5 h-3.5 text-zinc-450 dark:text-zinc-500" />
+                                      {p.title}
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-bold uppercase tracking-wider">
+                                        {p.variants.length} variantes
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+
+                              {/* Variants rows */}
+                              {p.variants.map(v => {
+                                const cost = variantCosts[v.id]?.cost ?? 0;
+                                const packaging = variantCosts[v.id]?.packagingCost ?? 350;
+                                const margin = calculateMargin(v.price, cost, packaging);
+
+                                let badgeClass = "bg-zinc-100 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700";
+                                if (margin > 20) {
+                                  badgeClass = "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15";
+                                } else if (margin >= 0) {
+                                  badgeClass = "bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/15";
+                                } else {
+                                  badgeClass = "bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/15";
+                                }
+
+                                return (
+                                  <tr key={v.id} className="hover:bg-zinc-50/50 dark:hover:bg-white/[0.01] transition-colors">
+                                    <td className="p-3.5 pl-5">
+                                      {hasMultipleVariants ? (
+                                        <div className="flex items-center gap-2 pl-4">
+                                          <div className="w-1.5 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                                          <span className="text-zinc-550 dark:text-zinc-400">{v.title}</span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          <ShoppingBag className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+                                          <span className="font-bold text-zinc-800 dark:text-zinc-200">{p.title}</span>
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="p-3.5 font-bold text-zinc-800 dark:text-zinc-200">
+                                      ${v.price.toLocaleString('es-AR')}
+                                    </td>
+                                    <td className="p-3.5">
+                                      <div className="relative flex items-center max-w-[120px]">
+                                        <span className="absolute left-2.5 text-zinc-400 font-bold text-[11px] select-none">$</span>
+                                        <input 
+                                          type="number"
+                                          value={variantCosts[v.id]?.cost ?? ''}
+                                          onChange={e => handleUpdateCost(v.id, parseFloat(e.target.value) || 0, packaging)}
+                                          className="w-full h-8 pl-6 pr-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.05] focus:border-violet-500/70 text-[11.5px] font-black text-zinc-900 dark:text-white focus:outline-none transition-colors"
+                                          placeholder="0"
+                                        />
+                                      </div>
+                                    </td>
+                                    <td className="p-3.5">
+                                      <div className="relative flex items-center max-w-[100px]">
+                                        <span className="absolute left-2.5 text-zinc-400 font-bold text-[11px] select-none">$</span>
+                                        <input 
+                                          type="number"
+                                          value={variantCosts[v.id]?.packagingCost ?? ''}
+                                          onChange={e => handleUpdateCost(v.id, cost, parseFloat(e.target.value) || 0)}
+                                          className="w-full h-8 pl-6 pr-2 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.05] focus:border-violet-500/70 text-[11.5px] font-black text-zinc-900 dark:text-white focus:outline-none transition-colors"
+                                          placeholder="350"
+                                        />
+                                      </div>
+                                    </td>
+                                    <td className="p-3.5 text-center">
+                                      <span className={`inline-flex px-2 py-0.5 rounded-full font-black text-[11px] ${badgeClass}`}>
+                                        {margin}%
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
             </div>

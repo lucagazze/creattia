@@ -587,7 +587,7 @@ export const AIChatFloat = () => {
     <div ref={containerRef} className="fixed print:hidden z-[300]">
       {/* ── Apple-style Floating Chat Window ── */}
       {isOpen && (
-        <div className={`fixed z-[300] inset-0 w-full h-full bg-white dark:bg-zinc-950 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-250 md:inset-auto md:fixed md:bottom-24 md:right-6 md:w-[385px] md:h-[580px] md:rounded-[28px] md:border md:border-zinc-200 md:dark:border-zinc-800 md:shadow-2xl ${
+        <div className={`fixed z-[300] inset-0 w-full h-full bg-white dark:bg-zinc-950 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-250 md:inset-auto md:fixed md:bottom-6 md:right-6 md:w-[480px] md:h-[82vh] md:rounded-[24px] md:border md:border-zinc-200 md:dark:border-zinc-800 md:shadow-2xl ${
           isThinking ? 'siri-glow md:border-violet-500/50' : ''
         }`}>
           {/* Header */}
@@ -621,12 +621,9 @@ export const AIChatFloat = () => {
           <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50/50 dark:bg-zinc-950">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-3 py-6 select-none">
-                <div className="flex flex-col items-center gap-2.5 mb-2">
-                  <div className="w-12 h-12 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md flex items-center justify-center">
-                    <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-8 h-8 object-contain" />
-                  </div>
-                  <p className="text-[13.5px] font-black text-zinc-850 dark:text-zinc-100">Hola 👋 Soy Algor</p>
-                  <p className="text-[11px] text-zinc-450 dark:text-zinc-500 text-center max-w-[240px] leading-relaxed">
+                <div className="text-center mb-2">
+                  <p className="text-[15px] font-black text-zinc-850 dark:text-zinc-100">¿En qué puedo ayudarte hoy?</p>
+                  <p className="text-[11.5px] text-zinc-450 dark:text-zinc-500 mt-1 max-w-[280px]">
                     Preguntame sobre tus campañas, creativos, emails o ventas.
                   </p>
                 </div>
@@ -767,22 +764,14 @@ export const AIChatFloat = () => {
       )}
 
       {/* ── Circular Floating Bubble Trigger Button (WhatsApp style) ── */}
-      <div
-        onClick={() => {
-          setIsOpen(prev => !prev);
-          if (!isOpen) {
+      {!isOpen && (
+        <div
+          onClick={() => {
+            setIsOpen(true);
             setTimeout(() => inputRef.current?.focus(), 150);
-          }
-        }}
-        className={`fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 z-[310] select-none hover:scale-110 active:scale-95 ${
-          isOpen
-            ? 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rotate-90 shadow-none'
-            : 'bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-500 text-white shadow-violet-500/20 shadow-lg p-[2px]'
-        }`}
-      >
-        {isOpen ? (
-          <X className="w-5.5 h-5.5" />
-        ) : (
+          }}
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 z-[310] select-none hover:scale-110 active:scale-95 bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-500 text-white shadow-violet-500/20 shadow-lg p-[2px]"
+        >
           <div className="w-full h-full rounded-full bg-zinc-950 dark:bg-zinc-900 flex items-center justify-center p-2.5">
             <img 
               src="/assets/logoSinFondo.png" 
@@ -790,8 +779,8 @@ export const AIChatFloat = () => {
               className="w-7 h-7 object-contain" 
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
