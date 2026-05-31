@@ -1741,18 +1741,10 @@ export default function MensajeriaPage() {
           style={{ position: 'fixed', top: ctxMenu.y, left: ctxMenu.x, zIndex: 9999 }}
           className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl py-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-100">
           {[
-            { action: 'read',         label: 'Marcar como leído',            icon: '✓' },
-            { action: 'unread',       label: 'Marcar como no leído',         icon: '●' },
+            { action: 'read',   label: 'Marcar como leído',   icon: '✓' },
+            { action: 'unread', label: 'Marcar como no leído', icon: '●' },
             null,
-            { action: 'resolved',     label: 'Marcar como resuelto',         icon: '✅' },
-            { action: 'open',         label: 'Marcar como abierto',          icon: '📂' },
-            { action: 'pending',      label: 'Marcar como pendiente',        icon: '⏳' },
-            { action: 'snooze',       label: 'Posponer 1 hora',              icon: '⏰' },
-            null,
-            { action: 'priority_high',label: 'Prioridad alta',               icon: '🔴' },
-            { action: 'priority_none',label: 'Sin prioridad',                icon: '⚪' },
-            null,
-            { action: 'delete',       label: 'Eliminar conversación',        icon: '🗑️', danger: true },
+            { action: 'delete', label: 'Eliminar conversación', icon: '🗑️', danger: true },
           ].map((item, i) =>
             item === null ? (
               <div key={i} className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
