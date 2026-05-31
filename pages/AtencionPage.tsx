@@ -82,25 +82,30 @@ export default function AtencionPage() {
       setHasMore(more);
       setSummary(sm);
       if (meta) setConvMeta({ all_count: meta.all_count ?? 0, unassigned_count: meta.unassigned_count ?? 0, assigned_count: meta.assigned_count ?? 0 });
-      setLoading(false);
-
-      // Auto-load remaining pages in background
-      if (more) {
-        let page = 2;
-        while (true) {
-          const { payload, hasMore: stillMore } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, page);
-          setConversations(prev => [...prev, ...payload]);
-          if (!stillMore || page >= 20) break;
-          page++;
-        }
-        setHasMore(false);
-        setLoadingMore(false);
-      }
     } catch (e: any) {
       setError(e.message);
+    } finally {
       setLoading(false);
     }
   }, [cwUrl, cwToken, statusFilter]);
+
+  const loadMoreConversations = useCallback(async () => {
+    if (!cwUrl || !cwToken || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = currentPage + 1;
+    try {
+      const { payload, hasMore: more } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, nextPage);
+      setConversations(prev => {
+        const prevIds = new Set(prev.map(c => c.id));
+        const filteredPayload = payload.filter(c => !prevIds.has(c.id));
+        return [...prev, ...filteredPayload];
+      });
+      setCurrentPage(nextPage);
+      setHasMore(more);
+    } catch {} finally {
+      setLoadingMore(false);
+    }
+  }, [cwUrl, cwToken, currentPage, loadingMore, hasMore, statusFilter]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
@@ -370,6 +375,59 @@ export default function AtencionPage() {
   const CHANNEL_ICON: Record<string, string> = { whatsapp: '📱', instagram: '📸', facebook: '📘', email: '📧', other: '💬' };
   const CHANNEL_COLOR: Record<string, string> = { whatsapp: 'bg-emerald-500', instagram: 'bg-pink-500', facebook: 'bg-blue-600', email: 'bg-violet-500', other: 'bg-zinc-500' };
 
+  const getAvatarGradient = (name: string) => {
+    const gradients = [
+      'from-pink-500 to-rose-500 text-white',
+      'from-violet-500 to-purple-500 text-white',
+      'from-blue-500 to-indigo-500 text-white',
+      'from-emerald-500 to-teal-500 text-white',
+      'from-amber-500 to-orange-500 text-white',
+      'from-sky-500 to-cyan-500 text-white',
+    ];
+    if (!name) return gradients[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % gradients.length;
+    return gradients[index];
+  };
+
+  const getChannelLabel = (c: any) => {
+    if (c.inbox?.name) return c.inbox.name;
+    const ch = getChannel(c);
+    if (ch === 'other') return 'Canal';
+    return ch;
+  };
+
+  const renderAvatar = (conv: any) => {
+    const c = contact(conv);
+    const name = c.name || '';
+    const initials = name
+      ? name.split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+      : '';
+    
+    const ch = getChannel(conv);
+    const gradient = getAvatarGradient(name || String(conv.id));
+
+    return (
+      <div className="relative flex-shrink-0 select-none">
+        {initials ? (
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black bg-gradient-to-br shadow-inner ${gradient}`}>
+            {initials}
+          </div>
+        ) : (
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[15px] bg-gradient-to-br ${gradient}`}>
+            {CHANNEL_ICON[ch]}
+          </div>
+        )}
+        <span className="absolute -bottom-1.5 -right-1.5 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] shadow bg-white dark:bg-zinc-900 border border-zinc-150/80 dark:border-zinc-800 select-none">
+          {CHANNEL_ICON[ch]}
+        </span>
+      </div>
+    );
+  };
+
   const sortedConversations = [...conversations].sort((a, b) => {
     if (sortBy === 'oldest') return a.last_activity_at - b.last_activity_at;
     if (sortBy === 'priority') {
@@ -584,7 +642,15 @@ export default function AtencionPage() {
           )}
 
           {/* List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60">
+          <div 
+            className="flex-1 overflow-y-auto py-2 space-y-1"
+            onScroll={(e) => {
+              const target = e.currentTarget;
+              if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
+                loadMoreConversations();
+              }
+            }}
+          >
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
@@ -600,49 +666,81 @@ export default function AtencionPage() {
             ) : filtered.map(conv => {
               const c = contact(conv);
               const lastMsg = conv.messages?.[0];
-              const ch = getChannel(conv);
               const isSelected = selected?.id === conv.id;
               const unread = conv.unread_count || 0;
               const isUnread = unread > 0;
               return (
                 <div key={conv.id}
                   onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, conv }); }}
-                  className={`w-full text-left px-3 py-3 flex items-start gap-2 transition-colors cursor-pointer group/conv ${isSelected || selectedIds.has(conv.id) ? 'bg-blue-50 dark:bg-blue-500/10' : isUnread ? 'bg-zinc-50/80 dark:bg-zinc-900/60' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50'}`}>
+                  className={`mx-2 my-0.5 px-3 py-2.5 flex items-start gap-2.5 transition-all duration-200 cursor-pointer rounded-xl group/conv ${
+                    isSelected 
+                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/10' 
+                      : isUnread 
+                        ? 'bg-zinc-50/80 dark:bg-zinc-900/60' 
+                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30'
+                  }`}
+                >
                   {/* Checkbox */}
-                  <div className={`flex-shrink-0 mt-1 ${selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover/conv:opacity-100'} transition-opacity`}
+                  <div className={`flex-shrink-0 mt-2.5 ${selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover/conv:opacity-100'} transition-opacity`}
                     onClick={e => toggleSelect(conv.id, e)}>
-                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.has(conv.id) ? 'bg-blue-600 border-blue-600' : 'border-zinc-300 dark:border-zinc-600'}`}>
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.has(conv.id) ? 'bg-blue-600 border-blue-600' : 'border-zinc-300 dark:border-zinc-650'}`}>
                       {selectedIds.has(conv.id) && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 5l2.5 2.5L8 3" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
                   </div>
-                  <div className="flex-1 flex items-start gap-2.5" onClick={() => loadMessages(conv)}>
-                  <div className="relative flex-shrink-0">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black ${CHANNEL_COLOR[ch]}`}>
-                      {CHANNEL_ICON[ch]}
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className={`text-[12px] truncate ${isUnread ? 'font-black text-zinc-900 dark:text-white' : 'font-semibold text-zinc-700 dark:text-zinc-300'}`}>
-                        {c.name || `#${conv.id}`}
-                      </span>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className="text-[10px] text-zinc-400">{fmtTime(conv.last_activity_at)}</span>
-                        {unread > 0 && (
-                          <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center">{unread > 9 ? '9+' : unread}</span>
+                  
+                  {/* Card content click target */}
+                  <div className="flex-1 flex items-start gap-2.5 min-w-0" onClick={() => loadMessages(conv)}>
+                    {renderAvatar(conv)}
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className={`text-[12.5px] truncate ${
+                          isSelected
+                            ? 'font-bold text-white'
+                            : isUnread 
+                              ? 'font-black text-zinc-900 dark:text-white' 
+                              : 'font-semibold text-zinc-700 dark:text-zinc-300'
+                        }`}>
+                          {c.name || `#${conv.id}`}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className={`text-[10px] ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
+                            {fmtTime(conv.last_activity_at)}
+                          </span>
+                          {unread > 0 && !isSelected && (
+                            <span className="w-4.5 h-4.5 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center">
+                              {unread > 9 ? '9+' : unread}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className={`text-[9px] uppercase font-bold tracking-wider ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
+                          {getChannelLabel(conv)}
+                        </span>
+                        {c.phone_number && (
+                          <>
+                            <span className={isSelected ? 'text-blue-300' : 'text-zinc-300 dark:text-zinc-700'}>·</span>
+                            <span className={`text-[10px] font-mono truncate ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
+                              {c.phone_number}
+                            </span>
+                          </>
                         )}
                       </div>
+                      
+                      {lastMsg?.content && (
+                        <p className={`text-[11px] truncate mt-0.5 ${
+                          isSelected 
+                            ? 'text-blue-100' 
+                            : isUnread 
+                              ? 'text-zinc-700 dark:text-zinc-300 font-semibold' 
+                              : 'text-zinc-450 italic'
+                        }`}>
+                          {lastMsg.content}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-[9px] text-zinc-400 uppercase font-bold">{ch}</span>
-                      {c.phone_number && <><span className="text-zinc-300 dark:text-zinc-700">·</span><span className="text-[10px] text-zinc-400 font-mono truncate">{c.phone_number}</span></>}
-                    </div>
-                    {lastMsg?.content && (
-                      <p className={`text-[11px] truncate mt-0.5 ${isUnread ? 'text-zinc-700 dark:text-zinc-300 font-semibold' : 'text-zinc-400 italic'}`}>
-                        {lastMsg.content}
-                      </p>
-                    )}
-                  </div>
                   </div>
                 </div>
               );
@@ -688,6 +786,24 @@ export default function AtencionPage() {
                   </div>
                 </div>
               </div>
+
+              {/* 24-hour warning banner */}
+              {(() => {
+                const ch = getChannel(selected);
+                const isMetaConv = ['whatsapp', 'instagram', 'facebook'].includes(ch);
+                const lastIncoming = [...messages].reverse().find((m: any) => m.message_type === 0);
+                const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
+                const noIncoming = isMetaConv && !lastIncoming;
+                if (over24h || noIncoming) {
+                  return (
+                    <div className="bg-red-50/45 dark:bg-red-950/5 border-b border-red-100/50 dark:border-red-900/10 px-5 py-2 flex items-center gap-2 text-[11px] text-red-750 dark:text-red-400 font-semibold select-none flex-shrink-0">
+                      <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                      <span>Solo se admiten respuestas mediante plantilla debido a la restricción de las 24 horas.</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Messages */}
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-white dark:bg-zinc-950">
@@ -736,30 +852,41 @@ export default function AtencionPage() {
               {/* Reply box */}
               <div className="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0">
                 {(() => {
-                  // Check 24h WhatsApp window
+                  const ch = getChannel(selected);
+                  const isMetaConv = ['whatsapp', 'instagram', 'facebook'].includes(ch);
                   const lastIncoming = [...messages].reverse().find((m: any) => m.message_type === 0);
-                  const isWhatsAppConv = getChannel(selected) === 'whatsapp';
-                  const over24h = isWhatsAppConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
-                  const noIncoming = isWhatsAppConv && !lastIncoming;
+                  const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
+                  const noIncoming = isMetaConv && !lastIncoming;
 
                   if (over24h || noIncoming) {
+                    const cleanPhone = contact(selected).phone_number ? contact(selected).phone_number.replace(/\D/g, '') : '';
                     return (
                       <div className="px-5 py-4 space-y-3">
-                        <div className="flex items-start gap-2.5 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl">
-                          <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex items-start gap-2.5 p-3.5 bg-red-50/50 dark:bg-red-950/10 border border-red-200/50 dark:border-red-900/20 rounded-2xl">
+                          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-[12px] font-bold text-amber-800 dark:text-amber-400">Ventana de 24 horas cerrada</p>
-                            <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-0.5">
-                              Solo podés responder usando un mensaje de plantilla (template). El cliente no envió mensajes en las últimas 24 horas.
+                            <p className="text-[12px] font-bold text-red-800 dark:text-red-400">Ventana de 24 horas cerrada</p>
+                            <p className="text-[11px] text-red-650 dark:text-red-400 mt-0.5 leading-relaxed">
+                              Solo podés responder utilizando una plantilla de mensaje (template) o contactándolo directamente por otros canales debido a la restricción de Meta.
                             </p>
                           </div>
                         </div>
-                        <a href={`${cwUrl}/app/accounts/${selected.account_id || ''}/conversations/${selected.id}`}
-                          target="_blank" rel="noreferrer"
-                          className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold rounded-xl transition-colors">
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Abrir en Chatwoot para enviar template
-                        </a>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <a href={`${cwUrl}/app/accounts/${selected.account_id || ''}/conversations/${selected.id}`}
+                            target="_blank" rel="noreferrer"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-[12px] font-black rounded-xl transition-all active:scale-[0.98]">
+                            <ExternalLink className="w-4 h-4" />
+                            Abrir en Chatwoot
+                          </a>
+                          {cleanPhone && (
+                            <a href={`https://wa.me/${cleanPhone}`}
+                              target="_blank" rel="noreferrer"
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-black rounded-xl transition-all shadow-sm active:scale-[0.98]">
+                              <MessageCircle className="w-4 h-4" />
+                              Escribir por WhatsApp
+                            </a>
+                          )}
+                        </div>
                       </div>
                     );
                   }
