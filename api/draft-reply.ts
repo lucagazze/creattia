@@ -232,8 +232,9 @@ ${isDM ? '6. Take into account the full conversation history above to understand
             contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
             generationConfig: {
               temperature: 0.3,
-              maxOutputTokens: isDM ? 300 : 200,
+              maxOutputTokens: isDM ? 600 : 400,
             },
+            thinkingConfig: { thinkingBudget: 0 },
           }),
         }
       );
