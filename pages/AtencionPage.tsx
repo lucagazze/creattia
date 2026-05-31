@@ -130,19 +130,37 @@ export default function AtencionPage() {
     }
   };
 
-  const filtered = conversations.filter(c => {
-    if (!search.trim()) return true;
-    const s = search.toLowerCase();
-    const name = (c.meta?.sender?.name || c.contact_inbox?.contact?.name || '').toLowerCase();
-    const phone = c.meta?.sender?.phone_number || '';
-    const email = (c.meta?.sender?.email || '').toLowerCase();
-    const id = String(c.id);
-    const lastMsg = (c.messages?.[0]?.content || '').toLowerCase();
-    return name.includes(s) || phone.includes(s) || email.includes(s) || id.includes(s) || lastMsg.includes(s);
-  });
+  const [assignFilter, setAssignFilter] = useState<'all' | 'mine' | 'unassigned'>('all');
 
   const contact = (c: any) => c.meta?.sender || c.contact_inbox?.contact || {};
-  const isWhatsApp = (c: any) => (c.channel || '').toLowerCase().includes('whatsapp');
+  const getChannel = (c: any) => {
+    const ch = (c.channel || c.inbox?.channel_type || '').toLowerCase();
+    if (ch.includes('whatsapp')) return 'whatsapp';
+    if (ch.includes('instagram')) return 'instagram';
+    if (ch.includes('facebook') || ch.includes('page')) return 'facebook';
+    if (ch.includes('email')) return 'email';
+    return 'other';
+  };
+  const CHANNEL_ICON: Record<string, string> = { whatsapp: '📱', instagram: '📸', facebook: '📘', email: '📧', other: '💬' };
+  const CHANNEL_COLOR: Record<string, string> = { whatsapp: 'bg-emerald-500', instagram: 'bg-pink-500', facebook: 'bg-blue-600', email: 'bg-violet-500', other: 'bg-zinc-500' };
+
+  const assignFiltered = conversations.filter(c => {
+    if (assignFilter === 'unassigned') return !c.meta?.assignee;
+    if (assignFilter === 'mine') return !!c.meta?.assignee;
+    return true;
+  });
+
+  const filtered = assignFiltered.filter(c => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    const name = (c.meta?.sender?.name || '').toLowerCase();
+    const phone = c.meta?.sender?.phone_number || '';
+    const email = (c.meta?.sender?.email || '').toLowerCase();
+    const lastMsg = (c.messages?.[0]?.content || '').toLowerCase();
+    return name.includes(s) || phone.includes(s) || email.includes(s) || String(c.id).includes(s) || lastMsg.includes(s);
+  });
+
+  const unassignedCount = conversations.filter(c => !c.meta?.assignee).length;
 
   if (!cwUrl || !cwToken) {
     return (
@@ -194,34 +212,40 @@ export default function AtencionPage() {
         {/* LEFT: conversation list */}
         <div className="w-[300px] flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
 
-          {/* Search + status filter */}
-          <div className="p-3 space-y-2 border-b border-zinc-100 dark:border-zinc-800">
+          {/* Search */}
+          <div className="p-3 border-b border-zinc-100 dark:border-zinc-800">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
-              <input
-                type="text" placeholder="Buscar..." value={search}
+              <input type="text" placeholder="Buscar contacto, teléfono..." value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-700 dark:text-zinc-300"
-              />
-            </div>
-            <div className="flex gap-1">
-              {(['open', 'resolved', 'pending'] as const).map(s => (
-                <button key={s} onClick={() => setStatusFilter(s)}
-                  className={`flex-1 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${statusFilter === s ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>
-                  {s === 'open' ? 'Abiertos' : s === 'resolved' ? 'Resueltos' : 'Pendientes'}
-                </button>
-              ))}
+                className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-700 dark:text-zinc-300" />
             </div>
           </div>
 
-          {/* Count */}
-          {!loading && conversations.length > 0 && (
-            <div className="px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-              <p className="text-[10px] text-zinc-400 font-medium">
-                {filtered.length} de {conversations.length} chats{search ? ' (filtrados)' : ''}
-              </p>
-            </div>
-          )}
+          {/* Assign tabs */}
+          <div className="flex border-b border-zinc-100 dark:border-zinc-800 text-[11px] font-bold">
+            {[
+              { key: 'all', label: 'Todos', count: conversations.length },
+              { key: 'unassigned', label: 'Sin asignar', count: unassignedCount },
+              { key: 'mine', label: 'Asignados', count: conversations.length - unassignedCount },
+            ].map(t => (
+              <button key={t.key} onClick={() => setAssignFilter(t.key as any)}
+                className={`flex-1 py-2 flex items-center justify-center gap-1 transition-colors border-b-2 ${assignFilter === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}>
+                {t.label}
+                {t.count > 0 && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${assignFilter === t.key ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>{t.count}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Status filter */}
+          <div className="flex gap-1 p-2 border-b border-zinc-100 dark:border-zinc-800">
+            {(['open', 'resolved', 'pending'] as const).map(s => (
+              <button key={s} onClick={() => setStatusFilter(s)}
+                className={`flex-1 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${statusFilter === s ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>
+                {s === 'open' ? 'Abiertos' : s === 'resolved' ? 'Resueltos' : 'Pendientes'}
+              </button>
+            ))}
+          </div>
 
           {/* List */}
           <div className="flex-1 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60">
@@ -240,27 +264,38 @@ export default function AtencionPage() {
             ) : filtered.map(conv => {
               const c = contact(conv);
               const lastMsg = conv.messages?.[0];
-              const isWA = isWhatsApp(conv);
+              const ch = getChannel(conv);
               const isSelected = selected?.id === conv.id;
+              const unread = conv.unread_count || 0;
+              const isUnread = unread > 0;
               return (
                 <button key={conv.id} onClick={() => loadMessages(conv)}
-                  className={`w-full text-left px-3 py-3 flex items-start gap-2.5 transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-500/10' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50'}`}>
+                  className={`w-full text-left px-3 py-3 flex items-start gap-2.5 transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-500/10' : isUnread ? 'bg-zinc-50/80 dark:bg-zinc-900/60' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50'}`}>
                   <div className="relative flex-shrink-0">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-black ${isWA ? 'bg-emerald-500' : 'bg-violet-500'}`}>
-                      {isWA ? '📱' : (c.name?.[0] || '?')}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black ${CHANNEL_COLOR[ch]}`}>
+                      {CHANNEL_ICON[ch]}
                     </div>
-                    <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-zinc-950 ${STATUS_COLORS[conv.status] || 'bg-zinc-300'}`} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
-                      <span className={`text-[12px] font-bold truncate ${isSelected ? 'text-blue-700 dark:text-blue-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                      <span className={`text-[12px] truncate ${isUnread ? 'font-black text-zinc-900 dark:text-white' : 'font-semibold text-zinc-700 dark:text-zinc-300'}`}>
                         {c.name || `#${conv.id}`}
                       </span>
-                      <span className="text-[10px] text-zinc-400 flex-shrink-0">{fmtTime(conv.last_activity_at)}</span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="text-[10px] text-zinc-400">{fmtTime(conv.last_activity_at)}</span>
+                        {unread > 0 && (
+                          <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center">{unread > 9 ? '9+' : unread}</span>
+                        )}
+                      </div>
                     </div>
-                    {c.phone_number && <p className="text-[10px] text-zinc-400 font-mono">{c.phone_number}</p>}
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-[9px] text-zinc-400 uppercase font-bold">{ch}</span>
+                      {c.phone_number && <><span className="text-zinc-300 dark:text-zinc-700">·</span><span className="text-[10px] text-zinc-400 font-mono truncate">{c.phone_number}</span></>}
+                    </div>
                     {lastMsg?.content && (
-                      <p className="text-[11px] text-zinc-500 truncate mt-0.5 italic">"{lastMsg.content}"</p>
+                      <p className={`text-[11px] truncate mt-0.5 ${isUnread ? 'text-zinc-700 dark:text-zinc-300 font-semibold' : 'text-zinc-400 italic'}`}>
+                        {lastMsg.content}
+                      </p>
                     )}
                   </div>
                 </button>
@@ -287,14 +322,14 @@ export default function AtencionPage() {
             <>
               {/* Chat header */}
               <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center gap-3 flex-shrink-0">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black flex-shrink-0 ${isWhatsApp(selected) ? 'bg-emerald-500' : 'bg-violet-500'}`}>
-                  {isWhatsApp(selected) ? '📱' : (contact(selected).name?.[0] || '?')}
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
+                  {CHANNEL_ICON[getChannel(selected)]}
                 </div>
                 <div>
                   <p className="text-[14px] font-bold text-zinc-900 dark:text-white">{contact(selected).name || `Conversación #${selected.id}`}</p>
                   <div className="flex items-center gap-2">
                     {contact(selected).phone_number && <span className="text-[11px] text-zinc-400 font-mono">{contact(selected).phone_number}</span>}
-                    {isWhatsApp(selected) && <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">WhatsApp</span>}
+                    <span className="text-[9px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-1.5 py-0.5 rounded-full uppercase">{getChannel(selected)}</span>
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full text-white ${STATUS_COLORS[selected.status] || 'bg-zinc-400'}`}>
                       {selected.status === 'open' ? 'Abierto' : selected.status === 'resolved' ? 'Resuelto' : 'Pendiente'}
                     </span>
