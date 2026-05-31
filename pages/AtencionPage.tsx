@@ -1,281 +1,325 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { chatwoot } from '../services/chatwoot';
 import {
-  MessageSquare, Clock, CheckCircle, RefreshCw, AlertCircle,
-  Loader2, ExternalLink, Inbox, Users, TrendingUp, Zap
+  RefreshCw, AlertCircle, Loader2, Send, Sparkles,
+  Search, CheckCircle, Clock, Inbox, ExternalLink
 } from 'lucide-react';
 
-const fmtSeconds = (secs: number) => {
-  if (!secs || isNaN(secs)) return '—';
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${Math.round(secs)}s`;
-};
-
 const fmtTime = (ts: number) => {
-  if (!ts) return '—';
-  return new Date(ts * 1000).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  if (!ts) return '';
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  return isToday
+    ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 };
 
-const StatCard = ({ label, value, sub, icon: Icon, color }: any) => (
-  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800 rounded-2xl p-5 flex flex-col gap-3">
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">{label}</span>
-      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon className="w-4 h-4 text-white" />
-      </div>
-    </div>
-    <div>
-      <p className="text-[28px] font-black text-zinc-900 dark:text-white leading-none">{value}</p>
-      {sub && <p className="text-[11px] text-zinc-400 font-medium mt-1">{sub}</p>}
-    </div>
-  </div>
-);
+const fmtSeconds = (s: number) => {
+  if (!s || isNaN(s)) return '—';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m` : `${Math.round(s)}s`;
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  open: 'bg-blue-500',
+  resolved: 'bg-emerald-500',
+  pending: 'bg-amber-500',
+};
 
 export default function AtencionPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
 
-  const chatwootUrl = (profile as any)?.chatwoot_url;
-  const chatwootToken = (profile as any)?.chatwoot_token;
+  const cwUrl = (profile as any)?.chatwoot_url;
+  const cwToken = (profile as any)?.chatwoot_token;
 
+  const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [overview, setOverview] = useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState<'open' | 'resolved' | 'pending'>('open');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [summary, setSummary] = useState<any>(null);
-  const [openConvs, setOpenConvs] = useState<any[]>([]);
-  const [resolvedConvs, setResolvedConvs] = useState<any[]>([]);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const loadData = useCallback(async () => {
-    if (!chatwootUrl || !chatwootToken) return;
+  const loadConversations = useCallback(async () => {
+    if (!cwUrl || !cwToken) return;
     setLoading(true);
     setError(null);
     try {
-      const now = Math.floor(Date.now() / 1000);
-      const startOfDay = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
-      const [ov, sm, opens, resolved] = await Promise.all([
-        chatwoot.getOverview(chatwootUrl, chatwootToken).catch(() => null),
-        chatwoot.getSummary(chatwootUrl, chatwootToken, startOfDay, now).catch(() => null),
-        chatwoot.getConversations(chatwootUrl, chatwootToken, 'open').catch(() => []),
-        chatwoot.getConversations(chatwootUrl, chatwootToken, 'resolved').catch(() => []),
+      const [convs, sm] = await Promise.all([
+        chatwoot.getConversations(cwUrl, cwToken, statusFilter),
+        chatwoot.getSummary(cwUrl, cwToken, Math.floor(new Date().setHours(0,0,0,0)/1000), Math.floor(Date.now()/1000)).catch(() => null),
       ]);
-      setOverview(ov);
+      setConversations(convs);
       setSummary(sm);
-      setOpenConvs(opens);
-      setResolvedConvs(resolved.slice(0, 10));
-      setLastUpdated(new Date());
-    } catch (err: any) {
-      setError(err.message || 'Error al conectar con Chatwoot');
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [chatwootUrl, chatwootToken]);
+  }, [cwUrl, cwToken, statusFilter]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  if (!chatwootUrl || !chatwootToken) {
+  const loadMessages = useCallback(async (conv: any) => {
+    if (!cwUrl || !cwToken) return;
+    setSelected(conv);
+    setMessages([]);
+    setReply('');
+    setSendError(null);
+    setLoadingMsgs(true);
+    try {
+      const msgs = await chatwoot.getMessages(cwUrl, cwToken, conv.id);
+      setMessages(msgs.sort((a: any, b: any) => a.created_at - b.created_at));
+    } catch (e: any) {
+      setMessages([]);
+    } finally {
+      setLoadingMsgs(false);
+    }
+  }, [cwUrl, cwToken]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reply.trim() || !selected || !cwUrl || !cwToken) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const sent = await chatwoot.sendMessage(cwUrl, cwToken, selected.id, reply.trim());
+      setMessages(prev => [...prev, { ...sent, created_at: Date.now() / 1000 }]);
+      setReply('');
+    } catch (e: any) {
+      setSendError('No se pudo enviar. Verificá el token de Chatwoot.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const filtered = conversations.filter(c => {
+    if (!search.trim()) return true;
+    const name = c.meta?.sender?.name || c.contact_inbox?.contact?.name || '';
+    const phone = c.meta?.sender?.phone_number || '';
+    return name.toLowerCase().includes(search.toLowerCase()) || phone.includes(search);
+  });
+
+  const contact = (c: any) => c.meta?.sender || c.contact_inbox?.contact || {};
+  const isWhatsApp = (c: any) => (c.channel || '').toLowerCase().includes('whatsapp');
+
+  if (!cwUrl || !cwToken) {
     return (
-      <div className="max-w-[900px] mx-auto space-y-8 animate-in fade-in duration-300">
-        <div>
-          <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full mb-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Módulo A
-          </div>
-          <h1 className="text-[24px] font-bold tracking-tight text-zinc-900 dark:text-white">Atención al Cliente</h1>
-        </div>
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 flex items-start gap-4">
+      <div className="flex items-center justify-center h-full py-24">
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 max-w-md flex items-start gap-4">
           <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="font-bold text-amber-800 dark:text-amber-400 text-[14px]">Chatwoot no configurado</h3>
-            <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1">
-              Este cliente no tiene Chatwoot configurado. Completá la URL y el token en Administración → Gestión de Clientes.
-            </p>
+            <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1">Completá la URL y el token en Administración → Gestión de Clientes.</p>
           </div>
         </div>
       </div>
     );
   }
 
-  const openCount = overview?.open_conversations_count ?? openConvs.length;
-  const pendingCount = overview?.pending_conversations_count ?? 0;
-  const unattendedCount = overview?.unattended_conversations_count ?? 0;
-  const avgFirstResponse = summary?.avg_first_response_time ?? 0;
-  const avgResolution = summary?.avg_resolution_time ?? 0;
-  const resolvedToday = summary?.resolutions_count ?? resolvedConvs.length;
-
   return (
-    <div className="max-w-[1200px] mx-auto space-y-6 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full mb-2">
+    <div className="flex flex-col h-[calc(100vh-64px)] -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
+
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            En vivo · Chatwoot
+            Atención · Chatwoot
           </div>
-          <h1 className="text-[24px] font-bold tracking-tight text-zinc-900 dark:text-white">Atención al Cliente</h1>
-          {lastUpdated && (
-            <p className="text-[11px] text-zinc-400 mt-0.5">Actualizado {lastUpdated.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</p>
+          {summary && (
+            <div className="hidden sm:flex items-center gap-4 text-[11px] text-zinc-400 font-medium">
+              <span><b className="text-zinc-700 dark:text-zinc-300">{summary.resolutions_count ?? 0}</b> resueltas hoy</span>
+              <span><b className="text-zinc-700 dark:text-zinc-300">{fmtSeconds(summary.avg_first_response_time)}</b> 1er resp.</span>
+              <span><b className="text-zinc-700 dark:text-zinc-300">{fmtSeconds(summary.avg_resolution_time)}</b> resolución</span>
+            </div>
           )}
         </div>
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[12px] font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <a href={cwUrl} target="_blank" rel="noreferrer"
+            className="flex items-center gap-1 text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline">
+            Abrir Chatwoot <ExternalLink className="w-3 h-3" />
+          </a>
+          <button onClick={loadConversations} disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[11px] font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 transition-all disabled:opacity-50">
+            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} /> Actualizar
+          </button>
+        </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-2xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-bold text-red-700 dark:text-red-400 text-[13px]">Error al conectar con Chatwoot</h4>
-            <code className="text-[11px] text-red-600 dark:text-red-500">{error}</code>
-          </div>
-        </div>
-      )}
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
 
-      {loading && !overview && !openConvs.length ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <Loader2 className="w-7 h-7 animate-spin text-emerald-500" />
-          <p className="text-[13px] text-zinc-400 font-medium">Cargando datos de Chatwoot...</p>
-        </div>
-      ) : (
-        <>
-          {/* Stat cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Conversaciones abiertas" value={openCount} sub="En este momento" icon={Inbox} color="bg-blue-500" />
-            <StatCard label="Resueltas hoy" value={resolvedToday} sub="Desde las 00:00" icon={CheckCircle} color="bg-emerald-500" />
-            <StatCard label="1er tiempo de respuesta" value={fmtSeconds(avgFirstResponse)} sub="Promedio hoy" icon={Clock} color="bg-violet-500" />
-            <StatCard label="Tiempo de resolución" value={fmtSeconds(avgResolution)} sub="Promedio hoy" icon={TrendingUp} color="bg-orange-500" />
-          </div>
+        {/* LEFT: conversation list */}
+        <div className="w-[300px] flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
 
-          {/* Secondary stats */}
-          {(pendingCount > 0 || unattendedCount > 0) && (
-            <div className="grid grid-cols-2 gap-4">
-              {pendingCount > 0 && (
-                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 flex items-center gap-3">
-                  <Zap className="w-5 h-5 text-amber-500" />
-                  <div>
-                    <p className="text-[20px] font-black text-amber-700 dark:text-amber-400">{pendingCount}</p>
-                    <p className="text-[11px] text-amber-600 dark:text-amber-500 font-bold">Pendientes de asignar</p>
-                  </div>
-                </div>
-              )}
-              {unattendedCount > 0 && (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-2xl p-4 flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
-                  <div>
-                    <p className="text-[20px] font-black text-red-700 dark:text-red-400">{unattendedCount}</p>
-                    <p className="text-[11px] text-red-600 dark:text-red-500 font-bold">Sin atender</p>
-                  </div>
-                </div>
-              )}
+          {/* Search + status filter */}
+          <div className="p-3 space-y-2 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+              <input
+                type="text" placeholder="Buscar..." value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-700 dark:text-zinc-300"
+              />
             </div>
-          )}
+            <div className="flex gap-1">
+              {(['open', 'resolved', 'pending'] as const).map(s => (
+                <button key={s} onClick={() => setStatusFilter(s)}
+                  className={`flex-1 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${statusFilter === s ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>
+                  {s === 'open' ? 'Abiertos' : s === 'resolved' ? 'Resueltos' : 'Pendientes'}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          {/* Agents overview */}
-          {overview?.agents && overview.agents.length > 0 && (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
-                <Users className="w-4 h-4 text-zinc-400" />
-                <h3 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Agentes activos</h3>
+          {/* List */}
+          <div className="flex-1 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800/60">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
               </div>
-              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {overview.agents.map((agent: any) => (
-                  <div key={agent.id} className="px-5 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-950/30 flex items-center justify-center text-[12px] font-black text-violet-600 dark:text-violet-400">
-                          {agent.name?.[0]?.toUpperCase() || '?'}
-                        </div>
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-zinc-900 ${
-                          agent.availability_status === 'online' ? 'bg-emerald-400' :
-                          agent.availability_status === 'busy' ? 'bg-amber-400' : 'bg-zinc-300'
-                        }`} />
-                      </div>
-                      <div>
-                        <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">{agent.name}</p>
-                        <p className="text-[10px] text-zinc-400 capitalize">{agent.availability_status || 'offline'}</p>
-                      </div>
+            ) : error ? (
+              <div className="p-4 text-[11px] text-red-500">{error}</div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-400">
+                <Inbox className="w-6 h-6" />
+                <p className="text-[12px] font-medium">Sin conversaciones</p>
+              </div>
+            ) : filtered.map(conv => {
+              const c = contact(conv);
+              const lastMsg = conv.messages?.[0];
+              const isWA = isWhatsApp(conv);
+              const isSelected = selected?.id === conv.id;
+              return (
+                <button key={conv.id} onClick={() => loadMessages(conv)}
+                  className={`w-full text-left px-3 py-3 flex items-start gap-2.5 transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-500/10' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50'}`}>
+                  <div className="relative flex-shrink-0">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-black ${isWA ? 'bg-emerald-500' : 'bg-violet-500'}`}>
+                      {isWA ? '📱' : (c.name?.[0] || '?')}
                     </div>
-                    <span className="text-[12px] font-black text-zinc-600 dark:text-zinc-300">
-                      {agent.open_conversations_count ?? 0} <span className="text-zinc-400 font-normal">conv.</span>
+                    <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-zinc-950 ${STATUS_COLORS[conv.status] || 'bg-zinc-300'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className={`text-[12px] font-bold truncate ${isSelected ? 'text-blue-700 dark:text-blue-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
+                        {c.name || `#${conv.id}`}
+                      </span>
+                      <span className="text-[10px] text-zinc-400 flex-shrink-0">{fmtTime(conv.last_activity_at)}</span>
+                    </div>
+                    {c.phone_number && <p className="text-[10px] text-zinc-400 font-mono">{c.phone_number}</p>}
+                    {lastMsg?.content && (
+                      <p className="text-[11px] text-zinc-500 truncate mt-0.5 italic">"{lastMsg.content}"</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT: chat panel */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-zinc-900/30">
+          {!selected ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
+              <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">💬</div>
+              <p className="text-[14px] font-medium">Seleccioná una conversación</p>
+            </div>
+          ) : (
+            <>
+              {/* Chat header */}
+              <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center gap-3 flex-shrink-0">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black flex-shrink-0 ${isWhatsApp(selected) ? 'bg-emerald-500' : 'bg-violet-500'}`}>
+                  {isWhatsApp(selected) ? '📱' : (contact(selected).name?.[0] || '?')}
+                </div>
+                <div>
+                  <p className="text-[14px] font-bold text-zinc-900 dark:text-white">{contact(selected).name || `Conversación #${selected.id}`}</p>
+                  <div className="flex items-center gap-2">
+                    {contact(selected).phone_number && <span className="text-[11px] text-zinc-400 font-mono">{contact(selected).phone_number}</span>}
+                    {isWhatsApp(selected) && <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">WhatsApp</span>}
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full text-white ${STATUS_COLORS[selected.status] || 'bg-zinc-400'}`}>
+                      {selected.status === 'open' ? 'Abierto' : selected.status === 'resolved' ? 'Resuelto' : 'Pendiente'}
                     </span>
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Open conversations list */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/70 dark:border-zinc-800 rounded-2xl overflow-hidden">
-            <div className="px-5 py-3 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-zinc-400" />
-                <h3 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Conversaciones abiertas</h3>
-              </div>
-              <a
-                href={chatwootUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline"
-              >
-                Abrir Chatwoot <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-
-            {openConvs.length === 0 ? (
-              <div className="py-12 text-center">
-                <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                <p className="text-[13px] text-zinc-400 font-semibold">Sin conversaciones abiertas</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {openConvs.slice(0, 15).map((conv: any) => {
-                  const contact = conv.meta?.sender || conv.contact_inbox?.contact || {};
-                  const lastMsg = conv.messages?.[0];
-                  const channel = conv.channel || conv.inbox?.channel_type || '';
-                  const isWhatsApp = channel.toLowerCase().includes('whatsapp');
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                {loadingMsgs ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center py-12 text-zinc-400 text-[13px]">Sin mensajes</div>
+                ) : messages.map((msg: any) => {
+                  const isMe = msg.message_type === 1; // 1 = outgoing
+                  const isActivity = msg.message_type === 2; // 2 = activity
+                  if (isActivity) return (
+                    <div key={msg.id} className="flex justify-center">
+                      <span className="text-[10px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">{msg.content}</span>
+                    </div>
+                  );
                   return (
-                    <div key={conv.id} className="px-5 py-3 flex items-center gap-4 hover:bg-zinc-50/60 dark:hover:bg-zinc-800/30 transition-colors">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[13px] flex-shrink-0 ${isWhatsApp ? 'bg-emerald-500' : 'bg-violet-500'}`}>
-                        {isWhatsApp ? '📱' : contact.name?.[0]?.toUpperCase() || '?'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{contact.name || `Conv #${conv.id}`}</span>
-                          {contact.phone_number && <span className="text-[10px] text-zinc-400 font-mono flex-shrink-0">{contact.phone_number}</span>}
-                          {isWhatsApp && <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-full flex-shrink-0">WhatsApp</span>}
-                        </div>
-                        {lastMsg?.content && (
-                          <p className="text-[11px] text-zinc-400 truncate mt-0.5 italic">"{lastMsg.content}"</p>
-                        )}
-                      </div>
-                      <div className="flex-shrink-0 text-right">
-                        <p className="text-[10px] text-zinc-400">{fmtTime(conv.last_activity_at)}</p>
-                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full mt-0.5 inline-block ${
-                          conv.status === 'open' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' : 'bg-zinc-100 text-zinc-500'
-                        }`}>
-                          {conv.status === 'open' ? 'Abierto' : conv.status}
-                        </span>
+                    <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                      <span className="text-[9px] text-zinc-400 font-medium mb-0.5 px-2">
+                        {isMe ? 'Agente' : (contact(selected).name || 'Cliente')} · {fmtTime(msg.created_at)}
+                      </span>
+                      <div className={`max-w-[70%] rounded-[18px] px-4 py-2.5 text-[13px] leading-relaxed ${
+                        isMe
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 shadow-sm'
+                      }`}>
+                        {msg.content || <span className="italic opacity-60">📎 Archivo adjunto</span>}
                       </div>
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
-            )}
-          </div>
-        </>
-      )}
+
+              {/* Reply box */}
+              <div className="px-5 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0">
+                {sendError && (
+                  <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl text-[11px] text-red-600 dark:text-red-400 flex items-center gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {sendError}
+                  </div>
+                )}
+                <form onSubmit={handleSend} className="flex gap-3 items-end">
+                  <textarea
+                    value={reply}
+                    onChange={e => setReply(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }}}
+                    placeholder="Escribí tu respuesta... (Enter para enviar)"
+                    rows={2}
+                    className="flex-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-[13px] text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all resize-none"
+                  />
+                  <button type="submit" disabled={!reply.trim() || sending}
+                    className="flex items-center gap-1.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-bold rounded-2xl transition-all shadow-sm flex-shrink-0">
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    Enviar
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
