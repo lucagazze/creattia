@@ -1632,60 +1632,130 @@ export default function AdminPage() {
                         )}
                       </SectionBox>
 
-                      {/* Meta Ads & Instagram */}
+                      {/* Redes Sociales y Meta Ads */}
                       <SectionBox
-                        title="Meta Ads & Instagram"
-                        badge="C — Captación"
-                        status={statuses.meta}
+                        title="Redes Sociales & Meta Ads"
+                        badge="Meta — Integración"
+                        status={
+                          statuses.facebook === "error" || statuses.meta === "error" || statuses.instagram === "error"
+                            ? "error"
+                            : (statuses.facebook === "ok" || statuses.meta === "ok" || statuses.instagram === "ok")
+                              ? "ok"
+                              : null
+                        }
                       >
-                        <Field label="Cuenta publicitaria de Meta">
-                          <select
-                            value={editForm.meta_account_id}
-                            onChange={(e) => ef("meta_account_id", e.target.value)}
-                            className={inputCls}
+                        <div className="space-y-4">
+                          {/* 1. Meta Ads Account */}
+                          <Field label="Cuenta publicitaria de Meta (Captación)">
+                            <select
+                              value={editForm.meta_account_id}
+                              onChange={(e) => ef("meta_account_id", e.target.value)}
+                              className={inputCls}
+                            >
+                              <option value="">Seleccionar cuenta...</option>
+                              {metaAccounts.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {acc.name} ({acc.id})
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                          <button
+                            type="button"
+                            onClick={testMeta}
+                            disabled={testingMeta || !editForm.meta_account_id}
+                            className="w-full h-9 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
                           >
-                            <option value="">Seleccionar cuenta...</option>
-                            {metaAccounts.map((acc) => (
-                              <option key={acc.id} value={acc.id}>
-                                {acc.name} ({acc.id})
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                        <button
-                          type="button"
-                          onClick={testMeta}
-                          disabled={testingMeta || !editForm.meta_account_id}
-                          className="w-full h-9 mt-2 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
-                        >
-                          {testingMeta ? <Loader2 className="w-3 h-3 animate-spin" /> : <Facebook className="w-3 h-3" />}
-                          Probar Conexión Meta
-                        </button>
+                            {testingMeta ? <Loader2 className="w-3 h-3 animate-spin" /> : <Facebook className="w-3 h-3" />}
+                            Probar Conexión Meta Ads
+                          </button>
 
-                        {/* Instagram fields */}
-                        <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700/60">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 flex items-center justify-center">
-                              <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                            </div>
-                            <span className="text-[11px] font-bold uppercase tracking-[0.07em] text-zinc-500 dark:text-zinc-400">Instagram Business</span>
-                            {editForm.ig_business_id && (
-                              <span className="text-[10px] bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 px-2 py-0.5 rounded-full font-bold border border-pink-200 dark:border-pink-500/20">Configurado</span>
+                          {/* 2. Page & Token status */}
+                          <div className="mt-4 pt-4 border-t border-zinc-150 dark:border-zinc-800 space-y-4">
+                            <span className="text-[11.5px] font-black uppercase tracking-[0.07em] text-zinc-550 dark:text-zinc-400 block">Conexión de Redes Sociales (Facebook/Instagram)</span>
+                            {editingClient && (editingClient as any).fb_page_access_token ? (
+                              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-400 font-bold leading-normal">
+                                <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                                <div>
+                                  <p>Redes Sociales: Conectado ✓ — Mensajes, comentarios e Instagram activos</p>
+                                  <p className="text-[9.5px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-0.5">
+                                    Página vinculada: {(editingClient as any).fb_page_name || editingClient.fb_page_id}
+                                    {(editingClient as any).ig_username ? ` · Instagram: @${(editingClient as any).ig_username}` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 font-bold leading-normal">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                <div>
+                                  <p>Sin token de Facebook Page — mensajería y comentarios no funcionan</p>
+                                  <p className="text-[9.5px] text-amber-600/80 dark:text-amber-400/80 font-medium mt-0.5">Conectá la cuenta de Meta del negocio desde el botón de abajo.</p>
+                                </div>
+                              </div>
                             )}
+
+                            {/* Admin connect button */}
+                            <button
+                              type="button"
+                              onClick={handleConnectFacebookForClient}
+                              className="w-full h-9 rounded-lg bg-[#1877F2] hover:bg-[#166FE5] text-white text-[11px] font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-[#1877F2]/20"
+                            >
+                              <Facebook className="w-3.5 h-3.5" />
+                              {(editingClient as any)?.fb_page_access_token ? 'Reconectar Facebook/Instagram para este cliente' : 'Conectar Facebook/Instagram para este cliente'}
+                            </button>
+                            <p className="text-[9px] text-zinc-400 dark:text-zinc-555 text-center -mt-1 leading-normal">
+                              Vas a iniciar sesión con tu cuenta de Meta → seleccionás la página de Facebook del cliente y su cuenta de Instagram vinculada se asociará automáticamente.
+                            </p>
                           </div>
-                          <div className="space-y-4">
-                            <Field label="Seleccionar Cuenta de Instagram Vinculada">
-                              <div className="flex gap-2">
+
+                          {/* 3. Facebook Page & Instagram selectors side-by-side */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4 pt-4 border-t border-zinc-150 dark:border-zinc-800">
+                            {/* Facebook Page Selection */}
+                            <Field label="Página de Facebook Vinculada">
+                              <div className="flex gap-1.5">
+                                <select
+                                  value={editForm.fb_page_id || ""}
+                                  onChange={(e) => handleSelectFbPage(e.target.value)}
+                                  className={`${inputCls} flex-1`}
+                                  disabled={loadingFbPages}
+                                >
+                                  <option value="">-- Seleccionar página --</option>
+                                  {discoveredFbPages.map((page) => (
+                                    <option key={page.id} value={page.id}>
+                                      {page.name} ({page.id})
+                                    </option>
+                                  ))}
+                                  {editForm.fb_page_id && !discoveredFbPages.some(page => page.id === editForm.fb_page_id) && (
+                                    <option value={editForm.fb_page_id}>
+                                      {editForm.fb_page_name || "Página actual"} ({editForm.fb_page_id})
+                                    </option>
+                                  )}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => loadDiscoveredFbPages(false)}
+                                  disabled={loadingFbPages}
+                                  title="Refrescar páginas"
+                                  className="px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 flex items-center justify-center transition-all"
+                                >
+                                  <RefreshCw className={`w-3.5 h-3.5 ${loadingFbPages ? "animate-spin" : ""}`} />
+                                </button>
+                              </div>
+                            </Field>
+
+                            {/* Instagram Selection */}
+                            <Field label="Cuenta de Instagram Vinculada">
+                              <div className="flex gap-1.5">
                                 <select
                                   value={editForm.ig_business_id || ""}
                                   onChange={(e) => handleSelectIgAccount(e.target.value)}
                                   className={`${inputCls} flex-1`}
                                   disabled={loadingIgAccounts}
                                 >
-                                  <option value="">-- Seleccionar cuenta auto-detectada --</option>
+                                  <option value="">-- Seleccionar cuenta --</option>
                                   {discoveredIgAccounts.map((acc) => (
                                     <option key={acc.igId} value={acc.igId}>
-                                      {acc.name || acc.username} (@{acc.username}) — FB Page: {acc.pageName}
+                                      {acc.name || acc.username} (@{acc.username})
                                     </option>
                                   ))}
                                   {editForm.ig_business_id && !discoveredIgAccounts.some(acc => acc.igId === editForm.ig_business_id) && (
@@ -1698,22 +1768,47 @@ export default function AdminPage() {
                                   type="button"
                                   onClick={() => loadDiscoveredIgAccounts(false)}
                                   disabled={loadingIgAccounts}
-                                  title="Sincronizar/Refrescar cuentas desde Meta"
-                                  className="px-3 rounded-lg border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center transition-all"
+                                  title="Refrescar cuentas"
+                                  className="px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 flex items-center justify-center transition-all"
                                 >
                                   <RefreshCw className={`w-3.5 h-3.5 ${loadingIgAccounts ? "animate-spin" : ""}`} />
                                 </button>
                               </div>
                             </Field>
+                          </div>
 
-                            <div className="border border-zinc-100 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50/50 dark:bg-zinc-800/20">
+                          {/* 4. Test connection buttons */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4 pt-4 border-t border-zinc-150 dark:border-zinc-800">
+                            <button
+                              type="button"
+                              onClick={testFacebookPage}
+                              disabled={testingFbPage || !editForm.fb_page_id}
+                              className="h-9 rounded-lg border border-zinc-250 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-750 dark:text-zinc-300 text-[11px] font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center justify-center gap-1.5"
+                            >
+                              {testingFbPage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Facebook className="w-3.5 h-3.5" />}
+                              Probar Página Facebook
+                            </button>
+                            <button
+                              type="button"
+                              onClick={testInstagram}
+                              disabled={testingIg || !editForm.ig_business_id}
+                              className="h-9 rounded-lg border border-zinc-250 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-750 dark:text-zinc-300 text-[11px] font-bold hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center justify-center gap-1.5"
+                            >
+                              {testingIg ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>}
+                              Probar Cuenta Instagram
+                            </button>
+                          </div>
+
+                          {/* 5. Manual configurations details drop downs */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+                            <div className="border border-zinc-100 dark:border-zinc-800 rounded-lg p-2.5 bg-zinc-50/50 dark:bg-zinc-800/20">
                               <details className="group">
                                 <summary className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 cursor-pointer select-none flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
                                   <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
-                                  Configuración Manual / Detalles del ID
+                                  Detalles Manuales Instagram
                                 </summary>
-                                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <Field label="Instagram Business ID Manual">
+                                <div className="mt-2 space-y-2">
+                                  <Field label="Instagram ID">
                                     <input
                                       type="text"
                                       value={editForm.ig_business_id || ""}
@@ -1722,7 +1817,7 @@ export default function AdminPage() {
                                       className={inputCls}
                                     />
                                   </Field>
-                                  <Field label="Instagram Username Manual (sin @)">
+                                  <Field label="Instagram Username (sin @)">
                                     <input
                                       type="text"
                                       value={editForm.ig_username || ""}
@@ -1735,100 +1830,13 @@ export default function AdminPage() {
                               </details>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={testInstagram}
-                              disabled={testingIg || !editForm.ig_business_id}
-                              className="w-full h-9 rounded-lg border border-pink-200 dark:border-pink-500/30 bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[11px] font-bold hover:bg-pink-100 transition-all flex items-center justify-center gap-2"
-                            >
-                              {testingIg ? <Loader2 className="w-3 h-3 animate-spin" /> : <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>}
-                              Probar Conexión Instagram
-                            </button>
-                          </div>
-                        </div>
-                      </SectionBox>
-
-                      {/* Facebook Page (Social Hub) */}
-                      <SectionBox
-                        title="Facebook Page (Social Hub)"
-                        badge="f — Facebook"
-                        status={statuses.facebook}
-                      >
-                        <div className="space-y-4">
-                          {editingClient && (editingClient as any).fb_page_access_token ? (
-                            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-400 font-bold leading-normal">
-                              <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <p>Token de Página: Conectado ✓ — Mensajes, comentarios e Instagram activos</p>
-                                <p className="text-[9.5px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-0.5">
-                                  Página: {(editingClient as any).fb_page_name || editingClient.fb_page_id}
-                                  {(editingClient as any).ig_username ? ` · @${(editingClient as any).ig_username}` : ''}
-                                </p>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 font-bold leading-normal">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <p>Sin token de página — mensajería y comentarios no funcionan</p>
-                                <p className="text-[9.5px] text-amber-600/80 dark:text-amber-400/80 font-medium mt-0.5">Conectá la página desde acá abajo o pedile al cliente que lo haga desde su bandeja.</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Admin connect button */}
-                          <button
-                            type="button"
-                            onClick={handleConnectFacebookForClient}
-                            className="w-full h-9 rounded-lg bg-[#1877F2] hover:bg-[#166FE5] text-white text-[11px] font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-[#1877F2]/20"
-                          >
-                            <Facebook className="w-3.5 h-3.5" />
-                            {(editingClient as any)?.fb_page_access_token ? 'Reconectar Facebook para este cliente' : 'Conectar Facebook para este cliente'}
-                          </button>
-                          <p className="text-[9.5px] text-zinc-400 dark:text-zinc-500 text-center -mt-1">
-                            Vas a iniciar sesión con tu Facebook → seleccionás la página del cliente → queda conectado automáticamente.
-                          </p>
-
-                          <Field label="Seleccionar Página de Facebook Vinculada">
-                            <div className="flex gap-2">
-                              <select
-                                value={editForm.fb_page_id || ""}
-                                onChange={(e) => handleSelectFbPage(e.target.value)}
-                                className={`${inputCls} flex-1`}
-                                disabled={loadingFbPages}
-                              >
-                                <option value="">-- Seleccionar página auto-detectada --</option>
-                                {discoveredFbPages.map((page) => (
-                                  <option key={page.id} value={page.id}>
-                                    {page.name} ({page.id})
-                                  </option>
-                                ))}
-                                {editForm.fb_page_id && !discoveredFbPages.some(page => page.id === editForm.fb_page_id) && (
-                                  <option value={editForm.fb_page_id}>
-                                    {editForm.fb_page_name || "Página actual"} ({editForm.fb_page_id})
-                                  </option>
-                                )}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => loadDiscoveredFbPages(false)}
-                                disabled={loadingFbPages}
-                                title="Sincronizar/Refrescar páginas desde Meta"
-                                className="px-3 rounded-lg border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center transition-all"
-                              >
-                                <RefreshCw className={`w-3.5 h-3.5 ${loadingFbPages ? "animate-spin" : ""}`} />
-                              </button>
-                            </div>
-                          </Field>
-
-                          <div className="border border-zinc-100 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50/50 dark:bg-zinc-800/20">
-                            <details className="group" open={!!editForm.fb_page_access_token}>
-                              <summary className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 cursor-pointer select-none flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
-                                <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
-                                Configuración Manual / Detalles del ID y Token
-                              </summary>
-                              <div className="mt-3 space-y-3">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="border border-zinc-100 dark:border-zinc-800 rounded-lg p-2.5 bg-zinc-50/50 dark:bg-zinc-800/20">
+                              <details className="group">
+                                <summary className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 cursor-pointer select-none flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200">
+                                  <ChevronRight className="w-3.5 h-3.5 transition-transform group-open:rotate-90" />
+                                  Detalles Manuales Facebook
+                                </summary>
+                                <div className="mt-2 space-y-2">
                                   <Field label="Facebook Page ID">
                                     <input
                                       type="text"
@@ -1843,35 +1851,24 @@ export default function AdminPage() {
                                       type="text"
                                       value={editForm.fb_page_name || ""}
                                       onChange={(e) => ef("fb_page_name", e.target.value)}
-                                      placeholder="Mi Página de Facebook"
+                                      placeholder="Mi Página"
                                       className={inputCls}
                                     />
                                   </Field>
-                                </div>
-                                <div className="md:col-span-2">
-                                  <Field label="Token de Acceso de Página de Facebook (Cliente)">
+                                  <Field label="Access Token">
                                     <input
                                       type="text"
                                       value={editForm.fb_page_access_token || ""}
                                       onChange={(e) => ef("fb_page_access_token", e.target.value)}
-                                      placeholder="Pega el Token de Acceso aquí (ej: EAARv...)"
-                                      className={`${inputCls} font-mono`}
+                                      placeholder="EAARv..."
+                                      className={inputCls}
                                     />
                                   </Field>
                                 </div>
-                              </div>
-                            </details>
+                              </details>
+                            </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={testFacebookPage}
-                            disabled={testingFbPage || !editForm.fb_page_id}
-                            className="w-full h-9 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
-                          >
-                            {testingFbPage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Facebook className="w-3 h-3" />}
-                            Probar Conexión Facebook
-                          </button>
                         </div>
                       </SectionBox>
 

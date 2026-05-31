@@ -29,6 +29,7 @@ const CerebroPage        = lazy(() => import('../../pages/CerebroPage'));
 const EntradasPage       = lazy(() => import('../../pages/EntradasPage'));
 const ContactosPage      = lazy(() => import('../../pages/ContactosPage'));
 const InformesPage       = lazy(() => import('../../pages/InformesPage'));
+const SimuladorPage      = lazy(() => import('../../pages/SimuladorPage'));
 
 // Minimal skeleton shown while a lazy page chunk is downloading
 const PageSkeleton = () => (
@@ -130,6 +131,7 @@ export const MainLayout = () => {
               <Route path="/cerebro" element={<CerebroPage />} />
               <Route path="/contactos" element={<ContactosPage />} />
               <Route path="/informes" element={<InformesPage />} />
+              <Route path="/simulador" element={<SimuladorPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

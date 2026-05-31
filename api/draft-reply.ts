@@ -120,7 +120,7 @@ ${fewShotExamples.map((ex, i) => `Example ${i + 1}:
     if (ecommerce_platform === 'shopify' && shopify_domain && shopify_access_token) {
       try {
         const cleanDomain = shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const shopifyUrl = `https://${cleanDomain}/admin/api/2024-01/products.json?limit=50&fields=title,handle`;
+        const shopifyUrl = `https://${cleanDomain}/admin/api/2024-01/products.json?limit=250&fields=title,handle,variants`;
         const shopifyRes = await fetch(shopifyUrl, {
           headers: {
             'X-Shopify-Access-Token': shopify_access_token,
@@ -146,7 +146,28 @@ ${fewShotExamples.map((ex, i) => `Example ${i + 1}:
       : (cleanDomainForLink ? `https://${cleanDomainForLink}` : '');
 
     const productsContext = products.length > 0
-      ? `Catálogo de productos de la tienda:\n${products.map(p => `- ${p.title} (Link de compra: https://${cleanDomainForLink}/products/${p.handle})`).join('\n')}`
+      ? `Catálogo de productos de la tienda:\n${products.map(p => {
+          const variantsList = p.variants?.map((v: any) => {
+            const priceStr = v.price ? `${v.price}` : '';
+            const titleStr = v.title && v.title !== 'Default Title' ? v.title : '';
+            return { title: titleStr, price: priceStr };
+          }) || [];
+
+          let priceText = '';
+          if (variantsList.length === 0) {
+            priceText = 'Precio: Consultar';
+          } else if (variantsList.length === 1 && !variantsList[0].title) {
+            priceText = `Precio: $${variantsList[0].price || 'Consultar'}`;
+          } else {
+            const uniquePrices = Array.from(new Set(variantsList.map(v => v.price).filter(Boolean)));
+            if (uniquePrices.length === 1) {
+              priceText = `Precio: $${uniquePrices[0]} (Variantes/Talles disponibles: ${variantsList.map(v => v.title).join(', ')})`;
+            } else {
+              priceText = `Variantes/Talles y Precios: ${variantsList.map(v => `${v.title || 'Única'} a $${v.price}`).join(', ')}`;
+            }
+          }
+          return `- ${p.title}: ${priceText}. Link de compra EXACTO: ${canonicalSiteUrl}/products/${p.handle}`;
+        }).join('\n')}`
       : 'No hay catálogo de productos de Shopify configurado.';
 
     const linksContext = clientLinks.length > 0
@@ -185,7 +206,7 @@ ${fewShotContext ? `\n${fewShotContext}\n` : ''}
 Rules:
 1. ${isDM ? 'Be conversational, premium, and helpful. You can use 1-3 sentences for DMs.' : 'Be extremely concise (maximum 1 or 2 sentences).'}
 2. If they ask about a specific product, availability, price, or how to buy:
-   - Check the Shopify products catalog context above. If a product matches, recommend it and include EXACTLY the corresponding link: https://${cleanDomainForLink}/products/[product-handle]. Do not invent handles.
+   - Check the Shopify products catalog context above. If a product matches, recommend it and include EXACTLY the corresponding link: ${canonicalSiteUrl}/products/[product-handle]. Do not invent handles.
    - If they ask about a specific product that is NOT present in the catalog listed above, you MUST explicitly state that the product is currently not available or not in stock, and invite them to browse the online store at ${canonicalSiteUrl} or offer a matching category link from the custom links context.
 3. If they ask about general shopping, shipping, refunds, exchanges, contact, or FAQs:
    - Search the custom links context above. If a link matches the topic (e.g. shipping policies link, exchanges/refunds link, FAQs link, contact page, WhatsApp group link), recommend that EXACT URL. Never modify, shorten, or reconstruct it.

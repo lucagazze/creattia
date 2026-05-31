@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity, Library, Workflow, Instagram, Inbox, MessageSquare, Brain, Users, TrendingUp
+  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity, Library, Workflow, Instagram, Inbox, MessageSquare, Brain, Users, TrendingUp, Calculator
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -48,12 +48,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/captacion', icon: BarChart2,      label: 'Captación',      condition: !!activeProfile?.meta_account_id },
     { path: '/retencion', icon: Mail,           label: 'Retención',      condition: !!activeProfile?.klaviyo_api_key && hasTag('tienda_online') },
     { path: '/informes',  icon: TrendingUp,     label: 'Informes',       condition: !!activeProfile?.chatwoot_token },
+    { path: '/simulador', icon: Calculator,     label: 'Simulador Financiero', condition: true },
     { path: '/reportes',        icon: FileText, label: 'Reportes',         condition: true },
   ].filter(item => item.condition);
 
   const interactionItems = [
     { path: '/redes-sociales', icon: Instagram, label: 'Publicaciones', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
-    { path: '/mensajeria', icon: Inbox, label: 'Mensajes Directos', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
     { path: '/comentarios', icon: MessageSquare, label: 'Comentarios', condition: !!activeProfile?.meta_account_id || !!(activeProfile as any)?.ig_business_id || !!(activeProfile as any)?.fb_page_id },
     { path: '/email-marketing', icon: Mail,     label: 'Email Marketing',  condition: true },
     { path: '/atencion',  icon: MessageCircle,  label: 'Atención',   condition: !!activeProfile?.chatwoot_token },

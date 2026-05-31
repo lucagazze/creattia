@@ -50,6 +50,124 @@ const fmtSeconds = (s: number) => {
   return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m` : `${Math.round(s)}s`;
 };
 
+const renderMessageContent = (msg: any, contactName = 'Cliente') => {
+  if (!msg) return null;
+
+  // 1. Check if it's an email content type with HTML content
+  const emailHtml = msg.content_attributes?.email?.html_content || msg.content_attributes?.html_content;
+  
+  // Also check if raw content is HTML
+  const rawContent = msg.content || '';
+  const isRawHtml = rawContent.trim().toLowerCase().startsWith('<html') || 
+                    rawContent.trim().toLowerCase().startsWith('<!doctype') || 
+                    (rawContent.includes('<div') && rawContent.includes('</div>')) || 
+                    (rawContent.includes('<p') && rawContent.includes('</p>'));
+
+  const hasHtml = !!emailHtml || isRawHtml;
+  const htmlToRender = emailHtml || rawContent;
+
+  let contentNode = null;
+
+  if (hasHtml) {
+    // Strip script and iframe tags to avoid XSS
+    const cleanHtml = htmlToRender
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+
+    contentNode = (
+      <div 
+        className="email-content-wrapper overflow-x-auto text-left max-w-full text-zinc-800 dark:text-zinc-100 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800"
+      >
+        <div 
+          dangerouslySetInnerHTML={{ __html: cleanHtml }}
+          className="prose dark:prose-invert prose-sm max-w-none break-words email-body"
+        />
+      </div>
+    );
+  } else {
+    // Regular text content with line breaks
+    contentNode = (
+      <span className="whitespace-pre-wrap break-words">{msg.content || ''}</span>
+    );
+  }
+
+  // 2. Render attachments if any
+  const attachments = msg.attachments;
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    return (
+      <div className="space-y-2.5">
+        {msg.content && contentNode}
+        <div className="space-y-2 mt-2 pt-2 border-t border-zinc-200/50 dark:border-zinc-700/50">
+          {attachments.map((att: any, idx: number) => {
+            const fType = (att.file_type || '').toLowerCase();
+            const url = att.data_url || att.data?.url || '';
+            if (!url) return null;
+
+            if (fType.includes('image') || url.match(/\.(jpeg|jpg|gif|png|webp)/i)) {
+              return (
+                <div key={idx} className="relative group max-w-xs">
+                  <img 
+                    src={url} 
+                    alt="Adjunto" 
+                    className="max-h-48 rounded-xl object-cover cursor-pointer hover:opacity-95 transition-opacity border border-zinc-200 dark:border-zinc-700"
+                    onClick={() => window.open(url, '_blank')}
+                  />
+                  <a 
+                    href={url} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-lg text-[10px] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <ExternalLink className="w-3 h-3" /> Ver original
+                  </a>
+                </div>
+              );
+            }
+
+            if (fType.includes('audio') || url.match(/\.(mp3|wav|ogg|m4a)/i)) {
+              return (
+                <div key={idx} className="mt-1">
+                  <audio src={url} controls className="max-w-full h-8" />
+                </div>
+              );
+            }
+
+            if (fType.includes('video') || url.match(/\.(mp4|webm|mov|avi)/i)) {
+              return (
+                <div key={idx} className="max-w-xs mt-1">
+                  <video src={url} controls className="max-h-48 rounded-xl border border-zinc-200 dark:border-zinc-700" />
+                </div>
+              );
+            }
+
+            // Fallback for document/file
+            const fileName = url.split('/').pop()?.split('?')[0] || 'Archivo adjunto';
+            return (
+              <a 
+                key={idx}
+                href={url} 
+                target="_blank" 
+                rel="noreferrer"
+                className="flex items-center gap-2 p-2.5 bg-zinc-55 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-blue-600 dark:text-blue-400 hover:underline text-[12px] font-bold transition-all w-fit"
+              >
+                <Link className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[200px]">{fileName}</span>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // If no attachments, return just the contentNode
+  if (!msg.content && !hasHtml) {
+    return <span className="italic opacity-60">📎 Archivo adjunto</span>;
+  }
+
+  return contentNode;
+};
+
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-blue-500',
   resolved: 'bg-emerald-500',
@@ -114,13 +232,40 @@ export default function AtencionPage() {
     return inbox?.id;
   }, [inboxes]);
 
-  // Load total counts for each channel key
+  // Load inboxes once when credentials are ready
   useEffect(() => {
-    if (!cwUrl || !cwToken || inboxes.length === 0) return;
+    if (!cwUrl || !cwToken) return;
+    const initInboxes = async () => {
+      try {
+        const inboxList = await chatwoot.getInboxes(cwUrl, cwToken).catch(() => []);
+        setInboxes(inboxList);
+      } catch (err) {
+        console.error("Error fetching inboxes on mount:", err);
+      }
+    };
+    initInboxes();
+  }, [cwUrl, cwToken]);
+
+  // Load total counts for each channel key and overall counts immediately in parallel
+  useEffect(() => {
+    if (!cwUrl || !cwToken) return;
 
     const loadChannelMetas = async () => {
-      const metas: Record<string, { all_count: number; unassigned_count: number; assigned_count: number }> = {};
       try {
+        // Fetch overall meta
+        const overallMetaRes = await chatwoot.getConversationsMeta(cwUrl, cwToken, statusFilter).catch(() => null);
+        const mOverall = overallMetaRes?.meta || overallMetaRes;
+        if (mOverall) {
+          setConvMeta({
+            all_count: mOverall.all_count ?? 0,
+            unassigned_count: mOverall.unassigned_count ?? 0,
+            assigned_count: mOverall.assigned_count ?? 0
+          });
+        }
+
+        if (inboxes.length === 0) return;
+
+        const metas: Record<string, { all_count: number; unassigned_count: number; assigned_count: number }> = {};
         await Promise.all(inboxes.map(async (inbox: any) => {
           try {
             const metaRes = await chatwoot.getConversationsMeta(cwUrl, cwToken, statusFilter, inbox.id);
@@ -191,21 +336,18 @@ export default function AtencionPage() {
     setHasMore(false);
     try {
       const inboxId = getInboxIdForChannel(channelFilter);
-      const [firstPageRes, sm, inboxList] = await Promise.all([
+      const [firstPageRes, sm] = await Promise.all([
         chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1, inboxId),
         chatwoot.getSummary(cwUrl, cwToken, Math.floor(new Date().setHours(0,0,0,0)/1000), Math.floor(Date.now()/1000)).catch(() => null),
-        chatwoot.getInboxes(cwUrl, cwToken).catch(() => []),
       ]);
       
       const { payload: firstPayload, hasMore: firstHasMore, meta } = firstPageRes;
       setSummary(sm);
-      setInboxes(inboxList);
       if (meta && channelFilter === 'all') {
         setConvMeta({ all_count: meta.all_count ?? 0, unassigned_count: meta.unassigned_count ?? 0, assigned_count: meta.assigned_count ?? 0 });
       }
       
-      let allConversations = [...firstPayload];
-      setConversations(allConversations);
+      setConversations(firstPayload);
       setHasMore(firstHasMore);
 
     } catch (e: any) {
@@ -995,10 +1137,17 @@ export default function AtencionPage() {
   };
 
   const getComputedActivityTimestamp = (c: any) => {
-    const lastRealMsg = c?.messages?.find((m: any) => m?.message_type !== 2) || c?.last_non_activity_message;
-    const ts = c?.last_activity_at || lastRealMsg?.created_at || c?.messages?.[0]?.created_at || c?.created_at;
+    const sortedMsgs = [...(c?.messages || [])].sort((x, y) => {
+      const timeX = typeof x.created_at === 'number' ? x.created_at : new Date(x.created_at).getTime() / 1000;
+      const timeY = typeof y.created_at === 'number' ? y.created_at : new Date(y.created_at).getTime() / 1000;
+      return timeX - timeY;
+    });
+    const lastRealMsg = [...sortedMsgs].reverse().find((m: any) => m?.message_type !== 2) || c?.last_non_activity_message;
+    const ts = c?.last_activity_at || lastRealMsg?.created_at || c?.created_at;
     if (!ts) return 0;
-    if (typeof ts === 'number') return ts;
+    if (typeof ts === 'number') {
+      return ts > 10000000000 ? ts / 1000 : ts;
+    }
     const d = new Date(ts).getTime();
     return isNaN(d) ? 0 : d / 1000;
   };
@@ -1302,12 +1451,19 @@ export default function AtencionPage() {
               </div>
             ) : filtered.map(conv => {
               const c = contact(conv);
-              const lastRealMsg = conv?.messages?.find((m: any) => m?.message_type !== 2) || conv?.last_non_activity_message;
+              const sortedMsgs = [...(conv?.messages || [])].sort((x, y) => {
+                const timeX = typeof x.created_at === 'number' ? x.created_at : new Date(x.created_at).getTime() / 1000;
+                const timeY = typeof y.created_at === 'number' ? y.created_at : new Date(y.created_at).getTime() / 1000;
+                return timeX - timeY;
+              });
+              const lastRealMsg = [...sortedMsgs].reverse().find((m: any) => m?.message_type !== 2) || 
+                                  conv?.last_non_activity_message || 
+                                  (sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null);
               const lastMsg = lastRealMsg;
               const isSelected = selected?.id === conv?.id;
               const unread = conv?.unread_count || 0;
               const isUnread = unread > 0;
-              const activityTimestamp = conv?.last_activity_at || lastRealMsg?.created_at || conv?.messages?.[0]?.created_at || conv?.created_at;
+              const activityTimestamp = conv?.last_activity_at || lastRealMsg?.created_at || conv?.created_at;
               return (
                 <div key={conv.id}
                   onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, conv }); }}
@@ -1368,7 +1524,7 @@ export default function AtencionPage() {
                         )}
                       </div>
                       
-                      {lastMsg?.content && (
+                      {(lastMsg?.content || lastMsg?.attachments?.length > 0) && (
                         <p className={`text-[11px] truncate mt-0.5 ${
                           isSelected 
                             ? 'text-blue-100' 
@@ -1379,7 +1535,7 @@ export default function AtencionPage() {
                           {lastMsg?.message_type === 1 && (
                             <span className={`font-bold mr-1 ${isSelected ? 'text-blue-100' : 'text-zinc-550 dark:text-zinc-400'}`}>Vos:</span>
                           )}
-                          {lastMsg?.content}
+                          {lastMsg?.content || <span className="opacity-60">📎 Archivo adjunto</span>}
                         </p>
                       )}
                     </div>
@@ -1504,7 +1660,7 @@ export default function AtencionPage() {
                               ? `bg-blue-600 text-white shadow-sm ${msg.pending ? 'opacity-60' : ''}`
                               : 'bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 shadow-sm'
                         }`}>
-                          {msg.content || <span className="italic opacity-60">📎 Archivo adjunto</span>}
+                          {renderMessageContent(msg, contact(selected).name)}
                           {failedMsgIds.has(msg.id) && (
                             <div className="flex items-center gap-1 mt-1 text-[10px] text-red-500 font-bold">
                               <AlertCircle className="w-3 h-3" /> Error al enviar — ventana de 24hs cerrada
