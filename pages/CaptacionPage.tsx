@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie, Legend, ReferenceLine
 } from 'recharts';
 import {
-  TrendingUp, RefreshCw, Calendar, ChevronDown, ChevronRight,
+  TrendingUp, Download, RefreshCw, Calendar, ChevronDown, ChevronRight,
   Users, DollarSign, Target, BarChart2, Globe, Smartphone, User, Megaphone, MessageSquare
 } from 'lucide-react';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
