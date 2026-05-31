@@ -148,6 +148,7 @@ export default function CostosPage() {
   // State values
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
   const [variantCosts, setVariantCosts] = useState<Record<string, { cost: number; packagingCost: number }>>({});
+  const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(null);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [massPercentage, setMassPercentage] = useState('30');
@@ -203,10 +204,11 @@ export default function CostosPage() {
         const { data: varData, error: varError } = await supabase
           .from('car_variant_costs')
           .select('variant_id, cost, packaging_cost, updated_at')
-          .eq('profile_id', profileId);
+          .eq('client_id', profileId);
           
         if (varError) throw varError;
         
+        let maxTime: Date | null = null;
         const varCostsMap: Record<string, { cost: number; packagingCost: number; lastUpdated?: string }> = {};
         if (varData && varData.length > 0) {
           varData.forEach((row: any) => {
@@ -215,6 +217,10 @@ export default function CostosPage() {
               packagingCost: parseFloat(row.packaging_cost) || 0,
               lastUpdated: row.updated_at ? row.updated_at.split('T')[0] : undefined
             };
+            if (row.updated_at) {
+              const d = new Date(row.updated_at);
+              if (!maxTime || d > maxTime) maxTime = d;
+            }
           });
           setVariantCosts(varCostsMap);
         } else {
@@ -224,8 +230,8 @@ export default function CostosPage() {
         // Fetch additional costs
         const { data: addData, error: addError } = await supabase
           .from('car_additional_costs')
-          .select('id, category, name, start_date, end_date, cost, daily_cost, currency, ad_spend, platform')
-          .eq('profile_id', profileId);
+          .select('id, category, name, start_date, end_date, cost, daily_cost, currency, ad_spend, platform, updated_at')
+          .eq('client_id', profileId);
           
         if (addError) throw addError;
         
@@ -249,6 +255,11 @@ export default function CostosPage() {
             if (row.category === 'equipo') equipoList.push(mappedItem);
             else if (row.category === 'otros') otrosList.push(mappedItem);
             else if (row.category === 'campanas') campanasList.push(mappedItem);
+
+            if (row.updated_at) {
+              const d = new Date(row.updated_at);
+              if (!maxTime || d > maxTime) maxTime = d;
+            }
           });
           
           setAdditionalCosts({
@@ -256,6 +267,18 @@ export default function CostosPage() {
             otros: otrosList,
             campanas: campanasList
           });
+        }
+
+        if (maxTime) {
+          const formatted = (maxTime as Date).toLocaleString('es-AR', {
+            timeZone: 'America/Argentina/Buenos_Aires',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          setLastUpdatedTime(formatted);
         }
       } catch (err) {
         console.error('Error fetching costs from Supabase:', err);
@@ -361,15 +384,23 @@ export default function CostosPage() {
       const { error } = await supabase
         .from('car_variant_costs')
         .upsert({
-          profile_id: profileId,
+          client_id: profileId,
           variant_id: variantId,
           cost,
           packaging_cost: packagingCost,
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'profile_id,variant_id'
+          onConflict: 'client_id,variant_id'
         });
       if (error) throw error;
+      setLastUpdatedTime(new Date().toLocaleString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
     } catch (err) {
       console.error('Error saving variant cost to Supabase:', err);
       showToast('Error al guardar costo en la base de datos.', 'error');
@@ -400,7 +431,7 @@ export default function CostosPage() {
         };
 
         upsertRows.push({
-          profile_id: profileId,
+          client_id: profileId,
           variant_id: variant.id,
           cost: calculatedCost,
           packaging_cost: currentPackaging,
@@ -415,10 +446,18 @@ export default function CostosPage() {
       const { error } = await supabase
         .from('car_variant_costs')
         .upsert(upsertRows, {
-          onConflict: 'profile_id,variant_id'
+          onConflict: 'client_id,variant_id'
         });
       if (error) throw error;
       showToast(`Se aplicó el costo del ${pct}% de forma masiva a todos los productos.`, 'success');
+      setLastUpdatedTime(new Date().toLocaleString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
     } catch (err) {
       console.error('Error mass saving variant costs to Supabase:', err);
       showToast('Error al guardar costos masivos en la base de datos.', 'error');
@@ -599,7 +638,7 @@ export default function CostosPage() {
     const category = modalType;
 
     const dbRow: any = {
-      profile_id: profileId,
+      client_id: profileId,
       category,
       name: modalName,
       start_date: modalStartDate,
@@ -654,6 +693,14 @@ export default function CostosPage() {
         };
         showToast('Costo adicional agregado con éxito.', 'success');
       }
+      setLastUpdatedTime(new Date().toLocaleString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
 
       // Update UI state
       let listCopy = [...additionalCosts[category]];
@@ -689,6 +736,14 @@ export default function CostosPage() {
         [type]: updatedList
       }));
       showToast('Costo eliminado con éxito.', 'info');
+      setLastUpdatedTime(new Date().toLocaleString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
     } catch (err) {
       console.error('Error deleting additional cost from Supabase:', err);
       showToast('Error al eliminar costo de la base de datos.', 'error');
@@ -708,16 +763,24 @@ export default function CostosPage() {
   };
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 animate-fade-in pb-20 text-zinc-900 dark:text-zinc-100">
+    <div className="w-full px-4 md:px-6 animate-fade-in pb-20 text-zinc-900 dark:text-zinc-100">
       
       {/* Title Header */}
-      <div className="mb-8">
-        <h1 className="text-[22px] font-black tracking-tight text-zinc-900 dark:text-white uppercase mb-1">
-          Gestión de costos
-        </h1>
-        <p className="text-[13px] text-zinc-400 font-bold uppercase tracking-wider">
-          Costos
-        </p>
+      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-[22px] font-black tracking-tight text-zinc-900 dark:text-white uppercase mb-1">
+            Gestión de costos
+          </h1>
+          <p className="text-[13px] text-zinc-400 font-bold uppercase tracking-wider">
+            Costos
+          </p>
+        </div>
+        {lastUpdatedTime && (
+          <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-full text-xs font-bold w-fit border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Última actualización: {lastUpdatedTime}
+          </div>
+        )}
       </div>
 
       {/* Accordions Stack */}

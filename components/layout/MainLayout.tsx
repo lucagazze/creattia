@@ -102,7 +102,7 @@ export const MainLayout = () => {
         </div>
 
         <div className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
-          location.pathname === '/atencion' || location.pathname === '/contactos'
+          location.pathname === '/atencion' || location.pathname === '/mensajeria' || location.pathname === '/contactos'
             ? 'overflow-hidden p-0 h-[calc(100vh-56px)] md:h-screen flex flex-col'
             : isFixedPage 
               ? 'overflow-hidden p-4 md:p-6 h-[calc(100vh-56px)] md:h-screen flex flex-col' 
@@ -115,7 +115,7 @@ export const MainLayout = () => {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/captacion" element={<CaptacionPage />} />
               <Route path="/redes-sociales" element={<RedesSocialesPage />} />
-              <Route path="/mensajeria" element={<MensajesDMPage />} />
+              <Route path="/mensajeria" element={<AtencionPage />} />
               <Route path="/comentarios" element={<ComentariosPage />} />
               <Route path="/atencion" element={<AtencionPage />} />
               <Route path="/retencion" element={<RetencionPage />} />
@@ -137,7 +137,7 @@ export const MainLayout = () => {
             </Routes>
           </Suspense>
         </div>
-        {location.pathname !== '/atencion' && location.pathname !== '/contactos' && <AIChatFloat />}
+        {location.pathname !== '/atencion' && location.pathname !== '/mensajeria' && location.pathname !== '/contactos' && <AIChatFloat />}
       </main>
     </div>
   );

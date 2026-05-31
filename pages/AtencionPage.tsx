@@ -1652,7 +1652,7 @@ export default function AtencionPage() {
                           />
                           <div className="flex items-center gap-2">
                             <button type="button" onClick={generateAiDraft} disabled={generatingDraft || sending || messages.length === 0}
-                              className="flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12px] font-black shadow-sm shadow-violet-500/10 active:scale-[0.98] transition-all disabled:opacity-50">
+                              className="flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 dark:bg-violet-600 hover:bg-violet-700 dark:hover:bg-violet-700 text-white rounded-xl text-[12px] font-bold shadow-md transition-all active:scale-[0.98] disabled:opacity-50">
                               {generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Bot className="w-3.5 h-3.5 text-white animate-pulse" />}
                               Responder con IA
                             </button>

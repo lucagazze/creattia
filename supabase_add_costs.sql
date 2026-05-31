@@ -3,12 +3,12 @@
 -- 1. Variant Costs Table
 CREATE TABLE IF NOT EXISTS public.car_variant_costs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    client_id UUID NOT NULL REFERENCES public.car_clients(id) ON DELETE CASCADE,
     variant_id TEXT NOT NULL,
     cost NUMERIC NOT NULL DEFAULT 0,
     packaging_cost NUMERIC NOT NULL DEFAULT 0,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    CONSTRAINT unique_profile_variant UNIQUE (profile_id, variant_id)
+    CONSTRAINT unique_client_variant UNIQUE (client_id, variant_id)
 );
 
 -- Enable RLS for variant costs
@@ -17,24 +17,25 @@ ALTER TABLE public.car_variant_costs ENABLE ROW LEVEL SECURITY;
 -- Policies for variant costs
 CREATE POLICY "Users can select their own variant costs" 
     ON public.car_variant_costs FOR SELECT 
-    USING (auth.uid() = profile_id);
+    USING (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()));
 
 CREATE POLICY "Users can insert their own variant costs" 
     ON public.car_variant_costs FOR INSERT 
-    WITH CHECK (auth.uid() = profile_id);
+    WITH CHECK (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()));
 
 CREATE POLICY "Users can update their own variant costs" 
     ON public.car_variant_costs FOR UPDATE 
-    USING (auth.uid() = profile_id);
+    USING (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()))
+    WITH CHECK (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()));
 
 CREATE POLICY "Users can delete their own variant costs" 
     ON public.car_variant_costs FOR DELETE 
-    USING (auth.uid() = profile_id);
+    USING (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()));
 
 -- 2. Additional/Fixed Costs Table
 CREATE TABLE IF NOT EXISTS public.car_additional_costs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    client_id UUID NOT NULL REFERENCES public.car_clients(id) ON DELETE CASCADE,
     category TEXT NOT NULL CHECK (category IN ('equipo', 'otros', 'campanas')),
     name TEXT NOT NULL,
     start_date DATE NOT NULL,
@@ -53,16 +54,17 @@ ALTER TABLE public.car_additional_costs ENABLE ROW LEVEL SECURITY;
 -- Policies for additional costs
 CREATE POLICY "Users can select their own additional costs" 
     ON public.car_additional_costs FOR SELECT 
-    USING (auth.uid() = profile_id);
+    USING (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()));
 
 CREATE POLICY "Users can insert their own additional costs" 
     ON public.car_additional_costs FOR INSERT 
-    WITH CHECK (auth.uid() = profile_id);
+    WITH CHECK (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()));
 
 CREATE POLICY "Users can update their own additional costs" 
     ON public.car_additional_costs FOR UPDATE 
-    USING (auth.uid() = profile_id);
+    USING (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()))
+    WITH CHECK (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()));
 
 CREATE POLICY "Users can delete their own additional costs" 
     ON public.car_additional_costs FOR DELETE 
-    USING (auth.uid() = profile_id);
+    USING (client_id IN (SELECT id FROM public.car_clients WHERE user_id = auth.uid()));
