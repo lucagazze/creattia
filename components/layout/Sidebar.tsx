@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity, Library, Workflow, Instagram, Inbox, MessageSquare, Brain, Users, TrendingUp, Calculator
+  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, AlertTriangle, Activity, Library, Workflow, Instagram, Inbox, MessageSquare, Brain, Users, TrendingUp, Calculator, Coins
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -49,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/retencion', icon: Mail,           label: 'Retención',      condition: !!activeProfile?.klaviyo_api_key && hasTag('tienda_online') },
     { path: '/informes',  icon: TrendingUp,     label: 'Informes',       condition: !!activeProfile?.chatwoot_token },
     { path: '/simulador', icon: Calculator,     label: 'Simulador Financiero', condition: true },
+    { path: '/costos',    icon: Coins,          label: 'Gestión de costos',    condition: true },
     { path: '/reportes',        icon: FileText, label: 'Reportes',         condition: true },
   ].filter(item => item.condition);
 
