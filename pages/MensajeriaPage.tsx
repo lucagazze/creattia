@@ -353,16 +353,33 @@ export default function MensajeriaPage() {
         chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1, inboxId),
         chatwoot.getSummary(cwUrl, cwToken, Math.floor(new Date().setHours(0,0,0,0)/1000), Math.floor(Date.now()/1000)).catch(() => null),
       ]);
-      
+
       const { payload: firstPayload, hasMore: firstHasMore, meta } = firstPageRes;
       setSummary(sm);
       if (meta && channelFilter === 'all') {
         setConvMeta({ all_count: meta.all_count ?? 0, unassigned_count: meta.unassigned_count ?? 0, assigned_count: meta.assigned_count ?? 0 });
       }
-      
-      setConversations(firstPayload);
-      setHasMore(firstHasMore);
 
+      let allConvs = [...firstPayload];
+      setConversations(allConvs);
+
+      // Auto-load all remaining pages (max 20 pages = 500 conversations)
+      if (firstHasMore) {
+        let page = 2;
+        let more = true;
+        while (more && page <= 20) {
+          const { payload, hasMore: nextMore } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, page, inboxId);
+          const existingIds = new Set(allConvs.map((c: any) => c.id));
+          const newOnes = payload.filter((c: any) => !existingIds.has(c.id));
+          allConvs = [...allConvs, ...newOnes];
+          setConversations([...allConvs]);
+          more = nextMore;
+          page++;
+        }
+        setCurrentPage(page - 1);
+      }
+
+      setHasMore(false);
     } catch (e: any) {
       setError(e.message);
     } finally {
