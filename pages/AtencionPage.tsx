@@ -93,6 +93,9 @@ export default function AtencionPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
+  const selectedRef = useRef<any>(null);
+  selectedRef.current = selected;
+
   const loadConversations = useCallback(async () => {
     if (!cwUrl || !cwToken) return;
     setLoading(true);
@@ -167,22 +170,6 @@ export default function AtencionPage() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // Load conversation from URL search parameter convId if present
-  useEffect(() => {
-    if (conversations.length > 0 && !selected) {
-      const params = new URLSearchParams(location.search);
-      const convIdParam = params.get('convId');
-      if (convIdParam) {
-        const convId = parseInt(convIdParam, 10);
-        const found = conversations.find(c => c.id === convId);
-        if (found) {
-          loadMessages(found);
-          // Clear query param so it doesn't re-trigger on subsequent updates
-          navigate('/atencion', { replace: true });
-        }
-      }
-    }
-  }, [conversations, location.search, selected, loadMessages, navigate]);
 
   // WebSocket real-time connection to Chatwoot
   useEffect(() => {
@@ -289,9 +276,6 @@ export default function AtencionPage() {
     return () => clearInterval(interval);
   }, [cwUrl, cwToken, statusFilter]);
 
-  const selectedRef = useRef<any>(null);
-  selectedRef.current = selected;
-
   const loadMessages = useCallback(async (conv: any) => {
     if (!cwUrl || !cwToken) return;
     setExpanded(false);
@@ -314,6 +298,23 @@ export default function AtencionPage() {
       setLoadingMsgs(false);
     }
   }, [cwUrl, cwToken]);
+
+  // Load conversation from URL search parameter convId if present
+  useEffect(() => {
+    if (conversations.length > 0 && !selected) {
+      const params = new URLSearchParams(location.search);
+      const convIdParam = params.get('convId');
+      if (convIdParam) {
+        const convId = parseInt(convIdParam, 10);
+        const found = conversations.find(c => c.id === convId);
+        if (found) {
+          loadMessages(found);
+          // Clear query param so it doesn't re-trigger on subsequent updates
+          navigate('/atencion', { replace: true });
+        }
+      }
+    }
+  }, [conversations, location.search, selected, loadMessages, navigate]);
 
   // Poll messages of selected conversation every 5s
   useEffect(() => {
