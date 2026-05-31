@@ -54,6 +54,7 @@ export default function AtencionPage() {
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [failedMsgIds, setFailedMsgIds] = useState<Set<string>>(new Set());
   const [summary, setSummary] = useState<any>(null);
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'priority'>('latest');
   const [expanded, setExpanded] = useState(false);
@@ -252,12 +253,18 @@ export default function AtencionPage() {
     if (!reply.trim() || !selected || !cwUrl || !cwToken) return;
     setSending(true);
     setSendError(null);
+    const tempId = `local_${Date.now()}`;
+    const tempMsg = { id: tempId, content: reply.trim(), message_type: 1, created_at: Date.now() / 1000, pending: true };
+    setMessages(prev => [...prev, tempMsg]);
+    const sentText = reply.trim();
+    setReply('');
     try {
-      const sent = await chatwoot.sendMessage(cwUrl, cwToken, selected.id, reply.trim());
-      const newMsg = { id: sent?.id || `local_${Date.now()}`, content: reply.trim(), message_type: 1, created_at: Date.now() / 1000 };
-      setMessages(prev => prev.find((m: any) => m.id === newMsg.id) ? prev : [...prev, newMsg]);
-      setReply('');
+      const sent = await chatwoot.sendMessage(cwUrl, cwToken, selected.id, sentText);
+      // Replace temp with real message
+      setMessages(prev => prev.map((m: any) => m.id === tempId ? { ...sent, created_at: sent?.created_at || Date.now()/1000 } : m));
     } catch (e: any) {
+      // Mark temp message as failed
+      setFailedMsgIds(prev => new Set([...prev, tempId]));
       setSendError(e.message || 'No se pudo enviar el mensaje.');
     } finally {
       setSending(false);
@@ -583,11 +590,21 @@ export default function AtencionPage() {
                         {isMe ? 'Agente' : (contact(selected).name || 'Cliente')} · {fmtTime(msg.created_at)}
                       </span>
                       <div className={`max-w-[70%] rounded-[18px] px-4 py-2.5 text-[13px] leading-relaxed ${
-                        isMe
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 shadow-sm'
+                        failedMsgIds.has(msg.id)
+                          ? 'bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300'
+                          : isMe
+                            ? `bg-blue-600 text-white shadow-sm ${msg.pending ? 'opacity-60' : ''}`
+                            : 'bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 shadow-sm'
                       }`}>
                         {msg.content || <span className="italic opacity-60">📎 Archivo adjunto</span>}
+                        {failedMsgIds.has(msg.id) && (
+                          <div className="flex items-center gap-1 mt-1 text-[10px] text-red-500 font-bold">
+                            <AlertCircle className="w-3 h-3" /> Error al enviar — ventana de 24hs cerrada
+                          </div>
+                        )}
+                        {msg.pending && !failedMsgIds.has(msg.id) && (
+                          <span className="text-[10px] opacity-50 ml-1">enviando...</span>
+                        )}
                       </div>
                     </div>
                   );
@@ -596,27 +613,68 @@ export default function AtencionPage() {
               </div>
 
               {/* Reply box */}
-              <div className="px-5 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0">
-                {sendError && (
-                  <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl text-[11px] text-red-600 dark:text-red-400 flex items-center gap-2">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {sendError}
-                  </div>
-                )}
-                <form onSubmit={handleSend} className="flex gap-3 items-end">
-                  <textarea
-                    value={reply}
-                    onChange={e => setReply(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }}}
-                    placeholder="Escribí tu respuesta... (Enter para enviar)"
-                    rows={2}
-                    className="flex-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-[13px] text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all resize-none"
-                  />
-                  <button type="submit" disabled={!reply.trim() || sending}
-                    className="flex items-center gap-1.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-bold rounded-2xl transition-all shadow-sm flex-shrink-0">
-                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    Enviar
-                  </button>
-                </form>
+              <div className="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0">
+                {(() => {
+                  // Check 24h WhatsApp window
+                  const lastIncoming = [...messages].reverse().find((m: any) => m.message_type === 0);
+                  const isWhatsAppConv = getChannel(selected) === 'whatsapp';
+                  const over24h = isWhatsAppConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
+                  const noIncoming = isWhatsAppConv && !lastIncoming;
+
+                  if (over24h || noIncoming) {
+                    return (
+                      <div className="px-5 py-4 space-y-3">
+                        <div className="flex items-start gap-2.5 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl">
+                          <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-[12px] font-bold text-amber-800 dark:text-amber-400">Ventana de 24 horas cerrada</p>
+                            <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-0.5">
+                              Solo podés responder usando un mensaje de plantilla (template). El cliente no envió mensajes en las últimas 24 horas.
+                            </p>
+                          </div>
+                        </div>
+                        <a href={`${cwUrl}/app/accounts/${selected.account_id || ''}/conversations/${selected.id}`}
+                          target="_blank" rel="noreferrer"
+                          className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold rounded-xl transition-colors">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Abrir en Chatwoot para enviar template
+                        </a>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="px-5 py-4 space-y-3">
+                      {sendError && (
+                        <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl text-[11px] text-red-600 dark:text-red-400 flex items-start gap-2">
+                          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-bold">Error al enviar</p>
+                            <p className="mt-0.5">{sendError}</p>
+                            {sendError.toLowerCase().includes('template') && (
+                              <a href={`${cwUrl}`} target="_blank" rel="noreferrer" className="underline mt-1 block">Abrir Chatwoot para usar template →</a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <form onSubmit={handleSend} className="flex gap-3 items-end">
+                        <textarea
+                          value={reply}
+                          onChange={e => setReply(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }}}
+                          placeholder="Escribí tu respuesta... (Enter para enviar)"
+                          rows={2}
+                          className="flex-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-[13px] text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all resize-none"
+                        />
+                        <button type="submit" disabled={!reply.trim() || sending}
+                          className="flex items-center gap-1.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-bold rounded-2xl transition-all shadow-sm flex-shrink-0">
+                          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          Enviar
+                        </button>
+                      </form>
+                    </div>
+                  );
+                })()}
               </div>
             </>
           )}
