@@ -190,7 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               'Authorization': `Bearer ${openAiKey}`
             },
             body: JSON.stringify({
-              model: 'gpt-4o-mini',
+              model: 'gpt-4.1-mini',
               messages: [
                 {
                   role: 'system',
@@ -294,7 +294,7 @@ Crea un resumen en español súper práctico centrado en:
               'Authorization': `Bearer ${openAiKey}`
             },
             body: JSON.stringify({
-              model: 'gpt-4o-mini',
+              model: 'gpt-4.1-mini',
               messages: [
                 {
                   role: 'system',
@@ -400,7 +400,7 @@ Organízala en estas secciones:
             'Authorization': `Bearer ${openAiKey}`
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4.1-mini',
             messages: [
               {
                 role: 'system',
@@ -505,7 +505,7 @@ Organízala en estas secciones:
             'Authorization': `Bearer ${openAiKey}`
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4.1-mini',
             messages: [
               {
                 role: 'system',
@@ -560,7 +560,7 @@ Example output:
           'Authorization': `Bearer ${openAiKey}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4.1',
           messages: [
             { role: 'system', content: systemPrompt },
             { 

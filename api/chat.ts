@@ -358,7 +358,7 @@ CRITICAL RULES FOR FOLLOWUPS AND OPTIONS:
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openAiKey}` },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4.1-mini',
           messages: apiMessages,
           tools,
           tool_choice: 'auto',
