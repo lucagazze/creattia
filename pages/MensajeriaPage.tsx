@@ -1217,15 +1217,29 @@ export default function MensajeriaPage() {
 
       {/* Top Header Bar */}
       <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">
-        {/* Left Section: Channel Filter Pills (Desktop only) */}
+        {/* Left Section: Status filter + Channel Filter Pills (Desktop only) */}
         <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+          {/* Status filter — always leftmost */}
+          <button
+            onClick={() => setStatusFilter(s => s === 'open' ? 'resolved' : 'open')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all duration-200 whitespace-nowrap border flex-shrink-0 ${
+              statusFilter === 'open'
+                ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                : 'bg-zinc-500 border-zinc-500 text-white shadow-sm'
+            }`}
+          >
+            {statusFilter === 'open' ? '● Abiertos' : '✓ Resueltos'}
+          </button>
+
+          <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-700 flex-shrink-0" />
+
           {[
-            { key: 'all', label: 'Todos', icon: Inbox },
-            { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
-            { key: 'instagram', label: 'Instagram', icon: Instagram },
-            { key: 'facebook', label: 'Facebook', icon: Facebook },
-            { key: 'email', label: 'Email', icon: Mail },
-            { key: 'other', label: 'Otros', icon: Globe },
+            { key: 'all', label: 'Todos', icon: Inbox, activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white text-white dark:text-zinc-950', badgeClass: 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900' },
+            { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, activeClass: 'bg-green-500 border-green-500 text-white', badgeClass: 'bg-white/25 text-white' },
+            { key: 'instagram', label: 'Instagram', icon: Instagram, activeClass: 'bg-pink-500 border-pink-500 text-white', badgeClass: 'bg-white/25 text-white' },
+            { key: 'facebook', label: 'Facebook', icon: Facebook, activeClass: 'bg-blue-600 border-blue-600 text-white', badgeClass: 'bg-white/25 text-white' },
+            { key: 'email', label: 'Email', icon: Mail, activeClass: 'bg-sky-500 border-sky-500 text-white', badgeClass: 'bg-white/25 text-white' },
+            { key: 'other', label: 'Otros', icon: Globe, activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white text-white dark:text-zinc-950', badgeClass: 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900' },
           ].filter(ch => isChannelActive(ch.key)).map(ch => {
             const Icon = ch.icon;
             const isActive = channelFilter === ch.key;
@@ -1236,7 +1250,7 @@ export default function MensajeriaPage() {
                 onClick={() => setChannelFilter(ch.key as any)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all duration-200 whitespace-nowrap border ${
                   isActive
-                    ? 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white text-white dark:text-zinc-950 shadow-sm'
+                    ? `${ch.activeClass} shadow-sm`
                     : 'bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 border-zinc-200 dark:border-zinc-800'
                 }`}
               >
@@ -1244,9 +1258,7 @@ export default function MensajeriaPage() {
                 <span>{ch.label}</span>
                 {count > 0 && (
                   <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${
-                    isActive
-                      ? 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550'
+                    isActive ? ch.badgeClass : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550'
                   }`}>
                     {count}
                   </span>
