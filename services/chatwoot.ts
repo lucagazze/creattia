@@ -28,7 +28,7 @@ export const chatwoot = {
 
   async getConversationsPage(url: string, token: string, status = 'open', page = 1, inboxId?: number) {
     const accountId = await chatwoot.getAccountId(url, token);
-    let path = `/api/v1/accounts/${accountId}/conversations?status=${status}&page=${page}`;
+    let path = `/api/v1/accounts/${accountId}/conversations?status=${status}&page=${page}&assignee_type=all`;
     if (inboxId !== undefined) {
       path += `&inbox_id=${inboxId}`;
     }
