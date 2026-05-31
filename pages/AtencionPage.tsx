@@ -101,16 +101,45 @@ export default function AtencionPage() {
     setCurrentPage(1);
     setHasMore(false);
     try {
-      const [{ payload: first, hasMore: more, meta }, sm, inboxList] = await Promise.all([
+      const [firstPageRes, sm, inboxList] = await Promise.all([
         chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1),
         chatwoot.getSummary(cwUrl, cwToken, Math.floor(new Date().setHours(0,0,0,0)/1000), Math.floor(Date.now()/1000)).catch(() => null),
         chatwoot.getInboxes(cwUrl, cwToken).catch(() => []),
       ]);
-      setConversations(first);
-      setHasMore(more);
+      
+      const { payload: firstPayload, hasMore: firstHasMore, meta } = firstPageRes;
       setSummary(sm);
       setInboxes(inboxList);
       if (meta) setConvMeta({ all_count: meta.all_count ?? 0, unassigned_count: meta.unassigned_count ?? 0, assigned_count: meta.assigned_count ?? 0 });
+      
+      let allConversations = [...firstPayload];
+      setConversations(allConversations);
+      setHasMore(firstHasMore);
+
+      // Preload remaining pages in background to get all conversations
+      if (firstHasMore) {
+        let page = 2;
+        let keepLoading = true;
+        
+        while (keepLoading) {
+          try {
+            const nextRes = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, page);
+            if (nextRes.payload && nextRes.payload.length > 0) {
+              allConversations = [...allConversations, ...nextRes.payload];
+              // Deduplicate by ID
+              const unique = Array.from(new Map(allConversations.map(c => [c.id, c])).values());
+              allConversations = unique;
+              setConversations(unique);
+              page += 1;
+              keepLoading = nextRes.hasMore;
+            } else {
+              keepLoading = false;
+            }
+          } catch {
+            keepLoading = false;
+          }
+        }
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -192,7 +221,13 @@ export default function AtencionPage() {
               // Update last message preview in conversation list
               setConversations(prev => prev.map(c =>
                 c.id === d.conversation_id
-                  ? { ...c, last_activity_at: d.created_at, messages: [d, ...(c.messages || [])], unread_count: selectedRef.current?.id === d.conversation_id ? 0 : (c.unread_count || 0) + (d.message_type === 0 ? 1 : 0) }
+                  ? { 
+                      ...c, 
+                      last_activity_at: d.created_at, 
+                      messages: [d, ...(c.messages || [])], 
+                      unread_count: selectedRef.current?.id === d.conversation_id ? 0 : (c.unread_count || 0) + (d.message_type === 0 ? 1 : 0),
+                      ...(d.message_type !== 2 ? { last_non_activity_message: d } : {})
+                    }
                   : c
               ));
               // Append to open chat
@@ -356,7 +391,8 @@ export default function AtencionPage() {
         ? { 
             ...c, 
             last_activity_at: tempMsg.created_at, 
-            messages: [tempMsg, ...(c.messages || [])] 
+            messages: [tempMsg, ...(c.messages || [])],
+            last_non_activity_message: tempMsg
           } 
         : c
     ));
@@ -373,7 +409,8 @@ export default function AtencionPage() {
           ? { 
               ...c, 
               last_activity_at: sent?.created_at || Date.now()/1000, 
-              messages: [sent, ...(c.messages || []).filter((m: any) => m.id !== tempId)] 
+              messages: [sent, ...(c.messages || []).filter((m: any) => m.id !== tempId)],
+              last_non_activity_message: sent
             } 
           : c
       ));
@@ -447,7 +484,8 @@ export default function AtencionPage() {
 
   const contact = (c: any) => c.meta?.sender || c.contact_inbox?.contact || {};
   const getChannel = (c: any) => {
-    const ch = (c.channel || c.inbox?.channel_type || '').toLowerCase();
+    const inbox = c.inbox || inboxes.find((i: any) => i.id === c.inbox_id);
+    const ch = (c.channel || inbox?.channel_type || '').toLowerCase();
     if (ch.includes('whatsapp')) return 'whatsapp';
     if (ch.includes('instagram')) return 'instagram';
     if (ch.includes('facebook') || ch.includes('page')) return 'facebook';
@@ -578,7 +616,7 @@ export default function AtencionPage() {
     const name = (c.meta?.sender?.name || '').toLowerCase();
     const phone = c.meta?.sender?.phone_number || '';
     const email = (c.meta?.sender?.email || '').toLowerCase();
-    const lastReal = c.messages?.find((m: any) => m.message_type !== 2);
+    const lastReal = c.messages?.find((m: any) => m.message_type !== 2) || c.last_non_activity_message;
     const lastMsg = (lastReal?.content || '').toLowerCase();
     return name.includes(s) || phone.includes(s) || email.includes(s) || String(c.id).includes(s) || lastMsg.includes(s);
   });
@@ -640,7 +678,7 @@ export default function AtencionPage() {
   if (!cwUrl || !cwToken) {
     return (
       <div className="flex items-center justify-center h-full py-24">
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 max-w-md flex items-start gap-4">
+        <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 max-w-md flex items-start gap-4">
           <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="font-bold text-amber-800 dark:text-amber-400 text-[14px]">Chatwoot no configurado</h3>
@@ -652,7 +690,115 @@ export default function AtencionPage() {
   }
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
+
+      {/* Top Header Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-955 flex-shrink-0 w-full">
+        {/* Left Section: Channel Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+          {[
+            { key: 'all', label: 'Todos', icon: Inbox },
+            { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+            { key: 'instagram', label: 'Instagram', icon: Instagram },
+            { key: 'facebook', label: 'Facebook', icon: Facebook },
+            { key: 'email', label: 'Email', icon: Mail },
+            { key: 'other', label: 'Otros', icon: Globe },
+          ].filter(ch => isChannelActive(ch.key)).map(ch => {
+            const Icon = ch.icon;
+            const isActive = channelFilter === ch.key;
+            const count = getChannelCount(ch.key);
+            return (
+              <button
+                key={ch.key}
+                onClick={() => setChannelFilter(ch.key as any)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all duration-200 whitespace-nowrap border ${
+                  isActive
+                    ? 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white text-white dark:text-zinc-950 shadow-sm'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 border-zinc-200 dark:border-zinc-800'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{ch.label}</span>
+                {count > 0 && (
+                  <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${
+                    isActive
+                      ? 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right Section: Search & Controls */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Search Input */}
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+            <input 
+              type="text" 
+              placeholder="Buscar contacto, teléfono..." 
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[12px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-zinc-750 dark:text-zinc-300 transition-all" 
+            />
+          </div>
+
+          {/* Sort button */}
+          <div className="relative group">
+            <button className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Ordenar">
+              <svg className="w-4 h-4 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <div className="absolute right-0 top-full mt-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl py-1 min-w-[150px] z-50 hidden group-hover:block">
+              {[
+                { value: 'latest', label: '↓ Más reciente' },
+                { value: 'oldest', label: '↑ Más antiguo' },
+                { value: 'priority', label: '🔴 Por prioridad' },
+              ].map(s => (
+                <button key={s.value} onClick={() => setSortBy(s.value as any)}
+                  className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${sortBy === s.value ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 24-hour window filter */}
+          <button 
+            onClick={() => setCanReplyOnly(v => !v)}
+            title="Solo los que puedo responder (24h)"
+            className={`p-2 rounded-xl border transition-all ${
+              canReplyOnly 
+                ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
+                : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </button>
+
+          {/* Expand button */}
+          <button 
+            onClick={() => setExpanded(e => !e)}
+            className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" 
+            title={expanded ? 'Contraer' : 'Expandir lista'}
+          >
+            <svg className="w-4 h-4 text-zinc-550" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {expanded
+                ? <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round"/>
+                : <path d="m9 18 6-6-6-6" strokeLinecap="round" strokeLinejoin="round"/>
+              }
+            </svg>
+          </button>
+        </div>
+      </div>
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
@@ -662,118 +808,26 @@ export default function AtencionPage() {
           flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-all duration-300
         `}>
 
-          {/* Search + controls */}
-          <div className="p-3 border-b border-zinc-100 dark:border-zinc-800 space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
-                <input type="text" placeholder="Buscar contacto, teléfono..." value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-700 dark:text-zinc-300" />
-              </div>
-              {/* Sort button */}
-              <div className="relative group">
-                <button className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors" title="Ordenar">
-                  <svg className="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M2 4h12M4 8h8M6 12h4" strokeLinecap="round"/>
-                  </svg>
-                </button>
-                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl py-1 min-w-[150px] z-50 hidden group-hover:block">
-                  {[
-                    { value: 'latest', label: '↓ Más reciente' },
-                    { value: 'oldest', label: '↑ Más antiguo' },
-                    { value: 'priority', label: '🔴 Por prioridad' },
-                  ].map(s => (
-                    <button key={s.value} onClick={() => setSortBy(s.value as any)}
-                      className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${sortBy === s.value ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Can reply filter */}
-              <button onClick={() => setCanReplyOnly(v => !v)}
-                title="Solo los que puedo responder"
-                className={`p-1.5 rounded-lg transition-colors ${canReplyOnly ? 'bg-emerald-500 text-white' : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>
-                <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M13 8c0 2.76-2.24 5-5 5s-5-2.24-5-5 2.24-5 5-5" strokeLinecap="round"/>
-                  <path d="M10 3l2 2-4 4" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              {/* Expand button */}
-              <button onClick={() => setExpanded(e => !e)}
-                className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors" title={expanded ? 'Contraer' : 'Expandir lista'}>
-                <svg className="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  {expanded
-                    ? <path d="M10 6L6 6M10 10L6 10" strokeLinecap="round"/>
-                    : <path d="M6 2L10 8L6 14" strokeLinecap="round" strokeLinejoin="round"/>
-                  }
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* Channel Filters */}
-          <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/10">
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-              {[
-                { key: 'all', label: 'Todos', icon: Inbox },
-                { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
-                { key: 'instagram', label: 'Instagram', icon: Instagram },
-                { key: 'facebook', label: 'Facebook', icon: Facebook },
-                { key: 'email', label: 'Email', icon: Mail },
-                { key: 'other', label: 'Otros', icon: Globe },
-              ].filter(ch => isChannelActive(ch.key)).map(ch => {
-                const Icon = ch.icon;
-                const isActive = channelFilter === ch.key;
-                const count = getChannelCount(ch.key);
-                return (
-                  <button
-                    key={ch.key}
-                    onClick={() => setChannelFilter(ch.key as any)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-black transition-all duration-200 whitespace-nowrap ${
-                      isActive
-                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-sm'
-                        : 'bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 border border-zinc-200/80 dark:border-zinc-800/80'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{ch.label}</span>
-                    {count > 0 && (
-                      <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${
-                        isActive
-                          ? 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900'
-                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
-                      }`}>
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Assign tabs */}
-          <div className="flex border-b border-zinc-100 dark:border-zinc-800 text-[11px] font-bold">
+          <div className="flex border-b border-zinc-100 dark:border-zinc-800 text-[11px] font-bold flex-shrink-0">
             {[
               { key: 'all', label: 'Todos', count: totalCount },
               { key: 'unassigned', label: 'Sin asignar', count: unassignedCount },
               { key: 'mine', label: 'Asignados', count: assignedCount },
             ].map(t => (
               <button key={t.key} onClick={() => setAssignFilter(t.key as any)}
-                className={`flex-1 py-2 flex items-center justify-center gap-1 transition-colors border-b-2 ${assignFilter === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}>
+                className={`flex-1 py-2.5 flex items-center justify-center gap-1 transition-colors border-b-2 ${assignFilter === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}>
                 {t.label}
-                {t.count > 0 && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ml-1 flex-shrink-0 ${assignFilter === t.key ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>{t.count}</span>}
+                {t.count > 0 && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ml-1 flex-shrink-0 ${assignFilter === t.key ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550'}`}>{t.count}</span>}
               </button>
             ))}
           </div>
 
           {/* Status filter */}
-          <div className="flex gap-1 p-2 border-b border-zinc-100 dark:border-zinc-800">
+          <div className="flex gap-1.5 p-2.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20 flex-shrink-0">
             {(['open', 'resolved', 'pending'] as const).map(s => (
               <button key={s} onClick={() => setStatusFilter(s)}
-                className={`flex-1 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${statusFilter === s ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}>
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${statusFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-550 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                 {s === 'open' ? 'Abiertos' : s === 'resolved' ? 'Resueltos' : 'Pendientes'}
               </button>
             ))}
@@ -825,7 +879,7 @@ export default function AtencionPage() {
               </div>
             ) : filtered.map(conv => {
               const c = contact(conv);
-              const lastRealMsg = conv.messages?.find((m: any) => m.message_type !== 2);
+              const lastRealMsg = conv.messages?.find((m: any) => m.message_type !== 2) || conv.last_non_activity_message;
               const lastMsg = lastRealMsg;
               const isSelected = selected?.id === conv.id;
               const unread = conv.unread_count || 0;
