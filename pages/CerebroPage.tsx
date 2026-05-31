@@ -153,7 +153,7 @@ export default function CerebroPage() {
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-400">
+    <div className="w-full space-y-8 pt-6 px-4 md:px-6 lg:px-8 animate-in fade-in slide-in-from-bottom-3 duration-400">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

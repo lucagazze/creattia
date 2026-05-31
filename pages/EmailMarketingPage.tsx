@@ -1166,7 +1166,7 @@ export default function EmailMarketingPage() {
     const campaignStatuses = ['All', ...Array.from(new Set(campaigns.map(c => c.status)))];
 
     return (
-      <div className="max-w-6xl mx-auto space-y-6 flex-1 min-w-0 flex flex-col relative animate-in fade-in duration-500">
+      <div className="w-full space-y-6 flex-1 min-w-0 flex flex-col relative animate-in fade-in duration-500">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

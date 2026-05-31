@@ -89,7 +89,7 @@ export default function InformesPage() {
   const fbGrowth = calcGrowth(fbSnaps, 'fb_fans');
 
   return (
-    <div className="max-w-[1200px] mx-auto animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
+    <div className="w-full animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center">
           <Instagram className="w-5 h-5 text-pink-500" />

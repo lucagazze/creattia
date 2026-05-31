@@ -524,7 +524,7 @@ export default function ComentariosPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto animate-in fade-in duration-300">
+    <div className="space-y-6 w-full pt-6 px-4 md:px-6 lg:px-8 animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-4">
         <div>

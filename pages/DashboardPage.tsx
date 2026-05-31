@@ -1007,7 +1007,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-10">
+    <div className="w-full space-y-6 sm:space-y-10 pt-6 px-4 md:px-6 lg:px-8">
       {/* Admin Client Picker */}
       {authProfile?.is_admin && allClients.length > 0 && (
         <div className="bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-sm p-3">
