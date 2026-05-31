@@ -41,10 +41,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Scrape Website
         if (client.website_url) {
           try {
-            const resWeb = await fetch(`${baseUrl}/api/scrape-website`, {
+            const resWeb = await fetch(`${baseUrl}/api/scrape-all`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ clientId: client.id, url: client.website_url })
+              body: JSON.stringify({ clientId: client.id, url: client.website_url, action: 'scrape-website' })
             });
             clientResults.website = resWeb.ok ? 'success' : `failed (${resWeb.status})`;
           } catch (err: any) {
@@ -55,10 +55,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Sync Instagram
         if (client.ig_business_id) {
           try {
-            const resIg = await fetch(`${baseUrl}/api/sync-instagram`, {
+            const resIg = await fetch(`${baseUrl}/api/scrape-all`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ clientId: client.id })
+              body: JSON.stringify({ clientId: client.id, action: 'sync-instagram' })
             });
             clientResults.instagram = resIg.ok ? 'success' : `failed (${resIg.status})`;
           } catch (err: any) {

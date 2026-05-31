@@ -85,10 +85,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }
 
-  const { clientId, url } = req.body as { clientId: string; url: string };
+  const { clientId, url, action } = req.body as { clientId: string; url?: string; action?: 'scrape-all' | 'scrape-website' | 'sync-instagram' };
 
-  if (!clientId || !url) {
-    return res.status(400).json({ error: 'Missing clientId or url' });
+  if (!clientId) {
+    return res.status(400).json({ error: 'Missing clientId' });
+  }
+
+  if ((!action || action === 'scrape-all' || action === 'scrape-website') && !url) {
+    return res.status(400).json({ error: 'Missing url' });
   }
 
   try {
@@ -105,8 +109,242 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { business_name, ig_business_id: igId, fb_page_id: fbPageId } = client;
 
-    // 2. Normalize and Scrape Website URL
-    let targetUrl = url.trim();
+    // ─────────────────────────────────────────────────────────────────────────
+    // BRANCH: sync-instagram (Social Media Only)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'sync-instagram') {
+      let metaToken = '';
+      if (igId || fbPageId) {
+        try {
+          const { data: tokenData } = await supabase
+            .from('AgencySettings')
+            .select('value')
+            .eq('key', 'meta_ads_token')
+            .maybeSingle();
+          metaToken = tokenData?.value || '';
+        } catch (tokenErr) {
+          console.error('[Unified Scraper] Error fetching Meta token:', tokenErr);
+        }
+      }
+
+      let instagramRawContent = '';
+      if (igId && metaToken) {
+        console.log(`[Unified Scraper] Fetching Instagram posts for ID: ${igId}`);
+        try {
+          const igRes = await fetch(
+            `https://graph.facebook.com/v21.0/${igId}/media?fields=id,caption,media_type,timestamp,permalink&limit=15&access_token=${metaToken}`,
+            { signal: AbortSignal.timeout(8000) }
+          );
+          if (igRes.ok) {
+            const igData = await igRes.json();
+            const mediaItems = igData.data || [];
+            instagramRawContent = mediaItems
+              .map((item: any, i: number) => {
+                if (!item.caption) return '';
+                return `[Post IG ${i + 1} - ${new Date(item.timestamp).toLocaleDateString()}] "${item.caption.replace(/\s+/g, ' ').trim()}"`;
+              })
+              .filter(Boolean)
+              .join('\n\n');
+          }
+        } catch (igErr) {
+          console.error('[Unified Scraper] IG fetch failed:', igErr);
+        }
+      }
+
+      let facebookRawContent = '';
+      if (fbPageId && metaToken) {
+        console.log(`[Unified Scraper] Fetching Facebook posts for ID: ${fbPageId}`);
+        try {
+          const fbRes = await fetch(
+            `https://graph.facebook.com/v21.0/${fbPageId}/feed?fields=id,message,created_time&limit=15&access_token=${metaToken}`,
+            { signal: AbortSignal.timeout(8000) }
+          );
+          if (fbRes.ok) {
+            const fbData = await fbRes.json();
+            const feedItems = fbData.data || [];
+            facebookRawContent = feedItems
+              .map((item: any, i: number) => {
+                if (!item.message) return '';
+                return `[Post FB ${i + 1} - ${new Date(item.created_time).toLocaleDateString()}] "${item.message.replace(/\s+/g, ' ').trim()}"`;
+              })
+              .filter(Boolean)
+              .join('\n\n');
+          }
+        } catch (fbErr) {
+          console.error('[Unified Scraper] FB fetch failed:', fbErr);
+        }
+      }
+
+      let socialSummary = '';
+      const compiledSocial = [
+        instagramRawContent ? `--- PUBLICACIONES DE INSTAGRAM ---\n${instagramRawContent}` : '',
+        facebookRawContent ? `--- PUBLICACIONES DE FACEBOOK ---\n${facebookRawContent}` : ''
+      ].filter(Boolean).join('\n\n');
+
+      if (compiledSocial) {
+        try {
+          const openaiSocialRes = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openAiKey}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: `Analiza las descripciones de posts de Instagram y Facebook de la marca "${business_name}".
+Crea un resumen en español súper práctico centrado en:
+1. PRODUCTOS DESTACADOS / LANZAMIENTOS (Mencionados en redes)
+2. PRECIOS Y PROMOCIONES ACTIVAS (Descuentos, sorteos, envíos gratis)
+3. ESTILO DE COMUNICACIÓN Y HASHTAGS (Tono informal, alegre, modismos)`
+                },
+                { role: 'user', content: compiledSocial.slice(0, 30000) }
+              ],
+              temperature: 0.3,
+              max_tokens: 1000,
+            }),
+          });
+
+          if (openaiSocialRes.ok) {
+            const socialResJson = await openaiSocialRes.json();
+            socialSummary = socialResJson.choices?.[0]?.message?.content?.trim() || '';
+          }
+        } catch (socialSumErr) {
+          console.error('[Unified Scraper] Social summary failed:', socialSumErr);
+        }
+      }
+
+      const finalSocialSummary = socialSummary || (igId || fbPageId ? 'No se pudo sincronizar información reciente de redes sociales en este intento.' : 'Redes sociales no vinculadas.');
+
+      const nowTimestamp = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from('car_clients')
+        .update({
+          instagram_context: finalSocialSummary,
+          brain_updated_at: nowTimestamp
+        })
+        .eq('id', clientId);
+
+      if (updateError) {
+        return res.status(500).json({ error: 'Error al guardar la información de redes en la base de datos.', detail: updateError.message });
+      }
+
+      return res.status(200).json({ instagram_context: finalSocialSummary, brain_updated_at: nowTimestamp });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BRANCH: scrape-website (Website Crawl Only)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === 'scrape-website') {
+      let targetUrl = url!.trim();
+      if (!/^https?:\/\//i.test(targetUrl)) {
+        targetUrl = `https://${targetUrl}`;
+      }
+
+      console.log(`[Unified Scraper] Scraping website: ${targetUrl}`);
+      let websiteSummary = '';
+      try {
+        const fetchResponse = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (fetchResponse.ok) {
+          const htmlContent = await fetchResponse.text();
+          const homepageText = cleanHtml(htmlContent);
+
+          const discoveredLinks = extractInternalLinks(htmlContent, targetUrl);
+          const targetSubpages = prioritizeLinks(discoveredLinks);
+
+          const subpagesContent = await Promise.all(
+            targetSubpages.map(async (link) => {
+              try {
+                const subRes = await fetch(link, {
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  },
+                  signal: AbortSignal.timeout(5000),
+                });
+                if (subRes.ok) {
+                  const html = await subRes.text();
+                  const text = cleanHtml(html);
+                  const pathName = new URL(link).pathname;
+                  return `--- PÁGINA: ${pathName} ---\n${text}`;
+                }
+              } catch (e) {
+                console.error(`[Unified Scraper] Error scraping subpage ${link}:`, e);
+              }
+              return '';
+            })
+          );
+
+          let combinedText = `--- PÁGINA DE INICIO (HOME) ---\n${homepageText}\n\n` + 
+            subpagesContent.filter(Boolean).join('\n\n');
+          combinedText = combinedText.slice(0, 45000);
+
+          const openaiWebRes = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openAiKey}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: `Analiza el texto de la web del negocio "${business_name}" y genera una base de conocimiento estructurada y limpia en español.
+Organízala en estas secciones:
+1. INFORMACIÓN GENERAL (Descripción del negocio, qué vende y marca)
+2. CATÁLOGO / PRODUCTOS DESTACADOS
+3. POLÍTICAS DE ENVÍO Y ENTREGAS (Tiempos, zonas, costos)
+4. POLÍTICAS DE CAMBIOS Y DEVOLUCIONES (Condiciones, plazos)
+5. PREGUNTAS FRECUENTES Y CONTACTO (Horarios, medios de soporte)`
+                },
+                { role: 'user', content: combinedText }
+              ],
+              temperature: 0.3,
+              max_tokens: 1500,
+            }),
+          });
+
+          if (openaiWebRes.ok) {
+            const webResJson = await openaiWebRes.json();
+            websiteSummary = webResJson.choices?.[0]?.message?.content?.trim() || '';
+          }
+        }
+      } catch (e: any) {
+        console.error('[Unified Scraper] Web scrape failed:', e);
+      }
+
+      const finalWebSummary = websiteSummary || 'No se pudo extraer información detallada del sitio web en este intento.';
+
+      const nowTimestamp = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from('car_clients')
+        .update({
+          scraped_content: finalWebSummary,
+          website_url: targetUrl,
+          brain_updated_at: nowTimestamp
+        })
+        .eq('id', clientId);
+
+      if (updateError) {
+        return res.status(500).json({ error: 'Error al guardar la información web en la base de datos.', detail: updateError.message });
+      }
+
+      return res.status(200).json({ scraped_content: finalWebSummary, website_url: targetUrl, brain_updated_at: nowTimestamp });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BRANCH: DEFAULT / scrape-all (Website + Social Media + Instructions)
+    // ─────────────────────────────────────────────────────────────────────────
+    let targetUrl = url!.trim();
     if (!/^https?:\/\//i.test(targetUrl)) {
       targetUrl = `https://${targetUrl}`;
     }
@@ -155,7 +393,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           subpagesContent.filter(Boolean).join('\n\n');
         combinedText = combinedText.slice(0, 45000);
 
-        // Summarize web content
         const openaiWebRes = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -191,7 +428,6 @@ Organízala en estas secciones:
       console.error('[Unified Scraper] Web scrape failed:', e);
     }
 
-    // 3. Retrieve Meta Access Token for social sync
     let metaToken = '';
     if (igId || fbPageId) {
       try {
@@ -206,7 +442,6 @@ Organízala en estas secciones:
       }
     }
 
-    // 4. Fetch Instagram Captions if igId exists
     let instagramRawContent = '';
     if (igId && metaToken) {
       console.log(`[Unified Scraper] Fetching Instagram posts for ID: ${igId}`);
@@ -231,7 +466,6 @@ Organízala en estas secciones:
       }
     }
 
-    // 5. Fetch Facebook Page posts if fbPageId exists
     let facebookRawContent = '';
     if (fbPageId && metaToken) {
       console.log(`[Unified Scraper] Fetching Facebook posts for ID: ${fbPageId}`);
@@ -256,7 +490,6 @@ Organízala en estas secciones:
       }
     }
 
-    // 6. Summarize Social Media Content (Instagram + Facebook)
     let socialSummary = '';
     const compiledSocial = [
       instagramRawContent ? `--- PUBLICACIONES DE INSTAGRAM ---\n${instagramRawContent}` : '',
@@ -298,11 +531,9 @@ Crea un resumen en español súper práctico centrado en:
       }
     }
 
-    // Fallback summaries if empty
     const finalWebSummary = websiteSummary || 'No se pudo extraer información detallada del sitio web en este intento.';
     const finalSocialSummary = socialSummary || (igId || fbPageId ? 'No se pudo sincronizar información reciente de redes sociales en este intento.' : 'Redes sociales no vinculadas.');
 
-    // 7. Auto-generate Business Description and Custom Instructions (Tone with Argentine Spanish voseo)
     let autoCatalog = '';
     let autoInstructions = '';
     try {
@@ -329,7 +560,7 @@ Example output:
           'Authorization': `Bearer ${openAiKey}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o', // Use GPT-4o for better prompt engineering results
+          model: 'gpt-4o',
           messages: [
             { role: 'system', content: systemPrompt },
             { 
@@ -356,7 +587,6 @@ Example output:
     const finalCatalog = autoCatalog || `Catálogo y soporte para ${business_name} basado en el sitio web oficial.`;
     const finalInstructions = autoInstructions || `Responde siempre con el tono e información oficial de ${business_name}. Usa el voseo argentino de manera cordial y amigable ("vos", "tenés", "comprá", "mirá"). Mantén las respuestas claras y breves.`;
 
-    // 8. Update DB in one go! Include the current brain_updated_at timestamp.
     const nowTimestamp = new Date().toISOString();
     const { error: updateError } = await supabase
       .from('car_clients')
