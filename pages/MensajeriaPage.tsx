@@ -1324,19 +1324,6 @@ export default function MensajeriaPage() {
         `}>
 
           {/* Assign tabs */}
-          <div className="flex border-b border-zinc-100 dark:border-zinc-800 text-[11px] font-bold flex-shrink-0">
-            {[
-              { key: 'all', label: 'Todos', count: totalCount },
-              { key: 'unassigned', label: 'Sin asignar', count: unassignedCount },
-              { key: 'mine', label: 'Asignados', count: assignedCount },
-            ].map(t => (
-              <button key={t.key} onClick={() => setAssignFilter(t.key as any)}
-                className={`flex-1 py-2.5 flex items-center justify-center gap-1 transition-colors border-b-2 ${assignFilter === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}>
-                {t.label}
-                {t.count > 0 && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ml-1 flex-shrink-0 ${assignFilter === t.key ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550'}`}>{t.count}</span>}
-              </button>
-            ))}
-          </div>
 
 
           {/* Bulk action bar */}
