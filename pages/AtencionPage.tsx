@@ -119,30 +119,7 @@ export default function AtencionPage() {
       setConversations(allConversations);
       setHasMore(firstHasMore);
 
-      // Preload remaining pages in background to get all conversations
-      if (firstHasMore) {
-        let page = 2;
-        let keepLoading = true;
-        
-        while (keepLoading) {
-          try {
-            const nextRes = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, page);
-            if (nextRes.payload && nextRes.payload.length > 0) {
-              allConversations = [...allConversations, ...nextRes.payload];
-              // Deduplicate by ID
-              const unique = Array.from(new Map(allConversations.map(c => [c.id, c])).values());
-              allConversations = unique;
-              setConversations(unique);
-              page += 1;
-              keepLoading = nextRes.hasMore;
-            } else {
-              keepLoading = false;
-            }
-          } catch {
-            keepLoading = false;
-          }
-        }
-      }
+
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -498,6 +475,18 @@ export default function AtencionPage() {
     return 'other';
   };
 
+  const getChannelBadgeClass = (c: any, isSelected: boolean) => {
+    const ch = getChannel(c);
+    if (isSelected) {
+      return 'bg-white/20 text-white border-transparent';
+    }
+    if (ch === 'whatsapp') return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30';
+    if (ch === 'instagram') return 'bg-pink-50 text-pink-700 dark:bg-pink-950/30 dark:text-pink-400 border border-pink-200/50 dark:border-pink-900/30';
+    if (ch === 'facebook') return 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200/50 dark:border-blue-900/30';
+    if (ch === 'email') return 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400 border border-violet-200/50 dark:border-violet-800/30';
+    return 'bg-zinc-50 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200/50 dark:border-zinc-700';
+  };
+
   const isChannelActive = (channelKey: string) => {
     if (channelKey === 'all') return true;
     const hasInbox = inboxes.some(inbox => {
@@ -615,7 +604,7 @@ export default function AtencionPage() {
       const isMeta = ['whatsapp', 'instagram', 'facebook'].includes(ch);
       const lastIncoming = c.messages?.find((m: any) => m?.message_type === 0);
       const timeSinceLastIncoming = lastIncoming ? (Date.now() / 1000 - lastIncoming.created_at) : null;
-      const canReply = !isMeta || c.can_reply !== false || (timeSinceLastIncoming !== null && timeSinceLastIncoming < 86400) || (Date.now() / 1000 - (c.last_activity_at || c.created_at)) < 86400;
+      const canReply = c.can_reply === true || (c.can_reply !== false && (!isMeta || (timeSinceLastIncoming !== null && timeSinceLastIncoming < 86400) || (Date.now() / 1000 - (c.last_activity_at || c.created_at)) < 86400));
       if (!canReply) return false;
     }
     if (!search.trim()) return true;
@@ -688,7 +677,7 @@ export default function AtencionPage() {
         <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 max-w-md flex items-start gap-4">
           <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-bold text-amber-800 dark:text-amber-400 text-[14px]">Chatwoot no configurado</h3>
+            <h3 className="font-bold text-amber-800 dark:text-amber-400 text-[14px]">Canal de atención no configurado</h3>
             <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1">Completá la URL y el token en Administración → Gestión de Clientes.</p>
           </div>
         </div>
@@ -700,7 +689,7 @@ export default function AtencionPage() {
     <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
 
       {/* Top Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-955 flex-shrink-0 w-full">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">
         {/* Left Section: Channel Filter Pills */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
           {[
@@ -730,7 +719,7 @@ export default function AtencionPage() {
                   <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${
                     isActive
                       ? 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550'
                   }`}>
                     {count}
                   </span>
@@ -757,38 +746,37 @@ export default function AtencionPage() {
           {/* Sort button */}
           <div className="relative group">
             <button className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Ordenar">
-              <svg className="w-4 h-4 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-4 h-4 text-zinc-550" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round"/>
               </svg>
             </button>
-            <div className="absolute right-0 top-full mt-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl py-1 min-w-[150px] z-50 hidden group-hover:block">
-              {[
-                { value: 'latest', label: '↓ Más reciente' },
-                { value: 'oldest', label: '↑ Más antiguo' },
-                { value: 'priority', label: '🔴 Por prioridad' },
-              ].map(s => (
-                <button key={s.value} onClick={() => setSortBy(s.value as any)}
-                  className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${sortBy === s.value ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                  {s.label}
-                </button>
-              ))}
+            <div className="absolute right-0 top-full pt-1.5 z-50 hidden group-hover:block">
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl py-1 min-w-[150px]">
+                {[
+                  { value: 'latest', label: '↓ Más reciente' },
+                  { value: 'oldest', label: '↑ Más antiguo' },
+                  { value: 'priority', label: '🔴 Por prioridad' },
+                ].map(s => (
+                  <button key={s.value} onClick={() => setSortBy(s.value as any)}
+                    className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${sortBy === s.value ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* 24-hour window filter */}
           <button 
             onClick={() => setCanReplyOnly(v => !v)}
-            title="Solo los que puedo responder (24h)"
-            className={`p-2 rounded-xl border transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all duration-200 select-none ${
               canReplyOnly 
                 ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
-                : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-emerald-700 dark:hover:text-emerald-400'
             }`}
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
+            <Clock className="w-3.5 h-3.5" />
+            <span>Ventana Abierta</span>
           </button>
 
           {/* Expand button */}
@@ -938,8 +926,8 @@ export default function AtencionPage() {
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className={`text-[9px] uppercase font-bold tracking-wider ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className={`text-[8.5px] px-1.5 py-0.5 rounded-full uppercase font-black tracking-wider ${getChannelBadgeClass(conv, isSelected)}`}>
                           {getChannelLabel(conv)}
                         </span>
                         {c.phone_number && (
@@ -1016,7 +1004,7 @@ export default function AtencionPage() {
                   <p className="text-[14px] font-bold text-zinc-900 dark:text-white">{contact(selected).name || `Conversación #${selected.id}`}</p>
                   <div className="flex items-center gap-2">
                     {contact(selected).phone_number && <span className="text-[11px] text-zinc-400 font-mono">{contact(selected).phone_number}</span>}
-                    <span className="text-[9px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-1.5 py-0.5 rounded-full uppercase">{getChannel(selected)}</span>
+                    <span className="text-[9px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 px-1.5 py-0.5 rounded-full uppercase">{getChannelLabel(selected)}</span>
                     <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full text-white ${STATUS_COLORS[selected.status] || 'bg-zinc-400'}`}>
                       {selected.status === 'open' ? 'Abierto' : selected.status === 'resolved' ? 'Resuelto' : 'Pendiente'}
                     </span>
@@ -1031,9 +1019,10 @@ export default function AtencionPage() {
                 const lastIncoming = [...messages].reverse().find((m: any) => m?.message_type === 0);
                 const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
                 const noIncoming = isMetaConv && !lastIncoming;
-                if (over24h || noIncoming) {
+                const isClosed = selected.can_reply === false || (selected.can_reply === undefined && isMetaConv && !loadingMsgs && (over24h || noIncoming));
+                if (isClosed) {
                   return (
-                    <div className="bg-red-50/45 dark:bg-red-950/5 border-b border-red-100/50 dark:border-red-900/10 px-5 py-2 flex items-center gap-2 text-[11px] text-red-750 dark:text-red-400 font-semibold select-none flex-shrink-0">
+                    <div className="bg-red-50/45 dark:bg-red-950/5 border-b border-red-100/50 dark:border-red-900/10 px-5 py-2 flex items-center gap-2 text-[11px] text-red-750 dark:text-red-400 font-semibold select-none flex-shrink-0 animate-in slide-in-from-top duration-200">
                       <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
                       <span>Solo se admiten respuestas mediante plantilla debido a la restricción de las 24 horas.</span>
                     </div>
@@ -1094,11 +1083,12 @@ export default function AtencionPage() {
                   const lastIncoming = [...messages].reverse().find((m: any) => m?.message_type === 0);
                   const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
                   const noIncoming = isMetaConv && !lastIncoming;
+                  const isClosed = selected.can_reply === false || (selected.can_reply === undefined && isMetaConv && !loadingMsgs && (over24h || noIncoming));
 
-                  if (over24h || noIncoming) {
+                  if (isClosed) {
                     const cleanPhone = contact(selected).phone_number ? contact(selected).phone_number.replace(/\D/g, '') : '';
                     return (
-                      <div className="px-5 py-4 space-y-3">
+                      <div className="px-5 py-4 space-y-3 animate-in fade-in duration-200">
                         <div className="flex items-start gap-2.5 p-3.5 bg-red-50/50 dark:bg-red-950/10 border border-red-200/50 dark:border-red-900/20 rounded-2xl">
                           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                           <div>
@@ -1109,19 +1099,17 @@ export default function AtencionPage() {
                           </div>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2">
-                          <a href={`${cwUrl}/app/accounts/${selected.account_id || ''}/conversations/${selected.id}`}
-                            target="_blank" rel="noreferrer"
-                            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-[12px] font-black rounded-xl transition-all active:scale-[0.98]">
-                            <ExternalLink className="w-4 h-4" />
-                            Abrir en Chatwoot
-                          </a>
-                          {cleanPhone && (
+                          {cleanPhone ? (
                             <a href={`https://wa.me/${cleanPhone}`}
                               target="_blank" rel="noreferrer"
-                              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-black rounded-xl transition-all shadow-sm active:scale-[0.98]">
+                              className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-black rounded-xl transition-all shadow-sm active:scale-[0.98]">
                               <MessageCircle className="w-4 h-4" />
                               Escribir por WhatsApp
                             </a>
+                          ) : (
+                            <div className="text-[11px] text-zinc-400 text-center w-full py-2">
+                              No hay teléfono de WhatsApp disponible para este contacto.
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1131,13 +1119,13 @@ export default function AtencionPage() {
                   return (
                     <div className="px-5 py-4 space-y-3">
                       {sendError && (
-                        <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl text-[11px] text-red-600 dark:text-red-400 flex items-start gap-2">
+                        <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl text-[11px] text-red-650 dark:text-red-400 flex items-start gap-2">
                           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                           <div>
                             <p className="font-bold">Error al enviar</p>
                             <p className="mt-0.5">{sendError}</p>
                             {sendError.toLowerCase().includes('template') && (
-                              <a href={`${cwUrl}`} target="_blank" rel="noreferrer" className="underline mt-1 block">Abrir Chatwoot para usar template →</a>
+                              <a href={`${cwUrl}`} target="_blank" rel="noreferrer" className="underline mt-1 block">Abrir panel para usar plantilla →</a>
                             )}
                           </div>
                         </div>
