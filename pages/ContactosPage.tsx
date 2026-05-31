@@ -316,7 +316,7 @@ export default function ContactosPage() {
                   placeholder="Buscar contactos..."
                   value={search}
                   onChange={handleSearchChange}
-                  className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-750 dark:text-zinc-300"
+                  className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-700 dark:text-zinc-300"
                 />
               </div>
 
@@ -326,7 +326,7 @@ export default function ContactosPage() {
                 title={sortBy === 'name' ? "Ordenar por Más Recientes" : "Ordenar por Nombre"}
                 className="p-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 transition-colors"
               >
-                <svg className="w-4 h-4 text-zinc-550" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16" />
                 </svg>
               </button>
@@ -370,7 +370,7 @@ export default function ContactosPage() {
                       <p className={`text-[12.5px] truncate font-bold ${isSelected ? 'text-white' : 'text-zinc-800 dark:text-zinc-100'}`}>
                         {c.name || `Contacto #${c.id}`}
                       </p>
-                      <p className={`text-[10px] font-mono mt-0.5 truncate ${isSelected ? 'text-blue-150' : 'text-zinc-450 dark:text-zinc-500'}`}>
+                      <p className={`text-[10px] font-mono mt-0.5 truncate ${isSelected ? 'text-blue-200' : 'text-zinc-500 dark:text-zinc-400'}`}>
                         {c.phone_number || c.email || 'Sin teléfono/email'}
                       </p>
                     </div>
@@ -382,7 +382,7 @@ export default function ContactosPage() {
 
           {/* Pagination Footer */}
           {totalCount > 0 && (
-            <div className="p-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 flex items-center justify-between text-[11px] text-zinc-450 dark:text-zinc-500 select-none">
+            <div className="p-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 select-none">
               <span>{startItem}-{endItem} de {totalCount}</span>
               <div className="flex items-center gap-1">
                 <button
@@ -618,7 +618,7 @@ export default function ContactosPage() {
               </div>
               <div>
                 <h3 className="text-[16px] font-black text-zinc-900 dark:text-white">Perfil Completado con IA</h3>
-                <p className="text-[11px] text-zinc-450 dark:text-zinc-500 font-semibold mt-0.5">Revisá y seleccioná los campos extraídos del chat que querés aplicar.</p>
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-semibold mt-0.5">Revisá y seleccioná los campos extraídos del chat que querés aplicar.</p>
               </div>
             </div>
 

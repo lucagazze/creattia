@@ -104,7 +104,7 @@ export const MainLayout = () => {
     }
   }, [profile]);
 
-  const isFixedPage = location.pathname === '/mensajeria' || location.pathname === '/atencion';
+  const isFixedPage = location.pathname === '/mensajeria';
 
   return (
     <div className="flex min-h-screen bg-[#f5f5f7] dark:bg-[#0a0a0a] text-zinc-900 dark:text-zinc-100 transition-colors duration-300 print:bg-white">
@@ -146,7 +146,7 @@ export const MainLayout = () => {
         </div>
 
         <div className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
-          location.pathname === '/atencion' || location.pathname === '/mensajeria' || location.pathname === '/contactos'
+          location.pathname === '/mensajeria' || location.pathname === '/contactos'
             ? 'overflow-hidden p-0 h-[calc(100vh-56px)] md:h-screen flex flex-col'
             : isFixedPage 
               ? 'overflow-hidden p-4 md:p-6 h-[calc(100vh-56px)] md:h-screen flex flex-col' 
@@ -183,7 +183,7 @@ export const MainLayout = () => {
           </Suspense>
           </RouteErrorBoundary>
         </div>
-        {location.pathname !== '/atencion' && location.pathname !== '/mensajeria' && location.pathname !== '/contactos' && <AIChatFloat />}
+        {location.pathname !== '/mensajeria' && location.pathname !== '/contactos' && <AIChatFloat />}
       </main>
     </div>
   );
