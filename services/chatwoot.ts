@@ -26,6 +26,16 @@ export const chatwoot = {
     return data?.data?.payload || data?.payload || [];
   },
 
+  async getOverview(url: string, token: string) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    return api(url, token, `/api/v1/accounts/${accountId}/reports/overview`);
+  },
+
+  async getSummary(url: string, token: string, since: number, until: number) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    return api(url, token, `/api/v1/accounts/${accountId}/reports/summary?since=${since}&until=${until}`);
+  },
+
   async getMessages(url: string, token: string, conversationId: number) {
     const accountId = await chatwoot.getAccountId(url, token);
     const data = await api(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`);
