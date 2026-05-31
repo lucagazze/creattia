@@ -108,10 +108,16 @@ export const chatwoot = {
     return proxy(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}`, { priority }, 'PATCH');
   },
 
-  // POST read — marks all messages as read
+  // Mark conversation as read — tries update_last_seen (v3+), falls back to /read (v2)
   async markAsRead(url: string, token: string, conversationId: number) {
     const accountId = await chatwoot.getAccountId(url, token);
-    return proxy(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}/read`, {}, 'POST');
+    const agentLastSeenAt = Math.floor(Date.now() / 1000);
+    try {
+      return await proxy(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}/update_last_seen`, { agent_last_seen_at: agentLastSeenAt }, 'POST');
+    } catch {
+      // Fallback to legacy /read endpoint
+      return proxy(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}/read`, {}, 'POST').catch(() => null);
+    }
   },
 
   // POST labels
