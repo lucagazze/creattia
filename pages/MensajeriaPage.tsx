@@ -1426,7 +1426,8 @@ export default function MensajeriaPage() {
           </div>
 
           {/* Mobile Floating Bottom Bar */}
-          <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 px-3.5 py-2 rounded-2xl shadow-lg flex items-center gap-3.5 z-40 select-none border-zinc-200/80 dark:border-zinc-800/80">
+          {/* Mobile bottom tab bar — full width, stuck to bottom */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 flex items-stretch z-40 select-none safe-area-bottom">
             {[
               { key: 'all', icon: Inbox, label: 'Todos' },
               { key: 'whatsapp', icon: MessageCircle, label: 'WhatsApp' },
@@ -1441,35 +1442,38 @@ export default function MensajeriaPage() {
                 <button
                   key={ch.key}
                   onClick={() => setChannelFilter(ch.key as any)}
-                  className={`p-2 rounded-xl transition-all relative ${
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 relative transition-all ${
                     isActive
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
-                      : 'text-zinc-500 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                      ? 'text-zinc-900 dark:text-white'
+                      : 'text-zinc-400 dark:text-zinc-500'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {count > 0 && !isActive && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[8px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900">
-                      {count}
-                    </span>
-                  )}
+                  {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-zinc-900 dark:bg-white rounded-full" />}
+                  <div className="relative">
+                    <Icon className="w-5 h-5" />
+                    {count > 0 && !isActive && (
+                      <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white text-[8px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5 border border-white dark:border-zinc-950">
+                        {count > 99 ? '99+' : count}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-bold leading-none ${isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 dark:text-zinc-500'}`}>{ch.label}</span>
                 </button>
               );
             })}
-            
-            <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800" />
-            
-            {/* Clock/Ventana Abierta toggle */}
+
+            <div className="w-px bg-zinc-100 dark:bg-zinc-800 self-stretch my-2" />
+
             <button
               onClick={() => setCanReplyOnly(v => !v)}
-              className={`p-2 rounded-xl transition-all ${
-                canReplyOnly
-                  ? 'bg-emerald-500 text-white shadow-sm'
-                  : 'text-zinc-500 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-all ${
+                canReplyOnly ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
               }`}
               title="Ventana Abierta"
             >
-              <Clock className="w-4 h-4" />
+              {canReplyOnly && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-emerald-500 rounded-full" />}
+              <Clock className="w-5 h-5" />
+              <span className="text-[9px] font-bold leading-none">Abiertas</span>
             </button>
           </div>
         </div>
