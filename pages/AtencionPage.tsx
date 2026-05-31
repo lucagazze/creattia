@@ -53,6 +53,7 @@ export default function AtencionPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [summary, setSummary] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
     if (!cwUrl || !cwToken) return;
@@ -62,35 +63,32 @@ export default function AtencionPage() {
     setCurrentPage(1);
     setHasMore(false);
     try {
-      const [{ payload, hasMore: more }, sm] = await Promise.all([
+      const [{ payload: first, hasMore: more }, sm] = await Promise.all([
         chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1),
         chatwoot.getSummary(cwUrl, cwToken, Math.floor(new Date().setHours(0,0,0,0)/1000), Math.floor(Date.now()/1000)).catch(() => null),
       ]);
-      setConversations(payload);
+      setConversations(first);
       setHasMore(more);
       setSummary(sm);
+      setLoading(false);
+
+      // Auto-load remaining pages in background
+      if (more) {
+        let page = 2;
+        while (true) {
+          const { payload, hasMore: stillMore } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, page);
+          setConversations(prev => [...prev, ...payload]);
+          if (!stillMore || page >= 20) break;
+          page++;
+        }
+        setHasMore(false);
+        setLoadingMore(false);
+      }
     } catch (e: any) {
       setError(e.message);
-    } finally {
       setLoading(false);
     }
   }, [cwUrl, cwToken, statusFilter]);
-
-  const loadMore = useCallback(async () => {
-    if (!cwUrl || !cwToken || loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    try {
-      const nextPage = currentPage + 1;
-      const { payload, hasMore: more } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, nextPage);
-      setConversations(prev => [...prev, ...payload]);
-      setCurrentPage(nextPage);
-      setHasMore(more);
-    } catch (e) {
-      // silently fail on pagination
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [cwUrl, cwToken, statusFilter, currentPage, loadingMore, hasMore]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
@@ -112,7 +110,8 @@ export default function AtencionPage() {
   }, [cwUrl, cwToken]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (container) container.scrollTop = container.scrollHeight;
   }, [messages]);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -268,13 +267,11 @@ export default function AtencionPage() {
               );
             })}
 
-            {/* Load more button */}
-            {hasMore && !loading && (
-              <button onClick={loadMore} disabled={loadingMore}
-                className="w-full py-3 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-                {loadingMore ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                {loadingMore ? 'Cargando más...' : `Cargar más (${conversations.length} cargados)`}
-              </button>
+            {/* Background loading indicator */}
+            {loadingMore && (
+              <div className="flex items-center justify-center gap-1.5 py-2 text-[10px] text-zinc-400">
+                <Loader2 className="w-3 h-3 animate-spin" /> Cargando más...
+              </div>
             )}
           </div>
         </div>
@@ -306,7 +303,7 @@ export default function AtencionPage() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
                 {loadingMsgs ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
