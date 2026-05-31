@@ -4,7 +4,7 @@ import { useViewAs } from '../contexts/ViewAsContext';
 import { chatwoot } from '../services/chatwoot';
 import {
   RefreshCw, AlertCircle, Loader2, Send, Sparkles,
-  Search, CheckCircle, Clock, Inbox, ExternalLink
+  Search, CheckCircle, Clock, Inbox, ExternalLink, Bot
 } from 'lucide-react';
 
 const fmtTime = (ts: number) => {
@@ -33,6 +33,7 @@ export default function AtencionPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
+  const isAdmin = authProfile?.is_admin;
 
   const cwUrl = (profile as any)?.chatwoot_url;
   const cwToken = (profile as any)?.chatwoot_token;
@@ -61,6 +62,7 @@ export default function AtencionPage() {
   const [canReplyOnly, setCanReplyOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -251,6 +253,39 @@ export default function AtencionPage() {
     }
   }, [messages]);
 
+  const generateAiDraft = async () => {
+    if (!profile?.id || !selected || messages.length === 0) return;
+    setGeneratingDraft(true);
+    setSendError(null);
+    try {
+      const last20 = messages.slice(-20);
+      const lastIncoming = [...last20].reverse().find((m: any) => m.message_type === 0);
+      const lastMsg = last20[last20.length - 1];
+      const history = last20.map((m: any) => {
+        const who = m.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
+        return `${who}: ${m.content || '[archivo adjunto]'}`;
+      });
+      const res = await fetch('/api/draft-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: profile.id,
+          itemText: lastIncoming?.content || lastMsg?.content || '',
+          username: contact(selected).name || contact(selected).phone_number || 'Cliente',
+          conversationHistory: history,
+          isDM: true,
+        }),
+      });
+      if (!res.ok) throw new Error('Error al generar borrador');
+      const data = await res.json();
+      if (data.draft) setReply(data.draft);
+    } catch (e: any) {
+      setSendError('No se pudo generar el borrador con IA.');
+    } finally {
+      setGeneratingDraft(false);
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reply.trim() || !selected || !cwUrl || !cwToken) return;
@@ -434,14 +469,12 @@ export default function AtencionPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <a href={cwUrl} target="_blank" rel="noreferrer"
-            className="flex items-center gap-1 text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline">
-            Abrir Chatwoot <ExternalLink className="w-3 h-3" />
-          </a>
-          <button onClick={loadConversations} disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[11px] font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 transition-all disabled:opacity-50">
-            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} /> Actualizar
-          </button>
+          {isAdmin && (
+            <a href={cwUrl} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1 text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline">
+              Abrir Chatwoot <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
         </div>
       </div>
 
@@ -738,21 +771,28 @@ export default function AtencionPage() {
                           </div>
                         </div>
                       )}
-                      <form onSubmit={handleSend} className="flex gap-3 items-end">
+                      <div className="space-y-2">
                         <textarea
                           value={reply}
                           onChange={e => setReply(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }}}
                           placeholder="Escribí tu respuesta... (Enter para enviar)"
-                          rows={2}
-                          className="flex-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-[13px] text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all resize-none"
+                          rows={3}
+                          className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-[13px] text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all resize-none"
                         />
-                        <button type="submit" disabled={!reply.trim() || sending}
-                          className="flex items-center gap-1.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-bold rounded-2xl transition-all shadow-sm flex-shrink-0">
-                          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                          Enviar
-                        </button>
-                      </form>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={generateAiDraft} disabled={generatingDraft || sending || messages.length === 0}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/25 dark:hover:bg-violet-900/40 text-violet-700 dark:text-violet-400 rounded-xl text-[12px] font-bold border border-violet-200 dark:border-violet-800/40 transition-all disabled:opacity-50">
+                            {generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
+                            Responder con IA
+                          </button>
+                          <button onClick={handleSend as any} disabled={!reply.trim() || sending}
+                            className="ml-auto flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm">
+                            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            Enviar
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   );
                 })()}
