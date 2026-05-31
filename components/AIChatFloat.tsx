@@ -593,8 +593,8 @@ export const AIChatFloat = () => {
           {/* Header */}
           <div className="flex justify-between items-center px-4 py-3.5 md:py-3 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0 select-none">
             <div className="flex items-center gap-2.5">
-              <div className="w-8.5 h-8.5 md:w-8 md:h-8 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow overflow-hidden">
-                <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-6.5 h-6.5 md:w-6 md:h-6 object-contain" />
+              <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow overflow-hidden">
+                <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-6 h-6 object-contain" />
               </div>
               <div>
                 <p className="text-[13.5px] md:text-[13px] font-black text-zinc-800 dark:text-zinc-200 leading-none">Algor IA</p>
@@ -603,13 +603,13 @@ export const AIChatFloat = () => {
             </div>
             <div className="flex items-center gap-2 md:gap-1.5">
               {messages.length > 0 && (
-                <button onClick={clearChat} className="p-2 md:p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" title="Limpiar chat">
+                <button onClick={clearChat} className="p-2 md:p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" title="Limpiar chat">
                   <RotateCcw className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 </button>
               )}
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="w-9 h-9 md:w-7 md:h-7 rounded-xl md:rounded-lg bg-zinc-100 dark:bg-zinc-855 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-555 dark:text-zinc-450 hover:text-zinc-700 dark:hover:text-white transition-all flex items-center justify-center cursor-pointer flex-shrink-0"
+                className="w-9 h-9 md:w-7 md:h-7 rounded-xl md:rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-white transition-all flex items-center justify-center cursor-pointer flex-shrink-0"
                 title="Cerrar chat"
               >
                 <X className="w-5 h-5 md:w-4 md:h-4" />
@@ -622,8 +622,8 @@ export const AIChatFloat = () => {
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-3 py-6 select-none">
                 <div className="text-center mb-2">
-                  <p className="text-[15px] font-black text-zinc-850 dark:text-zinc-100">¿En qué puedo ayudarte hoy?</p>
-                  <p className="text-[11.5px] text-zinc-450 dark:text-zinc-500 mt-1 max-w-[280px]">
+                  <p className="text-[15px] font-black text-zinc-800 dark:text-zinc-100">¿En qué puedo ayudarte hoy?</p>
+                  <p className="text-[11.5px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-[280px]">
                     Preguntame sobre tus campañas, creativos, emails o ventas.
                   </p>
                 </div>
@@ -645,7 +645,7 @@ export const AIChatFloat = () => {
             {messages.map((msg: Message, i: number) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
-                  <div className="w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 shadow-sm overflow-hidden select-none">
+                  <div className="w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 shadow-sm overflow-hidden select-none">
                     <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="" className="w-4 h-4 object-contain" />
                   </div>
                 )}
@@ -665,7 +665,7 @@ export const AIChatFloat = () => {
 
             {isThinking && (
               <div className="flex justify-start">
-                <div className="w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 overflow-hidden shadow-sm">
+                <div className="w-6 h-6 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center flex-shrink-0 mr-2 mt-0.5 overflow-hidden shadow-sm">
                   <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="" className="w-4 h-4 object-contain" />
                 </div>
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 px-3.5 py-2.5 rounded-2xl rounded-bl-sm shadow-sm min-w-[150px] max-w-[85%]">
@@ -731,7 +731,7 @@ export const AIChatFloat = () => {
                   ? 'bg-red-500 scale-110 shadow-red-500/50'
                   : input.trim()
                   ? 'bg-violet-600 hover:bg-violet-700'
-                  : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-850'
+                  : 'bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800'
               }`}
             >
               {isThinking || isTranscribing

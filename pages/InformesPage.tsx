@@ -504,7 +504,7 @@ export default function InformesPage() {
   const fbGrowth = calcGrowth(fbSnaps, 'fb_fans');
 
   return (
-    <div className="max-w-[1600px] mx-auto animate-fade-in pb-20">
+    <div className="max-w-[1600px] mx-auto animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
 
       {/* ── Organic Social Section ─────────────────────────────────────── */}
       <div className="mb-10">

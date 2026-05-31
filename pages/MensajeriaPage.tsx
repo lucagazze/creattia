@@ -1,1787 +1,1714 @@
-import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
-import { 
-  Instagram, Heart, MessageCircle, Layers, Loader2, RefreshCw, X, 
-  ArrowUpRight, AlertCircle, MessageSquare, CheckCircle2, ThumbsUp, Inbox, Info, Sparkles,
-  Search, Copy, Send, Check, ShoppingBag, Link
-} from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
-import { metaAds } from '../services/metaAds';
 import { chatwoot } from '../services/chatwoot';
-import EmailLoader from '../components/ui/EmailLoader';
-import { db } from '../services/db';
+import { supabase } from '../services/supabase';
+import {
+  RefreshCw, AlertCircle, Loader2, Send, Sparkles,
+  Search, CheckCircle, Clock, Inbox, ExternalLink, Bot,
+  Globe, Facebook, Instagram, MessageCircle, Mail,
+  BookOpen, ShoppingBag, Plus, Trash2, Link
+} from 'lucide-react';
 
-interface AutoResizeTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  value: string;
-}
 
-const AutoResizeTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizeTextareaProps>(
-  ({ value, className = '', ...props }, ref) => {
-    const localRef = React.useRef<HTMLTextAreaElement>(null);
-    const textareaRef = (ref as React.RefObject<HTMLTextAreaElement>) || localRef;
-
-    React.useEffect(() => {
-      const textarea = textareaRef.current;
-      if (textarea) {
-        const adjustHeight = () => {
-          textarea.style.height = 'auto';
-          textarea.style.height = `${textarea.scrollHeight}px`;
-        };
-        adjustHeight();
-        const t = setTimeout(adjustHeight, 50);
-        return () => clearTimeout(t);
+const fmtTime = (ts: any) => {
+  if (!ts) return '';
+  let d: Date;
+  if (typeof ts === 'number') {
+    if (ts < 10000000000) {
+      d = new Date(ts * 1000);
+    } else {
+      d = new Date(ts);
+    }
+  } else if (typeof ts === 'string') {
+    if (/^\d+$/.test(ts)) {
+      const num = parseInt(ts, 10);
+      if (num < 10000000000) {
+        d = new Date(num * 1000);
+      } else {
+        d = new Date(num);
       }
-    }, [value, textareaRef]);
+    } else {
+      d = new Date(ts);
+    }
+  } else {
+    d = new Date(ts);
+  }
 
-    return (
-      <textarea
-        ref={textareaRef}
-        value={value}
-        className={`${className} overflow-hidden resize-none`}
-        rows={1}
-        {...props}
-      />
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  return isToday
+    ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+};
+
+const fmtSeconds = (s: number) => {
+  if (!s || isNaN(s)) return '—';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m` : `${Math.round(s)}s`;
+};
+
+const renderMessageContent = (msg: any, contactName = 'Cliente') => {
+  if (!msg) return null;
+
+  // 1. Check if it's an email content type with HTML content
+  const emailHtml = msg.content_attributes?.email?.html_content || msg.content_attributes?.html_content;
+  
+  // Also check if raw content is HTML
+  const rawContent = msg.content || '';
+  const isRawHtml = rawContent.trim().toLowerCase().startsWith('<html') || 
+                    rawContent.trim().toLowerCase().startsWith('<!doctype') || 
+                    (rawContent.includes('<div') && rawContent.includes('</div>')) || 
+                    (rawContent.includes('<p') && rawContent.includes('</p>'));
+
+  const hasHtml = !!emailHtml || isRawHtml;
+  const htmlToRender = emailHtml || rawContent;
+
+  let contentNode = null;
+
+  if (hasHtml) {
+    // Strip script and iframe tags to avoid XSS
+    const cleanHtml = htmlToRender
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+
+    contentNode = (
+      <div 
+        className="email-content-wrapper overflow-x-auto text-left max-w-full text-zinc-800 dark:text-zinc-100 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800"
+      >
+        <div 
+          dangerouslySetInnerHTML={{ __html: cleanHtml }}
+          className="prose dark:prose-invert prose-sm max-w-none break-words email-body"
+        />
+      </div>
+    );
+  } else {
+    // Regular text content with line breaks
+    contentNode = (
+      <span className="whitespace-pre-wrap break-words">{msg.content || ''}</span>
     );
   }
-);
-AutoResizeTextarea.displayName = 'AutoResizeTextarea';
+
+  // 2. Render attachments if any
+  const attachments = msg.attachments;
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    return (
+      <div className="space-y-2.5">
+        {msg.content && contentNode}
+        <div className="space-y-2 mt-2 pt-2 border-t border-zinc-200/50 dark:border-zinc-700/50">
+          {attachments.map((att: any, idx: number) => {
+            const fType = (att.file_type || '').toLowerCase();
+            const url = att.data_url || att.data?.url || '';
+            if (!url) return null;
+
+            if (fType.includes('image') || url.match(/\.(jpeg|jpg|gif|png|webp)/i)) {
+              return (
+                <div key={idx} className="relative group max-w-xs">
+                  <img 
+                    src={url} 
+                    alt="Adjunto" 
+                    className="max-h-48 rounded-xl object-cover cursor-pointer hover:opacity-95 transition-opacity border border-zinc-200 dark:border-zinc-700"
+                    onClick={() => window.open(url, '_blank')}
+                  />
+                  <a 
+                    href={url} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 text-white p-1.5 rounded-lg text-[10px] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <ExternalLink className="w-3 h-3" /> Ver original
+                  </a>
+                </div>
+              );
+            }
+
+            if (fType.includes('audio') || url.match(/\.(mp3|wav|ogg|m4a)/i)) {
+              return (
+                <div key={idx} className="mt-1">
+                  <audio src={url} controls className="max-w-full h-8" />
+                </div>
+              );
+            }
+
+            if (fType.includes('video') || url.match(/\.(mp4|webm|mov|avi)/i)) {
+              return (
+                <div key={idx} className="max-w-xs mt-1">
+                  <video src={url} controls className="max-h-48 rounded-xl border border-zinc-200 dark:border-zinc-700" />
+                </div>
+              );
+            }
+
+            // Fallback for document/file
+            const fileName = url.split('/').pop()?.split('?')[0] || 'Archivo adjunto';
+            return (
+              <a 
+                key={idx}
+                href={url} 
+                target="_blank" 
+                rel="noreferrer"
+                className="flex items-center gap-2 p-2.5 bg-zinc-55 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-blue-600 dark:text-blue-400 hover:underline text-[12px] font-bold transition-all w-fit"
+              >
+                <Link className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[200px]">{fileName}</span>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // If no attachments, return just the contentNode
+  if (!msg.content && !hasHtml) {
+    return <span className="italic opacity-60">📎 Archivo adjunto</span>;
+  }
+
+  return contentNode;
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  open: 'bg-blue-500',
+  resolved: 'bg-emerald-500',
+  pending: 'bg-amber-500',
+};
 
 export default function MensajeriaPage() {
-  const { isViewingAs, viewAsProfile } = useViewAs();
-  const { profile: authProfile, user } = useAuth();
-  const profile = isViewingAs ? viewAsProfile : authProfile;
-  const clientId = profile?.id;
-
+  const navigate = useNavigate();
   const location = useLocation();
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { profile: authProfile } = useAuth();
+  const { viewAsProfile, isViewingAs } = useViewAs();
+  const profile = isViewingAs ? viewAsProfile : authProfile;
+  const isAdmin = authProfile?.is_admin;
+
+  const cwUrl = (profile as any)?.chatwoot_url;
+  const cwToken = (profile as any)?.chatwoot_token;
+
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [convMeta, setConvMeta] = useState<{ all_count: number; unassigned_count: number; assigned_count: number } | null>(null);
+  const [channelMetas, setChannelMetas] = useState<Record<string, { all_count: number; unassigned_count: number; assigned_count: number }>>({});
+  const [inboxes, setInboxes] = useState<any[]>([]);
+  const [loadingSuggestion, setLoadingSuggestion] = useState<string | null>(null);
+  const [assignFilter, setAssignFilter] = useState<'all' | 'mine' | 'unassigned'>('all');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email' | 'other'>('all');
+  const [listCollapsed, setListCollapsed] = useState(false);
   
-  // Loading and Error States
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dmsError, setDmsError] = useState<string | null>(null);
-  const [fbFeedError, setFbFeedError] = useState<string | null>(null);
-  const [igFeedError, setIgFeedError] = useState<string | null>(null);
+  // Sidebar State Variables
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'canned' | 'shopify'>('canned');
 
-  // Data States
-  const [pendingItems, setPendingItems] = useState<any[]>([]);
-  const [inboxReplies, setInboxReplies] = useState<Record<string, string>>({});
-  const [submittingInboxReply, setSubmittingInboxReply] = useState<Record<string, boolean>>({});
-  const [inboxReplyErrors, setInboxReplyErrors] = useState<Record<string, string | null>>({});
-  const [loadingDraft, setLoadingDraft] = useState<Record<string, boolean>>({});
+  const [cannedResponses, setCannedResponses] = useState<any[]>([]);
+  const [cannedSearch, setCannedSearch] = useState('');
+  const [loadingCanned, setLoadingCanned] = useState(false);
+  const [showNewCannedForm, setShowNewCannedForm] = useState(false);
+  const [newCannedTitle, setNewCannedTitle] = useState('');
+  const [newCannedShortcut, setNewCannedShortcut] = useState('');
+  const [newCannedContent, setNewCannedContent] = useState('');
+  const [savingCanned, setSavingCanned] = useState(false);
 
-  // Filter States
-  const [inboxSection, setInboxSection] = useState<'messages' | 'comments' | 'whatsapp'>(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const sec = searchParams.get('section');
-    if (sec === 'comments') return 'comments';
-    if (sec === 'whatsapp') return 'whatsapp';
-    return 'messages';
-  });
-
-  // Chatwoot / WhatsApp states
-  const [chatwootItems, setChatwootItems] = useState<any[]>([]);
-  const [loadingChatwoot, setLoadingChatwoot] = useState(false);
-  const [chatwootError, setChatwootError] = useState<string | null>(null);
-  const [chatwootMessages, setChatwootMessages] = useState<Record<number, any[]>>({});
-  const [loadingChatwootMessages, setLoadingChatwootMessages] = useState<number | null>(null);
-
-  // Sync tab with URL search parameter
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const sec = searchParams.get('section');
-    if (sec === 'comments') setInboxSection('comments');
-    else if (sec === 'whatsapp') setInboxSection('whatsapp');
-    else if (sec === 'messages') setInboxSection('messages');
-  }, [location.search]);
-
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [inboxMode, setInboxMode] = useState<'pending' | 'all'>('pending');
-
-  // Comment Moderations local states
-  const [activeReplyCommentIds, setActiveReplyCommentIds] = useState<Record<string, boolean>>({});
-  const [likedCommentIds, setLikedCommentIds] = useState<Record<string, boolean>>({});
-  const [likingCommentIds, setLikingCommentIds] = useState<Record<string, boolean>>({});
-  const [bulkDraftsLoading, setBulkDraftsLoading] = useState(false);
-
-  // Selected Item for Detail Slide-Over
-  const [selectedItem, setSelectedItem] = useState<any | null>(null);
-
-  // Shopify Products States
+  const [shopifySearch, setShopifySearch] = useState('');
   const [shopifyProducts, setShopifyProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [productSearch, setProductSearch] = useState('');
-  const [copiedProductId, setCopiedProductId] = useState<string | null>(null);
 
-  // Full conversation history states
-  const [conversationMessages, setConversationMessages] = useState<Record<string, any[]>>({});
-  const [loadingConversation, setLoadingConversation] = useState<string | null>(null);
+  const [customLinks, setCustomLinks] = useState<any[]>([]);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; conv: any } | null>(null);
+  const ctxRef = useRef<HTMLDivElement>(null);
+  const [statusFilter, setStatusFilter] = useState<'open' | 'resolved' | 'pending'>('open');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [failedMsgIds, setFailedMsgIds] = useState<Set<string>>(new Set());
+  const [summary, setSummary] = useState<any>(null);
+  const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'priority'>('latest');
+  const [expanded, setExpanded] = useState(false);
+  const [canReplyOnly, setCanReplyOnly] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Resolve IDs and keys from client profile
-  const chatwootUrl = (profile as any)?.chatwoot_url;
-  const chatwootToken = (profile as any)?.chatwoot_token;
+  const selectedRef = useRef<any>(null);
+  selectedRef.current = selected;
 
-  const igId = (profile as any)?.ig_business_id;
-  const igUsername = (profile as any)?.ig_username;
-  const fbPageId = (profile as any)?.fb_page_id;
-  const metaAccountId = (profile as any)?.meta_account_id;
-  const ecommercePlatform = (profile as any)?.ecommerce_platform;
-  const shopifyDomain = (profile as any)?.shopify_domain;
-  const shopifyAccessToken = (profile as any)?.shopify_access_token;
 
-  // Track page ID in localStorage to enable token retrieval in services
+  const getInboxIdForChannel = useCallback((chKey: string) => {
+    if (chKey === 'all') return undefined;
+    const inbox = inboxes.find(i => {
+      const type = (i.channel_type || '').toLowerCase();
+      if (chKey === 'whatsapp') return type.includes('whatsapp');
+      if (chKey === 'instagram') return type.includes('instagram');
+      if (chKey === 'facebook') return type.includes('facebook') || type.includes('page');
+      if (chKey === 'email') return type.includes('email');
+      return false;
+    });
+    return inbox?.id;
+  }, [inboxes]);
+
+  // Load inboxes once when credentials are ready
   useEffect(() => {
-    if (fbPageId) {
-      localStorage.setItem('active_fb_page_id', fbPageId);
-    }
-  }, [fbPageId]);
+    if (!cwUrl || !cwToken) return;
+    const initInboxes = async () => {
+      try {
+        const inboxList = await chatwoot.getInboxes(cwUrl, cwToken).catch(() => []);
+        setInboxes(inboxList);
+      } catch (err) {
+        console.error("Error fetching inboxes on mount:", err);
+      }
+    };
+    initInboxes();
+  }, [cwUrl, cwToken]);
 
-  // Load Shopify products via proxy if integrated
+  // Load total counts for each channel key and overall counts immediately in parallel
   useEffect(() => {
-    if (ecommercePlatform === 'shopify' && shopifyDomain && shopifyAccessToken) {
-      setLoadingProducts(true);
-      fetch('/api/shopify/products.json?limit=50&fields=id,title,handle', {
-        headers: {
-          'x-shopify-domain': shopifyDomain,
-          'x-shopify-access-token': shopifyAccessToken
+    if (!cwUrl || !cwToken) return;
+
+    const loadChannelMetas = async () => {
+      try {
+        // Fetch overall meta
+        const overallMetaRes = await chatwoot.getConversationsMeta(cwUrl, cwToken, statusFilter).catch(() => null);
+        const mOverall = overallMetaRes?.meta || overallMetaRes;
+        if (mOverall) {
+          setConvMeta({
+            all_count: mOverall.all_count ?? 0,
+            unassigned_count: mOverall.unassigned_count ?? 0,
+            assigned_count: mOverall.assigned_count ?? 0
+          });
         }
-      })
-      .then(res => {
-        if (res.ok) return res.json();
-        throw new Error('Error al obtener productos de Shopify');
-      })
-      .then(data => {
-        setShopifyProducts(data.products || []);
-      })
-      .catch(err => console.error('[Shopify Products Load] Error:', err))
-      .finally(() => setLoadingProducts(false));
-    } else {
-      setShopifyProducts([]);
-    }
-  }, [ecommercePlatform, shopifyDomain, shopifyAccessToken, refreshKey]);
 
-  // Reply handler
-  const handleInboxReply = async (e: React.FormEvent, item: any) => {
-    e.preventDefault();
-    const replyText = inboxReplies[item.id]?.trim();
-    if (!replyText) return;
+        if (inboxes.length === 0) return;
 
-    setSubmittingInboxReply(prev => ({ ...prev, [item.id]: true }));
-    setInboxReplyErrors(prev => ({ ...prev, [item.id]: null }));
+        const metas: Record<string, { all_count: number; unassigned_count: number; assigned_count: number }> = {};
+        await Promise.all(inboxes.map(async (inbox: any) => {
+          try {
+            const metaRes = await chatwoot.getConversationsMeta(cwUrl, cwToken, statusFilter, inbox.id);
+            const m = metaRes?.meta || metaRes;
+            if (m) {
+              const type = (inbox.channel_type || '').toLowerCase();
+              let key = 'other';
+              if (type.includes('whatsapp')) key = 'whatsapp';
+              else if (type.includes('instagram')) key = 'instagram';
+              else if (type.includes('facebook') || type.includes('page')) key = 'facebook';
+              else if (type.includes('email')) key = 'email';
 
+              if (!metas[key]) {
+                metas[key] = { all_count: 0, unassigned_count: 0, assigned_count: 0 };
+              }
+              metas[key].all_count += m.all_count ?? 0;
+              metas[key].unassigned_count += m.unassigned_count ?? 0;
+              metas[key].assigned_count += m.assigned_count ?? 0;
+            }
+          } catch (err) {
+            console.error('Error fetching meta for inbox', inbox.id, err);
+          }
+        }));
+        setChannelMetas(metas);
+      } catch (err) {
+        console.error('Error loading channel metas:', err);
+      }
+    };
+
+    loadChannelMetas();
+  }, [cwUrl, cwToken, inboxes, statusFilter]);
+
+  const loadConversations = useCallback(async () => {
+    if (!cwUrl || !cwToken) return;
+    setLoading(true);
+    setError(null);
+    setConversations([]);
+    setCurrentPage(1);
+    setHasMore(false);
     try {
-      if (item.type === 'whatsapp_dm') {
-        await chatwoot.sendMessage(chatwootUrl!, chatwootToken!, item.chatwootId, replyText);
-        setChatwootMessages(prev => {
-          const prev_msgs = prev[item.chatwootId] || [];
-          return { ...prev, [item.chatwootId]: [...prev_msgs, { id: `local_${Date.now()}`, content: replyText, message_type: 1, created_at: Date.now() / 1000 }] };
-        });
-      } else if (item.type === 'ig_dm' || item.type === 'fb_dm') {
-        await metaAds.replyToConversation(item.id, replyText);
-      } else if (item.type === 'ig_comment') {
-        await metaAds.replyToInstagramComment(item.id, replyText);
-      } else if (item.type === 'fb_comment' || item.type === 'ad_comment') {
-        await metaAds.replyToFacebookComment(item.id, replyText);
+      const inboxId = getInboxIdForChannel(channelFilter);
+      const [firstPageRes, sm] = await Promise.all([
+        chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1, inboxId),
+        chatwoot.getSummary(cwUrl, cwToken, Math.floor(new Date().setHours(0,0,0,0)/1000), Math.floor(Date.now()/1000)).catch(() => null),
+      ]);
+      
+      const { payload: firstPayload, hasMore: firstHasMore, meta } = firstPageRes;
+      setSummary(sm);
+      if (meta && channelFilter === 'all') {
+        setConvMeta({ all_count: meta.all_count ?? 0, unassigned_count: meta.unassigned_count ?? 0, assigned_count: meta.assigned_count ?? 0 });
       }
+      
+      setConversations(firstPayload);
+      setHasMore(firstHasMore);
 
-      // Log the reply action in car_user_activity for few-shot learning
-      if (user?.id && clientId) {
-        db.activity.log(user.id, clientId, 'reply_sent', {
-          reply_text: replyText,
-          incoming_text: item.text || item.message || '',
-          platform: item.type || 'unknown',
-          item_id: item.id,
-          user_email: user.email || 'Desconocido'
-        }).catch(err => console.error('Error logging reply activity:', err));
-      }
-
-      // Resolve and remove item from list
-      setPendingItems(prev => prev.filter(p => p.id !== item.id));
-      setInboxReplies(prev => {
-        const copy = { ...prev };
-        delete copy[item.id];
-        return copy;
-      });
-
-      // If resolved item is currently selected in slide-over, close it
-      if (selectedItem?.id === item.id) {
-        setSelectedItem(null);
-      }
-    } catch (err: any) {
-      console.error('Error replying from inbox:', err);
-      setInboxReplyErrors(prev => ({
-        ...prev,
-        [item.id]: 'No se pudo enviar la respuesta. Puede que el token no tenga permisos de escritura o haya expirado. Intentá responder directamente en la plataforma.',
-      }));
+    } catch (e: any) {
+      setError(e.message);
     } finally {
-      setSubmittingInboxReply(prev => ({ ...prev, [item.id]: false }));
+      setLoading(false);
     }
-  };
+  }, [cwUrl, cwToken, statusFilter, channelFilter, getInboxIdForChannel]);
 
-  // Helper to determine if a comment thread is unanswered/pending
-  const isCommentPending = (comment: any) => {
-    const isFromPage = comment.username === igUsername || comment.from?.id === fbPageId;
-    if (isFromPage) return false;
-    
-    const repliesList = comment.replies?.data || [];
-    if (repliesList.length === 0) return true;
-    
-    const sortedReplies = [...repliesList].sort(
-      (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
-    );
-    const latestReply = sortedReplies[sortedReplies.length - 1];
-    const lastIsFromPage = latestReply.username === igUsername || latestReply.from?.id === fbPageId;
-    return !lastIsFromPage;
-  };
-
-  // AI draft generator
-  const generateAiDraft = async (item: any, allPostComments?: any[]) => {
-    setLoadingDraft(prev => ({ ...prev, [item.id]: true }));
-    setInboxReplyErrors(prev => ({ ...prev, [item.id]: null }));
+  const loadMoreConversations = useCallback(async () => {
+    if (!cwUrl || !cwToken || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = currentPage + 1;
     try {
-      const otherCommentsList = allPostComments
-        ? allPostComments
-            .filter(c => c.id !== item.id)
-            .map(c => `@${c.username || c.from?.name}: ${c.text || c.message || ''}`)
-        : [];
+      const inboxId = getInboxIdForChannel(channelFilter);
+      const { payload, hasMore: more } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, nextPage, inboxId);
+      setConversations(prev => {
+        const prevIds = new Set(prev.map(c => c.id));
+        const filteredPayload = payload.filter(c => !prevIds.has(c.id));
+        return [...prev, ...filteredPayload];
+      });
+      setCurrentPage(nextPage);
+      setHasMore(more);
+    } catch {} finally {
+      setLoadingMore(false);
+    }
+  }, [cwUrl, cwToken, currentPage, loadingMore, hasMore, statusFilter, channelFilter, getInboxIdForChannel]);
 
+  useEffect(() => { loadConversations(); }, [loadConversations]);
+
+
+  // WebSocket real-time connection to Chatwoot
+  useEffect(() => {
+    if (!cwUrl || !cwToken) return;
+    let ws: WebSocket | null = null;
+    let pingInterval: any = null;
+    let reconnectTimeout: any = null;
+
+    const connect = async () => {
+      try {
+        const { pubsub_token } = await chatwoot.getProfile(cwUrl, cwToken);
+        if (!pubsub_token) return;
+
+        const wsUrl = cwUrl.replace(/^https?/, (m: string) => m === 'https' ? 'wss' : 'ws') + '/cable';
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          ws!.send(JSON.stringify({
+            command: 'subscribe',
+            identifier: JSON.stringify({ channel: 'RoomChannel', pubsub_token })
+          }));
+          pingInterval = setInterval(() => {
+            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
+          }, 30000);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const frame = JSON.parse(event.data);
+            if (frame.type === 'ping' || frame.type === 'welcome' || frame.type === 'confirm_subscription') return;
+            const msg = frame.message;
+            if (!msg?.event) return;
+
+            if (msg.event === 'message.created') {
+              const d = msg.data;
+              // Update last message preview in conversation list
+              setConversations(prev => prev.map(c =>
+                c.id === d.conversation_id
+                  ? { 
+                      ...c, 
+                      last_activity_at: d.created_at, 
+                      messages: [d, ...(c.messages || [])], 
+                      unread_count: selectedRef.current?.id === d.conversation_id ? 0 : (c.unread_count || 0) + (d?.message_type === 0 ? 1 : 0),
+                      ...(d?.message_type !== 2 ? { last_non_activity_message: d } : {})
+                    }
+                  : c
+              ));
+              // Append to open chat
+              if (selectedRef.current?.id === d.conversation_id) {
+                setMessages(prev => {
+                  if (prev.find((m: any) => m.id === d.id)) return prev;
+                  return [...prev, d];
+                });
+              }
+            } else if (msg.event === 'conversation.created') {
+              const d = msg.data;
+              setConversations(prev => prev.find(c => c.id === d.id) ? prev : [d, ...prev]);
+            } else if (msg.event === 'conversation.read') {
+              const d = msg.data;
+              setConversations(prev => prev.map(c => c.id === d.id ? { ...c, unread_count: 0 } : c));
+            } else if (msg.event === 'conversation.status_changed') {
+              const d = msg.data;
+              setConversations(prev => prev.map(c => c.id === d.id ? { ...c, status: d.status } : c));
+              if (selectedRef.current?.id === d.id) setSelected((s: any) => s ? { ...s, status: d.status } : s);
+            } else if (msg.event === 'conversation.updated') {
+              const d = msg.data;
+              setConversations(prev => prev.map(c => c.id === d.id ? { ...c, ...d } : c));
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          clearInterval(pingInterval);
+          reconnectTimeout = setTimeout(connect, 5000);
+        };
+        ws.onerror = () => ws?.close();
+      } catch {}
+    };
+
+    connect();
+    return () => {
+      clearInterval(pingInterval);
+      clearTimeout(reconnectTimeout);
+      ws?.close();
+    };
+  }, [cwUrl, cwToken]);
+
+  // Poll conversations list every 20s
+  useEffect(() => {
+    if (!cwUrl || !cwToken) return;
+    const refreshConvList = async () => {
+      try {
+        const { payload } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1);
+        setConversations(prev => {
+          // Merge: update existing + prepend new ones
+          const prevIds = new Set(prev.map((c: any) => c.id));
+          const newOnes = payload.filter((c: any) => !prevIds.has(c.id));
+          const updated = prev.map((c: any) => payload.find((p: any) => p.id === c.id) || c);
+          return [...newOnes, ...updated];
+        });
+      } catch {}
+    };
+    const interval = setInterval(refreshConvList, 20000);
+    return () => clearInterval(interval);
+  }, [cwUrl, cwToken, statusFilter]);
+
+  const generateAiDraft = async () => {
+    if (!profile?.id || !selected || messages.length === 0) return;
+    setGeneratingDraft(true);
+    setSendError(null);
+    try {
+      const realMessages = messages.filter((m: any) => m?.message_type !== 2);
+      const last15 = realMessages.slice(-15);
+      const lastIncoming = [...last15].reverse().find((m: any) => m?.message_type === 0);
+      const lastMsg = last15[last15.length - 1];
+      const history = last15.map((m: any) => {
+        const who = m?.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
+        return `${who}: ${m?.content || '[archivo adjunto]'}`;
+      });
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientId,
-          itemText: item.text || item.message || '',
-          username: item.username || item.from?.name || '',
-          postCaption: selectedItem?.postCaption || '',
-          otherComments: otherCommentsList,
+          clientId: profile.id,
+          itemText: lastIncoming?.content || lastMsg?.content || '',
+          username: contact(selected).name || contact(selected).phone_number || 'Cliente',
+          conversationHistory: history,
+          isDM: true,
         }),
       });
-      if (!res.ok) throw new Error(`Draft reply error: ${res.status}`);
+      if (!res.ok) throw new Error('Error al generar borrador');
       const data = await res.json();
-      if (data.draft) {
-        setInboxReplies(prev => ({ ...prev, [item.id]: data.draft }));
-      } else {
-        throw new Error('El borrador generado está vacío.');
+      if (data.draft && selectedRef.current?.id === selected.id) {
+        setReply(data.draft);
       }
-    } catch (err: any) {
-      console.error('Failed to generate AI draft:', err);
-      setInboxReplyErrors(prev => ({
-        ...prev,
-        [item.id]: 'No se pudo generar el borrador con IA. Reintentá o respondé manualmente.',
-      }));
+    } catch (e: any) {
+      setSendError('No se pudo generar el borrador con IA.');
     } finally {
-      setLoadingDraft(prev => ({ ...prev, [item.id]: false }));
+      setGeneratingDraft(false);
     }
   };
 
-  // Bulk draft generation for all pending comments in the slide-over
-  const handleBulkDrafts = async (postComments: any[]) => {
-    const pendingComments = postComments.filter(c => isCommentPending(c));
-    if (pendingComments.length === 0) return;
-    
-    setBulkDraftsLoading(true);
-    
-    const promises = pendingComments.map(async (comment) => {
-      setLoadingDraft(prev => ({ ...prev, [comment.id]: true }));
-      try {
-        const usernameStr = comment.username || comment.from?.name || 'usuario';
-        const itemTextStr = comment.text || comment.message || '';
-        
-        // Collect other comments in this post for context
-        const otherCommentsList = postComments
-          .filter(c => c.id !== comment.id)
-          .map(c => `@${c.username || c.from?.name || 'usuario'}: ${c.text || c.message || ''}`);
-
-        const res = await fetch('/api/draft-reply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientId,
-            itemText: itemTextStr,
-            username: usernameStr,
-            postCaption: selectedItem?.postCaption || '',
-            otherComments: otherCommentsList,
-          }),
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          if (data.draft) {
-            setInboxReplies(prev => ({ ...prev, [comment.id]: data.draft }));
-          }
-        }
-      } catch (err) {
-        console.error(`Error generating bulk draft for comment ${comment.id}:`, err);
-      } finally {
-        setLoadingDraft(prev => ({ ...prev, [comment.id]: false }));
-      }
-    });
-    
-    await Promise.all(promises);
-    setBulkDraftsLoading(false);
-  };
-
-  // Toggle liking a comment
-  const handleLikeComment = async (commentId: string) => {
-    if (likingCommentIds[commentId]) return;
-    setLikingCommentIds(prev => ({ ...prev, [commentId]: true }));
-    
-    const isCurrentlyLiked = !!likedCommentIds[commentId];
+  const loadMessages = useCallback(async (conv: any) => {
+    if (!cwUrl || !cwToken) return;
+    setExpanded(false);
+    setSelected(conv);
+    setMessages([]);
+    setReply('');
+    setSendError(null);
+    setLoadingSuggestion(null);
+    setLoadingMsgs(true);
     try {
-      const platform = selectedItem?.platform || 'instagram';
-      if (isCurrentlyLiked) {
-        await metaAds.unlikeComment(commentId, platform, igId);
-        setLikedCommentIds(prev => ({ ...prev, [commentId]: false }));
-        if (selectedItem?.comments) {
-          selectedItem.comments = selectedItem.comments.map((c: any) => 
-            c.id === commentId ? { ...c, like_count: Math.max(0, (c.like_count || 0) - 1) } : c
-          );
-        }
-      } else {
-        await metaAds.likeComment(commentId, platform, igId);
-        setLikedCommentIds(prev => ({ ...prev, [commentId]: true }));
-        if (selectedItem?.comments) {
-          selectedItem.comments = selectedItem.comments.map((c: any) => 
-            c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c
-          );
+      const msgs = await chatwoot.getMessages(cwUrl, cwToken, conv.id);
+      const sorted = msgs.sort((a: any, b: any) => a.created_at - b.created_at);
+      setMessages(sorted);
+      // Auto mark as read
+      if (conv.unread_count > 0) {
+        chatwoot.markAsRead(cwUrl, cwToken, conv.id).catch(() => {});
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
+      }
+    } catch (e: any) {
+      setMessages([]);
+    } finally {
+      setLoadingMsgs(false);
+    }
+  }, [cwUrl, cwToken]);
+
+
+  // Load conversation from URL search parameter convId if present
+  useEffect(() => {
+    if (conversations.length > 0 && !selected) {
+      const params = new URLSearchParams(location.search);
+      const convIdParam = params.get('convId');
+      if (convIdParam) {
+        const convId = parseInt(convIdParam, 10);
+        const found = conversations.find(c => c.id === convId);
+        if (found) {
+          loadMessages(found);
+          // Clear query param so it doesn't re-trigger on subsequent updates
+          navigate('/atencion', { replace: true });
         }
       }
-    } catch (err) {
-      console.error('Error toggling comment like:', err);
-    } finally {
-      setLikingCommentIds(prev => ({ ...prev, [commentId]: false }));
     }
-  };
+  }, [conversations, location.search, selected, loadMessages, navigate]);
 
-  // Submit response for a specific comment inside slide-over
-  const handleCommentReplySubmit = async (e: React.FormEvent, commentId: string, commentPlatform: 'instagram' | 'facebook') => {
+  // Poll messages of selected conversation every 5s
+  useEffect(() => {
+    if (!cwUrl || !cwToken || !selected) return;
+    const pollMessages = async () => {
+      try {
+        const msgs = await chatwoot.getMessages(cwUrl, cwToken, selected.id);
+        const sorted = msgs.sort((a: any, b: any) => a.created_at - b.created_at);
+        setMessages(prev => {
+          if (sorted.length === prev.length && sorted[sorted.length - 1]?.id === prev[prev.length - 1]?.id) return prev;
+          return sorted;
+        });
+      } catch {}
+    };
+    const interval = setInterval(pollMessages, 5000);
+    return () => clearInterval(interval);
+  }, [cwUrl, cwToken, selected?.id]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+      if (isAtBottom) container.scrollTop = container.scrollHeight;
+    }
+  }, [messages]);
+
+  const loadCannedResponses = useCallback(async () => {
+    if (!profile?.id) return;
+    setLoadingCanned(true);
+    try {
+      const { data, error } = await supabase
+        .from('car_canned_responses')
+        .select('*')
+        .eq('client_id', profile.id)
+        .order('title');
+
+      if (error) throw error;
+      setCannedResponses(data || []);
+    } catch (err) {
+      console.warn('Error loading canned responses from Supabase, falling back to localStorage:', err);
+      const localDataStr = localStorage.getItem(`car_canned_responses_${profile.id}`);
+      if (localDataStr) {
+        try {
+          setCannedResponses(JSON.parse(localDataStr));
+        } catch {
+          setupDefaultCannedResponses();
+        }
+      } else {
+        setupDefaultCannedResponses();
+      }
+    } finally {
+      setLoadingCanned(false);
+    }
+  }, [profile?.id]);
+
+  const setupDefaultCannedResponses = useCallback(() => {
+    const defaults = [
+      {
+        id: 'default_saludo',
+        title: 'Saludo Inicial',
+        shortcut: 'saludo',
+        content: '¡Hola! ¿Cómo estás? Gracias por contactarte con nosotros. ¿En qué te puedo ayudar hoy? 😊'
+      },
+      {
+        id: 'default_ubicacion',
+        title: 'Ubicación y Horarios',
+        shortcut: 'ubicacion',
+        content: 'Nuestras oficinas y local principal están ubicados en Buenos Aires. Atendemos de Lunes a Viernes de 9:00 a 18:00 hs. ¡Te esperamos! 📍'
+      },
+      {
+        id: 'default_envios',
+        title: 'Envíos y Tiempos de Entrega',
+        shortcut: 'envios',
+        content: 'Hacemos envíos a todo el país. Los despachos se realizan dentro de las 24-48 horas hábiles de confirmada la compra. El tiempo estimado de entrega es de 3 a 5 días hábiles según la localidad. 🚚'
+      },
+      {
+        id: 'default_pagos',
+        title: 'Medios de Pago',
+        shortcut: 'pagos',
+        content: 'Aceptamos Mercado Pago (tarjetas de crédito y débito, transferencia y efectivo en Rapipago/Pago Fácil) y transferencia bancaria directa con un 10% de descuento. 💳'
+      },
+      {
+        id: 'default_cambios',
+        title: 'Cambios y Devoluciones',
+        shortcut: 'cambios',
+        content: 'Podés realizar cambios dentro de los 30 días de haber recibido tu compra. El producto debe estar en perfectas condiciones, con etiqueta y en su empaque original. Escribinos para coordinar el cambio. 📦'
+      }
+    ];
+    setCannedResponses(defaults);
+    if (profile?.id) {
+      localStorage.setItem(`car_canned_responses_${profile.id}`, JSON.stringify(defaults));
+    }
+  }, [profile?.id]);
+
+  const handleCreateCannedResponse = async (e: React.FormEvent) => {
     e.preventDefault();
-    const replyText = inboxReplies[commentId]?.trim();
-    if (!replyText) return;
-
-    setSubmittingInboxReply(prev => ({ ...prev, [commentId]: true }));
-    setInboxReplyErrors(prev => ({ ...prev, [commentId]: null }));
-
-    try {
-      if (commentPlatform === 'instagram') {
-        await metaAds.replyToInstagramComment(commentId, replyText);
-      } else {
-        await metaAds.replyToFacebookComment(commentId, replyText);
-      }
-
-      // Log the reply action in car_user_activity for few-shot learning
-      if (user?.id && clientId) {
-        const targetComment = selectedItem?.comments?.find((c: any) => c.id === commentId);
-        const incomingText = targetComment ? (targetComment.text || targetComment.message || '') : '';
-        db.activity.log(user.id, clientId, 'reply_sent', {
-          reply_text: replyText,
-          incoming_text: incomingText,
-          platform: commentPlatform,
-          item_id: commentId,
-          user_email: user.email || 'Desconocido'
-        }).catch(err => console.error('Error logging slide-over reply activity:', err));
-      }
-
-      // Add reply locally to the UI
-      if (selectedItem?.comments) {
-        selectedItem.comments = selectedItem.comments.map((c: any) => {
-          if (c.id === commentId) {
-            const existingReplies = c.replies?.data || [];
-            const newReply = {
-              id: `local_${Date.now()}`,
-              username: igUsername || 'Página',
-              text: replyText,
-              timestamp: new Date().toISOString(),
-              from: { id: fbPageId, name: 'Página' }
-            };
-            return {
-              ...c,
-              replies: {
-                data: [...existingReplies, newReply]
-              }
-            };
-          }
-          return c;
-        });
-      }
-
-      // Clean up reply text
-      setInboxReplies(prev => {
-        const copy = { ...prev };
-        delete copy[commentId];
-        return copy;
-      });
-
-      // Close the reply input
-      setActiveReplyCommentIds(prev => ({ ...prev, [commentId]: false }));
-
-      // Recalculate pending comments and counts in pendingItems
-      setPendingItems(prevItems => 
-        prevItems.map(item => {
-          if (item.id === selectedItem.id) {
-            const updatedComments = item.comments.map((c: any) => {
-              if (c.id === commentId) {
-                const existingReplies = c.replies?.data || [];
-                const newReply = {
-                  id: `local_${Date.now()}`,
-                  username: igUsername || 'Página',
-                  text: replyText,
-                  timestamp: new Date().toISOString(),
-                  from: { id: fbPageId, name: 'Página' }
-                };
-                return {
-                  ...c,
-                  replies: {
-                    data: [...existingReplies, newReply]
-                  }
-                };
-              }
-              return c;
-            });
-            const updatedPending = updatedComments.filter(isCommentPending);
-            return {
-              ...item,
-              comments: updatedComments,
-              pendingCount: updatedPending.length,
-              isPending: updatedPending.length > 0,
-            };
-          }
-          return item;
-        })
-      );
-
-    } catch (err: any) {
-      console.error('Error replying to comment:', err);
-      setInboxReplyErrors(prev => ({
-        ...prev,
-        [commentId]: 'No se pudo enviar la respuesta. Puede que el token no tenga permisos de escritura o haya expirado.',
-      }));
-    } finally {
-      setSubmittingInboxReply(prev => ({ ...prev, [commentId]: false }));
-    }
-  };
-
-  // Copy Shopify link helper
-  const handleCopyLink = (handle: string, prodId: string) => {
-    if (!shopifyDomain) return;
-    const cleanDomain = shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const url = `https://${cleanDomain}/products/${handle}`;
-    navigator.clipboard.writeText(url);
-    setCopiedProductId(prodId);
-    setTimeout(() => setCopiedProductId(null), 2000);
-  };
-
-  // Load full conversation history for DM items
-  const loadConversationHistory = useCallback(async (item: any) => {
-    if (!item || !['ig_dm', 'fb_dm'].includes(item.type)) return;
-    if (conversationMessages[item.id]) return; // already loaded
-    setLoadingConversation(item.id);
-    try {
-      const res = await metaAds.getConversationMessages(item.id);
-      const msgs = (res?.data || []).reverse(); // oldest first
-      setConversationMessages(prev => ({ ...prev, [item.id]: msgs }));
-    } catch (err) {
-      console.error('Error loading conversation history:', err);
-      // Fall back to whatever we already have from the preview
-      setConversationMessages(prev => ({ ...prev, [item.id]: item.rawItem?.messages?.data ? [...item.rawItem.messages.data].reverse() : [] }));
-    } finally {
-      setLoadingConversation(null);
-    }
-  }, [conversationMessages]);
-
-  // Auto-scroll chat to bottom when messages update or conversation changes
-  useEffect(() => {
-    if (selectedItem && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [selectedItem, conversationMessages]);
-
-  // Load Chatwoot conversations
-  const loadChatwootConversations = useCallback(async () => {
-    if (!chatwootUrl || !chatwootToken) return;
-    setLoadingChatwoot(true);
-    setChatwootError(null);
-    try {
-      const convs = await chatwoot.getConversations(chatwootUrl, chatwootToken);
-      const items = convs.map((conv: any) => {
-        const lastMsg = conv.messages?.[conv.messages.length - 1];
-        const contact = conv.meta?.sender || conv.contact_inbox?.contact || {};
-        const isWhatsApp = conv.channel === 'Channel::Whatsapp' || conv.inbox?.channel_type === 'Channel::Whatsapp';
-        return {
-          id: conv.id,
-          type: 'whatsapp_dm',
-          platform: 'whatsapp',
-          username: contact.name || contact.phone_number || `Conv #${conv.id}`,
-          phone: contact.phone_number || '',
-          text: lastMsg?.content || '(Sin mensajes)',
-          timestamp: conv.last_activity_at ? new Date(conv.last_activity_at * 1000).toISOString() : new Date().toISOString(),
-          isPending: conv.status === 'open',
-          isWhatsApp,
-          rawConv: conv,
-          chatwootId: conv.id,
-        };
-      });
-      setChatwootItems(items);
-    } catch (err: any) {
-      setChatwootError(err.message || 'Error al conectar con Chatwoot');
-    } finally {
-      setLoadingChatwoot(false);
-    }
-  }, [chatwootUrl, chatwootToken]);
-
-  useEffect(() => {
-    if (inboxSection === 'whatsapp') loadChatwootConversations();
-  }, [inboxSection, loadChatwootConversations, refreshKey]);
-
-  const loadChatwootMessages = useCallback(async (convId: number) => {
-    if (chatwootMessages[convId]) return;
-    if (!chatwootUrl || !chatwootToken) return;
-    setLoadingChatwootMessages(convId);
-    try {
-      const msgs = await chatwoot.getMessages(chatwootUrl, chatwootToken, convId);
-      setChatwootMessages(prev => ({ ...prev, [convId]: msgs }));
-    } catch (err) {
-      console.error('Error loading Chatwoot messages:', err);
-    } finally {
-      setLoadingChatwootMessages(null);
-    }
-  }, [chatwootUrl, chatwootToken, chatwootMessages]);
-
-  // Insert Shopify link directly into input
-  const handleInsertLink = (handle: string, itemId: string) => {
-    if (!shopifyDomain) return;
-    const cleanDomain = shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const url = `https://${cleanDomain}/products/${handle}`;
-    const currentVal = inboxReplies[itemId] || '';
-    setInboxReplies(prev => ({
-      ...prev,
-      [itemId]: currentVal ? `${currentVal} ${url}` : url
-    }));
-  };
-
-  // Fetch all pending DMs, Comments, and Ads comments
-  useEffect(() => {
-    if (!clientId) return;
-
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setDmsError(null);
-    setFbFeedError(null);
-    setIgFeedError(null);
-
-    const loadData = async () => {
-      try {
-        const promises: Promise<any>[] = [];
-        
-        let igMediaPromise = Promise.resolve<any[]>([]);
-        let fbMediaPromise = Promise.resolve<any[]>([]);
-        let fbDMsPromise = Promise.resolve<any>(null);
-        let igDMsPromise = Promise.resolve<any>(null);
-        let adsPromise = Promise.resolve<any>(null);
-
-        // Instagram Feed (for organic comments)
-        if (igId) {
-          igMediaPromise = metaAds.getInstagramMedia(igId, 24).catch(err => {
-            console.error('Error fetching Instagram Media for inbox:', err);
-            setIgFeedError(err.message || String(err));
-            return [];
-          });
-        }
-
-        // Facebook Feed & DMs
-        if (fbPageId) {
-          fbMediaPromise = metaAds.getFacebookPageFeed(fbPageId, 24).catch(err => {
-            console.error('Error fetching Facebook Page Feed for inbox:', err);
-            setFbFeedError(err.message || String(err));
-            return [];
-          });
-          fbDMsPromise = metaAds.getPageConversations(fbPageId, 'messenger').catch(err => {
-            console.error('Error fetching Facebook DMs:', err);
-            setDmsError(err.message || String(err));
-            return null;
-          });
-          igDMsPromise = metaAds.getPageConversations(fbPageId, 'instagram').catch(err => {
-            console.error('Error fetching Instagram DMs via Page:', err);
-            setDmsError(err.message || String(err));
-            return null;
-          });
-        }
-
-        // Ads (for ads comments)
-        if (metaAccountId) {
-          adsPromise = metaAds.getAccountAds(metaAccountId).catch(err => {
-            console.error('Error fetching Account Ads:', err);
-            return null;
-          });
-        }
-
-        const [
-          igMediaRes,
-          fbMediaRes,
-          fbDMsRes,
-          igDMsRes,
-          adsRes
-        ] = await Promise.all([
-          igMediaPromise,
-          fbMediaPromise,
-          fbDMsPromise,
-          igDMsPromise,
-          adsPromise
-        ]);
-
-        if (!active) return;
-
-        const resolvedIgMedia = (igMediaRes as any)?.data || igMediaRes || [];
-        const resolvedFbMedia = (fbMediaRes as any)?.data || fbMediaRes || [];
-        const inboxItems: any[] = [];
-
-        // 1. Instagram Direct Messages
-        if (igDMsRes?.data) {
-          igDMsRes.data.forEach((conv: any) => {
-            const lastMsg = conv.messages?.data?.[0];
-            const participant = conv.participants?.data?.find((p: any) => p.id !== fbPageId && (!igId || p.id !== igId));
-            inboxItems.push({
-              id: conv.id,
-              type: 'ig_dm',
-              platform: 'instagram',
-              username: participant?.name || lastMsg?.from?.username || 'Usuario de Instagram',
-              text: lastMsg?.message || '(Mensaje de voz o archivo de imagen)',
-              timestamp: lastMsg?.created_time || conv.updated_time,
-              rawItem: conv,
-              isPending: conv.unread_count > 0,
-            });
-          });
-        }
-
-        // 2. Facebook Messenger Messages
-        if (fbDMsRes?.data) {
-          fbDMsRes.data.forEach((conv: any) => {
-            const lastMsg = conv.messages?.data?.[0];
-            const participant = conv.participants?.data?.find((p: any) => p.id !== fbPageId);
-            inboxItems.push({
-              id: conv.id,
-              type: 'fb_dm',
-              platform: 'facebook',
-              username: participant?.name || lastMsg?.from?.name || 'Usuario de Messenger',
-              text: lastMsg?.message || '(Mensaje de voz o archivo de imagen)',
-              timestamp: lastMsg?.created_time || conv.updated_time,
-              rawItem: conv,
-              isPending: conv.unread_count > 0,
-            });
-          });
-        }
-
-        // 3. Instagram Comments (grouped by post)
-        resolvedIgMedia.forEach((post: any) => {
-          const commentsList = post.comments?.data || [];
-          const userComments = commentsList.filter((comment: any) => comment.username !== igUsername);
-          if (userComments.length > 0) {
-            const pendingList = userComments.filter((comment: any) => {
-              const repliesList = comment.replies?.data || [];
-              if (repliesList.length === 0) return true;
-              const sortedReplies = [...repliesList].sort(
-                (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
-              );
-              const latestReply = sortedReplies[sortedReplies.length - 1];
-              const lastIsFromPage = latestReply.username === igUsername;
-              return !lastIsFromPage;
-            });
-
-            let latestTimestamp = post.timestamp || new Date().toISOString();
-            userComments.forEach((c: any) => {
-              const cTime = new Date(c.timestamp).getTime();
-              if (cTime > new Date(latestTimestamp).getTime()) {
-                latestTimestamp = c.timestamp;
-              }
-              const repliesList = c.replies?.data || [];
-              repliesList.forEach((r: any) => {
-                const rTime = new Date(r.timestamp || r.created_time).getTime();
-                if (rTime > new Date(latestTimestamp).getTime()) {
-                  latestTimestamp = r.timestamp || r.created_time;
-                }
-              });
-            });
-
-            inboxItems.push({
-              id: post.id,
-              type: 'post_comments',
-              platform: 'instagram',
-              username: 'Comentarios de Instagram',
-              text: post.caption || '(Sin descripción)',
-              timestamp: latestTimestamp,
-              postCaption: post.caption,
-              postThumbnail: post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url,
-              permalink: post.permalink,
-              comments: userComments,
-              pendingCount: pendingList.length,
-              totalCount: userComments.length,
-              isPending: pendingList.length > 0,
-              rawItem: post,
-            });
-          }
-        });
-
-        // 4. Facebook Comments (grouped by post)
-        resolvedFbMedia.forEach((post: any) => {
-          const commentsList = post.comments?.data || [];
-          const userComments = commentsList.filter((comment: any) => comment.from?.id !== fbPageId);
-          if (userComments.length > 0) {
-            const pendingList = userComments.filter((comment: any) => {
-              const repliesList = comment.replies?.data || [];
-              if (repliesList.length === 0) return true;
-              const sortedReplies = [...repliesList].sort(
-                (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
-              );
-              const latestReply = sortedReplies[sortedReplies.length - 1];
-              const lastIsFromPage = latestReply.from?.id === fbPageId || latestReply.username === igUsername;
-              return !lastIsFromPage;
-            });
-
-            let latestTimestamp = post.created_time || new Date().toISOString();
-            userComments.forEach((c: any) => {
-              const cTime = new Date(c.created_time).getTime();
-              if (cTime > new Date(latestTimestamp).getTime()) {
-                latestTimestamp = c.created_time;
-              }
-              const repliesList = c.replies?.data || [];
-              repliesList.forEach((r: any) => {
-                const rTime = new Date(r.timestamp || r.created_time).getTime();
-                if (rTime > new Date(latestTimestamp).getTime()) {
-                  latestTimestamp = r.timestamp || r.created_time;
-                }
-              });
-            });
-
-            inboxItems.push({
-              id: post.id,
-              type: 'post_comments',
-              platform: 'facebook',
-              username: 'Comentarios de Facebook',
-              text: post.message || '(Sin descripción)',
-              timestamp: latestTimestamp,
-              postCaption: post.message,
-              postThumbnail: post.full_picture,
-              permalink: post.permalink_url,
-              comments: userComments,
-              pendingCount: pendingList.length,
-              totalCount: userComments.length,
-              isPending: pendingList.length > 0,
-              rawItem: post,
-            });
-          }
-        });
-
-        // 5. Meta Ads Comments (grouped by story)
-        if (adsRes?.data) {
-          const activeAds = adsRes.data.filter((ad: any) => ad.status === 'ACTIVE' && ad.creative?.effective_object_story_id);
-          const activeStoryIds = Array.from(new Set(activeAds.map((ad: any) => ad.creative.effective_object_story_id))) as string[];
-          
-          if (activeStoryIds.length > 0) {
-            const adCommentsPromises = activeStoryIds.map(async (storyId) => {
-              try {
-                const res = await metaAds.getAdCreativeComments(storyId);
-                const adForStory = activeAds.find((ad: any) => ad.creative.effective_object_story_id === storyId);
-                return {
-                  storyId,
-                  adName: adForStory?.name || 'Anuncio',
-                  comments: res?.data || [],
-                  adPermalink: adForStory?.creative?.instagram_permalink_url || adForStory?.preview_shareable_link
-                };
-              } catch (err) {
-                console.error(`Error fetching comments for story ID ${storyId}:`, err);
-                return { storyId, adName: 'Anuncio', comments: [], adPermalink: null };
-              }
-            });
-
-            const adCommentsResults = await Promise.all(adCommentsPromises);
-            
-            adCommentsResults.forEach((result) => {
-              const commentsList = result.comments || [];
-              const userComments = commentsList.filter((comment: any) => comment.from?.id !== fbPageId && comment.username !== igUsername);
-              if (userComments.length > 0) {
-                const pendingList = userComments.filter((comment: any) => {
-                  const repliesList = comment.replies?.data || [];
-                  if (repliesList.length === 0) return true;
-                  const sortedReplies = [...repliesList].sort(
-                    (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
-                  );
-                  const latestReply = sortedReplies[sortedReplies.length - 1];
-                  const lastIsFromPage = latestReply.from?.id === fbPageId || latestReply.username === igUsername;
-                  return !lastIsFromPage;
-                });
-
-                let latestTimestamp = new Date().toISOString();
-                let hasTime = false;
-                userComments.forEach((c: any) => {
-                  const timestampStr = c.timestamp || c.created_time;
-                  if (timestampStr) {
-                    const cTime = new Date(timestampStr).getTime();
-                    if (!hasTime || cTime > new Date(latestTimestamp).getTime()) {
-                      latestTimestamp = timestampStr;
-                      hasTime = true;
-                    }
-                  }
-                  const repliesList = c.replies?.data || [];
-                  repliesList.forEach((r: any) => {
-                    const rTimestampStr = r.timestamp || r.created_time;
-                    if (rTimestampStr) {
-                      const rTime = new Date(rTimestampStr).getTime();
-                      if (!hasTime || rTime > new Date(latestTimestamp).getTime()) {
-                        latestTimestamp = rTimestampStr;
-                        hasTime = true;
-                      }
-                    }
-                  });
-                });
-
-                inboxItems.push({
-                  id: result.storyId,
-                  type: 'post_comments',
-                  platform: userComments[0]?.username ? 'instagram' : 'facebook',
-                  username: `Comentarios de Anuncio: ${result.adName}`,
-                  text: `Anuncio: ${result.adName}`,
-                  timestamp: latestTimestamp,
-                  postCaption: `Anuncio: ${result.adName}`,
-                  postThumbnail: null,
-                  permalink: result.adPermalink,
-                  comments: userComments,
-                  pendingCount: pendingList.length,
-                  totalCount: userComments.length,
-                  isPending: pendingList.length > 0,
-                  rawItem: result,
-                });
-              }
-            });
-          }
-        }
-
-        // Sort items by date descending
-        inboxItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setPendingItems(inboxItems);
-
-      } catch (err: any) {
-        console.error('Failed to load messaging data:', err);
-        setError(err.message || 'Error al obtener los pendientes.');
-      } finally {
-        if (active) setLoading(false);
-      }
+    if (!profile?.id || !newCannedTitle.trim() || !newCannedContent.trim()) return;
+    setSavingCanned(true);
+    const newResponse = {
+      client_id: profile.id,
+      shortcut: newCannedShortcut.trim().toLowerCase() || newCannedTitle.trim().toLowerCase().replace(/\s+/g, '-'),
+      title: newCannedTitle.trim(),
+      content: newCannedContent.trim()
     };
 
-    loadData();
+    try {
+      const { data, error } = await supabase
+        .from('car_canned_responses')
+        .insert([newResponse])
+        .select();
 
-    return () => { active = false; };
-  }, [clientId, igId, fbPageId, metaAccountId, refreshKey]);
+      if (error) throw error;
+      setCannedResponses(prev => [...prev, ...(data || [])].sort((a,b) => a.title.localeCompare(b.title)));
+      
+      setNewCannedTitle('');
+      setNewCannedShortcut('');
+      setNewCannedContent('');
+      setShowNewCannedForm(false);
+    } catch (err) {
+      console.warn('Error saving canned response to Supabase, saving to localStorage:', err);
+      const updated = [
+        ...cannedResponses,
+        {
+          id: `local_${Date.now()}`,
+          ...newResponse
+        }
+      ].sort((a,b) => a.title.localeCompare(b.title));
+      setCannedResponses(updated);
+      localStorage.setItem(`car_canned_responses_${profile.id}`, JSON.stringify(updated));
 
-  // Mode-based items selection ('pending' vs 'all')
-  const currentSectionItems = useMemo(() => {
-    if (inboxSection === 'whatsapp') return chatwootItems;
-    if (inboxSection === 'messages') return pendingItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type));
-    return pendingItems.filter(item => item.type === 'post_comments');
-  }, [pendingItems, inboxSection, chatwootItems]);
-
-  // Secondary filter by pending vs all
-  const filteredPendingItems = useMemo(() => {
-    if (inboxMode === 'pending') {
-      return currentSectionItems.filter(item => item.isPending);
+      setNewCannedTitle('');
+      setNewCannedShortcut('');
+      setNewCannedContent('');
+      setShowNewCannedForm(false);
+    } finally {
+      setSavingCanned(false);
     }
-    return currentSectionItems;
-  }, [currentSectionItems, inboxMode]);
+  };
 
-  // Counts for Badges
-  const pendingMessagesCount = useMemo(() => {
-    return pendingItems.filter(item => item.isPending && ['ig_dm', 'fb_dm'].includes(item.type)).length;
-  }, [pendingItems]);
+  const handleDeleteCannedResponse = async (id: any) => {
+    if (!profile?.id) return;
+    if (!window.confirm('¿Seguro que querés eliminar esta respuesta rápida?')) return;
+    try {
+      if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('default_') && !id.startsWith('local_'))) {
+        const { error } = await supabase
+          .from('car_canned_responses')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+      }
+      const updated = cannedResponses.filter(r => r.id !== id);
+      setCannedResponses(updated);
+      localStorage.setItem(`car_canned_responses_${profile.id}`, JSON.stringify(updated));
+    } catch (err) {
+      console.error('Error deleting canned response:', err);
+      const updated = cannedResponses.filter(r => r.id !== id);
+      setCannedResponses(updated);
+      localStorage.setItem(`car_canned_responses_${profile.id}`, JSON.stringify(updated));
+    }
+  };
 
-  const pendingCommentsCount = useMemo(() => {
-    return pendingItems.filter(item => item.isPending && item.type === 'post_comments').length;
-  }, [pendingItems]);
+  const loadCustomLinks = useCallback(async () => {
+    if (!profile?.id) return;
+    setLoadingLinks(true);
+    try {
+      const { data, error } = await supabase
+        .from('car_links')
+        .select('*')
+        .eq('client_id', profile.id)
+        .order('sort_order');
+      if (error) throw error;
+      setCustomLinks(data || []);
+    } catch (err) {
+      console.error('Error loading custom links:', err);
+    } finally {
+      setLoadingLinks(false);
+    }
+  }, [profile?.id]);
 
-  const allMessagesCount = useMemo(() => {
-    return pendingItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type)).length;
-  }, [pendingItems]);
+  const searchShopifyProducts = useCallback(async (query: string) => {
+    if (!profile?.shopify_domain || !profile?.shopify_access_token) return;
+    setLoadingProducts(true);
+    try {
+      const cleanDomain = profile.shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const url = `/api/shopify/products.json?limit=15${query ? `&title=${encodeURIComponent(query)}` : ''}`;
+      
+      const res = await fetch(url, {
+        headers: {
+          'x-shopify-domain': cleanDomain,
+          'x-shopify-access-token': profile.shopify_access_token
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShopifyProducts(data.products || []);
+      } else {
+        console.error('Failed to fetch shopify products');
+      }
+    } catch (err) {
+      console.error('Error searching Shopify products:', err);
+    } finally {
+      setLoadingProducts(false);
+    }
+  }, [profile?.shopify_domain, profile?.shopify_access_token]);
 
-  const allCommentsCount = useMemo(() => {
-    return pendingItems.filter(item => item.type === 'post_comments').length;
-  }, [pendingItems]);
+  useEffect(() => {
+    if (profile?.id) {
+      loadCannedResponses();
+      loadCustomLinks();
+      if (profile.shopify_domain && profile.shopify_access_token) {
+        searchShopifyProducts('');
+      }
+    }
+  }, [profile?.id, loadCannedResponses, loadCustomLinks, searchShopifyProducts, profile?.shopify_domain, profile?.shopify_access_token]);
 
-  // Filtered Shopify products
-  const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return shopifyProducts;
-    const s = productSearch.toLowerCase();
-    return shopifyProducts.filter(p => p.title.toLowerCase().includes(s));
-  }, [shopifyProducts, productSearch]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (profile?.shopify_domain && profile?.shopify_access_token) {
+        searchShopifyProducts(shopifySearch);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [shopifySearch, searchShopifyProducts, profile?.shopify_domain, profile?.shopify_access_token]);
+
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reply.trim() || !selected || !cwUrl || !cwToken) return;
+    setSending(true);
+    setSendError(null);
+    const tempId = `local_${Date.now()}`;
+    const tempMsg = { id: tempId, content: reply.trim(), message_type: 1, created_at: Date.now() / 1000, pending: true };
+    
+    // Update active chat messages
+    setMessages(prev => [...prev, tempMsg]);
+    
+    // Update conversations list preview immediately with temp message
+    setConversations(prev => prev.map(c => 
+      c.id === selected.id 
+        ? { 
+            ...c, 
+            last_activity_at: tempMsg.created_at, 
+            messages: [tempMsg, ...(c.messages || [])],
+            last_non_activity_message: tempMsg
+          } 
+        : c
+    ));
+
+    const sentText = reply.trim();
+    setReply('');
+    try {
+      const sent = await chatwoot.sendMessage(cwUrl, cwToken, selected.id, sentText);
+      // Replace temp with real message in active chat
+      setMessages(prev => prev.map((m: any) => m.id === tempId ? { ...sent, created_at: sent?.created_at || Date.now()/1000 } : m));
+      // Replace temp with real message in conversations list preview
+      setConversations(prev => prev.map(c => 
+        c.id === selected.id 
+          ? { 
+              ...c, 
+              last_activity_at: sent?.created_at || Date.now()/1000, 
+              messages: [sent, ...(c.messages || []).filter((m: any) => m.id !== tempId)],
+              last_non_activity_message: sent
+            } 
+          : c
+      ));
+    } catch (e: any) {
+      // Mark temp message as failed in active chat
+      setFailedMsgIds(prev => new Set([...prev, tempId]));
+      setSendError(e.message || 'No se pudo enviar el mensaje.');
+      // Remove temp message from conversation list on failure
+      setConversations(prev => prev.map(c => 
+        c.id === selected.id 
+          ? { 
+              ...c, 
+              messages: (c.messages || []).filter((m: any) => m.id !== tempId) 
+            } 
+          : c
+      ));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Close context menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setCtxMenu(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleCtxAction = async (action: string, conv: any) => {
+    setCtxMenu(null);
+    if (!cwUrl || !cwToken) return;
+    try {
+      if (action === 'read') {
+        await chatwoot.markAsRead(cwUrl, cwToken, conv.id);
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
+      } else if (['resolved','open','pending','snoozed'].includes(action)) {
+        const extra = action === 'snoozed' ? { snoozed_until: Math.floor(Date.now()/1000) + 3600 } : {};
+        const status = action === 'snooze' ? 'snoozed' : action;
+        await chatwoot.updateStatus(cwUrl, cwToken, conv.id, status, extra);
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status } : c));
+        if (selected?.id === conv.id) setSelected((s: any) => s ? { ...s, status } : s);
+      } else if (action === 'snooze') {
+        const snoozed_until = Math.floor(Date.now()/1000) + 3600;
+        await chatwoot.updateStatus(cwUrl, cwToken, conv.id, 'snoozed', { snoozed_until });
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status: 'snoozed' } : c));
+      } else if (action === 'priority_high') {
+        await chatwoot.updatePriority(cwUrl, cwToken, conv.id, 'high');
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, priority: 'high' } : c));
+      } else if (action === 'priority_none') {
+        await chatwoot.updatePriority(cwUrl, cwToken, conv.id, 'none');
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, priority: 'none' } : c));
+      } else if (action === 'copy') {
+        const accountId = await chatwoot.getAccountId(cwUrl, cwToken);
+        navigator.clipboard.writeText(`${cwUrl}/app/accounts/${accountId}/conversations/${conv.id}`);
+      } else if (action === 'delete') {
+        if (!window.confirm('¿Eliminar esta conversación? Esta acción no se puede deshacer.')) return;
+        await chatwoot.deleteConversation(cwUrl, cwToken, conv.id);
+        setConversations(prev => prev.filter(c => c.id !== conv.id));
+        if (selected?.id === conv.id) { setSelected(null); setMessages([]); }
+      }
+    } catch (e: any) {
+      alert(`Error al ejecutar acción: ${e.message}`);
+    }
+  };
+
+
+
+  const contact = (c: any) => {
+    if (!c) return {};
+    return c.meta?.sender || c.contact_inbox?.contact || {};
+  };
+  const getChannel = (c: any) => {
+    if (!c) return 'other';
+    const inbox = c.inbox || inboxes.find((i: any) => i.id === c.inbox_id);
+    const ch = (c.channel || inbox?.channel_type || '').toLowerCase();
+    if (ch.includes('whatsapp')) return 'whatsapp';
+    if (ch.includes('instagram')) return 'instagram';
+    if (ch.includes('facebook') || ch.includes('page')) return 'facebook';
+    if (ch.includes('email')) return 'email';
+    return 'other';
+  };
+
+  const getChannelBadgeClass = (c: any, isSelected: boolean) => {
+    const ch = getChannel(c);
+    if (isSelected) {
+      return 'bg-white/20 text-white border-transparent';
+    }
+    if (ch === 'whatsapp') return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30';
+    if (ch === 'instagram') return 'bg-pink-50 text-pink-700 dark:bg-pink-950/30 dark:text-pink-400 border border-pink-200/50 dark:border-pink-900/30';
+    if (ch === 'facebook') return 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border border-blue-200/50 dark:border-blue-900/30';
+    if (ch === 'email') return 'bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400 border border-violet-200/50 dark:border-violet-800/30';
+    return 'bg-zinc-50 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200/50 dark:border-zinc-700';
+  };
+
+  const isChannelActive = (channelKey: string) => {
+    if (channelKey === 'all') return true;
+    const hasInbox = inboxes.some(inbox => {
+      const type = (inbox.channel_type || '').toLowerCase();
+      if (channelKey === 'whatsapp') return type.includes('whatsapp');
+      if (channelKey === 'instagram') return type.includes('instagram');
+      if (channelKey === 'facebook') return type.includes('facebook') || type.includes('page');
+      if (channelKey === 'email') return type.includes('email');
+      if (channelKey === 'other') {
+        return !type.includes('whatsapp') && 
+               !type.includes('instagram') && 
+               !type.includes('facebook') && 
+               !type.includes('page') && 
+               !type.includes('email');
+      }
+      return false;
+    });
+    if (hasInbox) return true;
+    return conversations.some(c => getChannel(c) === channelKey);
+  };
+
+  const getChannelCount = (channelKey: string) => {
+    if (channelKey === 'all') {
+      return convMeta?.all_count !== undefined ? convMeta.all_count : conversations.length;
+    }
+    return channelMetas[channelKey]?.all_count !== undefined
+      ? channelMetas[channelKey].all_count
+      : conversations.filter(c => getChannel(c) === channelKey).length;
+  };
+
+  const CHANNEL_ICON: Record<string, string> = { whatsapp: '📱', instagram: '📸', facebook: '📘', email: '📧', other: '💬' };
+  const CHANNEL_COLOR: Record<string, string> = { whatsapp: 'bg-emerald-500', instagram: 'bg-pink-500', facebook: 'bg-blue-600', email: 'bg-violet-500', other: 'bg-zinc-500' };
+
+  const getAvatarGradient = (name: string) => {
+    const gradients = [
+      'from-pink-500 to-rose-500 text-white',
+      'from-violet-500 to-purple-500 text-white',
+      'from-blue-500 to-indigo-500 text-white',
+      'from-emerald-500 to-teal-500 text-white',
+      'from-amber-500 to-orange-500 text-white',
+      'from-sky-500 to-cyan-500 text-white',
+    ];
+    if (!name) return gradients[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % gradients.length;
+    return gradients[index];
+  };
+
+  const getChannelLabel = (c: any) => {
+    if (!c) return 'Canal';
+    const ch = getChannel(c);
+    if (ch === 'whatsapp') return 'WhatsApp';
+    if (ch === 'instagram') return 'Instagram';
+    if (ch === 'facebook') return 'Facebook';
+    if (ch === 'email') return 'Email';
+    if (c.inbox?.name) {
+      return c.inbox.name.replace(/\+?\d[\d\s-]{5,}/g, '').trim() || 'Canal';
+    }
+    return 'Canal';
+  };
+
+  const renderAvatar = (conv: any) => {
+    const c = contact(conv);
+    const name = c.name || '';
+    const initials = name
+      ? name.split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+      : '';
+    
+    const ch = getChannel(conv);
+    const gradient = getAvatarGradient(name || String(conv.id));
+
+    return (
+      <div className="relative flex-shrink-0 select-none">
+        {initials ? (
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black bg-gradient-to-br shadow-inner ${gradient}`}>
+            {initials}
+          </div>
+        ) : (
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[15px] bg-gradient-to-br ${gradient}`}>
+            {CHANNEL_ICON[ch]}
+          </div>
+        )}
+        <span className="absolute -bottom-1.5 -right-1.5 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] shadow bg-white dark:bg-zinc-900 border border-zinc-150/80 dark:border-zinc-800 select-none">
+          {CHANNEL_ICON[ch]}
+        </span>
+      </div>
+    );
+  };
+
+  const getComputedActivityTimestamp = (c: any) => {
+    const sortedMsgs = [...(c?.messages || [])].sort((x, y) => {
+      const timeX = typeof x.created_at === 'number' ? x.created_at : new Date(x.created_at).getTime() / 1000;
+      const timeY = typeof y.created_at === 'number' ? y.created_at : new Date(y.created_at).getTime() / 1000;
+      return timeX - timeY;
+    });
+    const lastRealMsg = [...sortedMsgs].reverse().find((m: any) => m?.message_type !== 2) || c?.last_non_activity_message;
+    const ts = c?.last_activity_at || lastRealMsg?.created_at || c?.created_at;
+    if (!ts) return 0;
+    if (typeof ts === 'number') {
+      return ts > 10000000000 ? ts / 1000 : ts;
+    }
+    const d = new Date(ts).getTime();
+    return isNaN(d) ? 0 : d / 1000;
+  };
+
+  const sortedConversations = [...conversations].sort((a, b) => {
+    const tsA = getComputedActivityTimestamp(a);
+    const tsB = getComputedActivityTimestamp(b);
+    if (sortBy === 'oldest') return tsA - tsB;
+    if (sortBy === 'priority') {
+      const p: any = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+      return (p[a.priority] ?? 4) - (p[b.priority] ?? 4);
+    }
+    return tsB - tsA;
+  });
+
+  const channelFilteredConversations = sortedConversations.filter(c => {
+    if (channelFilter === 'all') return true;
+    return getChannel(c) === channelFilter;
+  });
+
+  const assignFiltered = channelFilteredConversations.filter(c => {
+    if (assignFilter === 'unassigned') return !c.meta?.assignee;
+    if (assignFilter === 'mine') return !!c.meta?.assignee;
+    return true;
+  });
+
+  const filtered = assignFiltered.filter(c => {
+    if (!c) return false;
+    if (canReplyOnly) {
+      const ch = getChannel(c);
+      const isMeta = ['whatsapp', 'instagram', 'facebook'].includes(ch);
+      const lastIncoming = c.messages?.find((m: any) => m?.message_type === 0);
+      const timeSinceLastIncoming = lastIncoming ? (Date.now() / 1000 - lastIncoming.created_at) : null;
+      const canReply = c.can_reply === true || (c.can_reply !== false && (!isMeta || (timeSinceLastIncoming !== null && timeSinceLastIncoming < 86400) || (Date.now() / 1000 - (c.last_activity_at || c.created_at)) < 86400));
+      if (!canReply) return false;
+    }
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    const name = (c.meta?.sender?.name || '').toLowerCase();
+    const phone = c.meta?.sender?.phone_number || '';
+    const email = (c.meta?.sender?.email || '').toLowerCase();
+    const lastReal = c.messages?.find((m: any) => m?.message_type !== 2) || c.last_non_activity_message;
+    const lastMsg = (lastReal?.content || '').toLowerCase();
+    return name.includes(s) || phone.includes(s) || email.includes(s) || String(c.id).includes(s) || lastMsg.includes(s);
+  });
+
+  const toggleSelect = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(filtered.map(c => c.id)));
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkAction = async (action: string) => {
+    if (!cwUrl || !cwToken || selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      await Promise.all([...selectedIds].map(id => {
+        if (action === 'resolved') return chatwoot.updateStatus(cwUrl, cwToken, id, 'resolved');
+        if (action === 'open') return chatwoot.updateStatus(cwUrl, cwToken, id, 'open');
+        if (action === 'pending') return chatwoot.updateStatus(cwUrl, cwToken, id, 'pending');
+        if (action === 'read') return chatwoot.markAsRead(cwUrl, cwToken, id);
+        return Promise.resolve();
+      }));
+      if (['resolved','open','pending'].includes(action)) {
+        setConversations(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, status: action } : c));
+      }
+      if (action === 'read') {
+        setConversations(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, unread_count: 0 } : c));
+      }
+      clearSelection();
+    } catch (e: any) {
+      alert(`Error: ${e.message}`);
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const channelFilteredRaw = conversations.filter(c => {
+    if (channelFilter === 'all') return true;
+    return getChannel(c) === channelFilter;
+  });
+
+  const totalCount = channelFilter === 'all'
+    ? (convMeta?.all_count !== undefined ? convMeta.all_count : conversations.length)
+    : (channelMetas[channelFilter]?.all_count !== undefined ? channelMetas[channelFilter].all_count : channelFilteredRaw.length);
+
+  const unassignedCount = channelFilter === 'all'
+    ? (convMeta?.unassigned_count !== undefined ? convMeta.unassigned_count : conversations.filter(c => !c.meta?.assignee).length)
+    : (channelMetas[channelFilter]?.unassigned_count !== undefined ? channelMetas[channelFilter].unassigned_count : channelFilteredRaw.filter(c => !c.meta?.assignee).length);
+
+  const assignedCount = channelFilter === 'all'
+    ? (convMeta?.assigned_count !== undefined ? convMeta.assigned_count : conversations.filter(c => !!c.meta?.assignee).length)
+    : (channelMetas[channelFilter]?.assigned_count !== undefined ? channelMetas[channelFilter].assigned_count : channelFilteredRaw.filter(c => !!c.meta?.assignee).length);
+
+  if (!cwUrl || !cwToken) {
+    return (
+      <div className="flex items-center justify-center h-full py-24">
+        <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 max-w-md flex items-start gap-4">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-bold text-amber-800 dark:text-amber-400 text-[14px]">Canal de atención no configurado</h3>
+            <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1">Completá la URL y el token en Administración → Gestión de Clientes.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 md:space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-300 relative">
-      
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">
-        <div>
-          <h1 className="text-[26px] md:text-[30px] font-black tracking-tight text-zinc-900 dark:text-white leading-none flex items-center gap-2">
-            Mensajería Pendiente
-          </h1>
-          <p className="text-[12.5px] text-zinc-400 font-bold mt-1.5 flex items-center gap-1.5">
-            <Inbox className="w-3.5 h-3.5 text-violet-500" />
-            Bandeja unificada para DMs y comentarios sin responder de Facebook, Instagram y Ads.
-          </p>
-        </div>
+    <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
 
-        <button
-          onClick={() => setRefreshKey(k => k + 1)}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-white dark:bg-[#111] border border-zinc-250/60 dark:border-zinc-800/80 rounded-full text-[12.5px] font-bold shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-850 active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Recargar
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="space-y-6">
-          <EmailLoader 
-            loading={loading} 
-            color="#8b5cf6" 
-            labels={['Cargando DMs de Instagram y Facebook...', 'Buscando comentarios orgánicos...', 'Consultando comentarios en Meta Ads...']} 
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(n => (
-              <div key={n} className="h-44 bg-white dark:bg-[#111] border border-zinc-200/50 dark:border-white/[0.04] rounded-2xl animate-pulse" />
-            ))}
-          </div>
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 p-5 rounded-2xl flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-red-800 dark:text-red-400 text-[14.5px]">Error al obtener datos</h3>
-            <p className="text-[13px] text-red-600 dark:text-red-500 mt-1">{error}</p>
-          </div>
-        </div>
-      ) : !igId && !fbPageId ? (
-        <div className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/60 p-8 rounded-3xl text-center max-w-lg mx-auto space-y-4 shadow-sm">
-          <Inbox className="w-12 h-12 text-zinc-400 mx-auto" />
-          <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">Bandeja no disponible</h3>
-          <p className="text-[13.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
-            Este cliente no tiene vinculadas cuentas de Instagram o Facebook Page. Habilitalas desde la Gestión de Clientes.
-          </p>
-        </div>
-       ) : (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Primary Tab Switcher */}
-          <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">
-            <button
-              onClick={() => setInboxSection('messages')}
-              className={`pb-3 text-[14px] font-black tracking-tight transition-all relative flex items-center gap-1.5 focus:outline-none ${
-                inboxSection === 'messages'
-                  ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 font-extrabold'
-                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 border-b-2 border-transparent'
-              }`}
-            >
-              📥 Mensajería Directa (DMs)
-              {pendingMessagesCount > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
-                  {pendingMessagesCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setInboxSection('comments')}
-              className={`pb-3 text-[14px] font-black tracking-tight transition-all relative flex items-center gap-1.5 focus:outline-none ${
-                inboxSection === 'comments'
-                  ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 font-extrabold'
-                  : 'text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300 border-b-2 border-transparent'
-              }`}
-            >
-              💬 Comentarios de Publicaciones
-              {pendingCommentsCount > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
-                  {pendingCommentsCount}
-                </span>
-              )}
-            </button>
-            {chatwootUrl && chatwootToken && (
+      {/* Top Header Bar */}
+      <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">
+        {/* Left Section: Channel Filter Pills (Desktop only) */}
+        <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+          {[
+            { key: 'all', label: 'Todos', icon: Inbox },
+            { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+            { key: 'instagram', label: 'Instagram', icon: Instagram },
+            { key: 'facebook', label: 'Facebook', icon: Facebook },
+            { key: 'email', label: 'Email', icon: Mail },
+            { key: 'other', label: 'Otros', icon: Globe },
+          ].filter(ch => isChannelActive(ch.key)).map(ch => {
+            const Icon = ch.icon;
+            const isActive = channelFilter === ch.key;
+            const count = getChannelCount(ch.key);
+            return (
               <button
-                onClick={() => setInboxSection('whatsapp')}
-                className={`pb-3 text-[14px] font-black tracking-tight transition-all relative flex items-center gap-1.5 focus:outline-none ${
-                  inboxSection === 'whatsapp'
-                    ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400 font-extrabold'
-                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 border-b-2 border-transparent'
+                key={ch.key}
+                onClick={() => setChannelFilter(ch.key as any)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all duration-200 whitespace-nowrap border ${
+                  isActive
+                    ? 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white text-white dark:text-zinc-950 shadow-sm'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 border-zinc-200 dark:border-zinc-800'
                 }`}
               >
-                <span>📱</span> WhatsApp
-                {chatwootItems.filter(i => i.isPending).length > 0 && (
-                  <span className="bg-emerald-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
-                    {chatwootItems.filter(i => i.isPending).length}
+                <Icon className="w-3.5 h-3.5" />
+                <span>{ch.label}</span>
+                {count > 0 && (
+                  <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${
+                    isActive
+                      ? 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550'
+                  }`}>
+                    {count}
                   </span>
                 )}
               </button>
-            )}
+            );
+          })}
+        </div>
+
+        {/* Right Section: Search & Controls (Controls hidden on mobile) */}
+        <div className="flex items-center gap-2 flex-1 md:flex-initial md:ml-auto">
+          {/* Search Input (Full width on mobile) */}
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+            <input 
+              type="text" 
+              placeholder="Buscar contacto, teléfono..." 
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[12px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-zinc-750 dark:text-zinc-300 transition-all" 
+            />
           </div>
 
-          {/* WhatsApp / Chatwoot tab content */}
-          {inboxSection === 'whatsapp' && (
-            <div className="space-y-4">
-              {loadingChatwoot ? (
-                <EmailLoader loading color="#22c55e" labels={['Cargando conversaciones de WhatsApp...']} />
-              ) : chatwootError ? (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 p-4 rounded-2xl flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-red-700 dark:text-red-400 text-[13px]">Error al conectar con Chatwoot</h4>
-                    <code className="block mt-1 text-[11px] text-red-600 dark:text-red-500">{chatwootError}</code>
-                  </div>
-                </div>
-              ) : chatwootItems.length === 0 ? (
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/65 dark:border-zinc-800/65 rounded-3xl p-12 text-center max-w-md mx-auto space-y-4 shadow-sm">
-                  <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto text-emerald-500 text-3xl">📱</div>
-                  <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">Sin conversaciones abiertas</h3>
-                  <p className="text-[13px] text-zinc-500 font-semibold">No hay chats de WhatsApp abiertos en Chatwoot.</p>
-                </div>
-              ) : (
-                <div className="border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl bg-white dark:bg-zinc-900 overflow-hidden divide-y divide-zinc-150 dark:divide-zinc-850 shadow-sm">
-                  {chatwootItems.map((item: any) => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        setSelectedItem(item);
-                        loadChatwootMessages(item.chatwootId);
-                      }}
-                      className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-zinc-50/60 dark:hover:bg-zinc-850/45 cursor-pointer transition-colors group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-950/30 rounded-full flex items-center justify-center text-emerald-600 text-[14px] flex-shrink-0">📱</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-zinc-850 dark:text-zinc-200 text-[13px]">{item.username}</span>
-                            {item.phone && <span className="text-[11px] text-zinc-400 font-mono">{item.phone}</span>}
-                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase ${item.isPending ? 'bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-955/20 dark:text-emerald-400'}`}>
-                              {item.isPending ? 'Abierto' : 'Resuelto'}
-                            </span>
-                          </div>
-                          <p className="text-zinc-500 dark:text-zinc-450 truncate italic font-semibold text-[12px] mt-0.5">"{item.text}"</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className="text-[10px] text-zinc-400 font-bold">
-                          {new Date(item.timestamp).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-black opacity-0 group-hover:opacity-100 transition-opacity text-[11px]">Responder →</span>
-                      </div>
+          {/* Sort button (Desktop only) */}
+          <div className="hidden md:block relative group">
+            <button className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Ordenar">
+              <svg className="w-4 h-4 text-zinc-550" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <div className="absolute right-0 top-full pt-1.5 z-50 hidden group-hover:block">
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl py-1 min-w-[150px]">
+                {[
+                  { value: 'latest', label: '↓ Más reciente' },
+                  { value: 'oldest', label: '↑ Más antiguo' },
+                  { value: 'priority', label: '🔴 Por prioridad' },
+                ].map(s => (
+                  <button key={s.value} onClick={() => setSortBy(s.value as any)}
+                    className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${sortBy === s.value ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 24-hour window filter (Desktop only) */}
+          <button 
+            onClick={() => setCanReplyOnly(v => !v)}
+            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all duration-200 select-none ${
+              canReplyOnly 
+                ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
+                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-emerald-700 dark:hover:text-emerald-400'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Ventana Abierta</span>
+          </button>
+
+          {/* Expand button (Desktop only) */}
+          <button 
+            onClick={() => setExpanded(e => !e)}
+            className="hidden md:block p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" 
+            title={expanded ? 'Contraer' : 'Expandir lista'}
+          >
+            <svg className="w-4 h-4 text-zinc-550" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {expanded
+                ? <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round"/>
+                : <path d="m9 18 6-6-6-6" strokeLinecap="round" strokeLinejoin="round"/>
+              }
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
+
+        <div className={`
+          ${listCollapsed ? 'hidden' : expanded ? 'w-full' : selected ? 'hidden md:flex md:w-[320px]' : 'w-full md:w-[320px]'}
+          flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-all duration-300
+        `}>
+
+          {/* Assign tabs */}
+          <div className="flex border-b border-zinc-100 dark:border-zinc-800 text-[11px] font-bold flex-shrink-0">
+            {[
+              { key: 'all', label: 'Todos', count: totalCount },
+              { key: 'unassigned', label: 'Sin asignar', count: unassignedCount },
+              { key: 'mine', label: 'Asignados', count: assignedCount },
+            ].map(t => (
+              <button key={t.key} onClick={() => setAssignFilter(t.key as any)}
+                className={`flex-1 py-2.5 flex items-center justify-center gap-1 transition-colors border-b-2 ${assignFilter === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}>
+                {t.label}
+                {t.count > 0 && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ml-1 flex-shrink-0 ${assignFilter === t.key ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550'}`}>{t.count}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Status filter */}
+          <div className="flex gap-1.5 p-2.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20 flex-shrink-0">
+            {(['open', 'resolved', 'pending'] as const).map(s => (
+              <button key={s} onClick={() => setStatusFilter(s)}
+                className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${statusFilter === s ? 'bg-blue-600 text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-550 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+                {s === 'open' ? 'Abiertos' : s === 'resolved' ? 'Resueltos' : 'Pendientes'}
+              </button>
+            ))}
+          </div>
+
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-800/40 flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-black text-blue-700 dark:text-blue-400">{selectedIds.size} seleccionados</span>
+              <button onClick={selectAll} className="text-[10px] text-blue-600 dark:text-blue-400 underline">Todos</button>
+              <button onClick={clearSelection} className="text-[10px] text-zinc-500 underline">Limpiar</button>
+              <div className="flex gap-1 ml-auto">
+                {[
+                  { action: 'read', label: '✓ Leído' },
+                  { action: 'resolved', label: '✅ Resolver' },
+                  { action: 'pending', label: '⏳ Pendiente' },
+                  { action: 'open', label: '📂 Abrir' },
+                ].map(b => (
+                  <button key={b.action} onClick={() => handleBulkAction(b.action)} disabled={bulkLoading}
+                    className="px-2 py-1 text-[10px] font-bold bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50">
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* List */}
+          <div 
+            className="flex-1 overflow-y-auto py-2 space-y-1 pb-20 md:pb-2"
+            onScroll={(e) => {
+              const target = e.currentTarget;
+              if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
+                loadMoreConversations();
+              }
+            }}
+          >
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                <p className="text-[11px] text-zinc-400">Cargando chats...</p>
+              </div>
+            ) : error ? (
+              <div className="p-4 text-[11px] text-red-500">{error}</div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-400">
+                <Inbox className="w-6 h-6" />
+                <p className="text-[12px] font-medium">Sin conversaciones</p>
+              </div>
+            ) : filtered.map(conv => {
+              const c = contact(conv);
+              const sortedMsgs = [...(conv?.messages || [])].sort((x, y) => {
+                const timeX = typeof x.created_at === 'number' ? x.created_at : new Date(x.created_at).getTime() / 1000;
+                const timeY = typeof y.created_at === 'number' ? y.created_at : new Date(y.created_at).getTime() / 1000;
+                return timeX - timeY;
+              });
+              const lastRealMsg = [...sortedMsgs].reverse().find((m: any) => m?.message_type !== 2) || 
+                                  conv?.last_non_activity_message || 
+                                  (sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null);
+              const lastMsg = lastRealMsg;
+              const isSelected = selected?.id === conv?.id;
+              const unread = conv?.unread_count || 0;
+              const isUnread = unread > 0;
+              const activityTimestamp = conv?.last_activity_at || lastRealMsg?.created_at || conv?.created_at;
+              return (
+                <div key={conv.id}
+                  onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, conv }); }}
+                  onClick={() => loadMessages(conv)}
+                  className={`mx-2 my-0.5 px-3 py-2.5 flex items-start gap-2.5 transition-all duration-200 cursor-pointer rounded-xl group/conv ${
+                    isSelected 
+                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/10' 
+                      : isUnread 
+                        ? 'bg-zinc-50/80 dark:bg-zinc-900/60' 
+                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div className={`flex-shrink-0 mt-2.5 ${selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover/conv:opacity-100'} transition-opacity`}
+                    onClick={e => { e.stopPropagation(); toggleSelect(conv.id, e); }}>
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.has(conv.id) ? 'bg-blue-600 border-blue-600' : 'border-zinc-300 dark:border-zinc-650'}`}>
+                      {selectedIds.has(conv.id) && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 5l2.5 2.5L8 3" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Inbox Summary Info Banner + filters + list — only for non-whatsapp tabs */}
-          {inboxSection !== 'whatsapp' && (<>
-          <div className="flex items-center justify-between p-4 bg-violet-50/50 dark:bg-violet-950/10 border border-violet-100/50 dark:border-violet-900/20 rounded-2xl">
-            <div className="flex items-center gap-2 text-violet-750 dark:text-violet-400">
-              <Info className="w-4 h-4 flex-shrink-0" />
-              <p className="text-[12.5px] font-semibold">
-                Bandeja inteligente. Hacé click en cualquier tarjeta para profundizar en el historial completo de la conversación, buscar productos en Shopify y responder con IA.
-              </p>
-            </div>
-            {!fbPageId && (
-              <span className="bg-amber-100 text-amber-800 dark:bg-amber-955/40 dark:text-amber-400 text-[10px] font-black px-2 py-0.5 rounded-full flex-shrink-0">
-                Facebook sin conectar
-              </span>
-            )}
-          </div>
-
-          {/* Inbox Sub-Filters */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-1 bg-zinc-150/80 dark:bg-zinc-800/60 border border-zinc-200/40 dark:border-zinc-700/65 p-0.5 rounded-xl">
-              <button
-                onClick={() => setInboxMode('pending')}
-                className={`px-3 py-1.5 rounded-lg text-[11.5px] font-bold transition-all ${
-                  inboxMode === 'pending'
-                    ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm font-black'
-                    : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-200'
-                }`}
-              >
-                Solo Pendientes ({inboxSection === 'messages' ? pendingMessagesCount : pendingCommentsCount})
-              </button>
-              <button
-                onClick={() => setInboxMode('all')}
-                className={`px-3 py-1.5 rounded-lg text-[11.5px] font-bold transition-all ${
-                  inboxMode === 'all'
-                    ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm font-black'
-                    : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-205'
-                }`}
-              >
-                Mostrar Todos ({inboxSection === 'messages' ? allMessagesCount : allCommentsCount})
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <p className="text-[12px] text-zinc-405 font-bold">
-                {inboxMode === 'pending' 
-                  ? `Mostrando ${filteredPendingItems.length} pendientes` 
-                  : `Mostrando ${filteredPendingItems.length} totales`
-                }
-              </p>
-              
-              {/* Density Toggle */}
-              <div className="flex items-center gap-1 bg-zinc-150/80 dark:bg-zinc-800/60 border border-zinc-200/40 dark:border-zinc-700/65 p-0.5 rounded-lg">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-2.5 py-1 rounded-md text-[10.5px] font-black transition-all ${
-                    viewMode === 'list'
-                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm font-black'
-                      : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  Lista
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-2.5 py-1 rounded-md text-[10.5px] font-black transition-all ${
-                    viewMode === 'grid'
-                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-850 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  Cuadrícula
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Permission Error Banners */}
-          {inboxSection === 'messages' && dmsError && (
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-3xl flex items-start gap-3 mb-6 animate-in fade-in duration-200">
-              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-amber-800 dark:text-amber-400 text-[13.5px]">Error al cargar Mensajes Directos (DMs)</h4>
-                <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
-                  No se pudieron cargar los chats de Facebook o Instagram. Esto ocurre si el token no tiene los permisos necesarios de lectura de mensajes o la cuenta de Instagram no está vinculada correctamente:
-                </p>
-                <code className="block mt-2.5 p-2 bg-amber-100/60 dark:bg-amber-950/40 rounded-xl text-[11px] font-mono break-all text-amber-800 dark:text-amber-300">
-                  {dmsError}
-                </code>
-              </div>
-            </div>
-          )}
-
-          {inboxSection === 'comments' && (fbFeedError || igFeedError) && (
-            <div className="space-y-4 mb-6">
-              {fbFeedError && (
-                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-3xl flex items-start gap-3 animate-in fade-in duration-200">
-                  <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-amber-800 dark:text-amber-400 text-[13.5px]">Error de permisos en Facebook Feed</h4>
-                    <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
-                      No se pudo obtener el feed orgánico de Facebook. Comprueba los permisos de tu token:
-                    </p>
-                    <code className="block mt-2.5 p-2 bg-amber-100/60 dark:bg-amber-950/40 rounded-xl text-[11px] font-mono break-all text-amber-800 dark:text-amber-300">
-                      {fbFeedError}
-                    </code>
                   </div>
-                </div>
-              )}
-              {igFeedError && (
-                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-3xl flex items-start gap-3 animate-in fade-in duration-200">
-                  <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-amber-800 dark:text-amber-400 text-[13.5px]">Error al cargar Feed de Instagram</h4>
-                    <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
-                      No se pudieron obtener las publicaciones de Instagram. Comprueba los permisos de tu token:
-                    </p>
-                    <code className="block mt-2.5 p-2 bg-amber-100/60 dark:bg-amber-950/40 rounded-xl text-[11px] font-mono break-all text-amber-800 dark:text-amber-300">
-                      {igFeedError}
-                    </code>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Grid or List layout of pending items */}
-          {filteredPendingItems.length === 0 ? (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/65 dark:border-zinc-800/65 rounded-3xl p-12 text-center max-w-md mx-auto space-y-4 shadow-sm animate-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto text-green-500">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">
-                {inboxMode === 'pending' ? '¡Bandeja vacía!' : 'No hay mensajes'}
-              </h3>
-              <p className="text-[13px] text-zinc-500 dark:text-zinc-400 font-semibold leading-relaxed">
-                {inboxMode === 'pending' 
-                  ? 'Buen trabajo. No tenés mensajes o comentarios pendientes en esta categoría.'
-                  : 'No se encontraron mensajes o comentarios en esta categoría.'
-                }
-              </p>
-            </div>
-          ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 animate-in fade-in duration-200">
-              {filteredPendingItems.map((item: any) => (
-                <div 
-                  key={item.id} 
-                  onClick={() => {
-                    setSelectedItem(item);
-                    loadConversationHistory(item);
-                  }}
-                  className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl p-4 shadow-sm space-y-3 hover:shadow-md hover:border-zinc-350 dark:hover:border-zinc-700 hover:scale-[1.01] active:scale-[0.99] cursor-pointer transition-all duration-200 flex flex-col justify-between group"
-                >
-                  <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-zinc-150/40 dark:border-zinc-850/40 pb-2">
-                      <div className="flex items-center gap-2">
-                        {item.platform === 'instagram' ? (
-                          <div className="w-7 h-7 bg-pink-50 dark:bg-pink-950/20 rounded-full flex items-center justify-center text-pink-500">
-                            <Instagram className="w-3.5 h-3.5" />
-                          </div>
-                        ) : (
-                          <div className="w-7 h-7 bg-blue-50 dark:bg-blue-950/20 rounded-full flex items-center justify-center text-blue-500">
-                            <span className="font-black text-xs">f</span>
-                          </div>
-                        )}
-                        <div>
-                          <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-200 block leading-tight">
-                            {item.type === 'ig_dm' && 'Mensaje (Direct)'}
-                            {item.type === 'fb_dm' && 'Mensaje (Messenger)'}
-                            {item.type === 'post_comments' && item.platform === 'instagram' && 'Comentarios IG'}
-                            {item.type === 'post_comments' && item.platform === 'facebook' && 'Comentarios FB'}
-                            {item.type === 'post_comments' && !['instagram','facebook'].includes(item.platform) && 'Comentarios'}
+                  
+                  {/* Card content click target */}
+                  <div className="flex-1 flex items-start gap-2.5 min-w-0">
+                    {renderAvatar(conv)}
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className={`text-[12.5px] truncate ${
+                          isSelected
+                            ? 'font-bold text-white'
+                            : isUnread 
+                              ? 'font-black text-zinc-900 dark:text-white' 
+                              : 'font-semibold text-zinc-700 dark:text-zinc-300'
+                        }`}>
+                          {c.name || `#${conv.id}`}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className={`text-[10px] ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
+                            {fmtTime(activityTimestamp)}
                           </span>
-                          <span className="text-[9.5px] text-zinc-400 font-bold block mt-0.5">
-                            {new Date(item.timestamp).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                          {unread > 0 && !isSelected && (
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0 shadow-sm">
+                              {unread > 9 ? '9+' : unread}
+                            </span>
+                          )}
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {inboxMode === 'all' && (
-                          <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
-                            item.isPending
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400'
-                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-955/20 dark:text-emerald-400'
-                          }`}>
-                            {item.isPending ? 'Pendiente' : 'Respondido'}
-                          </span>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className={`text-[8.5px] px-1.5 py-0.5 rounded-full uppercase font-black tracking-wider ${getChannelBadgeClass(conv, isSelected)}`}>
+                          {getChannelLabel(conv)}
+                        </span>
+                        {c.phone_number && (
+                           <>
+                            <span className={isSelected ? 'text-blue-300' : 'text-zinc-300 dark:text-zinc-700'}>·</span>
+                            <span className={`text-[10px] font-mono truncate ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
+                              {c.phone_number}
+                            </span>
+                          </>
                         )}
-                        
-                        {(item.postThumbnail) && (
-                          <div className="w-8 h-8 bg-zinc-100 dark:bg-zinc-850 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 flex-shrink-0">
-                            {item.postThumbnail ? (
-                              <img src={item.postThumbnail} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      
+                      {(lastMsg?.content || lastMsg?.attachments?.length > 0) && (
+                        <p className={`text-[11px] truncate mt-0.5 ${
+                          isSelected 
+                            ? 'text-blue-100' 
+                            : isUnread 
+                              ? 'text-zinc-700 dark:text-zinc-300 font-semibold' 
+                              : 'text-zinc-450 italic'
+                        }`}>
+                          {lastMsg?.message_type === 1 && (
+                            <span className={`font-bold mr-1 ${isSelected ? 'text-blue-100' : 'text-zinc-550 dark:text-zinc-400'}`}>Vos:</span>
+                          )}
+                          {lastMsg?.content || <span className="opacity-60">📎 Archivo adjunto</span>}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Background loading indicator */}
+            {loadingMore && (
+              <div className="flex items-center justify-center gap-1.5 py-2 text-[10px] text-zinc-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando más...
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Floating Bottom Bar */}
+          <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 px-3.5 py-2 rounded-2xl shadow-lg flex items-center gap-3.5 z-40 select-none border-zinc-200/80 dark:border-zinc-800/80">
+            {[
+              { key: 'all', icon: Inbox, label: 'Todos' },
+              { key: 'whatsapp', icon: MessageCircle, label: 'WhatsApp' },
+              { key: 'instagram', icon: Instagram, label: 'Instagram' },
+              { key: 'facebook', icon: Facebook, label: 'Facebook' },
+              { key: 'email', icon: Mail, label: 'Email' },
+            ].filter(ch => isChannelActive(ch.key)).map(ch => {
+              const Icon = ch.icon;
+              const isActive = channelFilter === ch.key;
+              const count = getChannelCount(ch.key);
+              return (
+                <button
+                  key={ch.key}
+                  onClick={() => setChannelFilter(ch.key as any)}
+                  className={`p-2 rounded-xl transition-all relative ${
+                    isActive
+                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {count > 0 && !isActive && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[8px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            
+            <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800" />
+            
+            {/* Clock/Ventana Abierta toggle */}
+            <button
+              onClick={() => setCanReplyOnly(v => !v)}
+              className={`p-2 rounded-xl transition-all ${
+                canReplyOnly
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : 'text-zinc-500 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+              }`}
+              title="Ventana Abierta"
+            >
+              <Clock className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* RIGHT: chat panel */}
+        <div className={`${selected ? 'flex' : 'hidden md:flex'} flex-1 flex overflow-hidden bg-zinc-50 dark:bg-zinc-900/30`}>
+
+          {!selected ? (
+            <div className="flex-1 flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
+              <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">💬</div>
+              <p className="text-[14px] font-medium">Seleccioná una conversación</p>
+            </div>
+          ) : (
+            <>
+              {/* Main Chat Area */}
+              <div className="flex-1 flex flex-col overflow-hidden h-full border-r border-zinc-200 dark:border-zinc-800">
+                {/* Chat header */}
+                <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center gap-3 flex-shrink-0">
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="md:hidden p-1.5 -ml-1 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                  </button>
+                  <button
+                    onClick={() => setListCollapsed(v => !v)}
+                    className="hidden md:flex p-1.5 -ml-1 rounded-lg text-zinc-550 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                    title={listCollapsed ? "Mostrar lista de chats" : "Ocultar lista de chats"}
+                  >
+                    <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="18" height="18" x="3" y="3" rx="2" />
+                      <path d="M9 3v18" />
+                      {listCollapsed ? <path d="m14 15 3-3-3-3" /> : <path d="m16 9-3 3 3 3" />}
+                    </svg>
+                  </button>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
+                    {CHANNEL_ICON[getChannel(selected)]}
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-zinc-900 dark:text-white">{contact(selected).name || `Conversación #${selected.id}`}</p>
+                    <div className="flex items-center gap-2">
+                      {contact(selected).phone_number && <span className="text-[11px] text-zinc-400 font-mono">{contact(selected).phone_number}</span>}
+                      <span className="text-[9px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-400 px-1.5 py-0.5 rounded-full uppercase">{getChannelLabel(selected)}</span>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full text-white ${STATUS_COLORS[selected.status] || 'bg-zinc-400'}`}>
+                        {selected.status === 'open' ? 'Abierto' : selected.status === 'resolved' ? 'Resuelto' : 'Pendiente'}
+                      </span>
+                    </div>
+                  </div>
+
+
+                </div>
+
+                {/* 24-hour warning banner */}
+                {(() => {
+                  const ch = getChannel(selected);
+                  const isMetaConv = ['whatsapp', 'instagram', 'facebook'].includes(ch);
+                  const lastIncoming = [...messages].reverse().find((m: any) => m?.message_type === 0);
+                  const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
+                  const noIncoming = isMetaConv && !lastIncoming;
+                  const isClosed = selected.can_reply === false || (selected.can_reply === undefined && isMetaConv && !loadingMsgs && (over24h || noIncoming));
+                  if (isClosed) {
+                    return (
+                      <div className="bg-red-50/45 dark:bg-red-950/5 border-b border-red-100/50 dark:border-red-900/10 px-5 py-2 flex items-center gap-2 text-[11px] text-red-750 dark:text-red-400 font-semibold select-none flex-shrink-0 animate-in slide-in-from-top duration-200">
+                        <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                        <span>Solo se admiten respuestas mediante plantilla debido a la restricción de las 24 horas.</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Messages list */}
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-white dark:bg-zinc-950">
+                  {loadingMsgs ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="text-center py-12 text-zinc-400 text-[13px]">Sin mensajes</div>
+                  ) : messages.map((msg: any) => {
+                    const isMe = msg?.message_type === 1; // 1 = outgoing
+                    const isActivity = msg?.message_type === 2; // 2 = activity
+                    if (isActivity) return (
+                      <div key={msg.id} className="flex justify-center">
+                        <span className="text-[10px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">{msg?.content}</span>
+                      </div>
+                    );
+                    return (
+                      <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                        <span className="text-[9px] text-zinc-400 font-medium mb-0.5 px-2">
+                          {isMe ? 'Agente' : (contact(selected).name || 'Cliente')} · {fmtTime(msg.created_at)}
+                        </span>
+                        <div className={`max-w-[70%] rounded-[18px] px-4 py-2.5 text-[13px] leading-relaxed ${
+                          failedMsgIds.has(msg.id)
+                            ? 'bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300'
+                            : isMe
+                              ? `bg-blue-600 text-white shadow-sm ${msg.pending ? 'opacity-60' : ''}`
+                              : 'bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 shadow-sm'
+                        }`}>
+                          {renderMessageContent(msg, contact(selected).name)}
+                          {failedMsgIds.has(msg.id) && (
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-red-500 font-bold">
+                              <AlertCircle className="w-3 h-3" /> Error al enviar — ventana de 24hs cerrada
+                            </div>
+                          )}
+                          {msg.pending && !failedMsgIds.has(msg.id) && (
+                            <span className="text-[10px] opacity-50 ml-1">enviando...</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Reply Box area */}
+                <div className="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0">
+                  {(() => {
+                    const ch = getChannel(selected);
+                    const isMetaConv = ['whatsapp', 'instagram', 'facebook'].includes(ch);
+                    const lastIncoming = [...messages].reverse().find((m: any) => m?.message_type === 0);
+                    const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
+                    const noIncoming = isMetaConv && !lastIncoming;
+                    const isClosed = selected.can_reply === false || (selected.can_reply === undefined && isMetaConv && !loadingMsgs && (over24h || noIncoming));
+
+                    if (isClosed) {
+                      const cleanPhone = contact(selected).phone_number ? contact(selected).phone_number.replace(/\D/g, '') : '';
+                      return (
+                        <div className="px-5 py-4 space-y-3 animate-in fade-in duration-200">
+                          <div className="flex items-start gap-2.5 p-3.5 bg-red-50/50 dark:bg-red-950/10 border border-red-200/50 dark:border-red-900/20 rounded-2xl">
+                            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-[12px] font-bold text-red-850 dark:text-red-400">Ventana de 24 horas cerrada</p>
+                              <p className="text-[11px] text-red-650 dark:text-red-400 mt-0.5 leading-relaxed">
+                                Solo podés responder utilizando una plantilla de mensaje (template) o contactándolo directamente por otros canales debido a la restricción de Meta.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            {cleanPhone ? (
+                              <a href={`https://wa.me/${cleanPhone}`}
+                                target="_blank" rel="noreferrer"
+                                className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-black rounded-xl transition-all shadow-sm active:scale-[0.98]">
+                                <MessageCircle className="w-4 h-4" />
+                                Escribir por WhatsApp
+                              </a>
                             ) : (
-                              <div className="w-full h-full bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center text-violet-500">
-                                <Layers className="w-3.5 h-3.5" />
+                              <div className="text-[11px] text-zinc-400 text-center w-full py-2">
+                                No hay teléfono de WhatsApp disponible para este contacto.
                               </div>
                             )}
                           </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="px-5 py-4 space-y-3">
+                        {sendError && (
+                          <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl text-[11px] text-red-650 dark:text-red-400 flex items-start gap-2">
+                            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-bold">Error al enviar</p>
+                              <p className="mt-0.5">{sendError}</p>
+                              {sendError.toLowerCase().includes('template') && (
+                                <a href={`${cwUrl}`} target="_blank" rel="noreferrer" className="underline mt-1 block">Abrir panel para usar plantilla →</a>
+                              )}
+                            </div>
+                          </div>
                         )}
+
+                        <div className="space-y-2">
+                          <textarea
+                            value={reply}
+                            onChange={e => setReply(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }}}
+                            placeholder="Escribí tu respuesta... (Enter para enviar)"
+                            rows={3}
+                            className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-[13px] text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all resize-none"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={generateAiDraft} disabled={generatingDraft || sending || messages.length === 0}
+                              className="flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 dark:bg-violet-600 hover:bg-violet-700 dark:hover:bg-violet-700 text-white rounded-xl text-[12px] font-bold shadow-md transition-all active:scale-[0.98] disabled:opacity-50">
+                              {generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Bot className="w-3.5 h-3.5 text-white animate-pulse" />}
+                              Responder con IA
+                            </button>
+
+                            <button onClick={handleSend as any} disabled={!reply.trim() || sending}
+                              className="ml-auto flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm">
+                              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                              Enviar
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-
-                    {/* User and message */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[12.5px] font-bold text-zinc-900 dark:text-white group-hover:text-violet-500 transition-colors">
-                          @{item.username}
-                        </span>
-                        {item.type === 'ad_comment' && (
-                          <span className="bg-violet-50 text-violet-600 dark:bg-violet-950/20 dark:text-violet-400 text-[8.5px] font-bold px-1.5 py-0.5 rounded max-w-[120px] truncate">
-                            {item.adName || 'Anuncio'}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-normal font-semibold italic bg-zinc-50 dark:bg-zinc-950/30 p-2.5 rounded-xl border border-zinc-100/60 dark:border-zinc-850/50 line-clamp-3">
-                        "{item.text}"
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Actions preview bottom */}
-                  <div className="pt-2 border-t border-zinc-100 dark:border-zinc-850/40 mt-3 flex items-center justify-between text-[11px] font-bold text-violet-600 dark:text-violet-400">
-                    <span>Responder en pantalla completa →</span>
-                    {item.permalink && (
-                      <a
-                        href={item.permalink}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-                        title="Ver en red social"
-                      >
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
-              ))}
-            </div>
-          ) : (
-            /* High density list view */
-            <div className="border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl bg-white dark:bg-zinc-900 overflow-hidden divide-y divide-zinc-150 dark:divide-zinc-850 shadow-sm animate-in fade-in duration-200">
-              {filteredPendingItems.map((item: any) => (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    setSelectedItem(item);
-                    loadConversationHistory(item);
-                  }}
-                  className="px-4 py-2.5 flex items-center justify-between gap-4 hover:bg-zinc-50/60 dark:hover:bg-zinc-850/45 cursor-pointer transition-colors group text-[12.5px]"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    {/* Platform Icon */}
-                    {item.platform === 'instagram' ? (
-                      <Instagram className="w-4 h-4 text-pink-505 flex-shrink-0" />
-                    ) : (
-                      <span className="w-4 h-4 text-blue-500 font-black text-xs text-center flex-shrink-0">f</span>
-                    )}
-
-                    {/* Username */}
-                    <span className="font-bold text-zinc-850 dark:text-zinc-200 flex-shrink-0">
-                      @{item.username}
-                    </span>
-
-                    {/* Tags (Type, Campaign name if Ads) */}
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wide">
-                        {item.type === 'ig_dm' && 'DM'}
-                        {item.type === 'fb_dm' && 'Messenger'}
-                        {item.type === 'ig_comment' && 'Comentario'}
-                        {item.type === 'fb_comment' && 'Comentario'}
-                        {item.type === 'ad_comment' && 'Comentario Ad'}
-                      </span>
-                      {item.type === 'ad_comment' && item.adName && (
-                        <span className="bg-violet-50 text-violet-650 dark:bg-violet-950/20 dark:text-violet-400 text-[9px] font-bold px-1.5 py-0.5 rounded max-w-[100px] truncate">
-                          {item.adName}
-                        </span>
-                      )}
-                      
-                      {/* Status Badge in List View */}
-                      {inboxMode === 'all' && (
-                        <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0 ${
-                          item.isPending
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400'
-                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-955/20 dark:text-emerald-400'
-                        }`}>
-                          {item.isPending ? 'Pendiente' : 'Respondido'}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Message content snippet */}
-                    <p className="text-zinc-500 dark:text-zinc-450 truncate italic font-semibold flex-1">
-                      "{item.text}"
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    {/* Timestamp */}
-                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold">
-                      {new Date(item.timestamp).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                {/* Hover indicator */}
-                    <span className="text-violet-650 dark:text-violet-400 font-black opacity-0 group-hover:opacity-100 transition-opacity text-[11px]">
-                      Responder →
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+              </div>
+            </>
           )}
-          </>)} {/* end inboxSection !== 'whatsapp' */}
+        </div>
+      </div>
+
+
+      {/* Context Menu */}
+      {ctxMenu && (
+        <div ref={ctxRef}
+          style={{ position: 'fixed', top: ctxMenu.y, left: ctxMenu.x, zIndex: 9999 }}
+          className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl py-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-100">
+          {[
+            { action: 'read',         label: 'Marcar como leído',            icon: '✓' },
+            { action: 'resolved',     label: 'Marcar como resuelto',         icon: '✅' },
+            { action: 'open',         label: 'Marcar como abierto',          icon: '📂' },
+            { action: 'pending',      label: 'Marcar como pendiente',        icon: '⏳' },
+            { action: 'snooze',       label: 'Posponer 1 hora',              icon: '⏰' },
+            null,
+            { action: 'priority_high',label: 'Prioridad alta',               icon: '🔴' },
+            { action: 'priority_none',label: 'Sin prioridad',                icon: '⚪' },
+            null,
+            { action: 'copy',         label: 'Copiar enlace',                icon: '🔗' },
+            null,
+            { action: 'delete',       label: 'Eliminar conversación',        icon: '🗑️', danger: true },
+          ].map((item, i) =>
+            item === null ? (
+              <div key={i} className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
+            ) : (
+              <button key={item.action} onClick={() => handleCtxAction(item.action, ctxMenu.conv)}
+                className={`w-full text-left px-4 py-2 text-[12px] font-medium flex items-center gap-2.5 transition-colors ${
+                  item.danger
+                    ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20'
+                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                }`}>
+                <span>{item.icon}</span> {item.label}
+              </button>
+            )
+          )}
         </div>
       )}
-
-      {/* DETAILED SLIDE-OVER (Intercom / Apple Siri feel detail sheets) */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-[400] flex justify-end animate-in fade-in duration-200">
-          {/* Backdrop */}
-          <div 
-            onClick={() => setSelectedItem(null)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-          />
-          
-          {/* Slide-over panel container */}
-          <div className="relative w-full max-w-4xl h-full bg-white dark:bg-[#0d0d11] border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-350 ease-out z-10">
-            
-            {/* Slide-over Header */}
-            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800/85 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-3">
-                {selectedItem.platform === 'whatsapp' ? (
-                  <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-lg">📱</div>
-                ) : selectedItem.platform === 'instagram' ? (
-                  <div className="w-8 h-8 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 rounded-full flex items-center justify-center text-white">
-                    <Instagram className="w-4 h-4" />
-                  </div>
-                ) : (
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-black text-sm">
-                    f
-                  </div>
-                )}
-                <div>
-                  <h3 className="font-black text-zinc-900 dark:text-white text-[15px] leading-tight">
-                    {selectedItem.username}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wide ${
-                      selectedItem.platform === 'instagram'
-                        ? 'bg-pink-100 text-pink-700 dark:bg-pink-950/30 dark:text-pink-400'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
-                    }`}>
-                      {selectedItem.type === 'ig_dm' ? 'Instagram Direct' : selectedItem.type === 'fb_dm' ? 'Facebook Messenger' : selectedItem.platform}
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-bold">
-                      {new Date(selectedItem.timestamp).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {selectedItem.permalink && (
-                  <a 
-                    href={selectedItem.permalink} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 dark:hover:bg-violet-900/30 rounded-xl text-[11px] text-violet-650 dark:text-violet-400 font-bold transition-all border border-violet-100/50 dark:border-violet-900/20"
-                  >
-                    Ver original
-                    <ArrowUpRight className="w-3 h-3" />
-                  </a>
-                )}
-                <button 
-                  onClick={() => setSelectedItem(null)}
-                  className="p-1.5 hover:bg-zinc-150 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
-                >
-                  <X className="w-4.5 h-4.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Slide-over Body (Split in 2 Columns: Chat / Shopify Products) */}
-            <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-5 h-full">
-              
-              {/* Column 1: Thread History & Reply box (60%) */}
-              <div className="md:col-span-3 flex flex-col justify-between border-r border-zinc-100 dark:border-zinc-800 h-full overflow-hidden bg-zinc-50/20 dark:bg-zinc-950/10">
-                
-                {/* Scrollable Conversation flow */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                  {/* Context Card (if it's a comment) */}
-                  {(selectedItem.postCaption || selectedItem.postMessage) && (
-                    <div className="p-4 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex flex-col gap-3 shadow-sm">
-                      <div className="flex gap-3">
-                        {selectedItem.postThumbnail && (
-                          <div className="w-14 h-14 bg-zinc-100 rounded-lg overflow-hidden flex-shrink-0 border border-zinc-200 dark:border-zinc-800">
-                            <img src={selectedItem.postThumbnail} alt="" className="w-full h-full object-cover" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <span className="text-[10px] font-black text-zinc-405 uppercase tracking-widest block mb-0.5">Publicación de Contexto</span>
-                          <p className="text-[12px] text-zinc-650 dark:text-zinc-400 font-semibold line-clamp-2 leading-relaxed">
-                            {selectedItem.postCaption || selectedItem.postMessage}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Interactive Media Player (for Videos/Images/Carousels) */}
-                      {selectedItem.postMediaUrl && (
-                        <div className="border-t border-zinc-100 dark:border-zinc-800/80 pt-3 mt-1">
-                          {selectedItem.postMediaType === 'VIDEO' ? (
-                            <div className="rounded-xl overflow-hidden bg-black max-w-[280px] border border-zinc-200 dark:border-zinc-800 mx-auto shadow-sm">
-                              <video
-                                src={selectedItem.postMediaUrl}
-                                poster={selectedItem.postThumbnailUrl || selectedItem.postThumbnail}
-                                controls
-                                className="w-full max-h-64 object-contain"
-                              />
-                            </div>
-                          ) : (
-                            <div className="rounded-xl overflow-hidden max-w-[280px] border border-zinc-200 dark:border-zinc-800 mx-auto shadow-sm">
-                              <img
-                                src={selectedItem.postMediaUrl}
-                                alt="Post Media"
-                                className="w-full max-h-64 object-cover"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Messages Flow bubbles */}
-                  <div className="space-y-3 pt-2">
-                    {/* WhatsApp via Chatwoot */}
-                    {selectedItem.type === 'whatsapp_dm' ? (
-                      <>
-                        {loadingChatwootMessages === selectedItem.chatwootId ? (
-                          <div className="flex flex-col items-center justify-center py-12 gap-3">
-                            <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
-                            <p className="text-[12px] text-zinc-400 font-bold">Cargando mensajes de WhatsApp...</p>
-                          </div>
-                        ) : (
-                          <>
-                            {(chatwootMessages[selectedItem.chatwootId] || []).map((msg: any) => {
-                              const isMe = msg.message_type === 1; // 1 = outgoing
-                              const timeStr = msg.created_at
-                                ? new Date(msg.created_at * 1000).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                                : '';
-                              return (
-                                <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                  <span className="text-[9px] text-zinc-400 font-bold mb-0.5 px-2">
-                                    {isMe ? 'Yo' : selectedItem.username} · {timeStr}
-                                  </span>
-                                  <div className={`max-w-[85%] rounded-[18px] px-4 py-2.5 text-[12.5px] leading-relaxed font-semibold ${
-                                    isMe
-                                      ? 'bg-emerald-600 text-white shadow-sm'
-                                      : 'bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 text-zinc-800 dark:text-zinc-100 shadow-sm'
-                                  }`}>
-                                    {msg.content || <span className="italic opacity-60">📎 Archivo adjunto</span>}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                            <div ref={messagesEndRef} />
-                          </>
-                        )}
-                      </>
-                    ) : (selectedItem.type === 'ig_dm' || selectedItem.type === 'fb_dm') ? (
-                      <>
-                        {loadingConversation === selectedItem.id ? (
-                          <div className="flex flex-col items-center justify-center py-12 gap-3">
-                            <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
-                            <p className="text-[12px] text-zinc-400 font-bold">Cargando historial completo...</p>
-                          </div>
-                        ) : (
-                          <>
-                            {(conversationMessages[selectedItem.id] || (selectedItem.rawItem?.messages?.data ? [...selectedItem.rawItem.messages.data].reverse() : [])).map((msg: any) => {
-                              const isMe = msg.from?.id === fbPageId || (igId && msg.from?.id === igId);
-                              const senderName = isMe ? 'Yo' : selectedItem.username;
-                              const timeStr = msg.created_time
-                                ? new Date(msg.created_time).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                                : '';
-                              return (
-                                <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                  <span className="text-[9px] text-zinc-400 font-bold mb-0.5 px-2">
-                                    {senderName} · {timeStr}
-                                  </span>
-                                  {msg.message ? (
-                                    <div className={`max-w-[85%] rounded-[18px] px-4 py-2.5 text-[12.5px] leading-relaxed font-semibold ${
-                                      isMe 
-                                        ? 'bg-violet-600 text-white shadow-sm' 
-                                        : 'bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 text-zinc-800 dark:text-zinc-100 shadow-sm'
-                                    }`}>
-                                      {msg.message}
-                                    </div>
-                                  ) : (
-                                    <div className={`max-w-[85%] rounded-[18px] px-4 py-2.5 text-[11px] leading-relaxed font-semibold italic opacity-60 ${
-                                      isMe 
-                                        ? 'bg-violet-400 text-white' 
-                                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700'
-                                    }`}>
-                                      📎 Archivo adjunto o mensaje de voz
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                            {/* Scroll anchor */}
-                            <div ref={messagesEndRef} />
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      // If comment thread
-                      <div className="space-y-4">
-                        <div className="flex flex-col items-start">
-                          <span className="text-[9px] text-zinc-400 font-bold mb-0.5 px-2">
-                            @{selectedItem.username} · {new Date(selectedItem.timestamp).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <div className="max-w-[90%] bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-[18px] p-4 text-[13px] font-semibold text-zinc-800 dark:text-zinc-100 shadow-sm leading-relaxed italic">
-                            "{selectedItem.text}"
-                          </div>
-                        </div>
-
-                        {/* Nested Replies (already made from page/brand) */}
-                        {selectedItem.rawItem.replies?.data?.map((reply: any) => {
-                          const replyUser = reply.username || reply.from?.name || 'Yo';
-                          const isPage = replyUser === igUsername || reply.from?.id === fbPageId;
-                          return (
-                            <div key={reply.id} className={`flex flex-col ${isPage ? 'items-end' : 'items-start'} pl-6`}>
-                              <span className="text-[9px] text-zinc-400 font-bold mb-0.5 px-2">
-                                {replyUser} · {new Date(reply.timestamp || reply.created_time).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              <div className={`max-w-[85%] rounded-[16px] px-3.5 py-2.5 text-[12.5px] leading-relaxed font-semibold ${
-                                isPage 
-                                  ? 'bg-violet-600 text-white shadow-sm' 
-                                  : 'bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 shadow-sm'
-                              }`}>
-                                {reply.text || reply.message}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Reply controls and input */}
-                <div className="p-4 border-t border-zinc-150 dark:border-zinc-850 bg-white dark:bg-zinc-900 space-y-3">
-                  {inboxReplyErrors[selectedItem.id] && (
-                    <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 text-[11px] text-amber-700 dark:text-amber-400 font-semibold flex items-start gap-1.5">
-                      <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <span>{inboxReplyErrors[selectedItem.id]}</span>
-                    </div>
-                  )}
-
-                  <form onSubmit={(e) => handleInboxReply(e, selectedItem)} className="space-y-3">
-                    <AutoResizeTextarea
-                      placeholder={`Escribí una respuesta para @${selectedItem.username}...`}
-                      value={inboxReplies[selectedItem.id] || ''}
-                      onChange={(e) => setInboxReplies(prev => ({ ...prev, [selectedItem.id]: e.target.value }))}
-                      disabled={submittingInboxReply[selectedItem.id] || loadingDraft[selectedItem.id]}
-                      className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-250 dark:border-zinc-800 rounded-2xl px-4 py-3 text-[13px] text-zinc-850 dark:text-zinc-100 placeholder:text-zinc-400 focus:bg-white dark:focus:bg-zinc-950 focus:border-violet-500 outline-none transition-all shadow-inner font-medium leading-relaxed min-h-[70px]"
-                    />
-                    
-                    <div className="flex items-center justify-between gap-3">
-                      {/* AI Sparkles suggestion button */}
-                      <button
-                        type="button"
-                        onClick={() => generateAiDraft(selectedItem)}
-                        disabled={submittingInboxReply[selectedItem.id] || loadingDraft[selectedItem.id]}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/25 dark:hover:bg-violet-900/40 text-violet-650 dark:text-violet-400 rounded-xl text-[12px] font-black border border-violet-100/50 dark:border-violet-900/25 transition-all shadow-sm cursor-pointer"
-                      >
-                        {loadingDraft[selectedItem.id] ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="w-3.5 h-3.5" />
-                        )}
-                        Borrador con IA (Algor)
-                      </button>
-
-                      <button
-                        type="submit"
-                        disabled={submittingInboxReply[selectedItem.id] || loadingDraft[selectedItem.id] || !(inboxReplies[selectedItem.id] || '').trim()}
-                        className="px-5 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-[12.5px] font-black rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md shadow-violet-600/10 cursor-pointer"
-                      >
-                        {submittingInboxReply[selectedItem.id] ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Send className="w-3.5 h-3.5" />
-                        )}
-                        Resolver y Enviar
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-
-              {/* Column 2: Context panel & Shopify products (40%) */}
-              <div className="md:col-span-2 p-6 overflow-y-auto space-y-6 h-full bg-white dark:bg-[#0d0d11]">
-                
-                {/* Client info summary */}
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Información del Cliente</h4>
-                  <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl space-y-2 text-[12px]">
-                    <div className="flex justify-between">
-                      <span className="text-zinc-400 font-bold">Usuario:</span>
-                      <span className="font-bold text-zinc-800 dark:text-zinc-150">@{selectedItem.username}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-zinc-400 font-bold">Red:</span>
-                      <span className="font-bold text-zinc-800 dark:text-zinc-150 capitalize">{selectedItem.platform}</span>
-                    </div>
-                    {selectedItem.adName && (
-                      <div className="flex flex-col pt-1.5 border-t border-zinc-200/50 dark:border-zinc-800/80">
-                        <span className="text-zinc-400 font-bold">Campaña de Anuncio:</span>
-                        <span className="font-black text-violet-600 dark:text-violet-400 mt-0.5">{selectedItem.adName}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Shopify products finder block */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Catálogo Shopify</h4>
-                    {loadingProducts && <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />}
-                  </div>
-
-                  {!shopifyDomain ? (
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl text-center text-[12px] text-zinc-400 font-semibold italic">
-                      Tienda Shopify no vinculada en Gestión de Clientes.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {/* Search box */}
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Buscar producto en la tienda..."
-                          value={productSearch}
-                          onChange={(e) => setProductSearch(e.target.value)}
-                          className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-xl pl-8 pr-3 py-1.5 text-[11.5px] focus:bg-white focus:border-violet-500 outline-none transition-all shadow-inner font-medium text-zinc-800 dark:text-zinc-100"
-                        />
-                        <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                      </div>
-
-                      {/* Products List */}
-                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                        {filteredProducts.length === 0 ? (
-                          <p className="text-[11px] text-zinc-450 italic text-center py-4">No se encontraron productos.</p>
-                        ) : (
-                          filteredProducts.map(p => (
-                            <div 
-                              key={p.id} 
-                              className="p-3 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/60 dark:border-zinc-800/60 rounded-xl flex items-center justify-between gap-3 text-[12px] hover:border-zinc-350 dark:hover:border-zinc-700 transition-all"
-                            >
-                              <div className="min-w-0">
-                                <span className="font-bold text-zinc-800 dark:text-zinc-200 block truncate" title={p.title}>
-                                  {p.title}
-                                </span>
-                                <span className="text-[9.5px] text-zinc-400 block font-mono truncate">
-                                  /{p.handle}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyLink(p.handle, p.id)}
-                                  className={`p-1.5 border rounded-lg transition-all ${
-                                    copiedProductId === p.id 
-                                      ? 'bg-green-50 border-green-200 text-green-600 dark:bg-green-950/20 dark:border-green-900/35' 
-                                      : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-750 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100'
-                                  }`}
-                                  title="Copiar link de compra"
-                                >
-                                  {copiedProductId === p.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleInsertLink(p.handle, selectedItem.id)}
-                                  className="p-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/30 dark:hover:bg-violet-900/40 text-violet-600 dark:text-violet-400 border border-violet-100/50 dark:border-violet-900/20 rounded-lg transition-all"
-                                  title="Insertar link en borrador"
-                                >
-                                  <Link className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

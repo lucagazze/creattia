@@ -389,7 +389,7 @@ export default function AtencionPage() {
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto animate-fade-in pb-20">
+    <div className="max-w-[1600px] mx-auto animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>

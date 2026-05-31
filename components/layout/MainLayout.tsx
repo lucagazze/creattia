@@ -12,6 +12,7 @@ import { metaAds } from '../../services/metaAds';
 const DashboardPage      = lazy(() => import('../../pages/DashboardPage'));
 const CaptacionPage      = lazy(() => import('../../pages/CaptacionPage'));
 const AtencionPage       = lazy(() => import('../../pages/AtencionPage'));
+const MensajeriaPage     = lazy(() => import('../../pages/MensajeriaPage'));
 const RetencionPage      = lazy(() => import('../../pages/RetencionPage'));
 const TiendaPage         = lazy(() => import('../../pages/TiendaPage'));
 const LinksPage          = lazy(() => import('../../pages/LinksPage'));
@@ -115,7 +116,7 @@ export const MainLayout = () => {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/captacion" element={<CaptacionPage />} />
               <Route path="/redes-sociales" element={<RedesSocialesPage />} />
-              <Route path="/mensajeria" element={<AtencionPage />} />
+              <Route path="/mensajeria" element={<MensajeriaPage />} />
               <Route path="/comentarios" element={<ComentariosPage />} />
               <Route path="/atencion" element={<AtencionPage />} />
               <Route path="/retencion" element={<RetencionPage />} />
