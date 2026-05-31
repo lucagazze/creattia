@@ -225,8 +225,8 @@ export default function AtencionPage() {
                       ...c, 
                       last_activity_at: d.created_at, 
                       messages: [d, ...(c.messages || [])], 
-                      unread_count: selectedRef.current?.id === d.conversation_id ? 0 : (c.unread_count || 0) + (d.message_type === 0 ? 1 : 0),
-                      ...(d.message_type !== 2 ? { last_non_activity_message: d } : {})
+                      unread_count: selectedRef.current?.id === d.conversation_id ? 0 : (c.unread_count || 0) + (d?.message_type === 0 ? 1 : 0),
+                      ...(d?.message_type !== 2 ? { last_non_activity_message: d } : {})
                     }
                   : c
               ));
@@ -345,13 +345,13 @@ export default function AtencionPage() {
     setGeneratingDraft(true);
     setSendError(null);
     try {
-      const realMessages = messages.filter((m: any) => m.message_type !== 2);
+      const realMessages = messages.filter((m: any) => m?.message_type !== 2);
       const last20 = realMessages.slice(-20);
-      const lastIncoming = [...last20].reverse().find((m: any) => m.message_type === 0);
+      const lastIncoming = [...last20].reverse().find((m: any) => m?.message_type === 0);
       const lastMsg = last20[last20.length - 1];
       const history = last20.map((m: any) => {
-        const who = m.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
-        return `${who}: ${m.content || '[archivo adjunto]'}`;
+        const who = m?.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
+        return `${who}: ${m?.content || '[archivo adjunto]'}`;
       });
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
@@ -482,8 +482,12 @@ export default function AtencionPage() {
   const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email' | 'other'>('all');
   const [listCollapsed, setListCollapsed] = useState(false);
 
-  const contact = (c: any) => c.meta?.sender || c.contact_inbox?.contact || {};
+  const contact = (c: any) => {
+    if (!c) return {};
+    return c.meta?.sender || c.contact_inbox?.contact || {};
+  };
   const getChannel = (c: any) => {
+    if (!c) return 'other';
     const inbox = c.inbox || inboxes.find((i: any) => i.id === c.inbox_id);
     const ch = (c.channel || inbox?.channel_type || '').toLowerCase();
     if (ch.includes('whatsapp')) return 'whatsapp';
@@ -543,6 +547,7 @@ export default function AtencionPage() {
   };
 
   const getChannelLabel = (c: any) => {
+    if (!c) return 'Canal';
     const ch = getChannel(c);
     if (ch === 'whatsapp') return 'WhatsApp';
     if (ch === 'instagram') return 'Instagram';
@@ -603,10 +608,11 @@ export default function AtencionPage() {
   });
 
   const filtered = assignFiltered.filter(c => {
+    if (!c) return false;
     if (canReplyOnly) {
       const ch = getChannel(c);
       const isMeta = ['whatsapp', 'instagram', 'facebook'].includes(ch);
-      const lastIncoming = c.messages?.find((m: any) => m.message_type === 0);
+      const lastIncoming = c.messages?.find((m: any) => m?.message_type === 0);
       const timeSinceLastIncoming = lastIncoming ? (Date.now() / 1000 - lastIncoming.created_at) : null;
       const canReply = !isMeta || c.can_reply !== false || (timeSinceLastIncoming !== null && timeSinceLastIncoming < 86400) || (Date.now() / 1000 - (c.last_activity_at || c.created_at)) < 86400;
       if (!canReply) return false;
@@ -616,7 +622,7 @@ export default function AtencionPage() {
     const name = (c.meta?.sender?.name || '').toLowerCase();
     const phone = c.meta?.sender?.phone_number || '';
     const email = (c.meta?.sender?.email || '').toLowerCase();
-    const lastReal = c.messages?.find((m: any) => m.message_type !== 2) || c.last_non_activity_message;
+    const lastReal = c.messages?.find((m: any) => m?.message_type !== 2) || c.last_non_activity_message;
     const lastMsg = (lastReal?.content || '').toLowerCase();
     return name.includes(s) || phone.includes(s) || email.includes(s) || String(c.id).includes(s) || lastMsg.includes(s);
   });
@@ -879,12 +885,12 @@ export default function AtencionPage() {
               </div>
             ) : filtered.map(conv => {
               const c = contact(conv);
-              const lastRealMsg = conv.messages?.find((m: any) => m.message_type !== 2) || conv.last_non_activity_message;
+              const lastRealMsg = conv?.messages?.find((m: any) => m?.message_type !== 2) || conv?.last_non_activity_message;
               const lastMsg = lastRealMsg;
-              const isSelected = selected?.id === conv.id;
-              const unread = conv.unread_count || 0;
+              const isSelected = selected?.id === conv?.id;
+              const unread = conv?.unread_count || 0;
               const isUnread = unread > 0;
-              const activityTimestamp = conv.last_activity_at || lastRealMsg?.created_at || conv.messages?.[0]?.created_at || conv.created_at;
+              const activityTimestamp = conv?.last_activity_at || lastRealMsg?.created_at || conv?.messages?.[0]?.created_at || conv?.created_at;
               return (
                 <div key={conv.id}
                   onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, conv }); }}
@@ -953,10 +959,10 @@ export default function AtencionPage() {
                               ? 'text-zinc-700 dark:text-zinc-300 font-semibold' 
                               : 'text-zinc-450 italic'
                         }`}>
-                          {lastMsg.message_type === 1 && (
-                            <span className={`font-bold mr-1 ${isSelected ? 'text-blue-100' : 'text-zinc-500 dark:text-zinc-400'}`}>Vos:</span>
+                          {lastMsg?.message_type === 1 && (
+                            <span className={`font-bold mr-1 ${isSelected ? 'text-blue-100' : 'text-zinc-550 dark:text-zinc-400'}`}>Vos:</span>
                           )}
-                          {lastMsg.content}
+                          {lastMsg?.content}
                         </p>
                       )}
                     </div>
@@ -1021,7 +1027,7 @@ export default function AtencionPage() {
               {(() => {
                 const ch = getChannel(selected);
                 const isMetaConv = ['whatsapp', 'instagram', 'facebook'].includes(ch);
-                const lastIncoming = [...messages].reverse().find((m: any) => m.message_type === 0);
+                const lastIncoming = [...messages].reverse().find((m: any) => m?.message_type === 0);
                 const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
                 const noIncoming = isMetaConv && !lastIncoming;
                 if (over24h || noIncoming) {
@@ -1044,11 +1050,11 @@ export default function AtencionPage() {
                 ) : messages.length === 0 ? (
                   <div className="text-center py-12 text-zinc-400 text-[13px]">Sin mensajes</div>
                 ) : messages.map((msg: any) => {
-                  const isMe = msg.message_type === 1; // 1 = outgoing
-                  const isActivity = msg.message_type === 2; // 2 = activity
+                  const isMe = msg?.message_type === 1; // 1 = outgoing
+                  const isActivity = msg?.message_type === 2; // 2 = activity
                   if (isActivity) return (
                     <div key={msg.id} className="flex justify-center">
-                      <span className="text-[10px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">{msg.content}</span>
+                      <span className="text-[10px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">{msg?.content}</span>
                     </div>
                   );
                   return (
@@ -1084,7 +1090,7 @@ export default function AtencionPage() {
                 {(() => {
                   const ch = getChannel(selected);
                   const isMetaConv = ['whatsapp', 'instagram', 'facebook'].includes(ch);
-                  const lastIncoming = [...messages].reverse().find((m: any) => m.message_type === 0);
+                  const lastIncoming = [...messages].reverse().find((m: any) => m?.message_type === 0);
                   const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
                   const noIncoming = isMetaConv && !lastIncoming;
 
