@@ -326,17 +326,50 @@ export default function AtencionPage() {
     setSendError(null);
     const tempId = `local_${Date.now()}`;
     const tempMsg = { id: tempId, content: reply.trim(), message_type: 1, created_at: Date.now() / 1000, pending: true };
+    
+    // Update active chat messages
     setMessages(prev => [...prev, tempMsg]);
+    
+    // Update conversations list preview immediately with temp message
+    setConversations(prev => prev.map(c => 
+      c.id === selected.id 
+        ? { 
+            ...c, 
+            last_activity_at: tempMsg.created_at, 
+            messages: [tempMsg, ...(c.messages || [])] 
+          } 
+        : c
+    ));
+
     const sentText = reply.trim();
     setReply('');
     try {
       const sent = await chatwoot.sendMessage(cwUrl, cwToken, selected.id, sentText);
-      // Replace temp with real message
+      // Replace temp with real message in active chat
       setMessages(prev => prev.map((m: any) => m.id === tempId ? { ...sent, created_at: sent?.created_at || Date.now()/1000 } : m));
+      // Replace temp with real message in conversations list preview
+      setConversations(prev => prev.map(c => 
+        c.id === selected.id 
+          ? { 
+              ...c, 
+              last_activity_at: sent?.created_at || Date.now()/1000, 
+              messages: [sent, ...(c.messages || []).filter((m: any) => m.id !== tempId)] 
+            } 
+          : c
+      ));
     } catch (e: any) {
-      // Mark temp message as failed
+      // Mark temp message as failed in active chat
       setFailedMsgIds(prev => new Set([...prev, tempId]));
       setSendError(e.message || 'No se pudo enviar el mensaje.');
+      // Remove temp message from conversation list on failure
+      setConversations(prev => prev.map(c => 
+        c.id === selected.id 
+          ? { 
+              ...c, 
+              messages: (c.messages || []).filter((m: any) => m.id !== tempId) 
+            } 
+          : c
+      ));
     } finally {
       setSending(false);
     }
@@ -605,7 +638,7 @@ export default function AtencionPage() {
       <div className="flex flex-1 overflow-hidden">
 
         <div className={`
-          ${listCollapsed ? 'hidden' : expanded ? 'w-full' : selected ? 'hidden md:flex md:w-[260px]' : 'w-full md:w-[320px]'}
+          ${listCollapsed ? 'hidden' : expanded ? 'w-full' : selected ? 'hidden md:flex md:w-[320px]' : 'w-full md:w-[320px]'}
           flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-all duration-300
         `}>
 
@@ -846,6 +879,9 @@ export default function AtencionPage() {
                               ? 'text-zinc-700 dark:text-zinc-300 font-semibold' 
                               : 'text-zinc-450 italic'
                         }`}>
+                          {lastMsg.message_type === 1 && (
+                            <span className={`font-bold mr-1 ${isSelected ? 'text-blue-100' : 'text-zinc-500 dark:text-zinc-400'}`}>Vos:</span>
+                          )}
                           {lastMsg.content}
                         </p>
                       )}
