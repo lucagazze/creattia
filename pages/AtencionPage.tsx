@@ -43,6 +43,8 @@ export default function AtencionPage() {
   const [hasMore, setHasMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; conv: any } | null>(null);
+  const ctxRef = useRef<HTMLDivElement>(null);
   const [statusFilter, setStatusFilter] = useState<'open' | 'resolved' | 'pending'>('open');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<any>(null);
@@ -169,6 +171,52 @@ export default function AtencionPage() {
       setSendError('No se pudo enviar. Verificá el token de Chatwoot.');
     } finally {
       setSending(false);
+    }
+  };
+
+  // Close context menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ctxRef.current && !ctxRef.current.contains(e.target as Node)) setCtxMenu(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleCtxAction = async (action: string, conv: any) => {
+    setCtxMenu(null);
+    if (!cwUrl || !cwToken) return;
+    try {
+      if (action === 'read') {
+        await chatwoot.markAsRead(cwUrl, cwToken, conv.id);
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
+      } else if (action === 'resolved') {
+        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { status: 'resolved' });
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status: 'resolved' } : c));
+      } else if (action === 'pending') {
+        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { status: 'pending' });
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status: 'pending' } : c));
+      } else if (action === 'open') {
+        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { status: 'open' });
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status: 'open' } : c));
+      } else if (action === 'snooze') {
+        const until = Math.floor(Date.now() / 1000) + 3600; // 1 hora
+        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { status: 'snoozed', snoozed_until: until });
+      } else if (action === 'priority_high') {
+        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { priority: 'high' });
+      } else if (action === 'priority_none') {
+        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { priority: 'none' });
+      } else if (action === 'copy') {
+        const link = `${cwUrl}/app/accounts/${await chatwoot.getAccountId(cwUrl, cwToken)}/conversations/${conv.id}`;
+        navigator.clipboard.writeText(link);
+      } else if (action === 'delete') {
+        if (!window.confirm('¿Eliminar esta conversación? Esta acción no se puede deshacer.')) return;
+        await chatwoot.deleteConversation(cwUrl, cwToken, conv.id);
+        setConversations(prev => prev.filter(c => c.id !== conv.id));
+        if (selected?.id === conv.id) setSelected(null);
+      }
+    } catch (e: any) {
+      console.error('Context action error:', e);
     }
   };
 
@@ -312,6 +360,7 @@ export default function AtencionPage() {
               const isUnread = unread > 0;
               return (
                 <button key={conv.id} onClick={() => loadMessages(conv)}
+                  onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, conv }); }}
                   className={`w-full text-left px-3 py-3 flex items-start gap-2.5 transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-500/10' : isUnread ? 'bg-zinc-50/80 dark:bg-zinc-900/60' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/50'}`}>
                   <div className="relative flex-shrink-0">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black ${CHANNEL_COLOR[ch]}`}>
@@ -440,6 +489,41 @@ export default function AtencionPage() {
           )}
         </div>
       </div>
+
+      {/* Context Menu */}
+      {ctxMenu && (
+        <div ref={ctxRef}
+          style={{ position: 'fixed', top: ctxMenu.y, left: ctxMenu.x, zIndex: 9999 }}
+          className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl py-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-100">
+          {[
+            { action: 'read',         label: 'Marcar como leído',            icon: '✓' },
+            { action: 'resolved',     label: 'Marcar como resuelto',         icon: '✅' },
+            { action: 'open',         label: 'Marcar como abierto',          icon: '📂' },
+            { action: 'pending',      label: 'Marcar como pendiente',        icon: '⏳' },
+            { action: 'snooze',       label: 'Posponer 1 hora',              icon: '⏰' },
+            null,
+            { action: 'priority_high',label: 'Prioridad alta',               icon: '🔴' },
+            { action: 'priority_none',label: 'Sin prioridad',                icon: '⚪' },
+            null,
+            { action: 'copy',         label: 'Copiar enlace',                icon: '🔗' },
+            null,
+            { action: 'delete',       label: 'Eliminar conversación',        icon: '🗑️', danger: true },
+          ].map((item, i) =>
+            item === null ? (
+              <div key={i} className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
+            ) : (
+              <button key={item.action} onClick={() => handleCtxAction(item.action, ctxMenu.conv)}
+                className={`w-full text-left px-4 py-2 text-[12px] font-medium flex items-center gap-2.5 transition-colors ${
+                  item.danger
+                    ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20'
+                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                }`}>
+                <span>{item.icon}</span> {item.label}
+              </button>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 }

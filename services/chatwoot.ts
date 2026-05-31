@@ -1,11 +1,14 @@
-const proxy = async (chatwoot_url: string, chatwoot_token: string, path: string, body?: any) => {
+const proxy = async (chatwoot_url: string, chatwoot_token: string, path: string, body?: any, method?: string) => {
   const res = await fetch('/api/scrape-website', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chatwoot_url, chatwoot_token, path, ...(body ? { body } : {}) }),
+    body: JSON.stringify({ chatwoot_url, chatwoot_token, path, ...(body !== undefined ? { body } : {}), ...(method ? { method } : {}) }),
   });
-  if (!res.ok) throw new Error(`Chatwoot proxy ${res.status}`);
-  return res.json();
+  if (!res.ok && res.status !== 200) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`Chatwoot ${res.status}: ${txt}`);
+  }
+  return res.json().catch(() => ({}));
 };
 
 let cachedAccountId: Record<string, number> = {};
@@ -57,5 +60,25 @@ export const chatwoot = {
       message_type: 'outgoing',
       private: false,
     });
+  },
+
+  async updateConversation(url: string, token: string, conversationId: number, data: object) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    return proxy(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}`, data, 'PATCH');
+  },
+
+  async markAsRead(url: string, token: string, conversationId: number) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    return proxy(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}/read`, {}, 'PUT');
+  },
+
+  async assignLabel(url: string, token: string, conversationId: number, labels: string[]) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    return proxy(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}/labels`, { labels }, 'POST');
+  },
+
+  async deleteConversation(url: string, token: string, conversationId: number) {
+    const accountId = await chatwoot.getAccountId(url, token);
+    return proxy(url, token, `/api/v1/accounts/${accountId}/conversations/${conversationId}`, { _method: 'DELETE' });
   },
 };
