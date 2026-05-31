@@ -38,6 +38,7 @@ export default function AtencionPage() {
   const cwToken = (profile as any)?.chatwoot_token;
 
   const [conversations, setConversations] = useState<any[]>([]);
+  const [convMeta, setConvMeta] = useState<{ all_count: number; unassigned_count: number; assigned_count: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -65,13 +66,14 @@ export default function AtencionPage() {
     setCurrentPage(1);
     setHasMore(false);
     try {
-      const [{ payload: first, hasMore: more }, sm] = await Promise.all([
+      const [{ payload: first, hasMore: more, meta }, sm] = await Promise.all([
         chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1),
         chatwoot.getSummary(cwUrl, cwToken, Math.floor(new Date().setHours(0,0,0,0)/1000), Math.floor(Date.now()/1000)).catch(() => null),
       ]);
       setConversations(first);
       setHasMore(more);
       setSummary(sm);
+      if (meta) setConvMeta({ all_count: meta.all_count ?? 0, unassigned_count: meta.unassigned_count ?? 0, assigned_count: meta.assigned_count ?? 0 });
       setLoading(false);
 
       // Auto-load remaining pages in background
@@ -250,7 +252,9 @@ export default function AtencionPage() {
     return name.includes(s) || phone.includes(s) || email.includes(s) || String(c.id).includes(s) || lastMsg.includes(s);
   });
 
-  const unassignedCount = conversations.filter(c => !c.meta?.assignee).length;
+  const totalCount = convMeta?.all_count ?? conversations.length;
+  const unassignedCount = convMeta?.unassigned_count ?? conversations.filter(c => !c.meta?.assignee).length;
+  const assignedCount = convMeta?.assigned_count ?? conversations.filter(c => !!c.meta?.assignee).length;
 
   if (!cwUrl || !cwToken) {
     return (
@@ -315,9 +319,9 @@ export default function AtencionPage() {
           {/* Assign tabs */}
           <div className="flex border-b border-zinc-100 dark:border-zinc-800 text-[11px] font-bold">
             {[
-              { key: 'all', label: 'Todos', count: conversations.length },
+              { key: 'all', label: 'Todos', count: totalCount },
               { key: 'unassigned', label: 'Sin asignar', count: unassignedCount },
-              { key: 'mine', label: 'Asignados', count: conversations.length - unassignedCount },
+              { key: 'mine', label: 'Asignados', count: assignedCount },
             ].map(t => (
               <button key={t.key} onClick={() => setAssignFilter(t.key as any)}
                 className={`flex-1 py-2 flex items-center justify-center gap-1 transition-colors border-b-2 ${assignFilter === t.key ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}`}>

@@ -29,7 +29,7 @@ export const chatwoot = {
     const data = await proxy(url, token, `/api/v1/accounts/${accountId}/conversations?status=${status}&page=${page}`);
     const payload = data?.data?.payload || data?.payload || [];
     const meta = data?.data?.meta || data?.meta || {};
-    return { payload, hasMore: payload.length === 25, meta };
+    return { payload, hasMore: payload.length === 25, meta: { all_count: meta.all_count, unassigned_count: meta.unassigned_count, assigned_count: meta.assigned_count, my_count: meta.my_count } };
   },
 
   async getConversations(url: string, token: string, status = 'open') {
