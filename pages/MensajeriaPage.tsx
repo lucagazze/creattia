@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { metaAds } from '../services/metaAds';
+import { chatwoot } from '../services/chatwoot';
 import EmailLoader from '../components/ui/EmailLoader';
 import { db } from '../services/db';
 
@@ -70,22 +71,28 @@ export default function MensajeriaPage() {
   const [loadingDraft, setLoadingDraft] = useState<Record<string, boolean>>({});
 
   // Filter States
-  const [inboxSection, setInboxSection] = useState<'messages' | 'comments'>(() => {
+  const [inboxSection, setInboxSection] = useState<'messages' | 'comments' | 'whatsapp'>(() => {
     const searchParams = new URLSearchParams(location.search);
     const sec = searchParams.get('section');
     if (sec === 'comments') return 'comments';
+    if (sec === 'whatsapp') return 'whatsapp';
     return 'messages';
   });
+
+  // Chatwoot / WhatsApp states
+  const [chatwootItems, setChatwootItems] = useState<any[]>([]);
+  const [loadingChatwoot, setLoadingChatwoot] = useState(false);
+  const [chatwootError, setChatwootError] = useState<string | null>(null);
+  const [chatwootMessages, setChatwootMessages] = useState<Record<number, any[]>>({});
+  const [loadingChatwootMessages, setLoadingChatwootMessages] = useState<number | null>(null);
 
   // Sync tab with URL search parameter
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const sec = searchParams.get('section');
-    if (sec === 'comments') {
-      setInboxSection('comments');
-    } else if (sec === 'messages') {
-      setInboxSection('messages');
-    }
+    if (sec === 'comments') setInboxSection('comments');
+    else if (sec === 'whatsapp') setInboxSection('whatsapp');
+    else if (sec === 'messages') setInboxSection('messages');
   }, [location.search]);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
@@ -112,6 +119,9 @@ export default function MensajeriaPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Resolve IDs and keys from client profile
+  const chatwootUrl = (profile as any)?.chatwoot_url;
+  const chatwootToken = (profile as any)?.chatwoot_token;
+
   const igId = (profile as any)?.ig_business_id;
   const igUsername = (profile as any)?.ig_username;
   const fbPageId = (profile as any)?.fb_page_id;
@@ -161,7 +171,13 @@ export default function MensajeriaPage() {
     setInboxReplyErrors(prev => ({ ...prev, [item.id]: null }));
 
     try {
-      if (item.type === 'ig_dm' || item.type === 'fb_dm') {
+      if (item.type === 'whatsapp_dm') {
+        await chatwoot.sendMessage(chatwootUrl!, chatwootToken!, item.chatwootId, replyText);
+        setChatwootMessages(prev => {
+          const prev_msgs = prev[item.chatwootId] || [];
+          return { ...prev, [item.chatwootId]: [...prev_msgs, { id: `local_${Date.now()}`, content: replyText, message_type: 1, created_at: Date.now() / 1000 }] };
+        });
+      } else if (item.type === 'ig_dm' || item.type === 'fb_dm') {
         await metaAds.replyToConversation(item.id, replyText);
       } else if (item.type === 'ig_comment') {
         await metaAds.replyToInstagramComment(item.id, replyText);
@@ -480,6 +496,57 @@ export default function MensajeriaPage() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [selectedItem, conversationMessages]);
+
+  // Load Chatwoot conversations
+  const loadChatwootConversations = useCallback(async () => {
+    if (!chatwootUrl || !chatwootToken) return;
+    setLoadingChatwoot(true);
+    setChatwootError(null);
+    try {
+      const convs = await chatwoot.getConversations(chatwootUrl, chatwootToken);
+      const items = convs.map((conv: any) => {
+        const lastMsg = conv.messages?.[conv.messages.length - 1];
+        const contact = conv.meta?.sender || conv.contact_inbox?.contact || {};
+        const isWhatsApp = conv.channel === 'Channel::Whatsapp' || conv.inbox?.channel_type === 'Channel::Whatsapp';
+        return {
+          id: conv.id,
+          type: 'whatsapp_dm',
+          platform: 'whatsapp',
+          username: contact.name || contact.phone_number || `Conv #${conv.id}`,
+          phone: contact.phone_number || '',
+          text: lastMsg?.content || '(Sin mensajes)',
+          timestamp: conv.last_activity_at ? new Date(conv.last_activity_at * 1000).toISOString() : new Date().toISOString(),
+          isPending: conv.status === 'open',
+          isWhatsApp,
+          rawConv: conv,
+          chatwootId: conv.id,
+        };
+      });
+      setChatwootItems(items);
+    } catch (err: any) {
+      setChatwootError(err.message || 'Error al conectar con Chatwoot');
+    } finally {
+      setLoadingChatwoot(false);
+    }
+  }, [chatwootUrl, chatwootToken]);
+
+  useEffect(() => {
+    if (inboxSection === 'whatsapp') loadChatwootConversations();
+  }, [inboxSection, loadChatwootConversations, refreshKey]);
+
+  const loadChatwootMessages = useCallback(async (convId: number) => {
+    if (chatwootMessages[convId]) return;
+    if (!chatwootUrl || !chatwootToken) return;
+    setLoadingChatwootMessages(convId);
+    try {
+      const msgs = await chatwoot.getMessages(chatwootUrl, chatwootToken, convId);
+      setChatwootMessages(prev => ({ ...prev, [convId]: msgs }));
+    } catch (err) {
+      console.error('Error loading Chatwoot messages:', err);
+    } finally {
+      setLoadingChatwootMessages(null);
+    }
+  }, [chatwootUrl, chatwootToken, chatwootMessages]);
 
   // Insert Shopify link directly into input
   const handleInsertLink = (handle: string, itemId: string) => {
@@ -809,11 +876,10 @@ export default function MensajeriaPage() {
 
   // Mode-based items selection ('pending' vs 'all')
   const currentSectionItems = useMemo(() => {
-    if (inboxSection === 'messages') {
-      return pendingItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type));
-    }
+    if (inboxSection === 'whatsapp') return chatwootItems;
+    if (inboxSection === 'messages') return pendingItems.filter(item => ['ig_dm', 'fb_dm'].includes(item.type));
     return pendingItems.filter(item => item.type === 'post_comments');
-  }, [pendingItems, inboxSection]);
+  }, [pendingItems, inboxSection, chatwootItems]);
 
   // Secondary filter by pending vs all
   const filteredPendingItems = useMemo(() => {
@@ -903,7 +969,7 @@ export default function MensajeriaPage() {
         </div>
        ) : (
         <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Primary Tab Switcher: Mensajería Directa (DMs) vs Comentarios de Publicaciones */}
+          {/* Primary Tab Switcher */}
           <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">
             <button
               onClick={() => setInboxSection('messages')}
@@ -935,9 +1001,83 @@ export default function MensajeriaPage() {
                 </span>
               )}
             </button>
+            {chatwootUrl && chatwootToken && (
+              <button
+                onClick={() => setInboxSection('whatsapp')}
+                className={`pb-3 text-[14px] font-black tracking-tight transition-all relative flex items-center gap-1.5 focus:outline-none ${
+                  inboxSection === 'whatsapp'
+                    ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400 font-extrabold'
+                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 border-b-2 border-transparent'
+                }`}
+              >
+                <span>📱</span> WhatsApp
+                {chatwootItems.filter(i => i.isPending).length > 0 && (
+                  <span className="bg-emerald-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                    {chatwootItems.filter(i => i.isPending).length}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
-          {/* Inbox Summary Info Banner */}
+          {/* WhatsApp / Chatwoot tab content */}
+          {inboxSection === 'whatsapp' && (
+            <div className="space-y-4">
+              {loadingChatwoot ? (
+                <EmailLoader loading color="#22c55e" labels={['Cargando conversaciones de WhatsApp...']} />
+              ) : chatwootError ? (
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 p-4 rounded-2xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-red-700 dark:text-red-400 text-[13px]">Error al conectar con Chatwoot</h4>
+                    <code className="block mt-1 text-[11px] text-red-600 dark:text-red-500">{chatwootError}</code>
+                  </div>
+                </div>
+              ) : chatwootItems.length === 0 ? (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/65 dark:border-zinc-800/65 rounded-3xl p-12 text-center max-w-md mx-auto space-y-4 shadow-sm">
+                  <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto text-emerald-500 text-3xl">📱</div>
+                  <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">Sin conversaciones abiertas</h3>
+                  <p className="text-[13px] text-zinc-500 font-semibold">No hay chats de WhatsApp abiertos en Chatwoot.</p>
+                </div>
+              ) : (
+                <div className="border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl bg-white dark:bg-zinc-900 overflow-hidden divide-y divide-zinc-150 dark:divide-zinc-850 shadow-sm">
+                  {chatwootItems.map((item: any) => (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setSelectedItem(item);
+                        loadChatwootMessages(item.chatwootId);
+                      }}
+                      className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-zinc-50/60 dark:hover:bg-zinc-850/45 cursor-pointer transition-colors group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-950/30 rounded-full flex items-center justify-center text-emerald-600 text-[14px] flex-shrink-0">📱</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-zinc-850 dark:text-zinc-200 text-[13px]">{item.username}</span>
+                            {item.phone && <span className="text-[11px] text-zinc-400 font-mono">{item.phone}</span>}
+                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase ${item.isPending ? 'bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-955/20 dark:text-emerald-400'}`}>
+                              {item.isPending ? 'Abierto' : 'Resuelto'}
+                            </span>
+                          </div>
+                          <p className="text-zinc-500 dark:text-zinc-450 truncate italic font-semibold text-[12px] mt-0.5">"{item.text}"</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-[10px] text-zinc-400 font-bold">
+                          {new Date(item.timestamp).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-black opacity-0 group-hover:opacity-100 transition-opacity text-[11px]">Responder →</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Inbox Summary Info Banner + filters + list — only for non-whatsapp tabs */}
+          {inboxSection !== 'whatsapp' && (<>
           <div className="flex items-center justify-between p-4 bg-violet-50/50 dark:bg-violet-950/10 border border-violet-100/50 dark:border-violet-900/20 rounded-2xl">
             <div className="flex items-center gap-2 text-violet-750 dark:text-violet-400">
               <Info className="w-4 h-4 flex-shrink-0" />
@@ -1249,6 +1389,7 @@ export default function MensajeriaPage() {
               ))}
             </div>
           )}
+          </>)} {/* end inboxSection !== 'whatsapp' */}
         </div>
       )}
 
@@ -1267,7 +1408,9 @@ export default function MensajeriaPage() {
             {/* Slide-over Header */}
             <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800/85 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                {selectedItem.platform === 'instagram' ? (
+                {selectedItem.platform === 'whatsapp' ? (
+                  <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-lg">📱</div>
+                ) : selectedItem.platform === 'instagram' ? (
                   <div className="w-8 h-8 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 rounded-full flex items-center justify-center text-white">
                     <Instagram className="w-4 h-4" />
                   </div>
@@ -1369,8 +1512,41 @@ export default function MensajeriaPage() {
 
                   {/* Messages Flow bubbles */}
                   <div className="space-y-3 pt-2">
-                    {/* If Direct Messages: show full history */}
-                    {(selectedItem.type === 'ig_dm' || selectedItem.type === 'fb_dm') ? (
+                    {/* WhatsApp via Chatwoot */}
+                    {selectedItem.type === 'whatsapp_dm' ? (
+                      <>
+                        {loadingChatwootMessages === selectedItem.chatwootId ? (
+                          <div className="flex flex-col items-center justify-center py-12 gap-3">
+                            <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                            <p className="text-[12px] text-zinc-400 font-bold">Cargando mensajes de WhatsApp...</p>
+                          </div>
+                        ) : (
+                          <>
+                            {(chatwootMessages[selectedItem.chatwootId] || []).map((msg: any) => {
+                              const isMe = msg.message_type === 1; // 1 = outgoing
+                              const timeStr = msg.created_at
+                                ? new Date(msg.created_at * 1000).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                                : '';
+                              return (
+                                <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                  <span className="text-[9px] text-zinc-400 font-bold mb-0.5 px-2">
+                                    {isMe ? 'Yo' : selectedItem.username} · {timeStr}
+                                  </span>
+                                  <div className={`max-w-[85%] rounded-[18px] px-4 py-2.5 text-[12.5px] leading-relaxed font-semibold ${
+                                    isMe
+                                      ? 'bg-emerald-600 text-white shadow-sm'
+                                      : 'bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 text-zinc-800 dark:text-zinc-100 shadow-sm'
+                                  }`}>
+                                    {msg.content || <span className="italic opacity-60">📎 Archivo adjunto</span>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            <div ref={messagesEndRef} />
+                          </>
+                        )}
+                      </>
+                    ) : (selectedItem.type === 'ig_dm' || selectedItem.type === 'fb_dm') ? (
                       <>
                         {loadingConversation === selectedItem.id ? (
                           <div className="flex flex-col items-center justify-center py-12 gap-3">
