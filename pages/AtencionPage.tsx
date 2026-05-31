@@ -98,6 +98,86 @@ export default function AtencionPage() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
+  // WebSocket real-time connection to Chatwoot
+  useEffect(() => {
+    if (!cwUrl || !cwToken) return;
+    let ws: WebSocket | null = null;
+    let pingInterval: any = null;
+    let reconnectTimeout: any = null;
+
+    const connect = async () => {
+      try {
+        const { pubsub_token } = await chatwoot.getProfile(cwUrl, cwToken);
+        if (!pubsub_token) return;
+
+        const wsUrl = cwUrl.replace(/^https?/, m => m === 'https' ? 'wss' : 'ws') + '/cable';
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          ws!.send(JSON.stringify({
+            command: 'subscribe',
+            identifier: JSON.stringify({ channel: 'RoomChannel', pubsub_token })
+          }));
+          pingInterval = setInterval(() => {
+            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
+          }, 30000);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const frame = JSON.parse(event.data);
+            if (frame.type === 'ping' || frame.type === 'welcome' || frame.type === 'confirm_subscription') return;
+            const msg = frame.message;
+            if (!msg?.event) return;
+
+            if (msg.event === 'message.created') {
+              const d = msg.data;
+              // Update last message preview in conversation list
+              setConversations(prev => prev.map(c =>
+                c.id === d.conversation_id
+                  ? { ...c, last_activity_at: d.created_at, messages: [d, ...(c.messages || [])], unread_count: selectedRef.current?.id === d.conversation_id ? 0 : (c.unread_count || 0) + (d.message_type === 0 ? 1 : 0) }
+                  : c
+              ));
+              // Append to open chat
+              if (selectedRef.current?.id === d.conversation_id) {
+                setMessages(prev => {
+                  if (prev.find((m: any) => m.id === d.id)) return prev;
+                  return [...prev, d];
+                });
+              }
+            } else if (msg.event === 'conversation.created') {
+              const d = msg.data;
+              setConversations(prev => prev.find(c => c.id === d.id) ? prev : [d, ...prev]);
+            } else if (msg.event === 'conversation.read') {
+              const d = msg.data;
+              setConversations(prev => prev.map(c => c.id === d.id ? { ...c, unread_count: 0 } : c));
+            } else if (msg.event === 'conversation.status_changed') {
+              const d = msg.data;
+              setConversations(prev => prev.map(c => c.id === d.id ? { ...c, status: d.status } : c));
+              if (selectedRef.current?.id === d.id) setSelected((s: any) => s ? { ...s, status: d.status } : s);
+            } else if (msg.event === 'conversation.updated') {
+              const d = msg.data;
+              setConversations(prev => prev.map(c => c.id === d.id ? { ...c, ...d } : c));
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          clearInterval(pingInterval);
+          reconnectTimeout = setTimeout(connect, 5000);
+        };
+        ws.onerror = () => ws?.close();
+      } catch {}
+    };
+
+    connect();
+    return () => {
+      clearInterval(pingInterval);
+      clearTimeout(reconnectTimeout);
+      ws?.close();
+    };
+  }, [cwUrl, cwToken]);
+
   // Poll conversations list every 20s
   useEffect(() => {
     if (!cwUrl || !cwToken) return;

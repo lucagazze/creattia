@@ -10,17 +10,20 @@ const proxy = async (chatwoot_url: string, chatwoot_token: string, path: string,
   return data;
 };
 
-let cachedAccountId: Record<string, number> = {};
+let cachedProfile: Record<string, { account_id: number; pubsub_token: string }> = {};
 
 export const chatwoot = {
-  async getAccountId(url: string, token: string): Promise<number> {
+  async getProfile(url: string, token: string) {
     const key = `${url}:${token}`;
-    if (cachedAccountId[key]) return cachedAccountId[key];
+    if (cachedProfile[key]) return cachedProfile[key];
     const data = await proxy(url, token, '/api/v1/profile');
-    const accountId = data?.account_id;
-    if (!accountId) throw new Error('No se pudo obtener el account ID de Chatwoot');
-    cachedAccountId[key] = accountId;
-    return accountId;
+    if (!data?.account_id) throw new Error('No se pudo obtener el perfil de Chatwoot');
+    cachedProfile[key] = { account_id: data.account_id, pubsub_token: data.pubsub_token };
+    return cachedProfile[key];
+  },
+
+  async getAccountId(url: string, token: string): Promise<number> {
+    return (await chatwoot.getProfile(url, token)).account_id;
   },
 
   async getConversationsPage(url: string, token: string, status = 'open', page = 1) {
