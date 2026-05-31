@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { useToast } from '../components/Toast';
+import { supabase } from '../services/supabase';
 import { 
   ShoppingBag, Percent, CreditCard, Truck, FileText, Calendar, Plus, 
   Search, Trash2, Edit3, Save, AlertCircle, X, ChevronLeft, ChevronRight, 
@@ -191,47 +192,103 @@ export default function CostosPage() {
     ]
   });
 
-  // Load from localStorage
+  // Load from localStorage and Supabase
   useEffect(() => {
+    if (!profileId) return;
+
+    const fetchCosts = async () => {
+      setLoadingProducts(true);
+      try {
+        // Fetch variant costs
+        const { data: varData, error: varError } = await supabase
+          .from('car_variant_costs')
+          .select('variant_id, cost, packaging_cost, updated_at')
+          .eq('profile_id', profileId);
+          
+        if (varError) throw varError;
+        
+        const varCostsMap: Record<string, { cost: number; packagingCost: number; lastUpdated?: string }> = {};
+        if (varData && varData.length > 0) {
+          varData.forEach((row: any) => {
+            varCostsMap[row.variant_id] = {
+              cost: parseFloat(row.cost),
+              packagingCost: parseFloat(row.packaging_cost) || 0,
+              lastUpdated: row.updated_at ? row.updated_at.split('T')[0] : undefined
+            };
+          });
+          setVariantCosts(varCostsMap);
+        } else {
+          setVariantCosts(DEFAULT_VARIANT_COSTS);
+        }
+
+        // Fetch additional costs
+        const { data: addData, error: addError } = await supabase
+          .from('car_additional_costs')
+          .select('id, category, name, start_date, end_date, cost, daily_cost, currency, ad_spend, platform')
+          .eq('profile_id', profileId);
+          
+        if (addError) throw addError;
+        
+        if (addData) {
+          const equipoList: AdditionalCostItem[] = [];
+          const otrosList: AdditionalCostItem[] = [];
+          const campanasList: AdditionalCostItem[] = [];
+          
+          addData.forEach((row: any) => {
+            const mappedItem: AdditionalCostItem = {
+              id: row.id,
+              name: row.name,
+              startDate: row.start_date,
+              endDate: row.end_date,
+              cost: parseFloat(row.cost),
+              dailyCost: parseFloat(row.daily_cost),
+              currency: row.currency,
+              adSpend: row.ad_spend,
+              platform: row.platform
+            };
+            if (row.category === 'equipo') equipoList.push(mappedItem);
+            else if (row.category === 'otros') otrosList.push(mappedItem);
+            else if (row.category === 'campanas') campanasList.push(mappedItem);
+          });
+          
+          setAdditionalCosts({
+            equipo: equipoList,
+            otros: otrosList,
+            campanas: campanasList
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching costs from Supabase:', err);
+        showToast('Error al cargar costos de la base de datos.', 'error');
+        setVariantCosts(DEFAULT_VARIANT_COSTS);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
     const saved = localStorage.getItem(`car_costs_${profileId}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.variantCosts) {
-          setVariantCosts(parsed.variantCosts);
-        } else if (parsed.productCosts) {
-          // Convert legacy structure if it exists
-          const legacy: Record<string, { cost: number; packagingCost: number }> = {};
-          parsed.productCosts.forEach((p: any) => {
-            legacy[p.productId] = { cost: p.cost, packagingCost: p.packagingCost || 350 };
-          });
-          setVariantCosts(legacy);
-        } else {
-          setVariantCosts(DEFAULT_VARIANT_COSTS);
-        }
         if (parsed.platformCommissions) setPlatformCommissions(parsed.platformCommissions);
         if (parsed.paymentFees) setPaymentFees(parsed.paymentFees);
         if (parsed.gateways) setGateways(parsed.gateways);
         if (parsed.shipping) setShipping(parsed.shipping);
-        if (parsed.additionalCosts) setAdditionalCosts(parsed.additionalCosts);
       } catch (e) {
-        console.error('Error loading costs from localstorage:', e);
-        setVariantCosts(DEFAULT_VARIANT_COSTS);
+        console.error('Error loading config from localstorage:', e);
       }
-    } else {
-      setVariantCosts(DEFAULT_VARIANT_COSTS);
     }
-  }, [profileId]);
+
+    fetchCosts();
+  }, [profileId, loadProductCatalog]);
 
   // Save helper
   const saveToLocalStorage = (updatedData: any) => {
     const currentData = {
-      variantCosts,
       platformCommissions,
       paymentFees,
       gateways,
       shipping,
-      additionalCosts,
       ...updatedData
     };
     localStorage.setItem(`car_costs_${profileId}`, JSON.stringify(currentData));
@@ -292,16 +349,34 @@ export default function CostosPage() {
     loadProductCatalog();
   }, [loadProductCatalog]);
 
-  const handleUpdateCost = (variantId: string, cost: number, packagingCost: number) => {
+  const handleUpdateCost = async (variantId: string, cost: number, packagingCost: number) => {
+    const nowShort = new Date().toISOString().split('T')[0];
     const updated = {
       ...variantCosts,
-      [variantId]: { cost, packagingCost }
+      [variantId]: { cost, packagingCost, lastUpdated: nowShort }
     };
     setVariantCosts(updated);
-    saveToLocalStorage({ variantCosts: updated });
+
+    try {
+      const { error } = await supabase
+        .from('car_variant_costs')
+        .upsert({
+          profile_id: profileId,
+          variant_id: variantId,
+          cost,
+          packaging_cost: packagingCost,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'profile_id,variant_id'
+        });
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error saving variant cost to Supabase:', err);
+      showToast('Error al guardar costo en la base de datos.', 'error');
+    }
   };
 
-  const handleApplyMassEdit = () => {
+  const handleApplyMassEdit = async () => {
     const pct = parseFloat(massPercentage);
     if (isNaN(pct) || pct < 0 || pct > 100) {
       showToast('Por favor ingrese un porcentaje válido entre 0 y 100.', 'warning');
@@ -309,20 +384,45 @@ export default function CostosPage() {
     }
 
     const updated = { ...variantCosts };
+    const upsertRows: any[] = [];
+    const nowStr = new Date().toISOString();
+    const nowShort = nowStr.split('T')[0];
+
     catalogProducts.forEach(prod => {
       prod.variants.forEach(variant => {
         const calculatedCost = Math.round(variant.price * (pct / 100));
         const currentPackaging = updated[variant.id]?.packagingCost ?? 350;
+        
         updated[variant.id] = {
           cost: calculatedCost,
-          packagingCost: currentPackaging
+          packagingCost: currentPackaging,
+          lastUpdated: nowShort
         };
+
+        upsertRows.push({
+          profile_id: profileId,
+          variant_id: variant.id,
+          cost: calculatedCost,
+          packaging_cost: currentPackaging,
+          updated_at: nowStr
+        });
       });
     });
 
     setVariantCosts(updated);
-    saveToLocalStorage({ variantCosts: updated });
-    showToast(`Se aplicó el costo del ${pct}% de forma masiva a todos los productos.`, 'success');
+
+    try {
+      const { error } = await supabase
+        .from('car_variant_costs')
+        .upsert(upsertRows, {
+          onConflict: 'profile_id,variant_id'
+        });
+      if (error) throw error;
+      showToast(`Se aplicó el costo del ${pct}% de forma masiva a todos los productos.`, 'success');
+    } catch (err) {
+      console.error('Error mass saving variant costs to Supabase:', err);
+      showToast('Error al guardar costos masivos en la base de datos.', 'error');
+    }
   };
 
   const calculateMargin = (price: number, cost: number, packagingCost: number) => {
@@ -336,6 +436,16 @@ export default function CostosPage() {
       p.title.toLowerCase().includes(catalogSearch.toLowerCase())
     );
   }, [catalogProducts, catalogSearch]);
+
+  const lastCatalogUpdate = useMemo(() => {
+    let maxDate = '';
+    Object.values(variantCosts).forEach((vc: any) => {
+      if (vc.lastUpdated && vc.lastUpdated > maxDate) {
+        maxDate = vc.vcLastUpdated || vc.lastUpdated;
+      }
+    });
+    return maxDate || null;
+  }, [variantCosts]);
 
   // ─── SECTION 2: PLATFORM COMMISSIONS ──────────────────────────────────
   const handleSavePlatformCommissions = () => {
@@ -471,7 +581,7 @@ export default function CostosPage() {
   };
 
   // Save Modal Action
-  const handleSaveModalCost = (e: React.FormEvent) => {
+  const handleSaveModalCost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalName || !modalCost) {
       showToast('Por favor complete todos los campos obligatorios.', 'warning');
@@ -486,49 +596,103 @@ export default function CostosPage() {
     const dayDiff = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
     const dailyCost = parseFloat((costNum / dayDiff).toFixed(1));
 
-    const updatedItem: AdditionalCostItem = {
-      id: editingCostItem?.id || `cost_${Date.now()}`,
+    const category = modalType;
+
+    const dbRow: any = {
+      profile_id: profileId,
+      category,
       name: modalName,
-      startDate: modalStartDate,
-      endDate: modalEndDate,
+      start_date: modalStartDate,
+      end_date: modalEndDate,
       cost: costNum,
-      dailyCost,
+      daily_cost: dailyCost,
       currency: modalCurrency,
-      adSpend: modalAdSpend,
-      platform: modalPlatform
+      ad_spend: modalAdSpend,
+      platform: modalPlatform,
+      updated_at: new Date().toISOString()
     };
 
-    const typeKey = modalType;
-    let listCopy = [...additionalCosts[typeKey]];
+    try {
+      let savedItem: AdditionalCostItem;
+      if (editingCostItem) {
+        // Update
+        const { data, error } = await supabase
+          .from('car_additional_costs')
+          .update(dbRow)
+          .eq('id', editingCostItem.id)
+          .select();
+        if (error) throw error;
+        savedItem = {
+          id: data[0].id,
+          name: data[0].name,
+          startDate: data[0].start_date,
+          endDate: data[0].end_date,
+          cost: parseFloat(data[0].cost),
+          dailyCost: parseFloat(data[0].daily_cost),
+          currency: data[0].currency,
+          adSpend: data[0].ad_spend,
+          platform: data[0].platform
+        };
+        showToast('Costo adicional actualizado.', 'success');
+      } else {
+        // Insert
+        const { data, error } = await supabase
+          .from('car_additional_costs')
+          .insert(dbRow)
+          .select();
+        if (error) throw error;
+        savedItem = {
+          id: data[0].id,
+          name: data[0].name,
+          startDate: data[0].start_date,
+          endDate: data[0].end_date,
+          cost: parseFloat(data[0].cost),
+          dailyCost: parseFloat(data[0].daily_cost),
+          currency: data[0].currency,
+          adSpend: data[0].ad_spend,
+          platform: data[0].platform
+        };
+        showToast('Costo adicional agregado con éxito.', 'success');
+      }
 
-    if (editingCostItem) {
-      listCopy = listCopy.map(c => c.id === editingCostItem.id ? updatedItem : c);
-      showToast('Costo adicional actualizado.', 'success');
-    } else {
-      listCopy.unshift(updatedItem);
-      showToast('Costo adicional agregado con éxito.', 'success');
+      // Update UI state
+      let listCopy = [...additionalCosts[category]];
+      if (editingCostItem) {
+        listCopy = listCopy.map(c => c.id === editingCostItem.id ? savedItem : c);
+      } else {
+        listCopy.unshift(savedItem);
+      }
+      
+      setAdditionalCosts(prev => ({
+        ...prev,
+        [category]: listCopy
+      }));
+      setShowAddModal(false);
+    } catch (err) {
+      console.error('Error saving additional cost to Supabase:', err);
+      showToast('Error al guardar costo adicional en la base de datos.', 'error');
     }
-
-    const updatedAdditional = {
-      ...additionalCosts,
-      [typeKey]: listCopy
-    };
-
-    setAdditionalCosts(updatedAdditional);
-    saveToLocalStorage({ additionalCosts: updatedAdditional });
-    setShowAddModal(false);
   };
 
   // Delete cost row
-  const handleDeleteCostItem = (id: string, type: 'equipo' | 'otros' | 'campanas') => {
-    const updatedList = additionalCosts[type].filter(item => item.id !== id);
-    const updatedAdditional = {
-      ...additionalCosts,
-      [type]: updatedList
-    };
-    setAdditionalCosts(updatedAdditional);
-    saveToLocalStorage({ additionalCosts: updatedAdditional });
-    showToast('Costo eliminado con éxito.', 'info');
+  const handleDeleteCostItem = async (id: string, type: 'equipo' | 'otros' | 'campanas') => {
+    try {
+      const { error } = await supabase
+        .from('car_additional_costs')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+
+      const updatedList = additionalCosts[type].filter(item => item.id !== id);
+      setAdditionalCosts(prev => ({
+        ...prev,
+        [type]: updatedList
+      }));
+      showToast('Costo eliminado con éxito.', 'info');
+    } catch (err) {
+      console.error('Error deleting additional cost from Supabase:', err);
+      showToast('Error al eliminar costo de la base de datos.', 'error');
+    }
   };
 
   // ─── SECTION 6: DASHBOARD SYNC ────────────────────────────────────────
@@ -544,7 +708,7 @@ export default function CostosPage() {
   };
 
   return (
-    <div className="max-w-[1200px] mx-auto animate-fade-in pb-20 text-zinc-900 dark:text-zinc-100">
+    <div className="w-full max-w-[1600px] mx-auto px-4 md:px-6 animate-fade-in pb-20 text-zinc-900 dark:text-zinc-100">
       
       {/* Title Header */}
       <div className="mb-8">
@@ -565,16 +729,21 @@ export default function CostosPage() {
             onClick={() => toggleAccordion('productos')}
             className="w-full flex items-center justify-between p-5 hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition-colors text-left"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                <ShoppingBag className="w-4 h-4" />
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
+                <span className="text-[15px] font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                  Costos de productos
+                  {lastCatalogUpdate && (
+                    <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold ml-1">
+                      Guardado: {lastCatalogUpdate}
+                    </span>
+                  )}
+                </span>
               </div>
-              <span className="text-[15px] font-bold text-zinc-900 dark:text-white">
-                Costos de productos
-              </span>
-            </div>
-            <ChevronLeft className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${openAccordions.productos ? '-rotate-90' : ''}`} />
-          </button>
+              <ChevronLeft className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${openAccordions.productos ? '-rotate-90' : ''}`} />
+            </button>
 
           {openAccordions.productos && (
             <div className="p-6 border-t border-zinc-100 dark:border-white/[0.03] space-y-6">

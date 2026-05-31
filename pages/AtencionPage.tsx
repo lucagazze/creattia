@@ -195,7 +195,7 @@ export default function AtencionPage() {
   const [listCollapsed, setListCollapsed] = useState(false);
   
   // Sidebar State Variables
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<'canned' | 'shopify'>('canned');
 
   const [cannedResponses, setCannedResponses] = useState<any[]>([]);
@@ -1519,19 +1519,7 @@ export default function AtencionPage() {
                     </div>
                   </div>
 
-                  {/* Sidebar Toggle Button */}
-                  <button
-                    onClick={() => setShowSidebar(v => !v)}
-                    className={`ml-auto p-2 rounded-xl transition-all duration-200 border flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] ${
-                      showSidebar
-                        ? 'bg-blue-50 border-blue-200 text-blue-750 dark:bg-blue-955/20 dark:border-blue-900/30 dark:text-blue-400'
-                        : 'bg-zinc-50 border-zinc-200 text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-855'
-                    }`}
-                    title={showSidebar ? "Ocultar Panel" : "Mostrar Panel"}
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span className="text-[11px] font-bold tracking-tight">Respuestas/Tienda</span>
-                  </button>
+
                 </div>
 
                 {/* 24-hour warning banner */}
@@ -1664,14 +1652,9 @@ export default function AtencionPage() {
                           />
                           <div className="flex items-center gap-2">
                             <button type="button" onClick={generateAiDraft} disabled={generatingDraft || sending || messages.length === 0}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-violet-50 hover:bg-violet-100 dark:bg-violet-955/20 dark:hover:bg-violet-900/30 text-violet-750 dark:text-violet-400 rounded-xl text-[11.5px] font-bold border border-violet-200 dark:border-violet-850 transition-all disabled:opacity-50">
-                              {generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5 text-violet-500 animate-pulse" />}
+                              className="flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12px] font-black shadow-sm shadow-violet-500/10 active:scale-[0.98] transition-all disabled:opacity-50">
+                              {generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : <Bot className="w-3.5 h-3.5 text-white animate-pulse" />}
                               Responder con IA
-                            </button>
-                            <button type="button" onClick={() => { setShowSidebar(true); setSidebarTab('canned'); }}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900/40 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl text-[11.5px] font-bold border border-zinc-200 dark:border-zinc-850 transition-all">
-                              <BookOpen className="w-3.5 h-3.5 text-zinc-450" />
-                              Respuestas Rápidas
                             </button>
 
                             <button onClick={handleSend as any} disabled={!reply.trim() || sending}
@@ -1686,280 +1669,6 @@ export default function AtencionPage() {
                   })()}
                 </div>
               </div>
-
-                {/* COLLAPSIBLE RIGHT SIDEBAR */}
-              {showSidebar && (
-                <div className="w-[320px] bg-white dark:bg-zinc-955 border-l border-zinc-200 dark:border-zinc-800 flex flex-col h-full flex-shrink-0 animate-in slide-in-from-right duration-250 select-none">
-                  {/* Sidebar Tabs */}
-                  <div className="flex border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-955/20 text-[11px] font-bold p-1 gap-1">
-                    {[
-                      { key: 'canned', label: 'Respuestas', icon: BookOpen },
-                      { key: 'shopify', label: 'Tienda/Links', icon: ShoppingBag },
-                    ].map(tab => {
-                      const Icon = tab.icon;
-                      const isActive = sidebarTab === tab.key;
-                      return (
-                        <button
-                          key={tab.key}
-                          onClick={() => setSidebarTab(tab.key as any)}
-                          className={`flex-1 py-2 flex items-center justify-center gap-1 rounded-lg transition-all duration-200 ${
-                            isActive
-                              ? 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-855 text-blue-650 dark:text-blue-400 font-black shadow-sm'
-                              : 'text-zinc-550 hover:text-zinc-800 dark:hover:text-zinc-300'
-                          }`}
-                        >
-                          <Icon className="w-3.5 h-3.5" />
-                          <span>{tab.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-
-                    {/* TAB 2: RESPUESTAS RÁPIDAS */}
-                    {sidebarTab === 'canned' && (
-                      <div className="space-y-4 animate-in fade-in duration-200">
-                        {/* Search and Action bar */}
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-400" />
-                            <input
-                              type="text"
-                              value={cannedSearch}
-                              onChange={e => setCannedSearch(e.target.value)}
-                              placeholder="Buscar respuesta..."
-                              className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-8 pr-3 py-2 text-[11.5px] text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-zinc-400 transition-all"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setShowNewCannedForm(v => !v)}
-                            className={`p-2 border rounded-xl transition-all active:scale-95 ${
-                              showNewCannedForm
-                                ? 'bg-red-50 border-red-200 text-red-650 dark:bg-red-955/25 dark:border-red-900/30'
-                                : 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                            }`}
-                            title={showNewCannedForm ? "Cancelar" : "Agregar nueva respuesta"}
-                          >
-                            {showNewCannedForm ? (
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                            ) : (
-                              <Plus className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Inline creation form */}
-                        {showNewCannedForm && (
-                          <form onSubmit={handleCreateCannedResponse} className="p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-2.5 animate-in slide-in-from-top-3 duration-250">
-                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Nueva plantilla</span>
-                            <div className="space-y-1.5">
-                              <input
-                                type="text"
-                                value={newCannedTitle}
-                                onChange={e => setNewCannedTitle(e.target.value)}
-                                placeholder="Título (Ej: Políticas de envío)"
-                                className="w-full bg-white dark:bg-zinc-950 border border-zinc-250 dark:border-zinc-750 rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none focus:border-blue-500 text-zinc-800 dark:text-zinc-100"
-                                required
-                              />
-                              <input
-                                type="text"
-                                value={newCannedShortcut}
-                                onChange={e => setNewCannedShortcut(e.target.value)}
-                                placeholder="Shortcut/Tag de búsqueda (opcional, ej: envios)"
-                                className="w-full bg-white dark:bg-zinc-950 border border-zinc-250 dark:border-zinc-750 rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none focus:border-blue-500 font-mono text-zinc-800 dark:text-zinc-100"
-                              />
-                              <textarea
-                                value={newCannedContent}
-                                onChange={e => setNewCannedContent(e.target.value)}
-                                placeholder="Escribí el texto de la respuesta acá..."
-                                rows={4}
-                                className="w-full bg-white dark:bg-zinc-950 border border-zinc-250 dark:border-zinc-750 rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none focus:border-blue-500 resize-none text-zinc-800 dark:text-zinc-100"
-                                required
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                type="submit"
-                                disabled={savingCanned || !newCannedTitle.trim() || !newCannedContent.trim()}
-                                className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10.5px] font-bold shadow-sm transition-all"
-                              >
-                                {savingCanned ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : 'Guardar'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setShowNewCannedForm(false)}
-                                className="px-3 py-1.5 border border-zinc-200 dark:border-zinc-755 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 rounded-lg text-[10.5px] font-bold"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </form>
-                        )}
-
-                        {/* Responses list */}
-                        {loadingCanned ? (
-                          <div className="flex items-center justify-center py-6 text-zinc-400 gap-1.5">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-[11px]">Cargando respuestas...</span>
-                          </div>
-                        ) : (() => {
-                          const query = cannedSearch.toLowerCase().trim();
-                          const filteredCanned = cannedResponses.filter(c =>
-                            c.title.toLowerCase().includes(query) ||
-                            c.content.toLowerCase().includes(query) ||
-                            (c.shortcut && c.shortcut.toLowerCase().includes(query))
-                          );
-
-                          if (filteredCanned.length === 0) {
-                            return (
-                              <div className="text-center py-8 text-zinc-400 text-[11.5px] italic">
-                                No se encontraron respuestas rápidas.
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div className="space-y-2">
-                              {filteredCanned.map(item => (
-                                <div
-                                  key={item.id}
-                                  className="group/canned p-3 bg-zinc-50 hover:bg-zinc-100/80 dark:bg-zinc-900/40 dark:hover:bg-zinc-900/80 border border-zinc-100 dark:border-zinc-850 rounded-2xl transition-all cursor-pointer flex flex-col gap-1.5 relative overflow-hidden"
-                                  onClick={() => setReply(prev => prev ? prev + '\n' + item.content : item.content)}
-                                >
-                                  <div className="flex items-center justify-between gap-1.5">
-                                    <span className="text-[11.5px] font-black text-zinc-850 dark:text-zinc-200 truncate pr-6">{item.title}</span>
-                                    {item.shortcut && (
-                                      <span className="text-[9px] bg-zinc-200 dark:bg-zinc-800 text-zinc-550 dark:text-zinc-400 px-1.5 py-0.5 rounded font-mono font-bold flex-shrink-0">
-                                        {item.shortcut}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400 line-clamp-3">
-                                    {item.content}
-                                  </p>
-                                  {/* Delete action overlay */}
-                                  {!item.id.toString().startsWith('default_') && (
-                                    <button
-                                      type="button"
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        handleDeleteCannedResponse(item.id);
-                                      }}
-                                      className="absolute right-2 top-2 p-1.5 text-zinc-400 hover:text-red-500 opacity-0 group-hover/canned:opacity-100 transition-opacity bg-zinc-150 hover:bg-red-50 dark:bg-zinc-850 dark:hover:bg-red-950/20 rounded-md"
-                                      title="Eliminar plantilla"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-
-                    {/* TAB 3: TIENDA & LINKS */}
-                    {sidebarTab === 'shopify' && (
-                      <div className="space-y-4 animate-in fade-in duration-200">
-                        
-                        {/* Section: Shopify Products */}
-                        {profile?.shopify_domain && profile?.shopify_access_token ? (
-                          <div className="space-y-2">
-                            <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Catálogo Shopify</span>
-                            <div className="relative">
-                              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-400" />
-                              <input
-                                type="text"
-                                value={shopifySearch}
-                                onChange={e => setShopifySearch(e.target.value)}
-                                placeholder="Buscar en catálogo..."
-                                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-8 pr-3 py-2 text-[11.5px] text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-zinc-400 transition-all"
-                              />
-                            </div>
-                            
-                            {loadingProducts ? (
-                              <div className="flex items-center justify-center py-4 text-zinc-400 gap-1">
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                <span className="text-[11px]">Buscando productos...</span>
-                              </div>
-                            ) : shopifyProducts.length === 0 ? (
-                              <div className="text-center py-4 text-[11px] text-zinc-450 italic">
-                                {shopifySearch ? 'No se encontraron productos' : 'Cargando catálogo...'}
-                              </div>
-                            ) : (
-                              <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 no-scrollbar">
-                                {shopifyProducts.map((p: any) => {
-                                  const domain = profile.shopify_domain?.replace(/^https?:\/\//, '').replace(/\/$/, '');
-                                  const productUrl = `https://${domain}/products/${p.handle}`;
-                                  return (
-                                    <div
-                                      key={p.id}
-                                      onClick={() => setReply(prev => prev ? `${prev} ${p.title}: ${productUrl}` : `${p.title}: ${productUrl}`)}
-                                      className="p-2 border border-zinc-100 hover:border-zinc-250 dark:border-zinc-900 dark:hover:border-zinc-800 bg-zinc-50/50 hover:bg-zinc-100 dark:bg-zinc-900/20 dark:hover:bg-zinc-900/50 rounded-xl cursor-pointer flex items-center justify-between gap-2 transition-all active:scale-[0.99]"
-                                    >
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{p.title}</p>
-                                      </div>
-                                      <div className="flex-shrink-0 flex items-center gap-1 text-[9px] font-black text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/30 px-1.5 py-0.5 rounded bg-blue-50/30 dark:bg-blue-955/10">
-                                        <Link className="w-2.5 h-2.5" /> Enlace
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl text-[11px] text-zinc-400 text-center">
-                            Tienda Shopify no vinculada en este perfil de negocio.
-                          </div>
-                        )}
-
-                        <div className="border-t border-zinc-100 dark:border-zinc-850 my-1" />
-
-                        {/* Section: Custom brand links */}
-                        <div className="space-y-2">
-                          <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Enlaces del Sitio</span>
-                          
-                          {loadingLinks ? (
-                            <div className="flex items-center justify-center py-4 text-zinc-400 gap-1">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              <span className="text-[11px]">Cargando enlaces...</span>
-                            </div>
-                          ) : customLinks.length === 0 ? (
-                            <div className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl text-[11px] text-zinc-400 text-center">
-                              No hay enlaces configurados en car_links.
-                            </div>
-                          ) : (
-                            <div className="space-y-1.5">
-                              {customLinks.map((link: any) => (
-                                <div
-                                  key={link.id}
-                                  onClick={() => setReply(prev => prev ? `${prev} ${link.url}` : link.url)}
-                                  className="p-2 border border-zinc-100 hover:border-zinc-250 dark:border-zinc-900 dark:hover:border-zinc-800 bg-zinc-50/50 hover:bg-zinc-100 dark:bg-zinc-900/20 dark:hover:bg-zinc-900/50 rounded-xl cursor-pointer flex items-center justify-between gap-2 transition-all active:scale-[0.99]"
-                                >
-                                  <div className="min-w-0 flex-1 flex items-center gap-1.5">
-                                    <span className="text-base">{link.icon || '🔗'}</span>
-                                    <span className="text-[11px] font-bold text-zinc-850 dark:text-zinc-200 truncate">{link.label}</span>
-                                  </div>
-                                  <div className="flex-shrink-0 flex items-center gap-1 text-[9px] font-black text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 px-1.5 py-0.5 rounded bg-white dark:bg-zinc-900">
-                                    Insertar
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                      </div>
-                    )}
-
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
