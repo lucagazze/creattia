@@ -53,6 +53,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Client not found or database error' });
     }
 
+    // Fetch custom client links from Supabase
+    let clientLinks: any[] = [];
+    try {
+      const { data: linksData } = await supabase
+        .from('car_links')
+        .select('title, url')
+        .eq('client_id', clientId);
+      if (linksData) {
+        clientLinks = linksData;
+      }
+    } catch (err) {
+      console.error('[Draft Reply] Error fetching client links:', err);
+    }
+
     const { 
       business_name, 
       ecommerce_platform, 
@@ -135,19 +149,23 @@ ${fewShotExamples.map((ex, i) => `Example ${i + 1}:
       ? `Catálogo de productos de la tienda:\n${products.map(p => `- ${p.title} (Link de compra: https://${cleanDomainForLink}/products/${p.handle})`).join('\n')}`
       : 'No hay catálogo de productos de Shopify configurado.';
 
+    const linksContext = clientLinks.length > 0
+      ? `Enlaces directos y páginas de interés del sitio web:\n${clientLinks.map(l => `- Para "${l.title}": usar el enlace EXACTO: ${l.url}`).join('\n')}`
+      : 'No hay enlaces directos personalizados configurados en car_links.';
+
     // DM conversation history context (last 15 messages)
     const conversationHistoryBlock = conversationHistory && conversationHistory.length > 0
       ? `\nCONTEXTO DE LA CONVERSACIÓN (últimos ${conversationHistory.length} mensajes, del más viejo al más reciente):\n${conversationHistory.map(m => `  ${m}`).join('\n')}\n`
       : '';
 
-    const systemMessage = `You are Algor, the AI assistant for the brand "${business_name}".
-${isDM ? 'Your task is to draft a natural, helpful DM reply to continue a direct message conversation.' : 'Your task is to draft a friendly, natural reply to a social media message.'}
+    const systemMessage = `You are Algor, the advanced AI assistant for the brand "${business_name}".
+${isDM ? 'Your task is to draft a natural, helpful, premium direct message reply to continue a conversation.' : 'Your task is to draft a friendly, natural, premium reply to a social media message.'}
 
 CRITICAL INSTRUCTION - LANGUAGE DETECTION:
 - You MUST identify the language of the customer's message: "${itemText}".
 - You MUST draft the reply in that EXACT same language.
 - If the customer wrote in English, the reply MUST be 100% in English. Do NOT use a single word of Spanish.
-- If the customer wrote in Spanish, the reply MUST be 100% in Spanish (using Argentine Spanish voseo: e.g., "vos", "tenés", "consultame", "mirá").
+- If the customer wrote in Spanish, the reply MUST be 100% in Spanish (using Argentine Spanish voseo: e.g., "vos", "tenés", "consultame", "mirá", "compralo").
 - If the customer wrote in Portuguese, the reply MUST be 100% in Portuguese.
 - NEVER mix languages. If the comment is in English, do NOT output a single word in Spanish (such as "Hola", "Gracias", or "conseguilo").
 
@@ -158,19 +176,23 @@ ${postCaption ? `- Caption/Text of the post (context): "${postCaption}"` : ''}
 ${otherComments && otherComments.length > 0 ? `- Other comments in the same post (context):\n${otherComments.map(c => `  * ${c}`).join('\n')}` : ''}
 ${conversationHistoryBlock}
 ${productsContext}
+${linksContext}
 
 ${brainContext ? `Conocimiento adicional del negocio (Cerebro):\n${brainContext}\n` : ''}
 
 ${fewShotContext ? `\n${fewShotContext}\n` : ''}
 
 Rules:
-1. ${isDM ? 'Be conversational and helpful. You can use 1-3 sentences for DMs.' : 'Be extremely concise (maximum 1 or 2 sentences).'}
-2. If they ask about a specific product, availability, price, or how to buy, recommend the product from the catalog and include EXACTLY the corresponding link: https://${cleanDomainForLink}/products/[product-handle]. Do not make up handles.
-3. If they ask about shopping, shipping, or general prices and there is no specific matching product in the catalog, always offer the main website link: ${canonicalSiteUrl}. ALWAYS use this EXACT URL: ${canonicalSiteUrl}. Never modify, shorten, or reconstruct it.
+1. ${isDM ? 'Be conversational, premium, and helpful. You can use 1-3 sentences for DMs.' : 'Be extremely concise (maximum 1 or 2 sentences).'}
+2. If they ask about a specific product, availability, price, or how to buy:
+   - Check the Shopify products catalog context above. If a product matches, recommend it and include EXACTLY the corresponding link: https://${cleanDomainForLink}/products/[product-handle]. Do not invent handles.
+   - If they ask about a specific product that is NOT present in the catalog listed above, you MUST explicitly state that the product is currently not available or not in stock, and invite them to browse the online store at ${canonicalSiteUrl} or offer a matching category link from the custom links context.
+3. If they ask about general shopping, shipping, refunds, exchanges, contact, or FAQs:
+   - Search the custom links context above. If a link matches the topic (e.g. shipping policies link, exchanges/refunds link, FAQs link, contact page, WhatsApp group link), recommend that EXACT URL. Never modify, shorten, or reconstruct it.
+   - If there is no specific matching link in the custom links list but there is information in the business brain, explain it briefly and invite them to use the main store URL: ${canonicalSiteUrl}.
 4. Do not use placeholders like [price] or [link]. The reply must be ready to send.
 5. Output ONLY the final drafted text, without explanations, quotes, or prefixes.
-6. If the user asks about a specific product (its availability, if you sell it, or how to get it) and the product is NOT present in the catalog listed above, you MUST explicitly state that the product is currently not available or not in stock, and invite them to browse the online store at ${canonicalSiteUrl} to see all other products.
-${isDM ? '7. Take into account the full conversation history above to understand the context, what has already been discussed, and what the customer needs next.' : ''}`;
+${isDM ? '6. Take into account the full conversation history above to understand the context, what has already been discussed, and what the customer needs next.' : ''}`;
 
 
     // 4. Call OpenAI API

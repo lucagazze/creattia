@@ -4,12 +4,35 @@ import { useViewAs } from '../contexts/ViewAsContext';
 import { chatwoot } from '../services/chatwoot';
 import {
   RefreshCw, AlertCircle, Loader2, Send, Sparkles,
-  Search, CheckCircle, Clock, Inbox, ExternalLink, Bot
+  Search, CheckCircle, Clock, Inbox, ExternalLink, Bot,
+  Globe, Facebook, Instagram, MessageCircle, Mail
 } from 'lucide-react';
 
-const fmtTime = (ts: number) => {
+const fmtTime = (ts: any) => {
   if (!ts) return '';
-  const d = new Date(ts * 1000);
+  let d: Date;
+  if (typeof ts === 'number') {
+    if (ts < 10000000000) {
+      d = new Date(ts * 1000);
+    } else {
+      d = new Date(ts);
+    }
+  } else if (typeof ts === 'string') {
+    if (/^\d+$/.test(ts)) {
+      const num = parseInt(ts, 10);
+      if (num < 10000000000) {
+        d = new Date(num * 1000);
+      } else {
+        d = new Date(num);
+      }
+    } else {
+      d = new Date(ts);
+    }
+  } else {
+    d = new Date(ts);
+  }
+
+  if (isNaN(d.getTime())) return '';
   const now = new Date();
   const isToday = d.toDateString() === now.toDateString();
   return isToday
@@ -264,7 +287,8 @@ export default function AtencionPage() {
     setGeneratingDraft(true);
     setSendError(null);
     try {
-      const last20 = messages.slice(-20);
+      const realMessages = messages.filter((m: any) => m.message_type !== 2);
+      const last20 = realMessages.slice(-20);
       const lastIncoming = [...last20].reverse().find((m: any) => m.message_type === 0);
       const lastMsg = last20[last20.length - 1];
       const history = last20.map((m: any) => {
@@ -362,6 +386,7 @@ export default function AtencionPage() {
   };
 
   const [assignFilter, setAssignFilter] = useState<'all' | 'mine' | 'unassigned'>('all');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email' | 'other'>('all');
 
   const contact = (c: any) => c.meta?.sender || c.contact_inbox?.contact || {};
   const getChannel = (c: any) => {
@@ -437,7 +462,12 @@ export default function AtencionPage() {
     return b.last_activity_at - a.last_activity_at;
   });
 
-  const assignFiltered = sortedConversations.filter(c => {
+  const channelFilteredConversations = sortedConversations.filter(c => {
+    if (channelFilter === 'all') return true;
+    return getChannel(c) === channelFilter;
+  });
+
+  const assignFiltered = channelFilteredConversations.filter(c => {
     if (assignFilter === 'unassigned') return !c.meta?.assignee;
     if (assignFilter === 'mine') return !!c.meta?.assignee;
     return true;
@@ -450,7 +480,8 @@ export default function AtencionPage() {
     const name = (c.meta?.sender?.name || '').toLowerCase();
     const phone = c.meta?.sender?.phone_number || '';
     const email = (c.meta?.sender?.email || '').toLowerCase();
-    const lastMsg = (c.messages?.[0]?.content || '').toLowerCase();
+    const lastReal = c.messages?.find((m: any) => m.message_type !== 2);
+    const lastMsg = (lastReal?.content || '').toLowerCase();
     return name.includes(s) || phone.includes(s) || email.includes(s) || String(c.id).includes(s) || lastMsg.includes(s);
   });
 
@@ -491,9 +522,22 @@ export default function AtencionPage() {
     }
   };
 
-  const totalCount = convMeta?.all_count ?? conversations.length;
-  const unassignedCount = convMeta?.unassigned_count ?? conversations.filter(c => !c.meta?.assignee).length;
-  const assignedCount = convMeta?.assigned_count ?? conversations.filter(c => !!c.meta?.assignee).length;
+  const channelFilteredRaw = conversations.filter(c => {
+    if (channelFilter === 'all') return true;
+    return getChannel(c) === channelFilter;
+  });
+
+  const totalCount = channelFilter === 'all' && convMeta?.all_count !== undefined 
+    ? convMeta.all_count 
+    : channelFilteredRaw.length;
+
+  const unassignedCount = channelFilter === 'all' && convMeta?.unassigned_count !== undefined
+    ? convMeta.unassigned_count
+    : channelFilteredRaw.filter(c => !c.meta?.assignee).length;
+
+  const assignedCount = channelFilter === 'all' && convMeta?.assigned_count !== undefined
+    ? convMeta.assigned_count
+    : channelFilteredRaw.filter(c => !!c.meta?.assignee).length;
 
   if (!cwUrl || !cwToken) {
     return (
@@ -594,6 +638,37 @@ export default function AtencionPage() {
             </div>
           </div>
 
+          {/* Channel Filters */}
+          <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/10">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              {[
+                { key: 'all', label: 'Todos', icon: Inbox },
+                { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+                { key: 'instagram', label: 'Instagram', icon: Instagram },
+                { key: 'facebook', label: 'Facebook', icon: Facebook },
+                { key: 'email', label: 'Email', icon: Mail },
+                { key: 'other', label: 'Otros', icon: Globe },
+              ].map(ch => {
+                const Icon = ch.icon;
+                const isActive = channelFilter === ch.key;
+                return (
+                  <button
+                    key={ch.key}
+                    onClick={() => setChannelFilter(ch.key as any)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10.5px] font-black transition-all duration-200 whitespace-nowrap ${
+                      isActive
+                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-sm'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 border border-zinc-200/80 dark:border-zinc-800/80'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{ch.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Assign tabs */}
           <div className="flex border-b border-zinc-100 dark:border-zinc-800 text-[11px] font-bold">
             {[
@@ -665,10 +740,12 @@ export default function AtencionPage() {
               </div>
             ) : filtered.map(conv => {
               const c = contact(conv);
-              const lastMsg = conv.messages?.[0];
+              const lastRealMsg = conv.messages?.find((m: any) => m.message_type !== 2);
+              const lastMsg = lastRealMsg;
               const isSelected = selected?.id === conv.id;
               const unread = conv.unread_count || 0;
               const isUnread = unread > 0;
+              const activityTimestamp = conv.last_activity_at || lastRealMsg?.created_at || conv.messages?.[0]?.created_at || conv.created_at;
               return (
                 <div key={conv.id}
                   onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, conv }); }}
@@ -705,7 +782,7 @@ export default function AtencionPage() {
                         </span>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <span className={`text-[10px] ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
-                            {fmtTime(conv.last_activity_at)}
+                            {fmtTime(activityTimestamp)}
                           </span>
                           {unread > 0 && !isSelected && (
                             <span className="w-4.5 h-4.5 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center">
@@ -720,7 +797,7 @@ export default function AtencionPage() {
                           {getChannelLabel(conv)}
                         </span>
                         {c.phone_number && (
-                          <>
+                           <>
                             <span className={isSelected ? 'text-blue-300' : 'text-zinc-300 dark:text-zinc-700'}>·</span>
                             <span className={`text-[10px] font-mono truncate ${isSelected ? 'text-blue-200' : 'text-zinc-400'}`}>
                               {c.phone_number}

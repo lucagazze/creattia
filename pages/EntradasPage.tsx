@@ -43,7 +43,8 @@ export default function EntradasPage() {
     setError(null);
     try {
       const data = await chatwoot.getInboxes(cwUrl, cwToken);
-      setInboxes(data || []);
+      const list = Array.isArray(data) ? data : (data?.payload || data?.data || []);
+      setInboxes(list);
     } catch (e: any) {
       setError(e.message || 'No se pudieron cargar las bandejas de entrada.');
     } finally {
@@ -92,8 +93,9 @@ export default function EntradasPage() {
       }
 
       const res = await chatwoot.createInbox(cwUrl, cwToken, payload);
-      setCreatedInbox(res);
-      setInboxes(prev => [...prev, res]);
+      const inboxObj = res?.payload || res;
+      setCreatedInbox(inboxObj);
+      setInboxes(prev => [...prev, inboxObj]);
       setWizardStep('success');
     } catch (e: any) {
       setCreateError(e.message || 'Ocurrió un error al crear la bandeja.');

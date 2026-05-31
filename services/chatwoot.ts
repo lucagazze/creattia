@@ -92,13 +92,15 @@ export const chatwoot = {
   // GET inboxes
   async getInboxes(url: string, token: string) {
     const accountId = await chatwoot.getAccountId(url, token);
-    return proxy(url, token, `/api/v1/accounts/${accountId}/inboxes`);
+    const data = await proxy(url, token, `/api/v1/accounts/${accountId}/inboxes`);
+    return Array.isArray(data) ? data : (data?.payload || data?.data || []);
   },
 
   // POST inbox
   async createInbox(url: string, token: string, payload: any) {
     const accountId = await chatwoot.getAccountId(url, token);
-    return proxy(url, token, `/api/v1/accounts/${accountId}/inboxes`, payload, 'POST');
+    const data = await proxy(url, token, `/api/v1/accounts/${accountId}/inboxes`, payload, 'POST');
+    return data?.payload || data;
   },
 
   // DELETE inbox
