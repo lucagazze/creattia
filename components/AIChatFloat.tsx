@@ -587,32 +587,32 @@ export const AIChatFloat = () => {
     <div ref={containerRef} className="fixed print:hidden z-[300]">
       {/* ── Apple-style Floating Chat Window ── */}
       {isOpen && (
-        <div className={`fixed z-[300] bottom-24 right-6 w-[385px] h-[580px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-120px)] bg-white dark:bg-zinc-950 rounded-[28px] border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-300 md:bottom-24 md:right-6 inset-x-4 bottom-24 top-auto h-[520px] md:h-[580px] md:inset-auto ${
-          isThinking ? 'siri-glow border-violet-500/50' : ''
+        <div className={`fixed z-[300] inset-0 w-full h-full bg-white dark:bg-zinc-950 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-250 md:inset-auto md:fixed md:bottom-24 md:right-6 md:w-[385px] md:h-[580px] md:rounded-[28px] md:border md:border-zinc-200 md:dark:border-zinc-800 md:shadow-2xl ${
+          isThinking ? 'siri-glow md:border-violet-500/50' : ''
         }`}>
           {/* Header */}
-          <div className="flex justify-between items-center px-4 py-3 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0 select-none">
+          <div className="flex justify-between items-center px-4 py-3.5 md:py-3 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0 select-none">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow overflow-hidden">
-                <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-6 h-6 object-contain" />
+              <div className="w-8.5 h-8.5 md:w-8 md:h-8 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow overflow-hidden">
+                <img src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} alt="Algoritmia" className="w-6.5 h-6.5 md:w-6 md:h-6 object-contain" />
               </div>
               <div>
-                <p className="text-[13px] font-black text-zinc-800 dark:text-zinc-200 leading-none">Algor IA</p>
-                <p className="text-[9px] text-emerald-500 font-bold mt-1 tracking-wider leading-none">CONECTADA</p>
+                <p className="text-[13.5px] md:text-[13px] font-black text-zinc-800 dark:text-zinc-200 leading-none">Algor IA</p>
+                <p className="text-[9.5px] md:text-[9px] text-emerald-500 font-bold mt-1 tracking-wider leading-none">CONECTADA</p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 md:gap-1.5">
               {messages.length > 0 && (
-                <button onClick={clearChat} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" title="Limpiar chat">
-                  <RotateCcw className="w-3.5 h-3.5" />
+                <button onClick={clearChat} className="p-2 md:p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" title="Limpiar chat">
+                  <RotateCcw className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 </button>
               )}
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-855 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-550 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-white transition-all flex items-center justify-center cursor-pointer flex-shrink-0"
+                className="w-9 h-9 md:w-7 md:h-7 rounded-xl md:rounded-lg bg-zinc-100 dark:bg-zinc-855 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-555 dark:text-zinc-450 hover:text-zinc-700 dark:hover:text-white transition-all flex items-center justify-center cursor-pointer flex-shrink-0"
                 title="Cerrar chat"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5 md:w-4 md:h-4" />
               </button>
             </div>
           </div>
@@ -777,17 +777,19 @@ export const AIChatFloat = () => {
         className={`fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 z-[310] select-none hover:scale-110 active:scale-95 ${
           isOpen
             ? 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rotate-90 shadow-none'
-            : 'bg-gradient-to-tr from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-violet-500/20 shadow-lg'
+            : 'bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-500 text-white shadow-violet-500/20 shadow-lg p-[2px]'
         }`}
       >
         {isOpen ? (
           <X className="w-5.5 h-5.5" />
         ) : (
-          <svg className="w-6.5 h-6.5 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/>
-            <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
-            <line x1="12" x2="12" y1="19" y2="22"/>
-          </svg>
+          <div className="w-full h-full rounded-full bg-zinc-950 dark:bg-zinc-900 flex items-center justify-center p-2.5">
+            <img 
+              src="/assets/logoSinFondo.png" 
+              alt="Algor" 
+              className="w-7 h-7 object-contain" 
+            />
+          </div>
         )}
       </div>
     </div>

@@ -189,7 +189,6 @@ export default function AtencionPage() {
   const [convMeta, setConvMeta] = useState<{ all_count: number; unassigned_count: number; assigned_count: number } | null>(null);
   const [channelMetas, setChannelMetas] = useState<Record<string, { all_count: number; unassigned_count: number; assigned_count: number }>>({});
   const [inboxes, setInboxes] = useState<any[]>([]);
-  const [activeSuggestion, setActiveSuggestion] = useState<string | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState<string | null>(null);
   const [assignFilter, setAssignFilter] = useState<'all' | 'mine' | 'unassigned'>('all');
   const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'instagram' | 'facebook' | 'email' | 'other'>('all');
@@ -197,10 +196,7 @@ export default function AtencionPage() {
   
   // Sidebar State Variables
   const [showSidebar, setShowSidebar] = useState(true);
-  const [sidebarTab, setSidebarTab] = useState<'copilot' | 'canned' | 'shopify'>('copilot');
-
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [generatingCustomPrompt, setGeneratingCustomPrompt] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'canned' | 'shopify'>('canned');
 
   const [cannedResponses, setCannedResponses] = useState<any[]>([]);
   const [cannedSearch, setCannedSearch] = useState('');
@@ -484,17 +480,17 @@ export default function AtencionPage() {
     return () => clearInterval(interval);
   }, [cwUrl, cwToken, statusFilter]);
 
-  const triggerAutoDraft = useCallback(async (conv: any, currentMessages: any[]) => {
-    if (!profile?.id || !conv || currentMessages.length === 0) return;
+  const generateAiDraft = async () => {
+    if (!profile?.id || !selected || messages.length === 0) return;
     setGeneratingDraft(true);
     setSendError(null);
     try {
-      const realMessages = currentMessages.filter((m: any) => m?.message_type !== 2);
-      const last20 = realMessages.slice(-20);
-      const lastIncoming = [...last20].reverse().find((m: any) => m?.message_type === 0);
-      const lastMsg = last20[last20.length - 1];
-      const history = last20.map((m: any) => {
-        const who = m?.message_type === 1 ? 'Agente' : (contact(conv).name || 'Cliente');
+      const realMessages = messages.filter((m: any) => m?.message_type !== 2);
+      const last15 = realMessages.slice(-15);
+      const lastIncoming = [...last15].reverse().find((m: any) => m?.message_type === 0);
+      const lastMsg = last15[last15.length - 1];
+      const history = last15.map((m: any) => {
+        const who = m?.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
         return `${who}: ${m?.content || '[archivo adjunto]'}`;
       });
       const res = await fetch('/api/draft-reply', {
@@ -503,22 +499,22 @@ export default function AtencionPage() {
         body: JSON.stringify({
           clientId: profile.id,
           itemText: lastIncoming?.content || lastMsg?.content || '',
-          username: contact(conv).name || contact(conv).phone_number || 'Cliente',
+          username: contact(selected).name || contact(selected).phone_number || 'Cliente',
           conversationHistory: history,
           isDM: true,
         }),
       });
       if (!res.ok) throw new Error('Error al generar borrador');
       const data = await res.json();
-      if (data.draft && selectedRef.current?.id === conv.id) {
-        setActiveSuggestion(data.draft);
+      if (data.draft && selectedRef.current?.id === selected.id) {
+        setReply(data.draft);
       }
     } catch (e: any) {
-      console.error('Error auto-generating draft:', e);
+      setSendError('No se pudo generar el borrador con IA.');
     } finally {
       setGeneratingDraft(false);
     }
-  }, [profile?.id]);
+  };
 
   const loadMessages = useCallback(async (conv: any) => {
     if (!cwUrl || !cwToken) return;
@@ -527,7 +523,6 @@ export default function AtencionPage() {
     setMessages([]);
     setReply('');
     setSendError(null);
-    setActiveSuggestion(null);
     setLoadingSuggestion(null);
     setLoadingMsgs(true);
     try {
@@ -539,13 +534,12 @@ export default function AtencionPage() {
         chatwoot.markAsRead(cwUrl, cwToken, conv.id).catch(() => {});
         setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
       }
-      triggerAutoDraft(conv, sorted);
     } catch (e: any) {
       setMessages([]);
     } finally {
       setLoadingMsgs(false);
     }
-  }, [cwUrl, cwToken, triggerAutoDraft]);
+  }, [cwUrl, cwToken]);
 
 
   // Load conversation from URL search parameter convId if present
@@ -589,128 +583,6 @@ export default function AtencionPage() {
       if (isAtBottom) container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
-
-  const generateAiDraft = async () => {
-    if (!profile?.id || !selected || messages.length === 0) return;
-    setGeneratingDraft(true);
-    setSendError(null);
-    try {
-      const realMessages = messages.filter((m: any) => m?.message_type !== 2);
-      const last20 = realMessages.slice(-20);
-      const lastIncoming = [...last20].reverse().find((m: any) => m?.message_type === 0);
-      const lastMsg = last20[last20.length - 1];
-      const history = last20.map((m: any) => {
-        const who = m?.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
-        return `${who}: ${m?.content || '[archivo adjunto]'}`;
-      });
-      const res = await fetch('/api/draft-reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: profile.id,
-          itemText: lastIncoming?.content || lastMsg?.content || '',
-          username: contact(selected).name || contact(selected).phone_number || 'Cliente',
-          conversationHistory: history,
-          isDM: true,
-        }),
-      });
-      if (!res.ok) throw new Error('Error al generar borrador');
-      const data = await res.json();
-      if (data.draft) setReply(data.draft);
-    } catch (e: any) {
-      setSendError('No se pudo generar el borrador con IA.');
-    } finally {
-      setGeneratingDraft(false);
-    }
-  };
-
-  const handleTopicSuggestion = async (key: string, label: string) => {
-    if (!profile?.id || !selected || messages.length === 0) return;
-    setLoadingSuggestion(key);
-    setActiveSuggestion(null);
-    setSendError(null);
-    try {
-      const realMessages = messages.filter((m: any) => m?.message_type !== 2);
-      const last20 = realMessages.slice(-20);
-      const lastIncoming = [...last20].reverse().find((m: any) => m?.message_type === 0);
-      const lastMsg = last20[last20.length - 1];
-
-      let promptText = lastIncoming?.content || lastMsg?.content || 'Hola';
-      if (key !== 'auto') {
-        promptText = `Generá una respuesta específica y detallada sobre el tema: "${label}". El cliente escribió originalmente: "${lastIncoming?.content || lastMsg?.content || 'Hola'}"`;
-      }
-
-      const history = last20.map((m: any) => {
-        const who = m?.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
-        return `${who}: ${m?.content || '[archivo adjunto]'}`;
-      });
-
-      const res = await fetch('/api/draft-reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: profile.id,
-          itemText: promptText,
-          username: contact(selected).name || contact(selected).phone_number || 'Cliente',
-          conversationHistory: history,
-          isDM: true,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Error al generar sugerencia');
-      const data = await res.json();
-      if (data.draft) {
-        setActiveSuggestion(data.draft);
-      }
-    } catch (e: any) {
-      setSendError('No se pudo generar la sugerencia de IA para este tema.');
-    } finally {
-      setLoadingSuggestion(null);
-    }
-  };
-
-  const handleCustomPrompt = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile?.id || !selected || !customPrompt.trim() || messages.length === 0) return;
-    setGeneratingCustomPrompt(true);
-    setSendError(null);
-    try {
-      const realMessages = messages.filter((m: any) => m?.message_type !== 2);
-      const last20 = realMessages.slice(-20);
-      const lastIncoming = [...last20].reverse().find((m: any) => m?.message_type === 0);
-      const lastMsg = last20[last20.length - 1];
-
-      const directive = `Generá un borrador de respuesta siguiendo estrictamente esta instrucción: "${customPrompt.trim()}". El cliente escribió originalmente: "${lastIncoming?.content || lastMsg?.content || 'Hola'}"`;
-
-      const history = last20.map((m: any) => {
-        const who = m?.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
-        return `${who}: ${m?.content || '[archivo adjunto]'}`;
-      });
-
-      const res = await fetch('/api/draft-reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: profile.id,
-          itemText: directive,
-          username: contact(selected).name || contact(selected).phone_number || 'Cliente',
-          conversationHistory: history,
-          isDM: true,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Error al generar borrador');
-      const data = await res.json();
-      if (data.draft && selectedRef.current?.id === selected.id) {
-        setActiveSuggestion(data.draft);
-        setCustomPrompt('');
-      }
-    } catch (e: any) {
-      setSendError('No se pudo generar el borrador personalizado.');
-    } finally {
-      setGeneratingCustomPrompt(false);
-    }
-  };
 
   const loadCannedResponses = useCallback(async () => {
     if (!profile?.id) return;
@@ -1266,9 +1138,9 @@ export default function AtencionPage() {
     <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
 
       {/* Top Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">
-        {/* Left Section: Channel Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+      <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">
+        {/* Left Section: Channel Filter Pills (Desktop only) */}
+        <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
           {[
             { key: 'all', label: 'Todos', icon: Inbox },
             { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
@@ -1306,10 +1178,10 @@ export default function AtencionPage() {
           })}
         </div>
 
-        {/* Right Section: Search & Controls */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Search Input */}
-          <div className="relative w-64">
+        {/* Right Section: Search & Controls (Controls hidden on mobile) */}
+        <div className="flex items-center gap-2 flex-1 md:flex-initial md:ml-auto">
+          {/* Search Input (Full width on mobile) */}
+          <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
             <input 
               type="text" 
@@ -1320,8 +1192,8 @@ export default function AtencionPage() {
             />
           </div>
 
-          {/* Sort button */}
-          <div className="relative group">
+          {/* Sort button (Desktop only) */}
+          <div className="hidden md:block relative group">
             <button className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Ordenar">
               <svg className="w-4 h-4 text-zinc-550" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round"/>
@@ -1343,10 +1215,10 @@ export default function AtencionPage() {
             </div>
           </div>
 
-          {/* 24-hour window filter */}
+          {/* 24-hour window filter (Desktop only) */}
           <button 
             onClick={() => setCanReplyOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all duration-200 select-none ${
+            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border transition-all duration-200 select-none ${
               canReplyOnly 
                 ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10' 
                 : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-emerald-700 dark:hover:text-emerald-400'
@@ -1356,10 +1228,10 @@ export default function AtencionPage() {
             <span>Ventana Abierta</span>
           </button>
 
-          {/* Expand button */}
+          {/* Expand button (Desktop only) */}
           <button 
             onClick={() => setExpanded(e => !e)}
-            className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" 
+            className="hidden md:block p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" 
             title={expanded ? 'Contraer' : 'Expandir lista'}
           >
             <svg className="w-4 h-4 text-zinc-550" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1429,7 +1301,7 @@ export default function AtencionPage() {
 
           {/* List */}
           <div 
-            className="flex-1 overflow-y-auto py-2 space-y-1"
+            className="flex-1 overflow-y-auto py-2 space-y-1 pb-20 md:pb-2"
             onScroll={(e) => {
               const target = e.currentTarget;
               if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
@@ -1467,6 +1339,7 @@ export default function AtencionPage() {
               return (
                 <div key={conv.id}
                   onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, conv }); }}
+                  onClick={() => loadMessages(conv)}
                   className={`mx-2 my-0.5 px-3 py-2.5 flex items-start gap-2.5 transition-all duration-200 cursor-pointer rounded-xl group/conv ${
                     isSelected 
                       ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/10' 
@@ -1477,14 +1350,14 @@ export default function AtencionPage() {
                 >
                   {/* Checkbox */}
                   <div className={`flex-shrink-0 mt-2.5 ${selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover/conv:opacity-100'} transition-opacity`}
-                    onClick={e => toggleSelect(conv.id, e)}>
+                    onClick={e => { e.stopPropagation(); toggleSelect(conv.id, e); }}>
                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.has(conv.id) ? 'bg-blue-600 border-blue-600' : 'border-zinc-300 dark:border-zinc-650'}`}>
                       {selectedIds.has(conv.id) && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 5l2.5 2.5L8 3" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
                   </div>
                   
                   {/* Card content click target */}
-                  <div className="flex-1 flex items-start gap-2.5 min-w-0" onClick={() => loadMessages(conv)}>
+                  <div className="flex-1 flex items-start gap-2.5 min-w-0">
                     {renderAvatar(conv)}
                     
                     <div className="flex-1 min-w-0">
@@ -1547,9 +1420,57 @@ export default function AtencionPage() {
             {/* Background loading indicator */}
             {loadingMore && (
               <div className="flex items-center justify-center gap-1.5 py-2 text-[10px] text-zinc-400">
-                <Loader2 className="w-3 h-3 animate-spin" /> Cargando más...
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando más...
               </div>
             )}
+          </div>
+
+          {/* Mobile Floating Bottom Bar */}
+          <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 px-3.5 py-2 rounded-2xl shadow-lg flex items-center gap-3.5 z-40 select-none border-zinc-200/80 dark:border-zinc-800/80">
+            {[
+              { key: 'all', icon: Inbox, label: 'Todos' },
+              { key: 'whatsapp', icon: MessageCircle, label: 'WhatsApp' },
+              { key: 'instagram', icon: Instagram, label: 'Instagram' },
+              { key: 'facebook', icon: Facebook, label: 'Facebook' },
+              { key: 'email', icon: Mail, label: 'Email' },
+            ].filter(ch => isChannelActive(ch.key)).map(ch => {
+              const Icon = ch.icon;
+              const isActive = channelFilter === ch.key;
+              const count = getChannelCount(ch.key);
+              return (
+                <button
+                  key={ch.key}
+                  onClick={() => setChannelFilter(ch.key as any)}
+                  className={`p-2 rounded-xl transition-all relative ${
+                    isActive
+                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {count > 0 && !isActive && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-[8px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white dark:border-zinc-900">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            
+            <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-800" />
+            
+            {/* Clock/Ventana Abierta toggle */}
+            <button
+              onClick={() => setCanReplyOnly(v => !v)}
+              className={`p-2 rounded-xl transition-all ${
+                canReplyOnly
+                  ? 'bg-emerald-500 text-white shadow-sm'
+                  : 'text-zinc-500 dark:text-zinc-450 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+              }`}
+              title="Ventana Abierta"
+            >
+              <Clock className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -1603,13 +1524,13 @@ export default function AtencionPage() {
                     onClick={() => setShowSidebar(v => !v)}
                     className={`ml-auto p-2 rounded-xl transition-all duration-200 border flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] ${
                       showSidebar
-                        ? 'bg-violet-50 border-violet-200 text-violet-750 dark:bg-violet-955/20 dark:border-violet-900/30 dark:text-violet-400'
-                        : 'bg-zinc-50 border-zinc-200 text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-850'
+                        ? 'bg-blue-50 border-blue-200 text-blue-750 dark:bg-blue-955/20 dark:border-blue-900/30 dark:text-blue-400'
+                        : 'bg-zinc-50 border-zinc-200 text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-855'
                     }`}
-                    title={showSidebar ? "Ocultar Copiloto" : "Mostrar Copiloto"}
+                    title={showSidebar ? "Ocultar Panel" : "Mostrar Panel"}
                   >
-                    <Sparkles className={`w-4 h-4 ${showSidebar ? 'animate-pulse text-violet-500' : ''}`} />
-                    <span className="text-[11px] font-bold tracking-tight">Copiloto</span>
+                    <BookOpen className="w-4 h-4" />
+                    <span className="text-[11px] font-bold tracking-tight">Respuestas/Tienda</span>
                   </button>
                 </div>
 
@@ -1742,10 +1663,10 @@ export default function AtencionPage() {
                             className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-[13px] text-zinc-800 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all resize-none"
                           />
                           <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => { setShowSidebar(true); setSidebarTab('copilot'); }}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-violet-50 hover:bg-violet-100 dark:bg-violet-955/20 dark:hover:bg-violet-900/30 text-violet-750 dark:text-violet-400 rounded-xl text-[11.5px] font-bold border border-violet-200 dark:border-violet-850 transition-all">
-                              <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-                              Copiloto IA
+                            <button type="button" onClick={generateAiDraft} disabled={generatingDraft || sending || messages.length === 0}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-violet-50 hover:bg-violet-100 dark:bg-violet-955/20 dark:hover:bg-violet-900/30 text-violet-750 dark:text-violet-400 rounded-xl text-[11.5px] font-bold border border-violet-200 dark:border-violet-850 transition-all disabled:opacity-50">
+                              {generatingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5 text-violet-500 animate-pulse" />}
+                              Responder con IA
                             </button>
                             <button type="button" onClick={() => { setShowSidebar(true); setSidebarTab('canned'); }}
                               className="flex items-center gap-1.5 px-3 py-2 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900/40 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl text-[11.5px] font-bold border border-zinc-200 dark:border-zinc-850 transition-all">
@@ -1766,13 +1687,12 @@ export default function AtencionPage() {
                 </div>
               </div>
 
-              {/* COLLAPSIBLE RIGHT SIDEBAR */}
+                {/* COLLAPSIBLE RIGHT SIDEBAR */}
               {showSidebar && (
-                <div className="w-[320px] bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 flex flex-col h-full flex-shrink-0 animate-in slide-in-from-right duration-250 select-none">
+                <div className="w-[320px] bg-white dark:bg-zinc-955 border-l border-zinc-200 dark:border-zinc-800 flex flex-col h-full flex-shrink-0 animate-in slide-in-from-right duration-250 select-none">
                   {/* Sidebar Tabs */}
                   <div className="flex border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-955/20 text-[11px] font-bold p-1 gap-1">
                     {[
-                      { key: 'copilot', label: 'Copiloto IA', icon: Sparkles },
                       { key: 'canned', label: 'Respuestas', icon: BookOpen },
                       { key: 'shopify', label: 'Tienda/Links', icon: ShoppingBag },
                     ].map(tab => {
@@ -1784,140 +1704,18 @@ export default function AtencionPage() {
                           onClick={() => setSidebarTab(tab.key as any)}
                           className={`flex-1 py-2 flex items-center justify-center gap-1 rounded-lg transition-all duration-200 ${
                             isActive
-                              ? 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-850 text-blue-650 dark:text-blue-400 font-black shadow-sm'
+                              ? 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-855 text-blue-650 dark:text-blue-400 font-black shadow-sm'
                               : 'text-zinc-550 hover:text-zinc-800 dark:hover:text-zinc-300'
                           }`}
                         >
-                          <Icon className={`w-3.5 h-3.5 ${isActive && tab.key === 'copilot' ? 'text-violet-500 animate-pulse' : ''}`} />
+                          <Icon className="w-3.5 h-3.5" />
                           <span>{tab.label}</span>
                         </button>
                       );
                     })}
                   </div>
 
-                  {/* Sidebar Scrollable Body */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-                    
-                    {/* TAB 1: COPILOTO IA */}
-                    {sidebarTab === 'copilot' && (
-                      <div className="space-y-4 animate-in fade-in duration-200">
-                        {/* Auto suggestions generator */}
-                        {generatingDraft ? (
-                          <div className="p-4 bg-violet-50/20 dark:bg-violet-955/5 border border-violet-100 dark:border-violet-900/20 rounded-2xl flex flex-col items-center justify-center text-center gap-3 py-6">
-                            <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
-                            <p className="text-[11px] font-bold text-violet-750 dark:text-violet-400">Pensando respuesta recomendada...</p>
-                          </div>
-                        ) : activeSuggestion ? (
-                          <div className="p-3.5 bg-violet-50/40 dark:bg-violet-950/15 border border-violet-100/80 dark:border-violet-900/30 rounded-2xl flex flex-col gap-2.5 border-dashed border-2">
-                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-violet-750 dark:text-violet-400">
-                              <Bot className="w-4 h-4 text-violet-500 animate-pulse" />
-                              <span>Respuesta de Copiloto IA:</span>
-                            </div>
-                            <p className="text-[11.5px] leading-relaxed text-zinc-700 dark:text-zinc-300 font-medium whitespace-pre-line bg-white dark:bg-zinc-950 p-3 rounded-xl border border-black/[0.03] dark:border-white/[0.03]">
-                              {activeSuggestion}
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReply(prev => prev ? prev + '\n' + activeSuggestion : activeSuggestion);
-                                  setActiveSuggestion(null);
-                                }}
-                                className="flex-1 px-3.5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[11px] font-black shadow-sm transition-all active:scale-95 text-center"
-                              >
-                                Insertar en chat
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setActiveSuggestion(null)}
-                                className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-500 dark:text-zinc-400 rounded-xl text-[11px] font-bold transition-all active:scale-95"
-                              >
-                                Descartar
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => triggerAutoDraft(selected, messages)}
-                            className="w-full flex items-center justify-center gap-2 py-3 bg-violet-650 hover:bg-violet-700 text-white text-[11.5px] font-black rounded-xl transition-all shadow-sm shadow-violet-650/10 active:scale-95 disabled:opacity-50"
-                            disabled={messages.length === 0}
-                          >
-                            <Bot className="w-4 h-4" />
-                            Generar Borrador de Copiloto
-                          </button>
-                        )}
-
-                        <div className="border-t border-zinc-100 dark:border-zinc-850 my-1" />
-
-                        {/* Preset Topic Chips */}
-                        <div className="space-y-2">
-                          <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Generar por Tema</span>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {[
-                              { key: 'auto', label: '✨ Auto-detectar' },
-                              { key: 'saludo', label: '💬 Saludo Inicial' },
-                              { key: 'ubicacion', label: '📍 Ubicación/Horas' },
-                              { key: 'envios', label: '🚚 Envíos y Tiempos' },
-                              { key: 'pagos', label: '💳 Medios de Pago' },
-                              { key: 'cambios', label: '📦 Cambios/Garantías' },
-                            ].map(topic => {
-                              const isLoading = loadingSuggestion === topic.key;
-                              return (
-                                <button
-                                  key={topic.key}
-                                  type="button"
-                                  disabled={generatingDraft || !!loadingSuggestion || sending || messages.length === 0}
-                                  onClick={() => handleTopicSuggestion(topic.key, topic.label)}
-                                  className={`px-2 py-2 rounded-xl text-[10.5px] font-bold border transition-all text-left flex items-center gap-1.5 active:scale-95 disabled:opacity-50 ${
-                                    topic.key === 'auto'
-                                      ? 'border-violet-200 bg-violet-50/30 dark:border-violet-900/30 dark:bg-violet-955/10 text-violet-705 dark:text-violet-400'
-                                      : 'border-zinc-200 bg-zinc-50 dark:border-zinc-850 dark:bg-zinc-900/30 text-zinc-650 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900'
-                                  }`}
-                                >
-                                  {isLoading ? (
-                                    <Loader2 className="w-3 h-3 animate-spin text-zinc-450" />
-                                  ) : (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-700 flex-shrink-0" />
-                                  )}
-                                  <span className="truncate">{topic.label}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="border-t border-zinc-100 dark:border-zinc-850 my-1" />
-
-                        {/* Prompt Custom Instructions Redactor */}
-                        <form onSubmit={handleCustomPrompt} className="space-y-2">
-                          <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-wider block">Redactor Personalizado</span>
-                          <textarea
-                            value={customPrompt}
-                            onChange={e => setCustomPrompt(e.target.value)}
-                            placeholder="Ej: decile que nos queda el talle L y hacemos envíos gratis..."
-                            rows={3}
-                            className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-[11.5px] text-zinc-800 dark:text-zinc-250 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all resize-none"
-                            disabled={generatingCustomPrompt || messages.length === 0}
-                          />
-                          <button
-                            type="submit"
-                            disabled={!customPrompt.trim() || generatingCustomPrompt || messages.length === 0}
-                            className="w-full py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-black rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-50 disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
-                          >
-                            {generatingCustomPrompt ? (
-                              <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Redactando...
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="w-3.5 h-3.5" /> Redactar Respuesta
-                              </>
-                            )}
-                          </button>
-                        </form>
-                      </div>
-                    )}
 
                     {/* TAB 2: RESPUESTAS RÁPIDAS */}
                     {sidebarTab === 'canned' && (
