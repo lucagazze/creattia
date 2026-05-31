@@ -199,33 +199,33 @@ export default function AtencionPage() {
       if (action === 'read') {
         await chatwoot.markAsRead(cwUrl, cwToken, conv.id);
         setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
-      } else if (action === 'resolved') {
-        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { status: 'resolved' });
-        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status: 'resolved' } : c));
-      } else if (action === 'pending') {
-        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { status: 'pending' });
-        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status: 'pending' } : c));
-      } else if (action === 'open') {
-        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { status: 'open' });
-        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status: 'open' } : c));
+      } else if (['resolved','open','pending','snoozed'].includes(action)) {
+        const extra = action === 'snoozed' ? { snoozed_until: Math.floor(Date.now()/1000) + 3600 } : {};
+        const status = action === 'snooze' ? 'snoozed' : action;
+        await chatwoot.updateStatus(cwUrl, cwToken, conv.id, status, extra);
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status } : c));
+        if (selected?.id === conv.id) setSelected((s: any) => s ? { ...s, status } : s);
       } else if (action === 'snooze') {
-        const until = Math.floor(Date.now() / 1000) + 3600; // 1 hora
-        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { status: 'snoozed', snoozed_until: until });
+        const snoozed_until = Math.floor(Date.now()/1000) + 3600;
+        await chatwoot.updateStatus(cwUrl, cwToken, conv.id, 'snoozed', { snoozed_until });
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, status: 'snoozed' } : c));
       } else if (action === 'priority_high') {
-        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { priority: 'high' });
+        await chatwoot.updatePriority(cwUrl, cwToken, conv.id, 'high');
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, priority: 'high' } : c));
       } else if (action === 'priority_none') {
-        await chatwoot.updateConversation(cwUrl, cwToken, conv.id, { priority: 'none' });
+        await chatwoot.updatePriority(cwUrl, cwToken, conv.id, 'none');
+        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, priority: 'none' } : c));
       } else if (action === 'copy') {
-        const link = `${cwUrl}/app/accounts/${await chatwoot.getAccountId(cwUrl, cwToken)}/conversations/${conv.id}`;
-        navigator.clipboard.writeText(link);
+        const accountId = await chatwoot.getAccountId(cwUrl, cwToken);
+        navigator.clipboard.writeText(`${cwUrl}/app/accounts/${accountId}/conversations/${conv.id}`);
       } else if (action === 'delete') {
         if (!window.confirm('¿Eliminar esta conversación? Esta acción no se puede deshacer.')) return;
         await chatwoot.deleteConversation(cwUrl, cwToken, conv.id);
         setConversations(prev => prev.filter(c => c.id !== conv.id));
-        if (selected?.id === conv.id) setSelected(null);
+        if (selected?.id === conv.id) { setSelected(null); setMessages([]); }
       }
     } catch (e: any) {
-      console.error('Context action error:', e);
+      alert(`Error al ejecutar acción: ${e.message}`);
     }
   };
 

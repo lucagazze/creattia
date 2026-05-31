@@ -104,16 +104,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Missing chatwoot params' });
     }
     try {
-      let method = cwMethod || (cwBody ? 'POST' : 'GET');
-      let body = cwBody;
-      if (cwBody?._method === 'DELETE') { method = 'DELETE'; body = undefined; }
+      const method = cwMethod || (cwBody !== undefined ? 'POST' : 'GET');
+      const hasBody = cwBody !== undefined && method !== 'DELETE' && method !== 'GET';
       const upstream = await fetch(`${String(chatwoot_url).replace(/\/$/, '')}${path}`, {
         method,
         headers: { 'api_access_token': chatwoot_token, 'Content-Type': 'application/json' },
-        ...(body ? { body: JSON.stringify(body) } : {}),
+        ...(hasBody ? { body: JSON.stringify(cwBody) } : {}),
       });
       const text = await upstream.text();
-      const data = text ? JSON.parse(text) : {};
+      let data: any = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
       return res.status(upstream.status).json(data);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
