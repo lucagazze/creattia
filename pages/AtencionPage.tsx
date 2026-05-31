@@ -243,6 +243,15 @@ export default function AtencionPage() {
   const CHANNEL_ICON: Record<string, string> = { whatsapp: '📱', instagram: '📸', facebook: '📘', email: '📧', other: '💬' };
   const CHANNEL_COLOR: Record<string, string> = { whatsapp: 'bg-emerald-500', instagram: 'bg-pink-500', facebook: 'bg-blue-600', email: 'bg-violet-500', other: 'bg-zinc-500' };
 
+  const sortedConversations = [...conversations].sort((a, b) => {
+    if (sortBy === 'oldest') return a.last_activity_at - b.last_activity_at;
+    if (sortBy === 'priority') {
+      const p: any = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+      return (p[a.priority] ?? 4) - (p[b.priority] ?? 4);
+    }
+    return b.last_activity_at - a.last_activity_at;
+  });
+
   const assignFiltered = sortedConversations.filter(c => {
     if (assignFilter === 'unassigned') return !c.meta?.assignee;
     if (assignFilter === 'mine') return !!c.meta?.assignee;
@@ -257,15 +266,6 @@ export default function AtencionPage() {
     const email = (c.meta?.sender?.email || '').toLowerCase();
     const lastMsg = (c.messages?.[0]?.content || '').toLowerCase();
     return name.includes(s) || phone.includes(s) || email.includes(s) || String(c.id).includes(s) || lastMsg.includes(s);
-  });
-
-  const sortedConversations = [...conversations].sort((a, b) => {
-    if (sortBy === 'oldest') return a.last_activity_at - b.last_activity_at;
-    if (sortBy === 'priority') {
-      const p: any = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
-      return (p[a.priority] ?? 4) - (p[b.priority] ?? 4);
-    }
-    return b.last_activity_at - a.last_activity_at;
   });
 
   const totalCount = convMeta?.all_count ?? conversations.length;
