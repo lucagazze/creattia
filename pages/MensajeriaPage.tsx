@@ -1605,23 +1605,21 @@ export default function MensajeriaPage() {
                 onTouchStart={e => { if (e.touches[0].clientX < 35) setSwipeTouchStartX(e.touches[0].clientX); }}
                 onTouchEnd={e => { if (swipeTouchStartX !== null && e.changedTouches[0].clientX - swipeTouchStartX > 70) { setSelected(null); setMobileShowChat(false); } setSwipeTouchStartX(null); }}
               >
-                {/* MOBILE header — AIChatFloat style, always visible */}
-                <div className="md:hidden flex items-center justify-between px-4 py-3.5 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0 select-none sticky top-0 z-10">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
-                      {(contact(selected).name || '?').slice(0,2).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-[13.5px] font-black text-zinc-800 dark:text-zinc-200 leading-none">{contact(selected).name || `Chat #${selected.id}`}</p>
-                      {contact(selected).phone_number && <p className="text-[9.5px] text-zinc-400 font-bold mt-0.5 leading-none">{contact(selected).phone_number}</p>}
-                    </div>
-                  </div>
+                {/* MOBILE header */}
+                <div className="md:hidden flex items-center gap-2 px-3 py-3 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0 select-none sticky top-0 z-10">
                   <button
                     onClick={() => { setSelected(null); setMobileShowChat(false); }}
-                    className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-300 flex items-center justify-center transition-all"
+                    className="p-1.5 -ml-1 rounded-lg text-zinc-500 dark:text-zinc-400 active:bg-zinc-100 dark:active:bg-zinc-800 transition-colors flex-shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <ChevronLeft className="w-6 h-6" />
                   </button>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
+                    {(contact(selected).name || '?').slice(0,2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-bold text-zinc-900 dark:text-white leading-tight truncate">{contact(selected).name || `Chat #${selected.id}`}</p>
+                    {contact(selected).phone_number && <p className="text-[10px] text-zinc-400 truncate">{contact(selected).phone_number}</p>}
+                  </div>
                 </div>
 
                 {/* DESKTOP header */}
