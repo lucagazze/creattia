@@ -1083,7 +1083,7 @@ export default function RedesSocialesPage() {
                       <p className="text-[12px] text-zinc-400 mt-1">Intentá cambiando el filtro o cargando más adelante.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {filteredMedia.map((m: any) => {
                         const hasLongCaption = m.caption && m.caption.length > 80;
                         const isExpanded = !!expandedCaptions[m.id];
@@ -1362,7 +1362,7 @@ export default function RedesSocialesPage() {
                       <p className="text-[12px] text-zinc-400 mt-1">Intentá cambiando el filtro o cargando más adelante.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {filteredFbMedia.map((m: any) => {
                         const hasLongCaption = m.message && m.message.length > 80;
                         const isExpanded = !!expandedFbCaptions[m.id];
