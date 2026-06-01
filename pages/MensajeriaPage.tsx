@@ -358,17 +358,30 @@ export default function MensajeriaPage() {
   const fetchAllOpenConversationsInBackground = useCallback(async () => {
     if (!cwUrl || !cwToken) return;
     try {
-      let page = 1;
-      let all: any[] = [];
-      let more = true;
-      while (more) {
-        const res = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, page);
-        all = [...all, ...res.payload];
-        more = res.payload.length === 25;
-        page++;
-        if (page > 40) break; // Safety cutoff
+      // 1. Fetch page 1 of all conversations to get the total count (meta)
+      const firstPage = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1);
+      const allCount = firstPage.meta?.all_count ?? 0;
+      const firstPayload = firstPage.payload;
+
+      if (allCount <= 25) {
+        setBackgroundConversations(firstPayload);
+        return;
       }
-      setBackgroundConversations(all);
+
+      const totalPages = Math.min(40, Math.ceil(allCount / 25)); // safety limit of 40 pages
+      const pagesToFetch = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+
+      // Fetch remaining pages in parallel
+      const results = await Promise.all(
+        pagesToFetch.map(p => 
+          chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, p).catch(() => ({ payload: [] }))
+        )
+      );
+
+      const remainingPayloads = results.flatMap(r => r.payload);
+      const allConversations = [...firstPayload, ...remainingPayloads];
+      
+      setBackgroundConversations(allConversations);
     } catch (err) {
       console.error("Error in background fetch of all conversations:", err);
     }
@@ -381,6 +394,10 @@ export default function MensajeriaPage() {
     setConversations([]);
     setCurrentPage(1);
     setHasMore(false);
+
+    // Trigger background fetcher immediately in parallel
+    fetchAllOpenConversationsInBackground();
+
     try {
       const inboxId = getInboxIdForChannel(channelFilter);
       const [firstPageRes, sm] = await Promise.all([
@@ -397,9 +414,6 @@ export default function MensajeriaPage() {
       setConversations(firstPayload);
       setHasMore(firstHasMore);
       setCurrentPage(1);
-
-      // Trigger background fetcher
-      fetchAllOpenConversationsInBackground();
     } catch (e: any) {
       setError(e.message);
     } finally {
