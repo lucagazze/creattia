@@ -95,6 +95,8 @@ const InformesPage       = lazyWithRetry(() => import('../../pages/InformesPage'
 const CostosPage         = lazyWithRetry(() => import('../../pages/CostosPage'));
 
 
+import { useViewAs } from '../../contexts/ViewAsContext';
+
 // Minimal skeleton shown while a lazy page chunk is downloading
 const PageSkeleton = () => (
   <AppleLoader variant="page" />
@@ -104,6 +106,7 @@ export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { darkMode, toggleDarkMode } = useTheme();
   const { profile } = useAuth();
+  const { isViewingAs } = useViewAs();
   const location = useLocation();
 
   // Load client-specific token into metaAds cache
@@ -148,7 +151,7 @@ export const MainLayout = () => {
             className={`p-1.5 rounded-[8px] border shadow-sm transition-all ${
               darkMode 
                 ? 'bg-zinc-900 border-white/10 text-zinc-300 hover:text-white hover:bg-zinc-800' 
-                : 'bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
+                : 'bg-white border-zinc-200 text-zinc-650 hover:text-zinc-900 hover:bg-zinc-50'
             }`}
             title="Cambiar apariencia"
           >
@@ -188,7 +191,10 @@ export const MainLayout = () => {
               <Route path="/cerebro" element={<CerebroPage />} />
               <Route path="/contactos" element={<ContactosPage />} />
               <Route path="/informes" element={<InformesPage />} />
-              <Route path="/costos" element={<CostosPage />} />
+              <Route 
+                path="/costos" 
+                element={profile?.is_admin && !isViewingAs ? <CostosPage /> : <Navigate to="/" replace />} 
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

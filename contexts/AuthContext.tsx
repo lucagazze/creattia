@@ -61,6 +61,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        setLoading(true);
         loadProfile(session.user.id, session.user.email).finally(() => setLoading(false));
       } else {
         setProfile(null);

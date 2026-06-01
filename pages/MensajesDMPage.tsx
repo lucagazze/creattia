@@ -206,6 +206,43 @@ export default function MensajesDMPage() {
     }
   }, [convMessages]);
 
+  // Scroll to bottom when DM chat opens and finishes loading (not on every message update)
+  const lastScrolledConvId = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedConv?.id && !loadingMessages && convMessages.length > 0) {
+      if (selectedConv.id !== lastScrolledConvId.current) {
+        lastScrolledConvId.current = selectedConv.id;
+        
+        const performScroll = () => {
+          const container = messagesContainerRef.current;
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+          }
+        };
+
+        // Scroll immediately (in case DOM is ready)
+        performScroll();
+
+        // requestAnimationFrame runs before the next repaint
+        const rafId = requestAnimationFrame(() => {
+          performScroll();
+        });
+
+        // Cascading timeouts to handle slow rendering or layout shifts
+        const t1 = setTimeout(performScroll, 30);
+        const t2 = setTimeout(performScroll, 100);
+        const t3 = setTimeout(performScroll, 300);
+
+        return () => {
+          cancelAnimationFrame(rafId);
+          clearTimeout(t1);
+          clearTimeout(t2);
+          clearTimeout(t3);
+        };
+      }
+    }
+  }, [selectedConv?.id, loadingMessages, convMessages.length]);
+
   // ── Build a ConvItem from raw API data ─────────────────────────
   const buildConv = useCallback((conv: any, platform: 'instagram' | 'facebook'): ConvItem => {
     const lastMsg  = conv.messages?.data?.[0];
@@ -383,7 +420,7 @@ export default function MensajesDMPage() {
     setReplyText('');
     setReplyError(null);
     try {
-      const res = await metaAds.getConversationMessages(conv.id, 15, fbPageId);
+      const res = await metaAds.getConversationMessages(conv.id, 25, fbPageId);
       const msgs = (res?.data || []).reverse();
       setConvMessages(msgs);
 
@@ -422,11 +459,6 @@ export default function MensajesDMPage() {
         setMsgNextCursor(before);
         setMsgHasMore(true);
       }
-      // scroll to bottom
-      setTimeout(() => {
-        if (messagesContainerRef.current)
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      }, 50);
     } catch {
       setConvMessages(conv.rawItem?.messages?.data
         ? [...conv.rawItem.messages.data].reverse()
@@ -444,7 +476,7 @@ export default function MensajesDMPage() {
     const prevScrollHeight = container?.scrollHeight || 0;
     try {
       // Use the before cursor to get older messages
-      const res = await metaAds.getConversationMessages(selectedConv.id, 15, fbPageId);
+      const res = await metaAds.getConversationMessages(selectedConv.id, 25, fbPageId);
       if (res?.data) {
         const older = [...res.data].reverse();
         setConvMessages(prev => [...older, ...prev]);

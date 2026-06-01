@@ -215,6 +215,11 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
     label.toLowerCase().includes("ingreso") ||
     label.toLowerCase().includes("inversión") ||
     label.toLowerCase().includes("retorno");
+  const isCostLabel =
+    label.toLowerCase().includes("costo") ||
+    label.toLowerCase().includes("cpl") ||
+    label.toLowerCase().includes("cpc") ||
+    label.toLowerCase().includes("cpa");
   const isRoasLabel = label.toLowerCase().includes("roas");
 
   const fmtVal = (v: number) => {
@@ -222,6 +227,8 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
     if (isPercentLabel) return `${v.toFixed(2)}%`;
     if (isMoneyLabel)
       return `$${v >= 1000 ? (v / 1000).toFixed(1) + "k" : v.toFixed(0)}`;
+    if (isCostLabel)
+      return `$${v.toFixed(2)}`;
     if (isRoasLabel) return `${v.toFixed(2)}x`;
     if (v >= 1000) return (v / 1000).toFixed(1) + "k";
     return v.toFixed(v < 10 ? 2 : 0);
@@ -334,12 +341,19 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
                     label.toLowerCase().includes("ingreso") ||
                     label.toLowerCase().includes("inversión") ||
                     label.toLowerCase().includes("retorno");
+                  const isCost =
+                    label.toLowerCase().includes("costo") ||
+                    label.toLowerCase().includes("cpl") ||
+                    label.toLowerCase().includes("cpc") ||
+                    label.toLowerCase().includes("cpa");
                   const isPercentage = label.toLowerCase().includes("tasa");
                   const isRoas = label.toLowerCase().includes("roas");
                   const fmtTooltip = (v: number) => {
                     if (typeof v !== "number") return String(v ?? "—");
                     if (isMoney)
                       return `$ ${v.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+                    if (isCost)
+                      return `$ ${v.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                     if (isPercentage) return `${v.toFixed(2)}%`;
                     if (isRoas) return `${v.toFixed(2)}x`;
                     return v.toLocaleString("es-AR", {
@@ -1677,7 +1691,7 @@ export default function DashboardPage() {
                       <ShopifyMetric
                         icon={DollarSign}
                         label="CPL"
-                        value={`$ ${((currentMeta.leads ? currentMeta.spend / currentMeta.leads : 0)).toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
+                        value={`$ ${((currentMeta.leads ? currentMeta.spend / currentMeta.leads : 0)).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 0}`}
                         change={getMetaChange(
                           currentMeta?.leads ? currentMeta.spend / currentMeta.leads : 0, 
                           prevMeta?.leads ? prevMeta.spend / prevMeta.leads : 0
@@ -1707,7 +1721,7 @@ export default function DashboardPage() {
                       <ShopifyMetric
                         icon={DollarSign}
                         label="Costo x Msj"
-                        value={`$ ${((currentMeta.messages ? currentMeta.spend / currentMeta.messages : 0)).toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
+                        value={`$ ${((currentMeta.messages ? currentMeta.spend / currentMeta.messages : 0)).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 0}`}
                         change={getMetaChange(
                           currentMeta?.messages ? currentMeta.spend / currentMeta.messages : 0, 
                           prevMeta?.messages ? prevMeta.spend / prevMeta.messages : 0

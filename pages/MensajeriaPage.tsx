@@ -696,11 +696,28 @@ export default function MensajeriaPage() {
         if (found) {
           loadMessages(found);
           // Clear query param so it doesn't re-trigger on subsequent updates
-          navigate('/atencion', { replace: true });
+          navigate('/mensajeria', { replace: true });
         }
       }
     }
   }, [conversations, location.search, selected, loadMessages, navigate]);
+
+  // Reset filters when the route is navigated to or the sidebar link is clicked
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hasConvId = params.has('convId');
+
+    setShowPendingOnly(false);
+    setSearch('');
+    setChannelFilter('all');
+    setAssignFilter('all');
+    setSortBy('latest');
+
+    if (!hasConvId) {
+      setSelected(null);
+      setMobileShowChat(false);
+    }
+  }, [location.key]);
 
   // Poll messages of selected conversation every 5s
   useEffect(() => {
@@ -751,9 +768,33 @@ export default function MensajeriaPage() {
     if (selected?.id && !loadingMsgs && messages.length > 0) {
       if (selected.id !== lastScrolledConvId.current) {
         lastScrolledConvId.current = selected.id;
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
+        
+        const performScroll = () => {
+          const container = messagesContainerRef.current;
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+          }
+        };
+
+        // Scroll immediately (in case DOM elements are already available)
+        performScroll();
+
+        // requestAnimationFrame runs before the next repaint
+        const rafId = requestAnimationFrame(() => {
+          performScroll();
+        });
+
+        // Cascading timeouts to handle slow rendering, images, or dynamic layouts
+        const t1 = setTimeout(performScroll, 30);
+        const t2 = setTimeout(performScroll, 100);
+        const t3 = setTimeout(performScroll, 300);
+
+        return () => {
+          cancelAnimationFrame(rafId);
+          clearTimeout(t1);
+          clearTimeout(t2);
+          clearTimeout(t3);
+        };
       }
     }
   }, [selected?.id, loadingMsgs, messages.length]);

@@ -148,14 +148,19 @@ ${fewShotExamples.map((ex, i) => `Example ${i + 1}:
       }
     }
 
+    const formatToWwwLink = (url: string): string => {
+      if (!url) return '';
+      let clean = url.replace(/^https?:\/\//i, '').trim();
+      clean = clean.replace(/^www\./i, '');
+      return `www.${clean}`;
+    };
+
     // 3. Construct the prompt
     // Use the exact website_url saved in the brain as the canonical link.
     // Falls back to constructing from shopify_domain if website_url is not set.
     const cleanDomainForLink = shopify_domain ? shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
     // The canonical site URL: prefer the manually saved website_url from the brain.
-    const canonicalSiteUrl = website_url
-      ? website_url.replace(/\/$/, '')  // trim trailing slash but keep the URL exactly as saved
-      : (cleanDomainForLink ? `https://${cleanDomainForLink}` : '');
+    const canonicalSiteUrl = formatToWwwLink(website_url || cleanDomainForLink);
 
     const productsContext = products.length > 0
       ? `Catálogo de productos de la tienda:\n${products.map(p => {
@@ -183,7 +188,7 @@ ${fewShotExamples.map((ex, i) => `Example ${i + 1}:
       : 'No hay catálogo de productos de Shopify configurado.';
 
     const linksContext = clientLinks.length > 0
-      ? `Enlaces directos y páginas de interés del sitio web:\n${clientLinks.map(l => `- Para "${l.title}": usar el enlace EXACTO: ${l.url}`).join('\n')}`
+      ? `Enlaces directos y páginas de interés del sitio web:\n${clientLinks.map(l => `- Para "${l.title}": usar el enlace EXACTO: ${formatToWwwLink(l.url)}`).join('\n')}`
       : 'No hay enlaces directos personalizados configurados en car_links.';
 
     // DM conversation history context (last 15 messages)
@@ -217,7 +222,7 @@ ${brainContext ? `Conocimiento adicional del negocio (Cerebro):\n${brainContext}
 ${fewShotContext ? `\n${fewShotContext}\n` : ''}
 
 Rules:
-1. ${isDM ? 'Be conversational, premium, and helpful. You can use 1-3 sentences for DMs.' : 'Be extremely concise (maximum 1 or 2 sentences).'}
+1. ${isDM ? 'Be conversational, premium, and helpful. You MUST dynamically match the length, detail, and tone of the recent conversation history block.' : 'Be extremely concise (maximum 1 or 2 sentences).'}
 2. If they ask about a specific product, availability, price, or how to buy:
    - Check the Shopify products catalog context above. If a product matches, recommend it and include EXACTLY the corresponding link: ${canonicalSiteUrl}/products/[product-handle]. Do not invent handles.
    - If they ask about a specific product that is NOT present in the catalog listed above, you MUST explicitly state that the product is currently not available or not in stock, and invite them to browse the online store at ${canonicalSiteUrl} or offer a matching category link from the custom links context.
@@ -226,7 +231,11 @@ Rules:
    - If there is no specific matching link in the custom links list but there is information in the business brain, explain it briefly and invite them to use the main store URL: ${canonicalSiteUrl}.
 4. Do not use placeholders like [price] or [link]. The reply must be ready to send.
 5. Output ONLY the final drafted text, without explanations, quotes, or prefixes.
-${isDM ? '6. CRITICAL: Analyze the conversation history block above. Identify what has already been discussed or offered (such as previous product recommendations, shipping info, or links). Do NOT repeat explanations, greetings, or links that have already been sent in the recent messages. Build upon the previous agent responses and answer the customer\'s latest query/need directly. Also, analyze the length, style, and dynamics of the messages in the history (e.g., if the user and agent have been exchanging short, brief messages, keep your reply short and direct; if they are exchanging detailed, longer paragraphs, write a similarly detailed response). Match the length and style of the conversation naturally.' : ''}`;
+6. ${isDM ? 'CRITICAL HISTORY RULES:\n   - Analyze the conversation history block above. Do NOT repeat facts, product recommendations, explanations, or links that were already offered or sent in recent messages.\n   - GREETING POLICY: Check if the brand has already greeted the customer in the history block (e.g., said "Hola", "Buenas", "Cómo va?", etc.). If we already greeted them or have been actively chatting, DO NOT start this message with a greeting or intro phrase (like "Hola!", "Buenas tardes!", or "Hola @username!"). Go straight to answering their latest query or continuing the flow.\n   - DYNAMIC LENGTH & STYLE: Carefully match the length, style, and dynamics of the recent history. If the customer and agent have been exchanging short, quick messages, keep your reply very short (under 10-15 words). If the history shows detailed, longer paragraph exchanges, match that detail naturally.\n   - TONE: Keep the tone highly natural, fluid, and strictly use Argentine Spanish voseo ("vos", "tenés", "mirá", "escribime", etc.) when replying in Spanish.' : ''}
+7. CRITICAL URL FORMATTING:
+   - Every single website link, product URL, or domain name you output MUST start with "www." (e.g. use "www.brand.com", "www.brand.com/products/handle", "www.brand.com/contacto").
+   - NEVER include any protocol prefix like "https://" or "http://" in any URL or link.
+   - Ensure the link is written exactly as "www.domain.com/path".`;
 
 
     // 4. Call AI API — Gemini 2.0 Flash preferred, fallback to OpenAI gpt-4o-mini

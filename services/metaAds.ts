@@ -582,6 +582,14 @@ export const metaAds = {
       until: String(until),
     }).catch(() => null),
 
+  getIgOrganicInsights: (igId: string, since: number, until: number) =>
+    apiGetPageActive(`${igId}/insights`, {
+      metric: 'reach,impressions,profile_views',
+      period: 'day',
+      since: String(since),
+      until: String(until),
+    }).catch(() => null),
+
   getFbPageInsights: (pageId: string, since: number, until: number) =>
     apiGetPage(pageId, `${pageId}/insights`, {
       metric: 'page_fans',
@@ -589,6 +597,15 @@ export const metaAds = {
       since: String(since),
       until: String(until),
     }).catch(() => null),
+
+  getFbOrganicInsights: (pageId: string, since: number, until: number) =>
+    apiGetPage(pageId, `${pageId}/insights`, {
+      metric: 'page_impressions,page_engaged_users',
+      period: 'day',
+      since: String(since),
+      until: String(until),
+    }).catch(() => null),
+
 
   // ── CONVERSATIONS (DMs) ──────────────────────────────────
 
