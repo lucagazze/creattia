@@ -1210,12 +1210,12 @@ export default function MensajeriaPage() {
         {/* Left Section: Status filter + Channel Filter Pills (Desktop only) */}
         <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
           {[
-            { key: 'all',       label: 'Todos',     icon: Inbox,          activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white text-white dark:text-zinc-950',       badgeClass: 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900', inactiveClass: 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200',               inactiveBadge: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550' },
-            { key: 'whatsapp',  label: 'WhatsApp',  icon: MessageCircle,  activeClass: 'bg-green-500 border-green-500 text-white',                                                          badgeClass: 'bg-white/25 text-white',                                     inactiveClass: 'border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30', inactiveBadge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
-            { key: 'instagram', label: 'Instagram', icon: Instagram,       activeClass: 'bg-pink-500 border-pink-500 text-white',                                                            badgeClass: 'bg-white/25 text-white',                                     inactiveClass: 'border-pink-200 dark:border-pink-900/50 text-pink-600 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-950/30',   inactiveBadge: 'bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400' },
-            { key: 'facebook',  label: 'Facebook',  icon: Facebook,        activeClass: 'bg-blue-600 border-blue-600 text-white',                                                            badgeClass: 'bg-white/25 text-white',                                     inactiveClass: 'border-blue-200 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30',   inactiveBadge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400' },
-            { key: 'email',     label: 'Email',     icon: Mail,             activeClass: 'bg-sky-500 border-sky-500 text-white',                                                              badgeClass: 'bg-white/25 text-white',                                     inactiveClass: 'border-sky-200 dark:border-sky-900/50 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30',         inactiveBadge: 'bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400' },
-            { key: 'other',     label: 'Otros',     icon: Globe,            activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white text-white dark:text-zinc-950',       badgeClass: 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900', inactiveClass: 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200',               inactiveBadge: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550' },
+            { key: 'all',       label: 'Todos',     icon: Inbox,         activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-zinc-100 dark:border-zinc-100 text-white dark:text-zinc-900', iconColor: '' },
+            { key: 'whatsapp',  label: 'WhatsApp',  icon: MessageCircle, activeClass: 'bg-green-500 border-green-500 text-white',                                                         iconColor: 'text-green-500' },
+            { key: 'instagram', label: 'Instagram', icon: Instagram,     activeClass: 'bg-pink-500 border-pink-500 text-white',                                                           iconColor: 'text-pink-500' },
+            { key: 'facebook',  label: 'Facebook',  icon: Facebook,      activeClass: 'bg-blue-600 border-blue-600 text-white',                                                           iconColor: 'text-blue-500' },
+            { key: 'email',     label: 'Email',     icon: Mail,          activeClass: 'bg-sky-500 border-sky-500 text-white',                                                             iconColor: 'text-sky-500' },
+            { key: 'other',     label: 'Otros',     icon: Globe,         activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-zinc-100 dark:border-zinc-100 text-white dark:text-zinc-900', iconColor: '' },
           ].filter(ch => isChannelActive(ch.key)).map(ch => {
             const Icon = ch.icon;
             const isActive = channelFilter === ch.key;
@@ -1225,13 +1225,17 @@ export default function MensajeriaPage() {
                 key={ch.key}
                 onClick={() => setChannelFilter(ch.key as any)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all duration-200 whitespace-nowrap border ${
-                  isActive ? `${ch.activeClass} shadow-sm` : `bg-white dark:bg-zinc-900 ${ch.inactiveClass}`
+                  isActive
+                    ? `${ch.activeClass} shadow-sm`
+                    : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? '' : ch.iconColor}`} />
                 <span>{ch.label}</span>
                 {count > 0 && (
-                  <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${isActive ? ch.badgeClass : ch.inactiveBadge}`}>
+                  <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${
+                    isActive ? 'bg-white/20 text-white dark:bg-black/10 dark:text-inherit' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
+                  }`}>
                     {count}
                   </span>
                 )}
