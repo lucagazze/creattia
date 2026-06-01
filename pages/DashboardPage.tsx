@@ -495,13 +495,13 @@ export default function DashboardPage() {
   const [calMonth, setCalMonth] = useState(nowD.getMonth());
   const [currentMeta, setCurrentMeta] = useState<any>(null);
   const [prevMeta, setPrevMeta] = useState<any>(null);
-  const [fetchingMeta, setFetchingMeta] = useState(false);
+  const [fetchingMeta, setFetchingMeta] = useState(true);
   const [currentKlaviyo, setCurrentKlaviyo] = useState<any>(null);
   const [prevKlaviyo, setPrevKlaviyo] = useState<any>(null);
-  const [fetchingKlaviyo, setFetchingKlaviyo] = useState(false);
+  const [fetchingKlaviyo, setFetchingKlaviyo] = useState(true);
   const [currentStore, setCurrentStore] = useState<any>(null);
   const [prevStore, setPrevStore] = useState<any>(null);
-  const [fetchingStore, setFetchingStore] = useState(false);
+  const [fetchingStore, setFetchingStore] = useState(true);
   const [historical90d, setHistorical90d] = useState<any[]>([]);
   const [fetching90d, setFetching90d] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -625,8 +625,10 @@ export default function DashboardPage() {
           !prof?.ecommerce_platform ||
           !prof?.shopify_domain ||
           !prof?.shopify_access_token
-        )
+        ) {
+          setFetchingStore(false);
           return;
+        }
         setFetchingStore(true);
         try {
           const [currStore, prevStoreData] = await Promise.all([
@@ -658,7 +660,10 @@ export default function DashboardPage() {
       };
 
       const fetchMeta = async () => {
-        if (!profile?.meta_account_id) return;
+        if (!profile?.meta_account_id) {
+          setFetchingMeta(false);
+          return;
+        }
         setFetchingMeta(true);
         try {
           const [rawDaily, rawPrevDaily] = await Promise.all([
@@ -776,7 +781,10 @@ export default function DashboardPage() {
       };
 
       const fetchKlaviyo = async () => {
-        if (!profile?.klaviyo_api_key) return;
+        if (!profile?.klaviyo_api_key) {
+          setFetchingKlaviyo(false);
+          return;
+        }
         setFetchingKlaviyo(true);
         try {
           const [curr, prev] = await Promise.all([

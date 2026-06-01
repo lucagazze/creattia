@@ -61,7 +61,7 @@ export default function RetencionPage() {
   const [calMonth, setCalMonth] = useState(d1.getMonth());
   const [hovering, setHovering] = useState<string | null>(null);
 
-  const [fetchingKlaviyo, setFetchingKlaviyo] = useState(false);
+  const [fetchingKlaviyo, setFetchingKlaviyo] = useState(true);
   const [fetchingDetailed, setFetchingDetailed] = useState(false);
   const [currentKlaviyo, setCurrentKlaviyo] = useState<any>(null);
   const [prevKlaviyo, setPrevKlaviyo] = useState<any>(null);
@@ -77,7 +77,11 @@ export default function RetencionPage() {
   const fetchIdRef = useRef(0);
 
   const fetchData = async (_preset: string, since: string, until: string, fetchId: number) => {
-    if (!since || !until || !profile?.klaviyo_api_key) return;
+    if (!since || !until || !profile?.klaviyo_api_key) {
+      setFetchingKlaviyo(false);
+      setFetchingDetailed(false);
+      return;
+    }
     const key = profile.klaviyo_api_key;
     const prevRange = getPrevPeriod(since, until);
 

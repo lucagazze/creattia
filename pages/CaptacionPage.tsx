@@ -80,7 +80,7 @@ export default function CaptacionPage() {
   const [hoveredLine, setHoveredLine] = useState<string | null>(null);
 
   // Data State
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [daily, setDaily] = useState<any[]>([]);
   const [prevDaily, setPrevDaily] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
@@ -147,7 +147,10 @@ export default function CaptacionPage() {
   const fetchIdRef = useRef(0);
 
   const fetchAll = async (fetchId: number) => {
-    if (!profile?.meta_account_id) return;
+    if (!profile?.meta_account_id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setSummary(null);
     setPrevSummary(null);
