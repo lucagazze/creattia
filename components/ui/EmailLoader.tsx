@@ -66,7 +66,7 @@ export default function EmailLoader({ loading, color = '#10b981', labels = ['Ent
   return (
     <div className="bg-white dark:bg-[#111113] rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_24px_rgba(0,0,0,0.02)] overflow-hidden">
       {/* Same height as the metric cards */}
-      <div className="grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+      <div className="grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto overflow-hidden scrollbar-hide">
         {labels.map((label, i) => (
           <div
             key={label}

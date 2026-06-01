@@ -9,7 +9,7 @@ import {
   RefreshCw, AlertCircle, Loader2, Send, Sparkles,
   Search, CheckCircle, Clock, Inbox, ExternalLink, Bot,
   Globe, Facebook, Instagram, MessageCircle, Mail,
-  BookOpen, ShoppingBag, Plus, Trash2, Link, Mic, ChevronLeft, X
+  BookOpen, ShoppingBag, Plus, Trash2, Link, Mic, ChevronLeft, X, Play
 } from 'lucide-react';
 import { AppleLoader } from '../components/ui/AppleLoader';
 
@@ -51,7 +51,7 @@ const fmtSeconds = (s: number) => {
   return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m` : `${Math.round(s)}s`;
 };
 
-const renderMessageContent = (msg: any, contactName = 'Cliente', onImageClick?: (url: string) => void) => {
+const renderMessageContent = (msg: any, contactName = 'Cliente', onImageClick?: (url: string) => void, onVideoClick?: (url: string) => void) => {
   if (!msg) return null;
 
   // 1. Check if it's an email content type with HTML content
@@ -138,8 +138,18 @@ const renderMessageContent = (msg: any, contactName = 'Cliente', onImageClick?: 
 
             if (fType.includes('video') || url.match(/\.(mp4|webm|mov|avi)/i)) {
               return (
-                <div key={idx} className="max-w-xs mt-1">
-                  <video src={url} controls className="max-h-48 rounded-xl border border-zinc-200 dark:border-zinc-700" />
+                <div 
+                  key={idx} 
+                  className="relative group max-w-xs mt-1 cursor-pointer overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-950 flex items-center justify-center"
+                  onClick={() => onVideoClick?.(url)}
+                >
+                  <video src={url} className="max-h-48 pointer-events-none object-cover opacity-85" />
+                  {/* Centered Play button overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/35 hover:bg-black/45 transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-white/95 dark:bg-zinc-900/95 shadow-lg flex items-center justify-center text-zinc-900 dark:text-white transform group-hover:scale-105 transition-transform duration-200">
+                      <Play className="w-5 h-5 fill-current ml-0.5" />
+                    </div>
+                  </div>
                 </div>
               );
             }
@@ -212,6 +222,7 @@ export default function MensajeriaPage() {
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const [swipeTouchStartX, setSwipeTouchStartX] = useState<number | null>(null);
   const [activeImagePreview, setActiveImagePreview] = useState<string | null>(null);
+  const [activeVideoPreview, setActiveVideoPreview] = useState<string | null>(null);
   
   // Sidebar State Variables
   const [showSidebar, setShowSidebar] = useState(false);
@@ -1842,7 +1853,7 @@ export default function MensajeriaPage() {
                               ? `bg-blue-600 text-white shadow-sm ${msg.pending ? 'opacity-60' : ''}`
                               : 'bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 shadow-sm'
                         }`}>
-                          {renderMessageContent(msg, contact(selected).name, setActiveImagePreview)}
+                          {renderMessageContent(msg, contact(selected).name, setActiveImagePreview, setActiveVideoPreview)}
                           {failedMsgIds.has(msg.id) && (
                             <div className="flex items-center gap-1 mt-1 text-[10px] text-red-500 font-bold">
                               <AlertCircle className="w-3 h-3" /> Error al enviar
@@ -2070,11 +2081,14 @@ export default function MensajeriaPage() {
         </div>
       )}
 
-      {/* Keyboard listener for Escape to close image preview */}
+      {/* Keyboard listener for Escape to close image/video preview */}
       {(() => {
         React.useEffect(() => {
           const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setActiveImagePreview(null);
+            if (e.key === 'Escape') {
+              setActiveImagePreview(null);
+              setActiveVideoPreview(null);
+            }
           };
           window.addEventListener('keydown', handleKeyDown);
           return () => window.removeEventListener('keydown', handleKeyDown);
@@ -2102,6 +2116,32 @@ export default function MensajeriaPage() {
               src={activeImagePreview} 
               alt="Preview" 
               className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl border border-white/10"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Video Preview Modal */}
+      {activeVideoPreview && (
+        <div 
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setActiveVideoPreview(null)}
+        >
+          <button 
+            onClick={() => setActiveVideoPreview(null)} 
+            className="absolute top-4 right-4 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-105 active:scale-95 z-50"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div 
+            className="relative max-w-full max-h-full flex items-center justify-center animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <video 
+              src={activeVideoPreview} 
+              controls 
+              autoPlay
+              className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl border border-white/10 bg-black"
             />
           </div>
         </div>

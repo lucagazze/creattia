@@ -148,7 +148,7 @@ export default function CostosPage() {
 
   // State values
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
-  const [variantCosts, setVariantCosts] = useState<Record<string, { cost: number; packagingCost: number }>>({});
+  const [variantCosts, setVariantCosts] = useState<Record<string, { cost: number; packagingCost: number; lastUpdated?: string; vcLastUpdated?: string }>>({});
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(null);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -204,13 +204,14 @@ export default function CostosPage() {
 
     setLoadingProducts(true);
     try {
-      const cleanDomain = profile.shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const shopifyDomain = profile?.shopify_domain || '';
+      const cleanDomain = shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
       const url = `/api/shopify/products.json?limit=100`;
       const response = await fetch(url, {
         headers: {
           'x-shopify-domain': cleanDomain,
-          'x-shopify-access-token': profile.shopify_access_token
-        }
+          'x-shopify-access-token': profile?.shopify_access_token || ''
+        } as Record<string, string>
       });
       if (response.ok) {
         const data = await response.json();
@@ -501,7 +502,7 @@ export default function CostosPage() {
 
   const toggleGatewayStatus = (gatewayKey: string) => {
     const nextStatus = gateways[gatewayKey] === 'configured' ? 'pending' : 'configured';
-    const updatedGateways = {
+    const updatedGateways: Record<string, 'pending' | 'configured'> = {
       ...gateways,
       [gatewayKey]: nextStatus
     };
@@ -1109,7 +1110,9 @@ export default function CostosPage() {
                     <div>
                       <h5 className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                         Fees de TiendaNube (CPT)
-                        <HelpCircle className="w-3.5 h-3.5 text-zinc-400 cursor-help" title="Cost por transacción cobrado por la plataforma" />
+                        <span title="Cost por transacción cobrado por la plataforma">
+                          <HelpCircle className="w-3.5 h-3.5 text-zinc-400 cursor-help" />
+                        </span>
                       </h5>
                       <p className="text-[10px] text-zinc-400 mt-0.5">0% (IVA incl.)</p>
                     </div>
@@ -1132,7 +1135,9 @@ export default function CostosPage() {
                     <div>
                       <h5 className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                         Fees de Shopify
-                        <HelpCircle className="w-3.5 h-3.5 text-zinc-400 cursor-help" title="Comisión de pasarela según plan de Shopify" />
+                        <span title="Comisión de pasarela según plan de Shopify">
+                          <HelpCircle className="w-3.5 h-3.5 text-zinc-400 cursor-help" />
+                        </span>
                       </h5>
                       <p className="text-[10px] text-zinc-400 mt-0.5">Comisión adicional por pasarelas externas</p>
                     </div>
@@ -1155,7 +1160,9 @@ export default function CostosPage() {
                     <div>
                       <h5 className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                         IIBB (Tiendanube y MercadoLibre)
-                        <HelpCircle className="w-3.5 h-3.5 text-zinc-400 cursor-help" title="Retenciones provinciales aplicadas en cobros" />
+                        <span title="Retenciones provinciales aplicadas en cobros">
+                          <HelpCircle className="w-3.5 h-3.5 text-zinc-400 cursor-help" />
+                        </span>
                       </h5>
                       <p className="text-[10px] text-zinc-400 mt-0.5">Impuesto sobre Ingresos Brutos</p>
                     </div>

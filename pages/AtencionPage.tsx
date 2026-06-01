@@ -637,7 +637,7 @@ export default function AtencionPage() {
             labels={['Conversaciones Totales', 'Mensajes Entrantes', 'Mensajes Salientes', 'Tiempo Resp. Promedio', 'Tiempo Res. Promedio', 'Conversaciones Resueltas']}
           >
             {summaryData ? (
-              <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+              <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                 {METRICS_CONFIG.map((metric) => {
               const val = Number(summaryData[metric.key] || 0);
               const prevVal = Number(prevSummaryData[metric.key] || 0);
