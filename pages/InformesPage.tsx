@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { 
-  TrendingUp, Instagram, ArrowUpRight, ArrowDownRight, 
-  Calendar, ChevronDown, ThumbsUp, MessageCircle, 
-  Layers, Video, Image as ImageIcon, Facebook, Info, 
-  BarChart2, RefreshCw, FileText, Download, Users, Activity
+import {
+  TrendingUp, Instagram, ArrowUpRight,
+  Calendar, ChevronDown, ThumbsUp, MessageCircle,
+  Image as ImageIcon, Facebook, Info,
+  BarChart2, RefreshCw, FileText, Download, Users
 } from 'lucide-react';
 import { metaAds, DatePreset, presetToRange, getPrevPeriod, today } from '../services/metaAds';
 import { 
@@ -29,25 +29,20 @@ const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
 ];
 
 const IG_METRICS_CONFIG = [
-  { key: 'followers',     label: 'Seguidores',      icon: Users,      color: '#ec4899' },
-  { key: 'growth',        label: 'Crecimiento',      icon: TrendingUp, color: '#8b5cf6' },
-  { key: 'interactions',  label: 'Interacciones',    icon: ThumbsUp,   color: '#f59e0b' },
-  { key: 'engagement',    label: 'Engagement Prom.', icon: BarChart2,  color: '#10b981' },
-  { key: 'reach',         label: 'Alcance Orgánico', icon: Activity,   color: '#3b82f6' },
-  { key: 'impressions',   label: 'Impresiones',      icon: Layers,     color: '#6366f1' },
-  { key: 'profile_views', label: 'Visitas al Perfil',icon: ImageIcon,  color: '#14b8a6' },
+  { key: 'followers',    label: 'Seguidores',      icon: Users,      color: '#ec4899' },
+  { key: 'posts',        label: 'Publicaciones',   icon: ImageIcon,  color: '#8b5cf6' },
+  { key: 'interactions', label: 'Interacciones',   icon: ThumbsUp,   color: '#f59e0b' },
+  { key: 'engagement',   label: 'Engagement',      icon: BarChart2,  color: '#10b981' },
 ] as const;
 
 const FB_METRICS_CONFIG = [
-  { key: 'followers',     label: 'Fans',             icon: Users,      color: '#3b82f6' },
-  { key: 'growth',        label: 'Crecimiento',      icon: TrendingUp, color: '#8b5cf6' },
-  { key: 'interactions',  label: 'Interacciones',    icon: ThumbsUp,   color: '#f59e0b' },
-  { key: 'engagement',    label: 'Engagement Prom.', icon: BarChart2,  color: '#10b981' },
-  { key: 'reach',         label: 'Alcance Orgánico', icon: Activity,   color: '#60a5fa' },
-  { key: 'impressions',   label: 'Impresiones',      icon: Layers,     color: '#6366f1' },
+  { key: 'followers',    label: 'Seguidores',      icon: Users,      color: '#3b82f6' },
+  { key: 'posts',        label: 'Publicaciones',   icon: ImageIcon,  color: '#8b5cf6' },
+  { key: 'interactions', label: 'Interacciones',   icon: ThumbsUp,   color: '#f59e0b' },
+  { key: 'engagement',   label: 'Engagement',      icon: BarChart2,  color: '#10b981' },
 ] as const;
 
-type SocialMetricKey = 'followers' | 'growth' | 'interactions' | 'engagement' | 'reach' | 'impressions' | 'profile_views';
+type SocialMetricKey = 'followers' | 'posts' | 'interactions' | 'engagement';
 
 const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
   const touchStart = useRef<number>(0);
@@ -128,11 +123,6 @@ export default function InformesPage() {
   const [error, setError] = useState<string | null>(null);
   const [fbError, setFbError] = useState<string | null>(null);
 
-  // Meta Insights Data States
-  const [igOrganicInsights, setIgOrganicInsights] = useState<any>(null);
-  const [fbOrganicInsights, setFbOrganicInsights] = useState<any>(null);
-  const [igOrganicInsightsPrev, setIgOrganicInsightsPrev] = useState<any>(null);
-  const [fbOrganicInsightsPrev, setFbOrganicInsightsPrev] = useState<any>(null);
 
   // Media Feed States
   const [igMedia, setIgMedia] = useState<any[]>([]);
@@ -189,47 +179,33 @@ export default function InformesPage() {
         if (igRes) setIgProfile(igRes);
         if (fbRes) setFbProfile(fbRes);
 
-        // 2. Perform daily snapshot upsert
-        const todayStr = today();
-        const snap: any = { client_id: clientId, snapshot_date: todayStr };
-        if (igRes?.followers_count) snap.ig_followers = igRes.followers_count;
-        if (igRes?.follows_count) snap.ig_following = igRes.follows_count;
-        if (igRes?.media_count) snap.ig_posts = igRes.media_count;
-        if (fbRes?.fan_count) snap.fb_fans = fbRes.fan_count;
-        if (fbRes?.followers_count) snap.fb_followers = fbRes.followers_count;
+        // 2. Persist daily snapshot (silently — table may not exist yet)
+        try {
+          const todayStr = today();
+          const snap: any = { client_id: clientId, snapshot_date: todayStr };
+          if (igRes?.followers_count) snap.ig_followers = igRes.followers_count;
+          if (igRes?.follows_count)   snap.ig_following = igRes.follows_count;
+          if (igRes?.media_count)     snap.ig_posts     = igRes.media_count;
+          if (fbRes?.fan_count)       snap.fb_fans      = fbRes.fan_count;
+          if (fbRes?.followers_count) snap.fb_followers = fbRes.followers_count;
 
-        if (snap.ig_followers || snap.fb_fans) {
-          await supabase.from('car_social_snapshots').upsert(snap, { onConflict: 'client_id,snapshot_date' });
+          if (snap.ig_followers || snap.fb_fans) {
+            await supabase.from('car_social_snapshots').upsert(snap, { onConflict: 'client_id,snapshot_date' });
+          }
+
+          const { data: snaps } = await supabase
+            .from('car_social_snapshots')
+            .select('snapshot_date, ig_followers, ig_following, ig_posts, fb_fans, fb_followers')
+            .eq('client_id', clientId)
+            .gte('snapshot_date', prevRange.since)
+            .lte('snapshot_date', range.until)
+            .order('snapshot_date', { ascending: true });
+          setSocialSnapshots(snaps || []);
+        } catch {
+          // snapshot table unavailable — metrics still work from live API data
         }
 
-        // 3. Fetch snapshots for the current period + previous period in a single query
-        const { data: snaps } = await supabase
-          .from('car_social_snapshots')
-          .select('snapshot_date, ig_followers, ig_following, ig_posts, fb_fans, fb_followers, tiktok_followers')
-          .eq('client_id', clientId)
-          .gte('snapshot_date', prevRange.since)
-          .lte('snapshot_date', range.until)
-          .order('snapshot_date', { ascending: true });
-        
-        setSocialSnapshots(snaps || []);
-
-        // 4. Fetch Meta Insights
-        const [igInsights, fbInsights] = await Promise.all([
-          igId ? metaAds.getIgOrganicInsights(igId, Math.floor(new Date(range.since).getTime() / 1000), Math.floor(new Date(range.until).getTime() / 1000)).catch(() => null) : null,
-          fbPageId ? metaAds.getFbOrganicInsights(fbPageId, Math.floor(new Date(range.since).getTime() / 1000), Math.floor(new Date(range.until).getTime() / 1000)).catch(() => null) : null,
-        ]);
-        setIgOrganicInsights(igInsights);
-        setFbOrganicInsights(fbInsights);
-
-        // Fetch prev period insights as well for comparisons
-        const [igInsightsPrev, fbInsightsPrev] = await Promise.all([
-          igId ? metaAds.getIgOrganicInsights(igId, Math.floor(new Date(prevRange.since).getTime() / 1000), Math.floor(new Date(prevRange.until).getTime() / 1000)).catch(() => null) : null,
-          fbPageId ? metaAds.getFbOrganicInsights(fbPageId, Math.floor(new Date(prevRange.since).getTime() / 1000), Math.floor(new Date(prevRange.until).getTime() / 1000)).catch(() => null) : null,
-        ]);
-        setIgOrganicInsightsPrev(igInsightsPrev);
-        setFbOrganicInsightsPrev(fbInsightsPrev);
-
-        // 5. Fetch Meta Feed for post-level analysis (up to 50 posts)
+        // 3. Fetch Meta Feed for post-level analysis (up to 50 posts)
         const [igMediaRes, fbFeedRes] = await Promise.all([
           igId ? metaAds.getInstagramMedia(igId, 50).catch(() => []) : [],
           fbPageId ? metaAds.getFacebookPageFeed(fbPageId, 50).catch((err: any) => { setFbError(err.message || String(err)); return []; }) : [],
@@ -360,25 +336,6 @@ export default function InformesPage() {
     const prevEngagementRate = prevPostsCount > 0 ? (prevAvgEngagementPerPost / prevFollowersReference) * 100 : 0;
     const engagementRateChangePct = getChange(engagementRate, prevEngagementRate);
 
-    // Meta API Insights Metrics (Reach & Impressions)
-    const insights = isIg ? igOrganicInsights : fbOrganicInsights;
-    const prevInsights = isIg ? igOrganicInsightsPrev : fbOrganicInsightsPrev;
-    const reachMetric = isIg ? 'reach' : 'page_impressions'; // page_impressions maps to impressions
-    
-    const reachVal = sumInsightMetric(insights, reachMetric);
-    const prevReachVal = sumInsightMetric(prevInsights, reachMetric);
-    const reachChangePct = getChange(reachVal, prevReachVal);
-
-    const impressionsMetric = isIg ? 'impressions' : 'page_impressions';
-    const impressionsVal = sumInsightMetric(insights, impressionsMetric);
-    const prevImpressionsVal = sumInsightMetric(prevInsights, impressionsMetric);
-    const impressionsChangePct = getChange(impressionsVal, prevImpressionsVal);
-
-    const viewsMetric = isIg ? 'profile_views' : 'page_engaged_users';
-    const viewsVal = sumInsightMetric(insights, viewsMetric);
-    const prevViewsVal = sumInsightMetric(prevInsights, viewsMetric);
-    const viewsChangePct = getChange(viewsVal, prevViewsVal);
-
     // Top Performing Posts ranking
     const topPostsList = currentPosts
       .map(p => {
@@ -410,26 +367,18 @@ export default function InformesPage() {
       currentFollowers: endFollowers,
       followerGrowth,
       followerGrowthPct,
-      followerGrowthDiff,
       totalInteractions,
       interactionsChangePct,
       postsCount,
       postsChangePct: getChange(postsCount, prevPostsCount),
       engagementRate,
       engagementRateChangePct,
-      reachVal,
-      reachChangePct,
-      impressionsVal,
-      impressionsChangePct,
-      viewsVal,
-      viewsChangePct,
       topPostsList,
       currentSnaps,
     };
   }, [
     activeTab, igProfile, fbProfile, socialSnapshots, range, prevRange,
-    igMedia, fbMedia, igOrganicInsights, fbOrganicInsights,
-    igOrganicInsightsPrev, fbOrganicInsightsPrev
+    igMedia, fbMedia
   ]);
 
   // ─── Per-metric time-series data for MetricDetailChart ───────────────────
@@ -490,7 +439,7 @@ export default function InformesPage() {
     });
 
     const interactions = days.map(d => ({ date: d, val: dayInteractions[d] || 0 }));
-    const postsPerDay = days.map(d => ({ date: d, val: dayPosts[d] || 0 }));
+    const postsPerDay  = days.map(d => ({ date: d, val: dayPosts[d]        || 0 }));
 
     // Engagement rate per day
     const fRef = endFollowers || 1;
@@ -499,26 +448,8 @@ export default function InformesPage() {
       val: dayPosts[d] > 0 ? Number(((dayInteractions[d] / dayPosts[d]) / fRef * 100).toFixed(4)) : 0,
     }));
 
-    // Reach & Impressions from insights daily values
-    const getInsightDailySeries = (insightsRes: any, metricName: string) => {
-      if (!insightsRes?.data) return days.map(d => ({ date: d, val: 0 }));
-      const metric = insightsRes.data.find((m: any) => m.name === metricName);
-      if (!metric?.values) return days.map(d => ({ date: d, val: 0 }));
-      const valMap: Record<string, number> = {};
-      metric.values.forEach((v: any) => { 
-        const d = (v.end_time || v.date || '').split('T')[0]; 
-        if (d) valMap[d] = v.value || 0; 
-      });
-      return days.map(d => ({ date: d, val: valMap[d] || 0 }));
-    };
-
-    const insights = isIg ? igOrganicInsights : fbOrganicInsights;
-    const reachSeries = getInsightDailySeries(insights, isIg ? 'reach' : 'page_impressions');
-    const impressionsSeries = getInsightDailySeries(insights, isIg ? 'impressions' : 'page_impressions');
-    const viewsSeries = getInsightDailySeries(insights, isIg ? 'profile_views' : 'page_engaged_users');
-
-    return { followers, growth, interactions, engagement, reach: reachSeries, impressions: impressionsSeries, profile_views: viewsSeries };
-  }, [activeTab, socialSnapshots, range, igMedia, fbMedia, metrics.currentFollowers, igOrganicInsights, fbOrganicInsights]);
+    return { followers, interactions, engagement, posts: postsPerDay };
+  }, [activeTab, socialSnapshots, range, igMedia, fbMedia, metrics.currentFollowers]);
 
   const prevMetricSeriesData = useMemo(() => {
     const isIg = activeTab === 'instagram';
@@ -532,19 +463,15 @@ export default function InformesPage() {
     const endFollowers = isIg ? (snaps[snaps.length-1]?.ig_followers || 0) : (snaps[snaps.length-1]?.fb_followers || snaps[snaps.length-1]?.fb_fans || 0);
 
     const followerData = snaps.length >= 2 ? snaps.map(s => ({ date: s.snapshot_date, val: isIg ? (s.ig_followers || 0) : (s.fb_followers || s.fb_fans || 0) })) : days.map(d => ({ date: d, val: 0 }));
-    const growth = snaps.length >= 2 ? snaps.map((s, i) => ({ date: s.snapshot_date, val: i === 0 ? 0 : Math.max(0, (isIg ? (s.ig_followers || 0) : (s.fb_followers || s.fb_fans || 0)) - (isIg ? (snaps[i-1].ig_followers || 0) : (snaps[i-1].fb_followers || snaps[i-1].fb_fans || 0))) })) : days.map(d => ({ date: d, val: 0 }));
     const dayInt: Record<string, number> = {}; const dayP: Record<string, number> = {};
     days.forEach(d => { dayInt[d] = 0; dayP[d] = 0; });
     prevPosts.forEach(p => { const d = (p.timestamp || p.created_time || '').split('T')[0]; if (dayInt[d] !== undefined) { dayInt[d] += isIg ? (p.like_count || 0) + (p.comments_count || 0) : (p.likes?.summary?.total_count || 0) + (p.comments?.summary?.total_count || 0); dayP[d] += 1; } });
     const fRef = endFollowers || 1;
     return {
       followers: followerData,
-      growth,
+      posts: days.map(d => ({ date: d, val: dayP[d] || 0 })),
       interactions: days.map(d => ({ date: d, val: dayInt[d] || 0 })),
       engagement: days.map(d => ({ date: d, val: dayP[d] > 0 ? Number(((dayInt[d] / dayP[d]) / fRef * 100).toFixed(4)) : 0 })),
-      reach: days.map(d => ({ date: d, val: 0 })),
-      impressions: days.map(d => ({ date: d, val: 0 })),
-      profile_views: days.map(d => ({ date: d, val: 0 })),
     };
   }, [activeTab, socialSnapshots, prevRange, igMedia, fbMedia]);
 
@@ -795,10 +722,10 @@ export default function InformesPage() {
                   changePct: metrics.followerGrowthPct,
                   trend: metrics.followerGrowthPct >= 0 ? 'up' : 'down',
                 };
-                case 'growth': return {
-                  val: metrics.followerGrowth >= 0 ? `+${fmtN(metrics.followerGrowth)}` : fmtN(metrics.followerGrowth),
-                  changePct: metrics.followerGrowthDiff !== 0 ? undefined : undefined,
-                  trend: metrics.followerGrowth >= 0 ? 'up' : 'down',
+                case 'posts': return {
+                  val: fmtN(metrics.postsCount),
+                  changePct: metrics.postsChangePct,
+                  trend: (metrics.postsChangePct ?? 0) >= 0 ? 'up' : 'down',
                 };
                 case 'interactions': return {
                   val: fmtN(metrics.totalInteractions),
@@ -809,21 +736,6 @@ export default function InformesPage() {
                   val: `${metrics.engagementRate.toFixed(2)}%`,
                   changePct: metrics.engagementRateChangePct,
                   trend: (metrics.engagementRateChangePct ?? 0) >= 0 ? 'up' : 'down',
-                };
-                case 'reach': return {
-                  val: fmtN(metrics.reachVal ?? 0),
-                  changePct: metrics.reachChangePct,
-                  trend: (metrics.reachChangePct ?? 0) >= 0 ? 'up' : 'down',
-                };
-                case 'impressions': return {
-                  val: fmtN(metrics.impressionsVal ?? 0),
-                  changePct: metrics.impressionsChangePct,
-                  trend: (metrics.impressionsChangePct ?? 0) >= 0 ? 'up' : 'down',
-                };
-                case 'profile_views': return {
-                  val: fmtN(metrics.viewsVal ?? 0),
-                  changePct: metrics.viewsChangePct,
-                  trend: (metrics.viewsChangePct ?? 0) >= 0 ? 'up' : 'down',
                 };
                 default: return { val: '—', changePct: undefined, trend: 'up' };
               }
