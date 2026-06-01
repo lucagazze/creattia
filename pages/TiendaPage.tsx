@@ -254,7 +254,6 @@ export default function TiendaPage() {
                 </div>
               )}
           </div>
-          <button onClick={handleExportPDF} className="flex items-center gap-2 px-5 h-11 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full text-[13px] font-bold shadow-lg hover:opacity-90 transition-all"><Download className="w-4 h-4" />Exportar</button>
         </div>
       </div>
 

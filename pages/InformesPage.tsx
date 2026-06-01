@@ -632,25 +632,6 @@ export default function InformesPage() {
             )}
           </div>
 
-          {/* Export PDF Button */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-850 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-2xl text-[12px] font-black shadow-sm transition-all active:scale-95"
-            title="Exportar reporte"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Exportar</span>
-          </button>
-
-          {/* Refresh button */}
-          <button
-            onClick={() => setRefreshKey(k => k + 1)}
-            disabled={loadingSocial}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-[12px] font-black shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
-            title="Actualizar datos"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingSocial ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 

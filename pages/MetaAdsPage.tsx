@@ -324,14 +324,6 @@ export default function MetaAdsPage() {
             <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Anuncios en circulación y su rendimiento — últimos 28 días.</p>
           </div>
         </div>
-        <button
-          onClick={fetchAds}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 h-10 bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-xl text-[13px] font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </button>
       </div>
 
       {/* No account configured */}

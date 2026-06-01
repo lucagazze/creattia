@@ -954,15 +954,6 @@ export default function RedesSocialesPage() {
             )}
           </button>
 
-          <button
-            onClick={() => setRefreshKey(k => k + 1)}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-[12px] font-black shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
-            title="Recargar datos"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Recargar</span>
-          </button>
         </div>
       </div>
 
@@ -1915,14 +1906,6 @@ export default function RedesSocialesPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setPendingLoaded(false); fetchAllPendingComments(); }}
-                  disabled={loadingPending}
-                  className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
-                  title="Recargar"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loadingPending ? 'animate-spin' : ''}`} />
-                </button>
                 <button onClick={() => setShowPendingPanel(false)} className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
                   <X className="w-4 h-4" />
                 </button>

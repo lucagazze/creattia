@@ -614,14 +614,6 @@ export default function ComentariosPage() {
               : 'Todos los comentarios están respondidos'}
           </p>
         </div>
-        <button
-          onClick={() => setRefreshKey(k => k + 1)}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-[12px] font-bold shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all disabled:opacity-50 self-start"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Recargar
-        </button>
       </div>
 
       {/* Filters */}

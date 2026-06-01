@@ -402,16 +402,8 @@ export default function AtencionPage() {
           <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Estadísticas detalladas del rendimiento y volumen de conversaciones en Chatwoot.</p>
         </div>
 
-        {/* Date Selector & Refresh */}
+        {/* Date Selector */}
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => setRefreshKey(prev => prev + 1)}
-            disabled={loading || loadingLive}
-            className="flex items-center justify-center w-11 h-11 bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-            title="Recargar datos"
-          >
-            <Loader2 className={`w-4 h-4 ${(loading || loadingLive) ? 'animate-spin' : ''}`} />
-          </button>
 
           {/* Datepicker trigger */}
           <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-sm h-11 relative" ref={datePickerRef}>
