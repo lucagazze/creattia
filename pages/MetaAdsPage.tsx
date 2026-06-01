@@ -3,7 +3,7 @@ import { metaAds, daysAgo, today } from '../services/metaAds';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import {
-  Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw
+  Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 // ── Creative Preview Modal ─────────────────────────────────────────────
@@ -11,30 +11,50 @@ const CreativePreviewModal = ({ preview, onClose }: {
   preview: { url: string; isVideo: boolean; videoId?: string; adId?: string; creativeId?: string; name?: string; effectiveObjectStoryId?: string; };
   onClose: () => void;
 }) => {
-  const [imgLoaded, setImgLoaded] = React.useState(false);
-  const [videoSrc, setVideoSrc] = React.useState<string | null>(null);
-  const [embedHtml, setEmbedHtml] = React.useState<string | null>(null);
-  const [videoLoading, setVideoLoading] = React.useState(false);
-  const [progress, setProgress] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+  const [mediaData, setMediaData] = React.useState<{
+    type: 'video_source' | 'carousel' | 'image' | 'ad_preview' | 'none';
+    source?: string | null;
+    picture?: string | null;
+    embed_html?: string | null;
+    url?: string | null;
+    cards?: Array<{ url: string; isVideo: boolean; videoSrc?: string; name?: string }>;
+  } | null>(null);
+
+  const [activeIndex, setActiveIndex] = React.useState(0);
 
   React.useEffect(() => {
-    if (!preview.isVideo) return;
-    if (!preview.adId && !preview.creativeId && !preview.videoId) return;
-    setVideoLoading(true); setVideoSrc(null); setEmbedHtml(null);
+    setLoading(true);
+    setMediaData(null);
+    setActiveIndex(0);
+
     const params = new URLSearchParams();
     if (preview.adId) params.set('adId', preview.adId);
     if (preview.creativeId) params.set('creativeId', preview.creativeId);
     if (preview.videoId) params.set('videoId', preview.videoId);
-    fetch(`/api/meta-video?${params}`).then(r => r.ok ? r.json() : null).then(d => { if (d?.source) setVideoSrc(d.source); if (d?.embed_html) setEmbedHtml(d.embed_html); }).catch(() => {}).finally(() => setVideoLoading(false));
-  }, [preview.adId, preview.creativeId, preview.videoId, preview.isVideo]);
 
-  React.useEffect(() => {
-    if (preview.isVideo) return;
-    setImgLoaded(false); setProgress(0);
-    const start = Date.now();
-    const tick = setInterval(() => { setProgress(Math.min(80, ((Date.now() - start) / 2000) * 80)); }, 50);
-    return () => clearInterval(tick);
-  }, [preview.url, preview.isVideo]);
+    fetch(`/api/meta-video?${params}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d && d.type && d.type !== 'none') {
+          setMediaData(d);
+        } else {
+          setMediaData({
+            type: preview.isVideo ? 'ad_preview' : 'image',
+            url: preview.url,
+            embed_html: null
+          });
+        }
+      })
+      .catch(() => {
+        setMediaData({
+          type: preview.isVideo ? 'ad_preview' : 'image',
+          url: preview.url,
+          embed_html: null
+        });
+      })
+      .finally(() => setLoading(false));
+  }, [preview.adId, preview.creativeId, preview.videoId, preview.isVideo, preview.url]);
 
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -42,19 +62,114 @@ const CreativePreviewModal = ({ preview, onClose }: {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  const nextSlide = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!mediaData?.cards) return;
+    setActiveIndex((prev) => (prev + 1) % mediaData.cards!.length);
+  };
+
+  const prevSlide = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!mediaData?.cards) return;
+    setActiveIndex((prev) => (prev - 1 + mediaData.cards!.length) % mediaData.cards!.length);
+  };
+
   return (
     <div className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-black/95 backdrop-blur-md animate-in fade-in duration-150" onClick={onClose}>
-      {!preview.isVideo && !imgLoaded && (<div className="absolute top-0 left-0 right-0 h-[2px] bg-white/5 z-20"><div className="h-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-200 rounded-full" style={{ width: `${progress}%` }} /></div>)}
       <button onClick={onClose} className="absolute top-4 right-4 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all z-20"><X className="w-5 h-5" /></button>
-      {preview.name && (<div className="absolute top-4 left-4 right-16 z-20"><p className="text-white/80 text-[13px] font-bold truncate max-w-[70vw]">{preview.name}</p>{preview.isVideo && (<div className="inline-flex items-center gap-1 mt-1 bg-white/10 px-2 py-0.5 rounded-full"><Film className="w-3 h-3 text-white/60" /><span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Video</span></div>)}</div>)}
+      {preview.name && (
+        <div className="absolute top-4 left-4 right-16 z-20">
+          <p className="text-white/80 text-[13px] font-bold truncate max-w-[70vw]">{preview.name}</p>
+          {preview.isVideo && (
+            <div className="inline-flex items-center gap-1 mt-1 bg-white/10 px-2 py-0.5 rounded-full">
+              <Film className="w-3 h-3 text-white/60" />
+              <span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Video</span>
+            </div>
+          )}
+        </div>
+      )}
       <div className="relative animate-in zoom-in-95 duration-200 flex items-center justify-center" style={{ maxWidth: '90vw', maxHeight: '88vh' }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        {preview.isVideo ? (
-          videoLoading ? (<div className="w-[min(90vw,560px)] h-[min(88vh,420px)] rounded-2xl bg-zinc-900 border border-white/10 flex flex-col items-center justify-center gap-4"><div className="w-12 h-12 rounded-full border-2 border-zinc-700 border-t-violet-500 animate-spin" /><span className="text-[12px] font-bold text-zinc-500">Cargando video...</span></div>)
-          : videoSrc ? (<div className="flex flex-col items-center gap-4"><video src={videoSrc} controls autoPlay playsInline className="rounded-2xl shadow-2xl border border-white/10 bg-black" style={{ maxWidth: '90vw', maxHeight: '70vh', minWidth: 'min(90vw, 400px)' }} /><a href={videoSrc} download={`video-${preview.videoId || 'creative'}.mp4`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-[12.5px] font-bold rounded-full transition-all shadow-lg" onClick={e => e.stopPropagation()}><Download className="w-4 h-4" />Descargar Video</a></div>)
-          : embedHtml ? (<div className="rounded-2xl overflow-hidden shadow-2xl bg-zinc-900 border border-white/10" style={{ width: 'min(90vw, 420px)', maxHeight: '90vh' }} onClick={(e: React.MouseEvent) => e.stopPropagation()} dangerouslySetInnerHTML={{ __html: embedHtml.replace(/width="\d+"/g, 'width="100%"').replace(/width:\s*\d+px/g, 'width:100%').replace(/<iframe/g, '<iframe style="width:100%;max-height:80vh;border:none;"') }} />)
-          : (<div className="flex flex-col items-center gap-4" onClick={(e: React.MouseEvent) => e.stopPropagation()}><div className="relative rounded-2xl overflow-hidden" style={{ maxWidth: 'min(90vw, 500px)' }}><img src={preview.url} alt={preview.name} className="w-full rounded-2xl shadow-2xl border border-white/10" style={{ maxHeight: '70vh', objectFit: 'contain' }} /><div className="absolute inset-0 bg-black/50 flex items-center justify-center"><div className="w-16 h-16 rounded-full bg-white/10 border border-white/30 flex items-center justify-center backdrop-blur-sm"><svg className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div></div><a href={preview.effectiveObjectStoryId ? (preview.effectiveObjectStoryId.includes('_') ? (() => { const [pId, ptId] = preview.effectiveObjectStoryId!.split('_'); return `https://www.facebook.com/permalink.php?story_fbid=${ptId}&id=${pId}`; })() : `https://facebook.com/${preview.effectiveObjectStoryId}`) : `https://www.facebook.com/ads/library/?id=${preview.creativeId || preview.adId}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-[13px] font-bold rounded-full transition-all shadow-lg"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>Ver en Facebook</a></div>)
+        {loading ? (
+          <div className="w-[min(90vw,560px)] h-[min(88vh,420px)] rounded-2xl bg-zinc-900 border border-white/10 flex flex-col items-center justify-center gap-4">
+            <div className="w-12 h-12 rounded-full border-2 border-zinc-700 border-t-violet-500 animate-spin" />
+            <span className="text-[12px] font-bold text-zinc-500">Cargando creativo...</span>
+          </div>
+        ) : mediaData ? (
+          <>
+            {mediaData.type === 'carousel' && mediaData.cards && mediaData.cards.length > 0 && (() => {
+              const activeCard = mediaData.cards[activeIndex];
+              return (
+                <div className="flex flex-col items-center">
+                  <div className="relative flex items-center justify-center min-h-[300px]" style={{ maxWidth: '90vw' }}>
+                    {mediaData.cards.length > 1 && (
+                      <>
+                        <button onClick={prevSlide} className="absolute left-2 md:left-[-60px] p-2.5 md:p-3 rounded-full bg-white/15 md:bg-white/10 hover:bg-white/25 md:hover:bg-white/20 text-white transition-all hover:scale-105 z-30">
+                          <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+                        </button>
+                        <button onClick={nextSlide} className="absolute right-2 md:right-[-60px] p-2.5 md:p-3 rounded-full bg-white/15 md:bg-white/10 hover:bg-white/25 md:hover:bg-white/20 text-white transition-all hover:scale-105 z-30">
+                          <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+                        </button>
+                      </>
+                    )}
+                    {activeCard.isVideo && activeCard.videoSrc ? (
+                      <div className="flex flex-col items-center gap-4">
+                        <video src={activeCard.videoSrc} controls autoPlay={false} playsInline className="rounded-2xl shadow-2xl border border-white/10 bg-black" style={{ maxWidth: '90vw', maxHeight: '60vh', minWidth: 'min(90vw, 320px)' }} />
+                        <a href={activeCard.videoSrc} download={`video-carousel-${activeIndex}.mp4`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-bold rounded-full transition-all shadow-lg" onClick={e => e.stopPropagation()}><Download className="w-3.5 h-3.5" />Descargar Video</a>
+                      </div>
+                    ) : (
+                      <img src={activeCard.url} alt={activeCard.name || `Slide ${activeIndex + 1}`} className="rounded-2xl shadow-2xl border border-white/10 max-h-[60vh] max-w-[90vw] object-contain transition-all duration-300" />
+                    )}
+                  </div>
+                  <div className="text-center mt-4">
+                    {activeCard.name && <p className="text-white font-semibold text-[13.5px] mb-1">{activeCard.name}</p>}
+                    <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Slide {activeIndex + 1} de {mediaData.cards.length}</span>
+                  </div>
+                  {mediaData.cards.length > 1 && (
+                    <div className="flex justify-center gap-1.5 mt-3.5 z-30">
+                      {mediaData.cards.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={(e) => { e.stopPropagation(); setActiveIndex(idx); }}
+                          className={`w-2 h-2 rounded-full transition-all ${idx === activeIndex ? 'bg-violet-500 scale-125' : 'bg-white/30 hover:bg-white/50'}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {mediaData.type === 'video_source' && (
+              <div className="flex flex-col items-center gap-4">
+                <video src={mediaData.source || undefined} controls autoPlay playsInline className="rounded-2xl shadow-2xl border border-white/10 bg-black" style={{ maxWidth: '90vw', maxHeight: '70vh', minWidth: 'min(90vw, 400px)' }} />
+                <a href={mediaData.source || undefined} download={`video-${preview.videoId || 'creative'}.mp4`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-[12.5px] font-bold rounded-full transition-all shadow-lg" onClick={e => e.stopPropagation()}><Download className="w-4 h-4" />Descargar Video</a>
+              </div>
+            )}
+
+            {mediaData.type === 'image' && (
+              <img src={mediaData.url || undefined} alt={preview.name || 'Creative'} className="rounded-2xl shadow-2xl border border-white/10 max-h-[88vh] max-w-[90vw] object-contain" />
+            )}
+
+            {mediaData.type === 'ad_preview' && mediaData.embed_html && (
+              <div className="rounded-2xl overflow-hidden shadow-2xl bg-zinc-900 border border-white/10" style={{ width: 'min(90vw, 420px)', maxHeight: '90vh' }} onClick={(e: React.MouseEvent) => e.stopPropagation()} dangerouslySetInnerHTML={{ __html: mediaData.embed_html.replace(/width="\d+"/g, 'width="100%"').replace(/width:\s*\d+px/g, 'width:100%').replace(/<iframe/g, '<iframe style="width:100%;max-height:80vh;border:none;"') }} />
+            )}
+
+            {mediaData.type === 'none' && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative rounded-2xl overflow-hidden" style={{ maxWidth: 'min(90vw, 500px)' }}>
+                  <img src={preview.url} alt={preview.name} className="w-full rounded-2xl shadow-2xl border border-white/10" style={{ maxHeight: '70vh', objectFit: 'contain' }} />
+                </div>
+                <p className="text-white/60 text-xs">No pudimos cargar una vista previa interactiva.</p>
+                <a href={preview.effectiveObjectStoryId ? (preview.effectiveObjectStoryId.includes('_') ? (() => { const [pId, ptId] = preview.effectiveObjectStoryId!.split('_'); return `https://www.facebook.com/permalink.php?story_fbid=${ptId}&id=${pId}`; })() : `https://facebook.com/${preview.effectiveObjectStoryId}`) : `https://www.facebook.com/ads/library/?id=${preview.creativeId || preview.adId}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white text-[13px] font-bold rounded-full transition-all shadow-lg"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>Ver en Facebook</a>
+              </div>
+            )}
+          </>
         ) : (
-          <>{!imgLoaded && (<div className="absolute inset-0 rounded-2xl bg-zinc-900 animate-pulse flex items-center justify-center" style={{ minWidth: 280, minHeight: 280 }}><div className="w-10 h-10 rounded-full border-2 border-zinc-700 border-t-violet-500 animate-spin" /></div>)}<img src={preview.url} alt={preview.name || 'Creative'} onLoad={() => { setProgress(100); setTimeout(() => setImgLoaded(true), 150); }} className={`rounded-2xl shadow-2xl border border-white/10 transition-opacity duration-300 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`} style={{ maxWidth: '90vw', maxHeight: '88vh', width: 'auto', height: 'auto', minWidth: 'min(90vw, 320px)', objectFit: 'contain' }} /></>
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative rounded-2xl overflow-hidden" style={{ maxWidth: 'min(90vw, 500px)' }}>
+              <img src={preview.url} alt={preview.name} className="w-full rounded-2xl shadow-2xl border border-white/10" style={{ maxHeight: '70vh', objectFit: 'contain' }} />
+            </div>
+          </div>
         )}
       </div>
     </div>
