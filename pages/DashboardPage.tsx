@@ -1279,11 +1279,14 @@ export default function DashboardPage() {
                 Tienda Online ({(profile as any).ecommerce_platform})
               </h2>
             </div>
-            {fetchingStore ? (
-              <EmailLoader loading={fetchingStore} color={PINK} labels={['Ticket Promedio', 'Pedidos', 'Ingresos']} />
-            ) : currentStore ? (
-              <>
-                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+            <EmailLoader
+              loading={fetchingStore}
+              color={PINK}
+              labels={showMER ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'M.E.R. (Eficiencia)'] : ['Ticket Promedio', 'Pedidos', 'Ingresos']}
+            >
+              {currentStore ? (
+                <>
+                  <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
                   <ShopifyMetric
                     icon={Receipt}
                     label="Ticket Promedio"
@@ -1458,6 +1461,7 @@ export default function DashboardPage() {
                 )}
               </>
             ) : null}
+          </EmailLoader>
           </div>
         )}
 
@@ -1470,11 +1474,22 @@ export default function DashboardPage() {
                 Captación (Meta Ads)
               </h2>
             </div>
-            {fetchingMeta ? (
-              <EmailLoader loading={fetchingMeta} color={"#3b82f6"} labels={['Inversión', 'Alcance']} />
-            ) : currentMeta ? (
-              <>
-                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex overflow-x-auto scrollbar-hide">
+            <EmailLoader
+              loading={fetchingMeta}
+              color={"#3b82f6"}
+              labels={
+                selectedMetaGoal === 'purchases'
+                  ? ['Inversión', 'Alcance', 'Compras', 'ROAS', 'Retorno']
+                  : selectedMetaGoal === 'leads'
+                  ? ['Inversión', 'Alcance', 'Leads', 'CPL']
+                  : selectedMetaGoal === 'messages'
+                  ? ['Inversión', 'Alcance', 'Mensajes', 'Costo x Msj']
+                  : ['Inversión', 'Alcance']
+              }
+            >
+              {currentMeta ? (
+                <>
+                  <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex overflow-x-auto scrollbar-hide">
                   <ShopifyMetric
                     icon={DollarSign}
                     label="Inversión"
@@ -1668,6 +1683,7 @@ export default function DashboardPage() {
                 )}
               </>
             ) : null}
+          </EmailLoader>
           </div>
         )}
 
@@ -1680,11 +1696,14 @@ export default function DashboardPage() {
                 Retención (Email Marketing)
               </h2>
             </div>
-            {fetchingKlaviyo ? (
-              <EmailLoader loading={fetchingKlaviyo} color={GREEN} />
-            ) : currentKlaviyo ? (
-              <>
-                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+            <EmailLoader
+              loading={fetchingKlaviyo}
+              color={GREEN}
+              labels={isEcommerce ? ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'] : ['Entregas', 'Tasa de Apertura', 'Tasa de Clics']}
+            >
+              {currentKlaviyo ? (
+                <>
+                  <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
                   <ShopifyMetric
                     icon={Package}
                     label="Entregas"
@@ -1879,6 +1898,7 @@ export default function DashboardPage() {
                 )}
               </>
             ) : null}
+          </EmailLoader>
           </div>
         )}
 

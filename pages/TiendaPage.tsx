@@ -267,12 +267,12 @@ export default function TiendaPage() {
         <p className="text-[15px] font-bold text-zinc-900">Período: {fmtDateRange(activeSince, true)} — {fmtDateRange(activeUntil, true)}</p>
       </div>
 
-      {loading ? (
-        <EmailLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']} />
-      ) : data ? (
+      {data || loading ? (
           <div className="space-y-6">
             {/* Top Stats */}
-            <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
+            <EmailLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']}>
+              {data ? (
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
               <DashboardMetric 
                 icon={Package}
                 label="Pedidos" 
@@ -310,8 +310,12 @@ export default function TiendaPage() {
                 onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')} 
               />
             </div>
-            {/* Expanded Chart */}
-            {expandedMetric && (
+              ) : null}
+            </EmailLoader>
+            {data && (
+              <>
+                {/* Expanded Chart */}
+                {expandedMetric && (
               <MetricDetailChart 
                 label={
                   expandedMetric === 's-orders' ? 'Pedidos' :
@@ -522,7 +526,9 @@ export default function TiendaPage() {
               </div>
             </div>
           </div>
-        </div>
+              </>
+            )}
+          </div>
         ) : null}
       <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
