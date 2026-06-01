@@ -111,7 +111,7 @@ const ShopifyMetric = ({
         sm:[&:nth-child(odd)]:border-r sm:[&:nth-child(even)]:border-r
         sm:[&:nth-child(3n)]:border-r-0
         xl:border-b-0 xl:border-r xl:last:border-r-0
-        transition-all text-left group relative overflow-visible
+        transition-spring hover-scale-spring text-left group relative overflow-visible
         ${active ? activeBgClass : "hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 hover:shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] dark:hover:shadow-none"}`}
     >
       <div className="flex items-center justify-between mb-2 w-full">
@@ -228,7 +228,7 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-[20px] p-8 shadow-sm mt-4">
+    <div className="bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-[20px] p-8 shadow-sm mt-4 transition-spring hover-scale-spring">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <h3 className="text-[12px] font-bold text-zinc-400 uppercase tracking-widest">
           Evolución de {label}
@@ -554,11 +554,65 @@ export default function DashboardPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Stale-While-Revalidate Caching for Dashboard metrics
+  useEffect(() => {
+    if (!profile?.id) return;
+    const cacheKey = `dashboard_cache_${profile.id}_${activePreset}_${activeSince}_${activeUntil}`;
+    const cachedData = sessionStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        if (parsed.currentStore) setCurrentStore(parsed.currentStore);
+        if (parsed.prevStore) setPrevStore(parsed.prevStore);
+        if (parsed.currentMeta) setCurrentMeta(parsed.currentMeta);
+        if (parsed.prevMeta) setPrevMeta(parsed.prevMeta);
+        if (parsed.metaDaily) setMetaDaily(parsed.metaDaily);
+        if (parsed.prevMetaDaily) setPrevMetaDaily(parsed.prevMetaDaily);
+        if (parsed.currentKlaviyo) setCurrentKlaviyo(parsed.currentKlaviyo);
+        if (parsed.prevKlaviyo) setPrevKlaviyo(parsed.prevKlaviyo);
+      } catch (e) {
+        console.error("Error parsing dashboard cache:", e);
+      }
+    } else {
+      // Clear values when changing client or range to avoid stale UI flash
+      setCurrentStore(null);
+      setPrevStore(null);
+      setCurrentMeta(null);
+      setPrevMeta(null);
+      setMetaDaily([]);
+      setPrevMetaDaily([]);
+      setCurrentKlaviyo(null);
+      setPrevKlaviyo(null);
+    }
+  }, [profile?.id, activePreset, activeSince, activeUntil]);
+
+  // Global keydown listeners for Escape
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowDatePicker(false);
+        setShowClientPicker(false);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   const fetchData = async (p: DatePreset | "custom", s: string, u: string) => {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
     const myFetchId = ++fetchIdRef.current;
+
+    const updateCache = (key: string, data: any) => {
+      if (!profile?.id) return;
+      try {
+        const cacheKey = `dashboard_cache_${profile.id}_${p}_${s}_${u}`;
+        const currentCache = JSON.parse(sessionStorage.getItem(cacheKey) || '{}');
+        currentCache[key] = data;
+        sessionStorage.setItem(cacheKey, JSON.stringify(currentCache));
+      } catch (e) {}
+    };
 
     try {
       await ensureMetaToken();
@@ -591,12 +645,15 @@ export default function DashboardPage() {
               prevRange.until,
             ),
           ]);
+          if (myFetchId !== fetchIdRef.current) return;
           setCurrentStore(currStore);
           setPrevStore(prevStoreData);
+          updateCache('currentStore', currStore);
+          updateCache('prevStore', prevStoreData);
         } catch (err) {
           console.error("Store Fetch Error:", err);
         } finally {
-          setFetchingStore(false);
+          if (myFetchId === fetchIdRef.current) setFetchingStore(false);
         }
       };
 
@@ -701,15 +758,20 @@ export default function DashboardPage() {
             dp.setDate(dp.getDate() + 1);
           }
 
+          if (myFetchId !== fetchIdRef.current) return;
           setCurrentMeta(currSummary);
           setPrevMeta(prevSummary);
           setMetaDaily(padded);
           setPrevMetaDaily(paddedPrev);
+          updateCache('currentMeta', currSummary);
+          updateCache('prevMeta', prevSummary);
+          updateCache('metaDaily', padded);
+          updateCache('prevMetaDaily', paddedPrev);
         } catch (err: any) {
           if (err.name !== "AbortError")
             console.error("Meta Fetch Error:", err);
         } finally {
-          setFetchingMeta(false);
+          if (myFetchId === fetchIdRef.current) setFetchingMeta(false);
         }
       };
 
@@ -732,6 +794,8 @@ export default function DashboardPage() {
           if (myFetchId !== fetchIdRef.current) return;
           setCurrentKlaviyo(curr);
           setPrevKlaviyo(prev);
+          updateCache('currentKlaviyo', curr);
+          updateCache('prevKlaviyo', prev);
         } catch (err) {
           console.error("Klaviyo Fetch Error:", err);
         } finally {
@@ -1280,7 +1344,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             <EmailLoader
-              loading={fetchingStore}
+              loading={fetchingStore && !currentStore}
               color={PINK}
               labels={showMER ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'M.E.R. (Eficiencia)'] : ['Ticket Promedio', 'Pedidos', 'Ingresos']}
             >
@@ -1475,7 +1539,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             <EmailLoader
-              loading={fetchingMeta}
+              loading={fetchingMeta && !currentMeta}
               color={"#3b82f6"}
               labels={
                 selectedMetaGoal === 'purchases'
@@ -1697,7 +1761,7 @@ export default function DashboardPage() {
               </h2>
             </div>
             <EmailLoader
-              loading={fetchingKlaviyo}
+              loading={fetchingKlaviyo && !currentKlaviyo}
               color={GREEN}
               labels={isEcommerce ? ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'] : ['Entregas', 'Tasa de Apertura', 'Tasa de Clics']}
             >

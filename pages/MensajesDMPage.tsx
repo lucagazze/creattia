@@ -363,6 +363,17 @@ export default function MensajesDMPage() {
     return () => obs.disconnect();
   }, [loadMore]);
 
+  // Global keydown listeners for Escape
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedConv(null);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   // ── Load chat history ──────────────────────────────────────────
   const loadHistory = useCallback(async (conv: ConvItem) => {
     setLoadingMessages(true);
@@ -459,43 +470,59 @@ export default function MensajesDMPage() {
   };
 
   // ── Send reply ─────────────────────────────────────────────────
-  const handleSendReply = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendReply();
+    }
+  };
+
+  const handleSendReply = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!replyText.trim() || !selectedConv) return;
+    const textToSend = replyText.trim();
+    const localId = `local_${Date.now()}`;
+    const optimisticMsg = {
+      id: localId,
+      from: { id: fbPageId },
+      message: textToSend,
+      created_time: new Date().toISOString(),
+      isSending: true,
+      isFailed: false,
+    };
+    
     setSendingReply(true);
     setReplyError(null);
+    setReplyText('');
+    setConvMessages(prev => [...prev, optimisticMsg]);
+    
+    setTimeout(() => {
+      if (messagesContainerRef.current)
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }, 50);
+
     try {
-      await metaAds.replyToConversation(selectedConv.id, replyText.trim(), fbPageId);
+      await metaAds.replyToConversation(selectedConv.id, textToSend, fbPageId);
       if (user?.id && clientId) {
         db.activity.log(user.id, clientId, 'reply_sent', {
-          reply_text: replyText.trim(),
+          reply_text: textToSend,
           incoming_text: selectedConv.lastMessage || '',
           platform: selectedConv.platform,
           item_id: selectedConv.id,
           user_email: user.email || '',
         }).catch(() => {});
       }
-      const newMsg = {
-        id: `local_${Date.now()}`,
-        from: { id: fbPageId },
-        message: replyText.trim(),
-        created_time: new Date().toISOString(),
-      };
-      setConvMessages(prev => [...prev, newMsg]);
-      setReplyText('');
+      setConvMessages(prev => prev.map(m => m.id === localId ? { ...m, isSending: false } : m));
       setConversations(prev =>
         prev.map(c =>
           c.id === selectedConv.id
-            ? { ...c, lastMessage: replyText.trim(), isPending: false, timestamp: new Date().toISOString() }
+            ? { ...c, lastMessage: textToSend, isPending: false, timestamp: new Date().toISOString() }
             : c
         )
       );
       setSelectedConv(prev => prev ? { ...prev, isPending: false } : prev);
-      setTimeout(() => {
-        if (messagesContainerRef.current)
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-      }, 50);
     } catch {
+      setConvMessages(prev => prev.map(m => m.id === localId ? { ...m, isSending: false, isFailed: true } : m));
       setReplyError('No se pudo enviar el mensaje. Verificá los permisos del token.');
     } finally {
       setSendingReply(false);
@@ -783,9 +810,9 @@ export default function MensajesDMPage() {
                       <button
                         key={conv.id}
                         onClick={() => handleSelect(conv)}
-                        className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-all border-b border-zinc-100/60 dark:border-zinc-800/40 ${
+                        className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-spring hover-scale-spring border-b border-zinc-100/60 dark:border-zinc-800/40 ${
                           isSelected
-                            ? 'bg-violet-50 dark:bg-violet-950/20 border-l-2 border-l-violet-500'
+                            ? 'bg-violet-50/80 dark:bg-violet-950/40 glass-premium border-l-2 border-l-violet-500'
                             : 'hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 border-l-2 border-l-transparent'
                         }`}
                       >
@@ -937,14 +964,16 @@ export default function MensajesDMPage() {
                         ? new Date(msg.created_time).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                         : '';
                       return (
-                        <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                          <span className="text-[9px] text-zinc-400 font-bold mb-1 px-1">
+                        <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} ${msg.isSending ? 'opacity-70' : ''}`}>
+                          <span className="text-[9px] text-zinc-400 font-bold mb-1 px-1 flex items-center gap-1">
                             {isMe ? 'Yo' : selectedConv.username} · {timeStr}
+                            {msg.isSending && <Loader2 className="w-2.5 h-2.5 animate-spin text-zinc-400" />}
+                            {msg.isFailed && <span className="text-red-500 font-bold flex items-center gap-0.5"><AlertCircle className="w-2.5 h-2.5" /> (Fallo al enviar)</span>}
                           </span>
                           {msg.message ? (
-                            <div className={`max-w-[75%] rounded-[18px] px-4 py-2.5 text-[13px] leading-relaxed font-medium shadow-sm ${
+                            <div className={`max-w-[75%] rounded-[18px] px-4 py-2.5 text-[13px] leading-relaxed font-medium shadow-sm transition-spring ${
                               isMe
-                                ? 'bg-violet-600 text-white'
+                                ? msg.isFailed ? 'bg-red-600 text-white' : 'bg-violet-600 text-white'
                                 : 'bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100'
                             }`}>
                               {msg.message}
@@ -977,6 +1006,7 @@ export default function MensajesDMPage() {
                       placeholder={`Responder a ${selectedConv.username}...`}
                       value={replyText}
                       onChange={e => setReplyText(e.target.value)}
+                      onKeyDown={handleKeyDown}
                       disabled={sendingReply || loadingDraft}
                       className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 py-3 text-[13px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:border-violet-500 outline-none transition-all min-h-[60px] shadow-inner font-medium"
                     />

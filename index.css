@@ -228,3 +228,31 @@ html.is-printing .recharts-surface {
   animation: apple-shimmer 1.6s ease-in-out infinite;
 }
 
+/* Glassmorphism premium and smooth spring classes */
+.glass-premium {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.dark .glass-premium {
+  background: rgba(22, 22, 24, 0.75) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.transition-spring {
+  transition: all 0.38s cubic-bezier(0.25, 1, 0.5, 1) !important;
+}
+
+.hover-scale-spring:hover {
+  transform: scale(1.02);
+}
+
+.hover-scale-spring:active {
+  transform: scale(0.98);
+}
+
+

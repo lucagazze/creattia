@@ -9,6 +9,7 @@ import { metaAds } from '../services/metaAds';
 import EmailLoader from '../components/ui/EmailLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { db } from '../services/db';
+import SmoothImage from '../components/ui/SmoothImage';
 
 // Formatting utilities
 const fmtNumber = (v: any) => {
@@ -536,6 +537,18 @@ export default function RedesSocialesPage() {
     setLikingCommentIds({});
   };
 
+  // Global keydown listeners for Escape to close panels
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeCommentsModal();
+        setShowPendingPanel(false);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentInput.trim() || !selectedPostId) return;
@@ -846,10 +859,11 @@ export default function RedesSocialesPage() {
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-5">
                       <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
                         {igProfile.profile_picture_url ? (
-                          <img 
+                          <SmoothImage 
                             src={igProfile.profile_picture_url} 
                             alt={igUsername} 
-                            className="w-16 h-16 rounded-full object-cover ring-2 ring-pink-500/30" 
+                            containerClassName="w-16 h-16 rounded-full ring-2 ring-pink-500/30" 
+                            className="object-cover"
                           />
                         ) : (
                           <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 flex items-center justify-center text-white">
@@ -952,11 +966,11 @@ export default function RedesSocialesPage() {
                                   title="Ver comentarios"
                                 >
                                   {m.media_url || m.thumbnail_url ? (
-                                    <img 
+                                    <SmoothImage 
                                       src={m.media_type === 'VIDEO' ? (m.thumbnail_url || m.media_url) : (m.media_url || m.thumbnail_url)} 
                                       alt="" 
-                                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" 
-                                      loading="lazy"
+                                      containerClassName="w-full h-full"
+                                      className="object-cover group-hover:scale-[1.03] transition-transform duration-500" 
                                     />
                                   ) : (
                                     <ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-700 animate-pulse" />
@@ -1109,10 +1123,11 @@ export default function RedesSocialesPage() {
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-5">
                       <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
                         {fbProfile.picture?.data?.url ? (
-                          <img 
+                          <SmoothImage 
                             src={fbProfile.picture.data.url} 
                             alt={fbProfile.name} 
-                            className="w-16 h-16 rounded-full object-cover ring-2 ring-blue-500/30" 
+                            containerClassName="w-16 h-16 rounded-full ring-2 ring-blue-500/30" 
+                            className="object-cover"
                           />
                         ) : (
                           <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-3xl">
@@ -1227,11 +1242,11 @@ export default function RedesSocialesPage() {
                                   title="Ver comentarios"
                                 >
                                   {m.full_picture ? (
-                                    <img 
+                                    <SmoothImage 
                                       src={m.full_picture} 
                                       alt="" 
-                                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500" 
-                                      loading="lazy"
+                                      containerClassName="w-full h-full"
+                                      className="object-cover group-hover:scale-[1.03] transition-transform duration-500" 
                                     />
                                   ) : (
                                     <div className="w-full h-full bg-blue-50 dark:bg-blue-950/20 flex flex-col items-center justify-center p-6 text-center text-blue-600/70 dark:text-blue-400/70">
@@ -1408,10 +1423,11 @@ export default function RedesSocialesPage() {
                         </div>
                       ) : (activePost.media_url || activePost.full_picture) ? (
                         <div className="rounded-2xl overflow-hidden bg-zinc-105 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
-                          <img
+                          <SmoothImage
                             src={activePost.media_url || activePost.full_picture}
                             alt="Contexto"
-                            className="w-full h-full object-cover"
+                            containerClassName="w-full h-full"
+                            className="object-cover"
                           />
                         </div>
                       ) : (
@@ -1814,7 +1830,7 @@ export default function RedesSocialesPage() {
                             {/* Thumbnail */}
                             {item.postThumb && (
                               <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 border border-zinc-100 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800">
-                                <img src={item.postThumb} alt="" className="w-full h-full object-cover" />
+                                <SmoothImage src={item.postThumb} alt="" containerClassName="w-full h-full" className="object-cover" />
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
