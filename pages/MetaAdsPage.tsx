@@ -40,7 +40,7 @@ const CreativePreviewModal = ({ preview, onClose }: {
           setMediaData(d);
         } else {
           setMediaData({
-            type: preview.isVideo ? 'ad_preview' : 'image',
+            type: preview.isVideo ? 'none' : 'image',
             url: preview.url,
             embed_html: null
           });
@@ -48,14 +48,13 @@ const CreativePreviewModal = ({ preview, onClose }: {
       })
       .catch(() => {
         setMediaData({
-          type: preview.isVideo ? 'ad_preview' : 'image',
+          type: preview.isVideo ? 'none' : 'image',
           url: preview.url,
           embed_html: null
         });
       })
       .finally(() => setLoading(false));
   }, [preview.adId, preview.creativeId, preview.videoId, preview.isVideo, preview.url]);
-
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
