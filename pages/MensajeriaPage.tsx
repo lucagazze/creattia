@@ -188,6 +188,7 @@ export default function MensajeriaPage() {
   const cwToken = (profile as any)?.chatwoot_token;
 
   const [conversations, setConversations] = useState<any[]>([]);
+  const [backgroundConversations, setBackgroundConversations] = useState<any[]>([]);
   const [convMeta, setConvMeta] = useState<{ all_count: number; unassigned_count: number; assigned_count: number } | null>(null);
   const [channelMetas, setChannelMetas] = useState<Record<string, { all_count: number; unassigned_count: number; assigned_count: number }>>({});
   const [inboxes, setInboxes] = useState<any[]>([]);
@@ -354,6 +355,25 @@ export default function MensajeriaPage() {
     loadChannelMetas();
   }, [cwUrl, cwToken, inboxes, statusFilter]);
 
+  const fetchAllOpenConversationsInBackground = useCallback(async () => {
+    if (!cwUrl || !cwToken) return;
+    try {
+      let page = 1;
+      let all: any[] = [];
+      let more = true;
+      while (more) {
+        const res = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, page);
+        all = [...all, ...res.payload];
+        more = res.payload.length === 25;
+        page++;
+        if (page > 40) break; // Safety cutoff
+      }
+      setBackgroundConversations(all);
+    } catch (err) {
+      console.error("Error in background fetch of all conversations:", err);
+    }
+  }, [cwUrl, cwToken, statusFilter]);
+
   const loadConversations = useCallback(async () => {
     if (!cwUrl || !cwToken) return;
     setLoading(true);
@@ -377,12 +397,15 @@ export default function MensajeriaPage() {
       setConversations(firstPayload);
       setHasMore(firstHasMore);
       setCurrentPage(1);
+
+      // Trigger background fetcher
+      fetchAllOpenConversationsInBackground();
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [cwUrl, cwToken, statusFilter, channelFilter, getInboxIdForChannel]);
+  }, [cwUrl, cwToken, statusFilter, channelFilter, getInboxIdForChannel, fetchAllOpenConversationsInBackground]);
 
   const loadMoreConversations = useCallback(async () => {
     if (!cwUrl || !cwToken || loadingMore || !hasMore) return;
@@ -404,16 +427,6 @@ export default function MensajeriaPage() {
   }, [cwUrl, cwToken, currentPage, loadingMore, hasMore, statusFilter, channelFilter, getInboxIdForChannel]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
-
-  // Auto-load more pages whenever there are more available
-  useEffect(() => {
-    if (!hasMore || loadingMore || loading) return;
-    const t = setTimeout(() => {
-      if (hasMore && !loadingMore) loadMoreConversations();
-    }, 200);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations.length, hasMore, loadingMore, loading]);
 
   // WebSocket real-time connection to Chatwoot
   useEffect(() => {
@@ -461,6 +474,17 @@ export default function MensajeriaPage() {
                     }
                   : c
               ));
+              setBackgroundConversations(prev => prev.map(c =>
+                c.id === d.conversation_id
+                  ? { 
+                      ...c, 
+                      last_activity_at: d.created_at, 
+                      messages: [d, ...(c.messages || [])], 
+                      unread_count: selectedRef.current?.id === d.conversation_id ? 0 : (c.unread_count || 0) + (d?.message_type === 0 ? 1 : 0),
+                      ...(d?.message_type !== 2 ? { last_non_activity_message: d } : {})
+                    }
+                  : c
+              ));
               // Append to open chat
               if (selectedRef.current?.id === d.conversation_id) {
                 setMessages(prev => {
@@ -471,16 +495,26 @@ export default function MensajeriaPage() {
             } else if (msg.event === 'conversation.created') {
               const d = msg.data;
               setConversations(prev => prev.find(c => c.id === d.id) ? prev : [d, ...prev]);
+              setBackgroundConversations(prev => prev.find(c => c.id === d.id) ? prev : [d, ...prev]);
             } else if (msg.event === 'conversation.read') {
               const d = msg.data;
               setConversations(prev => prev.map(c => c.id === d.id ? { ...c, unread_count: 0 } : c));
+              setBackgroundConversations(prev => prev.map(c => c.id === d.id ? { ...c, unread_count: 0 } : c));
             } else if (msg.event === 'conversation.status_changed') {
               const d = msg.data;
               setConversations(prev => prev.map(c => c.id === d.id ? { ...c, status: d.status } : c));
+              setBackgroundConversations(prev => {
+                const shouldRemove = statusFilter !== 'all' && statusFilter !== d.status;
+                if (shouldRemove) {
+                  return prev.filter(c => c.id !== d.id);
+                }
+                return prev.map(c => c.id === d.id ? { ...c, status: d.status } : c);
+              });
               if (selectedRef.current?.id === d.id) setSelected((s: any) => s ? { ...s, status: d.status } : s);
             } else if (msg.event === 'conversation.updated') {
               const d = msg.data;
               setConversations(prev => prev.map(c => c.id === d.id ? { ...c, ...d } : c));
+              setBackgroundConversations(prev => prev.map(c => c.id === d.id ? { ...c, ...d } : c));
             }
           } catch {}
         };
@@ -509,6 +543,12 @@ export default function MensajeriaPage() {
         const { payload } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, 1);
         setConversations(prev => {
           // Merge: update existing + prepend new ones
+          const prevIds = new Set(prev.map((c: any) => c.id));
+          const newOnes = payload.filter((c: any) => !prevIds.has(c.id));
+          const updated = prev.map((c: any) => payload.find((p: any) => p.id === c.id) || c);
+          return [...newOnes, ...updated];
+        });
+        setBackgroundConversations(prev => {
           const prevIds = new Set(prev.map((c: any) => c.id));
           const newOnes = payload.filter((c: any) => !prevIds.has(c.id));
           const updated = prev.map((c: any) => payload.find((p: any) => p.id === c.id) || c);
@@ -576,6 +616,7 @@ export default function MensajeriaPage() {
       if (conv.unread_count > 0) {
         chatwoot.markAsRead(cwUrl, cwToken, conv.id).catch(() => {});
         setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
+        setBackgroundConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
       }
     } catch (e: any) {
       setMessages([]);
@@ -877,6 +918,16 @@ export default function MensajeriaPage() {
           } 
         : c
     ));
+    setBackgroundConversations(prev => prev.map(c => 
+      c.id === selected.id 
+        ? { 
+            ...c, 
+            last_activity_at: tempMsg.created_at, 
+            messages: [tempMsg, ...(c.messages || [])],
+            last_non_activity_message: tempMsg
+          } 
+        : c
+    ));
 
     const sentText = reply.trim();
     setReply('');
@@ -895,12 +946,30 @@ export default function MensajeriaPage() {
             } 
           : c
       ));
+      setBackgroundConversations(prev => prev.map(c => 
+        c.id === selected.id 
+          ? { 
+              ...c, 
+              last_activity_at: sent?.created_at || Date.now()/1000, 
+              messages: [sent, ...(c.messages || []).filter((m: any) => m.id !== tempId)],
+              last_non_activity_message: sent
+            } 
+          : c
+      ));
     } catch (e: any) {
       // Mark temp message as failed in active chat
       setFailedMsgIds(prev => new Set([...prev, tempId]));
       setSendError(e.message || 'No se pudo enviar el mensaje.');
       // Remove temp message from conversation list on failure
       setConversations(prev => prev.map(c => 
+        c.id === selected.id 
+          ? { 
+              ...c, 
+              messages: (c.messages || []).filter((m: any) => m.id !== tempId) 
+            } 
+          : c
+      ));
+      setBackgroundConversations(prev => prev.map(c => 
         c.id === selected.id 
           ? { 
               ...c, 
@@ -929,6 +998,7 @@ export default function MensajeriaPage() {
     // ── Mark as unread ────────────────────────────────────────────────
     if (action === 'unread') {
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 1 } : c));
+      setBackgroundConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 1 } : c));
       setManuallyUnread(prev => new Set([...prev, conv.id]));
       showToast('Marcado como no leído', 'success');
       chatwoot.markAsUnread(cwUrl, cwToken, conv.id).catch(() => {});
@@ -939,6 +1009,7 @@ export default function MensajeriaPage() {
     if (action === 'read') {
       // Update UI immediately
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
+      setBackgroundConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
       setManuallyUnread(prev => { const s = new Set(prev); s.delete(conv.id); return s; });
       showToast('Marcado como leído', 'success');
       // Fire API in background — ignore errors (UI already updated)
@@ -951,6 +1022,10 @@ export default function MensajeriaPage() {
       // Optimistic: remove or update in list
       const shouldRemove = statusFilter !== 'all' && statusFilter !== newStatus;
       setConversations(prev => shouldRemove
+        ? prev.filter(c => c.id !== conv.id)
+        : prev.map(c => c.id === conv.id ? { ...c, status: newStatus } : c)
+      );
+      setBackgroundConversations(prev => shouldRemove
         ? prev.filter(c => c.id !== conv.id)
         : prev.map(c => c.id === conv.id ? { ...c, status: newStatus } : c)
       );
@@ -967,6 +1042,7 @@ export default function MensajeriaPage() {
 
     if (action === 'snooze') {
       setConversations(prev => prev.filter(c => c.id !== conv.id));
+      setBackgroundConversations(prev => prev.filter(c => c.id !== conv.id));
       if (selected?.id === conv.id) { setSelected(null); setMessages([]); }
       showToast('Pospuesto 1 hora ⏰', 'success');
       const snoozed_until = Math.floor(Date.now() / 1000) + 3600;
@@ -978,6 +1054,7 @@ export default function MensajeriaPage() {
 
     if (action === 'priority_high') {
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, priority: 'high' } : c));
+      setBackgroundConversations(prev => prev.map(c => c.id === conv.id ? { ...c, priority: 'high' } : c));
       showToast('Prioridad alta 🔴', 'success');
       chatwoot.updatePriority(cwUrl, cwToken, conv.id, 'high').catch(() => {});
       return;
@@ -985,6 +1062,7 @@ export default function MensajeriaPage() {
 
     if (action === 'priority_none') {
       setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, priority: 'none' } : c));
+      setBackgroundConversations(prev => prev.map(c => c.id === conv.id ? { ...c, priority: 'none' } : c));
       showToast('Sin prioridad ⚪', 'success');
       chatwoot.updatePriority(cwUrl, cwToken, conv.id, 'none').catch(() => {});
       return;
@@ -993,6 +1071,7 @@ export default function MensajeriaPage() {
     if (action === 'delete') {
       if (!window.confirm('¿Eliminar esta conversación? Esta acción no se puede deshacer.')) return;
       setConversations(prev => prev.filter(c => c.id !== conv.id));
+      setBackgroundConversations(prev => prev.filter(c => c.id !== conv.id));
       if (selected?.id === conv.id) { setSelected(null); setMessages([]); }
       showToast('Conversación eliminada', 'success');
       chatwoot.deleteConversation(cwUrl, cwToken, conv.id).catch(e => {
@@ -1052,19 +1131,11 @@ export default function MensajeriaPage() {
   };
 
   const getChannelCount = (channelKey: string) => {
-    const isUnreadFilterActive = ['all', 'whatsapp', 'instagram', 'facebook'].includes(channelKey);
-    if (isUnreadFilterActive) {
-      if (channelKey === 'all') {
-        return conversations.filter(isConvUnread).length;
-      }
-      return conversations.filter(c => getChannel(c) === channelKey && isConvUnread(c)).length;
-    }
+    const listToCount = backgroundConversations.length > 0 ? backgroundConversations : conversations;
     if (channelKey === 'all') {
-      return convMeta?.all_count !== undefined ? convMeta.all_count : conversations.length;
+      return listToCount.filter(isConvUnread).length;
     }
-    return channelMetas[channelKey]?.all_count !== undefined
-      ? channelMetas[channelKey].all_count
-      : conversations.filter(c => getChannel(c) === channelKey).length;
+    return listToCount.filter(c => getChannel(c) === channelKey && isConvUnread(c)).length;
   };
 
   const CHANNEL_ICON: Record<string, string> = { whatsapp: '📱', instagram: '📸', facebook: '📘', email: '📧', other: '💬' };
@@ -1153,12 +1224,7 @@ export default function MensajeriaPage() {
     return getChannel(c) === channelFilter;
   });
 
-  const unreadFilteredConversations = channelFilteredConversations.filter(c => {
-    if (['all', 'whatsapp', 'instagram', 'facebook'].includes(channelFilter)) {
-      return isConvUnread(c) || (selected && selected.id === c.id);
-    }
-    return true;
-  });
+  const unreadFilteredConversations = channelFilteredConversations;
 
   const assignFiltered = unreadFilteredConversations.filter(c => {
     if (assignFilter === 'unassigned') return !c.meta?.assignee;
@@ -1199,14 +1265,17 @@ export default function MensajeriaPage() {
     // Optimistic UI update immediately
     if (action === 'delete') {
       setConversations(prev => prev.filter(c => !selectedIds.has(c.id)));
+      setBackgroundConversations(prev => prev.filter(c => !selectedIds.has(c.id)));
       if (selected && selectedIds.has(selected.id)) { setSelected(null); setMessages([]); }
     }
     if (action === 'read') {
       setConversations(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, unread_count: 0 } : c));
+      setBackgroundConversations(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, unread_count: 0 } : c));
       setManuallyUnread(prev => { const s = new Set(prev); ids.forEach(id => s.delete(id)); return s; });
     }
     if (action === 'unread') {
       setConversations(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, unread_count: 1 } : c));
+      setBackgroundConversations(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, unread_count: 1 } : c));
       setManuallyUnread(prev => new Set([...prev, ...ids]));
     }
     clearSelection();
