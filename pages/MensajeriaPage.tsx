@@ -613,45 +613,40 @@ export default function MensajeriaPage() {
 
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (!container) return;
-    // Always scroll to bottom when opening a new chat (messages go from 0 to N)
-    // or when near the bottom (new message arrived)
-    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
-    if (isAtBottom || !loadingMsgs) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }, [messages, loadingMsgs]);
+    if (!container || messages.length === 0) return;
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+    if (isAtBottom) container.scrollTop = container.scrollHeight;
+  }, [messages]);
 
-  // Mobile keyboard handling: adjust chat height when virtual keyboard appears
+  // Lock body scroll when mobile chat is open (prevents iOS from scrolling page behind)
   useEffect(() => {
-    if (!mobileShowChat) return;
-    const vv = (window as any).visualViewport as VisualViewport | null;
-    if (!vv) return;
-
-    const handleViewport = () => {
-      const chatEl = document.getElementById('mobile-chat-panel');
-      if (chatEl) {
-        // Set exact height = visual viewport height (shrinks when keyboard opens)
-        chatEl.style.height = vv.height + 'px';
-        chatEl.style.top = vv.offsetTop + 'px';
-      }
-      // Scroll messages to bottom so typed text is visible
-      setTimeout(() => {
-        messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'instant' as ScrollBehavior });
-      }, 50);
-    };
-
-    vv.addEventListener('resize', handleViewport);
-    vv.addEventListener('scroll', handleViewport);
-    handleViewport(); // init
+    if (mobileShowChat) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      window.scrollTo(0, 0);
+    }
     return () => {
-      vv.removeEventListener('resize', handleViewport);
-      vv.removeEventListener('scroll', handleViewport);
-      // Reset when keyboard closes
-      const chatEl = document.getElementById('mobile-chat-panel');
-      if (chatEl) { chatEl.style.height = ''; chatEl.style.top = ''; }
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     };
   }, [mobileShowChat]);
+
+  // Scroll to bottom when chat opens (not on every message update)
+  const prevSelectedIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (selected?.id && selected.id !== prevSelectedIdRef.current) {
+      prevSelectedIdRef.current = selected.id;
+      if (!loadingMsgs && messages.length > 0) {
+        messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight });
+      }
+    }
+  }, [selected?.id, loadingMsgs, messages.length]);
 
   const loadCannedResponses = useCallback(async () => {
     if (!profile?.id) return;
@@ -1227,12 +1222,14 @@ export default function MensajeriaPage() {
     ? (convMeta?.assigned_count !== undefined ? convMeta.assigned_count : conversations.filter(c => !!c.meta?.assignee).length)
     : (channelMetas[channelFilter]?.assigned_count !== undefined ? channelMetas[channelFilter].assigned_count : channelFilteredRaw.filter(c => !!c.meta?.assignee).length);
 
-  const adjustMobileTextarea = () => {
-    const ta = mobileTextareaRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 150) + 'px';
-  };
+  const adjustMobileTextarea = useCallback(() => {
+    requestAnimationFrame(() => {
+      const ta = mobileTextareaRef.current;
+      if (!ta) return;
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 150) + 'px';
+    });
+  }, []);
 
   const handleMicPress = async () => {
     if (isRecording) {
@@ -1587,7 +1584,7 @@ export default function MensajeriaPage() {
         <div className={`
           overflow-hidden
           ${mobileShowChat && selected
-            ? 'fixed inset-0 z-[250] flex flex-col bg-white dark:bg-zinc-950 animate-in slide-in-from-bottom duration-250 md:static md:inset-auto md:z-auto md:flex-1 md:bg-zinc-50 md:dark:bg-zinc-900/30 md:animate-none'
+            ? 'fixed inset-x-0 top-0 h-[100dvh] z-[250] flex flex-col bg-white dark:bg-zinc-950 md:static md:h-auto md:inset-auto md:z-auto md:flex-1 md:bg-zinc-50 md:dark:bg-zinc-900/30 overscroll-none'
             : selected
             ? 'hidden md:flex md:flex-1 bg-zinc-50 dark:bg-zinc-900/30'
             : 'hidden md:flex md:flex-1 bg-zinc-50 dark:bg-zinc-900/30'}
@@ -1750,7 +1747,7 @@ export default function MensajeriaPage() {
                           value={reply}
                           onChange={e => { setReply(e.target.value); adjustMobileTextarea(); }}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }}}
-                          onFocus={() => setTimeout(() => { messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' }); }, 350)}
+                          onFocus={() => { requestAnimationFrame(() => { messagesContainerRef.current && (messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight); }); }}
                           placeholder={transcribing ? 'Transcribiendo...' : isRecording ? '● Grabando...' : 'Mensaje...'}
                           rows={1}
                           disabled={transcribing}
