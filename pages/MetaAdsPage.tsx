@@ -224,10 +224,14 @@ export default function MetaAdsPage() {
 
   useEffect(() => { fetchAds(); }, [profile?.id]);
 
-  // Sequential 4-by-4 batch thumbnail and asset resolver
+  // Sequential concurrent sliding window batch thumbnail and asset resolver (limit: 4 parallel requests)
   useEffect(() => {
     const accountId = (profile as any)?.meta_account_id;
     if (!accountId || activeAds.length === 0) return;
+
+    let isMounted = true;
+    const activeCount = Object.keys(resolvingIds).length;
+    if (activeCount >= 4) return;
 
     // Identify ads that have not been resolved yet and are not currently resolving
     const toResolve = activeAds.filter(ad => {
@@ -236,8 +240,10 @@ export default function MetaAdsPage() {
 
     if (toResolve.length === 0) return;
 
-    // Take a batch of up to 4
-    const batch = toResolve.slice(0, 4);
+    // Take up to remaining slots in sliding window
+    const limit = 4 - activeCount;
+    const batch = toResolve.slice(0, limit);
+    if (batch.length === 0) return;
 
     // Mark as resolving
     setResolvingIds(prev => {
@@ -248,8 +254,8 @@ export default function MetaAdsPage() {
       return next;
     });
 
-    // Run fetches in parallel
-    Promise.all(batch.map(async (ad) => {
+    // Run fetches
+    batch.forEach(async (ad) => {
       const params = new URLSearchParams();
       if (ad.id) params.set('adId', ad.id);
       if (ad.creative?.id) params.set('creativeId', ad.creative.id);
@@ -260,6 +266,8 @@ export default function MetaAdsPage() {
         if (!res.ok) throw new Error('Fetch failed');
         const data = await res.json();
         
+        if (!isMounted) return;
+
         let thumbnail: string | null = null;
         if (data.type === 'carousel' && data.cards?.[0]?.url) {
           thumbnail = data.cards[0].url;
@@ -275,16 +283,23 @@ export default function MetaAdsPage() {
         }
       } catch (err) {
         console.error(`Error resolving ad ${ad.id}:`, err);
-        // Mark as failed so we don't retry it
-        setResolvedDetails(prev => ({ ...prev, [ad.id]: { type: 'failed' } }));
+        if (isMounted) {
+          setResolvedDetails(prev => ({ ...prev, [ad.id]: { type: 'failed' } }));
+        }
       } finally {
-        setResolvingIds(prev => {
-          const next = { ...prev };
-          delete next[ad.id];
-          return next;
-        });
+        if (isMounted) {
+          setResolvingIds(prev => {
+            const next = { ...prev };
+            delete next[ad.id];
+            return next;
+          });
+        }
       }
-    }));
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeAds, resolvedDetails, resolvingIds, profile]);
 
   const fmtN = (n: any) => {
