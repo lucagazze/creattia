@@ -10,6 +10,80 @@ import EmailLoader from '../components/ui/EmailLoader';
 
 const PINK = '#ec4899';
 
+const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
+  const touchStart = React.useRef<number>(0);
+  const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStart.current - e.changedTouches[0].clientX;
+    if (diff > 40 && onNext) onNext();
+    if (diff < -40 && onPrev) onPrev();
+  };
+
+  const days: any[] = [];
+  const first = new Date(year, month, 1).getDay();
+  const startOffset = first === 0 ? 6 : first - 1;
+  for (let i = 0; i < startOffset; i++) days.push(null);
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  for (let i = 1; i <= lastDay; i++) {
+    const d = new Date(year, month, i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="w-[240px]" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <div className="flex items-center mb-4 px-1">
+        <div className="w-8 flex justify-start">
+          {onPrev && (
+            <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group">
+              <ChevronDown className="w-4 h-4 rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
+            </button>
+          )}
+        </div>
+        <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">
+          {MONTHS_ES[month]} {year}
+        </span>
+        <div className="w-8 flex justify-end">
+          {onNext && (
+            <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group">
+              <ChevronDown className="w-4 h-4 -rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-y-1">
+        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
+        {days.map((d, i) => {
+          if (!d) return <div key={`empty-${i}`} />;
+          const isToday = d === todayStr;
+          const isFuture = d > todayStr;
+          const isSelected = d === since || d === until;
+          const isInRange = since && until && d > since && d < until;
+          const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
+          
+          return (
+            <button 
+              key={d} 
+              onMouseEnter={() => !isFuture && onHover(d)} 
+              onClick={() => !isFuture && onDay(d)} 
+              disabled={isFuture} 
+              className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${
+                isSelected ? 'bg-pink-600 text-white rounded-full z-10 shadow-md shadow-pink-200 dark:shadow-none' : 
+                (isInRange || isHovering) ? 'bg-pink-50 dark:bg-pink-500/10 text-pink-600' : 
+                isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 
+                'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'
+              } ${isToday && !isSelected ? 'text-pink-600 dark:text-pink-500 ring-1 ring-pink-100 dark:ring-pink-900/30' : ''}`}
+            >
+              {d.split('-')[2]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function TiendaPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
@@ -100,80 +174,6 @@ export default function TiendaPage() {
     const currentYear = new Date().getFullYear().toString();
     if (year === currentYear && !showYearForce) return `${day} ${month}`;
     return `${day} ${month} ${year}`;
-  };
-
-  const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
-    const touchStart = React.useRef<number>(0);
-    const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
-    const handleTouchEnd = (e: React.TouchEvent) => {
-      const diff = touchStart.current - e.changedTouches[0].clientX;
-      if (diff > 40 && onNext) onNext();
-      if (diff < -40 && onPrev) onPrev();
-    };
-
-    const days: any[] = [];
-    const first = new Date(year, month, 1).getDay();
-    const startOffset = first === 0 ? 6 : first - 1;
-    for (let i = 0; i < startOffset; i++) days.push(null);
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    for (let i = 1; i <= lastDay; i++) {
-      const d = new Date(year, month, i);
-      days.push(d.toISOString().split('T')[0]);
-    }
-    const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    return (
-      <div className="w-[240px]" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-        <div className="flex items-center mb-4 px-1">
-          <div className="w-8 flex justify-start">
-            {onPrev && (
-              <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group">
-                <ChevronDown className="w-4 h-4 rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-              </button>
-            )}
-          </div>
-          <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">
-            {MONTHS_ES[month]} {year}
-          </span>
-          <div className="w-8 flex justify-end">
-            {onNext && (
-              <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group">
-                <ChevronDown className="w-4 h-4 -rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="grid grid-cols-7 gap-y-1">
-          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
-          {days.map((d, i) => {
-            if (!d) return <div key={`empty-${i}`} />;
-            const isToday = d === todayStr;
-            const isFuture = d > todayStr;
-            const isSelected = d === since || d === until;
-            const isInRange = since && until && d > since && d < until;
-            const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
-            
-            return (
-              <button 
-                key={d} 
-                onMouseEnter={() => !isFuture && onHover(d)} 
-                onClick={() => !isFuture && onDay(d)} 
-                disabled={isFuture} 
-                className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${
-                  isSelected ? 'bg-pink-600 text-white rounded-full z-10 shadow-md shadow-pink-200 dark:shadow-none' : 
-                  (isInRange || isHovering) ? 'bg-pink-50 dark:bg-pink-500/10 text-pink-600' : 
-                  isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 
-                  'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'
-                } ${isToday && !isSelected ? 'text-pink-600 dark:text-pink-500 ring-1 ring-pink-100 dark:ring-pink-900/30' : ''}`}
-              >
-                {d.split('-')[2]}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
   };
 
   if (!profile || !(profile as any).ecommerce_platform) {

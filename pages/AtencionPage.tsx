@@ -30,6 +30,64 @@ const METRICS_CONFIG: MetricKeyData[] = [
   { key: 'resolutions_count', label: 'Conversaciones Resueltas', icon: CheckCircle, color: '#6366f1' },
 ];
 
+const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
+  const days: any[] = [];
+  const first = new Date(year, month, 1).getDay();
+  const startOffset = first === 0 ? 6 : first - 1;
+  for (let i = 0; i < startOffset; i++) days.push(null);
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  for (let i = 1; i <= lastDay; i++) {
+    const d = new Date(year, month, i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  return (
+    <div className="w-[240px]">
+      <div className="flex items-center mb-4 px-1">
+        <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
+          <ChevronDown className="w-4 h-4 rotate-90" />
+        </button>
+        <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">
+          {MONTHS_ES[month]} {year}
+        </span>
+        <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
+          <ChevronDown className="w-4 h-4 -rotate-90" />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-y-1">
+        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
+        {days.map((d, i) => {
+          if (!d) return <div key={`empty-${i}`} />;
+          const isToday = d === todayStr;
+          const isFuture = d > todayStr;
+          const isSelected = d === since || d === until;
+          const isInRange = since && until && d > since && d < until;
+          const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
+
+          return (
+            <button
+              key={d}
+              onMouseEnter={() => !isFuture && onHover(d)}
+              onClick={() => !isFuture && onDay(d)}
+              disabled={isFuture}
+              className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${
+                isSelected ? 'bg-violet-600 text-white rounded-full z-10 shadow-md shadow-violet-200 dark:shadow-none' :
+                (isInRange || isHovering) ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600' :
+                isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' :
+                'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'
+              } ${isToday && !isSelected ? 'text-violet-600 dark:text-violet-500 ring-1 ring-violet-100 dark:ring-violet-900/30' : ''}`}
+            >
+              {d.split('-')[2]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function AtencionPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
@@ -314,65 +372,6 @@ export default function AtencionPage() {
     const currentYear = new Date().getFullYear().toString();
     if (year === currentYear && !showYearForce) return `${day} ${month}`;
     return `${day} ${month} ${year}`;
-  };
-
-  // Mini Calendar renderer for the date picker
-  const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
-    const days: any[] = [];
-    const first = new Date(year, month, 1).getDay();
-    const startOffset = first === 0 ? 6 : first - 1;
-    for (let i = 0; i < startOffset; i++) days.push(null);
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    for (let i = 1; i <= lastDay; i++) {
-      const d = new Date(year, month, i);
-      days.push(d.toISOString().split('T')[0]);
-    }
-    const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    return (
-      <div className="w-[240px]">
-        <div className="flex items-center mb-4 px-1">
-          <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
-            <ChevronDown className="w-4 h-4 rotate-90" />
-          </button>
-          <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">
-            {MONTHS_ES[month]} {year}
-          </span>
-          <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
-            <ChevronDown className="w-4 h-4 -rotate-90" />
-          </button>
-        </div>
-        <div className="grid grid-cols-7 gap-y-1">
-          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
-          {days.map((d, i) => {
-            if (!d) return <div key={`empty-${i}`} />;
-            const isToday = d === todayStr;
-            const isFuture = d > todayStr;
-            const isSelected = d === since || d === until;
-            const isInRange = since && until && d > since && d < until;
-            const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
-
-            return (
-              <button
-                key={d}
-                onMouseEnter={() => !isFuture && onHover(d)}
-                onClick={() => !isFuture && onDay(d)}
-                disabled={isFuture}
-                className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${
-                  isSelected ? 'bg-violet-600 text-white rounded-full z-10 shadow-md shadow-violet-200 dark:shadow-none' :
-                  (isInRange || isHovering) ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600' :
-                  isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' :
-                  'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'
-                } ${isToday && !isSelected ? 'text-violet-600 dark:text-violet-500 ring-1 ring-violet-100 dark:ring-violet-900/30' : ''}`}
-              >
-                {d.split('-')[2]}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
   };
 
   if (!profile || !profile.chatwoot_token) {

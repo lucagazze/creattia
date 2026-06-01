@@ -41,6 +41,54 @@ const getKlaviyoChange = (curr?: number, prev?: number): number | undefined => {
 
 
 
+const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
+  const touchStart = React.useRef<number>(0);
+  const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStart.current - e.changedTouches[0].clientX;
+    if (diff > 40 && onNext) onNext();
+    if (diff < -40 && onPrev) onPrev();
+  };
+
+  const days: any[] = [];
+  const first = new Date(year, month, 1).getDay();
+  const startOffset = first === 0 ? 6 : first - 1;
+  for (let i = 0; i < startOffset; i++) days.push(null);
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  for (let i = 1; i <= lastDay; i++) days.push(new Date(year, month, i).toISOString().split('T')[0]);
+  const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const todayStr = today();
+
+  const prevDate = React.useRef(new Date(year, month, 1).getTime());
+  const current = new Date(year, month, 1).getTime();
+  let animClass = 'animate-in fade-in zoom-in-95 duration-200';
+  if (current > prevDate.current) animClass = 'animate-in fade-in slide-in-from-right-16 duration-300';
+  else if (current < prevDate.current) animClass = 'animate-in fade-in slide-in-from-left-16 duration-300';
+  React.useEffect(() => { prevDate.current = current; }, [current]);
+
+  return (
+    <div className="w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <div className="flex items-center mb-4 px-1">
+        <div className="w-8 flex justify-start">{onPrev && <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"><ChevronDown className="w-4 h-4 rotate-90 text-zinc-400" /></button>}</div>
+        <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">{MONTHS_ES[month]} {year}</span>
+        <div className="w-8 flex justify-end">{onNext && <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"><ChevronDown className="w-4 h-4 -rotate-90 text-zinc-400" /></button>}</div>
+      </div>
+      <div key={`${year}-${month}`} className={`grid grid-cols-7 gap-y-1 ${animClass}`}>
+        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase">{d}</div>)}
+        {days.map((d, i) => {
+          if (!d) return <div key={`empty-${i}`} />;
+          const isToday = d === todayStr; const isFuture = d > todayStr; const isSelected = d === since || d === until;
+          const isInRange = since && until && d > since && d < until;
+          const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
+          return (
+            <button key={d} onMouseEnter={() => !isFuture && onHover(d)} onClick={() => !isFuture && onDay(d)} disabled={isFuture} className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${isSelected ? 'bg-emerald-600 text-white rounded-full z-10 shadow-md shadow-emerald-200 dark:shadow-none' : (isInRange || isHovering) ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600' : isFuture ? 'text-zinc-200 dark:text-zinc-800' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'} ${isToday && !isSelected ? 'text-emerald-600 ring-1 ring-emerald-100' : ''}`}>{d.split('-')[2]}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function RetencionPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
@@ -152,54 +200,6 @@ export default function RetencionPage() {
       html.classList.remove('is-printing');
       if (wasDark) html.classList.add('dark');
     }, 350);
-  };
-
-  const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
-    const touchStart = React.useRef<number>(0);
-    const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
-    const handleTouchEnd = (e: React.TouchEvent) => {
-      const diff = touchStart.current - e.changedTouches[0].clientX;
-      if (diff > 40 && onNext) onNext();
-      if (diff < -40 && onPrev) onPrev();
-    };
-
-    const days: any[] = [];
-    const first = new Date(year, month, 1).getDay();
-    const startOffset = first === 0 ? 6 : first - 1;
-    for (let i = 0; i < startOffset; i++) days.push(null);
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    for (let i = 1; i <= lastDay; i++) days.push(new Date(year, month, i).toISOString().split('T')[0]);
-    const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const todayStr = today();
-
-    const prevDate = React.useRef(new Date(year, month, 1).getTime());
-    const current = new Date(year, month, 1).getTime();
-    let animClass = 'animate-in fade-in zoom-in-95 duration-200';
-    if (current > prevDate.current) animClass = 'animate-in fade-in slide-in-from-right-16 duration-300';
-    else if (current < prevDate.current) animClass = 'animate-in fade-in slide-in-from-left-16 duration-300';
-    React.useEffect(() => { prevDate.current = current; }, [current]);
-
-    return (
-      <div className="w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-        <div className="flex items-center mb-4 px-1">
-          <div className="w-8 flex justify-start">{onPrev && <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"><ChevronDown className="w-4 h-4 rotate-90 text-zinc-400" /></button>}</div>
-          <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">{MONTHS_ES[month]} {year}</span>
-          <div className="w-8 flex justify-end">{onNext && <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"><ChevronDown className="w-4 h-4 -rotate-90 text-zinc-400" /></button>}</div>
-        </div>
-        <div key={`${year}-${month}`} className={`grid grid-cols-7 gap-y-1 ${animClass}`}>
-          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase">{d}</div>)}
-          {days.map((d, i) => {
-            if (!d) return <div key={`empty-${i}`} />;
-            const isToday = d === todayStr; const isFuture = d > todayStr; const isSelected = d === since || d === until;
-            const isInRange = since && until && d > since && d < until;
-            const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
-            return (
-              <button key={d} onMouseEnter={() => !isFuture && onHover(d)} onClick={() => !isFuture && onDay(d)} disabled={isFuture} className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${isSelected ? 'bg-emerald-600 text-white rounded-full z-10 shadow-md shadow-emerald-200 dark:shadow-none' : (isInRange || isHovering) ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600' : isFuture ? 'text-zinc-200 dark:text-zinc-800' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'} ${isToday && !isSelected ? 'text-emerald-600 ring-1 ring-emerald-100' : ''}`}>{d.split('-')[2]}</button>
-            );
-          })}
-        </div>
-      </div>
-    );
   };
 
   return (
