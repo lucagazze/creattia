@@ -51,30 +51,48 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
 import { AppleLoader } from '../ui/AppleLoader';
 
+// Retry wrapper — automatically retries downloading a lazy chunk up to 3 times
+// (1 s delay between attempts). Protects against transient network drops and
+// navigation-aborted fetch requests that would otherwise throw to the error boundary.
+const lazyWithRetry = (componentImport: () => Promise<any>) =>
+  lazy(async () => {
+    const retries = 3;
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await componentImport();
+      } catch (err) {
+        console.warn(`Error loading chunk (attempt ${i + 1}/${retries}):`, err);
+        if (i === retries - 1) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+    return componentImport();
+  });
+
 // Lazy-loaded pages — each becomes a separate JS chunk (code splitting)
 // Only the page the user navigates to gets downloaded
-const DashboardPage      = lazy(() => import('../../pages/DashboardPage'));
-const CaptacionPage      = lazy(() => import('../../pages/CaptacionPage'));
-const AtencionPage       = lazy(() => import('../../pages/AtencionPage'));
-const MensajeriaPage     = lazy(() => import('../../pages/MensajeriaPage'));
-const RetencionPage      = lazy(() => import('../../pages/RetencionPage'));
-const TiendaPage         = lazy(() => import('../../pages/TiendaPage'));
-const LinksPage          = lazy(() => import('../../pages/LinksPage'));
-const ReportsPage        = lazy(() => import('../../pages/ReportsPage'));
-const AdminPage          = lazy(() => import('../../pages/AdminPage'));
-const MetaAdsPage        = lazy(() => import('../../pages/MetaAdsPage'));
-const ActivityPage       = lazy(() => import('../../pages/ActivityPage'));
-const EmailLibraryPage   = lazy(() => import('../../pages/EmailLibraryPage'));
-const EmailMarketingPage = lazy(() => import('../../pages/EmailMarketingPage'));
-const EmailMonitorPage   = lazy(() => import('../../pages/EmailMonitorPage'));
-const RedesSocialesPage  = lazy(() => import('../../pages/RedesSocialesPage'));
-const MensajesDMPage     = lazy(() => import('../../pages/MensajesDMPage'));
-const ComentariosPage    = lazy(() => import('../../pages/ComentariosPage'));
-const CerebroPage        = lazy(() => import('../../pages/CerebroPage'));
-const EntradasPage       = lazy(() => import('../../pages/EntradasPage'));
-const ContactosPage      = lazy(() => import('../../pages/ContactosPage'));
-const InformesPage       = lazy(() => import('../../pages/InformesPage'));
-const CostosPage         = lazy(() => import('../../pages/CostosPage'));
+const DashboardPage      = lazyWithRetry(() => import('../../pages/DashboardPage'));
+const CaptacionPage      = lazyWithRetry(() => import('../../pages/CaptacionPage'));
+const AtencionPage       = lazyWithRetry(() => import('../../pages/AtencionPage'));
+const MensajeriaPage     = lazyWithRetry(() => import('../../pages/MensajeriaPage'));
+const RetencionPage      = lazyWithRetry(() => import('../../pages/RetencionPage'));
+const TiendaPage         = lazyWithRetry(() => import('../../pages/TiendaPage'));
+const LinksPage          = lazyWithRetry(() => import('../../pages/LinksPage'));
+const ReportsPage        = lazyWithRetry(() => import('../../pages/ReportsPage'));
+const AdminPage          = lazyWithRetry(() => import('../../pages/AdminPage'));
+const MetaAdsPage        = lazyWithRetry(() => import('../../pages/MetaAdsPage'));
+const ActivityPage       = lazyWithRetry(() => import('../../pages/ActivityPage'));
+const EmailLibraryPage   = lazyWithRetry(() => import('../../pages/EmailLibraryPage'));
+const EmailMarketingPage = lazyWithRetry(() => import('../../pages/EmailMarketingPage'));
+const EmailMonitorPage   = lazyWithRetry(() => import('../../pages/EmailMonitorPage'));
+const RedesSocialesPage  = lazyWithRetry(() => import('../../pages/RedesSocialesPage'));
+const MensajesDMPage     = lazyWithRetry(() => import('../../pages/MensajesDMPage'));
+const ComentariosPage    = lazyWithRetry(() => import('../../pages/ComentariosPage'));
+const CerebroPage        = lazyWithRetry(() => import('../../pages/CerebroPage'));
+const EntradasPage       = lazyWithRetry(() => import('../../pages/EntradasPage'));
+const ContactosPage      = lazyWithRetry(() => import('../../pages/ContactosPage'));
+const InformesPage       = lazyWithRetry(() => import('../../pages/InformesPage'));
+const CostosPage         = lazyWithRetry(() => import('../../pages/CostosPage'));
 
 
 // Minimal skeleton shown while a lazy page chunk is downloading

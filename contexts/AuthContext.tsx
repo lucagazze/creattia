@@ -20,14 +20,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (userId: string, email?: string) => {
-    const p = await db.profile.getByUserId(userId);
-    setProfile(p);
-    if (p) {
-      db.activity.log(userId, p.id, 'session_start', { 
-        user_email: email,
-        ua: navigator.userAgent,
-        screen: `${window.innerWidth}x${window.innerHeight}`
-      });
+    const retries = 3;
+    for (let i = 0; i < retries; i++) {
+      try {
+        const p = await db.profile.getByUserId(userId);
+        setProfile(p);
+        if (p) {
+          db.activity.log(userId, p.id, 'session_start', {
+            user_email: email,
+            ua: navigator.userAgent,
+            screen: `${window.innerWidth}x${window.innerHeight}`,
+          });
+        }
+        return; // success — exit retry loop
+      } catch (err) {
+        console.error(`Error loading profile (attempt ${i + 1}/${retries}):`, err);
+        if (i === retries - 1) {
+          setProfile(null);
+          throw err;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
     }
   };
 

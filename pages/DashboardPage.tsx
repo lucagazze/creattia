@@ -1078,6 +1078,14 @@ export default function DashboardPage() {
     );
   };
 
+  if (!profile) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+        <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-700 border-t-violet-600 dark:border-t-violet-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-6 sm:space-y-10 pt-6 px-4 md:px-6 lg:px-8">
       {/* Admin Client Picker */}
@@ -1819,7 +1827,7 @@ export default function DashboardPage() {
                     data={
                       currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({
                         val:
-                          (d.val / (currentKlaviyo.dailySent[i]?.val || 1)) *
+                          (d.val / ((currentKlaviyo?.dailySent || [])[i]?.val || 1)) *
                           100,
                         date: d.date,
                       })) || []
@@ -1853,7 +1861,7 @@ export default function DashboardPage() {
                     data={
                       currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({
                         val:
-                          (d.val / (currentKlaviyo.dailySent[i]?.val || 1)) *
+                          (d.val / ((currentKlaviyo?.dailySent || [])[i]?.val || 1)) *
                           100,
                         date: d.date,
                       })) || []
@@ -1922,7 +1930,7 @@ export default function DashboardPage() {
                                   (d: any, i: number) => ({
                                     val:
                                       (d.val /
-                                        (currentKlaviyo.dailySent[i]?.val ||
+                                        ((currentKlaviyo?.dailySent || [])[i]?.val ||
                                           1)) *
                                       100,
                                     date: d.date,
@@ -1932,7 +1940,7 @@ export default function DashboardPage() {
                                   (d: any, i: number) => ({
                                     val:
                                       (d.val /
-                                        (currentKlaviyo.dailySent[i]?.val ||
+                                        ((currentKlaviyo?.dailySent || [])[i]?.val ||
                                           1)) *
                                       100,
                                     date: d.date,
@@ -1951,7 +1959,7 @@ export default function DashboardPage() {
                                   (d: any, i: number) => ({
                                     val:
                                       (d.val /
-                                        (prevKlaviyo?.dailySent[i]?.val || 1)) *
+                                        ((prevKlaviyo?.dailySent || [])[i]?.val || 1)) *
                                       100,
                                     date: d.date,
                                   }),
@@ -1960,7 +1968,7 @@ export default function DashboardPage() {
                                   (d: any, i: number) => ({
                                     val:
                                       (d.val /
-                                        (prevKlaviyo?.dailySent[i]?.val || 1)) *
+                                        ((prevKlaviyo?.dailySent || [])[i]?.val || 1)) *
                                       100,
                                     date: d.date,
                                   }),
