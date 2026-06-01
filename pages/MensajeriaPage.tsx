@@ -236,7 +236,6 @@ export default function MensajeriaPage() {
   const [summary, setSummary] = useState<any>(null);
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'priority'>('latest');
   const [expanded, setExpanded] = useState(false);
-  const [canReplyOnly, setCanReplyOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [generatingDraft, setGeneratingDraft] = useState(false);
@@ -392,18 +391,16 @@ export default function MensajeriaPage() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // When a client-side filter is active (canReplyOnly or specific channel),
-  // auto-load more pages so the visible list fills up instead of sitting empty
+  // When a channel filter is active, auto-load more pages so the visible list fills up
   useEffect(() => {
     if (!hasMore || loadingMore || loading) return;
-    const hasActiveFilter = canReplyOnly || channelFilter !== 'all';
-    if (!hasActiveFilter) return;
+    if (channelFilter === 'all') return;
     const t = setTimeout(() => {
       if (hasMore && !loadingMore) loadMoreConversations();
     }, 150);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations.length, canReplyOnly, channelFilter, hasMore, loadingMore, loading]);
+  }, [conversations.length, channelFilter, hasMore, loadingMore, loading]);
 
   // WebSocket real-time connection to Chatwoot
   useEffect(() => {
@@ -1013,11 +1010,6 @@ export default function MensajeriaPage() {
   };
 
   const getChannelCount = (channelKey: string) => {
-    if (canReplyOnly) {
-      const base = conversations.filter(c => isWindowOpen(c));
-      if (channelKey === 'all') return base.length;
-      return base.filter(c => getChannel(c) === channelKey).length;
-    }
     if (channelKey === 'all') {
       return convMeta?.all_count !== undefined ? convMeta.all_count : conversations.length;
     }
@@ -1118,17 +1110,8 @@ export default function MensajeriaPage() {
     return true;
   });
 
-  const isWindowOpen = (c: any) => {
-    const ch = getChannel(c);
-    const isMeta = ['whatsapp', 'instagram', 'facebook'].includes(ch);
-    const lastIncoming = c.messages?.find((m: any) => m?.message_type === 0);
-    const timeSinceLastIncoming = lastIncoming ? (Date.now() / 1000 - lastIncoming.created_at) : null;
-    return c.can_reply === true || (c.can_reply !== false && (!isMeta || (timeSinceLastIncoming !== null && timeSinceLastIncoming < 86400) || (Date.now() / 1000 - (c.last_activity_at || c.created_at)) < 86400));
-  };
-
   const filtered = assignFiltered.filter(c => {
     if (!c) return false;
-    if (canReplyOnly && !isWindowOpen(c)) return false;
     if (!search.trim()) return true;
     const s = search.toLowerCase();
     const name = (c.meta?.sender?.name || '').toLowerCase();
@@ -1226,21 +1209,6 @@ export default function MensajeriaPage() {
       <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">
         {/* Left Section: Status filter + Channel Filter Pills (Desktop only) */}
         <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
-          {/* Ventana Abierta filter — always leftmost */}
-          <button
-            onClick={() => setCanReplyOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all duration-200 whitespace-nowrap border flex-shrink-0 ${
-              canReplyOnly
-                ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/10'
-                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-emerald-700 dark:hover:text-emerald-400'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5" />
-            Ventana Abierta
-          </button>
-
-          <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-700 flex-shrink-0" />
-
           {[
             { key: 'all',       label: 'Todos',     icon: Inbox,          activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-white dark:border-white text-white dark:text-zinc-950',       badgeClass: 'bg-white/20 text-white dark:bg-black/10 dark:text-zinc-900', inactiveClass: 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200',               inactiveBadge: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-550' },
             { key: 'whatsapp',  label: 'WhatsApp',  icon: MessageCircle,  activeClass: 'bg-green-500 border-green-500 text-white',                                                          badgeClass: 'bg-white/25 text-white',                                     inactiveClass: 'border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30', inactiveBadge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
@@ -1518,19 +1486,6 @@ export default function MensajeriaPage() {
               );
             })}
 
-            <div className="w-px bg-zinc-100 dark:bg-zinc-800 self-stretch my-2" />
-
-            <button
-              onClick={() => setCanReplyOnly(v => !v)}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-all ${
-                canReplyOnly ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
-              }`}
-              title="Ventana Abierta"
-            >
-              {canReplyOnly && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-emerald-500 rounded-full" />}
-              <Clock className="w-5 h-5" />
-              <span className="text-[9px] font-bold leading-none">Abiertas</span>
-            </button>
           </div>
         </div>
 
