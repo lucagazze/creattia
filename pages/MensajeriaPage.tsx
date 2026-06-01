@@ -397,16 +397,15 @@ export default function MensajeriaPage() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // When a channel filter is active, auto-load more pages so the visible list fills up
+  // Auto-load more pages whenever there are more available
   useEffect(() => {
     if (!hasMore || loadingMore || loading) return;
-    if (channelFilter === 'all') return;
     const t = setTimeout(() => {
       if (hasMore && !loadingMore) loadMoreConversations();
-    }, 150);
+    }, 200);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations.length, channelFilter, hasMore, loadingMore, loading]);
+  }, [conversations.length, hasMore, loadingMore, loading]);
 
   // WebSocket real-time connection to Chatwoot
   useEffect(() => {
@@ -614,11 +613,14 @@ export default function MensajeriaPage() {
 
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (container) {
-      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
-      if (isAtBottom) container.scrollTop = container.scrollHeight;
+    if (!container) return;
+    // Always scroll to bottom when opening a new chat (messages go from 0 to N)
+    // or when near the bottom (new message arrived)
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+    if (isAtBottom || !loadingMsgs) {
+      container.scrollTop = container.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, loadingMsgs]);
 
   // Mobile keyboard handling: adjust chat height when virtual keyboard appears
   useEffect(() => {
