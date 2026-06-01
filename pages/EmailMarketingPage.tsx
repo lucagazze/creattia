@@ -115,7 +115,10 @@ const fetchCampaigns = async (apiKey: string): Promise<KvCampaign[]> => {
         message: msgIds[0] ? msgMap.get(msgIds[0]) : undefined,
       };
     })
-    .filter((c: any) => c.status.toLowerCase() !== 'cancelled');
+    .filter((c: any) => {
+      const s = c.status.toLowerCase();
+      return s !== 'cancelled' && s !== 'draft';
+    });
 };
 
 const fetchFlows = async (apiKey: string): Promise<KvFlow[]> => {
