@@ -82,23 +82,39 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [profile?.id, profile?.chatwoot_url, profile?.chatwoot_token]);
 
+  // Keep a ref to the latest fetchCount function to prevent connection churn in WebSocket
+  const fetchCountRef = useRef(fetchCount);
+  useEffect(() => {
+    fetchCountRef.current = fetchCount;
+  }, [fetchCount]);
+
+  // Update browser tab title dynamically when unread count changes
+  useEffect(() => {
+    const defaultTitle = 'Portal C.A.R | Algoritmia';
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) ${defaultTitle}`;
+    } else {
+      document.title = defaultTitle;
+    }
+  }, [unreadCount]);
+
   // Sync manual unread status from same tab or other tabs via StorageEvent/CustomEvent
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === `car_manually_unread_${profile?.id || 'default'}`) {
-        fetchCount();
+        fetchCountRef.current();
       }
     };
     window.addEventListener('storage', handleStorageChange);
 
-    const handleLocalUpdate = () => fetchCount();
+    const handleLocalUpdate = () => fetchCountRef.current();
     window.addEventListener('car_manually_unread_update', handleLocalUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('car_manually_unread_update', handleLocalUpdate);
     };
-  }, [profile?.id, fetchCount]);
+  }, [profile?.id]);
 
   // WebSocket real-time connection to Chatwoot for live badge updates
   useEffect(() => {
@@ -112,13 +128,18 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const connect = async () => {
       try {
+        console.log('[UnreadContext WS] Fetching profile for pubsub token...');
         const { pubsub_token } = await chatwoot.getProfile(url, token);
         if (!pubsub_token) return;
 
-        const wsUrl = url.replace(/^https?/, (m: string) => m === 'https' ? 'wss' : 'ws') + '/cable';
+        const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+        const wsUrl = cleanUrl.replace(/^https?/, (m: string) => m === 'https' ? 'wss' : 'ws') + '/cable';
+        
+        console.log('[UnreadContext WS] Connecting to:', wsUrl);
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
+          console.log('[UnreadContext WS] Connected. Subscribing to RoomChannel...');
           ws!.send(JSON.stringify({
             command: 'subscribe',
             identifier: JSON.stringify({ channel: 'RoomChannel', pubsub_token })
@@ -135,6 +156,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const msg = frame.message;
             if (!msg?.event) return;
 
+            console.log('[UnreadContext WS] Real-time event received:', msg.event);
+
             // Trigger fetchCount on any relevant conversation/message event
             if ([
               'message.created',
@@ -143,26 +166,38 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               'conversation.status_changed',
               'conversation.updated'
             ].includes(msg.event)) {
-              setTimeout(fetchCount, 200);
+              setTimeout(() => {
+                console.log('[UnreadContext WS] Triggering badge refresh...');
+                fetchCountRef.current();
+              }, 200);
             }
-          } catch {}
+          } catch (err) {
+            console.error('[UnreadContext WS] Message error:', err);
+          }
         };
 
         ws.onclose = () => {
+          console.log('[UnreadContext WS] Disconnected. Reconnecting in 5s...');
           clearInterval(pingInterval);
           reconnectTimeout = setTimeout(connect, 5000);
         };
-        ws.onerror = () => ws?.close();
-      } catch {}
+        ws.onerror = (err) => {
+          console.error('[UnreadContext WS] Socket error:', err);
+          ws?.close();
+        };
+      } catch (err) {
+        console.error('[UnreadContext WS] Connection error:', err);
+      }
     };
 
     connect();
     return () => {
+      console.log('[UnreadContext WS] Cleaning up websocket connection...');
       clearInterval(pingInterval);
       clearTimeout(reconnectTimeout);
       ws?.close();
     };
-  }, [profile?.chatwoot_url, profile?.chatwoot_token, fetchCount]);
+  }, [profile?.chatwoot_url, profile?.chatwoot_token]);
 
   // Fallback Polling (polls at regular interval in case WebSocket misses an event)
   useEffect(() => {
@@ -174,15 +209,15 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Initial fetch immediately
-    fetchCount();
+    fetchCountRef.current();
 
     // Then poll at regular interval
-    timerRef.current = setInterval(fetchCount, POLL_INTERVAL_MS);
+    timerRef.current = setInterval(() => fetchCountRef.current(), POLL_INTERVAL_MS);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [fetchCount, profile?.chatwoot_url, profile?.chatwoot_token]);
+  }, [profile?.chatwoot_url, profile?.chatwoot_token]);
 
   return (
     <UnreadContext.Provider value={{ unreadCount, refresh: fetchCount }}>

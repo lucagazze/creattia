@@ -54,6 +54,7 @@ import { AIChatFloat } from '../AIChatFloat';
 import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
 import { AppleLoader } from '../ui/AppleLoader';
+import { useUnread } from '../../contexts/UnreadContext';
 
 // Retry wrapper — automatically retries downloading a lazy chunk up to 3 times
 // (1 s delay between attempts). Protects against transient network drops and
@@ -127,6 +128,7 @@ export const MainLayout = () => {
   const { darkMode, toggleDarkMode } = useTheme();
   const { profile } = useAuth();
   const { isViewingAs } = useViewAs();
+  const { unreadCount } = useUnread();
   const location = useLocation();
 
   // Load client-specific token into metaAds cache
@@ -157,9 +159,12 @@ export const MainLayout = () => {
           <div className="flex items-center">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 -ml-1.5 rounded-[8px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all"
+              className="p-2 -ml-1.5 rounded-[8px] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-all relative"
             >
               <Menu className="w-[18px] h-[18px]" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-zinc-950 animate-pulse" />
+              )}
             </button>
             <span className="ml-2 text-[15px] font-bold text-zinc-900 dark:text-white tracking-tight uppercase">
               ALGORITMIA <span className="text-violet-500 ml-0.5">GESTIÓN</span>
