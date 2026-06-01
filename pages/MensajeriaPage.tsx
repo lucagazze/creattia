@@ -9,7 +9,7 @@ import {
   RefreshCw, AlertCircle, Loader2, Send, Sparkles,
   Search, CheckCircle, Clock, Inbox, ExternalLink, Bot,
   Globe, Facebook, Instagram, MessageCircle, Mail,
-  BookOpen, ShoppingBag, Plus, Trash2, Link, Mic, ChevronLeft
+  BookOpen, ShoppingBag, Plus, Trash2, Link, Mic, ChevronLeft, X
 } from 'lucide-react';
 
 
@@ -1549,10 +1549,10 @@ export default function MensajeriaPage() {
           </div>
         </div>
 
-        {/* RIGHT: chat panel — on mobile when open: fixed fullscreen overlay */}
+        {/* RIGHT: chat panel — on mobile when open: fixed fullscreen overlay above all navbars */}
         <div className={`
           ${mobileShowChat && selected
-            ? 'fixed inset-0 z-[60] flex flex-col'
+            ? 'fixed inset-0 z-[250] flex flex-col bg-white dark:bg-zinc-950 animate-in slide-in-from-bottom duration-250'
             : selected ? 'hidden md:flex flex-1'
             : 'hidden md:flex flex-1'}
           overflow-hidden bg-zinc-50 dark:bg-zinc-900/30
@@ -1571,18 +1571,23 @@ export default function MensajeriaPage() {
                 onTouchStart={e => { if (e.touches[0].clientX < 35) setSwipeTouchStartX(e.touches[0].clientX); }}
                 onTouchEnd={e => { if (swipeTouchStartX !== null && e.changedTouches[0].clientX - swipeTouchStartX > 70) { setSelected(null); setMobileShowChat(false); } setSwipeTouchStartX(null); }}
               >
-                {/* MOBILE header — WhatsApp style */}
-                <div className="md:hidden flex items-center gap-3 px-3 py-2.5 bg-zinc-950 border-b border-zinc-800/60 flex-shrink-0">
-                  <button onClick={() => { setSelected(null); setMobileShowChat(false); }} className="p-1 text-white">
-                    <ChevronLeft className="w-6 h-6" />
+                {/* MOBILE header — AIChatFloat style */}
+                <div className="md:hidden flex items-center justify-between px-4 py-3.5 border-b border-zinc-100 dark:border-zinc-900 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0 select-none">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
+                      {(contact(selected).name || '?').slice(0,2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-[13.5px] font-black text-zinc-800 dark:text-zinc-200 leading-none">{contact(selected).name || `Chat #${selected.id}`}</p>
+                      {contact(selected).phone_number && <p className="text-[9.5px] text-zinc-400 font-bold mt-0.5 leading-none">{contact(selected).phone_number}</p>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setSelected(null); setMobileShowChat(false); }}
+                    className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-300 flex items-center justify-center transition-all"
+                  >
+                    <X className="w-5 h-5" />
                   </button>
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
-                    {(contact(selected).name || '?').slice(0,2).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-semibold text-white leading-tight truncate">{contact(selected).name || `Chat #${selected.id}`}</p>
-                    {contact(selected).phone_number && <p className="text-[11px] text-zinc-400 truncate">{contact(selected).phone_number}</p>}
-                  </div>
                 </div>
 
                 {/* DESKTOP header */}
@@ -1633,7 +1638,7 @@ export default function MensajeriaPage() {
                 })()}
 
                 {/* Messages list */}
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto md:px-5 px-2 md:py-4 py-3 md:space-y-3 space-y-1 bg-[#0b141a] md:bg-white dark:bg-zinc-950">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 md:px-5 py-4 md:space-y-3 space-y-2 bg-zinc-50/50 dark:bg-zinc-950">
                   {loadingMsgs ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
@@ -1645,27 +1650,24 @@ export default function MensajeriaPage() {
                     const isActivity = msg?.message_type === 2;
                     if (isActivity) return (
                       <div key={msg.id} className="flex justify-center my-1">
-                        <span className="text-[10px] text-zinc-400 bg-zinc-800/60 md:bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">{msg?.content}</span>
+                        <span className="text-[10px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">{msg?.content}</span>
                       </div>
                     );
                     return (
                       <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                        {/* Desktop: name + time above bubble */}
-                        <span className="hidden md:block text-[9px] text-zinc-400 font-medium mb-0.5 px-2">
+                        <span className="text-[9px] text-zinc-400 font-medium mb-0.5 px-2">
                           {isMe ? 'Agente' : (contact(selected).name || 'Cliente')} · {fmtTime(msg.created_at)}
                         </span>
-                        <div className={`md:max-w-[70%] max-w-[85%] rounded-[18px] px-3.5 md:px-4 py-2 md:py-2.5 text-[14px] md:text-[13px] leading-relaxed ${
+                        <div className={`max-w-[80%] rounded-[18px] px-4 py-2.5 text-[14px] leading-relaxed ${
                           failedMsgIds.has(msg.id)
-                            ? 'bg-red-900/50 border border-red-700 text-red-300 md:bg-red-100 md:border-red-300 md:text-red-700'
+                            ? 'bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300'
                             : isMe
-                              ? `md:bg-blue-600 bg-[#005c4b] text-white shadow-sm ${msg.pending ? 'opacity-60' : ''}`
-                              : 'bg-[#202c33] md:bg-white dark:bg-zinc-800 md:border md:border-zinc-200/60 dark:border-zinc-700 text-zinc-100 md:text-zinc-800 shadow-sm'
+                              ? `bg-blue-600 text-white shadow-sm ${msg.pending ? 'opacity-60' : ''}`
+                              : 'bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 shadow-sm'
                         }`}>
                           {renderMessageContent(msg, contact(selected).name)}
-                          {/* Mobile: timestamp inside bubble */}
-                          <span className="md:hidden block text-right text-[10px] opacity-50 mt-0.5">{fmtTime(msg.created_at)}</span>
                           {failedMsgIds.has(msg.id) && (
-                            <div className="flex items-center gap-1 mt-1 text-[10px] text-red-400 font-bold">
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-red-500 font-bold">
                               <AlertCircle className="w-3 h-3" /> Error al enviar
                             </div>
                           )}
@@ -1689,8 +1691,8 @@ export default function MensajeriaPage() {
                   const isClosed = selected.can_reply === false || (selected.can_reply === undefined && isMetaConv && !loadingMsgs && (over24h || noIncoming));
                   if (isClosed) return null;
                   return (
-                    <div className="md:hidden flex items-end gap-2 px-3 py-2 bg-[#0b141a] border-t border-zinc-800/60 flex-shrink-0">
-                      <div className="flex-1 flex items-end bg-[#202c33] rounded-3xl px-4 py-2.5 min-h-[44px]">
+                    <div className="md:hidden flex items-end gap-2 px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-100 dark:border-zinc-900 flex-shrink-0">
+                      <div className="flex-1 flex items-end bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-3xl px-4 py-2.5 min-h-[44px]">
                         <textarea
                           ref={mobileTextareaRef}
                           value={reply}
@@ -1699,7 +1701,7 @@ export default function MensajeriaPage() {
                           placeholder={transcribing ? 'Transcribiendo...' : isRecording ? '● Grabando...' : 'Mensaje...'}
                           rows={1}
                           disabled={transcribing}
-                          className="flex-1 w-full bg-transparent text-white text-[14px] outline-none resize-none placeholder-zinc-400 leading-snug overflow-hidden"
+                          className="flex-1 w-full bg-transparent text-zinc-800 dark:text-zinc-100 text-[14px] outline-none resize-none placeholder-zinc-400 leading-snug overflow-hidden"
                           style={{ maxHeight: '150px' }}
                         />
                       </div>
