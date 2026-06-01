@@ -68,6 +68,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 import { PresenceProvider } from './contexts/PresenceContext';
+import { UnreadProvider } from './contexts/UnreadContext';
 
 export default function App() {
   return (
@@ -75,20 +76,22 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <PresenceProvider>
-            <ViewAsProvider>
-              <ToastProvider>
-                <ErrorBoundary>
-                  <Routes>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/preview" element={<EmailPreviewPublicPage />} />
-                    
-                    <Route element={<ProtectedRoute />}>
-                       <Route path="/*" element={<MainLayout />} />
-                    </Route>
-                  </Routes>
-                </ErrorBoundary>
-              </ToastProvider>
-            </ViewAsProvider>
+            <UnreadProvider>
+              <ViewAsProvider>
+                <ToastProvider>
+                  <ErrorBoundary>
+                    <Routes>
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/preview" element={<EmailPreviewPublicPage />} />
+                      
+                      <Route element={<ProtectedRoute />}>
+                         <Route path="/*" element={<MainLayout />} />
+                      </Route>
+                    </Routes>
+                  </ErrorBoundary>
+                </ToastProvider>
+              </ViewAsProvider>
+            </UnreadProvider>
           </PresenceProvider>
         </AuthProvider>
       </ThemeProvider>

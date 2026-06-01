@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
+import { useUnread } from '../../contexts/UnreadContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const { viewAsProfile, setViewAsProfile, isViewingAs } = useViewAs();
+  const { unreadCount } = useUnread();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Use viewAsProfile if active, otherwise use real profile
@@ -28,7 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   // Sidebar Menu Items based on User's requested sections:
   const principalItems = [
     { path: '/',                 icon: Home,          label: 'Inicio' },
-    { path: '/mensajeria',       icon: MessageSquare, label: 'Mensajería' },
+    { path: '/mensajeria',       icon: MessageSquare, label: 'Mensajería', badge: unreadCount },
     { path: '/redes-sociales',   icon: Instagram,     label: 'Redes Sociales' },
     { path: '/costos',           icon: Coins,          label: 'Costos' },
     { path: '/contactos',        icon: Users,          label: 'Contactos' },
@@ -85,9 +87,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     setIsOpen(false);
   };
 
-  const renderItem = (item: { path: string; icon: any; label: string }) => {
+  const renderItem = (item: { path: string; icon: any; label: string; badge?: number }) => {
     const Icon = item.icon;
     const isActive = isActivePath(item.path);
+    const badgeCount = (item.badge ?? 0);
     return (
       <Link
         key={item.path}
@@ -106,7 +109,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
             : 'text-zinc-450 dark:text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 group-hover:scale-110'
         }`} />
         <span className="tracking-tight flex-1">{item.label}</span>
-        {isActive && <div className="w-1.5 h-1.5 rounded-full bg-violet-500 dark:bg-violet-400" />}
+        {/* Unread badge — only shown when there are messages and we're not on that page */}
+        {badgeCount > 0 && !isActive && (
+          <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-sm shadow-red-500/30 animate-in fade-in zoom-in-90 duration-300">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
+        {isActive && !badgeCount && <div className="w-1.5 h-1.5 rounded-full bg-violet-500 dark:bg-violet-400" />}
       </Link>
     );
   };

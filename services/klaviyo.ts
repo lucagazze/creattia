@@ -4,26 +4,33 @@ const BASE = '/api/klaviyo';
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ─── In-memory result cache (survives re-renders, cleared on page refresh) ───
-interface CacheEntry {
-  data: any;
-  timestamp: number;
-}
-const resultCache: Record<string, CacheEntry> = {};
+// ─── sessionStorage result cache (survives page refreshes, cleared on tab close) ───
+// Keys are namespaced under 'klv:' to avoid conflicts with other data.
+// Falls back silently to in-memory if sessionStorage is unavailable (e.g. private mode blocked).
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const SS_PREFIX = 'klv:';
 
 function getCached(key: string): any | null {
-  const entry = resultCache[key];
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
-    delete resultCache[key];
+  try {
+    const raw = sessionStorage.getItem(SS_PREFIX + key);
+    if (!raw) return null;
+    const { data, timestamp } = JSON.parse(raw) as { data: any; timestamp: number };
+    if (Date.now() - timestamp > CACHE_TTL_MS) {
+      sessionStorage.removeItem(SS_PREFIX + key);
+      return null;
+    }
+    return data;
+  } catch {
     return null;
   }
-  return entry.data;
 }
 
 function setCache(key: string, data: any) {
-  resultCache[key] = { data, timestamp: Date.now() };
+  try {
+    sessionStorage.setItem(SS_PREFIX + key, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch {
+    // sessionStorage full or blocked — silently skip caching
+  }
 }
 
 // ─── Concurrency limiter — strictly 1 at a time with delay ───────────────────

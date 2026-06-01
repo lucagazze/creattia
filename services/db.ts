@@ -279,83 +279,88 @@ export const db = {
 
   activity: {
     async log(userId: string, clientId: string, action: string, metadata: any = {}) {
-      try {
-        // Use provided email or fallback
-        const userEmail = metadata.user_email || 'Desconocido';
+      // Fire-and-forget: schedule on the next tick so the caller (auth flow, page load)
+      // is never blocked waiting for IP lookups or Supabase writes.
+      setTimeout(async () => {
+        try {
+          const userEmail = metadata.user_email || 'Desconocido';
 
-        let ip = 'unknown';
-        let location = {};
+          let ip = 'unknown';
+          let location = {};
 
-        // Try multiple IP services to bypass CORS/failures
-        const services = [
-          'https://api.ipify.org?format=json',
-          'https://freeipapi.com/api/json',
-          'https://ipapi.co/json/'
-        ];
+          // Try multiple IP services — the first one that responds wins
+          const services = [
+            'https://api.ipify.org?format=json',
+            'https://freeipapi.com/api/json',
+            'https://ipapi.co/json/',
+          ];
 
-        for (const service of services) {
-          try {
-            const res = await fetch(service, { timeout: 2000 } as any).catch(() => null);
-            if (res && res.ok) {
-              const data = await res.json();
-              ip = data.ip || data.ipAddress || data.ip_address || data.query || 'unknown';
-              location = {
-                city: data.city || data.cityName || data.city_name || '',
-                region: data.region || data.regionName || data.region_name || '',
-                country: data.country_name || data.countryName || data.country || '',
-                org: data.org || data.asName || data.isp || ''
-              };
-              if (ip !== 'unknown') break;
+          for (const service of services) {
+            try {
+              const res = await (fetch(service, { signal: AbortSignal.timeout(2000) }) as Promise<Response>).catch(() => null);
+              if (res && res.ok) {
+                const data = await res.json();
+                ip = data.ip || data.ipAddress || data.ip_address || data.query || 'unknown';
+                location = {
+                  city:    data.city    || data.cityName    || data.city_name    || '',
+                  region:  data.region  || data.regionName  || data.region_name  || '',
+                  country: data.country_name || data.countryName || data.country || '',
+                  org:     data.org     || data.asName      || data.isp          || '',
+                };
+                if (ip !== 'unknown') break;
+              }
+            } catch {
+              continue;
             }
-          } catch (e) {
-            continue;
           }
-        }
 
-        // Group by IP AND Device (User Agent) to distinguish between different computers
-        const ua = metadata.ua || 'unknown';
-        const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
-        
-        let query = supabase
-          .from('car_user_activity')
-          .select('id, metadata')
-          .eq('user_id', userId)
-          .eq('action', action)
-          .gt('created_at', oneHourAgo);
+          // Deduplicate: same user + action + IP + UA within the last hour → update instead of insert
+          const ua = metadata.ua || 'unknown';
+          const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
 
-        if (ip !== 'unknown') {
-          query = query.eq('ip', ip);
-        } else {
-          query = query.is('ip', null);
-        }
-
-        // Add filter for User Agent in metadata to separate different devices
-        const { data: allExisting } = await query.order('created_at', { ascending: false });
-        const existing = allExisting?.find(e => e.metadata?.ua === ua);
-
-        const { error: checkError } = { error: null }; // Mock checkError as we are doing manual find
-
-        if (existing) {
-          await supabase
+          let query = supabase
             .from('car_user_activity')
-            .update({
-              created_at: new Date().toISOString(),
-              metadata: { ...existing.metadata, ...metadata, user_email: userEmail, refreshes: (existing.metadata?.refreshes || 0) + 1 }
-            })
-            .eq('id', existing.id);
-        } else {
-          await supabase.from('car_user_activity').insert({
-            user_id: userId,
-            client_id: clientId,
-            action,
-            metadata: { ...metadata, user_email: userEmail, refreshes: 1 },
-            ip: ip === 'unknown' ? null : ip,
-            location
-          });
+            .select('id, metadata')
+            .eq('user_id', userId)
+            .eq('action', action)
+            .gt('created_at', oneHourAgo);
+
+          if (ip !== 'unknown') {
+            query = query.eq('ip', ip);
+          } else {
+            query = query.is('ip', null);
+          }
+
+          const { data: allExisting } = await query.order('created_at', { ascending: false });
+          const existing = allExisting?.find(e => e.metadata?.ua === ua);
+
+          if (existing) {
+            await supabase
+              .from('car_user_activity')
+              .update({
+                created_at: new Date().toISOString(),
+                metadata: {
+                  ...existing.metadata,
+                  ...metadata,
+                  user_email: userEmail,
+                  refreshes: (existing.metadata?.refreshes || 0) + 1,
+                },
+              })
+              .eq('id', existing.id);
+          } else {
+            await supabase.from('car_user_activity').insert({
+              user_id: userId,
+              client_id: clientId,
+              action,
+              metadata: { ...metadata, user_email: userEmail, refreshes: 1 },
+              ip: ip === 'unknown' ? null : ip,
+              location,
+            });
+          }
+        } catch (error) {
+          console.error('Error logging activity:', error);
         }
-      } catch (error) {
-        console.error('Error logging activity:', error);
-      }
+      }, 0);
     },
     async getStats(daysAgo: number = 7) {
       const { data, error } = await supabase.rpc('get_daily_activity_stats', { days_ago: daysAgo });
