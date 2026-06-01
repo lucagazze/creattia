@@ -75,9 +75,9 @@ export default function App() {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          <PresenceProvider>
-            <UnreadProvider>
-              <ViewAsProvider>
+          <ViewAsProvider>
+            <PresenceProvider>
+              <UnreadProvider>
                 <ToastProvider>
                   <ErrorBoundary>
                     <Routes>
@@ -90,9 +90,9 @@ export default function App() {
                     </Routes>
                   </ErrorBoundary>
                 </ToastProvider>
-              </ViewAsProvider>
-            </UnreadProvider>
-          </PresenceProvider>
+              </UnreadProvider>
+            </PresenceProvider>
+          </ViewAsProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>
