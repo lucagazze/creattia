@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { metaAds, daysAgo, today } from '../services/metaAds';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import {
   Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw, ChevronLeft, ChevronRight
 } from 'lucide-react';
@@ -337,15 +338,16 @@ export default function MetaAdsPage() {
         </div>
       )}
 
-      {/* Loading skeletons */}
+      {/* Loading bar + skeletons */}
+      <TopLoadingBar loading={accountId ? loading : false} />
       {accountId && loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 flex flex-col animate-pulse">
-              <div className="h-52 bg-zinc-200 dark:bg-zinc-700" />
+            <div key={i} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 flex flex-col">
+              <div className="h-52 bg-zinc-100 dark:bg-zinc-800" />
               <div className="p-4 space-y-3">
-                <div className="h-4 w-3/4 bg-zinc-200 dark:bg-zinc-700 rounded-full" />
-                <div className="grid grid-cols-4 gap-2">{[...Array(4)].map((_, j) => <div key={j} className="h-12 bg-zinc-100 dark:bg-zinc-800 rounded-xl" />)}</div>
+                <div className="h-4 w-3/4 bg-zinc-100 dark:bg-zinc-800 rounded-full" />
+                <div className="grid grid-cols-4 gap-2">{[...Array(4)].map((_, j) => <div key={j} className="h-12 bg-zinc-100 dark:bg-zinc-800/60 rounded-xl" />)}</div>
               </div>
             </div>
           ))}

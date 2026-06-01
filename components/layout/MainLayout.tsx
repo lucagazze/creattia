@@ -54,6 +54,7 @@ import { AIChatFloat } from '../AIChatFloat';
 import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
 import { AppleLoader } from '../ui/AppleLoader';
+import { TopLoadingBar } from '../ui/TopLoadingBar';
 import { useUnread } from '../../contexts/UnreadContext';
 
 // Retry wrapper — automatically retries downloading a lazy chunk up to 3 times
@@ -120,7 +121,9 @@ import { useViewAs } from '../../contexts/ViewAsContext';
 
 // Minimal skeleton shown while a lazy page chunk is downloading
 const PageSkeleton = () => (
-  <AppleLoader variant="page" />
+  <div className="relative w-full">
+    <TopLoadingBar loading={true} />
+  </div>
 );
 
 export const MainLayout = () => {

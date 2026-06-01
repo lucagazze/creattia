@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { db, EmailAssignment } from '../services/db';
 import { AppleLoader } from '../components/ui/AppleLoader';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1119,9 +1120,19 @@ export default function EmailMarketingPage() {
     }
   }, [activeProfile?.id, apiKey, sync]);
 
-  // 1. Apple style page loader animation
   if (!isDoneLoading) {
-    return <AppleLoader variant="page" />;
+    return (
+      <div className="relative w-full min-h-[400px]">
+        <TopLoadingBar loading={true} />
+        <div className="space-y-6 pt-2">
+          <div className="h-8 w-52 bg-zinc-100 dark:bg-zinc-800 rounded-xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {[1,2,3].map(n => <div key={n} className="h-[220px] bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-[20px]" />)}
+          </div>
+          <div className="h-[380px] bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-[20px]" />
+        </div>
+      </div>
+    );
   }
 
   // 1. Klaviyo Monitor Render (if API key is present)
