@@ -392,6 +392,18 @@ export default function MensajeriaPage() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
+  // When a client-side filter is active (canReplyOnly or specific channel),
+  // auto-load more pages so the visible list fills up instead of sitting empty
+  useEffect(() => {
+    if (!hasMore || loadingMore || loading) return;
+    const hasActiveFilter = canReplyOnly || channelFilter !== 'all';
+    if (!hasActiveFilter) return;
+    const t = setTimeout(() => {
+      if (hasMore && !loadingMore) loadMoreConversations();
+    }, 150);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations.length, canReplyOnly, channelFilter, hasMore, loadingMore, loading]);
 
   // WebSocket real-time connection to Chatwoot
   useEffect(() => {
