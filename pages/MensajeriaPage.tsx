@@ -278,6 +278,7 @@ export default function MensajeriaPage() {
 
   const isConvUnread = useCallback((c: any) => {
     if (!c) return false;
+    if (c.status === 'resolved') return false;
 
     // Check if the last non-activity message is outgoing (message_type === 1)
     const sortedMsgs = [...(c.messages || [])].sort((x, y) => {
@@ -1270,7 +1271,9 @@ export default function MensajeriaPage() {
     return isNaN(d) ? 0 : d / 1000;
   };
 
-  const sortedConversations = [...conversations].sort((a, b) => {
+  const sourceList = backgroundConversations.length > 0 ? backgroundConversations : conversations;
+
+  const sortedConversations = [...sourceList].sort((a, b) => {
     const tsA = getComputedActivityTimestamp(a);
     const tsB = getComputedActivityTimestamp(b);
     if (sortBy === 'oldest') return tsA - tsB;
@@ -1575,7 +1578,13 @@ export default function MensajeriaPage() {
             onScroll={(e) => {
               const target = e.currentTarget;
               if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
-                loadMoreConversations();
+                if (backgroundConversations.length > 0) {
+                  if (filtered.length > currentPage * 25) {
+                    setCurrentPage(prev => prev + 1);
+                  }
+                } else {
+                  loadMoreConversations();
+                }
               }
             }}
           >
@@ -1588,7 +1597,7 @@ export default function MensajeriaPage() {
                 <Inbox className="w-6 h-6" />
                 <p className="text-[12px] font-medium">Sin conversaciones</p>
               </div>
-            ) : filtered.map(conv => {
+            ) : filtered.slice(0, currentPage * 25).map(conv => {
               const c = contact(conv);
               const sortedMsgs = [...(conv?.messages || [])].sort((x, y) => {
                 const timeX = typeof x.created_at === 'number' ? x.created_at : new Date(x.created_at).getTime() / 1000;
@@ -1600,10 +1609,8 @@ export default function MensajeriaPage() {
                                   (sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null);
               const lastMsg = lastRealMsg;
               const isSelected = selected?.id === conv?.id;
-              const isManualUnread = manuallyUnread.has(conv?.id);
-              const hasReplied = lastRealMsg && lastRealMsg.message_type === 1;
-              const unread = hasReplied ? 0 : (isManualUnread ? Math.max(1, conv?.unread_count || 0) : (conv?.unread_count || 0));
-              const isUnread = unread > 0 || (isManualUnread && !hasReplied);
+              const isUnread = isConvUnread(conv);
+              const unread = isUnread ? Math.max(1, conv?.unread_count || 0) : 0;
               const activityTimestamp = lastRealMsg?.created_at || conv?.last_non_activity_message?.created_at || conv?.last_activity_at || conv?.created_at;
               return (
                 <div key={conv.id}
@@ -1678,7 +1685,7 @@ export default function MensajeriaPage() {
             })}
 
             {/* Scroll sentinel — loads more when reached */}
-            {hasMore && (
+            {((backgroundConversations.length > 0 && filtered.length > currentPage * 25) || (backgroundConversations.length === 0 && hasMore)) && (
               <div className="flex items-center justify-center py-3 text-[10px] text-zinc-400 gap-1.5">
                 {loadingMore ? (
                   <><Loader2 className="w-3 h-3 animate-spin" /> Cargando más...</>
