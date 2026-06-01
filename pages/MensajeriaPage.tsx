@@ -1629,17 +1629,6 @@ export default function MensajeriaPage() {
 
                 {/* DESKTOP header */}
                 <div className="hidden md:flex px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 items-center gap-3 flex-shrink-0">
-                  <button
-                    onClick={() => setListCollapsed(v => !v)}
-                    className="p-1.5 -ml-1 rounded-lg text-zinc-550 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
-                    title={listCollapsed ? "Mostrar lista de chats" : "Ocultar lista de chats"}
-                  >
-                    <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect width="18" height="18" x="3" y="3" rx="2" />
-                      <path d="M9 3v18" />
-                      {listCollapsed ? <path d="m14 15 3-3-3-3" /> : <path d="m16 9-3 3 3 3" />}
-                    </svg>
-                  </button>
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
                     {CHANNEL_ICON[getChannel(selected)]}
                   </div>
@@ -1726,7 +1715,33 @@ export default function MensajeriaPage() {
                   const over24h = isMetaConv && lastIncoming && (Date.now()/1000 - lastIncoming.created_at) > 86400;
                   const noIncoming = isMetaConv && !lastIncoming;
                   const isClosed = selected.can_reply === false || (selected.can_reply === undefined && isMetaConv && !loadingMsgs && (over24h || noIncoming));
-                  if (isClosed) return null;
+                  if (isClosed) {
+                    const cleanPhone = contact(selected).phone_number?.replace(/\D/g, '') || '';
+                    const senderIdentifier = selected?.meta?.sender?.identifier || selected?.meta?.sender?.username || '';
+                    const contactUrl =
+                      ch === 'whatsapp' && cleanPhone ? `https://wa.me/${cleanPhone}` :
+                      ch === 'instagram' && senderIdentifier ? `https://ig.me/m/${senderIdentifier}` :
+                      ch === 'instagram' ? 'https://www.instagram.com/direct/inbox/' :
+                      ch === 'facebook' && senderIdentifier ? `https://m.me/${senderIdentifier}` :
+                      ch === 'facebook' ? 'https://www.facebook.com/messages' : null;
+                    const contactLabel =
+                      ch === 'whatsapp' ? 'Escribir por WhatsApp' :
+                      ch === 'instagram' ? 'Escribir por Instagram' :
+                      ch === 'facebook' ? 'Escribir por Messenger' : null;
+                    const btnColor =
+                      ch === 'whatsapp' ? 'bg-emerald-500' :
+                      ch === 'instagram' ? 'bg-pink-500' : 'bg-blue-600';
+                    if (!contactUrl || !contactLabel) return null;
+                    return (
+                      <div className="md:hidden px-4 py-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-100 dark:border-zinc-900 sticky bottom-0 z-10">
+                        <a href={contactUrl} target="_blank" rel="noreferrer"
+                          className={`w-full flex items-center justify-center gap-2 py-3 ${btnColor} text-white text-[14px] font-black rounded-2xl active:scale-[0.98] transition-transform shadow-sm`}>
+                          <MessageCircle className="w-5 h-5" />
+                          {contactLabel}
+                        </a>
+                      </div>
+                    );
+                  }
                   return (
                     <div className="md:hidden flex items-end gap-2 px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-100 dark:border-zinc-900 flex-shrink-0 sticky bottom-0 z-10">
                       <div className="flex-1 flex items-end bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-3xl px-4 py-2.5 min-h-[44px]">
@@ -1779,32 +1794,40 @@ export default function MensajeriaPage() {
                     const isClosed = selected.can_reply === false || (selected.can_reply === undefined && isMetaConv && !loadingMsgs && (over24h || noIncoming));
 
                     if (isClosed) {
-                      const cleanPhone = contact(selected).phone_number ? contact(selected).phone_number.replace(/\D/g, '') : '';
+                      const ch = getChannel(selected);
+                      const cleanPhone = contact(selected).phone_number?.replace(/\D/g, '') || '';
+                      const senderIdentifier = selected?.meta?.sender?.identifier || selected?.meta?.sender?.username || '';
+                      const contactUrl =
+                        ch === 'whatsapp' && cleanPhone ? `https://wa.me/${cleanPhone}` :
+                        ch === 'instagram' && senderIdentifier ? `https://ig.me/m/${senderIdentifier}` :
+                        ch === 'instagram' ? 'https://www.instagram.com/direct/inbox/' :
+                        ch === 'facebook' && senderIdentifier ? `https://m.me/${senderIdentifier}` :
+                        ch === 'facebook' ? 'https://www.facebook.com/messages' :
+                        null;
+                      const contactLabel =
+                        ch === 'whatsapp' ? 'Escribir por WhatsApp' :
+                        ch === 'instagram' ? 'Escribir por Instagram' :
+                        ch === 'facebook' ? 'Escribir por Messenger' : null;
+                      const contactColor =
+                        ch === 'whatsapp' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                        ch === 'instagram' ? 'bg-pink-500 hover:bg-pink-600' :
+                        'bg-blue-600 hover:bg-blue-700';
+
                       return (
-                        <div className="px-5 py-4 space-y-3 animate-in fade-in duration-200">
-                          <div className="flex items-start gap-2.5 p-3.5 bg-red-50/50 dark:bg-red-950/10 border border-red-200/50 dark:border-red-900/20 rounded-2xl">
-                            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                            <div>
-                              <p className="text-[12px] font-bold text-red-850 dark:text-red-400">Ventana de 24 horas cerrada</p>
-                              <p className="text-[11px] text-red-650 dark:text-red-400 mt-0.5 leading-relaxed">
-                                Solo podés responder utilizando una plantilla de mensaje (template) o contactándolo directamente por otros canales debido a la restricción de Meta.
-                              </p>
-                            </div>
+                        <div className="px-4 py-3 space-y-2.5 animate-in fade-in duration-200">
+                          <div className="flex items-start gap-2 p-3 bg-red-50/50 dark:bg-red-950/10 border border-red-200/50 dark:border-red-900/20 rounded-2xl">
+                            <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                            <p className="text-[11px] text-red-700 dark:text-red-400 leading-snug">
+                              Ventana de 24hs cerrada. Solo podés responder con plantilla o contactando directamente.
+                            </p>
                           </div>
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            {cleanPhone ? (
-                              <a href={`https://wa.me/${cleanPhone}`}
-                                target="_blank" rel="noreferrer"
-                                className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-black rounded-xl transition-all shadow-sm active:scale-[0.98]">
-                                <MessageCircle className="w-4 h-4" />
-                                Escribir por WhatsApp
-                              </a>
-                            ) : (
-                              <div className="text-[11px] text-zinc-400 text-center w-full py-2">
-                                No hay teléfono de WhatsApp disponible para este contacto.
-                              </div>
-                            )}
-                          </div>
+                          {contactUrl && contactLabel && (
+                            <a href={contactUrl} target="_blank" rel="noreferrer"
+                              className={`w-full flex items-center justify-center gap-2 py-2.5 ${contactColor} text-white text-[12px] font-black rounded-xl transition-all shadow-sm active:scale-[0.98]`}>
+                              <MessageCircle className="w-4 h-4" />
+                              {contactLabel}
+                            </a>
+                          )}
                         </div>
                       );
                     }
