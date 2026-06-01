@@ -1494,8 +1494,14 @@ export default function MensajeriaPage() {
           </div>
         </div>
 
-        {/* RIGHT: chat panel */}
-        <div className={`${mobileShowChat || selected ? 'flex' : 'hidden md:flex'} flex-1 flex overflow-hidden bg-zinc-50 dark:bg-zinc-900/30`}>
+        {/* RIGHT: chat panel — on mobile when open: fixed fullscreen overlay */}
+        <div className={`
+          ${mobileShowChat && selected
+            ? 'fixed inset-0 z-[60] flex flex-col'
+            : selected ? 'hidden md:flex flex-1'
+            : 'hidden md:flex flex-1'}
+          overflow-hidden bg-zinc-50 dark:bg-zinc-900/30
+        `}>
 
           {!selected ? (
             <div className="flex-1 flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
@@ -1506,7 +1512,7 @@ export default function MensajeriaPage() {
             <>
               {/* Main Chat Area */}
               <div
-                className="flex-1 flex flex-col overflow-hidden h-full border-r border-zinc-200 dark:border-zinc-800"
+                className="flex-1 flex flex-col overflow-hidden h-full md:border-r border-zinc-200 dark:border-zinc-800"
                 onTouchStart={e => { if (e.touches[0].clientX < 35) setSwipeTouchStartX(e.touches[0].clientX); }}
                 onTouchEnd={e => { if (swipeTouchStartX !== null && e.changedTouches[0].clientX - swipeTouchStartX > 70) { setSelected(null); setMobileShowChat(false); } setSwipeTouchStartX(null); }}
               >
