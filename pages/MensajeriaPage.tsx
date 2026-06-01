@@ -1407,9 +1407,19 @@ export default function MensajeriaPage() {
       const ta = mobileTextareaRef.current;
       if (!ta) return;
       ta.style.height = 'auto';
-      ta.style.height = Math.min(ta.scrollHeight, 150) + 'px';
+      const sh = ta.scrollHeight;
+      ta.style.height = Math.min(sh, 150) + 'px';
+      if (sh > 150) {
+        ta.style.overflowY = 'auto';
+      } else {
+        ta.style.overflowY = 'hidden';
+      }
     });
   }, []);
+
+  useEffect(() => {
+    adjustMobileTextarea();
+  }, [reply, adjustMobileTextarea]);
 
   const handleMicPress = async () => {
     if (isRecording) {
@@ -1937,7 +1947,7 @@ export default function MensajeriaPage() {
                         <textarea
                           ref={mobileTextareaRef}
                           value={reply}
-                          onChange={e => { setReply(e.target.value); adjustMobileTextarea(); }}
+                          onChange={e => setReply(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); }}}
                           onFocus={() => { requestAnimationFrame(() => { messagesContainerRef.current && (messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight); }); }}
                           placeholder={transcribing ? 'Transcribiendo...' : isRecording ? '● Grabando...' : 'Mensaje...'}
