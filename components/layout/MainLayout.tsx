@@ -49,6 +49,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { AIChatFloat } from '../AIChatFloat';
 import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
+import { AppleLoader } from '../ui/AppleLoader';
 
 // Lazy-loaded pages — each becomes a separate JS chunk (code splitting)
 // Only the page the user navigates to gets downloaded
@@ -78,15 +79,7 @@ const CostosPage         = lazy(() => import('../../pages/CostosPage'));
 
 // Minimal skeleton shown while a lazy page chunk is downloading
 const PageSkeleton = () => (
-  <div className="space-y-6 animate-pulse">
-    <div className="h-8 w-48 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {[1,2,3,4].map(n => (
-        <div key={n} className="h-28 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl" />
-      ))}
-    </div>
-    <div className="h-64 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl" />
-  </div>
+  <AppleLoader variant="page" />
 );
 
 export const MainLayout = () => {
@@ -147,9 +140,9 @@ export const MainLayout = () => {
 
         <div className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
           location.pathname === '/mensajeria' || location.pathname === '/contactos'
-            ? 'overflow-hidden p-0 h-[calc(100vh-56px)] md:h-screen flex flex-col'
+            ? 'overflow-hidden p-0 h-[calc(100dvh-56px)] md:h-screen flex flex-col'
             : isFixedPage 
-              ? 'overflow-hidden p-4 md:p-6 h-[calc(100vh-56px)] md:h-screen flex flex-col' 
+              ? 'overflow-hidden p-4 md:p-6 h-[calc(100dvh-56px)] md:h-screen flex flex-col' 
               : 'overflow-auto p-4 md:p-8 lg:p-10 pb-8'
         }`}>
           {/* Spacer so content starts below the fixed mobile header */}

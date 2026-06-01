@@ -192,3 +192,39 @@ html.is-printing .recharts-surface {
   }
   @page { margin: 1.5cm; size: A4 portrait; }
 }
+
+/* Safe area padding utilities for mobile notch devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+
+/* Premium Apple-style shimmer animations */
+@keyframes apple-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-bg {
+  background: linear-gradient(90deg, 
+    rgba(229, 229, 234, 0.6) 25%, 
+    rgba(242, 242, 247, 0.9) 50%, 
+    rgba(229, 229, 234, 0.6) 75%
+  );
+  background-size: 200% 100%;
+  animation: apple-shimmer 1.6s ease-in-out infinite;
+}
+
+.dark .shimmer-bg {
+  background: linear-gradient(90deg, 
+    rgba(28, 28, 30, 0.6) 25%, 
+    rgba(44, 44, 46, 0.9) 50%, 
+    rgba(28, 28, 30, 0.6) 75%
+  );
+  background-size: 200% 100%;
+  animation: apple-shimmer 1.6s ease-in-out infinite;
+}
+

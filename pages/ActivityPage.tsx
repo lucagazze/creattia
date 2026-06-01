@@ -19,6 +19,7 @@ import {
   MonitorPlay
 } from 'lucide-react';
 import { usePresence } from '../contexts/PresenceContext';
+import { AppleLoader } from '../components/ui/AppleLoader';
 import {
   AreaChart,
   Area,
@@ -111,15 +112,7 @@ export default function ActivityPage() {
     return ((curr - prev) / prev) * 100;
   };
 
-  if (loading) return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-20 bg-zinc-100 dark:bg-zinc-800 rounded-2xl" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1,2,3].map(i => <div key={i} className="h-32 bg-zinc-100 dark:bg-zinc-800 rounded-2xl" />)}
-      </div>
-      <div className="h-[400px] bg-zinc-100 dark:bg-zinc-800 rounded-2xl" />
-    </div>
-  );
+  if (loading) return <AppleLoader variant="page" />;
 
   return (
     <div className="space-y-8">

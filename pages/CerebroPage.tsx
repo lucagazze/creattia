@@ -7,6 +7,7 @@ import {
   Brain, Globe, Save, RefreshCw, Sparkles, FileText, CheckCircle2, 
   ShieldAlert, ArrowUpRight, Instagram, Facebook, Calendar, AlertCircle
 } from 'lucide-react';
+import { AppleLoader } from '../components/ui/AppleLoader';
 
 export default function CerebroPage() {
   const { profile: authProfile } = useAuth();
@@ -144,12 +145,7 @@ export default function CerebroPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <div className="w-10 h-10 border-2 border-zinc-300 dark:border-zinc-700 border-t-violet-600 rounded-full animate-spin" />
-        <p className="text-[13px] text-zinc-400 dark:text-zinc-500">Cargando base de conocimiento...</p>
-      </div>
-    );
+    return <AppleLoader variant="page" />;
   }
 
   return (

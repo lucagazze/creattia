@@ -9,6 +9,7 @@ import { metaAds } from '../services/metaAds';
 import { db } from '../services/db';
 import { supabaseAdmin } from '../services/supabase';
 import EmailLoader from '../components/ui/EmailLoader';
+import { AppleLoader } from '../components/ui/AppleLoader';
 
 interface AutoResizeTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
@@ -187,10 +188,7 @@ export default function ComentariosPage() {
           
           <div className="flex-1 overflow-y-auto py-4 space-y-3">
             {loadingPages ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <Loader2 className="w-7 h-7 animate-spin text-violet-500" />
-                <p className="text-[12px] text-zinc-400 font-bold">Buscando tus páginas comerciales...</p>
-              </div>
+              <AppleLoader variant="inline" title="Buscando tus páginas comerciales..." />
             ) : errorConnecting ? (
               <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-xl flex items-start gap-2 text-[11px] text-red-700 dark:text-red-400 font-bold">
                 <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
@@ -787,10 +785,7 @@ export default function ComentariosPage() {
               {/* Right: Comments list */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {loadingComments ? (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
-                    <p className="text-[12px] text-zinc-400 font-bold">Cargando comentarios...</p>
-                  </div>
+                  <AppleLoader variant="table" count={4} />
                 ) : comments.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                     <MessageCircle className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />

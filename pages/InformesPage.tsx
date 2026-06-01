@@ -5,6 +5,7 @@ import { TrendingUp, Loader2, Instagram, ArrowUpRight } from 'lucide-react';
 import { metaAds } from '../services/metaAds';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../services/supabase';
+import { AppleLoader } from '../components/ui/AppleLoader';
 
 export default function InformesPage() {
   const { profile: authProfile } = useAuth();
@@ -101,9 +102,7 @@ export default function InformesPage() {
       </div>
 
       {loadingSocial && !igProfile && !fbProfile ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
-        </div>
+        <AppleLoader variant="page" />
       ) : (
         <>
           {/* Current stats cards */}

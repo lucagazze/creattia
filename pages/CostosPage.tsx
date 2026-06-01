@@ -8,6 +8,7 @@ import {
   Search, Trash2, Edit3, Save, AlertCircle, X, ChevronLeft, ChevronRight, 
   Info, Coins, Sparkles, Loader2, Landmark, Check, HelpCircle
 } from 'lucide-react';
+import { AppleLoader } from '../components/ui/AppleLoader';
 
 interface CatalogVariant {
   id: string;
@@ -852,10 +853,7 @@ export default function CostosPage() {
               {/* Table / List */}
               <div className="space-y-4">
                 {loadingProducts ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-zinc-400 text-[12px] gap-2">
-                    <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
-                    Cargando catálogo de productos...
-                  </div>
+                  <AppleLoader variant="table" count={5} />
                 ) : filteredCatalog.length === 0 ? (
                   <div className="py-12 text-center text-zinc-400 text-[12px]">
                     No se encontraron productos en el catálogo.

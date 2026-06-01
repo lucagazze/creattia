@@ -9,6 +9,7 @@ import { getPrevPeriod, today, daysAgo, presetToRange } from '../services/metaAd
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 import EmailLoader from '../components/ui/EmailLoader';
+import { AppleLoader } from '../components/ui/AppleLoader';
 
 const VIOLET = '#8b5cf6';
 
@@ -672,8 +673,8 @@ export default function AtencionPage() {
           {expandedMetric && (
             <div className="relative">
               {loadingChart && (
-                <div className="absolute inset-0 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-[20px]">
-                  <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+                <div className="absolute inset-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-[20px]">
+                  <AppleLoader variant="inline" title="Cargando detalles..." />
                 </div>
               )}
               {(() => {

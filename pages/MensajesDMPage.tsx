@@ -9,6 +9,7 @@ import { metaAds } from '../services/metaAds';
 import { db } from '../services/db';
 import { supabaseAdmin } from '../services/supabase';
 import EmailLoader from '../components/ui/EmailLoader';
+import { AppleLoader } from '../components/ui/AppleLoader';
 
 interface AutoResizeTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
@@ -713,7 +714,7 @@ export default function MensajesDMPage() {
       {/* Loading state */}
       {loading ? (
         <div className="pt-6 flex-1">
-          <EmailLoader loading={loading} color="#8b5cf6" labels={['Cargando DMs de Instagram...', 'Cargando Messenger de Facebook...']} />
+          <AppleLoader variant="chat" />
         </div>
       ) : (
         <div className="flex-1 flex gap-0 overflow-hidden mt-4 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl bg-white dark:bg-zinc-900 shadow-sm">
@@ -923,10 +924,7 @@ export default function MensajesDMPage() {
                   )}
 
                   {loadingMessages ? (
-                    <div className="flex flex-col items-center justify-center py-16 gap-3">
-                      <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
-                      <p className="text-[12px] text-zinc-400 font-bold">Cargando historial...</p>
-                    </div>
+                    <AppleLoader variant="inline" title="Cargando historial..." />
                   ) : convMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                       <MessageSquare className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />

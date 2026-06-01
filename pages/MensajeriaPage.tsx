@@ -11,7 +11,7 @@ import {
   Globe, Facebook, Instagram, MessageCircle, Mail,
   BookOpen, ShoppingBag, Plus, Trash2, Link, Mic, ChevronLeft, X
 } from 'lucide-react';
-
+import { AppleLoader } from '../components/ui/AppleLoader';
 
 const fmtTime = (ts: any) => {
   if (!ts) return '';
@@ -260,6 +260,14 @@ export default function MensajeriaPage() {
       return next;
     });
   };
+
+  const isConvUnread = useCallback((c: any) => {
+    if (!c) return false;
+    const isManualUnread = manuallyUnread.has(c.id);
+    const unread = isManualUnread ? Math.max(1, c.unread_count || 0) : (c.unread_count || 0);
+    return unread > 0 || isManualUnread;
+  }, [manuallyUnread]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -384,8 +392,8 @@ export default function MensajeriaPage() {
       const inboxId = getInboxIdForChannel(channelFilter);
       const { payload, hasMore: more } = await chatwoot.getConversationsPage(cwUrl, cwToken, statusFilter, nextPage, inboxId);
       setConversations(prev => {
-        const prevIds = new Set(prev.map(c => c.id));
-        const filteredPayload = payload.filter(c => !prevIds.has(c.id));
+        const prevIds = new Set(prev.map((c: any) => c.id));
+        const filteredPayload = payload.filter((c: any) => !prevIds.has(c.id));
         return [...prev, ...filteredPayload];
       });
       setCurrentPage(nextPage);
@@ -1044,6 +1052,13 @@ export default function MensajeriaPage() {
   };
 
   const getChannelCount = (channelKey: string) => {
+    const isUnreadFilterActive = ['all', 'whatsapp', 'instagram', 'facebook'].includes(channelKey);
+    if (isUnreadFilterActive) {
+      if (channelKey === 'all') {
+        return conversations.filter(isConvUnread).length;
+      }
+      return conversations.filter(c => getChannel(c) === channelKey && isConvUnread(c)).length;
+    }
     if (channelKey === 'all') {
       return convMeta?.all_count !== undefined ? convMeta.all_count : conversations.length;
     }
@@ -1138,7 +1153,14 @@ export default function MensajeriaPage() {
     return getChannel(c) === channelFilter;
   });
 
-  const assignFiltered = channelFilteredConversations.filter(c => {
+  const unreadFilteredConversations = channelFilteredConversations.filter(c => {
+    if (['all', 'whatsapp', 'instagram', 'facebook'].includes(channelFilter)) {
+      return isConvUnread(c) || (selected && selected.id === c.id);
+    }
+    return true;
+  });
+
+  const assignFiltered = unreadFilteredConversations.filter(c => {
     if (assignFilter === 'unassigned') return !c.meta?.assignee;
     if (assignFilter === 'mine') return !!c.meta?.assignee;
     return true;
@@ -1427,10 +1449,7 @@ export default function MensajeriaPage() {
             }}
           >
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                <p className="text-[11px] text-zinc-400">Cargando chats...</p>
-              </div>
+              <AppleLoader variant="table" count={5} />
             ) : error ? (
               <div className="p-4 text-[11px] text-red-500">{error}</div>
             ) : filtered.length === 0 ? (
@@ -1661,9 +1680,7 @@ export default function MensajeriaPage() {
                 {/* Messages list */}
                 <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 md:px-5 py-4 md:space-y-3 space-y-2 bg-zinc-50/50 dark:bg-zinc-950">
                   {loadingMsgs ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-                    </div>
+                    <AppleLoader variant="inline" title="Cargando mensajes..." />
                   ) : messages.length === 0 ? (
                     <div className="text-center py-12 text-zinc-400 text-[13px]">Sin mensajes</div>
                   ) : messages.map((msg: any) => {
@@ -1728,7 +1745,7 @@ export default function MensajeriaPage() {
                       ch === 'instagram' ? 'bg-pink-500' : 'bg-blue-600';
                     if (!contactUrl || !contactLabel) return null;
                     return (
-                      <div className="md:hidden px-4 py-3 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-100 dark:border-zinc-900 sticky bottom-0 z-10">
+                      <div className="md:hidden px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-100 dark:border-zinc-900 sticky bottom-0 z-10">
                         <a href={contactUrl} target="_blank" rel="noreferrer"
                           className={`w-full flex items-center justify-center gap-2 py-3 ${btnColor} text-white text-[14px] font-black rounded-2xl active:scale-[0.98] transition-transform shadow-sm`}>
                           <MessageCircle className="w-5 h-5" />
@@ -1738,7 +1755,7 @@ export default function MensajeriaPage() {
                     );
                   }
                   return (
-                    <div className="md:hidden flex items-end gap-2 px-3 py-2.5 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-100 dark:border-zinc-900 flex-shrink-0 sticky bottom-0 z-10">
+                    <div className="md:hidden flex items-end gap-2 px-3 pt-2.5 pb-[calc(10px+env(safe-area-inset-bottom,0px))] bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-100 dark:border-zinc-900 flex-shrink-0 sticky bottom-0 z-10">
                       <div className="flex-1 flex items-end bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-3xl px-4 py-2.5 min-h-[44px]">
                         <textarea
                           ref={mobileTextareaRef}

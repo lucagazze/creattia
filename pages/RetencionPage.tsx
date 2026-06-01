@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 import EmailLoader from '../components/ui/EmailLoader';
-import { TopLoadingBar } from '../components/ui/TopLoadingBar';
+import { AppleLoader } from '../components/ui/AppleLoader';
 
 const MAIN_COLOR = '#10b981'; // Green (Emerald) for Retention
 
@@ -261,17 +261,8 @@ export default function RetencionPage() {
       {profile?.klaviyo_api_key && (
         <div className="space-y-4">
           <div className="relative bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-            <TopLoadingBar loading={fetchingKlaviyo} color={MAIN_COLOR} inline />
             {fetchingKlaviyo ? (
-              <div className="grid grid-cols-2 lg:grid-cols-4">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="px-6 py-5 border-r border-zinc-100 dark:border-zinc-800 last:border-r-0 space-y-3">
-                    <div className="h-3 w-20 bg-zinc-200 dark:bg-zinc-700 rounded-full animate-pulse" />
-                    <div className="h-7 w-24 bg-zinc-200 dark:bg-zinc-700 rounded-lg animate-pulse" />
-                    <div className="h-8 w-full bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse opacity-50" />
-                  </div>
-                ))}
-              </div>
+              <AppleLoader variant="metrics" count={4} />
             ) : currentKlaviyo ? (
               <div className="grid grid-cols-2 lg:flex lg:flex-nowrap overflow-x-auto scrollbar-hide">
                 <DashboardMetric icon={Package} label="Entregas" value={currentKlaviyo ? currentKlaviyo.sent?.toLocaleString('es-AR') : '...'} change={getKlaviyoChange(currentKlaviyo?.sent, prevKlaviyo?.sent)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} />
@@ -324,7 +315,6 @@ export default function RetencionPage() {
           <div className="space-y-6 pt-2">
             {/* Flows */}
             <div className="relative bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-              <TopLoadingBar loading={fetchingConfig || fetchingDetailed} color="#10b981" inline />
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Zap className="w-3.5 h-3.5 text-emerald-500" /></div>
@@ -336,7 +326,9 @@ export default function RetencionPage() {
                 }
               </div>
               {fetchingConfig ? (
-                <div className="px-4 pb-4 space-y-1.5">{[1,2,3,4].map(i => <div key={i} className="h-9 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
+                <div className="px-4 pb-4">
+                  <AppleLoader variant="table" count={4} />
+                </div>
               ) : liveFlows.length === 0 ? (
                 <p className="text-[12px] text-zinc-400 text-center py-8">No hay flujos activos.</p>
               ) : (
@@ -400,7 +392,6 @@ export default function RetencionPage() {
 
             {/* Campaigns */}
             <div className="relative bg-white dark:bg-zinc-900 rounded-[16px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-              <TopLoadingBar loading={fetchingConfig || fetchingDetailed} color="#10b981" inline />
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Mail className="w-3.5 h-3.5 text-emerald-500" /></div>
@@ -412,7 +403,9 @@ export default function RetencionPage() {
                 }
               </div>
               {fetchingConfig ? (
-                <div className="px-4 pb-4 space-y-1.5">{[1,2,3,4,5].map(i => <div key={i} className="h-9 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />)}</div>
+                <div className="px-4 pb-4">
+                  <AppleLoader variant="table" count={5} />
+                </div>
               ) : sentCamps.length === 0 ? (
                 <p className="text-[12px] text-zinc-400 text-center py-8">No hay campañas enviadas en este período.</p>
               ) : (
