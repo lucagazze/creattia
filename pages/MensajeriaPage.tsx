@@ -5,6 +5,7 @@ import { useViewAs } from '../contexts/ViewAsContext';
 import { chatwoot } from '../services/chatwoot';
 import { supabase } from '../services/supabase';
 import { useToast } from '../components/Toast';
+import { useUnread } from '../contexts/UnreadContext';
 import {
   RefreshCw, AlertCircle, Loader2, Send, Sparkles,
   Search, CheckCircle, Clock, Inbox, ExternalLink, Bot,
@@ -196,6 +197,7 @@ export default function MensajeriaPage() {
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const isAdmin = authProfile?.is_admin;
   const { showToast } = useToast();
+  const { markRead } = useUnread();
 
   const cwUrl = (profile as any)?.chatwoot_url;
   const cwToken = (profile as any)?.chatwoot_token;
@@ -662,8 +664,11 @@ export default function MensajeriaPage() {
     setExpanded(false);
     setSelected(conv);
     if (window.innerWidth < 768) setMobileShowChat(true);
+    // Instantly decrement sidebar badge if this conversation was unread
+    const wasUnread = isConvUnread(conv);
     // Clear "manually unread" when opening
     setManuallyUnread(prev => { const s = new Set(prev); s.delete(conv.id); return s; });
+    if (wasUnread) markRead();
     setMessages([]);
     setReply('');
     setSendError(null);
@@ -673,20 +678,18 @@ export default function MensajeriaPage() {
       const msgs = await chatwoot.getMessages(cwUrl, cwToken, conv.id);
       const sorted = msgs.sort((a: any, b: any) => a.created_at - b.created_at);
       setMessages(sorted);
-      // Auto mark as read
+      // Sync read state with Chatwoot
       if (conv.unread_count > 0) {
         chatwoot.markAsRead(cwUrl, cwToken, conv.id).catch(() => {});
         setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
         setBackgroundConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
-        // Instantly refresh global badge + tab title
-        window.dispatchEvent(new Event('car_manually_unread_update'));
       }
     } catch (e: any) {
       setMessages([]);
     } finally {
       setLoadingMsgs(false);
     }
-  }, [cwUrl, cwToken]);
+  }, [cwUrl, cwToken, isConvUnread, markRead]);
 
 
   // Load conversation from URL search parameter convId if present

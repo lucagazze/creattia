@@ -10,11 +10,14 @@ interface UnreadContextType {
   unreadCount: number;
   /** Manually refresh the count (called e.g. after sending a message) */
   refresh: () => void;
+  /** Instantly decrement badge by 1 when a conversation is opened — no network round-trip */
+  markRead: () => void;
 }
 
 const UnreadContext = createContext<UnreadContextType>({
   unreadCount: 0,
   refresh: () => {},
+  markRead: () => {},
 });
 
 export const useUnread = () => useContext(UnreadContext);
@@ -219,8 +222,12 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [profile?.chatwoot_url, profile?.chatwoot_token]);
 
+  const markRead = useCallback(() => {
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  }, []);
+
   return (
-    <UnreadContext.Provider value={{ unreadCount, refresh: fetchCount }}>
+    <UnreadContext.Provider value={{ unreadCount, refresh: fetchCount, markRead }}>
       {children}
     </UnreadContext.Provider>
   );
