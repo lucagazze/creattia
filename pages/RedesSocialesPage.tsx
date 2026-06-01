@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { metaAds } from '../services/metaAds';
 import EmailLoader from '../components/ui/EmailLoader';
+import { AppleLoader } from '../components/ui/AppleLoader';
 import { db } from '../services/db';
 
 // Formatting utilities
@@ -72,7 +73,7 @@ export default function RedesSocialesPage() {
   // Loading and Error States
   const [igLoading, setIgLoading] = useState(true);
   const [fbLoading, setFbLoading] = useState(true);
-  const loading = igLoading && fbLoading;
+  const loading = activeTab === 'instagram' ? igLoading : fbLoading;
   const [error, setError] = useState<string | null>(null);
   const [fbError, setFbError] = useState<string | null>(null);
 
@@ -584,19 +585,22 @@ export default function RedesSocialesPage() {
     }
   };
 
-  // Fetch IG and FB independently so each shows as soon as it's ready
+  // Reset loaded states when refreshKey changes so they will be re-fetched on demand
+  useEffect(() => {
+    setFbProfile(null);
+    setFbMedia([]);
+    setFbLoading(true);
+  }, [refreshKey]);
+
+  // Load Instagram independently
   useEffect(() => {
     if (!clientId) return;
 
     let active = true;
     setIgLoading(!!igId);
-    setFbLoading(!!fbPageId);
     setError(null);
-    setFbError(null);
     setIgNextCursor(null);
-    setFbNextCursor(null);
 
-    // Load Instagram independently
     if (igId) {
       Promise.all([
         metaAds.getInstagramProfile(igId).catch(() => null),
@@ -610,26 +614,36 @@ export default function RedesSocialesPage() {
       }).catch(err => {
         if (active) setError(err.message || 'Error al obtener datos de Instagram.');
       }).finally(() => { if (active) setIgLoading(false); });
+    } else {
+      setIgLoading(false);
     }
-
-    // Load Facebook independently
-    if (fbPageId) {
-      Promise.all([
-        metaAds.getFacebookPageInfo(fbPageId).catch(() => null),
-        metaAds.getFacebookPageFeed(fbPageId, 8).catch(err => { setFbError(err.message || String(err)); return []; }),
-      ]).then(([profileRes, feedRes]) => {
-        if (!active) return;
-        setFbProfile(profileRes);
-        const media = ((feedRes as any)?.data || feedRes || []).map((p: any) => ({ ...p, source: p.source || p.attachments?.data?.[0]?.media?.source || null }));
-        setFbMedia(media);
-        setFbNextCursor((feedRes as any)?.paging?.cursors?.after || null);
-      }).finally(() => { if (active) setFbLoading(false); });
-    }
-
-    const noop = async () => {}; noop();
 
     return () => { active = false; };
-  }, [clientId, igId, fbPageId, refreshKey]);
+  }, [clientId, igId, refreshKey]);
+
+  // Load Facebook independently on demand
+  useEffect(() => {
+    if (!clientId || !fbPageId || activeTab !== 'facebook') return;
+    if (fbProfile !== null) return; // Prevent refetching if already loaded for the current refreshKey
+
+    let active = true;
+    setFbLoading(true);
+    setFbError(null);
+    setFbNextCursor(null);
+
+    Promise.all([
+      metaAds.getFacebookPageInfo(fbPageId).catch(() => null),
+      metaAds.getFacebookPageFeed(fbPageId, 8).catch(err => { setFbError(err.message || String(err)); return []; }),
+    ]).then(([profileRes, feedRes]) => {
+      if (!active) return;
+      setFbProfile(profileRes);
+      const media = ((feedRes as any)?.data || feedRes || []).map((p: any) => ({ ...p, source: p.source || p.attachments?.data?.[0]?.media?.source || null }));
+      setFbMedia(media);
+      setFbNextCursor((feedRes as any)?.paging?.cursors?.after || null);
+    }).finally(() => { if (active) setFbLoading(false); });
+
+    return () => { active = false; };
+  }, [clientId, fbPageId, activeTab, refreshKey, fbProfile]);
 
   // Filters for Instagram Feed
   const filteredMedia = useMemo(() => {
@@ -823,11 +837,7 @@ export default function RedesSocialesPage() {
                   </p>
                 </div>
               ) : igLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 animate-in fade-in duration-200">
-                  {[1,2,3,4,5,6,7,8].map(n => (
-                    <div key={n} className="aspect-square bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl animate-pulse" />
-                  ))}
-                </div>
+                <AppleLoader variant="page" />
               ) : (
                 <div className="space-y-6 md:space-y-8 animate-in fade-in duration-200">
 
@@ -1090,11 +1100,7 @@ export default function RedesSocialesPage() {
                   </p>
                 </div>
               ) : fbLoading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 animate-in fade-in duration-200">
-                  {[1,2,3,4,5,6,7,8].map(n => (
-                    <div key={n} className="aspect-square bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl animate-pulse" />
-                  ))}
-                </div>
+                <AppleLoader variant="page" />
               ) : (
                 <div className="space-y-6 md:space-y-8 animate-in fade-in duration-200">
 
@@ -1449,10 +1455,7 @@ export default function RedesSocialesPage() {
                   {/* Comments List */}
                   <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-zinc-50/10 dark:bg-zinc-950/5">
                     {loadingComments ? (
-                      <div className="flex flex-col items-center justify-center h-full gap-2">
-                        <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
-                        <p className="text-[12px] text-zinc-450 font-bold">Cargando comentarios...</p>
-                      </div>
+                      <AppleLoader variant="table" count={3} />
                     ) : comments.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full text-center p-5">
                         <MessageSquare className="w-8 h-8 text-zinc-300 dark:text-zinc-700 mb-2.5" />
