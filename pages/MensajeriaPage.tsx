@@ -284,6 +284,8 @@ export default function MensajeriaPage() {
     setManuallyUnreadRaw(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       try { localStorage.setItem(unreadStorageKey, JSON.stringify([...next])); } catch {}
+      // Dispatch custom event to notify UnreadContext in the same window
+      window.dispatchEvent(new Event('car_manually_unread_update'));
       return next;
     });
   };

@@ -109,8 +109,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
             : 'text-zinc-450 dark:text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 group-hover:scale-110'
         }`} />
         <span className="tracking-tight flex-1">{item.label}</span>
-        {/* Unread badge — only shown when there are messages and we're not on that page */}
-        {badgeCount > 0 && !isActive && (
+        {/* Unread badge */}
+        {badgeCount > 0 && (
           <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-sm shadow-red-500/30 animate-in fade-in zoom-in-90 duration-300">
             {badgeCount > 99 ? '99+' : badgeCount}
           </span>
