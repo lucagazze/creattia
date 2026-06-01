@@ -966,11 +966,12 @@ export default function RedesSocialesPage() {
                              {/* Thumbnail Container */}
                             <div className="aspect-square w-full bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden flex items-center justify-center border-b border-zinc-100 dark:border-zinc-800/60">
                               {playingVideoId === m.id ? (
-                                <video 
-                                  src={m.media_url} 
-                                  controls 
-                                  autoPlay 
-                                  className="w-full h-full object-contain bg-black" 
+                                <video
+                                  src={m.media_url}
+                                  controls
+                                  autoPlay
+                                  preload="none"
+                                  className="w-full h-full object-contain bg-black"
                                 />
                               ) : (
                                 <div 
@@ -1240,11 +1241,12 @@ export default function RedesSocialesPage() {
                           >
                             <div className="aspect-square w-full bg-zinc-50 dark:bg-zinc-950 relative overflow-hidden flex items-center justify-center border-b border-zinc-100 dark:border-zinc-800/60">
                               {playingVideoId === m.id ? (
-                                <video 
-                                  src={m.source} 
-                                  controls 
-                                  autoPlay 
-                                  className="w-full h-full object-contain bg-black" 
+                                <video
+                                  src={m.source}
+                                  controls
+                                  autoPlay
+                                  preload="none"
+                                  className="w-full h-full object-contain bg-black"
                                 />
                               ) : (
                                 <div 
@@ -1428,6 +1430,7 @@ export default function RedesSocialesPage() {
                             src={activePost.media_url || activePost.source}
                             poster={activePost.thumbnail_url || activePost.full_picture}
                             controls
+                            preload="none"
                             className="w-full h-full object-contain"
                           />
                         </div>
