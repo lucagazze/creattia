@@ -1528,6 +1528,23 @@ export default function MensajeriaPage() {
       <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">
         {/* Left Section: Status filter + Channel Filter Pills (Desktop only) */}
         <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
+          {/* Pendientes Filter (Desktop only) */}
+          <button
+            onClick={() => setShowPendingOnly(prev => !prev)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-black transition-all active:scale-[0.98] h-[32px] shrink-0 ${
+              showPendingOnly
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-sm'
+                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-650 dark:text-zinc-300 hover:border-zinc-350 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+            }`}
+            title="Mostrar solo mensajes pendientes"
+          >
+            <Clock className={`w-3.5 h-3.5 ${showPendingOnly ? 'text-amber-500 animate-pulse' : 'text-zinc-450 dark:text-zinc-400'}`} />
+            <span>Pendientes</span>
+          </button>
+
+          {/* Divider */}
+          <div className="w-[1px] h-5 bg-zinc-200 dark:bg-zinc-800 shrink-0 mx-1" />
+
           {[
             { key: 'all',       label: 'Todos',     icon: Inbox,         activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-zinc-100 dark:border-zinc-100 text-white dark:text-zinc-900', iconColor: '' },
             { key: 'whatsapp',  label: 'WhatsApp',  icon: MessageCircle, activeClass: 'bg-green-500 border-green-500 text-white',                                                         iconColor: 'text-green-500' },
@@ -1546,7 +1563,7 @@ export default function MensajeriaPage() {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all duration-200 whitespace-nowrap border ${
                   isActive
                     ? `${ch.activeClass} shadow-sm`
-                    : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
+                    : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-650 dark:text-zinc-300 hover:border-zinc-350 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? '' : ch.iconColor}`} />
@@ -1577,10 +1594,10 @@ export default function MensajeriaPage() {
             />
           </div>
 
-          {/* Pendientes Filter (Visible on both mobile and desktop) */}
+          {/* Pendientes Filter (Visible on mobile only, since desktop has it on the left) */}
           <button
             onClick={() => setShowPendingOnly(prev => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11.5px] font-black transition-all active:scale-[0.98] h-[32px] ${
+            className={`md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11.5px] font-black transition-all active:scale-[0.98] h-[32px] ${
               showPendingOnly
                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-sm'
                 : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-650 dark:text-zinc-300 hover:border-zinc-350 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800'
@@ -1590,29 +1607,6 @@ export default function MensajeriaPage() {
             <Clock className={`w-3.5 h-3.5 ${showPendingOnly ? 'text-amber-500 animate-pulse' : 'text-zinc-450 dark:text-zinc-400'}`} />
             <span>Pendientes</span>
           </button>
-
-          {/* Sort button (Desktop only) */}
-          <div className="hidden md:block relative group">
-            <button className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" title="Ordenar">
-              <svg className="w-4 h-4 text-zinc-550" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 6h16M4 12h10M4 18h7" strokeLinecap="round"/>
-              </svg>
-            </button>
-            <div className="absolute right-0 top-full pt-1.5 z-50 hidden group-hover:block">
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl py-1 min-w-[150px]">
-                {[
-                  { value: 'latest', label: '↓ Más reciente' },
-                  { value: 'oldest', label: '↑ Más antiguo' },
-                  { value: 'priority', label: '🔴 Por prioridad' },
-                ].map(s => (
-                  <button key={s.value} onClick={() => setSortBy(s.value as any)}
-                    className={`w-full text-left px-3 py-2 text-[12px] transition-colors ${sortBy === s.value ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
 
           {/* Expand button (Desktop only) */}
           <button 

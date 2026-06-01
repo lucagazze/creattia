@@ -60,7 +60,14 @@ export const ViewAsProvider = ({ children }: { children: React.ReactNode }) => {
 
 export const useViewAs = () => {
   const ctx = useContext(ViewAsContext);
-  if (!ctx) throw new Error('useViewAs must be used within ViewAsProvider');
+  if (!ctx) {
+    console.warn('useViewAs was used outside ViewAsProvider. Returning fallback.');
+    return {
+      viewAsProfile: null,
+      setViewAsProfile: () => {},
+      isViewingAs: false
+    };
+  }
   return ctx;
 };
 

@@ -66,7 +66,23 @@ const lazyWithRetry = (componentImport: () => Promise<any>) =>
         return await componentImport();
       } catch (err) {
         console.warn(`Error loading chunk (attempt ${i + 1}/${retries}):`, err);
-        if (i === retries - 1) throw err;
+        if (i === retries - 1) {
+          const msg = String((err as any)?.message || err || '').toLowerCase();
+          if (
+            msg.includes('loading chunk') ||
+            msg.includes('chunkloaderror') ||
+            msg.includes('failed to fetch') ||
+            msg.includes('module script') ||
+            msg.includes('load failed') ||
+            msg.includes('dynamically imported') ||
+            msg.includes('dynamic import')
+          ) {
+            console.warn('Chunk load failed after retries. Reloading page...');
+            window.location.reload();
+            return { default: () => null };
+          }
+          throw err;
+        }
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }

@@ -37,11 +37,15 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 
   componentDidCatch(error: any) {
-    const msg = String(error?.message || error || '');
+    const msg = String(error?.message || error || '').toLowerCase();
     if (
-      msg.includes('Loading chunk') ||
-      msg.includes('ChunkLoadError') ||
-      msg.includes('Failed to fetch dynamically imported module')
+      msg.includes('loading chunk') ||
+      msg.includes('chunkloaderror') ||
+      msg.includes('failed to fetch') ||
+      msg.includes('module script') ||
+      msg.includes('load failed') ||
+      msg.includes('dynamically imported') ||
+      msg.includes('dynamic import')
     ) {
       window.location.reload();
       return;
@@ -71,6 +75,32 @@ import { PresenceProvider } from './contexts/PresenceContext';
 import { UnreadProvider } from './contexts/UnreadContext';
 
 export default function App() {
+  React.useEffect(() => {
+    const handleChunkError = (e: ErrorEvent | PromiseRejectionEvent) => {
+      const error = 'reason' in e ? e.reason : e.error;
+      const msg = String(error?.message || error || '').toLowerCase();
+      if (
+        msg.includes('loading chunk') ||
+        msg.includes('chunkloaderror') ||
+        msg.includes('failed to fetch') ||
+        msg.includes('module script') ||
+        msg.includes('load failed') ||
+        msg.includes('dynamically imported') ||
+        msg.includes('dynamic import')
+      ) {
+        console.warn('Chunk load error detected globally, reloading page...');
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('error', handleChunkError);
+    window.addEventListener('unhandledrejection', handleChunkError);
+    return () => {
+      window.removeEventListener('error', handleChunkError);
+      window.removeEventListener('unhandledrejection', handleChunkError);
+    };
+  }, []);
+
   return (
     <Router>
       <ThemeProvider>
