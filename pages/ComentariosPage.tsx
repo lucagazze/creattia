@@ -79,6 +79,23 @@ export default function ComentariosPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('pending');
+  const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es' | 'pt'>>({});
+
+  const LANGS: { code: 'en' | 'es' | 'pt'; flag: string; label: string }[] = [
+    { code: 'en', flag: '🇺🇸', label: 'English' },
+    { code: 'es', flag: '🇦🇷', label: 'Español' },
+    { code: 'pt', flag: '🇧🇷', label: 'Português' },
+  ];
+
+  const detectLang = (text: string): 'en' | 'es' | 'pt' => {
+    const en = /\b(the|is|are|was|were|have|has|had|will|would|can|could|do|does|did|not|this|that|with|from|they|them|what|how|when|where|why|who|your|our|get|got|been|just|like|good|great|need|want|buy|order|price|ship|help|don't|I've|it's|you're|we're|haven't|didn't|won't|can't|i|my|me|we|us)\b/i.test(text);
+    const es = /\b(es|el|la|los|las|un|una|que|de|en|por|para|con|como|pero|más|tengo|quiero|puedo|tienes|precio|envío|gracias|hola|si|no|del|al|muy|bien|cuando|también|qué|cómo|todo|este|esto)\b/i.test(text);
+    const pt = /\b(eu|você|ele|ela|nós|eles|que|não|com|por|para|uma|dos|das|está|tem|ser|esse|isso|muito|mais|como|quando|também|preciso|quero|obrigado|olá)\b/i.test(text);
+    if (pt && !en && !es) return 'pt';
+    if (es && !en) return 'es';
+    if (en) return 'en';
+    return 'es';
+  };
 
   // ── Connection flow state ─────────────────────────────────────────
   const [connectingUserToken, setConnectingUserToken] = useState<string | null>(null);
@@ -658,6 +675,10 @@ export default function ComentariosPage() {
   // Generate AI draft for one comment
   const generateDraft = async (comment: any) => {
     if (!selectedPost || !clientId) return;
+    const text = comment.text || comment.message || '';
+    // Auto-detect and store lang if not manually set
+    const lang = replyLangs[comment.id] || detectLang(text);
+    if (!replyLangs[comment.id]) setReplyLangs(prev => ({ ...prev, [comment.id]: lang }));
     setDraftLoading(prev => ({ ...prev, [comment.id]: true }));
     setReplyErrors(prev => ({ ...prev, [comment.id]: null }));
     try {
@@ -666,7 +687,7 @@ export default function ComentariosPage() {
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, itemText: comment.text || comment.message || '', username: comment.username, postCaption, otherComments: others }),
+        body: JSON.stringify({ clientId, itemText: text, username: comment.username, postCaption, otherComments: others, forceLang: lang }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -1315,6 +1336,24 @@ export default function ComentariosPage() {
                                   className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-[12.5px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:border-violet-500 outline-none transition-all min-h-[50px] font-medium shadow-inner"
                                 />
                                 <div className="flex items-center gap-2">
+                                  {/* Language selector */}
+                                  <div className="flex items-center rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                                    {LANGS.map(l => {
+                                      const currentLang = replyLangs[comment.id] || detectLang(comment.text || comment.message || '');
+                                      const isActive = currentLang === l.code;
+                                      return (
+                                        <button
+                                          key={l.code}
+                                          type="button"
+                                          title={l.label}
+                                          onClick={() => setReplyLangs(prev => ({ ...prev, [comment.id]: l.code }))}
+                                          className={`px-1.5 py-1 text-[13px] transition-all ${isActive ? 'bg-violet-100 dark:bg-violet-950' : 'bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
+                                        >
+                                          {l.flag}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={() => generateDraft(comment)}

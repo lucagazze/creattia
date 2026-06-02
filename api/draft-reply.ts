@@ -39,14 +39,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'No AI API key configured' });
   }
 
-  const { clientId, itemText, username, postCaption, otherComments, conversationHistory, isDM } = req.body as {
+  const { clientId, itemText, username, postCaption, otherComments, conversationHistory, isDM, forceLang } = req.body as {
     clientId: string;
     itemText: string;
     username: string;
     postCaption?: string;
     otherComments?: string[];
-    conversationHistory?: string[]; // last N messages of the DM thread
+    conversationHistory?: string[];
     isDM?: boolean;
+    forceLang?: 'en' | 'es' | 'pt';
   };
 
   if (!clientId || !itemText) {
@@ -316,16 +317,30 @@ ${fewShotExamples.map((ex, i) => `Example ${i + 1}:
       ? `\nCONTEXTO DE LA CONVERSACIÓN (últimos ${conversationHistory.length} mensajes, del más viejo al más reciente):\n${conversationHistory.map(m => `  ${m}`).join('\n')}\n`
       : '';
 
-    const isEnglish = /\b(the|is|are|was|were|have|has|had|will|would|can|could|do|does|did|not|this|that|with|from|they|them|what|how|when|where|why|who|your|our|get|got|been|just|like|good|great|need|want|buy|order|price|ship|help|don't|I've|it's|you're|we're|haven't|didn't|won't|can't)\b/i.test(itemText);
-    const isSpanish = /\b(es|el|la|los|las|un|una|que|de|en|por|para|con|como|pero|más|tengo|quiero|puedo|tienes|precio|envío|gracias|hola|si|no)\b/i.test(itemText);
-    const detectedLang = isEnglish && !isSpanish ? 'english' : isSpanish && !isEnglish ? 'spanish' : isEnglish ? 'english' : 'spanish';
+    // Determine language: forceLang from client overrides auto-detection
+    let detectedLang: 'english' | 'spanish' | 'portuguese';
+    if (forceLang === 'en') detectedLang = 'english';
+    else if (forceLang === 'pt') detectedLang = 'portuguese';
+    else if (forceLang === 'es') detectedLang = 'spanish';
+    else {
+      const isEnglish = /\b(the|is|are|was|were|have|has|had|will|would|can|could|do|does|did|not|this|that|with|from|they|them|what|how|when|where|why|who|your|our|get|got|been|just|like|good|great|need|want|buy|order|price|ship|help|don't|I've|it's|you're|we're|haven't|didn't|won't|can't|i|my|me|we|us)\b/i.test(itemText);
+      const isSpanish = /\b(es|el|la|los|las|un|una|que|de|en|por|para|con|como|pero|más|tengo|quiero|puedo|tienes|precio|envío|gracias|hola|si|no)\b/i.test(itemText);
+      const isPortuguese = /\b(eu|você|ele|ela|nós|eles|não|com|por|uma|dos|das|está|tem|ser|esse|muito|como|quando|também|preciso|quero|obrigado|olá)\b/i.test(itemText);
+      detectedLang = isPortuguese && !isEnglish && !isSpanish ? 'portuguese' : isSpanish && !isEnglish ? 'spanish' : isEnglish ? 'english' : 'spanish';
+    }
+    const langName = detectedLang === 'english' ? 'ENGLISH' : detectedLang === 'portuguese' ? 'PORTUGUESE' : 'SPANISH';
+    const langWarning = detectedLang === 'english'
+      ? 'DO NOT write any Spanish or Portuguese words. Not "Hola", not "Gracias", not "tenés", nothing.'
+      : detectedLang === 'portuguese'
+      ? 'Não escreva palavras em inglês ou espanhol.'
+      : 'NO escribas ninguna palabra en inglés ni portugués.';
 
     const systemMessage = `⚠️ LANGUAGE LOCK — READ THIS FIRST BEFORE ANYTHING ELSE ⚠️
 The message you must reply to is: "${itemText}"
-Detected language: ${detectedLang.toUpperCase()}
-YOUR ENTIRE RESPONSE MUST BE 100% IN ${detectedLang.toUpperCase()}. NOT A SINGLE WORD IN ANY OTHER LANGUAGE.
-${detectedLang === 'english' ? 'DO NOT write any Spanish words. Not "Hola", not "Gracias", not "tenés", not "escribinos", nothing.' : 'NO escribas ninguna palabra en inglés.'}
-This rule OVERRIDES everything else. Language = ${detectedLang.toUpperCase()}. No exceptions.
+${forceLang ? `[LANGUAGE MANUALLY SET BY USER]` : '[AUTO-DETECTED]'} Language: ${langName}
+YOUR ENTIRE RESPONSE MUST BE 100% IN ${langName}. NOT A SINGLE WORD IN ANY OTHER LANGUAGE.
+${langWarning}
+This rule OVERRIDES everything else. Language = ${langName}. No exceptions.
 
 ---
 
