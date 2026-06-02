@@ -929,7 +929,6 @@ export default function AdminPage() {
           wordpress_url: editForm.wordpress_url || null,
           woo_consumer_key: editForm.woo_consumer_key || null,
           woo_consumer_secret: editForm.woo_consumer_secret || null,
-          client_tags: editForm.client_tags || [],
           fb_page_id: editForm.fb_page_id || null,
           fb_page_name: editForm.fb_page_name || null,
           fb_page_access_token: editForm.fb_page_access_token || null,
@@ -1754,15 +1753,6 @@ export default function AdminPage() {
                               </div>
                             ) : null}
 
-                            {/* Admin connect button */}
-                            <button
-                              type="button"
-                              onClick={handleConnectFacebookForClient}
-                              className="w-full h-9 rounded-lg bg-[#1877F2] hover:bg-[#166FE5] text-white text-[11px] font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-[#1877F2]/20"
-                            >
-                              <Facebook className="w-3.5 h-3.5" />
-                              {(editingClient as any)?.fb_page_access_token ? 'Reconectar Facebook/Instagram' : 'Conectar Facebook/Instagram'}
-                            </button>
                           </div>
 
                           {/* 3. Facebook Page & Instagram selectors side-by-side */}
