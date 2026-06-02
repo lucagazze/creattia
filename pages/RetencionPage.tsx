@@ -113,7 +113,7 @@ export default function RetencionPage() {
   const [fetchingDetailed, setFetchingDetailed] = useState(false);
   const [currentKlaviyo, setCurrentKlaviyo] = useState<any>(null);
   const [prevKlaviyo, setPrevKlaviyo] = useState<any>(null);
-  const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
+  const [expandedMetric, setExpandedMetric] = useState<string | null>('k-sent');
   const [detailedStats, setDetailedStats] = useState<any>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const toggleRow = (id: string) => setExpandedRows(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
