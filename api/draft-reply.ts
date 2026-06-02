@@ -57,13 +57,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 1. Fetch client settings from Supabase
     const { data: client, error: dbError } = await supabase
       .from('car_clients')
-      .select('business_name, ecommerce_platform, shopify_domain, shopify_access_token, business_description, custom_instructions, scraped_content, instagram_context, website_url, products_catalog, catalog_synced_at')
+      .select('business_name, ecommerce_platform, shopify_domain, shopify_access_token, business_description, custom_instructions, scraped_content, instagram_context, website_url')
       .eq('id', clientId)
       .maybeSingle();
 
     if (dbError || !client) {
       return res.status(404).json({ error: 'Client not found or database error' });
     }
+
+    // Fetch catalog separately — these columns may not exist yet
+    let products_catalog: string | null = null;
+    let catalog_synced_at: string | null = null;
+    try {
+      const { data: catalogRow } = await supabase
+        .from('car_clients')
+        .select('products_catalog, catalog_synced_at')
+        .eq('id', clientId)
+        .maybeSingle();
+      products_catalog = catalogRow?.products_catalog ?? null;
+      catalog_synced_at = catalogRow?.catalog_synced_at ?? null;
+    } catch { /* columns may not exist yet — skip */ }
 
     // Fetch custom client links from Supabase
     let clientLinks: any[] = [];
