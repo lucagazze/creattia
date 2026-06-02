@@ -206,6 +206,8 @@ export default function AdminPage() {
   const [clientPagesModal, setClientPagesModal] = useState<{ pages: any[]; clientId: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"general" | "integrations" | "users" | "links">("general");
   const [searchQuery, setSearchQuery] = useState("");
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
+  const [catalogSyncResult, setCatalogSyncResult] = useState<{ count: number; source: string; synced_at: string } | null>(null);
 
   // Custom links state
   const [clientLinks, setClientLinks] = useState<ClientLink[]>([]);
@@ -720,6 +722,27 @@ export default function AdminPage() {
       setStatuses((p) => ({ ...p, meta: "error" }));
     } finally {
       setTestingMeta(false);
+    }
+  };
+
+  const syncCatalog = async () => {
+    if (!editingClient?.id) return;
+    setSyncingCatalog(true);
+    setCatalogSyncResult(null);
+    try {
+      const res = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: editingClient.id, action: 'sync-catalog' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al sincronizar');
+      setCatalogSyncResult({ count: data.count, source: data.source, synced_at: data.synced_at });
+      showToast(`Catálogo sincronizado: ${data.count} productos · ${data.source}`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Error al sincronizar catálogo', 'error');
+    } finally {
+      setSyncingCatalog(false);
     }
   };
 
@@ -1684,15 +1707,7 @@ export default function AdminPage() {
                                   </p>
                                 </div>
                               </div>
-                            ) : (
-                              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 font-bold leading-normal">
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
-                                <div>
-                                  <p>Sin token de Facebook Page — mensajería y comentarios no funcionan</p>
-                                  <p className="text-[9.5px] text-amber-600/80 dark:text-amber-400/80 font-medium mt-0.5">Conectá la cuenta de Meta del negocio desde el botón de abajo.</p>
-                                </div>
-                              </div>
-                            )}
+                            ) : null}
 
                             {/* Admin connect button */}
                             <button
@@ -1701,11 +1716,8 @@ export default function AdminPage() {
                               className="w-full h-9 rounded-lg bg-[#1877F2] hover:bg-[#166FE5] text-white text-[11px] font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-[#1877F2]/20"
                             >
                               <Facebook className="w-3.5 h-3.5" />
-                              {(editingClient as any)?.fb_page_access_token ? 'Reconectar Facebook/Instagram para este cliente' : 'Conectar Facebook/Instagram para este cliente'}
+                              {(editingClient as any)?.fb_page_access_token ? 'Reconectar Facebook/Instagram' : 'Conectar Facebook/Instagram'}
                             </button>
-                            <p className="text-[9px] text-zinc-400 dark:text-zinc-555 text-center -mt-1 leading-normal">
-                              Vas a iniciar sesión con tu cuenta de Meta → seleccionás la página de Facebook del cliente y su cuenta de Instagram vinculada se asociará automáticamente.
-                            </p>
                           </div>
 
                           {/* 3. Facebook Page & Instagram selectors side-by-side */}
@@ -1798,6 +1810,35 @@ export default function AdminPage() {
                               Probar Cuenta Instagram
                             </button>
                           </div>
+
+                          {/* Catalog sync */}
+                          {editingClient?.meta_account_id && (
+                            <div className="mt-4 pt-4 border-t border-zinc-150 dark:border-zinc-800 space-y-2">
+                              <span className="text-[11.5px] font-black uppercase tracking-[0.07em] text-zinc-550 dark:text-zinc-400 block">Catálogo de Productos</span>
+                              {(editingClient as any).catalog_synced_at ? (
+                                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">
+                                  <Check className="w-3.5 h-3.5 shrink-0" />
+                                  <span>Catálogo sincronizado · {new Date((editingClient as any).catalog_synced_at).toLocaleDateString('es-AR')}</span>
+                                </div>
+                              ) : catalogSyncResult ? (
+                                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">
+                                  <Check className="w-3.5 h-3.5 shrink-0" />
+                                  <span>{catalogSyncResult.count} productos · {catalogSyncResult.source}</span>
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-zinc-400">Sin catálogo sincronizado. Sincronizá para que la IA conozca todos los productos.</p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={syncCatalog}
+                                disabled={syncingCatalog}
+                                className="w-full h-9 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                              >
+                                {syncingCatalog ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                {syncingCatalog ? 'Sincronizando catálogo...' : (editingClient as any).catalog_synced_at ? 'Re-sincronizar catálogo' : 'Sincronizar catálogo desde Meta'}
+                              </button>
+                            </div>
+                          )}
 
                           {/* 5. Manual configurations details drop downs */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
