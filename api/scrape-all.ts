@@ -85,10 +85,87 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }
 
-  const { clientId, url, action } = req.body as { clientId: string; url?: string; action?: 'scrape-all' | 'scrape-website' | 'sync-instagram' };
+  const { clientId, url, action } = req.body as { clientId: string; url?: string; action?: 'scrape-all' | 'scrape-website' | 'sync-instagram' | 'sync-catalog' };
 
   if (!clientId) {
     return res.status(400).json({ error: 'Missing clientId' });
+  }
+
+  // ── SYNC CATALOG (Meta first, Shopify fallback) ──────────────────────
+  if (action === 'sync-catalog') {
+    const { data: cl } = await supabase
+      .from('car_clients')
+      .select('meta_account_id, shopify_domain, shopify_access_token, website_url')
+      .eq('id', clientId)
+      .maybeSingle();
+    if (!cl) return res.status(404).json({ error: 'Client not found' });
+
+    const { data: tokenRow } = await supabase.from('AgencySettings').select('value').eq('key', 'meta_ads_token').maybeSingle();
+    const metaToken: string = tokenRow?.value || '';
+    const META_BASE = 'https://graph.facebook.com/v21.0';
+
+    let catalog: any[] = [];
+    let source = '';
+
+    if (cl.meta_account_id && metaToken) {
+      try {
+        const accountId = cl.meta_account_id.startsWith('act_') ? cl.meta_account_id : `act_${cl.meta_account_id}`;
+        const cRes = await fetch(`${META_BASE}/${accountId}/product_catalogs?fields=id,name,product_count&access_token=${metaToken}`);
+        const cData: any = await cRes.json();
+        const catalogs: any[] = cData.data || [];
+        if (catalogs.length > 0) {
+          const best = catalogs.sort((a: any, b: any) => (b.product_count || 0) - (a.product_count || 0))[0];
+          let allProducts: any[] = [];
+          let nextUrl: string | null = `${META_BASE}/${best.id}/products?fields=id,name,price,currency,url,product_type,availability,image_url,retailer_id&limit=200&access_token=${metaToken}`;
+          while (nextUrl) {
+            const pRes: Response = await fetch(nextUrl);
+            const pData: any = await pRes.json();
+            allProducts = allProducts.concat(pData.data || []);
+            nextUrl = pData.paging?.next || null;
+          }
+          const available = allProducts.filter((p: any) => !p.availability || p.availability === 'in stock' || p.availability === 'available');
+          catalog = available.map((p: any) => {
+            const priceRaw = p.price || '';
+            const priceNum = priceRaw.replace(/[^0-9.]/g, '');
+            const currency = priceRaw.replace(/[0-9. ]/g, '').trim();
+            const priceStr = priceNum ? `${currency || '$'}${parseFloat(priceNum).toFixed(2)}` : 'Consultar';
+            return { id: p.id || p.retailer_id || '', title: p.name || '', handle: '', type: p.product_type || '', tags: '', price: priceStr, variants: [], source: 'meta', url: p.url || '' };
+          });
+          source = `Meta Catalog: ${best.name} (${catalog.length} productos)`;
+        }
+      } catch (e) { console.error('[sync-catalog] Meta failed:', e); }
+    }
+
+    if (catalog.length === 0 && cl.shopify_domain && cl.shopify_access_token) {
+      try {
+        const domain = cl.shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        let allP: any[] = [];
+        let pageUrl: string | null = `https://${domain}/admin/api/2024-01/products.json?limit=250&fields=id,title,handle,status,variants,product_type,tags`;
+        while (pageUrl) {
+          const sRes: Response = await fetch(pageUrl, { headers: { 'X-Shopify-Access-Token': cl.shopify_access_token, 'Accept': 'application/json' } });
+          if (!sRes.ok) break;
+          const sData: any = await sRes.json();
+          allP = allP.concat(sData.products || []);
+          const lh: string = sRes.headers.get('link') || '';
+          const nm: RegExpMatchArray | null = lh.match(/<([^>]+)>;\s*rel="next"/);
+          pageUrl = nm ? nm[1] : null;
+        }
+        catalog = allP.filter((p: any) => p.status === 'active').map((p: any) => {
+          const vs = p.variants || [];
+          const prices = [...new Set(vs.map((v: any) => v.price).filter(Boolean))];
+          const priceStr = prices.length === 1 ? `$${prices[0]}` : prices.length > 1 ? `$${Math.min(...prices.map(Number))}-$${Math.max(...prices.map(Number))}` : 'Consultar';
+          return { id: p.id, title: p.title, handle: p.handle, type: p.product_type || '', tags: p.tags || '', price: priceStr, variants: vs.map((v: any) => v.title).filter((t: string) => t && t !== 'Default Title'), source: 'shopify', url: '' };
+        });
+        source = `Shopify (${catalog.length} productos activos)`;
+      } catch (e) { console.error('[sync-catalog] Shopify failed:', e); }
+    }
+
+    if (catalog.length === 0) return res.status(400).json({ error: 'No se encontró catálogo. Configurá Meta Ads o Shopify.' });
+
+    const syncedAt = new Date().toISOString();
+    const { error: ue } = await supabase.from('car_clients').update({ products_catalog: JSON.stringify(catalog), catalog_synced_at: syncedAt }).eq('id', clientId);
+    if (ue) return res.status(502).json({ error: ue.message });
+    return res.status(200).json({ success: true, source, count: catalog.length, synced_at: syncedAt, catalog });
   }
 
   if ((!action || action === 'scrape-all' || action === 'scrape-website') && !url) {

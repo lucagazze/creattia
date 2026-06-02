@@ -80,10 +80,10 @@ export default function CerebroPage() {
     if (!profile) return;
     setSyncingCatalog(true);
     try {
-      const res = await fetch('/api/sync-catalog', {
+      const res = await fetch('/api/scrape-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: profile.id }),
+        body: JSON.stringify({ clientId: profile.id, action: 'sync-catalog' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al sincronizar');
