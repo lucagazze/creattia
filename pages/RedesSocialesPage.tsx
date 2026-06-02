@@ -943,19 +943,6 @@ export default function RedesSocialesPage() {
             </button>
           </div>
 
-          {/* Pending comments button */}
-          <button
-            onClick={handleOpenPendingPanel}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[12px] font-black shadow-md shadow-amber-500/20 transition-all active:scale-95"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Pendientes</span>
-            {pendingLoaded && (
-              <span className="absolute -top-1.5 -right-1.5 bg-white text-amber-600 text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 border border-amber-200 shadow-sm">
-                {pendingItems.filter(i => !pendingReplied[i.comment.id]).length}
-              </span>
-            )}
-          </button>
 
         </div>
       </div>
