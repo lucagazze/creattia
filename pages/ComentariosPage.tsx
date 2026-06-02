@@ -826,31 +826,25 @@ export default function ComentariosPage() {
               : p === 'instagram' ? platformCounts.instagram
               : p === 'facebook' ? platformCounts.facebook
               : platformCounts.ads;
+            const label = p === 'all' ? 'Todas' : p === 'instagram' ? 'Instagram' : p === 'facebook' ? 'Facebook' : 'Anuncios';
+            const isActive = platformFilter === p;
 
             return (
               <button
                 key={p}
                 onClick={() => setPlatformFilter(p)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-black transition-all border flex items-center gap-1.5 ${
-                  platformFilter === p
-                    ? p === 'instagram' ? 'bg-pink-500 text-white border-pink-500'
-                      : p === 'facebook' ? 'bg-blue-500 text-white border-blue-500'
-                      : p === 'ads' ? 'bg-amber-500 text-white border-amber-500'
-                      : 'bg-violet-600 text-white border-violet-600'
-                    : 'bg-white dark:bg-zinc-900 text-zinc-550 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-350 dark:hover:border-zinc-700'
+                className={`px-3.5 py-1.5 rounded-full text-[11px] font-black transition-all border flex items-center gap-2 ${
+                  isActive
+                    ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-sm'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>
-                  {p === 'all' ? 'Todas' : p === 'instagram' ? '📷 Instagram' : p === 'facebook' ? '💬 Facebook' : '🎯 Anuncios'}
-                </span>
+                <span>{label}</span>
                 {count > 0 && (
-                  <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none ${
-                    platformFilter === p
-                      ? 'bg-white/20 text-white'
-                      : p === 'instagram' ? 'bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-400'
-                        : p === 'facebook' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
-                        : p === 'ads' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                        : 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400'
+                  <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-black leading-none ${
+                    isActive
+                      ? 'bg-white/20 dark:bg-zinc-900/20 text-white dark:text-zinc-900'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
                   }`}>
                     {count}
                   </span>
