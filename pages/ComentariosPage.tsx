@@ -812,39 +812,7 @@ export default function ComentariosPage() {
       </div>
 
       {/* Filters */}
-      <div className="space-y-2.5">
-        {/* Status toggle — prominent */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setStatusFilter('all')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-black transition-all border ${
-              statusFilter === 'all'
-                ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-sm'
-                : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
-            }`}
-          >
-            Todos
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
-              statusFilter === 'all' ? 'bg-white/20 text-white dark:bg-black/20 dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
-            }`}>{posts.length}</span>
-          </button>
-          <button
-            onClick={() => setStatusFilter('pending')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-black transition-all border ${
-              statusFilter === 'pending'
-                ? 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/20'
-                : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-700 hover:text-amber-600 dark:hover:text-amber-400'
-            }`}
-          >
-            ⏳ Pendientes
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
-              statusFilter === 'pending' ? 'bg-white/20 text-white' : 'bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-            }`}>{posts.filter(p => p.pendingComments > 0).length}</span>
-          </button>
-        </div>
-
-        {/* Platform filter pills */}
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
           {(['all', 'instagram', 'facebook', 'ads'] as const).map(p => {
             const count = p === 'all' ? platformCounts.all
               : p === 'instagram' ? platformCounts.instagram
@@ -882,7 +850,6 @@ export default function ComentariosPage() {
               </button>
             );
           })}
-        </div>
       </div>
 
       {/* Errors */}
