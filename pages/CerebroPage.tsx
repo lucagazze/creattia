@@ -85,7 +85,7 @@ export default function CerebroPage() {
       let loaded: any[] = [];
 
       // Proxy via /api/products to avoid CORS on browser-side calls
-      const body: any = { platform };
+      const body: any = { type: 'products', platform };
       if (platform === 'shopify') {
         body.shopify_domain = (p as any).shopify_domain;
         body.shopify_access_token = (p as any).shopify_access_token;
