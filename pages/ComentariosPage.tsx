@@ -8,7 +8,7 @@ import { useViewAs } from '../contexts/ViewAsContext';
 import { metaAds } from '../services/metaAds';
 import { db } from '../services/db';
 import { supabaseAdmin } from '../services/supabase';
-import EmailLoader from '../components/ui/EmailLoader';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import SmoothImage from '../components/ui/SmoothImage';
 
@@ -878,10 +878,10 @@ export default function ComentariosPage() {
         </div>
       )}
 
+      <TopLoadingBar loading={loading} />
+
       {/* Content */}
-      {loading ? (
-        <EmailLoader loading={loading} color="#8b5cf6" labels={['Cargando publicaciones de Instagram...', 'Cargando publicaciones de Facebook...', 'Analizando comentarios pendientes...']} />
-      ) : filteredPosts.length === 0 ? (
+      {loading ? null : filteredPosts.length === 0 ? (
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-16 text-center max-w-md mx-auto space-y-4 shadow-sm">
           <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8 text-emerald-500" />
