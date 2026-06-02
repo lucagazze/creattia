@@ -557,7 +557,7 @@ export const metaAds = {
 
   getFacebookPageFeed: (pageId: string, limit = 8, after?: string) => {
     const params: Record<string, string> = {
-      fields: 'id,message,created_time,full_picture,permalink_url,likes.summary(true),comments.limit(50){id,message,created_time,from,like_count,replies{id,message,from,created_time}},attachments{media,type}',
+      fields: 'id,message,created_time,full_picture,permalink_url,likes.summary(true),comments.limit(50){id,message,created_time,from{id,name},like_count,replies{id,message,from{id,name},created_time}},attachments{media,type}',
       limit: String(limit),
     };
     if (after) params.after = after;
@@ -566,7 +566,7 @@ export const metaAds = {
 
   getFacebookPostComments: (postId: string) =>
     apiGetPageActive(`${postId}/comments`, {
-      fields: 'id,message,created_time,from,like_count,replies.limit(100){id,message,from,created_time}',
+      fields: 'id,message,created_time,from{id,name},like_count,replies.limit(100){id,message,from{id,name},created_time}',
       limit: '100',
     }),
 
@@ -668,8 +668,8 @@ export const metaAds = {
   // Helper to fetch comments of an Ad's creative
   getAdCreativeComments: (storyId: string) =>
     apiGetPageActive(`${storyId}/comments`, {
-      fields: 'id,text,message,timestamp,created_time,from,username,like_count,replies{id,text,message,from,username,timestamp,created_time}',
-      limit: '50',
+      fields: 'id,text,message,timestamp,created_time,from{id,name},username,like_count,replies{id,text,message,from{id,name},username,timestamp,created_time}',
+      limit: '100',
     }),
 
   likeComment: async (commentId: string, platform: 'instagram' | 'facebook', igUserId?: string) => {
