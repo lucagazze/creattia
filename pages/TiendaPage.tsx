@@ -107,89 +107,12 @@ export default function TiendaPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
-  const [activeTab, setActiveTab] = useState<'metrics' | 'products'>('metrics');
   const [data, setData] = useState<any>(null);
   const [prevData, setPrevData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [expandedMetric, setExpandedMetric] = useState<string | null>('s-revenue');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
-  // Products analysis state
-  const [productAnalysis, setProductAnalysis] = useState<any[]>([]);
-  const [productLoading, setProductLoading] = useState(false);
-  const [productError, setProductError] = useState<string | null>(null);
-  const [productSearch, setProductSearch] = useState('');
-  const [modalProduct, setModalProduct] = useState<any>(null);
-  const [productCacheDate, setProductCacheDate] = useState<Date | null>(null);
-
-  const saveAnalysisToDB = async (results: any[], clientId: string) => {
-    try {
-      await fetch('/api/scrape-all', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'save-analysis', clientId, data: results }),
-      });
-    } catch { /* ignore — localStorage fallback already saved */ }
-  };
-
-  const loadProductAnalysis = async (forceRefresh = false) => {
-    const p = profile as any;
-    if (!p?.shopify_domain || !p?.shopify_access_token) return;
-
-    if (!forceRefresh) {
-      // 1. Try localStorage (instant)
-      try {
-        const raw = localStorage.getItem(`pa:${p.shopify_domain}`);
-        if (raw) {
-          const { data, ts } = JSON.parse(raw) as { data: any[]; ts: number };
-          setProductAnalysis(data);
-          setProductCacheDate(new Date(ts));
-          return;
-        }
-      } catch { /* ignore */ }
-
-      // 2. Try DB (persisted across devices/sessions)
-      try {
-        const dbRes = await fetch('/api/scrape-all', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'load-analysis', clientId: p.id }),
-        });
-        if (dbRes.ok) {
-          const dbData = await dbRes.json();
-          if (dbData.found && dbData.results?.length) {
-            setProductAnalysis(dbData.results);
-            const calcDate = new Date(dbData.calculated_at);
-            setProductCacheDate(calcDate);
-            try { localStorage.setItem(`pa:${p.shopify_domain}`, JSON.stringify({ data: dbData.results, ts: calcDate.getTime() })); } catch { }
-            return;
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    // 3. Run full analysis
-    setProductLoading(true);
-    setProductError(null);
-    try {
-      const results = await ecommerce.analyzeProducts(p.shopify_domain, p.shopify_access_token, forceRefresh);
-      setProductAnalysis(results);
-      const now = new Date();
-      setProductCacheDate(now);
-      // Save to localStorage + DB
-      try { localStorage.setItem(`pa:${p.shopify_domain}`, JSON.stringify({ data: results, ts: now.getTime() })); } catch { }
-      if (p.id) saveAnalysisToDB(results, p.id);
-    } catch (err: any) {
-      setProductError(err.message || 'Error al analizar productos');
-    } finally {
-      setProductLoading(false);
-    }
-  };
-
-  const scoreEP  = (v: number) => v >= 50 ? 'pass' : v >= 25 ? 'warn' : 'fail';
-  const scoreSP  = (v: number) => v >= 40 ? 'pass' : v >= 20 ? 'warn' : 'fail';
-  const scoreRD  = (v: number) => v === 0 ? 'fail' : v <= 15 ? 'pass' : v <= 45 ? 'warn' : 'fail';
-  const totalScore = (p: any) => [scoreEP(p.entryPointPct), scoreSP(p.secondPurchasePct), scoreRD(p.repurchaseDays)].filter(s => s === 'pass').length;
 
 
   // Date Picker State
@@ -356,22 +279,6 @@ export default function TiendaPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-8 border-b border-zinc-100 dark:border-zinc-800 print:hidden">
-        {[{ id: 'metrics', label: 'Métricas', icon: BarChart2 }, { id: 'products', label: 'Productos', icon: Package }].map(t => (
-          <button
-            key={t.id}
-            onClick={() => {
-              setActiveTab(t.id as any);
-              if (t.id === 'products' && productAnalysis.length === 0 && !productLoading) loadProductAnalysis(false);
-            }}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-bold border-b-2 -mb-px transition-all ${activeTab === t.id ? 'border-pink-500 text-pink-600 dark:text-pink-400' : 'border-transparent text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
-          >
-            <t.icon className="w-3.5 h-3.5" />
-            {t.label}
-          </button>
-        ))}
-      </div>
 
       <div className="hidden print:block mb-6 pb-4 border-b-2 border-zinc-200">
         <div className="flex items-baseline justify-between mb-2">
@@ -382,103 +289,8 @@ export default function TiendaPage() {
         <p className="text-[15px] font-bold text-zinc-900">Período: {fmtDateRange(activeSince, true)} — {fmtDateRange(activeUntil, true)}</p>
       </div>
 
-      {/* Products Tab */}
-      {activeTab === 'products' && (
-        <div className="space-y-6">
-          {productLoading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
-              <p className="text-[13px] text-zinc-500 font-medium">Analizando pedidos de la tienda...</p>
-              <p className="text-[11px] text-zinc-400">Esto puede tardar unos segundos</p>
-            </div>
-          ) : productError ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <XCircle className="w-8 h-8 text-red-400" />
-              <p className="text-[13px] text-zinc-600 dark:text-zinc-400">{productError}</p>
-              <button onClick={loadProductAnalysis} className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 text-white rounded-lg text-[12px] font-bold"><RefreshCw className="w-3 h-3" />Reintentar</button>
-            </div>
-          ) : productAnalysis.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
-              <Package className="w-10 h-10 text-zinc-300" />
-              <p className="text-[14px] font-semibold text-zinc-600 dark:text-zinc-400">Análisis de productos</p>
-              <p className="text-[12px] text-zinc-400 text-center max-w-xs">Calcula entry point, tasa de segunda compra, velocidad de recompra y cross-sell usando todos los pedidos de la tienda.</p>
-              <button onClick={loadProductAnalysis} className="flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-[13px] font-bold shadow-md shadow-pink-200 dark:shadow-none transition-all"><Package className="w-4 h-4" />Analizar Productos</button>
-            </div>
-          ) : (
-            <>
-              {/* Header row */}
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-6">
-                  <div className="text-center"><p className="text-[22px] font-black text-zinc-900 dark:text-white">{productAnalysis.length}</p><p className="text-[11px] text-zinc-400 font-medium">productos</p></div>
-                  <div className="text-center"><p className="text-[22px] font-black text-zinc-900 dark:text-white">{productAnalysis.reduce((s, p) => s + p.totalOrders, 0).toLocaleString()}</p><p className="text-[11px] text-zinc-400 font-medium">pedidos analizados</p></div>
-                  <div className="text-center"><p className="text-[22px] font-black text-emerald-600">{productAnalysis.filter(p => totalScore(p) === 3).length}</p><p className="text-[11px] text-zinc-400 font-medium">héroes</p></div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {productCacheDate && (
-                    <span className="text-[10px] text-zinc-400 hidden sm:block">
-                      Última análisis: {productCacheDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {productCacheDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
-                  <div className="relative"><Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Buscar producto..." className="pl-8 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] text-zinc-700 dark:text-zinc-300 outline-none focus:border-pink-400 w-48 transition-all" /></div>
-                  <button onClick={() => loadProductAnalysis(true)} title="Forzar re-análisis completo" disabled={productLoading} className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${productLoading ? 'animate-spin' : ''}`} /></button>
-                </div>
-              </div>
 
-              {/* Products list */}
-              <div className="space-y-2">
-                {productAnalysis
-                  .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
-                  .map(p => {
-                    const score = totalScore(p);
-                    const epScore = scoreEP(p.entryPointPct);
-                    const spScore = scoreSP(p.secondPurchasePct);
-                    const rdScore = scoreRD(p.repurchaseDays);
-                    const badgeCls = (s: string) => s === 'pass' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : s === 'warn' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400';
-                    return (
-                      <div
-                        key={p.name}
-                        className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl cursor-pointer hover:border-pink-200 dark:hover:border-pink-900/50 hover:shadow-sm transition-all"
-                        onClick={() => setModalProduct(p)}
-                      >
-                        <div className="flex items-center gap-3 px-4 py-3.5">
-                          {/* Score dot */}
-                          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${score === 3 ? 'bg-emerald-500' : score === 2 ? 'bg-blue-500' : score === 1 ? 'bg-amber-500' : 'bg-zinc-300'}`} />
-
-                          {/* Name + orders */}
-                          <div className="flex-1 min-w-0">
-                            <span className="text-[13px] font-bold text-zinc-900 dark:text-white">{p.name}</span>
-                            <span className="text-[11px] text-zinc-400 font-medium ml-2">{p.totalOrders} pedidos</span>
-                          </div>
-
-                          {/* Metric chips — full labels, high contrast */}
-                          <div className="hidden sm:flex items-center gap-2 shrink-0">
-                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${badgeCls(epScore)}`}>
-                              {p.entryPointPct}% primer pedido
-                            </span>
-                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${badgeCls(spScore)}`}>
-                              {p.secondPurchasePct}% vuelven
-                            </span>
-                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${badgeCls(rdScore)}`}>
-                              {p.repurchaseDays > 0 ? `${p.repurchaseDays} días` : 'sin retorno'}
-                            </span>
-                          </div>
-
-                          {/* Total badge */}
-                          <TotalBadge score={score} />
-
-                          <ChevronRight className="w-3.5 h-3.5 text-zinc-300 shrink-0" />
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'metrics' && (
-        (data || loading) ? (
+      {(data || loading) ? (
           <div className="space-y-6">
             {/* Top Stats */}
             <EmailLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']}>
@@ -861,12 +673,11 @@ export default function TiendaPage() {
               </>
             )}
           </div>
-        ) : null
-      )}
+      ) : null}
 
-      {/* Product Analysis Modal */}
-      {modalProduct && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => setModalProduct(null)}>
+      {/* Order Detail Modal */}
+      {false && /* placeholder removed product modal */ (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={() => {}}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-2xl max-w-[680px] w-full flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             {/* Header */}

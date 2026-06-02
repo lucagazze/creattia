@@ -184,7 +184,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           description: p.body_html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300) || '',
           type: p.product_type || '', tags: p.tags || '', image: p.images?.[0]?.src || null,
           url: `https://${domain}/products/${p.handle}`,
-          variants: (p.variants || []).map((v: any) => ({ title: v.title !== 'Default Title' ? v.title : '', price: v.price, sku: v.sku, available: v.inventory_policy === 'continue' || (v.inventory_quantity ?? 1) > 0 })),
+          variants: (p.variants || []).map((v: any) => ({
+            id: v.id,
+            title: v.title !== 'Default Title' ? v.title : '',
+            price: v.price,
+            compare_at_price: v.compare_at_price || null,
+            sku: v.sku || '',
+            inventory_item_id: v.inventory_item_id,
+            inventory_quantity: v.inventory_quantity ?? 0,
+            available: v.inventory_policy === 'continue' || (v.inventory_quantity ?? 1) > 0,
+          })),
         }));
       } else if (platform === 'wordpress') {
         const base = (wordpress_url || '').replace(/\/$/, '');
@@ -213,6 +222,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Error interno' });
     }
+  }
+
+  // ── PRODUCT COSTS — SAVE ─────────────────────────────────────────────────
+  if (type === 'save-costs') {
+    const { costs } = req.body as any; // [{ variant_id, cost }]
+    if (!clientId || !costs?.length) return res.status(400).json({ error: 'Missing clientId or costs' });
+    try {
+      const now = new Date().toISOString();
+      const rows = costs.map((c: any) => ({ client_id: clientId, variant_id: String(c.variant_id), cost: parseFloat(c.cost) || 0, updated_at: now }));
+      const { error } = await supabase.from('car_product_costs').upsert(rows, { onConflict: 'client_id,variant_id' });
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ saved: true });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
+  }
+
+  // ── PRODUCT COSTS — LOAD ─────────────────────────────────────────────────
+  if (type === 'load-costs') {
+    if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
+    try {
+      const { data, error } = await supabase.from('car_product_costs').select('variant_id, cost').eq('client_id', clientId);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ costs: data || [] });
+    } catch (err: any) { return res.status(500).json({ error: err.message }); }
   }
 
   if (!clientId) {
