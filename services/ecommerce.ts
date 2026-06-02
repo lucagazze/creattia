@@ -185,6 +185,31 @@ export const ecommerce = {
         fulfillment_status: o.fulfillment_status || 'unfulfilled',
         customer_name: o.customer ? `${o.customer.first_name || ''} ${o.customer.last_name || ''}`.trim() : 'Sin Cliente',
         line_items_count: o.line_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0,
+        line_items: o.line_items?.map((item: any) => ({
+          title: item.title,
+          quantity: item.quantity,
+          price: parseFloat(item.price || 0),
+          variant_title: item.variant_title,
+        })) || [],
+        shipping_address: o.shipping_address || null,
+        billing_address: o.billing_address || null,
+        customer: o.customer ? {
+          first_name: o.customer.first_name,
+          last_name: o.customer.last_name,
+          email: o.customer.email,
+          phone: o.customer.phone,
+          orders_count: o.customer.orders_count,
+          total_spent: parseFloat(o.customer.total_spent || 0),
+        } : null,
+        email: o.email || o.contact_email || null,
+        phone: o.phone || null,
+        subtotal_price: parseFloat(o.subtotal_price || 0),
+        total_tax: parseFloat(o.total_tax || 0),
+        total_discounts: parseFloat(o.total_discounts || 0),
+        shipping_lines: o.shipping_lines?.map((sl: any) => ({
+          title: sl.title,
+          price: parseFloat(sl.price || 0),
+        })) || [],
       }));
 
     const result = {

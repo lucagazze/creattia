@@ -664,6 +664,27 @@ export default function ComentariosPage() {
     }
   };
 
+  const platformCounts = useMemo(() => {
+    let all = 0;
+    let instagram = 0;
+    let facebook = 0;
+    let ads = 0;
+
+    posts.forEach(p => {
+      const pending = p.pendingComments || 0;
+      all += pending;
+      if (p.isAd) {
+        ads += pending;
+      } else if (p.platform === 'instagram') {
+        instagram += pending;
+      } else if (p.platform === 'facebook') {
+        facebook += pending;
+      }
+    });
+
+    return { all, instagram, facebook, ads };
+  }, [posts]);
+
   const filteredPosts = useMemo(() => {
     let list = posts;
     if (platformFilter === 'instagram') list = list.filter(p => p.platform === 'instagram' && !p.isAd);
@@ -673,7 +694,7 @@ export default function ComentariosPage() {
     return list;
   }, [posts, platformFilter, statusFilter]);
 
-  const totalPending = useMemo(() => posts.reduce((s, p) => s + p.pendingComments, 0), [posts]);
+  const totalPending = platformCounts.all;
 
   const fmtDate = (ts: string) => {
     try {
@@ -727,22 +748,43 @@ export default function ComentariosPage() {
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
-        {(['all', 'instagram', 'facebook', 'ads'] as const).map(p => (
-          <button
-            key={p}
-            onClick={() => setPlatformFilter(p)}
-            className={`px-3 py-1 rounded-full text-[11px] font-black transition-all border ${
-              platformFilter === p
-                ? p === 'instagram' ? 'bg-pink-500 text-white border-pink-500'
-                  : p === 'facebook' ? 'bg-blue-500 text-white border-blue-500'
-                  : p === 'ads' ? 'bg-amber-500 text-white border-amber-500'
-                  : 'bg-violet-600 text-white border-violet-600'
-                : 'bg-white dark:bg-zinc-900 text-zinc-500 border-zinc-200 dark:border-zinc-700 hover:border-zinc-350'
-            }`}
-          >
-            {p === 'all' ? 'Todas las plataformas' : p === 'instagram' ? '📷 Instagram' : p === 'facebook' ? '💬 Facebook' : '🎯 Anuncios (Ads)'}
-          </button>
-        ))}
+        {(['all', 'instagram', 'facebook', 'ads'] as const).map(p => {
+          const count = p === 'all' ? platformCounts.all
+            : p === 'instagram' ? platformCounts.instagram
+            : p === 'facebook' ? platformCounts.facebook
+            : platformCounts.ads;
+
+          return (
+            <button
+              key={p}
+              onClick={() => setPlatformFilter(p)}
+              className={`px-3 py-1.5 rounded-full text-[11px] font-black transition-all border flex items-center gap-1.5 ${
+                platformFilter === p
+                  ? p === 'instagram' ? 'bg-pink-500 text-white border-pink-500'
+                    : p === 'facebook' ? 'bg-blue-500 text-white border-blue-500'
+                    : p === 'ads' ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-violet-600 text-white border-violet-600'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-550 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:border-zinc-350 dark:hover:border-zinc-700'
+              }`}
+            >
+              <span>
+                {p === 'all' ? 'Todas las plataformas' : p === 'instagram' ? '📷 Instagram' : p === 'facebook' ? '💬 Facebook' : '🎯 Anuncios (Ads)'}
+              </span>
+              {count > 0 && (
+                <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none ${
+                  platformFilter === p
+                    ? 'bg-white text-zinc-900 shadow-sm'
+                    : p === 'instagram' ? 'bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-400'
+                      : p === 'facebook' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
+                      : p === 'ads' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                      : 'bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400'
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
         <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-0.5 rounded-xl ml-auto">
           <button
             onClick={() => setStatusFilter('pending')}
