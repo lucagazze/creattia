@@ -615,6 +615,38 @@ export default function ComentariosPage() {
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
         setComments(fresh);
+
+        // Batch lookup names for FB users where from.name was null
+        if (fbPageId) {
+          const missingIds = new Set<string>();
+          fresh.forEach((c: any) => {
+            if (c.from?.id && !c.from?.name) missingIds.add(c.from.id);
+            (c.replies?.data || []).forEach((r: any) => {
+              if (r.from?.id && !r.from?.name) missingIds.add(r.from.id);
+            });
+          });
+          if (missingIds.size > 0) {
+            const nameMap: Record<string, string> = {};
+            await Promise.all([...missingIds].map(async (uid) => {
+              try {
+                const r = await metaAds.getFacebookUserName(uid, fbPageId);
+                if (r?.name) nameMap[uid] = r.name;
+              } catch { /* skip */ }
+            }));
+            if (Object.keys(nameMap).length > 0) {
+              setComments(prev => prev.map((c: any) => ({
+                ...c,
+                username: nameMap[c.from?.id] || c.username,
+                replies: c.replies ? {
+                  data: (c.replies.data || []).map((r: any) => ({
+                    ...r,
+                    username: nameMap[r.from?.id] || r.username,
+                  })),
+                } : c.replies,
+              })));
+            }
+          }
+        }
       }
     } catch (err) {
       // Keep initial comments on error
