@@ -116,6 +116,82 @@ export const ecommerce = {
     return null;
   },
 
+  analyzeProducts: async (domain: string, token: string): Promise<any[]> => {
+    const cacheKey = `product-analysis:${domain}`;
+    const cached = ecGetCached(cacheKey);
+    if (cached) return cached;
+
+    // Fetch last 2 years of orders
+    const since = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const until = new Date().toISOString().split('T')[0];
+    const allOrders = await ecommerce.getShopifyOrders(domain, token, since, until);
+
+    // Build customer email → sorted orders map
+    const byCustomer = new Map<string, { email: string; date: Date; id: string; items: { name: string; price: number; qty: number }[] }[]>();
+    for (const o of allOrders) {
+      if (o.cancelled_at) continue;
+      if (!['paid', 'partially_refunded'].includes(o.financial_status)) continue;
+      if (!o.line_items?.length) continue;
+      const email = (o.customer?.email || o.email || o.contact_email || '').toLowerCase().trim();
+      if (!email) continue;
+      const date = new Date(o.created_at);
+      const items = (o.line_items || []).map((it: any) => ({ name: it.title, price: parseFloat(it.price || 0), qty: it.quantity }));
+      if (!byCustomer.has(email)) byCustomer.set(email, []);
+      byCustomer.get(email)!.push({ email, date, id: String(o.id), items });
+    }
+    for (const [, list] of byCustomer) list.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Flatten to all paid orders with email
+    const paidWithEmail: { email: string; date: Date; id: string; items: { name: string; price: number; qty: number }[] }[] = [];
+    for (const [, list] of byCustomer) paidWithEmail.push(...list);
+
+    const productNames = new Set<string>();
+    for (const o of paidWithEmail) for (const it of o.items) if (it.name) productNames.add(it.name);
+
+    const results: any[] = [];
+    for (const pName of productNames) {
+      const ordersWithP = paidWithEmail.filter(o => o.items.some(it => it.name === pName));
+      if (ordersWithP.length < 2) continue;
+
+      const firstOrdersWithP = ordersWithP.filter(o => byCustomer.get(o.email)?.[0]?.id === o.id);
+      const entryPointPct = Math.round((firstOrdersWithP.length / ordersWithP.length) * 100);
+
+      const customersFirstP = [...new Set(firstOrdersWithP.map(o => o.email))];
+      const customersReturned = customersFirstP.filter(e => (byCustomer.get(e)?.length ?? 0) >= 2);
+      const secondPurchasePct = customersFirstP.length > 0 ? Math.round((customersReturned.length / customersFirstP.length) * 100) : 0;
+
+      let repurchaseDays = 0;
+      if (customersReturned.length > 0) {
+        const gaps = customersReturned.map(e => {
+          const list = byCustomer.get(e)!;
+          return (list[1].date.getTime() - list[0].date.getTime()) / 86_400_000;
+        }).filter(d => d >= 0);
+        if (gaps.length > 0) repurchaseDays = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+      }
+
+      const crossSellCounts = new Map<string, number>();
+      for (const email of customersFirstP) {
+        const allOrds = byCustomer.get(email) || [];
+        for (let i = 1; i < allOrds.length; i++)
+          for (const it of allOrds[i].items)
+            if (it.name !== pName) crossSellCounts.set(it.name, (crossSellCounts.get(it.name) || 0) + 1);
+      }
+      const crossSell = [...crossSellCounts.entries()]
+        .sort((a, b) => b[1] - a[1]).slice(0, 2)
+        .map(([name, count]) => ({ name, count, pct: Math.round(count / Math.max(customersFirstP.length, 1) * 100) }));
+
+      const allItemPrices = ordersWithP.flatMap(o => o.items.filter(it => it.name === pName).map(it => it.price));
+      const avgPrice = allItemPrices.length > 0 ? allItemPrices.reduce((a, b) => a + b, 0) / allItemPrices.length : 0;
+      const combinedAOV = ordersWithP.reduce((s, o) => s + o.items.reduce((ss, it) => ss + it.price * it.qty, 0), 0) / Math.max(ordersWithP.length, 1);
+
+      results.push({ name: pName, totalOrders: ordersWithP.length, firstPurchases: firstOrdersWithP.length, entryPointPct, secondPurchasePct, repurchaseDays, avgPrice, combinedAOV, crossSell });
+    }
+
+    results.sort((a, b) => b.totalOrders - a.totalOrders);
+    ecSetCache(cacheKey, results);
+    return results;
+  },
+
   getDashboardData: async (platform: string, domain: string, token: string, since: string, until: string) => {
     if (platform !== 'shopify') return null;
 

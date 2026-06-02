@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
-import { ShoppingBag, DollarSign, Package, Calendar, ChevronDown, Receipt, Tag, TrendingUp, CheckCircle, Clock, BarChart2, Download, X } from 'lucide-react';
+import { ShoppingBag, DollarSign, Package, Calendar, ChevronDown, Receipt, Tag, TrendingUp, CheckCircle, Clock, BarChart2, Download, X, Search, AlertCircle, XCircle, Loader2, RefreshCw, Users, ChevronRight } from 'lucide-react';
 import { ecommerce } from '../services/ecommerce';
 import { getPrevPeriod, today, daysAgo, presetToRange } from '../services/metaAds';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
@@ -84,15 +84,63 @@ const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, 
   );
 };
 
+type Score = 'pass' | 'warn' | 'fail';
+
+const ScoreBadge: React.FC<{ score: Score | string; label: string }> = ({ score, label }) => {
+  const cls = score === 'pass' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : score === 'warn' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' : 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400';
+  const Icon = score === 'pass' ? CheckCircle : score === 'warn' ? AlertCircle : XCircle;
+  return <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls}`}><Icon className="w-2.5 h-2.5" />{label}</span>;
+};
+
+const TotalBadge: React.FC<{ score: number }> = ({ score }) => {
+  const map: Record<number, { label: string; cls: string }> = {
+    3: { label: 'Héroe',     cls: 'bg-emerald-500 text-white' },
+    2: { label: 'Candidato', cls: 'bg-blue-500 text-white' },
+    1: { label: 'Potencial', cls: 'bg-amber-500 text-white' },
+    0: { label: 'Débil',     cls: 'bg-zinc-400 dark:bg-zinc-600 text-white' },
+  };
+  const { label, cls } = map[score] ?? map[0];
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cls}`}>{score}/3 · {label}</span>;
+};
+
 export default function TiendaPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
+  const [activeTab, setActiveTab] = useState<'metrics' | 'products'>('metrics');
   const [data, setData] = useState<any>(null);
   const [prevData, setPrevData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [expandedMetric, setExpandedMetric] = useState<string | null>('s-revenue');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+
+  // Products analysis state
+  const [productAnalysis, setProductAnalysis] = useState<any[]>([]);
+  const [productLoading, setProductLoading] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
+  const [productSearch, setProductSearch] = useState('');
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+
+  const loadProductAnalysis = async () => {
+    const p = profile as any;
+    if (!p?.shopify_domain || !p?.shopify_access_token) return;
+    setProductLoading(true);
+    setProductError(null);
+    try {
+      const results = await ecommerce.analyzeProducts(p.shopify_domain, p.shopify_access_token);
+      setProductAnalysis(results);
+    } catch (err: any) {
+      setProductError(err.message || 'Error al analizar productos');
+    } finally {
+      setProductLoading(false);
+    }
+  };
+
+  const scoreEP  = (v: number) => v >= 50 ? 'pass' : v >= 25 ? 'warn' : 'fail';
+  const scoreSP  = (v: number) => v >= 40 ? 'pass' : v >= 20 ? 'warn' : 'fail';
+  const scoreRD  = (v: number) => v === 0 ? 'fail' : v <= 15 ? 'pass' : v <= 45 ? 'warn' : 'fail';
+  const totalScore = (p: any) => [scoreEP(p.entryPointPct), scoreSP(p.secondPurchasePct), scoreRD(p.repurchaseDays)].filter(s => s === 'pass').length;
+
 
   // Date Picker State
   const [activePreset, setActivePreset] = useState<any>('last_14d');
@@ -258,6 +306,23 @@ export default function TiendaPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-8 border-b border-zinc-100 dark:border-zinc-800 print:hidden">
+        {[{ id: 'metrics', label: 'Métricas', icon: BarChart2 }, { id: 'products', label: 'Productos', icon: Package }].map(t => (
+          <button
+            key={t.id}
+            onClick={() => {
+              setActiveTab(t.id as any);
+              if (t.id === 'products' && productAnalysis.length === 0 && !productLoading) loadProductAnalysis();
+            }}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-bold border-b-2 -mb-px transition-all ${activeTab === t.id ? 'border-pink-500 text-pink-600 dark:text-pink-400' : 'border-transparent text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
+          >
+            <t.icon className="w-3.5 h-3.5" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="hidden print:block mb-6 pb-4 border-b-2 border-zinc-200">
         <div className="flex items-baseline justify-between mb-2">
           <span className="text-[22px] font-black text-zinc-900 tracking-tight">ALGORITMIA</span>
@@ -267,7 +332,133 @@ export default function TiendaPage() {
         <p className="text-[15px] font-bold text-zinc-900">Período: {fmtDateRange(activeSince, true)} — {fmtDateRange(activeUntil, true)}</p>
       </div>
 
-      {data || loading ? (
+      {/* Products Tab */}
+      {activeTab === 'products' && (
+        <div className="space-y-6">
+          {productLoading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
+              <p className="text-[13px] text-zinc-500 font-medium">Analizando pedidos de la tienda...</p>
+              <p className="text-[11px] text-zinc-400">Esto puede tardar unos segundos</p>
+            </div>
+          ) : productError ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <XCircle className="w-8 h-8 text-red-400" />
+              <p className="text-[13px] text-zinc-600 dark:text-zinc-400">{productError}</p>
+              <button onClick={loadProductAnalysis} className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 text-white rounded-lg text-[12px] font-bold"><RefreshCw className="w-3 h-3" />Reintentar</button>
+            </div>
+          ) : productAnalysis.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <Package className="w-10 h-10 text-zinc-300" />
+              <p className="text-[14px] font-semibold text-zinc-600 dark:text-zinc-400">Análisis de productos</p>
+              <p className="text-[12px] text-zinc-400 text-center max-w-xs">Calcula entry point, tasa de segunda compra, velocidad de recompra y cross-sell usando todos los pedidos de la tienda.</p>
+              <button onClick={loadProductAnalysis} className="flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-[13px] font-bold shadow-md shadow-pink-200 dark:shadow-none transition-all"><Package className="w-4 h-4" />Analizar Productos</button>
+            </div>
+          ) : (
+            <>
+              {/* Header row */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-6">
+                  <div className="text-center"><p className="text-[22px] font-black text-zinc-900 dark:text-white">{productAnalysis.length}</p><p className="text-[11px] text-zinc-400 font-medium">productos</p></div>
+                  <div className="text-center"><p className="text-[22px] font-black text-zinc-900 dark:text-white">{productAnalysis.reduce((s, p) => s + p.totalOrders, 0).toLocaleString()}</p><p className="text-[11px] text-zinc-400 font-medium">pedidos analizados</p></div>
+                  <div className="text-center"><p className="text-[22px] font-black text-emerald-600">{productAnalysis.filter(p => totalScore(p) === 3).length}</p><p className="text-[11px] text-zinc-400 font-medium">héroes</p></div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative"><Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Buscar producto..." className="pl-8 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] text-zinc-700 dark:text-zinc-300 outline-none focus:border-pink-400 w-48 transition-all" /></div>
+                  <button onClick={loadProductAnalysis} title="Actualizar análisis" className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all"><RefreshCw className="w-3.5 h-3.5" /></button>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-4 text-[11px] text-zinc-400 font-medium">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />EP: % primeras compras</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />2ª: tasa de retorno</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Vel: días a recompra</span>
+              </div>
+
+              {/* Products list */}
+              <div className="space-y-2">
+                {productAnalysis
+                  .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                  .map(p => {
+                    const score = totalScore(p);
+                    const isExpanded = expandedProduct === p.name;
+                    return (
+                      <div key={p.name} className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden">
+                        <div
+                          className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20 transition-colors"
+                          onClick={() => setExpandedProduct(isExpanded ? null : p.name)}
+                        >
+                          {/* Score dot */}
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${score === 3 ? 'bg-emerald-500' : score === 2 ? 'bg-blue-500' : score === 1 ? 'bg-amber-500' : 'bg-zinc-300'}`} />
+
+                          {/* Name + orders */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[13px] font-bold text-zinc-900 dark:text-white truncate">{p.name}</span>
+                              <span className="text-[10px] text-zinc-400 font-medium shrink-0">{p.totalOrders} pedidos</span>
+                            </div>
+                          </div>
+
+                          {/* Metric badges */}
+                          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                            <ScoreBadge score={scoreEP(p.entryPointPct)} label={`EP ${p.entryPointPct}%`} />
+                            <ScoreBadge score={scoreSP(p.secondPurchasePct)} label={`2ª ${p.secondPurchasePct}%`} />
+                            <ScoreBadge score={scoreRD(p.repurchaseDays)} label={p.repurchaseDays > 0 ? `${p.repurchaseDays}d` : 'Sin datos'} />
+                          </div>
+
+                          {/* Total badge */}
+                          <TotalBadge score={score} />
+
+                          <ChevronRight className={`w-3.5 h-3.5 text-zinc-300 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                        </div>
+
+                        {isExpanded && (
+                          <div className="px-4 pb-4 pt-1 border-t border-zinc-50 dark:border-zinc-800 space-y-4">
+                            {/* Metrics grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              {[
+                                { label: 'Entry Point', value: `${p.entryPointPct}%`, sub: `${p.firstPurchases} primeras compras`, score: scoreEP(p.entryPointPct), help: '% de veces que este producto inicia la relación con un cliente nuevo' },
+                                { label: '2ª Compra', value: `${p.secondPurchasePct}%`, sub: 'clientes que volvieron', score: scoreSP(p.secondPurchasePct), help: 'De los que compraron primero este producto, cuántos volvieron a comprar' },
+                                { label: 'Velocidad', value: p.repurchaseDays > 0 ? `${p.repurchaseDays} días` : '—', sub: 'promedio hasta 2ª compra', score: scoreRD(p.repurchaseDays), help: 'Días promedio entre 1ª y 2ª compra del cliente' },
+                                { label: 'AOV Combinado', value: p.combinedAOV > 0 ? `$${p.combinedAOV.toFixed(0)}` : '—', sub: `Precio: $${p.avgPrice.toFixed(0)}`, score: 'neutral', help: 'Gasto total promedio del pedido que incluye este producto' },
+                              ].map(m => (
+                                <div key={m.label} className="bg-zinc-50 dark:bg-zinc-800/40 rounded-lg p-3">
+                                  <p className="text-[10px] text-zinc-400 font-medium mb-0.5">{m.label}</p>
+                                  <p className="text-[16px] font-black text-zinc-900 dark:text-white">{m.value}</p>
+                                  <p className="text-[10px] text-zinc-400 mt-0.5">{m.sub}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Cross-sell */}
+                            {p.crossSell?.length > 0 && (
+                              <div>
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Después compran</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {p.crossSell.map((cs: any) => (
+                                    <div key={cs.name} className="flex items-center gap-1.5 bg-pink-50 dark:bg-pink-950/20 border border-pink-100 dark:border-pink-900/30 rounded-lg px-2.5 py-1.5">
+                                      <ChevronRight className="w-3 h-3 text-pink-400" />
+                                      <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 max-w-[180px] truncate">{cs.name}</span>
+                                      <span className="text-[10px] font-bold text-pink-600 dark:text-pink-400">{cs.pct}%</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'metrics' && (
+        (data || loading) ? (
           <div className="space-y-6">
             {/* Top Stats */}
             <EmailLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']}>
@@ -647,6 +838,11 @@ export default function TiendaPage() {
               )}
             </div>
           </div>
+              </>
+            )}
+          </div>
+        ) : null
+      )}
 
       {/* Order Detail Modal */}
       {selectedOrder && (
@@ -838,10 +1034,6 @@ export default function TiendaPage() {
           </div>
         </div>
       )}
-              </>
-            )}
-          </div>
-        ) : null}
       <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
   );
