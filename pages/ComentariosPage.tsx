@@ -362,6 +362,7 @@ export default function ComentariosPage() {
           ...c,
           username: c.username || c.from?.name || `Usuario ${i + 1}`,
           text: c.text || c.message || '',
+          timestamp: c.timestamp || c.created_time || new Date().toISOString(),
           from: c.from || null,
         }));
 
@@ -491,6 +492,7 @@ export default function ComentariosPage() {
           ...c,
           username: c.username || c.from?.name || `Usuario ${i + 1}`,
           text: c.text || c.message || '',
+          timestamp: c.timestamp || c.created_time || new Date().toISOString(),
           from: c.from || null,
         }));
         setComments(fresh);

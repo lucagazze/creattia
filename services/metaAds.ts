@@ -668,7 +668,7 @@ export const metaAds = {
   // Helper to fetch comments of an Ad's creative
   getAdCreativeComments: (storyId: string) =>
     apiGetPageActive(`${storyId}/comments`, {
-      fields: 'id,text,timestamp,from,username,like_count,replies{id,text,from,username,timestamp}',
+      fields: 'id,text,message,timestamp,created_time,from,username,like_count,replies{id,text,message,from,username,timestamp,created_time}',
       limit: '50',
     }),
 
