@@ -79,21 +79,18 @@ export default function ComentariosPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('pending');
-  const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es' | 'pt'>>({});
+  const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
+  const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
 
-  const LANGS: { code: 'en' | 'es' | 'pt'; flag: string; label: string }[] = [
+  const LANGS: { code: 'en' | 'es'; flag: string; label: string }[] = [
     { code: 'en', flag: '🇺🇸', label: 'English' },
     { code: 'es', flag: '🇦🇷', label: 'Español' },
-    { code: 'pt', flag: '🇧🇷', label: 'Português' },
   ];
 
-  const detectLang = (text: string): 'en' | 'es' | 'pt' => {
+  const detectLang = (text: string): 'en' | 'es' => {
     const en = /\b(the|is|are|was|were|have|has|had|will|would|can|could|do|does|did|not|this|that|with|from|they|them|what|how|when|where|why|who|your|our|get|got|been|just|like|good|great|need|want|buy|order|price|ship|help|don't|I've|it's|you're|we're|haven't|didn't|won't|can't|i|my|me|we|us)\b/i.test(text);
     const es = /\b(es|el|la|los|las|un|una|que|de|en|por|para|con|como|pero|más|tengo|quiero|puedo|tienes|precio|envío|gracias|hola|si|no|del|al|muy|bien|cuando|también|qué|cómo|todo|este|esto)\b/i.test(text);
-    const pt = /\b(eu|você|ele|ela|nós|eles|que|não|com|por|para|uma|dos|das|está|tem|ser|esse|isso|muito|mais|como|quando|também|preciso|quero|obrigado|olá)\b/i.test(text);
-    if (pt && !en && !es) return 'pt';
-    if (es && !en) return 'es';
-    if (en) return 'en';
+    if (en && !es) return 'en';
     return 'es';
   };
 
@@ -676,9 +673,9 @@ export default function ComentariosPage() {
   const generateDraft = async (comment: any) => {
     if (!selectedPost || !clientId) return;
     const text = comment.text || comment.message || '';
-    // Auto-detect and store lang if not manually set
-    const lang = replyLangs[comment.id] || detectLang(text);
-    if (!replyLangs[comment.id]) setReplyLangs(prev => ({ ...prev, [comment.id]: lang }));
+    // _forceLang comes from clicking a specific flag in the dropdown
+    const lang: 'en' | 'es' = comment._forceLang || replyLangs[comment.id] || detectLang(text);
+    if (!replyLangs[comment.id] || comment._forceLang) setReplyLangs(prev => ({ ...prev, [comment.id]: lang }));
     setDraftLoading(prev => ({ ...prev, [comment.id]: true }));
     setReplyErrors(prev => ({ ...prev, [comment.id]: null }));
     try {
@@ -1336,33 +1333,55 @@ export default function ComentariosPage() {
                                   className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-[12.5px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:border-violet-500 outline-none transition-all min-h-[50px] font-medium shadow-inner"
                                 />
                                 <div className="flex items-center gap-2">
-                                  {/* Language selector */}
-                                  <div className="flex items-center rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                                    {LANGS.map(l => {
-                                      const currentLang = replyLangs[comment.id] || detectLang(comment.text || comment.message || '');
-                                      const isActive = currentLang === l.code;
-                                      return (
-                                        <button
-                                          key={l.code}
-                                          type="button"
-                                          title={l.label}
-                                          onClick={() => setReplyLangs(prev => ({ ...prev, [comment.id]: l.code }))}
-                                          className={`px-1.5 py-1 text-[13px] transition-all ${isActive ? 'bg-violet-100 dark:bg-violet-950' : 'bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-                                        >
-                                          {l.flag}
-                                        </button>
-                                      );
-                                    })}
+                                  {/* Language selector + IA button — merged */}
+                                  <div className="flex items-center rounded-lg border border-violet-100/50 dark:border-violet-900/20 overflow-visible relative">
+                                    {/* Lang dropdown trigger */}
+                                    <div className="relative">
+                                      <button
+                                        type="button"
+                                        onClick={() => setLangDropdownOpen(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
+                                        className="flex items-center gap-0.5 px-1.5 py-1.5 text-[12px] bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 dark:hover:bg-violet-950/40 text-zinc-500 dark:text-zinc-400 transition-all border-r border-violet-100/50 dark:border-violet-900/20"
+                                        title="Cambiar idioma"
+                                      >
+                                        {(() => {
+                                          const cur = replyLangs[comment.id] || detectLang(comment.text || comment.message || '');
+                                          return LANGS.find(l => l.code === cur)?.flag ?? '🇦🇷';
+                                        })()}
+                                        <svg className="w-2.5 h-2.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                      </button>
+                                      {langDropdownOpen[comment.id] && (
+                                        <div className="absolute bottom-full left-0 mb-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[110px]">
+                                          {LANGS.map(l => {
+                                            const cur = replyLangs[comment.id] || detectLang(comment.text || comment.message || '');
+                                            return (
+                                              <button
+                                                key={l.code}
+                                                type="button"
+                                                onClick={() => {
+                                                  setReplyLangs(prev => ({ ...prev, [comment.id]: l.code }));
+                                                  setLangDropdownOpen(prev => ({ ...prev, [comment.id]: false }));
+                                                  generateDraft({ ...comment, _forceLang: l.code });
+                                                }}
+                                                className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all ${cur === l.code ? 'font-bold text-violet-600 dark:text-violet-400' : 'text-zinc-700 dark:text-zinc-300'}`}
+                                              >
+                                                {l.flag} {l.label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {/* IA button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => generateDraft(comment)}
+                                      disabled={submitting[comment.id] || draftLoading[comment.id]}
+                                      className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 text-[11px] font-black transition-all"
+                                    >
+                                      {draftLoading[comment.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                      IA
+                                    </button>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => generateDraft(comment)}
-                                    disabled={submitting[comment.id] || draftLoading[comment.id]}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 rounded-lg text-[11px] font-black border border-violet-100/50 dark:border-violet-900/20 transition-all"
-                                  >
-                                    {draftLoading[comment.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                    IA
-                                  </button>
                                   <button
                                     type="submit"
                                     disabled={submitting[comment.id] || draftLoading[comment.id] || !(replyTexts[comment.id] || '').trim()}

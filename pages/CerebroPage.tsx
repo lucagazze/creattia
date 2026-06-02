@@ -84,90 +84,30 @@ export default function CerebroPage() {
     try {
       let loaded: any[] = [];
 
+      // Proxy via /api/products to avoid CORS on browser-side calls
+      const body: any = { platform };
       if (platform === 'shopify') {
-        const domain = ((p as any).shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const token = (p as any).shopify_access_token;
-        if (!domain || !token) throw new Error('Shopify no configurado completamente');
-        const res = await fetch(`https://${domain}/admin/api/2024-01/products.json?limit=250&fields=id,title,body_html,handle,status,variants,images,product_type,tags`, {
-          headers: { 'X-Shopify-Access-Token': token, 'Accept': 'application/json' },
-        });
-        if (!res.ok) throw new Error(`Error Shopify: ${res.status}`);
-        const data = await res.json();
-        loaded = (data.products || []).filter((p: any) => p.status === 'active').map((p: any) => ({
-          id: p.id,
-          title: p.title,
-          description: p.body_html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300) || '',
-          type: p.product_type || '',
-          tags: p.tags || '',
-          image: p.images?.[0]?.src || null,
-          url: `https://${domain}/products/${p.handle}`,
-          variants: (p.variants || []).map((v: any) => ({
-            title: v.title !== 'Default Title' ? v.title : '',
-            price: v.price,
-            sku: v.sku,
-            available: v.inventory_policy === 'continue' || (v.inventory_quantity ?? 1) > 0,
-          })),
-        }));
-
+        body.shopify_domain = (p as any).shopify_domain;
+        body.shopify_access_token = (p as any).shopify_access_token;
       } else if (platform === 'wordpress') {
-        const base = ((p as any).wordpress_url || '').replace(/\/$/, '');
-        const key = (p as any).woo_consumer_key;
-        const secret = (p as any).woo_consumer_secret;
-        if (!base || !key || !secret) throw new Error('WooCommerce no configurado completamente');
-        const creds = btoa(`${key}:${secret}`);
-        let page = 1;
-        while (page <= 5) {
-          const res = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`, {
-            headers: { 'Authorization': `Basic ${creds}` },
-          });
-          if (!res.ok) break;
-          const data: any[] = await res.json();
-          if (!data.length) break;
-          loaded = loaded.concat(data.map((p: any) => ({
-            id: p.id,
-            title: p.name,
-            description: p.short_description?.replace(/<[^>]+>/g, ' ').trim().slice(0, 300) || p.description?.replace(/<[^>]+>/g, ' ').trim().slice(0, 300) || '',
-            type: p.categories?.[0]?.name || '',
-            tags: p.tags?.map((t: any) => t.name).join(', ') || '',
-            image: p.images?.[0]?.src || null,
-            url: p.permalink || '',
-            variants: p.attributes?.length > 0
-              ? [{ title: p.attributes.map((a: any) => a.options?.join('/')).join(' · '), price: p.price, sku: p.sku, available: p.stock_status === 'instock' }]
-              : [{ title: '', price: p.price, sku: p.sku, available: p.stock_status === 'instock' }],
-          })));
-          page++;
-        }
-
+        body.wordpress_url = (p as any).wordpress_url;
+        body.woo_consumer_key = (p as any).woo_consumer_key;
+        body.woo_consumer_secret = (p as any).woo_consumer_secret;
       } else if (platform === 'tiendanube') {
-        const storeId = (p as any).tiendanube_store_id;
-        const token = (p as any).tiendanube_access_token;
-        if (!storeId || !token) throw new Error('Tiendanube no configurado completamente');
-        let tnPage = 1;
-        while (tnPage <= 5) {
-          const res = await fetch(`https://api.tiendanube.com/v1/${storeId}/products?per_page=200&page=${tnPage}`, {
-            headers: { 'Authentication': `bearer ${token}`, 'User-Agent': 'AlgorBot/1.0' },
-          });
-          if (!res.ok) break;
-          const data: any[] = await res.json();
-          if (!data.length) break;
-          loaded = loaded.concat(data.map((p: any) => ({
-            id: p.id,
-            title: p.name?.es || p.name?.en || Object.values(p.name || {})[0] || '',
-            description: (p.description?.es || p.description?.en || '').replace(/<[^>]+>/g, ' ').trim().slice(0, 300),
-            type: p.categories?.[0]?.name?.es || '',
-            tags: '',
-            image: p.images?.[0]?.src || null,
-            url: p.canonical_url || '',
-            variants: (p.variants || []).map((v: any) => ({
-              title: v.values?.map((val: any) => val.es || val.en).join(' / ') || '',
-              price: v.price,
-              sku: v.sku,
-              available: v.stock === null || v.stock > 0,
-            })),
-          })));
-          tnPage++;
-        }
+        body.tiendanube_store_id = (p as any).tiendanube_store_id;
+        body.tiendanube_access_token = (p as any).tiendanube_access_token;
       }
+      const proxyRes = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!proxyRes.ok) {
+        const errData = await proxyRes.json().catch(() => ({}));
+        throw new Error(errData.error || `Error ${proxyRes.status}`);
+      }
+      const proxyData = await proxyRes.json();
+      loaded = proxyData.products || [];
 
       setProducts(loaded);
       if (!loaded.length) setProductsError('No se encontraron productos activos');
