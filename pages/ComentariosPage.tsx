@@ -62,7 +62,7 @@ export default function ComentariosPage() {
 
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [platformFilter, setPlatformFilter] = useState<'all' | 'instagram' | 'facebook' | 'ads'>('all');
-  const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('all');
 
   // Slide-over state
   const [selectedPost, setSelectedPost] = useState<PostItem | null>(null);
@@ -244,14 +244,16 @@ export default function ComentariosPage() {
   // Helper: is a username/from the page?
   const isFromPage = useCallback((entry: any) => {
     if (!entry) return false;
-    // Instagram: match username
+    // Instagram: match by username
     if (igUsername && entry.username && entry.username.toLowerCase() === igUsername.toLowerCase()) return true;
-    // Facebook / any: match page ID
+    // Instagram: match by IG Business Account ID (from.id on replies when username is not stored)
+    if (igId && entry.from?.id && String(entry.from.id) === String(igId)) return true;
+    // Facebook: match by page ID
     if (fbPageId && entry.from?.id && String(entry.from.id) === String(fbPageId)) return true;
-    // Also handle metaAccountId match as fallback
+    // Ads: match by Meta account ID fallback
     if (metaAccountId && entry.from?.id && String(entry.from.id) === String(metaAccountId)) return true;
     return false;
-  }, [igUsername, fbPageId, metaAccountId]);
+  }, [igUsername, igId, fbPageId, metaAccountId]);
 
   // Helper: is comment pending? = last message in thread was from customer (not page)
   const isCommentPending = useCallback((comment: any, _postPlatform: 'instagram' | 'facebook') => {
