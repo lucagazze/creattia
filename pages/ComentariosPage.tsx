@@ -543,7 +543,7 @@ export default function ComentariosPage() {
 
         const allItems = processMediaRes(igMediaRes50, fbMediaRes50, relevantAds, adsCommentsResults50);
         setPosts(allItems);
-        sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems }));
+        try { sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems })); } catch { /* quota exceeded — skip cache */ }
 
       } catch (err) {
         console.error('Error loading comments feed:', err);

@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/draft-reply.ts": { "maxDuration": 60 },
+    "api/chat.ts": { "maxDuration": 60 },
+    "api/scrape-all.ts": { "maxDuration": 60 }
+  },
   "rewrites": [
     {
       "source": "/api/klaviyo/:path*",
