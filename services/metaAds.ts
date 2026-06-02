@@ -567,11 +567,16 @@ export const metaAds = {
     return apiGetPage(pageId, `${pageId}/feed`, params);
   },
 
-  getFacebookPostComments: (postId: string) =>
-    apiGetPageActive(`${postId}/comments`, {
-      fields: 'id,message,created_time,from{id,name},like_count,replies.limit(100){id,message,from{id,name},created_time}',
-      limit: '100',
-    }),
+  getFacebookPostComments: (postId: string) => {
+    // Extract page ID from FB post ID format "{pageId}_{uniqueId}" to ensure page token is used.
+    // Page Access Token is required for from.name — user token silently drops names (privacy).
+    const pageId = postId.includes('_') ? postId.split('_')[0] : '';
+    const fields = 'id,message,created_time,from{id,name},like_count,replies.limit(100){id,message,from{id,name},created_time}';
+    if (pageId) {
+      return apiGetPage(pageId, `${postId}/comments`, { fields, limit: '100' });
+    }
+    return apiGetPageActive(`${postId}/comments`, { fields, limit: '100' });
+  },
 
   replyToFacebookComment: async (commentId: string, message: string) => {
     return apiPostPageActive(`${commentId}/comments`, { message });
