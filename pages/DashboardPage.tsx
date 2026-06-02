@@ -2161,7 +2161,7 @@ export default function DashboardPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">
-                            {order.order_number}
+                            {order.customer_name}
                           </span>
                           <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${paymentColor}`}>
                             {paymentText}
@@ -2171,7 +2171,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium truncate mt-0.5">
-                          {order.customer_name} • {fmtDateStr} hs
+                          {fmtDateStr} hs
                         </p>
                       </div>
                     </div>

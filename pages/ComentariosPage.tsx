@@ -332,7 +332,7 @@ export default function ComentariosPage() {
         const userComments = rawComments.filter((c: any) => c.from?.id !== fbPageId);
         const normalized = userComments.map((c: any, i: number) => ({
           ...c,
-          username: c.from?.name || c.name || c.username || `Comentarista ${i + 1}`,
+          username: c.username || c.from?.username || c.from?.name || c.name || `Comentarista ${i + 1}`,
           text: c.text || c.message || '',
           from: c.from || null,
         }));
@@ -371,7 +371,7 @@ export default function ComentariosPage() {
 
         const normalized = userComments.map((c: any, i: number) => ({
           ...c,
-          username: c.username || c.from?.name || `Usuario ${i + 1}`,
+          username: c.username || c.from?.username || c.from?.name || `Usuario ${i + 1}`,
           text: c.text || c.message || '',
           timestamp: c.timestamp || c.created_time || new Date().toISOString(),
           from: c.from || null,
@@ -522,7 +522,7 @@ export default function ComentariosPage() {
             : c.from?.id !== fbPageId;
         }).map((c: any, i: number) => ({
           ...c,
-          username: c.username || c.from?.name || `Usuario ${i + 1}`,
+          username: c.username || c.from?.username || c.from?.name || `Usuario ${i + 1}`,
           text: c.text || c.message || '',
           timestamp: c.timestamp || c.created_time || new Date().toISOString(),
           from: c.from || null,
@@ -538,7 +538,7 @@ export default function ComentariosPage() {
         const res = await metaAds.getFacebookPostComments(post.id);
         const normalized = (res.data || []).map((c: any, i: number) => ({
           ...c,
-          username: c.from?.name || `Comentarista ${i + 1}`,
+          username: c.username || c.from?.username || c.from?.name || `Comentarista ${i + 1}`,
           text: c.text || c.message || '',
           from: c.from || null,
         })).filter((c: any) => c.from?.id !== fbPageId);
@@ -1104,7 +1104,7 @@ export default function ComentariosPage() {
                                   <div key={r.id} className="space-y-0.5">
                                     <div className="flex items-center gap-1.5">
                                       <span className={`text-[10px] font-black ${rIsMe ? 'text-violet-600 dark:text-violet-400' : 'text-zinc-500'}`}>
-                                        @{r.username || r.from?.name || 'Yo'}
+                                        @{r.username || r.from?.username || r.from?.name || 'Yo'}
                                       </span>
                                       {r.isSending && (
                                         <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold flex items-center gap-1">
