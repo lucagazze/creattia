@@ -57,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 1. Fetch client settings from Supabase
     const { data: client, error: dbError } = await supabase
       .from('car_clients')
-      .select('business_name, ecommerce_platform, shopify_domain, shopify_access_token, business_description, custom_instructions, scraped_content, instagram_context, website_url, meta_account_id')
+      .select('business_name, ecommerce_platform, shopify_domain, shopify_access_token, wordpress_url, woo_consumer_key, woo_consumer_secret, business_description, custom_instructions, scraped_content, instagram_context, website_url, meta_account_id')
       .eq('id', clientId)
       .maybeSingle();
 
@@ -86,6 +86,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ecommerce_platform,
       shopify_domain,
       shopify_access_token,
+      wordpress_url,
+      woo_consumer_key,
+      woo_consumer_secret,
       business_description,
       custom_instructions,
       scraped_content,
@@ -230,8 +233,33 @@ ${fewShotExamples.map((ex, i) => `Example ${i + 1}:
       } catch (e) { /* Shopify fallback failed */ }
     }
 
+    // WooCommerce source
+    if (wordpress_url && woo_consumer_key && woo_consumer_secret) {
+      try {
+        const base = (wordpress_url as string).replace(/\/$/, '');
+        const creds = Buffer.from(`${woo_consumer_key}:${woo_consumer_secret}`).toString('base64');
+        let wooPage = 1;
+        while (wooPage <= 3) {
+          const wRes = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&page=${wooPage}&status=publish`, {
+            headers: { 'Authorization': `Basic ${creds}` },
+          });
+          if (!wRes.ok) break;
+          const wData: any[] = await wRes.json();
+          if (!wData.length) break;
+          for (const wp of wData) {
+            const alreadyIn = parsedCatalog.some(p => p.title.toLowerCase() === (wp.name || '').toLowerCase());
+            if (!alreadyIn) {
+              const price = wp.price ? `$${wp.price}` : wp.regular_price ? `$${wp.regular_price}` : 'Consultar';
+              parsedCatalog.push({ title: wp.name || '', price, url: wp.permalink || '', handle: wp.slug || '', type: wp.categories?.[0]?.name || '', variants: [] });
+            }
+          }
+          wooPage++;
+        }
+      } catch (e) { /* WooCommerce fallback failed */ }
+    }
+
     if (parsedCatalog.length > 0) {
-      productsContext = `Catálogo completo de productos (${parsedCatalog.length} productos — fuentes: Meta + Shopify):\n${
+      productsContext = `Catálogo completo de productos (${parsedCatalog.length} productos — fuentes: Meta + Shopify + WooCommerce):\n${
         parsedCatalog.map(p => {
           const varStr = p.variants?.length > 0 ? ` | Variantes: ${p.variants.join(', ')}` : '';
           const typeStr = p.type ? ` | Categoría: ${p.type}` : '';

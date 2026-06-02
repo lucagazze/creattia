@@ -69,6 +69,9 @@ interface ClientRow {
   shopify_access_token?: string;
   tiendanube_store_id?: string;
   tiendanube_access_token?: string;
+  wordpress_url?: string;
+  woo_consumer_key?: string;
+  woo_consumer_secret?: string;
   client_tags?: string[];
   last_login?: string;
   created_at: string;
@@ -193,6 +196,7 @@ export default function AdminPage() {
   const [editForm, setEditForm] = useState<any>({});
   const [savingConfig, setSavingConfig] = useState(false);
   const [testingShopify, setTestingShopify] = useState(false);
+  const [testingWoo, setTestingWoo] = useState(false);
   const [testingKlaviyo, setTestingKlaviyo] = useState(false);
   const [testingMeta, setTestingMeta] = useState(false);
   const [testingChatwoot, setTestingChatwoot] = useState(false);
@@ -607,6 +611,9 @@ export default function AdminPage() {
       shopify_access_token: c.shopify_access_token || "",
       tiendanube_store_id: c.tiendanube_store_id || "",
       tiendanube_access_token: c.tiendanube_access_token || "",
+      wordpress_url: c.wordpress_url || "",
+      woo_consumer_key: c.woo_consumer_key || "",
+      woo_consumer_secret: c.woo_consumer_secret || "",
       client_tags: c.client_tags || [],
       new_password: "",
       fb_page_id: c.fb_page_id || "",
@@ -671,6 +678,29 @@ export default function AdminPage() {
       setStatuses((p) => ({ ...p, shopify: "error" }));
     } finally {
       setTestingShopify(false);
+    }
+  };
+
+  const testWoo = async () => {
+    if (!editForm.wordpress_url || !editForm.woo_consumer_key || !editForm.woo_consumer_secret) {
+      showToast("Ingresá la URL, Consumer Key y Consumer Secret", "warning");
+      return;
+    }
+    setTestingWoo(true);
+    try {
+      const base = editForm.wordpress_url.replace(/\/$/, '');
+      const creds = btoa(`${editForm.woo_consumer_key}:${editForm.woo_consumer_secret}`);
+      const res = await fetch(`${base}/wp-json/wc/v3/products?per_page=1`, {
+        headers: { 'Authorization': `Basic ${creds}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('¡Conexión con WooCommerce exitosa! ✓', 'success');
+      setStatuses((p) => ({ ...p, shopify: 'ok' }));
+    } catch (err: any) {
+      showToast('Error WooCommerce: ' + (err.message || 'Verificá los datos'), 'error');
+      setStatuses((p) => ({ ...p, shopify: 'error' }));
+    } finally {
+      setTestingWoo(false);
     }
   };
 
@@ -896,6 +926,9 @@ export default function AdminPage() {
           shopify_access_token: editForm.shopify_access_token || null,
           tiendanube_store_id: editForm.tiendanube_store_id || null,
           tiendanube_access_token: editForm.tiendanube_access_token || null,
+          wordpress_url: editForm.wordpress_url || null,
+          woo_consumer_key: editForm.woo_consumer_key || null,
+          woo_consumer_secret: editForm.woo_consumer_secret || null,
           client_tags: editForm.client_tags || [],
           fb_page_id: editForm.fb_page_id || null,
           fb_page_name: editForm.fb_page_name || null,
@@ -1294,8 +1327,8 @@ export default function AdminPage() {
                           <Instagram className="w-2.5 h-2.5" />
                         </span>
                         {/* Tienda */}
-                        <span title={c.ecommerce_platform ? `Tienda: ${c.ecommerce_platform}${c.shopify_domain ? ` (${c.shopify_domain})` : ''}` : 'Sin tienda'} className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black ${c.ecommerce_platform && (c.shopify_access_token || (c as any).tiendanube_access_token) ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
-                          {c.ecommerce_platform === 'shopify' ? 'S' : c.ecommerce_platform === 'tiendanube' ? 'TN' : 'T'}
+                        <span title={c.ecommerce_platform ? `Tienda: ${c.ecommerce_platform}` : 'Sin tienda'} className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black ${c.ecommerce_platform && (c.shopify_access_token || (c as any).tiendanube_access_token || (c as any).woo_consumer_key) ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                          {c.ecommerce_platform === 'shopify' ? 'S' : c.ecommerce_platform === 'tiendanube' ? 'TN' : c.ecommerce_platform === 'wordpress' ? 'WP' : 'T'}
                         </span>
                         {/* Klaviyo */}
                         <span title={c.klaviyo_api_key ? 'Klaviyo conectado' : 'Klaviyo no conectado'} className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black ${c.klaviyo_api_key ? 'bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>K</span>
@@ -1594,6 +1627,7 @@ export default function AdminPage() {
                             <option value="">Ninguna / Desconectada</option>
                             <option value="shopify">Shopify</option>
                             <option value="tiendanube">Tiendanube</option>
+                            <option value="wordpress">WordPress / WooCommerce</option>
                           </select>
                         </Field>
 
@@ -1635,24 +1669,33 @@ export default function AdminPage() {
                           <div className="mt-3 p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl space-y-3 border border-zinc-100 dark:border-zinc-800">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <Field label="Store ID Tiendanube">
-                                <input
-                                  type="text"
-                                  value={editForm.tiendanube_store_id}
-                                  onChange={(e) => ef("tiendanube_store_id", e.target.value)}
-                                  placeholder="1234567"
-                                  className={inputCls}
-                                />
+                                <input type="text" value={editForm.tiendanube_store_id} onChange={(e) => ef("tiendanube_store_id", e.target.value)} placeholder="1234567" className={inputCls} />
                               </Field>
                               <Field label="Access Token Tiendanube">
-                                <input
-                                  type="password"
-                                  value={editForm.tiendanube_access_token}
-                                  onChange={(e) => ef("tiendanube_access_token", e.target.value)}
-                                  placeholder="Token de acceso API"
-                                  className={inputCls}
-                                />
+                                <input type="password" value={editForm.tiendanube_access_token} onChange={(e) => ef("tiendanube_access_token", e.target.value)} placeholder="Token de acceso API" className={inputCls} />
                               </Field>
                             </div>
+                          </div>
+                        )}
+
+                        {editForm.ecommerce_platform === "wordpress" && (
+                          <div className="mt-3 p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl space-y-3 border border-zinc-100 dark:border-zinc-800">
+                            <p className="text-[10px] text-zinc-400">WooCommerce → Ajustes → REST API → Crear clave con permisos de Lectura</p>
+                            <Field label="URL del sitio (ej: https://mitienda.com)">
+                              <input type="text" value={editForm.wordpress_url} onChange={(e) => ef("wordpress_url", e.target.value)} placeholder="https://mitienda.com" className={inputCls} />
+                            </Field>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <Field label="Consumer Key (ck_...)">
+                                <input type="password" value={editForm.woo_consumer_key} onChange={(e) => ef("woo_consumer_key", e.target.value)} placeholder="ck_xxxxxxxx" className={inputCls} />
+                              </Field>
+                              <Field label="Consumer Secret (cs_...)">
+                                <input type="password" value={editForm.woo_consumer_secret} onChange={(e) => ef("woo_consumer_secret", e.target.value)} placeholder="cs_xxxxxxxx" className={inputCls} />
+                              </Field>
+                            </div>
+                            <button type="button" onClick={testWoo} disabled={testingWoo || !editForm.wordpress_url || !editForm.woo_consumer_key || !editForm.woo_consumer_secret} className="w-full h-9 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold hover:bg-zinc-50 transition-all flex items-center justify-center gap-2">
+                              {testingWoo ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                              Probar Conexión WooCommerce
+                            </button>
                           </div>
                         )}
                       </SectionBox>
