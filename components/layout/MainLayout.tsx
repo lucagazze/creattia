@@ -122,11 +122,8 @@ const AnalisisProductosPage = lazyWithRetry(() => import('../../pages/AnalisisPr
 import { useViewAs } from '../../contexts/ViewAsContext';
 
 // Minimal skeleton shown while a lazy page chunk is downloading
-const PageSkeleton = () => (
-  <div className="relative w-full">
-    <TopLoadingBar loading={true} />
-  </div>
-);
+// TopLoadingBar uses position:fixed so it renders at viewport top regardless of DOM position
+const PageSkeleton = () => <TopLoadingBar loading={true} />;
 
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);

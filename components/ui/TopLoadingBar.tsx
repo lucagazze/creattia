@@ -37,7 +37,7 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
 
   const positionClass = inline
     ? 'absolute top-0 left-0 right-0 z-10'
-    : 'fixed top-0 left-0 right-0 z-[200]';
+    : 'fixed top-0 left-0 right-0 z-[9999]';
 
   return (
     <div className={`${positionClass} h-[2.5px] bg-transparent pointer-events-none overflow-hidden`}>

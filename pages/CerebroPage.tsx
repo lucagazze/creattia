@@ -258,9 +258,9 @@ export default function CerebroPage() {
       {activeTab === 'identidad' && (
         <form onSubmit={handleSaveSettings} className="space-y-5">
 
-          {/* URL */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-3">
+          {/* URL + Scan block */}
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2 mb-1">
               <Globe className="w-4 h-4 text-violet-500" />
               <span className="text-[12px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Sitio Web</span>
             </div>
@@ -278,7 +278,31 @@ export default function CerebroPage() {
                 </a>
               )}
             </div>
-            <p className="text-[10px] text-zinc-400 mt-1.5">Necesario para que la IA pueda escanear la tienda y generar contexto automático.</p>
+
+            {/* Sources status */}
+            <div className="grid grid-cols-3 gap-2">
+              <Pill active={!!websiteUrl} label={websiteUrl ? 'Web lista' : 'Sin URL'} icon={Globe} />
+              <Pill active={!!(profile as any)?.ig_business_id} label={(profile as any)?.ig_username ? `@${(profile as any).ig_username}` : 'Instagram'} icon={Instagram} />
+              <Pill active={!!(profile as any)?.fb_page_id} label={(profile as any)?.fb_page_name || 'Facebook'} icon={Globe} />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-2 text-[11px] text-zinc-400">
+                <Calendar className="w-3.5 h-3.5" />
+                <span className="font-medium">{fmtDate(brainUpdatedAt)}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleScanAndTrainAll}
+                disabled={scanningAll || !websiteUrl.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-[12px] font-bold shadow-md shadow-violet-500/20 transition-all"
+              >
+                {scanningAll
+                  ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" />{scanStep || 'Escaneando...'}</>
+                  : <><Sparkles className="w-3.5 h-3.5" />Escanear y Entrenar</>}
+              </button>
+            </div>
+            <p className="text-[10px] text-zinc-400 -mt-1">Escanea el sitio web y redes sociales y actualiza las 3 secciones automáticamente.</p>
           </div>
 
           {/* 4 context cards */}
@@ -396,34 +420,6 @@ export default function CerebroPage() {
       {/* ═══════════════════════ TAB: MEMORIA ═══════════════════════ */}
       {activeTab === 'memoria' && (
         <div className="space-y-5">
-
-          {/* Train button */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <p className="text-[14px] font-black text-zinc-900 dark:text-white">Entrenamiento Automático</p>
-                <p className="text-[11px] text-zinc-400 mt-0.5">Escanea el sitio web y las redes sociales para actualizar la memoria.</p>
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                <Calendar className="w-3.5 h-3.5" />
-                <span className="font-medium">{fmtDate(brainUpdatedAt)}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-              <Pill active={!!websiteUrl} label={websiteUrl ? 'Web lista' : 'Sin URL'} icon={Globe} />
-              <Pill active={!!(profile as any)?.ig_business_id} label={(profile as any)?.ig_username ? `@${(profile as any).ig_username}` : 'Instagram'} icon={Instagram} />
-              <Pill active={!!(profile as any)?.fb_page_id} label={(profile as any)?.fb_page_name || 'Facebook'} icon={Globe} />
-            </div>
-
-            <button
-              onClick={handleScanAndTrainAll}
-              disabled={scanningAll || !websiteUrl.trim()}
-              className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-[13px] font-bold shadow-lg shadow-violet-500/20 flex items-center justify-center gap-2 transition-all"
-            >
-              {scanningAll ? <><RefreshCw className="w-4 h-4 animate-spin" />{scanStep || 'Entrenando...'}</> : <><Sparkles className="w-4 h-4" />⚡ Escanear y Entrenar Todo</>}
-            </button>
-          </div>
 
           {/* Memory preview */}
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
