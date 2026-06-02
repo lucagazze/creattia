@@ -2332,7 +2332,7 @@ export default function DashboardPage() {
                           {item.title}
                         </p>
                         {item.variant_title && (
-                          <p className="text-[10.5px] text-zinc-450 dark:text-zinc-550 mt-0.5">
+                          <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                             Variante: {item.variant_title}
                           </p>
                         )}
@@ -2341,7 +2341,7 @@ export default function DashboardPage() {
                         <p className="font-bold text-zinc-900 dark:text-white">
                           ${(item.price * item.quantity).toLocaleString('es-AR', { maximumFractionDigits: 0 })}
                         </p>
-                        <p className="text-[10.5px] text-zinc-400 mt-0.5">
+                        <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                           {item.quantity} x ${item.price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
                         </p>
                       </div>
@@ -2352,7 +2352,7 @@ export default function DashboardPage() {
 
               {/* Pricing Breakdown */}
               <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
-                <div className="flex items-center justify-between text-[12px] font-medium text-zinc-500">
+                <div className="flex items-center justify-between text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
                   <span>Subtotal</span>
                   <span>${selectedOrder.subtotal_price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                 </div>
@@ -2370,13 +2370,13 @@ export default function DashboardPage() {
                   </div>
                 )}
                 {selectedOrder.shipping_lines?.map((sl: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between text-[12px] font-medium text-zinc-500">
+                  <div key={idx} className="flex items-center justify-between text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
                     <span>Envío ({sl.title})</span>
                     <span>${sl.price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                   </div>
                 ))}
                 {selectedOrder.total_tax > 0 && (
-                  <div className="flex items-center justify-between text-[12px] font-medium text-zinc-500">
+                  <div className="flex items-center justify-between text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
                     <span>Impuestos</span>
                     <span>${selectedOrder.total_tax?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                   </div>
