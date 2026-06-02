@@ -144,7 +144,7 @@ export default function RedesSocialesPage() {
 
   // Helper to determine if a comment thread is unanswered/pending
   const isCommentPending = (comment: any) => {
-    const isFromPage = comment.username === igUsername || comment.from?.id === fbPageId;
+    const isFromPage = (comment.username && igUsername && comment.username.toLowerCase() === igUsername.toLowerCase()) || comment.from?.id === fbPageId;
     if (isFromPage) return false;
     
     const repliesList = comment.replies?.data || [];
@@ -154,7 +154,7 @@ export default function RedesSocialesPage() {
       (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
     );
     const latestReply = sortedReplies[sortedReplies.length - 1];
-    const lastIsFromPage = latestReply.username === igUsername || latestReply.from?.id === fbPageId;
+    const lastIsFromPage = (latestReply.username && igUsername && latestReply.username.toLowerCase() === igUsername.toLowerCase()) || latestReply.from?.id === fbPageId;
     return !lastIsFromPage;
   };
 
@@ -1738,7 +1738,7 @@ export default function RedesSocialesPage() {
                                         ? new Date(reply.timestamp || reply.created_time).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                                         : '';
                                       const replyUser = reply.username || reply.from?.name || 'Página';
-                                      const isPage = replyUser === igUsername || reply.from?.id === fbPageId;
+                                      const isPage = (replyUser && igUsername && replyUser.toLowerCase() === igUsername.toLowerCase()) || reply.from?.id === fbPageId;
                                       return (
                                         <div key={reply.id} className="flex gap-2.5 items-start text-[11.5px]">
                                           <div className="w-5.5 h-5.5 rounded-full bg-zinc-105 dark:bg-zinc-850 flex items-center justify-center font-bold text-[9px] text-zinc-500 dark:text-zinc-400 flex-shrink-0">

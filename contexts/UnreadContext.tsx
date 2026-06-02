@@ -267,7 +267,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Helper to check if a comment is pending
       const isCommentPendingLocal = (comment: any, isIg: boolean) => {
         const isFromPage = isIg 
-          ? comment.username === igUsername 
+          ? (comment.username && igUsername && comment.username.toLowerCase() === igUsername.toLowerCase()) 
           : comment.from?.id === fbPageId;
         if (isFromPage) return false;
 
@@ -279,7 +279,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         );
         const latest = sorted[sorted.length - 1];
         const latestIsMe = isIg
-          ? latest.username === igUsername
+          ? (latest.username && igUsername && latest.username.toLowerCase() === igUsername.toLowerCase())
           : latest.from?.id === fbPageId;
         return !latestIsMe;
       };
@@ -287,7 +287,9 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Count pending comments in Instagram posts
       igPosts.forEach((post: any) => {
         const rawComments = post.comments?.data || [];
-        const userComments = rawComments.filter((c: any) => c.username !== igUsername);
+        const userComments = rawComments.filter((c: any) => 
+          c.username && igUsername ? c.username.toLowerCase() !== igUsername.toLowerCase() : true
+        );
         const pending = userComments.filter((c: any) => isCommentPendingLocal(c, true));
         total += pending.length;
       });
@@ -340,7 +342,9 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             results.forEach(({ target, comments: rawComments }) => {
               const isIgAd = target.platform === 'instagram';
               const userComments = rawComments.filter((c: any) => {
-                return isIgAd ? c.username !== igUsername : c.from?.id !== fbPageId;
+                return isIgAd 
+                  ? (c.username && igUsername ? c.username.toLowerCase() !== igUsername.toLowerCase() : true) 
+                  : c.from?.id !== fbPageId;
               });
               const pending = userComments.filter((c: any) => isCommentPendingLocal(c, isIgAd));
               total += pending.length;

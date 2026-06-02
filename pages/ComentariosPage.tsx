@@ -243,7 +243,8 @@ export default function ComentariosPage() {
 
   // Helper: is comment pending?
   const isCommentPending = useCallback((comment: any, postPlatform: 'instagram' | 'facebook') => {
-    const isFromPage = comment.username === igUsername || comment.from?.id === fbPageId;
+    const isFromPage = (comment.username && igUsername && comment.username.toLowerCase() === igUsername.toLowerCase()) || 
+                       (comment.from?.id === fbPageId);
     if (isFromPage) return false;
     const replies = comment.replies?.data || [];
     if (replies.length === 0) return true;
@@ -251,7 +252,9 @@ export default function ComentariosPage() {
       new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
     );
     const latest = sorted[sorted.length - 1];
-    return !(latest.username === igUsername || latest.from?.id === fbPageId);
+    const latestIsMe = (latest.username && igUsername && latest.username.toLowerCase() === igUsername.toLowerCase()) || 
+                       (latest.from?.id === fbPageId);
+    return !latestIsMe;
   }, [igUsername, fbPageId]);
 
   // Track fb page id
@@ -302,7 +305,9 @@ export default function ComentariosPage() {
       const igMedia = (igRes as any)?.data || igRes || [];
       igMedia.forEach((post: any) => {
         const rawComments = post.comments?.data || [];
-        const userComments = rawComments.filter((c: any) => c.username !== igUsername);
+        const userComments = rawComments.filter((c: any) => 
+          c.username && igUsername ? c.username.toLowerCase() !== igUsername.toLowerCase() : true
+        );
         const pending = userComments.filter((c: any) => isCommentPending(c, 'instagram'));
         items.push({
           id: post.id,
@@ -359,7 +364,9 @@ export default function ComentariosPage() {
 
         const isIgAd = platform === 'instagram';
         const userComments = rawComments.filter((c: any) => {
-          return isIgAd ? c.username !== igUsername : c.from?.id !== fbPageId;
+          return isIgAd 
+            ? (c.username && igUsername ? c.username.toLowerCase() !== igUsername.toLowerCase() : true) 
+            : c.from?.id !== fbPageId;
         });
 
         const normalized = userComments.map((c: any, i: number) => ({
@@ -377,7 +384,9 @@ export default function ComentariosPage() {
           platform: isIgAd ? 'instagram' : 'facebook',
           thumbnail: matchingAd.creative.thumbnail_url || matchingAd.creative.image_url || null,
           caption: matchingAd.creative.name || matchingAd.name || 'Anuncio',
-          permalink: isIgAd ? (matchingAd.creative.instagram_permalink_url || matchingAd.preview_shareable_link || null) : (matchingAd.preview_shareable_link || null),
+          permalink: isIgAd 
+            ? (matchingAd.creative.instagram_permalink_url || (matchingAd.creative.effective_instagram_story_id ? `https://www.instagram.com/p/${matchingAd.creative.effective_instagram_story_id}` : null))
+            : (matchingAd.creative.effective_object_story_id ? `https://www.facebook.com/${matchingAd.creative.effective_object_story_id}` : null),
           timestamp: new Date().toISOString(),
           totalComments: normalized.length,
           pendingComments: pending.length,
@@ -508,7 +517,9 @@ export default function ComentariosPage() {
         const res = await metaAds.getAdCreativeComments(post.id);
         const isIgAd = post.platform === 'instagram';
         const fresh = (res.data || []).filter((c: any) => {
-          return isIgAd ? c.username !== igUsername : c.from?.id !== fbPageId;
+          return isIgAd 
+            ? (c.username && igUsername ? c.username.toLowerCase() !== igUsername.toLowerCase() : true) 
+            : c.from?.id !== fbPageId;
         }).map((c: any, i: number) => ({
           ...c,
           username: c.username || c.from?.name || `Usuario ${i + 1}`,
@@ -519,7 +530,9 @@ export default function ComentariosPage() {
         setComments(fresh);
       } else if (post.platform === 'instagram') {
         const res = await metaAds.getInstagramMediaComments(post.id);
-        const fresh = (res.data || []).filter((c: any) => c.username !== igUsername);
+        const fresh = (res.data || []).filter((c: any) => 
+          c.username && igUsername ? c.username.toLowerCase() !== igUsername.toLowerCase() : true
+        );
         setComments(fresh);
       } else {
         const res = await metaAds.getFacebookPostComments(post.id);
@@ -1075,7 +1088,8 @@ export default function ComentariosPage() {
                           {replies.length > 0 && (
                             <div className="ml-9 mt-3 space-y-2 pl-3 border-l-2 border-zinc-100 dark:border-zinc-800">
                               {replies.map((r: any) => {
-                                const rIsMe = r.username === igUsername || r.from?.id === fbPageId;
+                                const rIsMe = (r.username && igUsername && r.username.toLowerCase() === igUsername.toLowerCase()) || 
+                                              r.from?.id === fbPageId;
                                 return (
                                   <div key={r.id} className="space-y-0.5">
                                     <div className="flex items-center gap-1.5">
