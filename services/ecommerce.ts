@@ -173,6 +173,20 @@ export const ecommerce = {
       };
     });
 
+    const recentOrders = validOrders
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 20)
+      .map((o: any) => ({
+        id: o.id,
+        order_number: o.order_number || o.name,
+        created_at: o.created_at,
+        total_price: parseFloat(o.total_price || 0),
+        financial_status: o.financial_status,
+        fulfillment_status: o.fulfillment_status || 'unfulfilled',
+        customer_name: o.customer ? `${o.customer.first_name || ''} ${o.customer.last_name || ''}`.trim() : 'Sin Cliente',
+        line_items_count: o.line_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0,
+      }));
+
     const result = {
       revenue: totalRevenue,
       orders: ordersCount,
@@ -191,6 +205,7 @@ export const ecommerce = {
       },
       topProducts,
       daily,
+      recentOrders,
     };
 
     ecSetCache(cacheKey, result);

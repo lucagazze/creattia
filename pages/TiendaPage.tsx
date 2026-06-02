@@ -524,6 +524,107 @@ export default function TiendaPage() {
                   </ResponsiveContainer>
               </div>
             </div>
+
+            {/* Recent Orders Section */}
+            <div className="bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-[16px] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] print:break-inside-avoid">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-8 h-8 rounded-xl bg-pink-500/10 flex items-center justify-center">
+                  <Receipt className="w-4 h-4 text-pink-500" />
+                </div>
+                <div>
+                  <h3 className="text-[14px] font-bold text-zinc-900 dark:text-white">Últimos 20 Pedidos</h3>
+                  <p className="text-[11px] text-zinc-400">Detalle de las órdenes más recientes en el período</p>
+                </div>
+              </div>
+
+              {!data.recentOrders || data.recentOrders.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-[13px] font-bold text-zinc-550 dark:text-zinc-400">No se encontraron pedidos en este período.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-black/[0.05] dark:border-white/[0.05] text-[10px] uppercase tracking-wider text-zinc-400 font-black">
+                        <th className="pb-3 pl-2">Pedido</th>
+                        <th className="pb-3">Fecha</th>
+                        <th className="pb-3">Cliente</th>
+                        <th className="pb-3 text-center">Artículos</th>
+                        <th className="pb-3">Pago</th>
+                        <th className="pb-3">Envío</th>
+                        <th className="pb-3 pr-2 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/[0.03] dark:divide-white/[0.03]">
+                      {data.recentOrders.map((order: any) => {
+                        const date = new Date(order.created_at);
+                        const fmtDateStr = date.toLocaleDateString('es-AR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        });
+
+                        // Payment Badge Styling
+                        let paymentBadge = "bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400";
+                        let paymentText = order.financial_status || 'Pendiente';
+                        if (order.financial_status === 'paid') {
+                          paymentBadge = "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
+                          paymentText = "Pagado";
+                        } else if (order.financial_status === 'pending') {
+                          paymentBadge = "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400";
+                          paymentText = "Pendiente";
+                        } else if (order.financial_status === 'authorized') {
+                          paymentBadge = "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
+                          paymentText = "Autorizado";
+                        } else if (order.financial_status === 'refunded') {
+                          paymentBadge = "bg-zinc-150 text-zinc-600 dark:bg-zinc-850 dark:text-zinc-500";
+                          paymentText = "Reembolsado";
+                        }
+
+                        // Fulfillment Badge Styling
+                        let fulfillmentBadge = "bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400";
+                        let fulfillmentText = "No enviado";
+                        if (order.fulfillment_status === 'fulfilled') {
+                          fulfillmentBadge = "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
+                          fulfillmentText = "Enviado";
+                        } else if (order.fulfillment_status === 'partial') {
+                          fulfillmentBadge = "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400";
+                          fulfillmentText = "Parcial";
+                        }
+
+                        return (
+                          <tr key={order.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 transition-colors text-[12.5px] font-bold text-zinc-800 dark:text-zinc-200">
+                            <td className="py-3 pl-2 text-zinc-950 dark:text-white flex items-center gap-2">
+                              <ShoppingBag className="w-3.5 h-3.5 text-zinc-400" />
+                              <span>{order.order_number}</span>
+                            </td>
+                            <td className="py-3 text-zinc-450 dark:text-zinc-500 font-semibold">{fmtDateStr} hs</td>
+                            <td className="py-3 truncate max-w-[150px]">{order.customer_name}</td>
+                            <td className="py-3 text-center text-zinc-450 dark:text-zinc-500 font-semibold">
+                              {order.line_items_count} {order.line_items_count === 1 ? 'ítem' : 'ítems'}
+                            </td>
+                            <td className="py-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${paymentBadge}`}>
+                                {paymentText}
+                              </span>
+                            </td>
+                            <td className="py-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${fulfillmentBadge}`}>
+                                {fulfillmentText}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-2 text-right font-black text-pink-600 dark:text-pink-400">
+                              $ {order.total_price?.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
               </>
             )}
