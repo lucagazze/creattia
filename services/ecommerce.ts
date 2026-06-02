@@ -116,10 +116,17 @@ export const ecommerce = {
     return null;
   },
 
-  analyzeProducts: async (domain: string, token: string): Promise<any[]> => {
-    const cacheKey = `product-analysis:${domain}`;
-    const cached = ecGetCached(cacheKey);
-    if (cached) return cached;
+  analyzeProducts: async (domain: string, token: string, forceRefresh = false): Promise<any[]> => {
+    const cacheKey = `pa:${domain}`;
+    if (!forceRefresh) {
+      try {
+        const raw = localStorage.getItem(cacheKey);
+        if (raw) {
+          const { data, ts } = JSON.parse(raw) as { data: any[]; ts: number };
+          if (Date.now() - ts < 24 * 60 * 60 * 1000) return data; // 24h TTL
+        }
+      } catch { /* ignore */ }
+    }
 
     // Fetch last 2 years of orders
     const since = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -188,7 +195,7 @@ export const ecommerce = {
     }
 
     results.sort((a, b) => b.totalOrders - a.totalOrders);
-    ecSetCache(cacheKey, results);
+    try { localStorage.setItem(cacheKey, JSON.stringify({ data: results, ts: Date.now() })); } catch { /* storage full */ }
     return results;
   },
 

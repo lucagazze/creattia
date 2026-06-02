@@ -120,15 +120,31 @@ export default function TiendaPage() {
   const [productError, setProductError] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [productCacheDate, setProductCacheDate] = useState<Date | null>(null);
 
-  const loadProductAnalysis = async () => {
+  const loadProductAnalysis = async (forceRefresh = false) => {
     const p = profile as any;
     if (!p?.shopify_domain || !p?.shopify_access_token) return;
+    // On first load (not force), try localStorage cache
+    if (!forceRefresh) {
+      try {
+        const raw = localStorage.getItem(`pa:${p.shopify_domain}`);
+        if (raw) {
+          const { data, ts } = JSON.parse(raw) as { data: any[]; ts: number };
+          if (Date.now() - ts < 24 * 60 * 60 * 1000) {
+            setProductAnalysis(data);
+            setProductCacheDate(new Date(ts));
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+    }
     setProductLoading(true);
     setProductError(null);
     try {
-      const results = await ecommerce.analyzeProducts(p.shopify_domain, p.shopify_access_token);
+      const results = await ecommerce.analyzeProducts(p.shopify_domain, p.shopify_access_token, forceRefresh);
       setProductAnalysis(results);
+      setProductCacheDate(new Date());
     } catch (err: any) {
       setProductError(err.message || 'Error al analizar productos');
     } finally {
@@ -313,7 +329,7 @@ export default function TiendaPage() {
             key={t.id}
             onClick={() => {
               setActiveTab(t.id as any);
-              if (t.id === 'products' && productAnalysis.length === 0 && !productLoading) loadProductAnalysis();
+              if (t.id === 'products' && productAnalysis.length === 0 && !productLoading) loadProductAnalysis(false);
             }}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-bold border-b-2 -mb-px transition-all ${activeTab === t.id ? 'border-pink-500 text-pink-600 dark:text-pink-400' : 'border-transparent text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
           >
@@ -364,8 +380,13 @@ export default function TiendaPage() {
                   <div className="text-center"><p className="text-[22px] font-black text-emerald-600">{productAnalysis.filter(p => totalScore(p) === 3).length}</p><p className="text-[11px] text-zinc-400 font-medium">héroes</p></div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {productCacheDate && (
+                    <span className="text-[10px] text-zinc-400 hidden sm:block">
+                      Última análisis: {productCacheDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {productCacheDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                   <div className="relative"><Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" /><input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Buscar producto..." className="pl-8 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] text-zinc-700 dark:text-zinc-300 outline-none focus:border-pink-400 w-48 transition-all" /></div>
-                  <button onClick={loadProductAnalysis} title="Actualizar análisis" className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all"><RefreshCw className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => loadProductAnalysis(true)} title="Forzar re-análisis completo" disabled={productLoading} className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${productLoading ? 'animate-spin' : ''}`} /></button>
                 </div>
               </div>
 
