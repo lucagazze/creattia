@@ -305,25 +305,40 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           const adsRes = await metaAds.getAccountAds(metaAccountId);
           const ads = adsRes?.data || [];
-          const activeAds = ads.filter((ad: any) => ad.status === 'ACTIVE' && ad.creative?.effective_object_story_id);
-          const uniqueStoryIds = Array.from(new Set(activeAds.map((ad: any) => ad.creative.effective_object_story_id))) as string[];
+          const relevantAds = ads.filter((ad: any) => 
+            ad.creative && (ad.creative.effective_object_story_id || ad.creative.effective_instagram_story_id)
+          );
 
-          if (uniqueStoryIds.length > 0) {
-            // Fetch comments for top 10 unique story IDs
-            const storyIdsToFetch = uniqueStoryIds.slice(0, 10);
-            const commentsPromises = storyIdsToFetch.map(async (storyId) => {
+          const targets: { storyId: string; platform: 'instagram' | 'facebook' }[] = [];
+          relevantAds.forEach((ad: any) => {
+            if (ad.creative.effective_object_story_id) {
+              targets.push({ storyId: ad.creative.effective_object_story_id, platform: 'facebook' });
+            }
+            if (ad.creative.effective_instagram_story_id) {
+              targets.push({ storyId: ad.creative.effective_instagram_story_id, platform: 'instagram' });
+            }
+          });
+
+          const uniqueTargetsMap: Record<string, { storyId: string; platform: 'instagram' | 'facebook' }> = {};
+          targets.forEach(t => {
+            uniqueTargetsMap[`${t.storyId}_${t.platform}`] = t;
+          });
+          const uniqueTargets = Object.values(uniqueTargetsMap);
+
+          if (uniqueTargets.length > 0) {
+            // Fetch comments for top 12 unique targets
+            const targetsToFetch = uniqueTargets.slice(0, 12);
+            const commentsPromises = targetsToFetch.map(async (target) => {
               try {
-                const res = await metaAds.getAdCreativeComments(storyId);
-                return res.data || [];
+                const res = await metaAds.getAdCreativeComments(target.storyId);
+                return { target, comments: res.data || [] };
               } catch {
-                return [];
+                return { target, comments: [] };
               }
             });
             const results = await Promise.all(commentsPromises);
-            results.forEach((rawComments, index) => {
-              const storyId = storyIdsToFetch[index];
-              const matchingAd = activeAds.find((ad: any) => ad.creative.effective_object_story_id === storyId);
-              const isIgAd = !!matchingAd?.creative?.instagram_permalink_url;
+            results.forEach(({ target, comments: rawComments }) => {
+              const isIgAd = target.platform === 'instagram';
               const userComments = rawComments.filter((c: any) => {
                 return isIgAd ? c.username !== igUsername : c.from?.id !== fbPageId;
               });

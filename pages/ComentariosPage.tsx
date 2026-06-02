@@ -349,11 +349,15 @@ export default function ComentariosPage() {
       });
 
       // Ads
-      adsComments.forEach(({ storyId, comments: rawComments }) => {
-        const matchingAd = activeAds.find((ad: any) => ad.creative.effective_object_story_id === storyId);
+      adsComments.forEach(({ storyId, platform, comments: rawComments }) => {
+        const matchingAd = activeAds.find((ad: any) => 
+          platform === 'instagram'
+            ? ad.creative.effective_instagram_story_id === storyId
+            : ad.creative.effective_object_story_id === storyId
+        );
         if (!matchingAd) return;
 
-        const isIgAd = !!matchingAd.creative?.instagram_permalink_url;
+        const isIgAd = platform === 'instagram';
         const userComments = rawComments.filter((c: any) => {
           return isIgAd ? c.username !== igUsername : c.from?.id !== fbPageId;
         });
@@ -373,7 +377,7 @@ export default function ComentariosPage() {
           platform: isIgAd ? 'instagram' : 'facebook',
           thumbnail: matchingAd.creative.thumbnail_url || matchingAd.creative.image_url || null,
           caption: matchingAd.creative.name || matchingAd.name || 'Anuncio',
-          permalink: matchingAd.creative.instagram_permalink_url || matchingAd.preview_shareable_link || null,
+          permalink: isIgAd ? (matchingAd.creative.instagram_permalink_url || matchingAd.preview_shareable_link || null) : (matchingAd.preview_shareable_link || null),
           timestamp: new Date().toISOString(),
           totalComments: normalized.length,
           pendingComments: pending.length,
@@ -405,24 +409,41 @@ export default function ComentariosPage() {
         if (!active) return;
 
         const ads = adsRes?.data || [];
-        const activeAds = ads.filter((ad: any) => ad.status === 'ACTIVE' && ad.creative?.effective_object_story_id);
-        const uniqueStoryIds = Array.from(new Set(activeAds.map((ad: any) => ad.creative.effective_object_story_id))) as string[];
+        const relevantAds = ads.filter((ad: any) => 
+          ad.creative && (ad.creative.effective_object_story_id || ad.creative.effective_instagram_story_id)
+        );
+
+        const targets: { storyId: string; platform: 'instagram' | 'facebook' }[] = [];
+        relevantAds.forEach((ad: any) => {
+          if (ad.creative.effective_object_story_id) {
+            targets.push({ storyId: ad.creative.effective_object_story_id, platform: 'facebook' });
+          }
+          if (ad.creative.effective_instagram_story_id) {
+            targets.push({ storyId: ad.creative.effective_instagram_story_id, platform: 'instagram' });
+          }
+        });
+
+        const uniqueTargetsMap: Record<string, { storyId: string; platform: 'instagram' | 'facebook' }> = {};
+        targets.forEach(t => {
+          uniqueTargetsMap[`${t.storyId}_${t.platform}`] = t;
+        });
+        const uniqueTargets = Object.values(uniqueTargetsMap);
 
         let adsCommentsResults12: any[] = [];
-        if (uniqueStoryIds.length > 0) {
-          const topStoryIds = uniqueStoryIds.slice(0, 15);
-          const commentsPromises = topStoryIds.map(async (storyId) => {
+        if (uniqueTargets.length > 0) {
+          const topTargets = uniqueTargets.slice(0, 20);
+          const commentsPromises = topTargets.map(async (target) => {
             try {
-              const res = await metaAds.getAdCreativeComments(storyId);
-              return { storyId, comments: res.data || [] };
+              const res = await metaAds.getAdCreativeComments(target.storyId);
+              return { storyId: target.storyId, platform: target.platform, comments: res.data || [] };
             } catch {
-              return { storyId, comments: [] };
+              return { storyId: target.storyId, platform: target.platform, comments: [] };
             }
           });
           adsCommentsResults12 = await Promise.all(commentsPromises);
         }
 
-        const initialItems = processMediaRes(igMediaRes12, fbMediaRes12, activeAds, adsCommentsResults12);
+        const initialItems = processMediaRes(igMediaRes12, fbMediaRes12, relevantAds, adsCommentsResults12);
         setPosts(initialItems);
         setLoading(false);
 
@@ -442,20 +463,20 @@ export default function ComentariosPage() {
         if (!active) return;
 
         let adsCommentsResults50: any[] = [];
-        if (uniqueStoryIds.length > 0) {
-          const topStoryIds = uniqueStoryIds.slice(0, 30);
-          const commentsPromises = topStoryIds.map(async (storyId) => {
+        if (uniqueTargets.length > 0) {
+          const topTargets = uniqueTargets.slice(0, 40);
+          const commentsPromises = topTargets.map(async (target) => {
             try {
-              const res = await metaAds.getAdCreativeComments(storyId);
-              return { storyId, comments: res.data || [] };
+              const res = await metaAds.getAdCreativeComments(target.storyId);
+              return { storyId: target.storyId, platform: target.platform, comments: res.data || [] };
             } catch {
-              return { storyId, comments: [] };
+              return { storyId: target.storyId, platform: target.platform, comments: [] };
             }
           });
           adsCommentsResults50 = await Promise.all(commentsPromises);
         }
 
-        const allItems = processMediaRes(igMediaRes50, fbMediaRes50, activeAds, adsCommentsResults50);
+        const allItems = processMediaRes(igMediaRes50, fbMediaRes50, relevantAds, adsCommentsResults50);
         setPosts(allItems);
         sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems }));
 

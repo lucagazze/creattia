@@ -42,7 +42,8 @@ import {
   Tag,
   MailOpen,
   MousePointerClick,
-  Info
+  Info,
+  ShoppingBag
 } from "lucide-react";
 import {
   AreaChart,
@@ -2067,43 +2068,95 @@ export default function DashboardPage() {
             )}
           </div>
         )}
-        <div className={`${isEcommerce ? '' : 'lg:col-span-3'} bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.06] dark:border-white/[0.06] p-8 shadow-sm`}>
-          <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest mb-8">
-            Accesos Directos
-          </h2>
-          <div className="space-y-3">
-            {links.length > 0 ? (
-              links.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50 border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30 hover:bg-white dark:hover:bg-zinc-800 transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-blue-600 transition-colors">
-                      {link.icon === "chat" ? (
-                        <MessageSquare className="w-5 h-5" />
-                      ) : link.icon === "mail" ? (
-                        <Mail className="w-5 h-5" />
-                      ) : (
-                        <ExternalLink className="w-5 h-5" />
-                      )}
+        <div className={`${isEcommerce ? '' : 'lg:col-span-3'} bg-white dark:bg-[#111113] rounded-[20px] border border-black/[0.06] dark:border-white/[0.06] p-6 shadow-sm flex flex-col`}>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-pink-500/10 flex items-center justify-center shrink-0">
+                <ShoppingBag className="w-4 h-4 text-pink-500" />
+              </div>
+              <div>
+                <h2 className="text-[14px] font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+                  Últimos Pedidos
+                </h2>
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium">Las últimas transacciones de tu tienda</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto max-h-[340px] pr-1 space-y-2.5 scrollbar-hide">
+            {fetchingStore ? (
+              <div className="space-y-2.5">
+                {[...Array(4)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100/80 dark:border-zinc-800/40 bg-zinc-50/30 dark:bg-zinc-900/10 animate-pulse"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-850 shrink-0" />
+                      <div className="min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                          <div className="h-3.5 w-10 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                        </div>
+                        <div className="h-2.5 w-24 bg-zinc-150 dark:bg-zinc-800 rounded" />
+                      </div>
                     </div>
-                    <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-300">
-                      {link.label || link.title}
-                    </span>
+                    <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-800 rounded" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-blue-600 transition-colors" />
-                </a>
-              ))
-            ) : (
+                ))}
+              </div>
+            ) : !currentStore?.recentOrders || currentStore.recentOrders.length === 0 ? (
               <div className="text-center py-10">
-                <p className="text-[12px] text-zinc-400 font-medium">
-                  No hay accesos configurados
+                <p className="text-[12px] text-zinc-450 dark:text-zinc-550 font-medium">
+                  No se encontraron pedidos
                 </p>
               </div>
+            ) : (
+              currentStore.recentOrders.map((order: any) => {
+                const date = new Date(order.created_at);
+                const fmtDateStr = date.toLocaleDateString('es-AR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+
+                const isPaid = order.financial_status === 'paid';
+                const statusColor = isPaid
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10'
+                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/10';
+
+                return (
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-pink-500/20 dark:hover:border-pink-500/20 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-200 group hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-pink-500/5 dark:bg-pink-500/10 flex items-center justify-center text-pink-500/70 group-hover:bg-pink-500/10 group-hover:text-pink-500 transition-colors shrink-0">
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">
+                            {order.order_number}
+                          </span>
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${statusColor}`}>
+                            {isPaid ? 'Pagado' : 'Pendiente'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium truncate mt-0.5">
+                          {order.customer_name} • {fmtDateStr} hs
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <span className="text-[12px] font-bold text-pink-600 dark:text-pink-400">
+                        $ {order.total_price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
