@@ -548,14 +548,26 @@ export default function ComentariosPage() {
     setPlayingVideoId(null);
     setCommentFilter('pending');
 
-    // For IG ads/posts without a valid Instagram permalink, fetch it from the media ID
+    // For IG posts/ads without a valid Instagram permalink, fetch it using the client's page token
     if (post.platform === 'instagram' && (!post.permalink || post.permalink.includes('facebook.com') || post.permalink.includes('ads/'))) {
-      metaAds.getInstagramMediaPermalink(post.id)
+      metaAds.getInstagramMediaPermalink(post.id, fbPageId || undefined)
         .then((res: any) => {
-          const url = res?.permalink;
+          const url = res?.permalink
+            || (res?.shortcode ? `https://www.instagram.com/p/${res.shortcode}/` : null);
           if (url) setSelectedPost(prev => prev ? { ...prev, permalink: url } : prev);
         })
-        .catch(() => {});
+        .catch(() => {
+          // Last resort: if we have igId and media ID looks numeric, try via IG account
+          if (igId) {
+            metaAds.getInstagramMediaPermalink(post.id)
+              .then((res: any) => {
+                const url = res?.permalink
+                  || (res?.shortcode ? `https://www.instagram.com/p/${res.shortcode}/` : null);
+                if (url) setSelectedPost(prev => prev ? { ...prev, permalink: url } : prev);
+              })
+              .catch(() => {});
+          }
+        });
     }
 
     // Reload fresh comments from API

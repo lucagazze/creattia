@@ -525,8 +525,10 @@ export const metaAds = {
     return apiGetPageActive(`${igId}/media`, params);
   },
 
-  getInstagramMediaPermalink: (mediaId: string) =>
-    apiGetPageActive(mediaId, { fields: 'permalink,shortcode' }),
+  getInstagramMediaPermalink: (mediaId: string, fbPageId?: string) =>
+    fbPageId
+      ? apiGetPage(fbPageId, mediaId, { fields: 'permalink,shortcode' })
+      : apiGetPageActive(mediaId, { fields: 'permalink,shortcode' }),
 
   getInstagramMediaComments: (mediaId: string) =>
     apiGetPageActive(`${mediaId}/comments`, {
