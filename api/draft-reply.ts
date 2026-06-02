@@ -65,18 +65,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Client not found or database error' });
     }
 
-    // Fetch catalog separately — these columns may not exist yet
-    let products_catalog: string | null = null;
-    let catalog_synced_at: string | null = null;
+    // Fetch meta_account_id for live catalog
+    let meta_account_id: string | null = null;
     try {
-      const { data: catalogRow } = await supabase
+      const { data: metaRow } = await supabase
         .from('car_clients')
-        .select('products_catalog, catalog_synced_at')
+        .select('meta_account_id')
         .eq('id', clientId)
         .maybeSingle();
-      products_catalog = catalogRow?.products_catalog ?? null;
-      catalog_synced_at = catalogRow?.catalog_synced_at ?? null;
-    } catch { /* columns may not exist yet — skip */ }
+      meta_account_id = metaRow?.meta_account_id ?? null;
+    } catch { /* skip */ }
 
     // Fetch custom client links from Supabase
     let clientLinks: any[] = [];
@@ -150,30 +148,71 @@ ${fewShotExamples.map((ex, i) => `Example ${i + 1}:
     const cleanDomainForLink = shopify_domain ? shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
     const canonicalSiteUrl = formatToWwwLink(website_url || cleanDomainForLink);
 
-    // 2. Build products context from synced Meta catalog
-    let parsedCatalog: any[] = [];
-    let productsContext = 'No hay catálogo de productos sincronizado.';
-
-    if (products_catalog) {
-      try {
-        parsedCatalog = JSON.parse(products_catalog);
-      } catch (e) {
-        console.error('[Draft Reply] Error parsing cached catalog:', e);
-      }
-    }
-
     const buildProductLink = (p: any) =>
       p.url
         ? p.url.replace(/^https?:\/\//i, 'www.').replace(/^www\.www\./, 'www.')
         : p.handle ? `${canonicalSiteUrl}/products/${p.handle}` : canonicalSiteUrl;
 
+    // 2. Fetch catalog LIVE from Meta (always up to date, no cache needed)
+    let parsedCatalog: any[] = [];
+    let productsContext = 'No hay catálogo de productos configurado.';
+
+    if (meta_account_id) {
+      try {
+        const { data: tokenRow } = await supabase
+          .from('AgencySettings')
+          .select('value')
+          .eq('key', 'meta_ads_token')
+          .maybeSingle();
+        const metaToken: string = tokenRow?.value || '';
+
+        if (metaToken) {
+          const accountId = meta_account_id.startsWith('act_') ? meta_account_id : `act_${meta_account_id}`;
+          const META_BASE = 'https://graph.facebook.com/v21.0';
+
+          const cRes = await fetch(`${META_BASE}/${accountId}/product_catalogs?fields=id,name,product_count&access_token=${metaToken}`);
+          const cData: any = await cRes.json();
+          const catalogs: any[] = cData.data || [];
+
+          if (catalogs.length > 0) {
+            const best = catalogs.sort((a: any, b: any) => (b.product_count || 0) - (a.product_count || 0))[0];
+
+            let allProducts: any[] = [];
+            let nextUrl: string | null = `${META_BASE}/${best.id}/products?fields=id,name,price,currency,url,product_type,availability&limit=200&access_token=${metaToken}`;
+            while (nextUrl && allProducts.length < 500) {
+              const pRes: Response = await fetch(nextUrl);
+              const pData: any = await pRes.json();
+              allProducts = allProducts.concat(pData.data || []);
+              nextUrl = pData.paging?.next || null;
+            }
+
+            parsedCatalog = allProducts
+              .filter((p: any) => !p.availability || p.availability === 'in stock' || p.availability === 'available')
+              .map((p: any) => {
+                const priceRaw = p.price || '';
+                const priceNum = priceRaw.replace(/[^0-9.]/g, '');
+                const currency = priceRaw.replace(/[0-9. ]/g, '').trim();
+                return {
+                  title: p.name || '',
+                  price: priceNum ? `${currency || '$'}${parseFloat(priceNum).toFixed(2)}` : 'Consultar',
+                  url: p.url || '',
+                  type: p.product_type || '',
+                  variants: [],
+                  handle: '',
+                };
+              });
+          }
+        }
+      } catch (e) {
+        console.error('[Draft Reply] Meta catalog fetch failed:', e);
+      }
+    }
+
     if (parsedCatalog.length > 0) {
-      const syncDate = catalog_synced_at ? new Date(catalog_synced_at).toLocaleDateString('es-AR') : 'desconocida';
-      productsContext = `Catálogo completo de productos (${parsedCatalog.length} productos, actualizado: ${syncDate}):\n${
+      productsContext = `Catálogo de productos en tiempo real (${parsedCatalog.length} productos disponibles):\n${
         parsedCatalog.map(p => {
-          const variantStr = p.variants?.length > 0 ? ` | Variantes: ${p.variants.join(', ')}` : '';
           const typeStr = p.type ? ` | Categoría: ${p.type}` : '';
-          return `- ${p.title}: ${p.price}${variantStr}${typeStr}. Link: ${buildProductLink(p)}`;
+          return `- ${p.title}: ${p.price}${typeStr}. Link: ${buildProductLink(p)}`;
         }).join('\n')}`;
     }
 
