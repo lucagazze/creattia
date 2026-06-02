@@ -579,6 +579,16 @@ export default function ComentariosPage() {
     if (!selectedPost || !clientId) return;
     setBulkLoading(true);
     const pending = comments.filter(c => isCommentPending(c, selectedPost.platform));
+    
+    // Auto-open reply textareas for all pending comments so drafts can be seen loading/suggested
+    setOpenReplies(prev => {
+      const copy = { ...prev };
+      pending.forEach(c => {
+        copy[c.id] = true;
+      });
+      return copy;
+    });
+
     await Promise.all(pending.map(c => generateDraft(c)));
     setBulkLoading(false);
   };
