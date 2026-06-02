@@ -1074,7 +1074,10 @@ export default function ComentariosPage() {
                     <p className="text-[13px] font-bold text-zinc-500">Sin comentarios de usuarios</p>
                   </div>
                 ) : (
-                  comments.map(comment => {
+                  [...comments].sort((a, b) =>
+                    new Date(b.timestamp || b.created_time || 0).getTime() -
+                    new Date(a.timestamp || a.created_time || 0).getTime()
+                  ).map(comment => {
                     const isPending = isCommentPending(comment, selectedPost.platform);
                     const liked = !!likedIds[comment.id];
                     const replyOpen = !!openReplies[comment.id];
