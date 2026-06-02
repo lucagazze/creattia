@@ -32,6 +32,7 @@ export default function CerebroPage() {
   // Catalog state
   const [catalog, setCatalog] = useState<any[]>([]);
   const [catalogSyncedAt, setCatalogSyncedAt] = useState<string | null>(null);
+  const [catalogSource, setCatalogSource] = useState<string>('');
   const [syncingCatalog, setSyncingCatalog] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
 
@@ -88,7 +89,8 @@ export default function CerebroPage() {
       if (!res.ok) throw new Error(data.error || 'Error al sincronizar');
       setCatalog(data.catalog || []);
       setCatalogSyncedAt(data.synced_at);
-      showToast(`Catálogo sincronizado: ${data.count} productos activos`, 'success');
+      setCatalogSource(data.source || '');
+      showToast(`Catálogo sincronizado: ${data.count} productos · ${data.source}`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Error al sincronizar catálogo', 'error');
     } finally {
@@ -469,7 +471,7 @@ export default function CerebroPage() {
         </div>
 
         {/* ── CATALOG SECTION ── */}
-        {(profile as any)?.shopify_domain && (
+        {((profile as any)?.meta_account_id || (profile as any)?.shopify_domain) && (
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -481,8 +483,10 @@ export default function CerebroPage() {
                     <h2 className="text-[15px] font-black text-zinc-900 dark:text-white">Catálogo de Productos</h2>
                     <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
                       {catalog.length > 0
-                        ? `${catalog.length} productos activos${catalogSyncedAt ? ` · Sincronizado ${new Date(catalogSyncedAt).toLocaleDateString('es-AR')}` : ''}`
-                        : 'Sin catálogo sincronizado aún'}
+                        ? `${catalog.length} productos · ${catalogSource || ''} · ${catalogSyncedAt ? new Date(catalogSyncedAt).toLocaleDateString('es-AR') : ''}`
+                        : (profile as any)?.meta_account_id
+                          ? 'Fuente: Meta Catalog (disponible) · Sin sincronizar aún'
+                          : 'Fuente: Shopify · Sin sincronizar aún'}
                     </p>
                   </div>
                 </div>
@@ -512,7 +516,12 @@ export default function CerebroPage() {
                     .map((p, i) => (
                       <div key={i} className="flex items-start justify-between gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-800">
                         <div className="min-w-0">
-                          <p className="text-[12px] font-bold text-zinc-900 dark:text-white truncate">{p.title}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[12px] font-bold text-zinc-900 dark:text-white truncate">{p.title}</p>
+                            {p.source === 'meta' && (
+                              <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 shrink-0">META</span>
+                            )}
+                          </div>
                           {p.variants?.length > 0 && (
                             <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
                               <Tag className="w-2.5 h-2.5 inline mr-1" />
