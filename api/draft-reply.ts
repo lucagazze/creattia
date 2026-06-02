@@ -302,7 +302,11 @@ ${isDM
   : `COMENTARIO en ${platformLabel}: Máximo 1-3 oraciones. Sin "¡Gracias por tu mensaje!" ni aperturas genéricas. Si es halago → respuesta corta (ej: "gracias 🙌"). Revisá el hilo: no repetir respuestas iguales a otros usuarios.`
 }
 
-LINKS: Solo incluir si la persona claramente quiere comprar o pide el link. Formato "www." sin https://. Link exacto del catálogo o: ${canonicalSite}
+LINKS — REGLA IMPORTANTE:
+- Si mencionás un producto específico (precio, descripción, disponibilidad) → SIEMPRE incluí el link de ese producto del catálogo.
+- Si no hay producto específico pero la persona quiere comprar → link de la tienda: ${canonicalSite}
+- Si es un comentario de opinión o halago sin intención de compra → NO incluir link.
+- Formato siempre "www." sin https://. Nunca inventar links — solo los del catálogo.
 
 FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin markdown. Si la respuesta óptima es un emoji → solo el emoji.`;
 
