@@ -79,6 +79,38 @@ export const ecommerce = {
     }
   },
 
+  getShopifyRecentOrders: async (domain: string, token: string, limit: number = 20) => {
+    const cacheKey = `recent_orders:${domain}:${limit}`;
+    const cached = ecGetCached(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const url = `${BASE}/orders.json?status=any&limit=${limit}`;
+
+      const res = await fetch(url, {
+        headers: {
+          'X-Shopify-Access-Token': token,
+          'X-Shop-Domain': cleanDomain,
+        }
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[Shopify] Error fetching recent orders', res.status, errorText);
+        throw new Error(`Shopify API Error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const orders = data.orders ?? [];
+      ecSetCache(cacheKey, orders);
+      return orders;
+    } catch (e) {
+      console.error('[Shopify] Fetch Recent Orders Exception:', e);
+      throw e;
+    }
+  },
+
   // ShopifyQL not available on standard Shopify plans — always estimate from orders
   getShopifyAnalytics: async (_domain: string, _token: string, _since: string, _until: string): Promise<null> => {
     return null;
@@ -95,6 +127,9 @@ export const ecommerce = {
     const orders = await ecommerce.getShopifyOrders(domain, token, since, until);
 
     if (!orders) return null;
+
+    // Fetch the 40 most recent orders of all time (no date filter)
+    const rawRecent = await ecommerce.getShopifyRecentOrders(domain, token, 40).catch(() => []);
 
     const validOrders = orders.filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided');
 
@@ -173,7 +208,8 @@ export const ecommerce = {
       };
     });
 
-    const recentOrders = validOrders
+    const validRecent = rawRecent.filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided');
+    const recentOrders = validRecent
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 20)
       .map((o: any) => ({

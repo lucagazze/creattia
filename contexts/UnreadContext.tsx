@@ -113,15 +113,16 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     fetchCountRef.current = fetchCount;
   }, [fetchCount]);
 
-  // Update browser tab title dynamically when unread count changes
+  // Update browser tab title dynamically when unread count or pending comments count changes
   useEffect(() => {
     const defaultTitle = 'Portal C.A.R | Algoritmia';
-    if (unreadCount > 0) {
-      document.title = `(${unreadCount}) ${defaultTitle}`;
+    const total = unreadCount + pendingCommentsCount;
+    if (total > 0) {
+      document.title = `(${total}) ${defaultTitle}`;
     } else {
       document.title = defaultTitle;
     }
-  }, [unreadCount]);
+  }, [unreadCount, pendingCommentsCount]);
 
   // Sync manual unread status from same tab or other tabs via StorageEvent/CustomEvent
   useEffect(() => {
