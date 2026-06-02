@@ -309,16 +309,13 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
 
     if (geminiKey) {
       try {
-        const geminiBody: any = {
+        const geminiBody = {
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
           generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
         };
-        if (thinkingBudget > 0) {
-          geminiBody.thinkingConfig = { thinkingBudget };
-        }
         const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(geminiBody) }
         );
         if (geminiRes.ok) {
