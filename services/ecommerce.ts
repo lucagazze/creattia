@@ -206,6 +206,10 @@ export const ecommerce = {
         subtotal_price: parseFloat(o.subtotal_price || 0),
         total_tax: parseFloat(o.total_tax || 0),
         total_discounts: parseFloat(o.total_discounts || 0),
+        discount_codes: o.discount_codes?.map((dc: any) => ({
+          code: dc.code,
+          amount: parseFloat(dc.amount || 0),
+        })) || [],
         shipping_lines: o.shipping_lines?.map((sl: any) => ({
           title: sl.title,
           price: parseFloat(sl.price || 0),

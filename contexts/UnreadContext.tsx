@@ -50,10 +50,17 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [pendingCommentsCount, setPendingCommentsCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Reset to 0 immediately when switching profiles — no stale count from previous client
+  // Load cached count or reset when switching profiles to prevent flash of wrong client
   useEffect(() => {
-    setUnreadCount(0);
-    setPendingCommentsCount(0);
+    if (profile?.id) {
+      const cachedUnread = localStorage.getItem(`car_unread_count_${profile.id}`);
+      const cachedComments = localStorage.getItem(`car_pending_comments_count_${profile.id}`);
+      setUnreadCount(cachedUnread ? parseInt(cachedUnread, 10) : 0);
+      setPendingCommentsCount(cachedComments ? parseInt(cachedComments, 10) : 0);
+    } else {
+      setUnreadCount(0);
+      setPendingCommentsCount(0);
+    }
     document.title = 'Portal C.A.R | Algoritmia';
   }, [profile?.id]);
 
@@ -92,6 +99,9 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }).length;
 
       setUnreadCount(count);
+      if (profile?.id) {
+        localStorage.setItem(`car_unread_count_${profile.id}`, String(count));
+      }
     } catch {
       // silently ignore — badge just won't update
     }
@@ -356,6 +366,9 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       setPendingCommentsCount(total);
+      if (profile?.id) {
+        localStorage.setItem(`car_pending_comments_count_${profile.id}`, String(total));
+      }
     } catch (e) {
       console.error('Error in fetchCommentsCount:', e);
     }
@@ -382,8 +395,14 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [profile?.id, fetchCommentsCount]);
 
   const markRead = useCallback(() => {
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  }, []);
+    setUnreadCount(prev => {
+      const nextVal = Math.max(0, prev - 1);
+      if (profile?.id) {
+        localStorage.setItem(`car_unread_count_${profile.id}`, String(nextVal));
+      }
+      return nextVal;
+    });
+  }, [profile?.id]);
 
   return (
     <UnreadContext.Provider value={{ unreadCount, pendingCommentsCount, refresh: fetchCount, markRead }}>

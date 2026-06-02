@@ -43,7 +43,8 @@ import {
   MailOpen,
   MousePointerClick,
   Info,
-  ShoppingBag
+  ShoppingBag,
+  X
 } from "lucide-react";
 import {
   AreaChart,
@@ -663,6 +664,7 @@ export default function DashboardPage() {
   const [allClients, setAllClients] = useState<any[]>([]);
   const { setViewAsProfile } = useViewAs();
   const [selectedMetaGoal, setSelectedMetaGoal] = useState<'purchases' | 'leads' | 'messages'>('purchases');
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
   const hasTag = (tag: string) => {
     const tags = (profile as any)?.client_tags;
@@ -2121,27 +2123,51 @@ export default function DashboardPage() {
                   minute: '2-digit',
                 });
 
-                const isPaid = order.financial_status === 'paid';
-                const statusColor = isPaid
-                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10'
-                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/10';
+                // Payment Status
+                let paymentText = 'Pendiente';
+                let paymentColor = 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/10';
+                if (order.financial_status === 'paid') {
+                  paymentText = 'Pagado';
+                  paymentColor = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10';
+                } else if (order.financial_status === 'authorized') {
+                  paymentText = 'Autorizado';
+                  paymentColor = 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/10';
+                } else if (order.financial_status === 'refunded') {
+                  paymentText = 'Reembolsado';
+                  paymentColor = 'bg-zinc-500/10 text-zinc-550 dark:text-zinc-400 border border-zinc-500/10';
+                }
+
+                // Fulfillment Status
+                let fulfillmentText = 'No enviado';
+                let fulfillmentColor = 'bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200/10';
+                if (order.fulfillment_status === 'fulfilled') {
+                  fulfillmentText = 'Enviado';
+                  fulfillmentColor = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10';
+                } else if (order.fulfillment_status === 'partial') {
+                  fulfillmentText = 'Parcial';
+                  fulfillmentColor = 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/10';
+                }
 
                 return (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-pink-500/20 dark:hover:border-pink-500/20 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-200 group hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)]"
+                    onClick={() => setSelectedOrder(order)}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-pink-500/20 dark:hover:border-pink-500/20 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-200 group hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-8 h-8 rounded-lg bg-pink-500/5 dark:bg-pink-500/10 flex items-center justify-center text-pink-500/70 group-hover:bg-pink-500/10 group-hover:text-pink-500 transition-colors shrink-0">
                         <ShoppingBag className="w-3.5 h-3.5" />
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">
                             {order.order_number}
                           </span>
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${statusColor}`}>
-                            {isPaid ? 'Pagado' : 'Pendiente'}
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${paymentColor}`}>
+                            {paymentText}
+                          </span>
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${fulfillmentColor}`}>
+                            {fulfillmentText}
                           </span>
                         </div>
                         <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium truncate mt-0.5">
@@ -2161,6 +2187,213 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      
+      {/* Order Detail Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedOrder(null)} />
+          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl max-w-[650px] w-full flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Header */}
+            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5 text-pink-500" />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-bold text-zinc-900 dark:text-white leading-tight">
+                    Pedido {selectedOrder.order_number}
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
+                    {new Date(selectedOrder.created_at).toLocaleString('es-AR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })} hs
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedOrder(null)} 
+                className="p-1.5 text-zinc-450 hover:text-zinc-700 dark:hover:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
+              
+              {/* Customer & Billing section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Customer profile */}
+                <div className="bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-150/40 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+                  <span className="text-[10px] font-black text-pink-650 dark:text-pink-400 uppercase tracking-wider block">
+                    Datos del Cliente
+                  </span>
+                  <div>
+                    <p className="text-[14px] font-bold text-zinc-900 dark:text-white">
+                      {selectedOrder.customer_name}
+                    </p>
+                    {selectedOrder.email && (
+                      <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium truncate mt-0.5">
+                        {selectedOrder.email}
+                      </p>
+                    )}
+                    {selectedOrder.phone && (
+                      <p className="text-[12px] text-zinc-500 dark:text-zinc-400 font-medium mt-0.5">
+                        {selectedOrder.phone}
+                      </p>
+                    )}
+                  </div>
+                  {selectedOrder.customer && (
+                    <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px] font-medium text-zinc-450 dark:text-zinc-550">
+                      <span>Historial: <strong className="text-zinc-750 dark:text-zinc-300">{selectedOrder.customer.orders_count} pedidos</strong></span>
+                      <span>Total: <strong className="text-zinc-750 dark:text-zinc-300">${selectedOrder.customer.total_spent?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</strong></span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Address */}
+                <div className="bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-150/40 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+                  <span className="text-[10px] font-black text-pink-650 dark:text-pink-400 uppercase tracking-wider block">
+                    Dirección de Envío
+                  </span>
+                  {selectedOrder.shipping_address ? (
+                    <div className="text-[12px] text-zinc-650 dark:text-zinc-400 leading-relaxed font-medium">
+                      <p className="font-bold text-zinc-850 dark:text-zinc-200">
+                        {selectedOrder.shipping_address.name || `${selectedOrder.shipping_address.first_name || ''} ${selectedOrder.shipping_address.last_name || ''}`}
+                      </p>
+                      <p>{selectedOrder.shipping_address.address1}</p>
+                      {selectedOrder.shipping_address.address2 && <p>{selectedOrder.shipping_address.address2}</p>}
+                      <p>
+                        {selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.province_code || selectedOrder.shipping_address.province || ''}
+                      </p>
+                      <p>
+                        {selectedOrder.shipping_address.zip} • {selectedOrder.shipping_address.country}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[12.5px] text-zinc-400 font-medium italic">Envío no físico o retiro en tienda.</p>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Status block */}
+              <div className="flex gap-4">
+                <div className="flex-1 p-3 rounded-xl border border-zinc-150/60 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-900/10 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-zinc-450 dark:text-zinc-550">Estado de Pago</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    selectedOrder.financial_status === 'paid'
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/15"
+                      : selectedOrder.financial_status === 'authorized'
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-500/15"
+                        : selectedOrder.financial_status === 'refunded'
+                          ? "bg-zinc-150 text-zinc-600 dark:bg-zinc-850 dark:text-zinc-550 border border-zinc-600/15"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-500/15"
+                  }`}>
+                    {selectedOrder.financial_status === 'paid' 
+                      ? 'Pagado' 
+                      : selectedOrder.financial_status === 'authorized'
+                        ? 'Autorizado'
+                        : selectedOrder.financial_status === 'refunded'
+                          ? 'Reembolsado'
+                          : 'Pendiente'}
+                  </span>
+                </div>
+                <div className="flex-1 p-3 rounded-xl border border-zinc-150/60 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-900/10 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-zinc-450 dark:text-zinc-550">Estado de Envío</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    selectedOrder.fulfillment_status === 'fulfilled'
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/15"
+                      : selectedOrder.fulfillment_status === 'partial'
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-500/15"
+                        : "bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-450 border border-zinc-200/10"
+                  }`}>
+                    {selectedOrder.fulfillment_status === 'fulfilled' 
+                      ? 'Enviado' 
+                      : selectedOrder.fulfillment_status === 'partial'
+                        ? 'Parcial'
+                        : 'No enviado'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Line items list */}
+              <div className="space-y-3">
+                <span className="text-[10px] font-black text-pink-650 dark:text-pink-400 uppercase tracking-wider block">
+                  Productos Solicitados
+                </span>
+                <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-850">
+                  {selectedOrder.line_items?.map((item: any, idx: number) => (
+                    <div key={idx} className="p-4 flex items-center justify-between text-[13px] font-medium text-zinc-700 dark:text-zinc-350">
+                      <div className="min-w-0 pr-3">
+                        <p className="font-bold text-zinc-900 dark:text-white truncate">
+                          {item.title}
+                        </p>
+                        {item.variant_title && (
+                          <p className="text-[10.5px] text-zinc-450 dark:text-zinc-550 mt-0.5">
+                            Variante: {item.variant_title}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-zinc-900 dark:text-white">
+                          ${(item.price * item.quantity).toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                        </p>
+                        <p className="text-[10.5px] text-zinc-400 mt-0.5">
+                          {item.quantity} x ${item.price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pricing Breakdown */}
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between text-[12px] font-medium text-zinc-500">
+                  <span>Subtotal</span>
+                  <span>${selectedOrder.subtotal_price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                </div>
+                {selectedOrder.total_discounts > 0 && (
+                  <div className="flex items-center justify-between text-[12px] font-medium text-emerald-500">
+                    <span className="flex items-center gap-1.5">
+                      <span>Descuentos</span>
+                      {selectedOrder.discount_codes && selectedOrder.discount_codes.length > 0 && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 px-1.5 py-0.5 rounded shrink-0">
+                          Cupón: {selectedOrder.discount_codes.map((d: any) => d.code).join(', ')}
+                        </span>
+                      )}
+                    </span>
+                    <span>-${selectedOrder.total_discounts?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                  </div>
+                )}
+                {selectedOrder.shipping_lines?.map((sl: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between text-[12px] font-medium text-zinc-500">
+                    <span>Envío ({sl.title})</span>
+                    <span>${sl.price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                  </div>
+                ))}
+                {selectedOrder.total_tax > 0 && (
+                  <div className="flex items-center justify-between text-[12px] font-medium text-zinc-500">
+                    <span>Impuestos</span>
+                    <span>${selectedOrder.total_tax?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-[15px] font-bold text-zinc-900 dark:text-white pt-2 border-t border-dashed border-zinc-100 dark:border-zinc-850">
+                  <span>Total Facturado</span>
+                  <span className="text-[18px] text-pink-600 dark:text-pink-400 font-black">
+                    ${selectedOrder.total_price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

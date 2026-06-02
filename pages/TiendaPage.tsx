@@ -802,7 +802,14 @@ export default function TiendaPage() {
                 </div>
                 {selectedOrder.total_discounts > 0 && (
                   <div className="flex items-center justify-between text-[12px] font-medium text-emerald-500">
-                    <span>Descuentos</span>
+                    <span className="flex items-center gap-1.5">
+                      <span>Descuentos</span>
+                      {selectedOrder.discount_codes && selectedOrder.discount_codes.length > 0 && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 px-1.5 py-0.5 rounded shrink-0">
+                          Cupón: {selectedOrder.discount_codes.map((d: any) => d.code).join(', ')}
+                        </span>
+                      )}
+                    </span>
                     <span>-${selectedOrder.total_discounts?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                   </div>
                 )}
