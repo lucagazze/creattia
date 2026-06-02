@@ -97,7 +97,7 @@ export default function CerebroPage() {
         body.tiendanube_store_id = (p as any).tiendanube_store_id;
         body.tiendanube_access_token = (p as any).tiendanube_access_token;
       }
-      const proxyRes = await fetch('/api/products', {
+      const proxyRes = await fetch('/api/scrape-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
