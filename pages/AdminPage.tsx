@@ -177,6 +177,50 @@ function SectionBox({
   );
 }
 
+// ── Connection verification persistence ───────────────────────────────────────
+const CONN_KEY = (clientId: string, type: string) => `conn_v_${clientId}_${type}`;
+const CONN_TTL = 7 * 24 * 3600 * 1000; // 7 days
+
+function saveConnOk(clientId: string, type: string) {
+  try { localStorage.setItem(CONN_KEY(clientId, type), String(Date.now())); } catch {}
+}
+function saveConnErr(clientId: string, type: string) {
+  try { localStorage.removeItem(CONN_KEY(clientId, type)); } catch {}
+}
+function getConnStatus(clientId: string, type: string): 'ok' | 'unverified' {
+  try {
+    const ts = localStorage.getItem(CONN_KEY(clientId, type));
+    if (ts && Date.now() - Number(ts) < CONN_TTL) return 'ok';
+  } catch {}
+  return 'unverified';
+}
+
+// Badge component: green=verified, amber=configured-unverified, grey=not configured
+const ConnBadge = ({ hasValue, clientId, type, label, children }: {
+  hasValue: boolean; clientId: string; type: string; label: string; children: React.ReactNode;
+}) => {
+  if (!hasValue) {
+    return (
+      <span title={`${label}: no configurado`}
+        className="w-5 h-5 rounded flex items-center justify-center text-[8px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
+        {children}
+      </span>
+    );
+  }
+  const verified = getConnStatus(clientId, type) === 'ok';
+  return (
+    <span title={`${label}: ${verified ? '✓ Verificado' : 'Configurado (sin verificar)'}`}
+      className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black relative ${
+        verified
+          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-400/30'
+          : 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400'
+      }`}>
+      {children}
+      {verified && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-zinc-900" />}
+    </span>
+  );
+};
+
 export default function AdminPage() {
   const { profile } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
@@ -669,13 +713,15 @@ export default function AdminPage() {
         today,
       );
       showToast("¡Conexión con Shopify Exitosa! ✓", "success");
-      setStatuses((p) => ({ ...p, shopify: "ok" }));
+      if (editingClient) saveConnOk(editingClient.id, 'shopify');
+setStatuses((p) => ({ ...p, shopify: "ok" }));
     } catch (err: any) {
       showToast(
         "Error Shopify: " + (err.message || "Verificá los datos"),
         "error",
       );
-      setStatuses((p) => ({ ...p, shopify: "error" }));
+      if (editingClient) saveConnErr(editingClient.id, 'shopify');
+setStatuses((p) => ({ ...p, shopify: "error" }));
     } finally {
       setTestingShopify(false);
     }
@@ -695,10 +741,12 @@ export default function AdminPage() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast('¡Conexión con WooCommerce exitosa! ✓', 'success');
-      setStatuses((p) => ({ ...p, shopify: 'ok' }));
+      if (editingClient) saveConnOk(editingClient.id, 'shopify');
+setStatuses((p) => ({ ...p, shopify: 'ok' }));
     } catch (err: any) {
       showToast('Error WooCommerce: ' + (err.message || 'Verificá los datos'), 'error');
-      setStatuses((p) => ({ ...p, shopify: 'error' }));
+      if (editingClient) saveConnErr(editingClient.id, 'shopify');
+setStatuses((p) => ({ ...p, shopify: 'error' }));
     } finally {
       setTestingWoo(false);
     }
@@ -720,13 +768,15 @@ export default function AdminPage() {
       if (!res)
         throw new Error("No se pudo obtener datos (verificá la API Key)");
       showToast("¡Conexión con Klaviyo Exitosa! ✓", "success");
-      setStatuses((p) => ({ ...p, klaviyo: "ok" }));
+      if (editingClient) saveConnOk(editingClient.id, 'klaviyo');
+setStatuses((p) => ({ ...p, klaviyo: "ok" }));
     } catch (err: any) {
       showToast(
         "Error Klaviyo: " + (err.message || "Verificá la API Key"),
         "error",
       );
-      setStatuses((p) => ({ ...p, klaviyo: "error" }));
+      if (editingClient) saveConnErr(editingClient.id, 'klaviyo');
+setStatuses((p) => ({ ...p, klaviyo: "error" }));
     } finally {
       setTestingKlaviyo(false);
     }
@@ -743,13 +793,15 @@ export default function AdminPage() {
       if (!res || res.error)
         throw new Error("No se pudo obtener datos (verificá el Token General)");
       showToast("¡Conexión con Meta Exitosa! ✓", "success");
-      setStatuses((p) => ({ ...p, meta: "ok" }));
+      if (editingClient) saveConnOk(editingClient.id, 'meta');
+setStatuses((p) => ({ ...p, meta: "ok" }));
     } catch (err: any) {
       showToast(
         "Error Meta: " + (err.message || "Verificá la cuenta"),
         "error",
       );
-      setStatuses((p) => ({ ...p, meta: "error" }));
+      if (editingClient) saveConnErr(editingClient.id, 'meta');
+setStatuses((p) => ({ ...p, meta: "error" }));
     } finally {
       setTestingMeta(false);
     }
@@ -788,13 +840,15 @@ export default function AdminPage() {
       if (!res || res.error)
         throw new Error("No se pudo obtener el perfil (verificá el ID de Instagram y el Token General)");
       showToast(`¡Conexión con Instagram Exitosa! (@${res.username}) ✓`, "success");
-      setStatuses((p) => ({ ...p, instagram: "ok" }));
+      if (editingClient) saveConnOk(editingClient.id, 'instagram');
+setStatuses((p) => ({ ...p, instagram: "ok" }));
     } catch (err: any) {
       showToast(
         "Error Instagram: " + (err.message || "Verificá la cuenta"),
         "error",
       );
-      setStatuses((p) => ({ ...p, instagram: "error" }));
+      if (editingClient) saveConnErr(editingClient.id, 'instagram');
+setStatuses((p) => ({ ...p, instagram: "error" }));
     } finally {
       setTestingIg(false);
     }
@@ -834,13 +888,15 @@ export default function AdminPage() {
       }
 
       showToast(`¡Conexión con Facebook Exitosa! (${res.name})${permissionsMsg} ✓`, "success");
-      setStatuses((p) => ({ ...p, facebook: "ok" }));
+      if (editingClient) saveConnOk(editingClient.id, 'facebook');
+setStatuses((p) => ({ ...p, facebook: "ok" }));
     } catch (err: any) {
       showToast(
         "Error Facebook: " + (err.message || "Verificá la cuenta"),
         "error",
       );
-      setStatuses((p) => ({ ...p, facebook: "error" }));
+      if (editingClient) saveConnErr(editingClient.id, 'facebook');
+setStatuses((p) => ({ ...p, facebook: "error" }));
     } finally {
       setTestingFbPage(false);
     }
@@ -894,10 +950,12 @@ export default function AdminPage() {
         "¡Dominio de Chatwoot alcanzado! ✓ (Validación parcial)",
         "success",
       );
-      setStatuses((p) => ({ ...p, chatwoot: "ok" }));
+      if (editingClient) saveConnOk(editingClient.id, 'chatwoot');
+setStatuses((p) => ({ ...p, chatwoot: "ok" }));
     } catch (err: any) {
       showToast("Error Chatwoot: El dominio no responde", "error");
-      setStatuses((p) => ({ ...p, chatwoot: "error" }));
+      if (editingClient) saveConnErr(editingClient.id, 'chatwoot');
+setStatuses((p) => ({ ...p, chatwoot: "error" }));
     } finally {
       setTestingChatwoot(false);
     }
@@ -1328,26 +1386,20 @@ export default function AdminPage() {
                         </span>
                       )}
 
-                      {/* Connection badges grid */}
+                      {/* Connection badges — 🟢 verde=verificado · 🟡 amarillo=sin verificar · ⚪ gris=no configurado */}
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
-                        {/* Meta Ads */}
-                        <span title="Cuenta Publicitaria Meta" className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black ${c.meta_account_id ? 'bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>M</span>
-                        {/* Facebook Page */}
-                        <span title={c.fb_page_id && (c as any).fb_page_access_token ? `Facebook: ${c.fb_page_name || c.fb_page_id}` : 'Facebook no conectado'} className={`w-5 h-5 rounded flex items-center justify-center ${c.fb_page_id && (c as any).fb_page_access_token ? 'bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                        <ConnBadge hasValue={!!c.meta_account_id} clientId={c.id} type="meta" label="Meta Ads">M</ConnBadge>
+                        <ConnBadge hasValue={!!(c.fb_page_id && (c as any).fb_page_access_token)} clientId={c.id} type="facebook" label={c.fb_page_name ? `Facebook: ${c.fb_page_name}` : 'Facebook'}>
                           <Facebook className="w-2.5 h-2.5" />
-                        </span>
-                        {/* Instagram */}
-                        <span title={c.ig_username ? `Instagram: @${c.ig_username}` : 'Instagram no conectado'} className={`w-5 h-5 rounded flex items-center justify-center ${c.ig_username ? 'bg-pink-100 dark:bg-pink-950 text-pink-600 dark:text-pink-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                        </ConnBadge>
+                        <ConnBadge hasValue={!!c.ig_username} clientId={c.id} type="instagram" label={c.ig_username ? `Instagram: @${c.ig_username}` : 'Instagram'}>
                           <Instagram className="w-2.5 h-2.5" />
-                        </span>
-                        {/* Tienda */}
-                        <span title={c.ecommerce_platform ? `Tienda: ${c.ecommerce_platform}` : 'Sin tienda'} className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black ${c.ecommerce_platform && (c.shopify_access_token || (c as any).tiendanube_access_token || (c as any).woo_consumer_key) ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>
+                        </ConnBadge>
+                        <ConnBadge hasValue={!!c.ecommerce_platform && !!c.shopify_access_token} clientId={c.id} type="shopify" label={c.ecommerce_platform ? `Tienda: ${c.ecommerce_platform}` : 'Sin tienda'}>
                           {c.ecommerce_platform === 'shopify' ? 'S' : c.ecommerce_platform === 'tiendanube' ? 'TN' : c.ecommerce_platform === 'wordpress' ? 'WP' : 'T'}
-                        </span>
-                        {/* Klaviyo */}
-                        <span title={c.klaviyo_api_key ? 'Klaviyo conectado' : 'Klaviyo no conectado'} className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black ${c.klaviyo_api_key ? 'bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>K</span>
-                        {/* Chatwoot */}
-                        <span title={c.chatwoot_url ? 'Chatwoot conectado' : 'Chatwoot no conectado'} className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black ${c.chatwoot_url ? 'bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'}`}>C</span>
+                        </ConnBadge>
+                        <ConnBadge hasValue={!!c.klaviyo_api_key} clientId={c.id} type="klaviyo" label="Klaviyo">K</ConnBadge>
+                        <ConnBadge hasValue={!!(c.chatwoot_url && c.chatwoot_token)} clientId={c.id} type="chatwoot" label="Chatwoot (Mensajería)">C</ConnBadge>
                       </div>
                     </div>
                   </div>
