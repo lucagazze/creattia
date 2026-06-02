@@ -97,12 +97,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       website_url,
     } = client;
 
-    // Compiled business brain context
+    // Parse custom_instructions: new format = JSON {tone, offers, faq}, old = plain string
+    let toneInstructions = '';
+    let offersContext = '';
+    let faqContext = '';
+    try {
+      const ciParsed = JSON.parse(custom_instructions || '{}');
+      toneInstructions = ciParsed.tone || '';
+      offersContext = ciParsed.offers || '';
+      faqContext = ciParsed.faq || '';
+    } catch {
+      toneInstructions = custom_instructions || '';
+    }
+
+    // Compiled business brain context — all sections fed to AI
     const brainContext = [
       business_description ? `INFORMACIÓN DEL NEGOCIO:\n${business_description}` : '',
       scraped_content ? `CONOCIMIENTO APRENDIDO DE LA WEB:\n${scraped_content}` : '',
       instagram_context ? `CONOCIMIENTO APRENDIDO DE INSTAGRAM:\n${instagram_context}` : '',
-      custom_instructions ? `INSTRUCCIONES DE TONO Y ESTILO:\n${custom_instructions}` : ''
+      toneInstructions ? `INSTRUCCIONES DE TONO Y ESTILO:\n${toneInstructions}` : '',
+      offersContext ? `OFERTAS Y PROMOCIONES ACTUALES (mencionalas cuando sea relevante):\n${offersContext}` : '',
+      faqContext ? `PREGUNTAS FRECUENTES Y RESPUESTAS CLAVE (usá estas respuestas exactas cuando coincidan):\n${faqContext}` : '',
     ].filter(Boolean).join('\n\n');
 
     // Fetch recent successful replies from activity log for few-shot learning
