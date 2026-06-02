@@ -327,7 +327,7 @@ export default function ComentariosPage() {
           platform: 'instagram',
           thumbnail: post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url,
           caption: post.caption || '',
-          permalink: post.permalink,
+          permalink: post.permalink || null,
           timestamp: post.timestamp,
           totalComments: userComments.length,
           pendingComments: pending.length,
@@ -343,16 +343,19 @@ export default function ComentariosPage() {
       fbMedia.forEach((post: any) => {
         const rawComments = post.comments?.data || [];
         const userComments = rawComments.filter((c: any) => c.from?.id !== fbPageId);
+        const resolveFbName = (c: any, fb: string) =>
+          c.username || c.from?.username || c.from?.name || c.name ||
+          (c.from?.id ? `fb_${String(c.from.id).slice(-5)}` : fb);
         const normalized = userComments.map((c: any, i: number) => ({
           ...c,
-          username: c.username || c.from?.username || c.from?.name || c.name || `Comentarista ${i + 1}`,
+          username: resolveFbName(c, `Comentarista ${i + 1}`),
           text: c.text || c.message || '',
           from: c.from || null,
           replies: c.replies
             ? {
                 data: (c.replies.data || []).map((r: any, ri: number) => ({
                   ...r,
-                  username: r.username || r.from?.username || r.from?.name || `Usuario ${ri + 1}`,
+                  username: resolveFbName(r, `Usuario ${ri + 1}`),
                   text: r.text || r.message || '',
                   timestamp: r.timestamp || r.created_time || '',
                   from: r.from || null,
@@ -409,7 +412,7 @@ export default function ComentariosPage() {
           thumbnail: matchingAd.creative.thumbnail_url || matchingAd.creative.image_url || null,
           caption: matchingAd.creative.name || matchingAd.name || 'Anuncio',
           permalink: isIgAd
-            ? (matchingAd.creative.instagram_permalink_url || null)
+            ? (matchingAd.creative.instagram_permalink_url || matchingAd.preview_shareable_link || null)
             : (() => {
                 const sid = matchingAd.creative.effective_object_story_id;
                 if (!sid) return null;
@@ -546,10 +549,15 @@ export default function ComentariosPage() {
     // Reload fresh comments from API
     setLoadingComments(true);
     try {
+      // Resolve best display name — use short FB ID when name is unavailable (privacy)
+      const resolveName = (c: any, fallback: string) =>
+        c.username || c.from?.username || c.from?.name || c.name ||
+        (c.from?.id ? `fb_${String(c.from.id).slice(-5)}` : fallback);
+
       // Normalize a comment or reply to a consistent shape
       const normalizeComment = (c: any, idx: number) => ({
         ...c,
-        username: c.username || c.from?.username || c.from?.name || `Usuario ${idx + 1}`,
+        username: resolveName(c, `Usuario ${idx + 1}`),
         text: c.text || c.message || '',
         timestamp: c.timestamp || c.created_time || new Date().toISOString(),
         from: c.from || null,
@@ -558,7 +566,7 @@ export default function ComentariosPage() {
           ? {
               data: (c.replies.data || []).map((r: any, ri: number) => ({
                 ...r,
-                username: r.username || r.from?.username || r.from?.name || `Usuario ${ri + 1}`,
+                username: resolveName(r, `Usuario ${ri + 1}`),
                 text: r.text || r.message || '',
                 timestamp: r.timestamp || r.created_time || new Date().toISOString(),
                 from: r.from || null,
