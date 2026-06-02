@@ -307,13 +307,21 @@ Usuario: ${username.startsWith('Usuario') ? '(usuario privado — no mencionar n
 Mensaje: "${itemText}"
 
 ════════════════════════════════════════
-DETECCIÓN DE IDIOMA — MUY IMPORTANTE
+DETECCIÓN DE IDIOMA — REGLA ABSOLUTA
 ════════════════════════════════════════
-Analizá el mensaje del usuario Y todos los comentarios del contexto para detectar el idioma predominante.
-- Si el usuario escribió en inglés → respondé 100% en inglés. Ni una sola palabra en español.
-- Si el usuario escribió en español → respondé en español argentino con voseo ("vos", "tenés", "mirá", "escribinos", "conseguilo"). Ni una palabra en inglés.
-- Si el usuario escribió en portugués → respondé 100% en portugués.
-- NUNCA mezcles idiomas bajo ninguna circunstancia.
+El idioma de TU RESPUESTA lo determina ÚNICAMENTE el mensaje específico que estás respondiendo: "${itemText}"
+
+PASO 1 — Identificá el idioma de ESE mensaje:
+- Palabras en inglés (any, the, is, are, have, what, how, price, order, leather, good, etc.) → INGLÉS
+- Palabras en español → ESPAÑOL
+- Si el mensaje es muy corto o ambiguo (ej: "Thanks", "Ok", emojis, signos de puntuación), mirá los otros comentarios del mismo usuario como desempate.
+
+PASO 2 — Respondé SIEMPRE en ese idioma:
+- Inglés → 100% inglés. Cero palabras en español. Ni "Hola", ni "Gracias", ni voseo.
+- Español → español argentino con voseo. Cero palabras en inglés.
+- Portugués → 100% portugués.
+
+NUNCA uses el idioma de los otros comentarios del post para decidir. Cada respuesta sigue el idioma del comentario que estás respondiendo.
 
 ════════════════════════════════════════
 REGLAS DE RESPUESTA
