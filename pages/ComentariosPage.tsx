@@ -799,7 +799,7 @@ export default function ComentariosPage() {
     } catch { return ''; }
   };
 
-  if (!fbPageId && !igId) {
+  if (!loading && !fbPageId && !igId) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center max-w-lg mx-auto space-y-6">
         <div className="w-16 h-16 rounded-2xl bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center">
