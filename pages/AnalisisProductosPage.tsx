@@ -249,8 +249,20 @@ export default function AnalisisProductosPage() {
               <div className="bg-zinc-50 dark:bg-zinc-800/40 rounded-xl p-4">
                 <p className="text-[11px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-wide mb-2">Qué significa esto</p>
                 <p className="text-[12px] text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  De cada {Math.round(100 / Math.max(modalProduct.entryPointPct, 1))} pedidos, {Math.round(modalProduct.entryPointPct / 100) || 1} es primera compra de ese cliente.{' '}
-                  {modalProduct.secondPurchasePct > 0 ? `El ${modalProduct.secondPurchasePct}% volvió a comprar${modalProduct.repurchaseDays > 0 ? `, en promedio a los ${modalProduct.repurchaseDays} días` : ''}.` : 'Ninguno volvió en el período analizado.'}
+                  {(() => {
+                    const fp = modalProduct.firstPurchases || 0;
+                    const total = modalProduct.totalOrders || 1;
+                    const returned = Math.round((modalProduct.secondPurchasePct / 100) * fp);
+                    const days = modalProduct.repurchaseDays;
+                    return (
+                      <>
+                        <strong>{fp} de los {total} pedidos</strong> ({modalProduct.entryPointPct}%) fueron la primera compra del cliente en la tienda.{' '}
+                        {fp > 0 && modalProduct.secondPurchasePct > 0
+                          ? <><strong>{returned} de esos {fp} clientes</strong> ({modalProduct.secondPurchasePct}%) volvieron a comprar{days > 0 ? `, en promedio a los ${days} días` : ''}.</>
+                          : 'Ninguno de esos clientes volvió a comprar en el período analizado.'}
+                      </>
+                    );
+                  })()}
                 </p>
               </div>
               {modalProduct.crossSell?.length > 0 && (

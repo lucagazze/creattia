@@ -1,4 +1,4 @@
-// draft-reply v2 — redeploy 2026-06-02
+// draft-reply v3 — optimized context, smart thinking, filtered catalog
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,513 +9,412 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// Detect message complexity to decide thinking budget
+function getThinkingBudget(text: string): number {
+  const t = text.toLowerCase();
+  const isComplex =
+    /precio|price|cost[ao]?|cu[aá]nto|disponible|available|stock|env[ií]o|shipping|comprar|buy|order|pedido|talla|size|variante|variant|descuento|discount|wholesale|mayor[ií]sta|cantidad|medida|material|calidad|quality|diferencia|difference|recomend|suggest|fit|sirve|funciona/i.test(t);
+  const isComplaint =
+    /mal|problem[ao]|error|falla|roto|defect|queja|complaint|terrible|p[eé]simo|no lleg[oó]|no funcion|devoluci[oó]n|refund|cambio/i.test(t);
+  if (isComplaint) return 2048;
+  if (isComplex) return 1024;
+  return 0; // simple comment/emoji/greeting — no thinking needed
+}
+
+// Filter catalog to most relevant products for the query (saves tokens)
+function filterCatalog(catalog: any[], queryText: string): any[] {
+  if (!catalog.length) return [];
+  const q = queryText.toLowerCase();
+  // Find direct matches first
+  const matched = catalog.filter(p => {
+    const words = (p.title || '').toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+    return words.some((w: string) => q.includes(w));
+  });
+  // Fill up to 40 with other products
+  const others = catalog.filter(p => !matched.includes(p)).slice(0, 40 - matched.length);
+  return [...matched, ...others];
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const currentDate = new Date();
-  const argentineTime = currentDate.toLocaleString('es-AR', {
+  const argentineTime = new Date().toLocaleString('es-AR', {
     timeZone: 'America/Argentina/Buenos_Aires',
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   });
 
-  // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const geminiKey = process.env.GOOGLE_AI_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
-  if (!geminiKey && !openAiKey) {
-    return res.status(500).json({ error: 'No AI API key configured' });
-  }
+  if (!geminiKey && !openAiKey) return res.status(500).json({ error: 'No AI API key configured' });
 
-  const { clientId, itemText, username, postCaption, otherComments, conversationHistory, isDM, forceLang } = req.body as {
-    clientId: string;
-    itemText: string;
-    username: string;
-    postCaption?: string;
+  const {
+    clientId,
+    itemText,
+    username,
+    // comment context
+    postCaption,
+    postMediaUrl,   // image/video URL of the post
+    postPlatform,   // 'instagram' | 'facebook'
+    allComments,    // full thread: [{username, text, reply?}]
+    otherComments,  // legacy fallback
+    // DM context
+    conversationHistory,
+    isDM,
+    forceLang,
+  } = req.body as {
+    clientId: string; itemText: string; username: string;
+    postCaption?: string; postMediaUrl?: string; postPlatform?: string;
+    allComments?: { username: string; text: string; reply?: string }[];
     otherComments?: string[];
-    conversationHistory?: string[];
-    isDM?: boolean;
-    forceLang?: 'en' | 'es' | 'pt';
+    conversationHistory?: string[]; isDM?: boolean; forceLang?: 'en' | 'es' | 'pt';
   };
 
-  if (!clientId || !itemText) {
-    return res.status(400).json({ error: 'Missing clientId or itemText' });
-  }
+  if (!clientId || !itemText) return res.status(400).json({ error: 'Missing clientId or itemText' });
 
   try {
-    // 1. Fetch client settings from Supabase
+    // 1. Fetch client brain from Supabase
     const { data: client, error: dbError } = await supabase
       .from('car_clients')
       .select('business_name, ecommerce_platform, shopify_domain, shopify_access_token, wordpress_url, woo_consumer_key, woo_consumer_secret, business_description, custom_instructions, scraped_content, instagram_context, website_url, meta_account_id')
       .eq('id', clientId)
       .maybeSingle();
 
-    if (dbError || !client) {
-      return res.status(404).json({ error: 'Client not found or database error' });
-    }
-
-    const meta_account_id: string | null = (client as any).meta_account_id ?? null;
-
-    // Fetch custom client links from Supabase
-    let clientLinks: any[] = [];
-    try {
-      const { data: linksData } = await supabase
-        .from('car_links')
-        .select('title, url')
-        .eq('client_id', clientId);
-      if (linksData) {
-        clientLinks = linksData;
-      }
-    } catch (err) {
-      console.error('[Draft Reply] Error fetching client links:', err);
-    }
+    if (dbError || !client) return res.status(404).json({ error: 'Client not found' });
 
     const {
-      business_name,
-      ecommerce_platform,
-      shopify_domain,
-      shopify_access_token,
-      wordpress_url,
-      woo_consumer_key,
-      woo_consumer_secret,
-      business_description,
-      custom_instructions,
-      scraped_content,
-      instagram_context,
+      business_name, ecommerce_platform,
+      shopify_domain, shopify_access_token,
+      wordpress_url, woo_consumer_key, woo_consumer_secret,
+      business_description, custom_instructions, scraped_content, instagram_context,
       website_url,
     } = client;
+    const meta_account_id: string | null = (client as any).meta_account_id ?? null;
 
-    // Parse custom_instructions: new format = JSON {tone, offers, faq}, old = plain string
-    let toneInstructions = '';
-    let offersContext = '';
-    let faqContext = '';
+    // Parse cerebro custom_instructions (JSON {tone, offers, faq} or plain string)
+    let toneInstructions = '', offersContext = '', faqContext = '';
     try {
-      const ciParsed = JSON.parse(custom_instructions || '{}');
-      toneInstructions = ciParsed.tone || '';
-      offersContext = ciParsed.offers || '';
-      faqContext = ciParsed.faq || '';
-    } catch {
-      toneInstructions = custom_instructions || '';
-    }
+      const ci = JSON.parse(custom_instructions || '{}');
+      toneInstructions = ci.tone || ''; offersContext = ci.offers || ''; faqContext = ci.faq || '';
+    } catch { toneInstructions = custom_instructions || ''; }
 
-    // Compiled business brain context — all sections fed to AI
-    const brainContext = [
-      business_description ? `INFORMACIÓN DEL NEGOCIO:\n${business_description}` : '',
-      scraped_content ? `CONOCIMIENTO APRENDIDO DE LA WEB:\n${scraped_content}` : '',
-      instagram_context ? `CONOCIMIENTO APRENDIDO DE INSTAGRAM:\n${instagram_context}` : '',
-      toneInstructions ? `INSTRUCCIONES DE TONO Y ESTILO:\n${toneInstructions}` : '',
-      offersContext ? `OFERTAS Y PROMOCIONES ACTUALES (mencionalas cuando sea relevante):\n${offersContext}` : '',
-      faqContext ? `PREGUNTAS FRECUENTES Y RESPUESTAS CLAVE (usá estas respuestas exactas cuando coincidan):\n${faqContext}` : '',
-    ].filter(Boolean).join('\n\n');
+    // 2. Fetch client links
+    let clientLinks: { title: string; url: string }[] = [];
+    try {
+      const { data } = await supabase.from('car_links').select('title, url').eq('client_id', clientId);
+      if (data) clientLinks = data;
+    } catch {}
 
-    // Fetch recent successful replies from activity log for few-shot learning
+    // 3. Fetch recent successful replies for few-shot learning
     let fewShotContext = '';
     try {
-      const { data: recentActivities } = await supabase
-        .from('car_user_activity')
-        .select('metadata')
-        .eq('client_id', clientId)
-        .eq('action', 'reply_sent')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (recentActivities && recentActivities.length > 0) {
-        const fewShotExamples = recentActivities
-          .map(act => act.metadata)
-          .filter(meta => meta && meta.incoming_text && meta.reply_text)
-          .slice(0, 5); // Take up to 5 examples
-
-        if (fewShotExamples.length > 0) {
-          fewShotContext = `Here are some historical examples of replies previously sent by the brand to other customers. Use them as reference for the preferred tone, style, and structure:
-${fewShotExamples.map((ex, i) => `Example ${i + 1}:
-- Customer wrote: "${ex.incoming_text}"
-- Brand reply: "${ex.reply_text}"`).join('\n\n')}`;
-        }
+      const { data: acts } = await supabase
+        .from('car_user_activity').select('metadata')
+        .eq('client_id', clientId).eq('action', 'reply_sent')
+        .order('created_at', { ascending: false }).limit(20);
+      const examples = (acts || [])
+        .map(a => a.metadata)
+        .filter((m: any) => m?.incoming_text && m?.reply_text)
+        .slice(0, 5);
+      if (examples.length > 0) {
+        fewShotContext = examples
+          .map((ex: any, i: number) => `Ejemplo ${i + 1}:\n  Cliente: "${ex.incoming_text}"\n  Marca: "${ex.reply_text}"`)
+          .join('\n\n');
       }
-    } catch (err) {
-      console.error('[Draft Reply] Error fetching historical replies:', err);
-    }
+    } catch {}
 
-    const formatToWwwLink = (url: string): string => {
-      if (!url) return '';
-      let clean = url.replace(/^https?:\/\//i, '').trim();
-      clean = clean.replace(/^www\./i, '');
-      return `www.${clean}`;
-    };
-
-    const cleanDomainForLink = shopify_domain ? shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
-    const canonicalSiteUrl = formatToWwwLink(website_url || cleanDomainForLink);
-
-    const buildProductLink = (p: any) =>
-      p.url
-        ? p.url.replace(/^https?:\/\//i, 'www.').replace(/^www\.www\./, 'www.')
-        : p.handle ? `${canonicalSiteUrl}/products/${p.handle}` : canonicalSiteUrl;
-
-    // 2. Fetch catalog LIVE from Meta (always up to date, no cache needed)
+    // 4. Build product catalog — Meta + Shopify + WooCommerce
     let parsedCatalog: any[] = [];
-    let productsContext = 'No hay catálogo de productos configurado.';
+    const formatToWww = (url: string) => {
+      if (!url) return '';
+      return 'www.' + url.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+    };
+    const cleanDomain = shopify_domain ? shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
+    const canonicalSite = formatToWww(website_url || cleanDomain);
+    const buildLink = (p: any) =>
+      p.url ? p.url.replace(/^https?:\/\//i, 'www.').replace(/^www\.www\./, 'www.')
+             : p.handle ? `${canonicalSite}/products/${p.handle}` : canonicalSite;
 
+    // Meta catalog
     if (meta_account_id) {
       try {
         const { data: tokenRow } = await supabase
-          .from('AgencySettings')
-          .select('value')
-          .eq('key', 'meta_ads_token')
-          .maybeSingle();
+          .from('AgencySettings').select('value').eq('key', 'meta_ads_token').maybeSingle();
         const metaToken: string = tokenRow?.value || '';
-
         if (metaToken) {
           const accountId = meta_account_id.startsWith('act_') ? meta_account_id : `act_${meta_account_id}`;
-          const META_BASE = 'https://graph.facebook.com/v21.0';
-
-          const cRes = await fetch(`${META_BASE}/${accountId}/product_catalogs?fields=id,name,product_count&access_token=${metaToken}`);
+          const cRes = await fetch(`https://graph.facebook.com/v21.0/${accountId}/product_catalogs?fields=id,name,product_count&access_token=${metaToken}`);
           const cData: any = await cRes.json();
-          const catalogs: any[] = cData.data || [];
-
-          if (catalogs.length > 0) {
-            const best = catalogs.sort((a: any, b: any) => (b.product_count || 0) - (a.product_count || 0))[0];
-
-            let allProducts: any[] = [];
-            let nextUrl: string | null = `${META_BASE}/${best.id}/products?fields=id,name,price,currency,url,product_type,availability&limit=200&access_token=${metaToken}`;
-            while (nextUrl && allProducts.length < 500) {
-              const pRes: Response = await fetch(nextUrl);
-              const pData: any = await pRes.json();
-              allProducts = allProducts.concat(pData.data || []);
-              nextUrl = pData.paging?.next || null;
+          const best = (cData.data || []).sort((a: any, b: any) => (b.product_count || 0) - (a.product_count || 0))[0];
+          if (best) {
+            let all: any[] = [], next: string | null =
+              `https://graph.facebook.com/v21.0/${best.id}/products?fields=id,name,price,currency,url,product_type,availability&limit=200&access_token=${metaToken}`;
+            while (next && all.length < 500) {
+              const r: any = await (await fetch(next)).json();
+              all = all.concat(r.data || []);
+              next = r.paging?.next || null;
             }
-
-            parsedCatalog = allProducts
+            parsedCatalog = all
               .filter((p: any) => !p.availability || p.availability === 'in stock' || p.availability === 'available')
               .map((p: any) => {
-                const priceRaw = p.price || '';
-                const priceNum = priceRaw.replace(/[^0-9.]/g, '');
-                const currency = priceRaw.replace(/[0-9. ]/g, '').trim();
-                return {
-                  title: p.name || '',
-                  price: priceNum ? `${currency || '$'}${parseFloat(priceNum).toFixed(2)}` : 'Consultar',
-                  url: p.url || '',
-                  type: p.product_type || '',
-                  variants: [],
-                  handle: '',
-                };
+                const pr = (p.price || '').replace(/[^0-9.]/g, '');
+                const cu = (p.price || '').replace(/[0-9. ]/g, '').trim();
+                return { title: p.name || '', price: pr ? `${cu || '$'}${parseFloat(pr).toFixed(2)}` : 'Consultar', url: p.url || '', type: p.product_type || '', handle: '', variants: [] };
               });
           }
         }
-      } catch (e) {
-        console.error('[Draft Reply] Meta catalog fetch failed:', e);
-      }
+      } catch {}
     }
 
-    // Also fetch from Shopify to fill gaps Meta catalog might miss
+    // Shopify catalog
     if (shopify_domain && shopify_access_token) {
       try {
-        const domain = shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        const sRes = await fetch(`https://${domain}/admin/api/2024-01/products.json?limit=250&fields=title,handle,variants,status,product_type`, {
-          headers: { 'X-Shopify-Access-Token': shopify_access_token, 'Accept': 'application/json' },
-        });
+        const sRes = await fetch(
+          `https://${cleanDomain}/admin/api/2024-01/products.json?limit=250&fields=title,handle,variants,status,product_type`,
+          { headers: { 'X-Shopify-Access-Token': shopify_access_token, 'Accept': 'application/json' } }
+        );
         if (sRes.ok) {
-          const sData: any = await sRes.json();
-          const shopifyProducts = (sData.products || []).filter((p: any) => p.status === 'active');
-          // Merge: add Shopify products not already in Meta catalog
-          for (const sp of shopifyProducts) {
-            const alreadyIn = parsedCatalog.some(p => p.title.toLowerCase() === sp.title.toLowerCase());
-            if (!alreadyIn) {
-              const vs = sp.variants || [];
-              const prices = [...new Set(vs.map((v: any) => v.price).filter(Boolean))];
-              const priceStr = prices.length === 1 ? `$${prices[0]}` : prices.length > 1 ? `$${Math.min(...prices.map(Number))}-$${Math.max(...prices.map(Number))}` : 'Consultar';
-              parsedCatalog.push({
-                title: sp.title,
-                price: priceStr,
-                url: '',
-                handle: sp.handle,
-                type: sp.product_type || '',
-                variants: vs.map((v: any) => v.title).filter((t: string) => t && t !== 'Default Title'),
-              });
-            }
+          const { products = [] } = await sRes.json() as any;
+          for (const sp of products.filter((p: any) => p.status === 'active')) {
+            if (parsedCatalog.some(p => p.title.toLowerCase() === sp.title.toLowerCase())) continue;
+            const vs = sp.variants || [];
+            const prices = [...new Set(vs.map((v: any) => v.price).filter(Boolean))];
+            parsedCatalog.push({
+              title: sp.title,
+              price: prices.length === 1 ? `$${prices[0]}` : prices.length > 1 ? `$${Math.min(...prices.map(Number))}-$${Math.max(...prices.map(Number))}` : 'Consultar',
+              url: '', handle: sp.handle, type: sp.product_type || '',
+              variants: vs.map((v: any) => v.title).filter((t: string) => t && t !== 'Default Title'),
+            });
           }
         }
-      } catch (e) { /* Shopify fallback failed */ }
+      } catch {}
     }
 
-    // WooCommerce source
+    // WooCommerce catalog
     if (wordpress_url && woo_consumer_key && woo_consumer_secret) {
       try {
         const base = (wordpress_url as string).replace(/\/$/, '');
         const creds = Buffer.from(`${woo_consumer_key}:${woo_consumer_secret}`).toString('base64');
-        let wooPage = 1;
-        while (wooPage <= 3) {
-          const wRes = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&page=${wooPage}&status=publish`, {
-            headers: { 'Authorization': `Basic ${creds}` },
-          });
-          if (!wRes.ok) break;
-          const wData: any[] = await wRes.json();
-          if (!wData.length) break;
-          for (const wp of wData) {
-            const alreadyIn = parsedCatalog.some(p => p.title.toLowerCase() === (wp.name || '').toLowerCase());
-            if (!alreadyIn) {
-              const price = wp.price ? `$${wp.price}` : wp.regular_price ? `$${wp.regular_price}` : 'Consultar';
-              parsedCatalog.push({ title: wp.name || '', price, url: wp.permalink || '', handle: wp.slug || '', type: wp.categories?.[0]?.name || '', variants: [] });
-            }
+        for (let page = 1; page <= 3; page++) {
+          const r = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`, { headers: { Authorization: `Basic ${creds}` } });
+          if (!r.ok) break;
+          const data: any[] = await r.json();
+          if (!data.length) break;
+          for (const wp of data) {
+            if (parsedCatalog.some(p => p.title.toLowerCase() === (wp.name || '').toLowerCase())) continue;
+            parsedCatalog.push({ title: wp.name || '', price: `$${wp.price || wp.regular_price || '?'}`, url: wp.permalink || '', handle: wp.slug || '', type: wp.categories?.[0]?.name || '', variants: [] });
           }
-          wooPage++;
         }
-      } catch (e) { /* WooCommerce fallback failed */ }
+      } catch {}
     }
 
-    if (parsedCatalog.length > 0) {
-      productsContext = `Catálogo completo de productos (${parsedCatalog.length} productos — fuentes: Meta + Shopify + WooCommerce):\n${
-        parsedCatalog.map(p => {
-          const varStr = p.variants?.length > 0 ? ` | Variantes: ${p.variants.join(', ')}` : '';
-          const typeStr = p.type ? ` | Categoría: ${p.type}` : '';
-          return `- ${p.title}: ${p.price}${varStr}${typeStr}. Link: ${buildProductLink(p)}`;
-        }).join('\n')}`;
-    }
+    // Filter catalog to relevant products (reduces tokens significantly)
+    const relevantCatalog = filterCatalog(parsedCatalog, itemText);
+    const productsContext = relevantCatalog.length > 0
+      ? `Catálogo (${parsedCatalog.length} productos en total, mostrando los ${relevantCatalog.length} más relevantes):\n${
+          relevantCatalog.map(p => {
+            const vars = p.variants?.length ? ` | vars: ${p.variants.slice(0, 5).join(', ')}` : '';
+            const type = p.type ? ` | cat: ${p.type}` : '';
+            return `- ${p.title}: ${p.price}${vars}${type} → ${buildLink(p)}`;
+          }).join('\n')
+        }`
+      : 'Sin catálogo configurado.';
 
-    // 3. If the message asks about a specific product, fetch its page for full description
+    // 5. Fetch product page content if product is directly mentioned
     let productPageContext = '';
-    if (parsedCatalog.length > 0) {
-      const msgLower = itemText.toLowerCase();
-      const matched = parsedCatalog.find(p => {
-        const titleWords = p.title.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
-        return titleWords.some((w: string) => msgLower.includes(w));
-      });
-
-      if (matched?.url) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 5000);
-          const pageRes = await fetch(matched.url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AlgorBot/1.0)' },
-            signal: controller.signal,
-          });
-          clearTimeout(timeout);
-          if (pageRes.ok) {
-            const html = await pageRes.text();
-            // Extract text: remove scripts, styles, nav, footer, header tags
-            const clean = html
-              .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-              .replace(/<(nav|header|footer|aside)[^>]*>[\s\S]*?<\/\1>/gi, '')
-              .replace(/<[^>]+>/g, ' ')
-              .replace(/\s{2,}/g, ' ')
-              .trim();
-            // Take first 2000 chars of meaningful content
-            const excerpt = clean.slice(0, 2000);
-            if (excerpt.length > 100) {
-              productPageContext = `\nCONTENIDO DE LA PÁGINA DEL PRODUCTO "${matched.title}" (${buildProductLink(matched)}):\n${excerpt}\n`;
-            }
-          }
-        } catch (err) {
-          // Page fetch failed — continue without it
+    const directMatch = relevantCatalog.find(p => {
+      const words = (p.title || '').toLowerCase().split(/\s+/).filter((w: string) => w.length > 4);
+      const q = itemText.toLowerCase();
+      return words.filter((w: string) => q.includes(w)).length >= 2;
+    });
+    if (directMatch?.url) {
+      try {
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 4000);
+        const pr = await fetch(directMatch.url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: ctrl.signal });
+        if (pr.ok) {
+          const html = await pr.text();
+          const clean = html
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<(nav|header|footer|aside)[^>]*>[\s\S]*?<\/\1>/gi, '')
+            .replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, 1500);
+          if (clean.length > 100) productPageContext = `\nDESCRIPCIÓN COMPLETA — "${directMatch.title}":\n${clean}`;
         }
+      } catch {}
+    }
+
+    // 6. Language detection
+    let lang: 'english' | 'spanish' | 'portuguese';
+    if (forceLang === 'en') lang = 'english';
+    else if (forceLang === 'pt') lang = 'portuguese';
+    else if (forceLang === 'es') lang = 'spanish';
+    else {
+      const isEN = /\b(the|is|are|was|were|have|has|will|can|do|does|not|this|that|with|from|they|what|how|when|where|who|your|get|buy|order|price|ship|help|good|great|like|just|very|much|want|need|can't|don't|I've|it's)\b/i.test(itemText);
+      const isES = /\b(el|la|los|las|un|una|que|de|en|por|para|con|como|más|tengo|quiero|puedo|precio|envío|gracias|hola|si|no|también|pero|esto|eso|muy|bien|cuánto|dónde|cómo)\b/i.test(itemText);
+      const isPT = /\b(eu|você|não|com|por|uma|dos|das|está|tem|esse|muito|também|preciso|quero|obrigado|olá|boa|tudo|seria|gostaria|qual)\b/i.test(itemText);
+      lang = isPT && !isEN && !isES ? 'portuguese' : isES && !isEN ? 'spanish' : isEN ? 'english' : 'spanish';
+    }
+    const LANG = lang === 'english' ? 'ENGLISH' : lang === 'portuguese' ? 'PORTUGUESE' : 'SPANISH';
+    const langRule = lang === 'english'
+      ? 'Every single word must be English. Not "Hola", not "Gracias", nothing Spanish or Portuguese.'
+      : lang === 'portuguese'
+      ? 'Cada palavra deve ser em português. Nada em inglês ou espanhol.'
+      : 'Cada palabra debe ser en español argentino con voseo. Cero inglés.';
+
+    // 7. Build comment thread context
+    let threadContext = '';
+    if (!isDM) {
+      if (allComments && allComments.length > 0) {
+        const thread = allComments.map(c => {
+          const replied = c.reply ? `\n    → Marca respondió: "${c.reply}"` : '\n    → SIN RESPUESTA AÚN';
+          return `  @${c.username}: "${c.text}"${replied}`;
+        }).join('\n');
+        threadContext = `HILO COMPLETO DE COMENTARIOS EN ESTA PUBLICACIÓN:\n${thread}`;
+      } else if (otherComments && otherComments.length > 0) {
+        threadContext = `Otros comentarios en la publicación:\n${otherComments.map(c => `  ${c}`).join('\n')}`;
+      } else {
+        threadContext = 'Este es el único comentario en la publicación.';
       }
     }
 
-    const linksContext = clientLinks.length > 0
-      ? `Enlaces directos y páginas de interés del sitio web:\n${clientLinks.map(l => `- Para "${l.title}": usar el enlace EXACTO: ${formatToWwwLink(l.url)}`).join('\n')}`
-      : 'No hay enlaces directos personalizados configurados en car_links.';
+    // 8. Build DM conversation context
+    const dmContext = isDM && conversationHistory && conversationHistory.length > 0
+      ? `HISTORIAL DE LA CONVERSACIÓN (más antiguo → más reciente):\n${conversationHistory.map(m => `  ${m}`).join('\n')}`
+      : isDM ? 'Primera interacción con este cliente.' : '';
 
-    // DM conversation history context (last 15 messages)
-    const conversationHistoryBlock = conversationHistory && conversationHistory.length > 0
-      ? `\nCONTEXTO DE LA CONVERSACIÓN (últimos ${conversationHistory.length} mensajes, del más viejo al más reciente):\n${conversationHistory.map(m => `  ${m}`).join('\n')}\n`
-      : '';
+    // 9. Build brain context (compact)
+    const brainParts = [
+      business_description && `NEGOCIO:\n${business_description}`,
+      scraped_content && `WEB:\n${scraped_content}`,
+      instagram_context && `REDES:\n${instagram_context}`,
+      toneInstructions && `TONO:\n${toneInstructions}`,
+      offersContext && `OFERTAS ACTIVAS:\n${offersContext}`,
+      faqContext && `PREGUNTAS FRECUENTES:\n${faqContext}`,
+    ].filter(Boolean).join('\n\n---\n\n');
 
-    // Determine language: forceLang from client overrides auto-detection
-    let detectedLang: 'english' | 'spanish' | 'portuguese';
-    if (forceLang === 'en') detectedLang = 'english';
-    else if (forceLang === 'pt') detectedLang = 'portuguese';
-    else if (forceLang === 'es') detectedLang = 'spanish';
-    else {
-      const isEnglish = /\b(the|is|are|was|were|have|has|had|will|would|can|could|do|does|did|not|this|that|with|from|they|them|what|how|when|where|why|who|your|our|get|got|been|just|like|good|great|need|want|buy|order|price|ship|help|don't|I've|it's|you're|we're|haven't|didn't|won't|can't|i|my|me|we|us)\b/i.test(itemText);
-      const isSpanish = /\b(es|el|la|los|las|un|una|que|de|en|por|para|con|como|pero|más|tengo|quiero|puedo|tienes|precio|envío|gracias|hola|si|no)\b/i.test(itemText);
-      const isPortuguese = /\b(eu|você|ele|ela|nós|eles|não|com|por|uma|dos|das|está|tem|ser|esse|muito|como|quando|também|preciso|quero|obrigado|olá)\b/i.test(itemText);
-      detectedLang = isPortuguese && !isEnglish && !isSpanish ? 'portuguese' : isSpanish && !isEnglish ? 'spanish' : isEnglish ? 'english' : 'spanish';
-    }
-    const langName = detectedLang === 'english' ? 'ENGLISH' : detectedLang === 'portuguese' ? 'PORTUGUESE' : 'SPANISH';
-    const langWarning = detectedLang === 'english'
-      ? 'DO NOT write any Spanish or Portuguese words. Not "Hola", not "Gracias", not "tenés", nothing.'
-      : detectedLang === 'portuguese'
-      ? 'Não escreva palavras em inglês ou espanhol.'
-      : 'NO escribas ninguna palabra en inglés ni portugués.';
+    const linksBlock = clientLinks.length > 0
+      ? clientLinks.map(l => `- ${l.title}: ${formatToWww(l.url)}`).join('\n')
+      : 'Sin enlaces personalizados.';
 
-    const systemMessage = `⚠️ LANGUAGE LOCK — READ THIS FIRST BEFORE ANYTHING ELSE ⚠️
-The message you must reply to is: "${itemText}"
-${forceLang ? `[LANGUAGE MANUALLY SET BY USER]` : '[AUTO-DETECTED]'} Language: ${langName}
-YOUR ENTIRE RESPONSE MUST BE 100% IN ${langName}. NOT A SINGLE WORD IN ANY OTHER LANGUAGE.
-${langWarning}
-This rule OVERRIDES everything else. Language = ${langName}. No exceptions.
+    // 10. Determine thinking budget based on complexity
+    const thinkingBudget = getThinkingBudget(itemText);
 
----
+    // 11. Platform context
+    const platformLabel = postPlatform === 'facebook' ? 'Facebook'
+      : postPlatform === 'instagram' ? 'Instagram'
+      : isDM ? 'DM (mensaje directo)'
+      : 'Red social';
 
-Fecha y hora actual en Argentina: ${argentineTime}.
+    // 12. Build system prompt — structured and concise
+    const systemPrompt = `⚠️ IDIOMA OBLIGATORIO: ${LANG}. ${langRule}. Sin excepciones.
 
-Sos la persona que maneja las redes de "${business_name}". Conocés la marca de memoria. Respondés comentarios y DMs como lo haría alguien que trabaja ahí — no como atención al cliente, no como un bot, no como un asistente de IA.
+Hoy es ${argentineTime}. Plataforma: ${platformLabel}.
 
-PRINCIPIO GUÍA: Pensá en cómo respondería un ser humano real en Instagram o Facebook. A veces es un emoji solo. A veces es una oración. A veces es una pregunta de vuelta. Nunca es un párrafo de atención al cliente.
+════ CEREBRO DEL NEGOCIO ════
+${brainParts || 'Sin información cargada.'}
 
-════════════════════════════════════════
-CONOCIMIENTO COMPLETO DEL NEGOCIO
-════════════════════════════════════════
-${brainContext || 'Sin información adicional cargada.'}
-
-════════════════════════════════════════
-CATÁLOGO DE PRODUCTOS
-════════════════════════════════════════
+════ CATÁLOGO ════
 ${productsContext}
-${productPageContext ? `════════════════════════════════════════
-DESCRIPCIÓN COMPLETA DEL PRODUCTO CONSULTADO
-════════════════════════════════════════
 ${productPageContext}
-Usá esta información para dar una respuesta detallada y precisa sobre el producto.` : ''}
 
-════════════════════════════════════════
-ENLACES Y PÁGINAS DEL SITIO
-════════════════════════════════════════
-${linksContext}
+════ ENLACES DEL SITIO ════
+${linksBlock}
 
-${fewShotContext ? `════════════════════════════════════════
-EJEMPLOS DE RESPUESTAS REALES ENVIADAS ANTES (úsalas como referencia de tono y estilo)
-════════════════════════════════════════
-${fewShotContext}` : ''}
+${fewShotContext ? `════ EJEMPLOS DE RESPUESTAS REALES (usá como referencia de tono) ════\n${fewShotContext}` : ''}
 
-════════════════════════════════════════
-CONTEXTO DE LA CONVERSACIÓN
-════════════════════════════════════════
-${isDM ? (conversationHistoryBlock || 'Sin historial previo — primer contacto.') : (otherComments && otherComments.length > 0 ? `Otros comentarios en la misma publicación:\n${otherComments.map(c => `  • ${c}`).join('\n')}` : 'Sin otros comentarios.')}
-${postCaption ? `\nPublicación a la que responde: "${postCaption}"` : ''}
+════ QUIÉN SOS ════
+Sos la persona detrás de las redes de "${business_name}". No un bot, no atención al cliente corporativa. Un humano que trabaja en la marca, conoce todos los productos de memoria y responde de forma natural.
 
-════════════════════════════════════════
-MENSAJE A RESPONDER
-════════════════════════════════════════
-Usuario: ${username.startsWith('Usuario') ? '(usuario privado — no mencionar nombre)' : `@${username}`}
-Mensaje: "${itemText}"
+════ CÓMO RESPONDER ════
+${isDM ? `DM — conversación privada:
+- Leé TODO el historial antes de responder. No repetir nada ya dicho.
+- Respondé el mensaje más reciente, no los anteriores.
+- Extensión acorde a la pregunta: si fue corto, respondé corto; si es complejo, extendete.
+- No saludar si ya hubo intercambio previo.
+- Tono: natural, como si siguieras una conversación.` : `COMENTARIO en ${platformLabel}:
+- Máximo 1-3 oraciones. Más corto = más humano.
+- PROHIBIDO: "¡Gracias por tu mensaje!", "¡Con gusto te ayudo!", cualquier apertura genérica de call center.
+- Si es un halago o emoji → respondé con algo igual de corto (ej: "gracias 🙌", un emoji).
+- Si pregunta algo específico → respondé directo al punto.
+- Chequeá el hilo completo: si ya respondiste algo similar a otro usuario, variá la respuesta.`}
 
-════════════════════════════════════════
-DETECCIÓN DE IDIOMA — REGLA ABSOLUTA
-════════════════════════════════════════
-El idioma de TU RESPUESTA lo determina ÚNICAMENTE el mensaje específico que estás respondiendo: "${itemText}"
+LINKS — incluir SOLO si la persona está claramente intentando comprar o pide el link:
+- Usar formato "www." sin https://
+- Link exacto del catálogo si existe; si no, usá: ${canonicalSite}
 
-PASO 1 — Identificá el idioma de ESE mensaje:
-- Palabras en inglés (any, the, is, are, have, what, how, price, order, leather, good, etc.) → INGLÉS
-- Palabras en español → ESPAÑOL
-- Si el mensaje es muy corto o ambiguo (ej: "Thanks", "Ok", emojis, signos de puntuación), mirá los otros comentarios del mismo usuario como desempate.
+FORMATO FINAL:
+- Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin explicaciones.
+- Sin placeholders como [nombre] o [precio] — si no tenés el dato, no lo menciones.
+- Sin markdown, sin asteriscos. Solo texto plano + emojis si corresponde.
+- Si la respuesta óptima es un emoji solo → enviá solo el emoji.`;
 
-PASO 2 — Respondé SIEMPRE en ese idioma:
-- Inglés → 100% inglés. Cero palabras en español. Ni "Hola", ni "Gracias", ni voseo.
-- Español → español argentino con voseo. Cero palabras en inglés.
-- Portugués → 100% portugués.
+    const userPrompt = isDM
+      ? `${dmContext}\n\nMensaje más reciente del cliente: "${itemText}"\n\nRedactá la respuesta${username ? ` para ${username}` : ''}:`
+      : `${postCaption ? `Publicación: "${postCaption}"\n` : ''}${threadContext ? `\n${threadContext}\n` : ''}
+Comentario a responder: @${username}: "${itemText}"
+Redactá la respuesta:`;
 
-NUNCA uses el idioma de los otros comentarios del post para decidir. Cada respuesta sigue el idioma del comentario que estás respondiendo.
-
-════════════════════════════════════════
-REGLAS DE RESPUESTA
-════════════════════════════════════════
-
-TONO Y HUMANIDAD:
-- Escribí como una persona real del equipo. No como un bot, no como atención al cliente corporativa.
-- PROHIBIDO: "¡Gracias por tu mensaje!", "¡Con gusto te ayudo!", "¡Espero que tengas un excelente día!", "¡Hola! 😊", cualquier apertura genérica.
-- Entrá directo al punto. Si alguien dice "qué lindo producto", respondé algo natural como "gracias 🙌" o un emoji — no hagas una gestión de atención al cliente.
-- Tono: relajado, real, como alguien que trabaja en la marca y conoce los productos de memoria.
-- NOMBRE DEL USUARIO: Si dice "(usuario privado)" NO uses nombre ni @handle. Si tiene nombre real, usalo máximo una vez, si suma naturalidad.
-- ${isDM ? 'En DMs: respondé con la extensión que la pregunta requiere. Natural y conversacional.' : 'En comentarios: 1 a 3 oraciones máximo. Más corto = más humano.'}
-
-CUÁNDO INCLUIR UN LINK O RECOMENDAR UN PRODUCTO:
-- SÍ incluir link: cuando el usuario está activamente buscando comprar, pide precio, pregunta dónde comprar, pide más info de un producto específico, o muestra intención clara de adquirirlo.
-- NO incluir link: cuando es un comentario de opinión ("me encanta", "está muy grueso", "qué lindo"), una queja, un halago, una pregunta general, o cualquier mensaje donde la persona no está tratando de comprar algo ahora.
-- Para decidir: preguntate "¿esta persona está a punto de comprar o buscando el link?" Si la respuesta es no, no mandes link.
-- Cuando SÍ corresponde: buscá en el catálogo por nombre, categoría o sinónimos. Incluí el link exacto del catálogo. Si no hay match exacto, mandá el link de la tienda: ${canonicalSiteUrl}.
-- Formato link: siempre "www." sin "https://". Ej: "www.site.com/products/handle"
-
-HISTORIAL EN DMs:
-- Leé TODO el historial de la conversación antes de responder.
-- No repitas información, productos, links o explicaciones que ya se dieron.
-- Si ya se saludó al cliente, NO volvás a saludar. Seguí la conversación de forma natural.
-- Ajustá la longitud de tu respuesta al ritmo de la conversación: si los mensajes son cortos, respondé corto; si son detallados, podés extenderte.
-- Siempre respondé el mensaje MÁS RECIENTE del cliente, no los anteriores.
-
-LINKS Y URLs:
-- Todo link debe empezar con "www." y sin "https://" ni "http://".
-- Usá únicamente los links exactos del catálogo o de los enlaces configurados. No los modifiques ni los inventes.
-- Si no hay un link específico, usá el sitio principal: ${canonicalSiteUrl}.
-
-FORMATO FINAL — CRÍTICO:
-- Devolvé ÚNICAMENTE el texto listo para enviar. Sin comillas, sin "Borrador:", sin "Respuesta:", sin explicaciones.
-- Sin placeholders como [nombre], [precio], [link] — si no tenés el dato, no pongas el placeholder.
-- Sin asteriscos, sin markdown, sin emojis de bullet point. Solo texto plano o emojis reales.
-- Si el mensaje amerita una respuesta muy corta (un emoji, dos palabras), hacelo. No alargues artificialmente.`;
-
-    // 4. Call AI API — Gemini 2.0 Flash preferred, fallback to OpenAI gpt-4o-mini
-    const userPrompt = `${isDM ? 'Mensaje del cliente en el DM' : 'Comentario del cliente'}: "${itemText}"\nRedactá la respuesta${username.startsWith('Usuario') ? '' : ` para @${username}`}:`;
+    // 13. Call Gemini 2.5 Flash (primary)
     let draftText = '';
 
     if (geminiKey) {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemMessage }] },
-            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-            generationConfig: { temperature: 0.75, maxOutputTokens: 1024 },
-            thinkingConfig: { thinkingBudget: 0 },
-          }),
+      try {
+        const body: any = {
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+        };
+        if (thinkingBudget > 0) body.thinkingConfig = { thinkingBudget };
+
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${geminiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+        );
+        if (r.ok) {
+          const d = await r.json();
+          draftText = d.candidates?.[0]?.content?.parts?.find((p: any) => p.text)?.text?.trim() || '';
+        } else {
+          console.error('[Draft v3] Gemini error:', r.status, await r.text());
         }
-      );
-      if (geminiRes.ok) {
-        const geminiData = await geminiRes.json();
-        draftText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-      } else {
-        const errText = await geminiRes.text();
-        console.error('[Draft Reply] Gemini error:', geminiRes.status, errText);
+      } catch (e) {
+        console.error('[Draft v3] Gemini exception:', e);
       }
     }
 
-    // Fallback to OpenAI if Gemini not available or failed
+    // 14. Fallback to OpenAI gpt-4o-mini
     if (!draftText && openAiKey) {
-      const openAiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: systemMessage },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.75,
-          max_tokens: 1024,
-        }),
-      });
-      if (openAiRes.ok) {
-        const openAiData = await openAiRes.json();
-        draftText = openAiData.choices?.[0]?.message?.content?.trim() || '';
-      } else {
-        const errText = await openAiRes.text();
-        return res.status(502).json({ error: 'AI error', detail: errText });
+      try {
+        const r = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openAiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+            temperature: 0.7, max_tokens: 512,
+          }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          draftText = d.choices?.[0]?.message?.content?.trim() || '';
+        } else {
+          const errText = await r.text();
+          return res.status(502).json({ error: 'AI error', detail: errText });
+        }
+      } catch (e: any) {
+        return res.status(502).json({ error: 'AI exception', detail: e.message });
       }
     }
 
-    if (!draftText) {
-      return res.status(502).json({ error: 'Empty response from AI' });
-    }
-
+    if (!draftText) return res.status(502).json({ error: 'Empty AI response' });
     return res.status(200).json({ draft: draftText });
 
   } catch (err: any) {
-    console.error('Draft generation error:', err);
-    return res.status(502).json({ error: 'Draft reply server error', detail: err.message });
+    console.error('[Draft v3] Unhandled error:', err);
+    return res.status(502).json({ error: 'Server error', detail: err.message });
   }
 }

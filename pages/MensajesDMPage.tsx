@@ -577,10 +577,9 @@ export default function MensajesDMPage() {
         body: JSON.stringify({
           clientId,
           itemText: selectedConv.lastMessage || '',
-          username: selectedConv.username || '',
-          postCaption: '',
-          otherComments: [],
+          username: selectedConv.username || selectedConv.name || '',
           conversationHistory: history,
+          postPlatform: selectedConv.platform || undefined,
           isDM: true,
         }),
       });

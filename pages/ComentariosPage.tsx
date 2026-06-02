@@ -680,11 +680,21 @@ export default function ComentariosPage() {
     setReplyErrors(prev => ({ ...prev, [comment.id]: null }));
     try {
       const postCaption = selectedPost.caption;
-      const others = comments.filter(c => c.id !== comment.id).map(c => `@${c.username}: ${c.text || c.message || ''}`);
+      const allComments = comments.map((c: any) => ({
+        username: c.username,
+        text: c.text || c.message || '',
+        reply: c.reply || undefined,
+      }));
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, itemText: text, username: comment.username, postCaption, otherComments: others, forceLang: lang }),
+        body: JSON.stringify({
+          clientId, itemText: text, username: comment.username,
+          postCaption, allComments,
+          postMediaUrl: selectedPost.thumbnail || selectedPost.mediaUrl || undefined,
+          postPlatform: selectedPost.platform || undefined,
+          forceLang: lang,
+        }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
