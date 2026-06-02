@@ -407,9 +407,17 @@ export default function ComentariosPage() {
           platform: isIgAd ? 'instagram' : 'facebook',
           thumbnail: matchingAd.creative.thumbnail_url || matchingAd.creative.image_url || null,
           caption: matchingAd.creative.name || matchingAd.name || 'Anuncio',
-          permalink: isIgAd 
-            ? (matchingAd.creative.instagram_permalink_url || (matchingAd.creative.effective_instagram_story_id ? `https://www.instagram.com/p/${matchingAd.creative.effective_instagram_story_id}` : null))
-            : (matchingAd.creative.effective_object_story_id ? `https://www.facebook.com/${matchingAd.creative.effective_object_story_id}` : null),
+          permalink: isIgAd
+            ? (matchingAd.creative.instagram_permalink_url || null)
+            : (() => {
+                const sid = matchingAd.creative.effective_object_story_id;
+                if (!sid) return null;
+                const idx = sid.indexOf('_');
+                if (idx === -1) return null;
+                const pageId = sid.slice(0, idx);
+                const postId = sid.slice(idx + 1);
+                return `https://www.facebook.com/permalink.php?story_fbid=${postId}&id=${pageId}`;
+              })(),
           timestamp: new Date().toISOString(),
           totalComments: normalized.length,
           pendingComments: pending.length,
