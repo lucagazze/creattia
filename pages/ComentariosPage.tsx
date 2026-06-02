@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Instagram, MessageCircle, Loader2, RefreshCw, AlertCircle, MessageSquare,
-  Sparkles, Send, Heart, X, ArrowUpRight, CheckCircle2, ThumbsUp, Play, Facebook
+  Sparkles, Send, Heart, X, ArrowUpRight, CheckCircle2, ThumbsUp, Play, Facebook,
+  ArrowUpDown, ArrowDown, ArrowUp
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -63,6 +64,7 @@ export default function ComentariosPage() {
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [platformFilter, setPlatformFilter] = useState<'all' | 'instagram' | 'facebook' | 'ads'>('all');
   const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
   // Slide-over state
   const [selectedPost, setSelectedPost] = useState<PostItem | null>(null);
@@ -774,8 +776,20 @@ export default function ComentariosPage() {
     else if (platformFilter === 'facebook') list = list.filter(p => p.platform === 'facebook' && !p.isAd);
     else if (platformFilter === 'ads') list = list.filter(p => p.isAd);
     if (statusFilter === 'pending') list = list.filter(p => p.pendingComments > 0);
+    // Sort by most recent comment timestamp (latest comment in the thread)
+    list = [...list].sort((a, b) => {
+      const lastTs = (post: PostItem) => {
+        const all = post.comments.flatMap((c: any) => [
+          c.timestamp || c.created_time || post.timestamp,
+          ...((c.replies?.data || []).map((r: any) => r.timestamp || r.created_time || '')),
+        ]).filter(Boolean);
+        const latest = all.length ? all.reduce((mx, ts) => ts > mx ? ts : mx) : post.timestamp;
+        return new Date(latest).getTime();
+      };
+      return sortOrder === 'newest' ? lastTs(b) - lastTs(a) : lastTs(a) - lastTs(b);
+    });
     return list;
-  }, [posts, platformFilter, statusFilter]);
+  }, [posts, platformFilter, statusFilter, sortOrder]);
 
   const totalPending = platformCounts.all;
 
@@ -829,8 +843,9 @@ export default function ComentariosPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Filters + Sort */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {(['all', 'instagram', 'facebook', 'ads'] as const).map(p => {
             const count = p === 'all' ? platformCounts.all
               : p === 'instagram' ? platformCounts.instagram
@@ -838,6 +853,14 @@ export default function ComentariosPage() {
               : platformCounts.ads;
             const label = p === 'all' ? 'Todas' : p === 'instagram' ? 'Instagram' : p === 'facebook' ? 'Facebook' : 'Anuncios';
             const isActive = platformFilter === p;
+            // Badge colors per platform
+            const badgeColor = p === 'instagram'
+              ? isActive ? 'bg-pink-500 text-white' : 'bg-pink-100 dark:bg-pink-950 text-pink-600 dark:text-pink-400'
+              : p === 'facebook'
+              ? isActive ? 'bg-blue-500 text-white' : 'bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
+              : p === 'ads'
+              ? isActive ? 'bg-amber-500 text-white' : 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400'
+              : isActive ? 'bg-violet-500 text-white' : 'bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400';
 
             return (
               <button
@@ -851,17 +874,23 @@ export default function ComentariosPage() {
               >
                 <span>{label}</span>
                 {count > 0 && (
-                  <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-black leading-none ${
-                    isActive
-                      ? 'bg-white/20 dark:bg-zinc-900/20 text-white dark:text-zinc-900'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
-                  }`}>
+                  <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-black leading-none ${badgeColor}`}>
                     {count}
                   </span>
                 )}
               </button>
             );
           })}
+        </div>
+
+        {/* Sort toggle */}
+        <button
+          onClick={() => setSortOrder(o => o === 'newest' ? 'oldest' : 'newest')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-all"
+        >
+          {sortOrder === 'newest' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />}
+          {sortOrder === 'newest' ? 'Más reciente' : 'Más antiguo'}
+        </button>
       </div>
 
       {/* Errors */}
