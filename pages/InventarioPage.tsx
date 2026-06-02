@@ -127,6 +127,8 @@ export default function InventarioPage() {
         const locData = await locRes.json();
         const locs = locData.locations || [];
         if (locs.length > 0) setLocationId(locs[0].id);
+      } else if (locRes.status === 403) {
+        setError('El token de Shopify no tiene el permiso "read_locations". Regenerá el token con acceso a Ubicaciones e Inventario.');
       }
     } catch (err: any) {
       setError(err.message || 'Error al cargar productos');
@@ -180,7 +182,12 @@ export default function InventarioPage() {
         const r = await fetch(`/api/shopify/variants/${v.id}.json`, {
           method: 'PUT', headers: shopifyHeaders, body: JSON.stringify(body),
         });
-        if (!r.ok) throw new Error(`Error actualizando precio: ${r.status}`);
+        if (!r.ok) {
+          let msg = `Error ${r.status}`;
+          try { const d = await r.json(); msg = d?.errors ? JSON.stringify(d.errors) : d?.error || msg; } catch {}
+          if (r.status === 403) msg = `403 Forbidden — el token de Shopify no tiene el permiso "write_products". Regenerá el token con acceso de escritura a Productos.`;
+          throw new Error(msg);
+        }
         // Update local product data
         setProducts(prev => prev.map(prod =>
           prod.id === productId ? {
