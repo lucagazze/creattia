@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, 
   AlertTriangle, Activity, Library, Workflow, Instagram, Inbox, MessageSquare, Brain, Users, TrendingUp, 
-  Calculator, Coins, Target, Send
+  Calculator, Coins, Target, Send, Zap
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -44,8 +44,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   ];
 
   const activosItems = [
-    { path: '/admin/meta',       icon: Target,        label: 'Creativos Ads' },
-    { path: '/email-marketing',  icon: Send,          label: 'Email Marketing' },
+    { path: '/admin/meta',         icon: Target,        label: 'Creativos Ads' },
+    { path: '/creativos-tester',   icon: Zap,           label: 'Creativos Tester' },
+    { path: '/email-marketing',    icon: Send,          label: 'Email Marketing' },
   ];
 
   const configuracionItems = [

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { metaAds, daysAgo, today } from '../services/metaAds';
+import React, { useEffect, useState, useRef } from 'react';
+import { metaAds, daysAgo, today, presetToRange } from '../services/metaAds';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import {
-  Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw, ChevronLeft, ChevronRight
+  Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw, ChevronLeft, ChevronRight, Calendar, ChevronDown
 } from 'lucide-react';
 
 // ── Creative Preview Modal ─────────────────────────────────────────────
@@ -199,14 +199,84 @@ export default function MetaAdsPage() {
   const [resolvedDetails, setResolvedDetails] = useState<Record<string, any>>({});
   const [resolvingIds, setResolvingIds] = useState<Record<string, boolean>>({});
 
-  const fetchAds = () => {
+  // Date picker state
+  const [activePreset, setActivePreset] = useState<string>('last_28d');
+  const [activeSince, setActiveSince] = useState(daysAgo(28));
+  const [activeUntil, setActiveUntil] = useState(today());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pendingPreset, setPendingPreset] = useState<string>('last_28d');
+  const [pendingSince, setPendingSince] = useState(daysAgo(28));
+  const [pendingUntil, setPendingUntil] = useState(today());
+  const [hovering, setHovering] = useState<string | null>(null);
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const datePickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) setShowDatePicker(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const PRESETS = [
+    { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_14d', label: 'Últimos 14 días' },
+    { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_30d', label: 'Últimos 30 días' },
+    { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' },
+    { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' },
+  ];
+  const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const MiniCalMeta = ({ year, month, since, until, hovering: hov, onDay, onHover, onPrev, onNext }: any) => {
+    const days: any[] = [];
+    const first = new Date(year, month, 1).getDay();
+    const startOffset = first === 0 ? 6 : first - 1;
+    for (let i = 0; i < startOffset; i++) days.push(null);
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    for (let i = 1; i <= lastDay; i++) days.push(new Date(year, month, i).toISOString().split('T')[0]);
+    return (
+      <div className="w-[240px]">
+        <div className="flex items-center mb-4 px-1">
+          <div className="w-8 flex justify-start">{onPrev && <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>}</div>
+          <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">{MONTHS_ES[month]} {year}</span>
+          <div className="w-8 flex justify-end">{onNext && <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>}</div>
+        </div>
+        <div className="grid grid-cols-7 gap-y-1">
+          {['L','M','M','J','V','S','D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
+          {days.map((d, i) => {
+            if (!d) return <div key={`e-${i}`} />;
+            const isFut = d > todayStr;
+            const isSel = d === since || d === until;
+            const isRange = since && until && d > since && d < until;
+            const isHov = since && !until && hov && ((d > since && d <= hov) || (d < since && d >= hov));
+            return <button key={d} onMouseEnter={() => !isFut && onHover(d)} onClick={() => !isFut && onDay(d)} disabled={isFut} className={`h-8 w-8 text-[11px] font-bold transition-all flex items-center justify-center rounded-full ${isSel ? 'bg-blue-600 text-white' : (isRange || isHov) ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600' : isFut ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>{d.split('-')[2]}</button>;
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const handleApplyDate = () => {
+    setActivePreset(pendingPreset);
+    setActiveSince(pendingSince);
+    setActiveUntil(pendingUntil || pendingSince);
+    setShowDatePicker(false);
+    // fetchAds will be triggered by the useEffect below
+  };
+
+  const fmtD = (d: string) => { if (!d) return ''; const [y, m, day] = d.split('-'); return `${day}/${m}/${y.slice(2)}`; };
+  const presetLabel = PRESETS.find(p => p.id === activePreset)?.label || `${fmtD(activeSince)} – ${fmtD(activeUntil)}`;
+
+  const fetchAds = (since?: string, until?: string) => {
     const accountId = (profile as any)?.meta_account_id;
     if (!accountId) return;
     setLoading(true);
     setResolvedThumbnails({});
     setResolvedDetails({});
     setResolvingIds({});
-    const tr = { since: daysAgo(28), until: today() };
+    const tr = { since: since || activeSince, until: until || activeUntil };
     const adFields = 'ad_id,spend,impressions,reach,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas';
     Promise.all([
       metaAds.getAccountAds(accountId),
@@ -223,7 +293,7 @@ export default function MetaAdsPage() {
     }).catch(console.error).finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchAds(); }, [profile?.id]);
+  useEffect(() => { fetchAds(activeSince, activeUntil); }, [profile?.id, activeSince, activeUntil]);
 
   // Sequential concurrent sliding window batch thumbnail and asset resolver (limit: 4 parallel requests)
   useEffect(() => {
@@ -315,15 +385,49 @@ export default function MetaAdsPage() {
   return (
     <div className="w-full animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
             <Layers className="w-5 h-5 text-blue-500" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Creativos Activos</h1>
-            <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Anuncios en circulación y su rendimiento — últimos 28 días.</p>
+            <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Anuncios en circulación y su rendimiento.</p>
           </div>
+        </div>
+        {/* Date picker */}
+        <div className="relative" ref={datePickerRef}>
+          <button
+            onClick={() => setShowDatePicker(!showDatePicker)}
+            className="flex items-center gap-2 px-4 h-9 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full text-[12px] font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm"
+          >
+            <Calendar className="w-3.5 h-3.5 text-blue-500" />
+            {presetLabel}
+            <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+          </button>
+          {showDatePicker && (
+            <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl z-50 flex overflow-hidden animate-in slide-in-from-top-2 fade-in duration-150">
+              <div className="w-[140px] border-r border-zinc-100 dark:border-zinc-800 p-2 flex flex-col gap-0.5">
+                {PRESETS.map(p => (
+                  <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id); setPendingSince(r.since); setPendingUntil(r.until); }} className={`text-left px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${pendingPreset === p.id ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                ))}
+              </div>
+              <div className="p-4 flex flex-col gap-4">
+                <div className="flex gap-6">
+                  <MiniCalMeta year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering}
+                    onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { setPendingUntil(iso < pendingSince ? (setPendingSince(iso), pendingSince) : iso); } }}
+                    onHover={setHovering}
+                    onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else setCalMonth(calMonth - 1); }}
+                    onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else setCalMonth(calMonth + 1); }}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                  <button onClick={() => setShowDatePicker(false)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Cancelar</button>
+                  <button onClick={handleApplyDate} className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition-colors">Aplicar</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

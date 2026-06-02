@@ -492,7 +492,7 @@ export default function CerebroPage() {
 
         {/* ── PRODUCTS SECTION ── */}
         {(profile as any)?.ecommerce_platform && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+          <div className="lg:col-span-12 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
             <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
@@ -543,7 +543,7 @@ export default function CerebroPage() {
                     className="w-full pl-8 pr-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[12px] text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
-                <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {products
                     .filter(p => !productSearch || p.title.toLowerCase().includes(productSearch.toLowerCase()) || (p.type || '').toLowerCase().includes(productSearch.toLowerCase()) || (p.tags || '').toLowerCase().includes(productSearch.toLowerCase()))
                     .map((p) => {
@@ -552,31 +552,39 @@ export default function CerebroPage() {
                       const maxPrice = p.variants?.length > 0 ? Math.max(...p.variants.map((v: any) => parseFloat(v.price) || 0)) : 0;
                       const priceStr = minPrice === maxPrice ? `$${minPrice.toFixed(2)}` : `$${minPrice.toFixed(2)} – $${maxPrice.toFixed(2)}`;
                       return (
-                        <div key={p.id} className="border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden">
+                        <div key={p.id} className="border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden flex flex-col bg-white dark:bg-zinc-900 hover:border-emerald-200 dark:hover:border-emerald-800/50 transition-colors">
+                          {/* Image */}
+                          {p.image ? (
+                            <div className="w-full aspect-square bg-zinc-50 dark:bg-zinc-800 overflow-hidden">
+                              <img src={p.image} alt={p.title} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-full aspect-square bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center">
+                              <Package className="w-10 h-10 text-zinc-300 dark:text-zinc-600" />
+                            </div>
+                          )}
+
+                          {/* Info */}
+                          <div className="p-3 flex-1 flex flex-col gap-1.5">
+                            <p className="text-[12px] font-bold text-zinc-900 dark:text-white leading-tight line-clamp-2">{p.title}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {p.type && <span className="text-[9px] text-zinc-400 font-medium bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">{p.type}</span>}
+                              {p.variants?.length > 1 && <span className="text-[9px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">{p.variants.length} variantes</span>}
+                            </div>
+                            <p className="text-[13px] font-black text-emerald-600 dark:text-emerald-400 mt-auto">{priceStr}</p>
+                          </div>
+
+                          {/* Expand toggle */}
                           <button
                             type="button"
                             onClick={() => setExpandedProduct(isExpanded ? null : String(p.id))}
-                            className="w-full flex items-center gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
+                            className="w-full flex items-center justify-center gap-1 py-2 text-[10px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800 transition-colors"
                           >
-                            {p.image ? (
-                              <img src={p.image} alt={p.title} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-zinc-100 dark:border-zinc-800" />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                                <Package className="w-4 h-4 text-zinc-400" />
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[12px] font-bold text-zinc-900 dark:text-white truncate">{p.title}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {p.type && <span className="text-[9px] text-zinc-400 font-medium">{p.type}</span>}
-                                {p.variants?.length > 1 && <span className="text-[9px] text-zinc-400">{p.variants.length} variantes</span>}
-                              </div>
-                            </div>
-                            <span className="text-[12px] font-black text-emerald-600 dark:text-emerald-400 shrink-0">{priceStr}</span>
+                            {isExpanded ? '▲ Menos' : '▼ Ver detalles'}
                           </button>
 
                           {isExpanded && (
-                            <div className="px-3 pb-3 space-y-2.5 border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
+                            <div className="px-3 pb-3 space-y-2 border-t border-zinc-100 dark:border-zinc-800 pt-2.5">
                               {p.description && (
                                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">{p.description}</p>
                               )}
@@ -586,19 +594,17 @@ export default function CerebroPage() {
                               {p.variants?.length > 0 && (
                                 <div className="space-y-1">
                                   <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Variantes</p>
-                                  <div className="grid grid-cols-1 gap-1">
-                                    {p.variants.map((v: any, vi: number) => (
-                                      <div key={vi} className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 text-[11px]">
-                                        <span className="text-zinc-600 dark:text-zinc-300 font-medium">{v.title || 'Única'}{v.sku ? ` · SKU: ${v.sku}` : ''}</span>
-                                        <div className="flex items-center gap-2">
-                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${v.available ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-950 text-red-500'}`}>
-                                            {v.available ? 'Stock' : 'Sin stock'}
-                                          </span>
-                                          <span className="font-black text-zinc-900 dark:text-white">${parseFloat(v.price || 0).toFixed(2)}</span>
-                                        </div>
+                                  {p.variants.map((v: any, vi: number) => (
+                                    <div key={vi} className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 text-[11px]">
+                                      <span className="text-zinc-600 dark:text-zinc-300 font-medium truncate mr-2">{v.title || 'Única'}{v.sku ? ` · ${v.sku}` : ''}</span>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${v.available ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600' : 'bg-red-100 dark:bg-red-950 text-red-500'}`}>
+                                          {v.available ? '✓' : '✗'}
+                                        </span>
+                                        <span className="font-black text-zinc-900 dark:text-white">${parseFloat(v.price || 0).toFixed(2)}</span>
                                       </div>
-                                    ))}
-                                  </div>
+                                    </div>
+                                  ))}
                                 </div>
                               )}
                               {p.url && (
@@ -612,7 +618,9 @@ export default function CerebroPage() {
                       );
                     })}
                   {products.filter(p => !productSearch || p.title.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
-                    <p className="text-[12px] text-zinc-400 text-center py-6">Sin resultados para "{productSearch}"</p>
+                    <div className="col-span-full text-center py-8">
+                      <p className="text-[12px] text-zinc-400">Sin resultados para "{productSearch}"</p>
+                    </div>
                   )}
                 </div>
               </div>
