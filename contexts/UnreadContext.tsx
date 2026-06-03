@@ -70,11 +70,10 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!url || !token) return;
 
     try {
-      const conversations = await chatwoot.getConversations(url, token, 'open');
-      if (!Array.isArray(conversations)) return;
-
-      // Count ALL open conversations — matches the "Todos" tab in Mensajería
-      const count = conversations.filter((c: any) => c && c.status !== 'resolved').length;
+      // Use meta endpoint — same source as "Todos X" in MensajeriaPage
+      const meta = await chatwoot.getConversationsMeta(url, token, 'open');
+      const count = meta?.all_count ?? meta?.data?.all_count ?? 0;
+      if (typeof count !== 'number') return;
 
       setUnreadCount(count);
       if (profile?.id) {

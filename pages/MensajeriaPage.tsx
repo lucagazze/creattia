@@ -467,6 +467,8 @@ export default function MensajeriaPage() {
         const toAdd = allConversations.filter((c: any) => !prevIds.has(c.id));
         return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
       });
+      // All pages fetched — no more to load
+      setHasMore(false);
     } catch (err) {
       console.error("Error in background fetch of all conversations:", err);
     }
@@ -1828,8 +1830,8 @@ export default function MensajeriaPage() {
               );
             })}
 
-            {/* Scroll sentinel — loads more when reached */}
-            {(filtered.length > currentPage * 25 || hasMore) && (
+            {/* Load more — only when server has more pages */}
+            {hasMore && (
               <div className="flex items-center justify-center py-3 text-[10px] text-zinc-400 gap-1.5">
                 {loadingMore ? (
                   <><Loader2 className="w-3 h-3 animate-spin" /> Cargando más...</>
