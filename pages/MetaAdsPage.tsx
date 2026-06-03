@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { metaAds, daysAgo, today, presetToRange } from '../services/metaAds';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
-import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import {
   Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw, ChevronLeft, ChevronRight, Calendar, ChevronDown
 } from 'lucide-react';
@@ -441,8 +440,7 @@ export default function MetaAdsPage() {
         </div>
       )}
 
-      {/* Loading bar + skeletons */}
-      <TopLoadingBar loading={accountId ? loading : false} />
+      {/* Skeletons while loading */}
       {accountId && loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (

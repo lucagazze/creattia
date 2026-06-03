@@ -55,6 +55,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
 import { AppleLoader } from '../ui/AppleLoader';
 import { TopLoadingBar } from '../ui/TopLoadingBar';
+import { CenteredPageLoader } from '../ui/CenteredPageLoader';
 import { useUnread } from '../../contexts/UnreadContext';
 
 // Retry wrapper — automatically retries downloading a lazy chunk up to 3 times
@@ -120,9 +121,24 @@ const InventarioPage     = lazyWithRetry(() => import('../../pages/InventarioPag
 
 import { useViewAs } from '../../contexts/ViewAsContext';
 
-// Minimal skeleton shown while a lazy page chunk is downloading
-// TopLoadingBar uses position:fixed so it renders at viewport top regardless of DOM position
-const PageSkeleton = () => <TopLoadingBar loading={true} />;
+// Centered loader shown while a lazy page chunk is downloading
+const PageSkeleton = () => (
+  <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white dark:bg-zinc-950">
+    <svg className="w-10 h-10 text-violet-500 mb-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      <polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/>
+    </svg>
+    <div className="w-56">
+      <div className="w-full h-[3px] bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+        <div className="h-full bg-violet-500 rounded-full animate-[loading_1.5s_ease-in-out_infinite]" style={{width:'60%'}}/>
+      </div>
+      <div className="flex justify-between mt-2">
+        <span className="text-[10px] text-zinc-400 font-medium">Cargando</span>
+        <span className="text-[9px] text-zinc-400 uppercase tracking-widest font-black">C.A.R · Algoritmia</span>
+      </div>
+    </div>
+  </div>
+);
 
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);

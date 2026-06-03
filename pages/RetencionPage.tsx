@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { DatePreset, presetToRange, getPrevPeriod, today, daysAgo } from '../services/metaAds';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { klaviyo } from '../services/klaviyo';
 import {
   Calendar, ChevronDown, TrendingUp, Mail, Zap, Package, MousePointerClick, DollarSign, MailOpen, Download
@@ -203,6 +204,7 @@ export default function RetencionPage() {
   };
 
   return (
+    <CenteredPageLoader isLoading={fetchingKlaviyo}>
     <div className="w-full space-y-8 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
@@ -469,5 +471,6 @@ export default function RetencionPage() {
       })()}
       <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
+    </CenteredPageLoader>
   );
 }

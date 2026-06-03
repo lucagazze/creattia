@@ -985,7 +985,6 @@ export default function ComentariosPage() {
         </div>
       )}
 
-      <TopLoadingBar loading={loading} />
 
       {/* Content */}
       {loading ? null : filteredPosts.length === 0 ? (

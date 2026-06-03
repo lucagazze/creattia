@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { ShoppingBag, DollarSign, Package, Calendar, ChevronDown, Receipt, Tag, TrendingUp, CheckCircle, Clock, BarChart2, Download, X, Search, AlertCircle, XCircle, Loader2, RefreshCw, Users, ChevronRight } from 'lucide-react';
 import { ecommerce } from '../services/ecommerce';
 import { getPrevPeriod, today, daysAgo, presetToRange } from '../services/metaAds';
@@ -214,6 +215,7 @@ export default function TiendaPage() {
   }
 
   return (
+    <CenteredPageLoader isLoading={loading}>
     <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
@@ -785,6 +787,7 @@ export default function TiendaPage() {
       )}
       <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
+    </CenteredPageLoader>
   );
 }
 

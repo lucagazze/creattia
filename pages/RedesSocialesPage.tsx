@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { 
   Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X, 
   ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play
@@ -912,6 +913,7 @@ export default function RedesSocialesPage() {
   };
 
   return (
+    <CenteredPageLoader isLoading={igLoading && fbLoading}>
     <div className="space-y-5 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300">
       
       {/* Page Header */}
@@ -2078,5 +2080,6 @@ export default function RedesSocialesPage() {
         </div>
       )}
     </div>
+    </CenteredPageLoader>
   );
 }
