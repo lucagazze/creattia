@@ -248,9 +248,32 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
     label.toLowerCase().includes("cpc") ||
     label.toLowerCase().includes("cpa");
   const isRoasLabel = label.toLowerCase().includes("roas");
+  const isTimeLabel =
+    label.toLowerCase().includes("resp") ||
+    label.toLowerCase().includes("tiempo") ||
+    label.toLowerCase().includes("resolución") ||
+    label.toLowerCase().includes("resolucion") ||
+    label.toLowerCase().includes("promedio");
+
+  const fmtTime = (secs: number) => {
+    if (!secs || isNaN(secs)) return "0m";
+    if (secs < 60) return `${Math.round(secs)}s`;
+    const mins = secs / 60;
+    if (mins < 60) return `${Math.round(mins)}m`;
+    const hrs = mins / 60;
+    if (hrs < 24) {
+      const h = Math.floor(hrs);
+      const m = Math.round((hrs - h) * 60);
+      return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+    const days = Math.floor(hrs / 24);
+    const remHrs = Math.round(hrs % 24);
+    return remHrs > 0 ? `${days}d ${remHrs}h` : `${days}d`;
+  };
 
   const fmtVal = (v: number) => {
     if (v === null || v === undefined || isNaN(v)) return "0";
+    if (isTimeLabel) return fmtTime(v);
     if (isPercentLabel) return `${v.toFixed(2)}%`;
     if (isMoneyLabel)
       return `$${v >= 1000 ? (v / 1000).toFixed(1) + "k" : v.toFixed(0)}`;
@@ -375,8 +398,15 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
                     label.toLowerCase().includes("cpa");
                   const isPercentage = label.toLowerCase().includes("tasa");
                   const isRoas = label.toLowerCase().includes("roas");
+                  const isTime =
+                    label.toLowerCase().includes("resp") ||
+                    label.toLowerCase().includes("tiempo") ||
+                    label.toLowerCase().includes("resolución") ||
+                    label.toLowerCase().includes("resolucion") ||
+                    label.toLowerCase().includes("promedio");
                   const fmtTooltip = (v: number) => {
                     if (typeof v !== "number") return String(v ?? "—");
+                    if (isTime) return fmtTime(v);
                     if (isMoney)
                       return `$ ${v.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
                     if (isCost)
