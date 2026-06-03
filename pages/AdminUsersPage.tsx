@@ -33,6 +33,14 @@ interface ClientOption {
   website_url?: string;
 }
 
+interface PendingInvite {
+  id: number;
+  email: string;
+  business_id: string;
+  business_name: string;
+  created_at: string;
+}
+
 type SortKey = 'date_desc' | 'date_asc' | 'business';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -65,6 +73,7 @@ export default function AdminUsersPage() {
   // Data
   const [users, setUsers] = useState<UserRow[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(false);
 
   // UI state
@@ -75,6 +84,10 @@ export default function AdminUsersPage() {
   // Delete modal
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Delete pending invite
+  const [confirmDeletePendingId, setConfirmDeletePendingId] = useState<number | null>(null);
+  const [deletingPending, setDeletingPending] = useState(false);
 
   // Accept/associate modal
   const [acceptUserId, setAcceptUserId] = useState<string | null>(null);
@@ -109,10 +122,12 @@ export default function AdminUsersPage() {
         { data: authData },
         { data: clientsData },
         { data: bizAccounts },
+        { data: pendingRows },
       ] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
         supabaseAdmin.from('car_clients').select('id, business_name, user_id, website_url').order('business_name'),
-        supabaseAdmin.from('car_business_accounts').select('user_id, email, business_id'),
+        supabaseAdmin.from('car_business_accounts').select('user_id, email, business_id, created_at').not('user_id', 'is', null),
+        supabaseAdmin.from('car_business_accounts').select('id, email, business_id, created_at').is('user_id', null).order('created_at', { ascending: false }),
       ]);
 
       const authUsers = authData?.users ?? [];
@@ -152,6 +167,19 @@ export default function AdminUsersPage() {
         });
       }
 
+      // Build pending invitations (user_id IS NULL)
+      const bizNameMap: Record<string, string> = {};
+      for (const c of clientsData ?? []) {
+        bizNameMap[c.id] = c.business_name ?? c.id;
+      }
+      setPendingInvites((pendingRows ?? []).map(r => ({
+        id: r.id,
+        email: r.email,
+        business_id: r.business_id,
+        business_name: bizNameMap[r.business_id] ?? r.business_id,
+        created_at: r.created_at,
+      })));
+
       setUsers(authUsers.map(u => ({
         id: u.id,
         email: u.email ?? '',
@@ -188,6 +216,27 @@ export default function AdminUsersPage() {
       setDeleting(false);
     }
   };
+
+  // ─── Delete pending invitation ───────────────────────────────────────────
+  const handleDeletePending = async () => {
+    if (!supabaseAdmin || !confirmDeletePendingId) return;
+    setDeletingPending(true);
+    try {
+      const { error } = await supabaseAdmin
+        .from('car_business_accounts')
+        .delete()
+        .eq('id', confirmDeletePendingId);
+      if (error) throw error;
+      setPendingInvites(p => p.filter(i => i.id !== confirmDeletePendingId));
+      setConfirmDeletePendingId(null);
+      showToast('Pre-invitación eliminada ✓');
+    } catch (err: any) {
+      showToast('Error: ' + err.message, 'error');
+    } finally {
+      setDeletingPending(false);
+    }
+  };
+
 
   // ─── Accept / associate user to business ────────────────────────────────
   const handleAccept = async () => {
@@ -372,6 +421,39 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* Delete pending invite confirmation modal */}
+      {confirmDeletePendingId !== null && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => !deletingPending && setConfirmDeletePendingId(null)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-200 dark:border-zinc-700 shadow-2xl p-7 max-w-[380px] w-full animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-500" />
+            </div>
+            <h3 className="text-[16px] font-bold text-center text-zinc-900 dark:text-white mb-1">¿Eliminar pre-invitación?</h3>
+            <p className="text-[12px] text-center text-zinc-500 dark:text-zinc-400 mb-5">
+              Se eliminará <span className="font-bold text-zinc-700 dark:text-zinc-300">{pendingInvites.find(i => i.id === confirmDeletePendingId)?.email}</span> de la lista de espera. Si el usuario ya ingresó no se verá afectado.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeletePendingId(null)}
+                disabled={deletingPending}
+                className="flex-1 h-11 rounded-[12px] border border-zinc-200 dark:border-zinc-700 text-[13px] font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeletePending}
+                disabled={deletingPending}
+                className="flex-1 h-11 rounded-[12px] bg-red-500 hover:bg-red-600 text-white text-[13px] font-bold shadow-lg shadow-red-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deletingPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         <div>
@@ -463,11 +545,12 @@ export default function AdminUsersPage() {
       )}
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Total usuarios', value: users.length, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-500/10' },
-          { label: 'Con negocio', value: users.filter(u => u.businesses.length > 0).length, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+          { label: 'Con acceso', value: users.filter(u => u.businesses.length > 0).length, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
           { label: 'Sin negocio', value: users.filter(u => u.businesses.length === 0).length, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+          { label: 'Invit. pendientes', value: pendingInvites.length, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
         ].map(stat => (
           <div key={stat.label} className={`rounded-2xl ${stat.bg} border border-black/[0.04] dark:border-white/[0.04] px-5 py-4`}>
             <p className={`text-[26px] font-black ${stat.color} leading-none`}>{stat.value}</p>
@@ -509,6 +592,55 @@ export default function AdminUsersPage() {
         </div>
       ) : (
         <>
+          {/* Pre-invitaciones pendientes (user_id IS NULL) */}
+          {pendingInvites.length > 0 && (
+            <section className="space-y-2">
+              <h2 className="text-[11px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.18em] flex items-center gap-2">
+                <UserPlus className="w-3.5 h-3.5" />
+                Pre-invitaciones pendientes de primer ingreso ({pendingInvites.length})
+              </h2>
+              <div className="rounded-2xl border border-blue-200 dark:border-blue-900/60 overflow-hidden bg-white dark:bg-zinc-900/50">
+                {pendingInvites.map((inv, i) => (
+                  <div
+                    key={inv.id}
+                    className={`flex items-center gap-3 px-4 py-3 ${
+                      i < pendingInvites.length - 1 ? 'border-b border-blue-100 dark:border-blue-900/40' : ''
+                    }`}
+                  >
+                    {/* Avatar */}
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-[11px] font-black flex-shrink-0 shadow-sm shadow-blue-500/20">
+                      {inv.email.slice(0, 2).toUpperCase()}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{inv.email}</span>
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 uppercase tracking-wide">Google pendiente</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-[10px] text-zinc-400">
+                          Negocio: <span className="font-semibold text-zinc-600 dark:text-zinc-300">{inv.business_name}</span>
+                        </span>
+                        <span className="text-[10px] text-zinc-400 flex items-center gap-1">
+                          <CalendarDays className="w-2.5 h-2.5" />
+                          {timeAgo(inv.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Delete */}
+                    <button
+                      onClick={() => setConfirmDeletePendingId(inv.id)}
+                      className="h-7 w-7 rounded-lg text-zinc-300 dark:text-zinc-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center justify-center transition-all flex-shrink-0"
+                      title="Eliminar pre-invitación"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {withoutBiz.length > 0 && (
             <section className="space-y-2">
               <h2 className="text-[11px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-[0.18em] flex items-center gap-2">
@@ -555,7 +687,7 @@ export default function AdminUsersPage() {
             </section>
           )}
 
-          {displayed.length === 0 && (
+          {displayed.length === 0 && pendingInvites.length === 0 && (
             <div className="text-center py-16 text-zinc-400">
               <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
               <p className="text-[13px] font-semibold">No se encontraron usuarios</p>
