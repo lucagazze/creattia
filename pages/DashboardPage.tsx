@@ -118,6 +118,8 @@ const ShopifyMetric = ({
   if (isViolet) { activeBgClass = "bg-violet-50/60 dark:bg-violet-500/5"; pulseClass = "bg-violet-500"; }
   if (isRed) { activeBgClass = "bg-rose-50/60 dark:bg-rose-500/5"; pulseClass = "bg-rose-500"; }
 
+  const showShimmer = loading && (!value || value === "...");
+
   return (
     <button
       onClick={onClick}
@@ -160,38 +162,50 @@ const ShopifyMetric = ({
         )}
       </div>
       <div className="flex items-end justify-between gap-2 w-full">
-        <div className="flex flex-col shrink-0">
-          <span className="text-[17px] sm:text-[20px] font-bold text-zinc-900 dark:text-white leading-none mb-2">
-            {loading ? "..." : value}
-          </span>
-          {!loading && change !== undefined && (
-            <div
-              className={`flex items-center gap-1 text-[11px] sm:text-[12px] font-bold ${trend === "up" ? "text-emerald-500" : "text-rose-500"}`}
-            >
-              {trend === "up" ? (
-                <TrendingUp className="w-3 h-3" />
-              ) : (
-                <TrendingUp className="w-3 h-3 rotate-180" />
-              )}
-              {Math.abs(change).toFixed(1)}%
-            </div>
-          )}
-        </div>
-        <div className="h-8 sm:h-10 flex-1 min-w-0 max-w-[250px] ml-2 sm:ml-6 opacity-60 group-hover:opacity-100 transition-opacity">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <Area
-                type="monotone"
-                dataKey="val"
-                stroke={color}
-                fill={color}
-                fillOpacity={0.1}
-                strokeWidth={2}
-                dot={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        {showShimmer ? (
+          <div className="flex flex-col flex-1">
+            <div className="h-6 w-24 rounded-lg shimmer-bg mb-2" />
+            <div className="h-4 w-12 rounded-md shimmer-bg" />
+          </div>
+        ) : (
+          <div className="flex flex-col shrink-0">
+            <span className="text-[17px] sm:text-[20px] font-bold text-zinc-900 dark:text-white leading-none mb-2">
+              {value}
+            </span>
+            {change !== undefined && (
+              <div
+                className={`flex items-center gap-1 text-[11px] sm:text-[12px] font-bold ${trend === "up" ? "text-emerald-500" : "text-rose-500"}`}
+              >
+                {trend === "up" ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : (
+                  <TrendingUp className="w-3 h-3 rotate-180" />
+                )}
+                {Math.abs(change).toFixed(1)}%
+              </div>
+            )}
+          </div>
+        )}
+        
+        {showShimmer ? (
+          <div className="h-8 sm:h-10 flex-1 min-w-0 max-w-[250px] ml-2 sm:ml-6 rounded-lg shimmer-bg opacity-40" />
+        ) : (
+          <div className="h-8 sm:h-10 flex-1 min-w-0 max-w-[250px] ml-2 sm:ml-6 opacity-60 group-hover:opacity-100 transition-opacity">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data}>
+                <Area
+                  type="monotone"
+                  dataKey="val"
+                  stroke={color}
+                  fill={color}
+                  fillOpacity={0.1}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -2373,19 +2387,19 @@ export default function DashboardPage() {
                 {[...Array(4)].map((_, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100/80 dark:border-zinc-800/40 bg-zinc-50/30 dark:bg-zinc-900/10 animate-pulse"
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100/80 dark:border-zinc-800/40 bg-zinc-50/30 dark:bg-zinc-900/10"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-850 shrink-0" />
+                      <div className="w-8 h-8 rounded-lg shimmer-bg shrink-0" />
                       <div className="min-w-0 space-y-1.5">
                         <div className="flex items-center gap-1.5">
-                          <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-800 rounded" />
-                          <div className="h-3.5 w-10 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                          <div className="h-3 w-12 shimmer-bg rounded" />
+                          <div className="h-3.5 w-10 shimmer-bg rounded" />
                         </div>
-                        <div className="h-2.5 w-24 bg-zinc-150 dark:bg-zinc-800 rounded" />
+                        <div className="h-2.5 w-24 shimmer-bg rounded" />
                       </div>
                     </div>
-                    <div className="h-3 w-12 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                    <div className="h-3 w-12 shimmer-bg rounded" />
                   </div>
                 ))}
               </div>
