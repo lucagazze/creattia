@@ -352,11 +352,12 @@ export default function MensajeriaPage() {
 
   // Synchronize the unreadCount state in UnreadContext with the exact current client-side calculation
   useEffect(() => {
-    if (conversations.length > 0) {
+    if (!loading) {
       const count = conversations.filter(isConvUnread).length;
+      console.log('[MensajeriaPage] Synchronized unread count to:', count);
       setUnreadCount(count);
     }
-  }, [conversations, isConvUnread, setUnreadCount]);
+  }, [conversations, isConvUnread, loading, setUnreadCount]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -478,11 +479,13 @@ export default function MensajeriaPage() {
       const remainingPayloads = results.flatMap(r => r.payload);
       const allConversations = [...firstPayload, ...remainingPayloads];
 
-      // Merge silently — no list switching, no flash
+      // Merge silently: update existing items, append new ones — no flash
       setConversations(prev => {
+        const apiMap = new Map(allConversations.map((c: any) => [c.id, c]));
+        const updated = prev.map((c: any) => apiMap.has(c.id) ? apiMap.get(c.id) : c);
         const prevIds = new Set(prev.map((c: any) => c.id));
-        const toAdd = allConversations.filter((c: any) => !prevIds.has(c.id));
-        return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+        const newOnes = allConversations.filter((c: any) => !prevIds.has(c.id));
+        return [...newOnes, ...updated];
       });
       // All pages fetched — no more to load
       setHasMore(false);

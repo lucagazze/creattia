@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { useViewAs } from './ViewAsContext';
+import { useLocation } from 'react-router-dom';
 import { chatwoot } from '../services/chatwoot';
 import { metaAds } from '../services/metaAds';
 
@@ -45,6 +46,7 @@ const POLL_INTERVAL_MS = 20_000; // poll every 20 seconds
 export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
+  const location = useLocation();
 
   const profile = isViewingAs ? viewAsProfile : authProfile;
 
@@ -67,6 +69,12 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [profile?.id]);
 
   const fetchCount = useCallback(async () => {
+    const isMensajeria = window.location.hash.toLowerCase().startsWith('#/mensajeria') || 
+                         location.pathname.toLowerCase().startsWith('/mensajeria');
+    if (isMensajeria) {
+      console.log('[UnreadContext] fetchCount bypassed: active path is /mensajeria');
+      return;
+    }
     const url = profile?.chatwoot_url;
     const token = profile?.chatwoot_token;
     if (!url || !token) return;
@@ -124,7 +132,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch {
       // silently ignore — badge just won't update
     }
-  }, [profile?.id, profile?.chatwoot_url, profile?.chatwoot_token]);
+  }, [profile?.id, profile?.chatwoot_url, profile?.chatwoot_token, location.pathname]);
 
   // Keep a ref to the latest fetchCount function to prevent connection churn in WebSocket
   const fetchCountRef = useRef(fetchCount);
@@ -256,6 +264,16 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [profile?.chatwoot_url, profile?.chatwoot_token]);
+
+  // Trigger fetchCount immediately when navigating away from /mensajeria
+  // to sync the count on other pages without waiting for the next poll.
+  useEffect(() => {
+    const isMensajeria = window.location.hash.toLowerCase().startsWith('#/mensajeria') || 
+                         location.pathname.toLowerCase().startsWith('/mensajeria');
+    if (!isMensajeria) {
+      fetchCount();
+    }
+  }, [location.pathname, fetchCount]);
 
   const fetchCommentsCount = useCallback(async () => {
     if (!profile) return;
