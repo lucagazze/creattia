@@ -2263,14 +2263,6 @@ export default function DashboardPage() {
             {/* Atención expanded chart */}
             {chatwootSummary && activeAtencMetric && (
               <div className="relative mt-2">
-                {loadingAtencChart && (
-                  <div className="absolute inset-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-[20px]">
-                    <div className="flex items-center gap-2 text-[12px] text-zinc-500">
-                      <div className="w-4 h-4 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
-                      Cargando gráfico...
-                    </div>
-                  </div>
-                )}
                 {(() => {
                   const ATENC_METRICS = [
                     { key: 'conversations_count', label: 'Conversaciones', color: '#8b5cf6' },

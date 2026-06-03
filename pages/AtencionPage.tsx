@@ -774,11 +774,6 @@ export default function AtencionPage() {
               {/* Time Series Detail Charts */}
           {expandedMetric && (
             <div className="relative">
-              {loadingChart && (
-                <div className="absolute inset-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-[20px]">
-                  <AppleLoader variant="inline" title="Cargando detalles..." />
-                </div>
-              )}
               {(() => {
                 const config = METRICS_CONFIG.find(m => m.key === expandedMetric);
                 if (!config) return null;
