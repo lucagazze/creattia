@@ -208,7 +208,7 @@ export const MainLayout = () => {
               <div>
                 <h2 className="text-[18px] font-bold mb-1.5">Registro de Acceso</h2>
                 <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Para poder ingresar al ecosistema de Algoritmia, por favor completá tus datos de acceso.
+                  Para ingresar al ecosistema de Algoritmia, por favor completá tus datos <strong className="text-violet-500 dark:text-violet-400 font-bold">por única vez</strong> para enviar la solicitud de acceso.
                 </p>
               </div>
 
@@ -235,13 +235,13 @@ export const MainLayout = () => {
 
               <div className="text-left space-y-1.5">
                 <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                  URL del negocio (sitio web o red social)
+                  Nombre del negocio
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     required
-                    placeholder="ej. www.minegocio.com"
+                    placeholder="ej. Mi Negocio"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     disabled={savingBusinessName}

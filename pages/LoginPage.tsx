@@ -99,7 +99,7 @@ export default function LoginPage() {
       darkMode ? 'bg-[#080808]' : 'bg-[#f2f2f7]'
     }`}>
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-5 w-full">
+      <header className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-5 w-full">
         <div className="flex items-center gap-2.5">
           <img
             src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
@@ -126,31 +126,31 @@ export default function LoginPage() {
       </header>
  
       {/* Main */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12 overflow-y-auto">
-        <div className="w-full max-w-[380px] animate-in fade-in slide-in-from-bottom-4 duration-500 my-auto py-6">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-4 sm:pb-12 overflow-hidden">
+        <div className="w-full max-w-[380px] animate-in fade-in slide-in-from-bottom-4 duration-500 my-auto py-2 sm:py-6">
  
           {/* Logo + title */}
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-4 sm:mb-8">
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-14 h-14 object-contain mb-5"
+              className="w-10 h-10 mb-2 sm:w-14 sm:h-14 sm:mb-5 object-contain"
             />
-            <h1 className={`text-[22px] font-bold tracking-tight mb-1 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+            <h1 className={`text-[18px] sm:text-[22px] font-bold tracking-tight mb-0.5 sm:mb-1 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
               Bienvenido
             </h1>
-            <p className={`text-[13px] font-medium text-center ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+            <p className={`text-[11px] sm:text-[13px] font-medium text-center ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
               Ingresá al ecosistema de Algoritmia
             </p>
           </div>
  
           {/* Form card */}
-          <div className={`rounded-3xl p-6 ${
+          <div className={`rounded-2xl p-4 sm:rounded-3xl sm:p-6 ${
             darkMode
               ? 'bg-white/[0.04] border border-white/[0.07] shadow-2xl'
               : 'bg-white border border-zinc-200/60 shadow-xl shadow-zinc-200/40'
           }`}>
-            <div className="space-y-5">
+            <div className="space-y-3.5 sm:space-y-5">
               {/* Google GSI Container with Transparent Overlay */}
               <div className="relative w-full">
                 {!isGoogleConfigured ? (
@@ -158,7 +158,7 @@ export default function LoginPage() {
                     Configuración requerida: Por favor agrega la variable <code>VITE_GOOGLE_CLIENT_ID</code> en tu archivo <code>.env</code> o panel de Vercel.
                   </div>
                 ) : (
-                  <div className="relative w-full h-12 overflow-hidden rounded-2xl">
+                  <div className="relative w-full h-11 sm:h-12 overflow-hidden rounded-2xl">
                     {/* 1. Our beautiful original HTML button */}
                     <button
                       type="button"
@@ -197,57 +197,57 @@ export default function LoginPage() {
               </div>
 
               {/* Divider */}
-              <div className="relative flex py-1 items-center">
+              <div className="relative flex py-0.5 sm:py-1 items-center">
                 <div className="flex-grow border-t border-zinc-200/60 dark:border-white/[0.06]"></div>
                 <span className="flex-shrink mx-3 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">¿Cómo funciona?</span>
                 <div className="flex-grow border-t border-zinc-200/60 dark:border-white/[0.06]"></div>
               </div>
 
               {/* Instruction list */}
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              <div className="space-y-2.5 sm:space-y-4">
+                <div className="flex gap-2 sm:gap-3">
+                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${
                     darkMode ? 'bg-white/5 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
                   }`}>
-                    <Info className="w-4 h-4" />
+                    <Info className="w-3.5 h-3.5 sm:w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className={`text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
+                    <h4 className={`text-[11px] sm:text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
                       1. Ingreso único
                     </h4>
-                    <p className={`text-[11px] leading-relaxed mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    <p className={`text-[10px] sm:text-[11px] leading-snug sm:leading-relaxed mt-0 sm:mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
                       Hacé clic arriba para autenticarte. Podés usar tu cuenta personal de Google (Gmail).
                     </p>
                   </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                <div className="flex gap-2 sm:gap-3">
+                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${
                     darkMode ? 'bg-white/5 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
                   }`}>
-                    <UserCheck className="w-4 h-4" />
+                    <UserCheck className="w-3.5 h-3.5 sm:w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className={`text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
+                    <h4 className={`text-[11px] sm:text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
                       2. Vinculación automática
                     </h4>
-                    <p className={`text-[11px] leading-relaxed mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    <p className={`text-[10px] sm:text-[11px] leading-snug sm:leading-relaxed mt-0 sm:mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
                       Si el correo de tu cuenta de Google ya fue invitado por el administrador, ingresarás directamente a la plataforma de tu negocio.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                <div className="flex gap-2 sm:gap-3">
+                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${
                     darkMode ? 'bg-white/5 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
                   }`}>
-                    <HelpCircle className="w-4 h-4" />
+                    <HelpCircle className="w-3.5 h-3.5 sm:w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className={`text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
+                    <h4 className={`text-[11px] sm:text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
                       ¿Sos un usuario nuevo?
                     </h4>
-                    <p className={`text-[11px] leading-relaxed mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    <p className={`text-[10px] sm:text-[11px] leading-snug sm:leading-relaxed mt-0 sm:mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
                       Si ingresás por primera vez y aún no estás registrado, verás una pantalla de <strong>"Acceso pendiente"</strong>. Esperá a que el administrador te acepte la solicitud directamente.
                     </p>
                   </div>
@@ -256,7 +256,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="flex justify-center mt-5">
+          <div className="flex justify-center mt-3 sm:mt-5">
             <a
               href="https://wa.me/5493476245523?text=Hola,%20necesito%20ayuda%20para%20ingresar%20al%20sistema%20de%20clientes%20de%20Algoritmia."
               target="_blank"
