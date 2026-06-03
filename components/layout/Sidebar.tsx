@@ -31,16 +31,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const hasChatwoot  = !!(activeProfile?.chatwoot_url && activeProfile?.chatwoot_token);
   const hasMeta      = !!(activeProfile?.meta_account_id);
   const hasKlaviyo   = !!(activeProfile?.klaviyo_api_key);
-  const hasEcommerce = !!(activeProfile?.shopify_domain || activeProfile?.tiendanube_store_id);
+  const hasEcommerce = !!(
+    activeProfile?.shopify_domain ||
+    activeProfile?.tiendanube_store_id ||
+    (activeProfile as any)?.wordpress_url ||
+    activeProfile?.ecommerce_platform === 'wordpress'
+  );
+  const hasRedes = !!(
+    activeProfile?.fb_page_id ||
+    (activeProfile as any)?.ig_business_id ||
+    (activeProfile as any)?.ig_username
+  );
 
   // Sidebar Menu Items — filtered by connected channels
   const principalItems = [
     { path: '/',               icon: Home,          label: 'Inicio',          show: true },
     { path: '/mensajeria',     icon: MessageSquare, label: 'Mensajería',      show: hasChatwoot, badge: unreadCount },
     { path: '/comentarios',    icon: MessageCircle, label: 'Comentarios',     show: hasChatwoot, badge: pendingCommentsCount },
-    { path: '/redes-sociales', icon: Instagram,     label: 'Redes Sociales',  show: hasChatwoot },
+    { path: '/redes-sociales', icon: Instagram,     label: 'Redes Sociales',  show: hasRedes },
     { path: '/contactos',      icon: Users,         label: 'Contactos',       show: hasChatwoot },
-    { path: '/inventario',     icon: Package,       label: 'Inventario',      show: true },
+    { path: '/inventario',     icon: Package,       label: 'Inventario',      show: hasEcommerce },
   ].filter(i => i.show);
 
   const metricasItems = [

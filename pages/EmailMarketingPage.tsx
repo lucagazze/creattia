@@ -1087,12 +1087,7 @@ export default function EmailMarketingPage() {
   }, [activeProfile?.id, apiKey, sync]);
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <div className="w-10 h-10 border-[3px] border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
-        <p className="text-[13px] font-semibold text-zinc-500 dark:text-zinc-400">Cargando Email Marketing…</p>
-      </div>
-    );
+    return <CenteredPageLoader isLoading={true}>{null}</CenteredPageLoader>;
   }
 
   // 1. Klaviyo Monitor Render (if API key is present)

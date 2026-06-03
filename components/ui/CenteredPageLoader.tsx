@@ -66,7 +66,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
         <img
           src="/assets/logoSinFondo.png"
           alt="Algoritmia"
-          className="w-24 h-24 object-contain"
+          className="w-14 h-14 object-contain"
           style={{
             animation: 'alg-bounce 0.85s ease-in-out infinite',
             filter: 'drop-shadow(0 0 18px rgba(139,92,246,0.55))',
