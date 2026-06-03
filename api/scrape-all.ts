@@ -10,28 +10,51 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 function cleanHtml(html: string): string {
   let text = html;
+  // Remove non-content sections
   text = text.replace(/<head[\s\S]*?<\/head>/gi, '');
   text = text.replace(/<script[\s\S]*?<\/script>/gi, '');
   text = text.replace(/<style[\s\S]*?<\/style>/gi, '');
   text = text.replace(/<nav[\s\S]*?<\/nav>/gi, '');
   text = text.replace(/<footer[\s\S]*?<\/footer>/gi, '');
+  text = text.replace(/<header[\s\S]*?<\/header>/gi, '');
+  text = text.replace(/<aside[\s\S]*?<\/aside>/gi, '');
+  // Remove all HTML tags
   text = text.replace(/<[^>]+>/g, ' ');
+  // Decode common HTML entities
+  text = text.replace(/&#36;/g, '$').replace(/&#038;/g, '&').replace(/&amp;/g, '&')
+             .replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&#\d+;/g, ' ');
+  // Collapse whitespace and remove repeated short phrases (navigation repetition)
   text = text.replace(/\s+/g, ' ').trim();
-  return text.slice(0, 15000); // Limit to 15k characters per page
+  // Remove obviously repeated navigation text (same phrase 3+ times)
+  const lines = text.split(/\s{2,}/);
+  const seen = new Map<string, number>();
+  const filtered = lines.filter(line => {
+    const key = line.trim().slice(0, 50);
+    if (key.length < 10) return false;
+    const count = (seen.get(key) || 0) + 1;
+    seen.set(key, count);
+    return count <= 1;
+  });
+  return filtered.join(' ').trim().slice(0, 12000);
 }
+
+// File extensions and paths to skip when extracting links
+const SKIP_EXTENSIONS = /\.(css|js|jpg|jpeg|png|gif|svg|webp|ico|woff|woff2|ttf|eot|pdf|zip|xml|json|map)$/i;
+const SKIP_PATHS = /\/(wp-content|wp-includes|wp-json|wp-admin|feed|tag|author|page\/\d+|cart|checkout|mi-cuenta|my-account|wishlist|compare|carrito)\//i;
+const SKIP_PRODUCT_PAGES = /\/(product|producto|shop\/|tienda\/|categoria-producto|product-category|collections\/|collection\/).+/i;
 
 function extractInternalLinks(html: string, baseUrl: string): string[] {
   const links: string[] = [];
   const regex = /href=["']([^"']+)["']/gi;
   let match;
-  
+
   let baseDomain = '';
   try {
     baseDomain = baseUrl.replace(/^https?:\/\//i, '').split('/')[0];
   } catch (e) {
     return [];
   }
-  
+
   while ((match = regex.exec(html)) !== null) {
     let href = match[1].trim();
     if (href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) {
@@ -46,6 +69,11 @@ function extractInternalLinks(html: string, baseUrl: string): string[] {
         href = `${baseUrl.replace(/\/$/, '')}/${href.replace(/^\//, '')}`;
       }
       href = href.split('?')[0].split('#')[0];
+      // Skip static files, WordPress internals, and product/category pages
+      const path = href.replace(/^https?:\/\/[^/]+/, '');
+      if (SKIP_EXTENSIONS.test(href)) continue;
+      if (SKIP_PATHS.test(path)) continue;
+      if (SKIP_PRODUCT_PAGES.test(path)) continue;
       if (!links.includes(href) && href !== baseUrl && href !== `${baseUrl}/` && href.startsWith('http')) {
         links.push(href);
       }
@@ -55,24 +83,18 @@ function extractInternalLinks(html: string, baseUrl: string): string[] {
 }
 
 function prioritizeLinks(links: string[]): string[] {
-  // High priority: FAQ, contact, about, shipping, policies
+  // Only high-priority informational pages — no product/catalog pages
   const highPriority = [
     /faq/i, /pregunta/i, /ayuda/i, /soporte/i, /help/i, /question/i,
     /nosotros/i, /about/i, /quienes/i, /contacto/i, /contact/i,
     /envio/i, /shipping/i, /entrega/i, /delivery/i,
     /devoluc/i, /refund/i, /cambio/i, /retorn/i, /return/i,
     /garantia/i, /warranty/i,
-    /politic/i, /terms/i, /condicion/i, /aviso/i,
-    /pago/i, /payment/i, /cuotas/i,
-    /precio/i, /price/i, /tarifa/i,
-  ];
-  // Lower priority: catalog/products (we skip these now)
-  const lowPriority = [
-    /product/i, /tienda/i, /shop/i, /catalog/i, /collection/i,
+    /politic/i, /terms/i, /condicion/i, /aviso/i, /legal/i,
+    /pago/i, /payment/i, /cuotas/i, /financ/i,
   ];
   const high = links.filter(link => highPriority.some(r => r.test(link)));
-  const low = links.filter(link => !high.includes(link) && lowPriority.some(r => r.test(link)));
-  return [...new Set([...high, ...low])].slice(0, 15);
+  return [...new Set(high)].slice(0, 12);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
