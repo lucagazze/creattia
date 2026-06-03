@@ -138,6 +138,7 @@ export default function AtencionPage() {
   // Traffic heatmap: rows = last 7 days (date strings), cols = 24h
   const [heatmapRows, setHeatmapRows] = useState<{ date: string; label: string; hours: number[] }[]>([]);
   const [loadingHeatmap, setLoadingHeatmap] = useState(false);
+  const [heatmapHover, setHeatmapHover] = useState<{ day: string; hour: number; val: number; x: number; y: number } | null>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -370,7 +371,8 @@ export default function AtencionPage() {
         const sinceSecs = untilSecs - 7 * 24 * 3600;
 
         const data = await chatwoot.getHeatmapData(
-          profile.chatwoot_url, profile.chatwoot_token, sinceSecs, untilSecs
+          profile.chatwoot_url, profile.chatwoot_token, sinceSecs, untilSecs,
+          selectedInboxId !== 'all' ? selectedInboxId : undefined
         );
 
         // Build rows keyed by local date string YYYY-MM-DD
@@ -406,7 +408,7 @@ export default function AtencionPage() {
     };
     fetchHeatmap();
     return () => { cancelled = true; };
-  }, [profile?.chatwoot_url, profile?.chatwoot_token, loading, refreshKey]);
+  }, [profile?.chatwoot_url, profile?.chatwoot_token, loading, refreshKey, selectedInboxId]);
 
   const handleApplyDate = () => {
     setActivePreset(pendingPreset);
@@ -749,15 +751,18 @@ export default function AtencionPage() {
           {(loadingHeatmap || heatmapRows.length > 0) && (() => {
             const allVals = heatmapRows.flatMap(r => r.hours);
             const maxVal = Math.max(1, ...allVals);
+            const activeInboxName = selectedInboxId !== 'all' ? inboxes.find(i => String(i.id) === selectedInboxId)?.name : null;
             return (
-              <div className="bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-3xl p-5 shadow-sm">
+              <div className="bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-3xl p-5 shadow-sm relative">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center">
                     <Clock className="w-4 h-4 text-violet-500" />
                   </div>
                   <div>
                     <h3 className="text-[14px] font-bold text-zinc-900 dark:text-white">Tráfico de Conversación</h3>
-                    <p className="text-[11px] text-zinc-400">Conversaciones por hora — últimos 7 días</p>
+                    <p className="text-[11px] text-zinc-400">
+                      {activeInboxName ? `${activeInboxName} — ` : ''}Conversaciones por hora — últimos 7 días
+                    </p>
                   </div>
                 </div>
                 {loadingHeatmap ? (
@@ -782,24 +787,41 @@ export default function AtencionPage() {
                             const intensity = val / maxVal;
                             const bg = val === 0
                               ? 'bg-zinc-100 dark:bg-zinc-800/50'
-                              : intensity > 0.75
-                              ? 'bg-violet-600'
-                              : intensity > 0.5
-                              ? 'bg-violet-500'
-                              : intensity > 0.25
-                              ? 'bg-violet-400'
+                              : intensity > 0.75 ? 'bg-violet-600'
+                              : intensity > 0.5  ? 'bg-violet-500'
+                              : intensity > 0.25 ? 'bg-violet-400'
                               : 'bg-violet-300 dark:bg-violet-900/60';
+                            const isHov = heatmapHover?.day === row.date && heatmapHover?.hour === h;
                             return (
                               <div
                                 key={h}
-                                className={`flex-1 mx-px h-7 rounded-sm ${bg} cursor-default transition-opacity hover:opacity-80`}
-                                title={`${row.label} ${h}:00 — ${val} conv.`}
-                              />
+                                className={`relative flex-1 mx-px h-7 rounded-sm ${bg} cursor-default transition-all ${isHov ? 'ring-1 ring-white/60 brightness-110' : ''} flex items-center justify-center`}
+                                onMouseEnter={(e) => {
+                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  setHeatmapHover({ day: row.date, hour: h, val, x: rect.left + rect.width / 2, y: rect.top });
+                                }}
+                                onMouseLeave={() => setHeatmapHover(null)}
+                              >
+                                {val > 0 && (
+                                  <span className={`text-[8px] font-black leading-none select-none ${intensity > 0.4 ? 'text-white/90' : 'text-violet-700 dark:text-violet-300'}`}>
+                                    {val}
+                                  </span>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+                {/* Fast tooltip */}
+                {heatmapHover && (
+                  <div
+                    className="fixed z-50 pointer-events-none px-2.5 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-800 border border-white/10 shadow-xl text-white text-[11px] font-bold whitespace-nowrap"
+                    style={{ left: heatmapHover.x, top: heatmapHover.y - 36, transform: 'translateX(-50%)' }}
+                  >
+                    {heatmapHover.val} conv. · {heatmapHover.hour}:00 hs
                   </div>
                 )}
               </div>
@@ -824,8 +846,7 @@ export default function AtencionPage() {
                   <tr className="border-b border-black/[0.04] dark:border-white/[0.04] text-zinc-400 font-bold">
                     <th className="pb-3 pr-2">Canal / Bandeja</th>
                     <th className="pb-3 px-2 text-right">Chats</th>
-                    <th className="pb-3 px-2 text-right">Resp. Prom.</th>
-                    <th className="pb-3 pl-2 text-right">Res. Prom.</th>
+                    <th className="pb-3 pl-2 text-right">Resp. Prom.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.03] dark:divide-white/[0.03]">
@@ -840,17 +861,14 @@ export default function AtencionPage() {
                       <td className="py-3 px-2 text-right font-black text-violet-600 dark:text-violet-400">
                         {inbox.conversations_count !== undefined ? inbox.conversations_count : '-'}
                       </td>
-                      <td className="py-3 px-2 text-right text-zinc-500 dark:text-zinc-400">
-                        {inbox.avg_first_response_time ? formatDuration(inbox.avg_first_response_time) : '-'}
-                      </td>
                       <td className="py-3 pl-2 text-right text-zinc-500 dark:text-zinc-400">
-                        {inbox.avg_resolution_time ? formatDuration(inbox.avg_resolution_time) : '-'}
+                        {inbox.avg_first_response_time ? formatDuration(inbox.avg_first_response_time) : '-'}
                       </td>
                     </tr>
                   ))}
                   {inboxBreakdowns.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-6 text-center text-zinc-400">
+                      <td colSpan={3} className="py-6 text-center text-zinc-400">
                         {loadingBreakdowns ? 'Cargando canales...' : 'No hay canales conectados.'}
                       </td>
                     </tr>

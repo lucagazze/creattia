@@ -50,7 +50,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const LAST_ACTIVE_KEY = 'car_last_active';
+    const MAX_IDLE_DAYS = 15;
+
+    const checkIdleTimeout = async (hasSession: boolean) => {
+      if (!hasSession) {
+        localStorage.removeItem(LAST_ACTIVE_KEY);
+        return false;
+      }
+      const lastActive = localStorage.getItem(LAST_ACTIVE_KEY);
+      const now = Date.now();
+      if (lastActive) {
+        const idleDays = (now - parseInt(lastActive, 10)) / (1000 * 60 * 60 * 24);
+        if (idleDays > MAX_IDLE_DAYS) {
+          await supabase.auth.signOut();
+          localStorage.removeItem(LAST_ACTIVE_KEY);
+          return true; // was signed out
+        }
+      }
+      localStorage.setItem(LAST_ACTIVE_KEY, String(now));
+      return false;
+    };
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const signedOut = await checkIdleTimeout(!!session);
+      if (signedOut) { setLoading(false); return; }
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) loadProfile(session.user.id, session.user.email).finally(() => setLoading(false));
@@ -61,6 +85,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()));
         setLoading(true);
         loadProfile(session.user.id, session.user.email).finally(() => setLoading(false));
       } else {

@@ -260,13 +260,17 @@ export default function CerebroPage() {
     try { return new Date(d).toLocaleString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' hs'; } catch { return d; }
   };
 
+  const ecommercePlatform: string = (profile as any)?.ecommerce_platform || '';
+  const cleanPreview = (v: string) => v.replace(/#{1,6} ?/g, '').replace(/\*\*/g, '').trim();
+
   const sections = [
     { key: 'desc',  label: 'Descripción del Negocio', icon: Info,        color: 'blue',   value: businessDescription, tip: 'Completalo manualmente o usá "Escanear y Entrenar"' },
     { key: 'tone',  label: 'Tono y Estilo',           icon: MessageSquare, color: 'violet', value: toneInstructions,   tip: 'El escaneo lo genera automáticamente del sitio web' },
     { key: 'offrs', label: 'Ofertas y Promociones',   icon: Tag,          color: 'amber',  value: offers,              tip: 'Escribilo manualmente con las ofertas vigentes' },
     { key: 'faq',   label: 'Preguntas Frecuentes',    icon: BookOpen,     color: 'emerald',value: faq,                 tip: 'El escaneo extrae las FAQs del sitio automáticamente' },
     { key: 'web',   label: 'Memoria Web',             icon: Globe,        color: 'indigo', value: scrapedContent,      tip: 'Usá "Escanear y Entrenar" para extraer el contenido del sitio' },
-    { key: 'social',label: 'Memoria Social',          icon: Instagram,    color: 'pink',   value: instagramContext,     tip: 'Vinculá Instagram en la configuración y luego escaneá' },
+    { key: 'social',label: 'Memoria Social',          icon: Instagram,    color: 'pink',   value: instagramContext,    tip: 'Vinculá Instagram en la configuración y luego escaneá' },
+    { key: 'cat',   label: 'Catálogo Conectado',      icon: ShoppingBag,  color: 'emerald',value: ecommercePlatform,   tip: 'Conectá Shopify, WooCommerce o Tiendanube desde Admin → Configuración' },
   ];
   const contextScore = sections.filter(s => s.value).length;
   const contextPct = Math.round((contextScore / sections.length) * 100);
@@ -317,7 +321,7 @@ export default function CerebroPage() {
             </div>
             <div className="text-left">
               <p className="text-[11px] font-black text-zinc-700 dark:text-zinc-300">Contexto IA</p>
-              <p className="text-[10px] text-zinc-400">{contextScore}/6 secciones</p>
+              <p className="text-[10px] text-zinc-400">{contextScore}/{sections.length} secciones</p>
             </div>
             <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
           </button>
@@ -668,7 +672,7 @@ export default function CerebroPage() {
                 </div>
                 <div>
                   <p className="text-[15px] font-black text-zinc-900 dark:text-white">Contexto de IA</p>
-                  <p className="text-[11px] text-zinc-400">{contextScore} de {sections.length} secciones completas</p>
+                  <p className="text-[11px] text-zinc-400">{contextScore}/{sections.length} secciones completas</p>
                 </div>
               </div>
               <button onClick={() => setShowContextModal(false)} className="p-1.5 text-zinc-400 hover:text-zinc-700 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
@@ -679,6 +683,8 @@ export default function CerebroPage() {
               {sections.map(s => {
                 const filled = !!s.value;
                 const colorMap: Record<string, string> = { blue: 'text-blue-500 bg-blue-500/10', violet: 'text-violet-500 bg-violet-500/10', amber: 'text-amber-500 bg-amber-500/10', emerald: 'text-emerald-500 bg-emerald-500/10', indigo: 'text-indigo-500 bg-indigo-500/10', pink: 'text-pink-500 bg-pink-500/10' };
+                const preview = filled ? cleanPreview(s.value) : '';
+                const platformLabel: Record<string, string> = { shopify: 'Shopify', wordpress: 'WooCommerce', tiendanube: 'Tiendanube' };
                 return (
                   <div key={s.key} className={`flex items-center gap-3 p-3 rounded-xl ${filled ? 'bg-emerald-50/60 dark:bg-emerald-950/10' : 'bg-zinc-50 dark:bg-zinc-800/40'}`}>
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${colorMap[s.color]}`}>
@@ -687,7 +693,14 @@ export default function CerebroPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">{s.label}</p>
                       {!filled && <p className="text-[10px] text-zinc-400 leading-snug">{s.tip}</p>}
-                      {filled && <p className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate">{s.value.slice(0, 60)}{s.value.length > 60 ? '…' : ''}</p>}
+                      {filled && s.key === 'cat' && (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold capitalize">
+                          {platformLabel[s.value] || s.value} — La IA puede ver el catálogo
+                        </p>
+                      )}
+                      {filled && s.key !== 'cat' && (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate">{preview.slice(0, 70)}{preview.length > 70 ? '…' : ''}</p>
+                      )}
                     </div>
                     {filled
                       ? <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
