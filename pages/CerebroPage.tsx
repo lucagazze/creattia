@@ -58,6 +58,7 @@ export default function CerebroPage() {
   const [scanDone, setScanDone] = useState(false);
   const [scanError, setScanError] = useState('');
   const [scanPreview, setScanPreview] = useState<{ description?: string; tone?: string; offers?: string; faq?: string } | null>(null);
+  const [scanLog, setScanLog] = useState<string[]>([]);
 
   // Contexto modal
   const [showContextModal, setShowContextModal] = useState(false);
@@ -159,48 +160,96 @@ export default function CerebroPage() {
     setScanDone(false);
     setScanError('');
     setScanPreview(null);
+    setScanLog([]);
 
-    // Simulate step progression while waiting for API
-    const stepTimings = [0, 8000, 16000, 24000];
-    stepTimings.forEach((t, i) => {
-      if (i > 0) setTimeout(() => { if (i < SCAN_STEPS.length) setScanCurrentStep(i); }, t);
-    });
+    const addLog = (msg: string) => setScanLog(prev => [...prev, msg]);
 
     try {
-      const res = await fetch('/api/scrape-all', {
+      // ── STEP 1: Scan website ──────────────────────────────────────────
+      setScanCurrentStep(0);
+      addLog(`Abriendo ${websiteUrl}...`);
+
+      const webRes = await fetch('/api/scrape-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: profile.id, url: websiteUrl })
+        body: JSON.stringify({ clientId: profile.id, url: websiteUrl, action: 'scrape-website' })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error desconocido');
+      const webData = await webRes.json();
+      if (!webRes.ok) throw new Error(webData.error || 'Error escaneando sitio web');
 
-      setScanCurrentStep(SCAN_STEPS.length - 1);
+      addLog(`✓ Página de inicio leída`);
+      if (webData.pages_visited?.length) {
+        webData.pages_visited.forEach((p: string) => {
+          try { addLog(`  → ${new URL(p).pathname}`); } catch { addLog(`  → ${p}`); }
+        });
+        addLog(`✓ ${webData.pages_visited.length} subpáginas escaneadas`);
+      }
+      const webLen = (webData.scraped_content || '').length;
+      addLog(`✓ ${webLen.toLocaleString()} caracteres extraídos`);
+      setScrapedContent(webData.scraped_content || '');
 
-      // Parse result
-      const newDesc = data.business_description || '';
-      const rawCI: string = data.custom_instructions || '';
-      let newTone = '', newOffers = offers, newFaq = faq;
-      try {
-        const p = JSON.parse(rawCI);
-        newTone = p.tone || '';
-        newOffers = p.offers || offers;
-        newFaq = p.faq || faq;
-      } catch { newTone = rawCI; }
+      // ── STEP 2: Social media ──────────────────────────────────────────
+      setScanCurrentStep(1);
+      addLog(`Buscando publicaciones de Instagram y Facebook...`);
 
-      setScanPreview({ description: newDesc, tone: newTone, offers: newOffers, faq: newFaq });
+      const socialRes = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: profile.id, url: websiteUrl, action: 'sync-instagram' })
+      });
+      const socialData = await socialRes.json();
+      const socialContent: string = socialData.instagram_context || '';
+      if (socialContent && socialContent !== 'Redes sociales no vinculadas.') {
+        addLog(`✓ Publicaciones procesadas`);
+      } else {
+        addLog(`  ℹ Redes sociales no vinculadas (opcional)`);
+      }
+      setInstagramContext(socialContent);
 
-      // Apply results
-      setScrapedContent(data.scraped_content || '');
-      setInstagramContext(data.instagram_context || '');
-      setBusinessDescription(newDesc);
-      setToneInstructions(newTone);
-      setOffers(newOffers);
-      setFaq(newFaq);
-      setBrainUpdatedAt(data.brain_updated_at || null);
+      // ── STEP 3: Generate fields with AI ──────────────────────────────
+      setScanCurrentStep(2);
+      addLog(`Analizando con IA...`);
+      addLog(`  → Extrayendo descripción del negocio`);
+      addLog(`  → Detectando tono y estilo`);
+      addLog(`  → Buscando ofertas activas`);
+      addLog(`  → Extrayendo preguntas frecuentes`);
+
+      const fieldsRes = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: profile.id, action: 'generate-fields' })
+      });
+      const fieldsData = await fieldsRes.json();
+      if (!fieldsRes.ok) throw new Error(fieldsData.error || 'Error generando campos de IA');
+
+      if (fieldsData.business_description) addLog(`✓ Descripción generada`);
+      if (fieldsData.tone) addLog(`✓ Tono y estilo definido`);
+      if (fieldsData.offers) addLog(`✓ Ofertas detectadas`);
+      else addLog(`  ℹ Sin ofertas activas detectadas`);
+      if (fieldsData.faq) {
+        const faqCount = (fieldsData.faq.match(/^P:/gm) || []).length;
+        addLog(`✓ ${faqCount} preguntas frecuentes extraídas`);
+      }
+
+      setBusinessDescription(fieldsData.business_description || '');
+      setToneInstructions(fieldsData.tone || '');
+      setOffers(fieldsData.offers || '');
+      setFaq(fieldsData.faq || '');
+      setBrainUpdatedAt(fieldsData.brain_updated_at || null);
+
+      // ── STEP 4: Done ──────────────────────────────────────────────────
+      setScanCurrentStep(3);
+      addLog(`✓ Todo guardado en el Cerebro de IA`);
+
+      setScanPreview({
+        description: fieldsData.business_description,
+        tone: fieldsData.tone,
+        offers: fieldsData.offers,
+        faq: fieldsData.faq,
+      });
       setScanDone(true);
     } catch (err: any) {
-      setScanError(err.message || 'Error al entrenar');
+      setScanError(err.message || 'Error al escanear');
     } finally {
       setScanningAll(false);
     }
@@ -489,39 +538,66 @@ export default function CerebroPage() {
       {showScanModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { if (!scanningAll) setShowScanModal(false); }} />
-          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-[560px] w-full shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-[620px] w-full shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${scanningAll ? 'bg-violet-500/10' : scanDone ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
                   {scanningAll ? <RefreshCw className="w-4 h-4 text-violet-500 animate-spin" /> : scanDone ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
                 </div>
                 <div>
-                  <p className="text-[14px] font-black text-zinc-900 dark:text-white">{scanningAll ? 'Escaneando...' : scanDone ? 'Escaneo completado' : 'Error al escanear'}</p>
-                  <p className="text-[11px] text-zinc-400">{websiteUrl}</p>
+                  <p className="text-[14px] font-black text-zinc-900 dark:text-white">
+                    {scanningAll ? 'Escaneando en progreso...' : scanDone ? '¡Escaneo completado!' : 'Error al escanear'}
+                  </p>
+                  <p className="text-[11px] text-zinc-400 truncate max-w-[360px]">{websiteUrl}</p>
                 </div>
               </div>
               {!scanningAll && <button onClick={() => setShowScanModal(false)} className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X className="w-4 h-4" /></button>}
             </div>
 
-            {/* Steps */}
-            <div className="p-5 space-y-3">
-              {SCAN_STEPS.map((step, i) => {
-                const done = scanDone ? true : i < scanCurrentStep;
-                const current = !scanDone && i === scanCurrentStep && scanningAll;
-                const pending = !scanDone && i > scanCurrentStep;
-                return (
-                  <div key={step.id} className={`flex items-start gap-3 p-3 rounded-xl transition-all ${current ? 'bg-violet-50 dark:bg-violet-950/30' : done ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : 'opacity-40'}`}>
-                    <div className="shrink-0 mt-0.5">
-                      {done ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : current ? <Loader2 className="w-4 h-4 text-violet-500 animate-spin" /> : <Circle className="w-4 h-4 text-zinc-300" />}
+            {/* Steps + Log (side by side when wide) */}
+            <div className="flex gap-0 md:flex-row flex-col">
+
+              {/* Steps column */}
+              <div className="p-5 space-y-2 md:w-[220px] shrink-0 border-r border-zinc-100 dark:border-zinc-800">
+                {SCAN_STEPS.map((step, i) => {
+                  const done = scanDone ? true : i < scanCurrentStep;
+                  const current = !scanDone && i === scanCurrentStep && scanningAll;
+                  return (
+                    <div key={step.id} className={`flex items-start gap-2.5 p-2.5 rounded-xl transition-all ${current ? 'bg-violet-50 dark:bg-violet-950/30' : done ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : 'opacity-35'}`}>
+                      <div className="shrink-0 mt-0.5">
+                        {done ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : current ? <Loader2 className="w-3.5 h-3.5 text-violet-500 animate-spin" /> : <Circle className="w-3.5 h-3.5 text-zinc-300" />}
+                      </div>
+                      <div>
+                        <p className={`text-[11.5px] font-bold leading-tight ${done ? 'text-emerald-700 dark:text-emerald-400' : current ? 'text-violet-700 dark:text-violet-300' : 'text-zinc-400'}`}>{step.label}</p>
+                        {current && <p className="text-[10px] text-violet-400/80 mt-0.5 leading-snug">{step.detail}</p>}
+                      </div>
                     </div>
-                    <div>
-                      <p className={`text-[12px] font-bold ${done ? 'text-emerald-700 dark:text-emerald-400' : current ? 'text-violet-700 dark:text-violet-300' : 'text-zinc-400'}`}>{step.label}</p>
-                      {current && <p className="text-[11px] text-violet-500/70 mt-0.5">{step.detail}</p>}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+
+              {/* Live log column */}
+              <div className="flex-1 p-4">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2">Actividad en tiempo real</p>
+                <div className="bg-zinc-950 rounded-xl p-3 h-[180px] overflow-y-auto space-y-0.5 font-mono">
+                  {scanLog.length === 0 && (
+                    <p className="text-[11px] text-zinc-600">Iniciando...</p>
+                  )}
+                  {scanLog.map((msg, i) => (
+                    <p key={i} className={`text-[11px] leading-relaxed ${
+                      msg.startsWith('✓') ? 'text-emerald-400' :
+                      msg.startsWith('  ℹ') || msg.startsWith('ℹ') ? 'text-zinc-500' :
+                      msg.startsWith('  →') ? 'text-blue-400' :
+                      'text-zinc-300'
+                    }`}>{msg}</p>
+                  ))}
+                  {scanningAll && (
+                    <p className="text-[11px] text-violet-400 animate-pulse">▌</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Error */}
@@ -534,21 +610,25 @@ export default function CerebroPage() {
             {/* Preview of extracted data */}
             {scanDone && scanPreview && (
               <div className="mx-5 mb-4 border border-emerald-200 dark:border-emerald-800/40 rounded-xl overflow-hidden">
-                <div className="bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 border-b border-emerald-200 dark:border-emerald-800/40">
-                  <p className="text-[12px] font-black text-emerald-700 dark:text-emerald-400">Datos extraídos</p>
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2 border-b border-emerald-200 dark:border-emerald-800/40 flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <p className="text-[12px] font-black text-emerald-700 dark:text-emerald-400">Datos extraídos y cargados en los campos</p>
                 </div>
-                <div className="p-4 space-y-3 max-h-[250px] overflow-y-auto">
+                <div className="p-4 grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto">
                   {[
-                    { label: 'Descripción', value: scanPreview.description },
-                    { label: 'Tono y Estilo', value: scanPreview.tone },
-                    { label: 'Ofertas detectadas', value: scanPreview.offers },
-                    { label: 'FAQs detectadas', value: scanPreview.faq },
-                  ].map(row => row.value ? (
-                    <div key={row.label}>
-                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-wide mb-1">{row.label}</p>
-                      <p className="text-[11px] text-zinc-700 dark:text-zinc-300 line-clamp-3 leading-relaxed">{row.value}</p>
+                    { label: 'Descripción', value: scanPreview.description, color: 'text-blue-600' },
+                    { label: 'Tono y Estilo', value: scanPreview.tone, color: 'text-violet-600' },
+                    { label: 'Ofertas detectadas', value: scanPreview.offers, color: 'text-amber-600', empty: 'No se detectaron ofertas activas' },
+                    { label: 'FAQs detectadas', value: scanPreview.faq, color: 'text-emerald-600' },
+                  ].map(row => (
+                    <div key={row.label} className="space-y-0.5">
+                      <p className={`text-[9px] font-black uppercase tracking-wide ${row.color}`}>{row.label}</p>
+                      {row.value
+                        ? <p className="text-[11px] text-zinc-700 dark:text-zinc-300 line-clamp-3 leading-relaxed">{row.value}</p>
+                        : <p className="text-[11px] text-zinc-400 italic">{row.empty || 'No extraído'}</p>
+                      }
                     </div>
-                  ) : null)}
+                  ))}
                 </div>
               </div>
             )}
@@ -558,8 +638,8 @@ export default function CerebroPage() {
               <div className="p-5 pt-0 flex justify-end gap-2">
                 {scanDone && (
                   <button onClick={() => { setShowScanModal(false); handleSaveSettings(); }}
-                    className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[12px] font-bold transition-all">
-                    Guardar Cambios
+                    className="flex items-center gap-1.5 px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[12px] font-bold transition-all">
+                    <Save className="w-3.5 h-3.5" />Guardar Cambios
                   </button>
                 )}
                 <button onClick={() => setShowScanModal(false)} className="px-5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-[12px] font-bold transition-all">

@@ -247,6 +247,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err: any) { return res.status(500).json({ error: err.message }); }
   }
 
+  // ── GENERATE FIELDS — AI extracts tone/offers/faq from scraped content ───
+  if (action === 'generate-fields') {
+    if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
+    try {
+      const { data: cl } = await supabase
+        .from('car_clients')
+        .select('scraped_content, instagram_context, business_name')
+        .eq('id', clientId)
+        .maybeSingle();
+      if (!cl) return res.status(404).json({ error: 'Client not found' });
+
+      const webCtx: string = (cl as any).scraped_content || '';
+      const socialCtx: string = (cl as any).instagram_context || '';
+      const bName: string = (cl as any).business_name || 'el negocio';
+
+      if (!webCtx) return res.status(400).json({ error: 'Primero escaneá el sitio web' });
+
+      const fieldsPrompt = `Sos un experto en marketing digital y atención al cliente. Analizá la información del negocio "${bName}" y extraé los siguientes campos en formato JSON estricto:
+
+1. "business_description": Descripción completa del negocio. Incluir: qué vende, productos principales con precios exactos si están disponibles, políticas de envío, devoluciones, formas de pago, datos de contacto (teléfono, email, WhatsApp, dirección). Máx 450 palabras. MUY IMPORTANTE: solo usar información que esté en el texto, no inventar.
+
+2. "tone": Instrucciones exactas de cómo debe hablar la IA. Incluir: voseo argentino obligatorio, nivel de formalidad, si usar emojis (y cuántos), longitud máxima de respuestas, palabras o frases características de la marca. Máx 150 palabras.
+
+3. "offers": SOLO si hay descuentos, promociones, cuotas sin interés, envío gratis u ofertas ACTIVAS mencionadas explícitamente en la información. Si no hay información clara de ofertas vigentes, devolvé exactamente "". Si hay ofertas, formato: lista con guiones, incluir vigencia si se menciona.
+
+4. "faq": Preguntas frecuentes que haría un cliente nuevo, con respuestas basadas ÚNICAMENTE en información del texto. Formato exacto para cada par: "P: ¿pregunta?\nR: respuesta completa\n\n". Mínimo 8 pares si hay suficiente info. Solo usar datos reales del texto.
+
+RESPONDÉ ÚNICAMENTE CON JSON VÁLIDO. Sin texto extra, sin bloques de código markdown.`;
+
+      const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: fieldsPrompt },
+            { role: 'user', content: `INFORMACIÓN WEB:\n${webCtx.slice(0, 22000)}\n\nINFORMACIÓN REDES SOCIALES:\n${socialCtx.slice(0, 6000)}` }
+          ],
+          temperature: 0.2,
+          max_tokens: 2500,
+          response_format: { type: 'json_object' }
+        }),
+      });
+
+      if (!aiRes.ok) throw new Error(`OpenAI error ${aiRes.status}`);
+      const aiJson = await aiRes.json();
+      const parsed = JSON.parse(aiJson.choices?.[0]?.message?.content || '{}');
+
+      const desc: string = parsed.business_description || '';
+      const tone: string = parsed.tone || '';
+      const offersVal: string = parsed.offers || '';
+      const faqVal: string = parsed.faq || '';
+
+      const nowTs = new Date().toISOString();
+      await supabase.from('car_clients').update({
+        business_description: desc,
+        custom_instructions: JSON.stringify({ tone, offers: offersVal, faq: faqVal }),
+        brain_updated_at: nowTs
+      }).eq('id', clientId);
+
+      return res.status(200).json({
+        business_description: desc,
+        tone,
+        offers: offersVal,
+        faq: faqVal,
+        brain_updated_at: nowTs
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   if (!clientId) {
     return res.status(400).json({ error: 'Missing clientId' });
   }
@@ -482,6 +554,7 @@ Crea un resumen en español súper práctico centrado en:
 
       console.log(`[Unified Scraper] Scraping website: ${targetUrl}`);
       let websiteSummary = '';
+      let pagesVisited: string[] = [];
       try {
         const fetchResponse = await fetch(targetUrl, {
           headers: {
@@ -497,6 +570,7 @@ Crea un resumen en español súper práctico centrado en:
 
           const discoveredLinks = extractInternalLinks(htmlContent, targetUrl);
           const targetSubpages = prioritizeLinks(discoveredLinks);
+          pagesVisited = targetSubpages;
 
           const subpagesContent = await Promise.all(
             targetSubpages.map(async (link) => {
@@ -520,7 +594,7 @@ Crea un resumen en español súper práctico centrado en:
             })
           );
 
-          let combinedText = `--- PÁGINA DE INICIO (HOME) ---\n${homepageText}\n\n` + 
+          let combinedText = `--- PÁGINA DE INICIO (HOME) ---\n${homepageText}\n\n` +
             subpagesContent.filter(Boolean).join('\n\n');
           combinedText = combinedText.slice(0, 45000);
 
@@ -535,18 +609,42 @@ Crea un resumen en español súper práctico centrado en:
               messages: [
                 {
                   role: 'system',
-                  content: `Analiza el texto de la web del negocio "${business_name}" y genera una base de conocimiento estructurada y limpia en español.
-Organízala en estas secciones:
-1. INFORMACIÓN GENERAL (Descripción del negocio, qué vende y marca)
-2. CATÁLOGO / PRODUCTOS DESTACADOS
-3. POLÍTICAS DE ENVÍO Y ENTREGAS (Tiempos, zonas, costos)
-4. POLÍTICAS DE CAMBIOS Y DEVOLUCIONES (Condiciones, plazos)
-5. PREGUNTAS FRECUENTES Y CONTACTO (Horarios, medios de soporte)`
+                  content: `Sos un experto en análisis de negocios. Analizá el texto extraído del sitio web del negocio "${business_name}" y generá una base de conocimiento exhaustiva en español.
+
+Extraé y organizá TODA la información disponible en estas secciones:
+
+1. INFORMACIÓN GENERAL
+   - Qué es el negocio, qué vende, diferencial de la marca
+   - Nombres del equipo (dueños, vendedores, atención al cliente)
+   - Canales de contacto: teléfono, email, WhatsApp, dirección
+
+2. CATÁLOGO COMPLETO DE PRODUCTOS / SERVICIOS
+   - Nombre de cada producto con descripción breve
+   - Precios exactos si están mencionados (con moneda)
+   - Variantes disponibles (talles, colores, medidas)
+   - Materiales, calidad, origen
+
+3. ENVÍOS Y ENTREGAS
+   - Tiempos de entrega por zona
+   - Costos de envío y umbral de envío gratis
+   - Transportistas y horarios de despacho
+
+4. CAMBIOS, DEVOLUCIONES Y GARANTÍAS
+   - Plazos y condiciones
+   - Cómo iniciar un reclamo
+
+5. FORMAS DE PAGO Y FINANCIACIÓN
+   - Métodos aceptados, cuotas, descuentos por forma de pago
+
+6. PREGUNTAS FRECUENTES
+   - Preguntas más comunes con sus respuestas exactas
+
+Sé exhaustivo. Si hay precios, incluilos. Si hay horarios, incluilos. No inventés información.`
                 },
                 { role: 'user', content: combinedText }
               ],
-              temperature: 0.3,
-              max_tokens: 1500,
+              temperature: 0.2,
+              max_tokens: 2500,
             }),
           });
 
@@ -575,7 +673,7 @@ Organízala en estas secciones:
         return res.status(500).json({ error: 'Error al guardar la información web en la base de datos.', detail: updateError.message });
       }
 
-      return res.status(200).json({ scraped_content: finalWebSummary, website_url: targetUrl, brain_updated_at: nowTimestamp });
+      return res.status(200).json({ scraped_content: finalWebSummary, website_url: targetUrl, brain_updated_at: nowTimestamp, pages_visited: pagesVisited });
     }
 
     // ─────────────────────────────────────────────────────────────────────────
