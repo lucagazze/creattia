@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════
--- EJECUTAR EN SUPABASE SQL EDITOR
--- Habilita: pre-invitaciones Google (user_id nullable) + RLS correctas
+-- EJECUTAR EN SUPABASE SQL EDITOR — COMPLETO Y DEFINITIVO
+-- Resuelve: pre-invitaciones Google, user_id nullable, RLS correctas
 -- ═══════════════════════════════════════════════════════════════════════
 
 -- 1. Hacer user_id nullable (para pre-invitaciones Google)
@@ -17,13 +17,13 @@ CREATE UNIQUE INDEX car_business_accounts_user_id_unique
   ON public.car_business_accounts (user_id)
   WHERE user_id IS NOT NULL;
 
--- 4. Recrear policies RLS para que el service role pueda insertar/modificar
---    (el service role bypasea RLS pero a veces los proyectos tienen FORCE RLS)
+-- 4. Borrar TODAS las policies existentes de car_business_accounts
 DROP POLICY IF EXISTS "Users read own link" ON public.car_business_accounts;
 DROP POLICY IF EXISTS "Service role full access" ON public.car_business_accounts;
 DROP POLICY IF EXISTS "Admin full access" ON public.car_business_accounts;
+DROP POLICY IF EXISTS "Authenticated users can update own link" ON public.car_business_accounts;
 
--- Lectura: usuario ve su propio vínculo (por user_id O por email para Google pendiente)
+-- 5. Policy SELECT: usuario ve su propio vínculo (por user_id O por email para Google pendiente)
 CREATE POLICY "Users read own link"
   ON public.car_business_accounts
   FOR SELECT TO authenticated
@@ -32,9 +32,19 @@ CREATE POLICY "Users read own link"
     OR lower(email) = lower((SELECT email FROM auth.users WHERE id = auth.uid()))
   );
 
--- INSERT/UPDATE/DELETE: solo el service role (admin)
--- En Supabase el service role bypasea RLS, pero si el proyecto tiene FORCE ROW LEVEL SECURITY
--- en la tabla, necesita una policy explícita para el rol postgres/service_role
+-- 6. Policy UPDATE: un usuario autenticado puede actualizar el registro que tenga su email
+--    Esto permite que el sistema vincule automáticamente el user_id cuando entra por Google
+CREATE POLICY "Authenticated users can update own link"
+  ON public.car_business_accounts
+  FOR UPDATE TO authenticated
+  USING (
+    lower(email) = lower((SELECT email FROM auth.users WHERE id = auth.uid()))
+  )
+  WITH CHECK (
+    user_id = auth.uid()
+  );
+
+-- 7. Policy completa para service_role (bypasea RLS por defecto, pero si hay FORCE RLS necesita esto)
 CREATE POLICY "Service role full access"
   ON public.car_business_accounts
   FOR ALL TO service_role

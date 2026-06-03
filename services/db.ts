@@ -170,14 +170,25 @@ export const db = {
 
         if (matchedLink) {
           // Vincular el user_id en car_business_accounts automáticamente
-          await adminClient
+          // Usamos supabase (sesión del usuario) para que la policy UPDATE de RLS funcione.
+          // Si el adminClient tiene service_role, también lo intentamos como fallback.
+          const updateResult = await supabase
             .from('car_business_accounts')
             .update({ user_id: userId })
             .eq('id', matchedLink.id);
+
+          if (updateResult.error && adminClient !== supabase) {
+            // Fallback al service role si el anon client no pudo
+            await adminClient
+              .from('car_business_accounts')
+              .update({ user_id: userId })
+              .eq('id', matchedLink.id);
+          }
           
           link = matchedLink;
         }
       }
+
 
       if (!link) return null;
 
