@@ -342,88 +342,33 @@ export const db = {
 
   activity: {
     async log(userId: string, clientId: string, action: string, metadata: any = {}) {
-      // Fire-and-forget: schedule on the next tick so the caller (auth flow, page load)
-      // is never blocked waiting for IP lookups or Supabase writes.
-      setTimeout(async () => {
+      // Fire-and-forget: call the serverless API in the background.
+      // We retrieve the session asynchronously and trigger fetch without awaiting the response.
+      (async () => {
         try {
-          const userEmail = metadata.user_email || 'Desconocido';
-
-          let ip = 'unknown';
-          let location = {};
-
-          // Try multiple IP services — the first one that responds wins
-          const services = [
-            'https://api.ipify.org?format=json',
-            'https://freeipapi.com/api/json',
-            'https://ipapi.co/json/',
-          ];
-
-          for (const service of services) {
-            try {
-              const res = await (fetch(service, { signal: AbortSignal.timeout(2000) }) as Promise<Response>).catch(() => null);
-              if (res && res.ok) {
-                const data = await res.json();
-                ip = data.ip || data.ipAddress || data.ip_address || data.query || 'unknown';
-                location = {
-                  city:    data.city    || data.cityName    || data.city_name    || '',
-                  region:  data.region  || data.regionName  || data.region_name  || '',
-                  country: data.country_name || data.countryName || data.country || '',
-                  org:     data.org     || data.asName      || data.isp          || '',
-                };
-                if (ip !== 'unknown') break;
-              }
-            } catch {
-              continue;
-            }
-          }
-
-          // Deduplicate: same user + action + IP + UA within the last hour → update instead of insert
-          const ua = metadata.ua || 'unknown';
-          const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
-
-          let query = supabase
-            .from('car_user_activity')
-            .select('id, metadata')
-            .eq('user_id', userId)
-            .eq('action', action)
-            .gt('created_at', oneHourAgo);
-
-          if (ip !== 'unknown') {
-            query = query.eq('ip', ip);
-          } else {
-            query = query.is('ip', null);
-          }
-
-          const { data: allExisting } = await query.order('created_at', { ascending: false });
-          const existing = allExisting?.find(e => e.metadata?.ua === ua);
-
-          if (existing) {
-            await supabase
-              .from('car_user_activity')
-              .update({
-                created_at: new Date().toISOString(),
-                metadata: {
-                  ...existing.metadata,
-                  ...metadata,
-                  user_email: userEmail,
-                  refreshes: (existing.metadata?.refreshes || 0) + 1,
-                },
-              })
-              .eq('id', existing.id);
-          } else {
-            await supabase.from('car_user_activity').insert({
-              user_id: userId,
-              client_id: clientId,
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          
+          fetch('/api/log-activity', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              clientId,
               action,
-              metadata: { ...metadata, user_email: userEmail, refreshes: 1 },
-              ip: ip === 'unknown' ? null : ip,
-              location,
-            });
-          }
+              metadata: {
+                ...metadata,
+                ua: navigator.userAgent,
+                screen: `${window.innerWidth}x${window.innerHeight}`
+              }
+            })
+          }).catch(err => console.error('Error logging activity request:', err));
         } catch (error) {
           console.error('Error logging activity:', error);
         }
-      }, 0);
+      })();
     },
     async getStats(daysAgo: number = 7) {
       const { data, error } = await supabase.rpc('get_daily_activity_stats', { days_ago: daysAgo });
