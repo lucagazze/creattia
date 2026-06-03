@@ -19,13 +19,14 @@ interface MetricKeyData {
   icon: any;
   color: string;
   isTime?: boolean;
+  info?: string;
 }
 
 const METRICS_CONFIG: MetricKeyData[] = [
-  { key: 'conversations_count', label: 'Conversaciones Totales', icon: MessageCircle, color: '#8b5cf6' },
-  { key: 'incoming_messages_count', label: 'Mensajes Entrantes', icon: Inbox, color: '#10b981' },
-  { key: 'outgoing_messages_count', label: 'Mensajes Salientes', icon: Send, color: '#3b82f6' },
-  { key: 'avg_first_response_time', label: 'Tiempo Resp. Promedio', icon: Clock, color: '#f59e0b', isTime: true },
+  { key: 'conversations_count', label: 'Conversaciones Totales', icon: MessageCircle, color: '#8b5cf6', info: 'Cantidad total de conversaciones iniciadas con clientes en el período seleccionado, en todos los canales.' },
+  { key: 'incoming_messages_count', label: 'Mensajes Entrantes', icon: Inbox, color: '#10b981', info: 'Total de mensajes recibidos de clientes. Refleja el volumen de consultas y demanda de atención.' },
+  { key: 'outgoing_messages_count', label: 'Mensajes Salientes', icon: Send, color: '#3b82f6', info: 'Total de mensajes enviados por el equipo. Indica cuántas respuestas se dieron a los clientes.' },
+  { key: 'avg_first_response_time', label: 'Tiempo Resp. Promedio', icon: Clock, color: '#f59e0b', isTime: true, info: 'Tiempo promedio que tarda el equipo en dar la primera respuesta. Menos tiempo = mejor experiencia del cliente.' },
 ];
 
 const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
@@ -659,7 +660,7 @@ export default function AtencionPage() {
           <EmailLoader
             loading={loading}
             color={VIOLET}
-            labels={['Conversaciones Totales', 'Mensajes Entrantes', 'Mensajes Salientes', 'Tiempo Resp. Promedio', 'Tiempo Res. Promedio', 'Conversaciones Resueltas']}
+            labels={['Conversaciones Totales', 'Mensajes Entrantes', 'Mensajes Salientes', 'Tiempo Resp. Promedio']}
           >
             {summaryData ? (
               <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
@@ -688,11 +689,12 @@ export default function AtencionPage() {
                   value={displayVal}
                   change={change}
                   trend={trendDirection}
-                  data={[]}
+                  data={expandedMetric === metric.key && chartData.length > 0 ? chartData : []}
                   color={metric.color}
                   loading={loading}
                   active={expandedMetric === metric.key}
                   onClick={() => setExpandedMetric(expandedMetric === metric.key ? null : metric.key)}
+                  info={metric.info}
                 />
               );
             })}

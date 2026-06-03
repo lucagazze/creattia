@@ -1088,15 +1088,9 @@ export default function EmailMarketingPage() {
 
   if (loading) {
     return (
-      <div className="relative w-full min-h-[400px]">
-        <TopLoadingBar loading={true} />
-        <div className="space-y-6 pt-2">
-          <div className="h-8 w-52 bg-zinc-100 dark:bg-zinc-800 rounded-xl" />
-          <div className="grid grid-cols-3 gap-3">
-            {[1,2,3].map(n => <div key={n} className="h-[80px] bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-2xl" />)}
-          </div>
-          <div className="h-[480px] bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-[24px]" />
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="w-10 h-10 border-[3px] border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+        <p className="text-[13px] font-semibold text-zinc-500 dark:text-zinc-400">Cargando Email Marketing…</p>
       </div>
     );
   }
@@ -1120,16 +1114,7 @@ export default function EmailMarketingPage() {
               {lastSync && ` · sync ${lastSync.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => sync(apiKey)}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 transition-all shadow-sm"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Sincronizar
-            </button>
-          </div>
+          <div className="flex items-center gap-2" />
         </div>
 
         {/* Error banner */}
@@ -1158,26 +1143,28 @@ export default function EmailMarketingPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-white/5 rounded-2xl w-fit">
-          {[
-            { id: 'calendar', label: 'Calendario', count: campaigns.filter(c => c.status === 'Scheduled').length, icon: <CalendarClock className="w-3.5 h-3.5" /> },
-            { id: 'campaigns', label: 'Campañas', count: campaigns.length, icon: <Mail className="w-3.5 h-3.5" /> },
-            { id: 'flows', label: 'Flows', count: flows.length, icon: <Workflow className="w-3.5 h-3.5" /> },
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id as any)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-bold transition-all ${
-                tab === t.id ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
-              }`}
-            >
-              {t.icon}
-              {t.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400' : 'bg-zinc-200 dark:bg-white/10 text-zinc-400'}`}>
-                {t.count}
-              </span>
-            </button>
-          ))}
+        <div className="overflow-x-auto no-scrollbar">
+          <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-white/5 rounded-2xl w-max min-w-full sm:w-fit">
+            {[
+              { id: 'calendar', label: 'Calendario', count: campaigns.filter(c => c.status === 'Scheduled').length, icon: <CalendarClock className="w-3.5 h-3.5" /> },
+              { id: 'campaigns', label: 'Campañas', count: campaigns.length, icon: <Mail className="w-3.5 h-3.5" /> },
+              { id: 'flows', label: 'Flows', count: flows.length, icon: <Workflow className="w-3.5 h-3.5" /> },
+            ].map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id as any)}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap ${
+                  tab === t.id ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                }`}
+              >
+                {t.icon}
+                {t.label}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400' : 'bg-zinc-200 dark:bg-white/10 text-zinc-400'}`}>
+                  {t.count}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tab content — keyed to animate on tab change */}

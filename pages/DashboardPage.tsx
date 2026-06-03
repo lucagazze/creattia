@@ -2086,42 +2086,44 @@ export default function DashboardPage() {
               <div className="w-2 h-2 rounded-full bg-violet-500" />
               <h2 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Atención al Cliente</h2>
             </div>
-            <EmailLoader loading={fetchingChatwoot} color="#8b5cf6" labels={['Conversaciones', 'Entrantes', 'Salientes', 'Resp. Promedio']}>
-              {chatwootSummary ? (
-                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
-                  {[
-                    { key: 'conversations_count', label: 'Conversaciones', icon: MessageCircle, color: '#8b5cf6', isTime: false },
-                    { key: 'incoming_messages_count', label: 'Entrantes', icon: Inbox, color: '#10b981', isTime: false },
-                    { key: 'outgoing_messages_count', label: 'Salientes', icon: Send, color: '#3b82f6', isTime: false },
-                    { key: 'avg_first_response_time', label: 'Resp. Promedio', icon: Clock, color: '#f59e0b', isTime: true },
-                  ].map(m => {
-                    const val = Number(chatwootSummary[m.key] || 0);
-                    const prev = Number(prevChatwootSummary?.[m.key] || 0);
-                    const change = prev > 0 ? ((val - prev) / prev) * 100 : undefined;
-                    const displayVal = m.isTime
-                      ? (() => { const s = val; if (!s) return '0m'; const h = Math.floor(s/3600); const min = Math.floor((s%3600)/60); return h > 0 ? `${h}h ${min}m` : `${min}m`; })()
-                      : val.toLocaleString('es-AR');
-                    const isCost = m.isTime;
-                    const trend = change === undefined ? 'up' : isCost ? (change <= 0 ? 'up' : 'down') : (change >= 0 ? 'up' : 'down');
-                    return (
-                      <ShopifyMetric
-                        key={m.key}
-                        icon={m.icon}
-                        label={m.label}
-                        value={displayVal}
-                        change={change}
-                        trend={trend}
-                        data={[]}
-                        color={m.color}
-                        loading={fetchingChatwoot}
-                        active={false}
-                        onClick={() => {}}
-                      />
-                    );
-                  })}
-                </div>
-              ) : null}
-            </EmailLoader>
+            {fetchingChatwoot && !chatwootSummary ? (
+              <div className="flex items-center justify-center gap-3 py-8">
+                <div className="w-5 h-5 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+                <span className="text-[12px] text-zinc-400 font-medium">Cargando atención…</span>
+              </div>
+            ) : chatwootSummary ? (
+              <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
+                {[
+                  { key: 'conversations_count', label: 'Conversaciones', icon: MessageCircle, color: '#8b5cf6', isTime: false },
+                  { key: 'incoming_messages_count', label: 'Msj. Entrantes', icon: Inbox, color: '#10b981', isTime: false },
+                  { key: 'outgoing_messages_count', label: 'Msj. Salientes', icon: Send, color: '#3b82f6', isTime: false },
+                  { key: 'avg_first_response_time', label: 'Resp. Promedio', icon: Clock, color: '#f59e0b', isTime: true },
+                ].map(m => {
+                  const val = Number(chatwootSummary[m.key] || 0);
+                  const prev = Number(prevChatwootSummary?.[m.key] || 0);
+                  const change = prev > 0 ? ((val - prev) / prev) * 100 : undefined;
+                  const displayVal = m.isTime
+                    ? (() => { const s = val; if (!s) return '0m'; const h = Math.floor(s/3600); const min = Math.floor((s%3600)/60); return h > 0 ? `${h}h ${min}m` : `${min}m`; })()
+                    : val.toLocaleString('es-AR');
+                  const trend = change === undefined ? 'up' : m.isTime ? (change <= 0 ? 'up' : 'down') : (change >= 0 ? 'up' : 'down');
+                  return (
+                    <ShopifyMetric
+                      key={m.key}
+                      icon={m.icon}
+                      label={m.label}
+                      value={displayVal}
+                      change={change}
+                      trend={trend}
+                      data={[]}
+                      color={m.color}
+                      loading={false}
+                      active={false}
+                      onClick={() => {}}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         )}
 
