@@ -164,7 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // BRANCH B: Admin checks (restricted to is_admin = true)
-    const { data: profile, error: dbError } = await supabase
+    const { data: profile, error: dbError } = await supabaseAdmin
       .from('car_clients')
       .select('is_admin')
       .eq('user_id', user.id)
