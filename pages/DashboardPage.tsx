@@ -15,6 +15,7 @@ import {
 } from "../services/metaAds";
 import { klaviyo } from "../services/klaviyo";
 import { ecommerce } from "../services/ecommerce";
+import { chatwoot } from "../services/chatwoot";
 import { db } from "../services/db";
 import {
   BarChart2,
@@ -44,7 +45,11 @@ import {
   MousePointerClick,
   Info,
   ShoppingBag,
-  X
+  X,
+  MessageCircle,
+  Inbox,
+  Send,
+  Clock
 } from "lucide-react";
 import {
   AreaChart,
@@ -648,6 +653,9 @@ export default function DashboardPage() {
   const [currentKlaviyo, setCurrentKlaviyo] = useState<any>(null);
   const [prevKlaviyo, setPrevKlaviyo] = useState<any>(null);
   const [fetchingKlaviyo, setFetchingKlaviyo] = useState(true);
+  const [chatwootSummary, setChatwootSummary] = useState<any>(null);
+  const [prevChatwootSummary, setPrevChatwootSummary] = useState<any>(null);
+  const [fetchingChatwoot, setFetchingChatwoot] = useState(false);
   const [currentStore, setCurrentStore] = useState<any>(null);
   const [prevStore, setPrevStore] = useState<any>(null);
   const [fetchingStore, setFetchingStore] = useState(true);
@@ -1061,6 +1069,34 @@ export default function DashboardPage() {
       mounted = false;
     };
   }, [profile?.id]);
+
+  // Fetch Chatwoot summary for dashboard Atención section
+  useEffect(() => {
+    let mounted = true;
+    const fetchChatwoot = async () => {
+      const prof: any = profile;
+      if (!prof?.chatwoot_url || !prof?.chatwoot_token) return;
+      setFetchingChatwoot(true);
+      try {
+        const untilSecs = Math.floor(new Date(`${activeUntil}T23:59:59Z`).getTime() / 1000);
+        const sinceSecs = Math.floor(new Date(`${activeSince}T00:00:00Z`).getTime() / 1000);
+        const prevRange = getPrevPeriod(activeSince, activeUntil);
+        const prevSinceSecs = Math.floor(new Date(`${prevRange.since}T00:00:00Z`).getTime() / 1000);
+        const prevUntilSecs = Math.floor(new Date(`${prevRange.until}T23:59:59Z`).getTime() / 1000);
+        const [curr, prev] = await Promise.all([
+          chatwoot.getReportsSummary(prof.chatwoot_url, prof.chatwoot_token, sinceSecs, untilSecs, 'account'),
+          chatwoot.getReportsSummary(prof.chatwoot_url, prof.chatwoot_token, prevSinceSecs, prevUntilSecs, 'account'),
+        ]);
+        if (mounted) { setChatwootSummary(curr); setPrevChatwootSummary(prev); }
+      } catch (e) {
+        console.error('Dashboard chatwoot fetch:', e);
+      } finally {
+        if (mounted) setFetchingChatwoot(false);
+      }
+    };
+    if (profile?.id) fetchChatwoot();
+    return () => { mounted = false; };
+  }, [profile?.id, activeSince, activeUntil, refreshKey]);
 
   const handleApply = () => {
     setActivePreset(pendingPreset);
@@ -2040,6 +2076,52 @@ export default function DashboardPage() {
               </>
             ) : null}
           </EmailLoader>
+          </div>
+        )}
+
+        {/* ATENCIÓN (Chatwoot) */}
+        {(profile as any)?.chatwoot_token && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-violet-500" />
+              <h2 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Atención al Cliente</h2>
+            </div>
+            <EmailLoader loading={fetchingChatwoot} color="#8b5cf6" labels={['Conversaciones', 'Entrantes', 'Salientes', 'Resp. Promedio']}>
+              {chatwootSummary ? (
+                <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
+                  {[
+                    { key: 'conversations_count', label: 'Conversaciones', icon: MessageCircle, color: '#8b5cf6', isTime: false },
+                    { key: 'incoming_messages_count', label: 'Entrantes', icon: Inbox, color: '#10b981', isTime: false },
+                    { key: 'outgoing_messages_count', label: 'Salientes', icon: Send, color: '#3b82f6', isTime: false },
+                    { key: 'avg_first_response_time', label: 'Resp. Promedio', icon: Clock, color: '#f59e0b', isTime: true },
+                  ].map(m => {
+                    const val = Number(chatwootSummary[m.key] || 0);
+                    const prev = Number(prevChatwootSummary?.[m.key] || 0);
+                    const change = prev > 0 ? ((val - prev) / prev) * 100 : undefined;
+                    const displayVal = m.isTime
+                      ? (() => { const s = val; if (!s) return '0m'; const h = Math.floor(s/3600); const min = Math.floor((s%3600)/60); return h > 0 ? `${h}h ${min}m` : `${min}m`; })()
+                      : val.toLocaleString('es-AR');
+                    const isCost = m.isTime;
+                    const trend = change === undefined ? 'up' : isCost ? (change <= 0 ? 'up' : 'down') : (change >= 0 ? 'up' : 'down');
+                    return (
+                      <ShopifyMetric
+                        key={m.key}
+                        icon={m.icon}
+                        label={m.label}
+                        value={displayVal}
+                        change={change}
+                        trend={trend}
+                        data={[]}
+                        color={m.color}
+                        loading={fetchingChatwoot}
+                        active={false}
+                        onClick={() => {}}
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
+            </EmailLoader>
           </div>
         )}
 

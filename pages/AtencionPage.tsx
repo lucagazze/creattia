@@ -26,8 +26,6 @@ const METRICS_CONFIG: MetricKeyData[] = [
   { key: 'incoming_messages_count', label: 'Mensajes Entrantes', icon: Inbox, color: '#10b981' },
   { key: 'outgoing_messages_count', label: 'Mensajes Salientes', icon: Send, color: '#3b82f6' },
   { key: 'avg_first_response_time', label: 'Tiempo Resp. Promedio', icon: Clock, color: '#f59e0b', isTime: true },
-  { key: 'avg_resolution_time', label: 'Tiempo Res. Promedio', icon: CheckCircle, color: '#ec4899', isTime: true },
-  { key: 'resolutions_count', label: 'Conversaciones Resueltas', icon: CheckCircle, color: '#6366f1' },
 ];
 
 const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
@@ -135,6 +133,10 @@ export default function AtencionPage() {
   // Breakdown tables data
   const [inboxBreakdowns, setInboxBreakdowns] = useState<any[]>([]);
   const [loadingBreakdowns, setLoadingBreakdowns] = useState(false);
+
+  // Traffic heatmap (conversations by day-of-week × hour)
+  const [heatmapData, setHeatmapData] = useState<number[][]>([]); // [dayOfWeek 0-6][hour 0-23]
+  const [loadingHeatmap, setLoadingHeatmap] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -354,6 +356,38 @@ export default function AtencionPage() {
     fetchBreakdowns();
     return () => { cancelled = true; };
   }, [profile?.chatwoot_url, profile?.chatwoot_token, activeSince, activeUntil, inboxes, loading, refreshKey]);
+
+  // Fetch heatmap data (conversations by hour, last 7 days regardless of date picker)
+  useEffect(() => {
+    let cancelled = false;
+    const fetchHeatmap = async () => {
+      if (!profile?.chatwoot_url || !profile?.chatwoot_token || loading) return;
+      setLoadingHeatmap(true);
+      try {
+        const untilSecs = Math.floor(Date.now() / 1000);
+        const sinceSecs = untilSecs - 7 * 24 * 3600;
+        const data = await chatwoot.getReportsTimeSeries(
+          profile.chatwoot_url, profile.chatwoot_token,
+          'conversations_count', sinceSecs, untilSecs, 'account'
+        );
+        // Build 7×24 grid [dayOfWeek][hour]
+        const grid: number[][] = Array.from({ length: 7 }, () => new Array(24).fill(0));
+        (data || []).forEach((pt: any) => {
+          const d = new Date((pt.timestamp || pt.ts || 0) * 1000);
+          const dow = d.getDay(); // 0=Sun..6=Sat
+          const hour = d.getHours();
+          grid[dow][hour] += (pt.value ?? pt.count ?? 0);
+        });
+        if (!cancelled) setHeatmapData(grid);
+      } catch (e) {
+        console.error('Heatmap error:', e);
+      } finally {
+        if (!cancelled) setLoadingHeatmap(false);
+      }
+    };
+    fetchHeatmap();
+    return () => { cancelled = true; };
+  }, [profile?.chatwoot_url, profile?.chatwoot_token, loading, refreshKey]);
 
   const handleApplyDate = () => {
     setActivePreset(pendingPreset);
@@ -690,6 +724,67 @@ export default function AtencionPage() {
               })()}
             </div>
           )}
+
+          {/* Traffic Heatmap */}
+          {(loadingHeatmap || heatmapData.length > 0) && (() => {
+            const DAYS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            const maxVal = heatmapData.length > 0 ? Math.max(1, ...heatmapData.flat()) : 1;
+            return (
+              <div className="bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-3xl p-5 shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-violet-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-[14px] font-bold text-zinc-900 dark:text-white">Tráfico de Conversación</h3>
+                    <p className="text-[11px] text-zinc-400">Conversaciones por hora — últimos 7 días</p>
+                  </div>
+                </div>
+                {loadingHeatmap ? (
+                  <div className="h-40 flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[560px]">
+                      {/* Hour labels */}
+                      <div className="flex ml-10 mb-1">
+                        {Array.from({ length: 24 }, (_, h) => (
+                          <div key={h} className="flex-1 text-center text-[9px] text-zinc-400 font-medium">{h}</div>
+                        ))}
+                      </div>
+                      {/* Rows */}
+                      {DAYS_ES.map((day, dow) => (
+                        <div key={dow} className="flex items-center mb-1">
+                          <div className="w-10 text-[10px] text-zinc-400 font-medium shrink-0">{day}</div>
+                          {Array.from({ length: 24 }, (_, h) => {
+                            const val = heatmapData[dow]?.[h] ?? 0;
+                            const intensity = val / maxVal;
+                            const bg = val === 0
+                              ? 'bg-zinc-100 dark:bg-zinc-800/50'
+                              : intensity > 0.75
+                              ? 'bg-violet-600'
+                              : intensity > 0.5
+                              ? 'bg-violet-500'
+                              : intensity > 0.25
+                              ? 'bg-violet-400'
+                              : 'bg-violet-300 dark:bg-violet-900/60';
+                            return (
+                              <div
+                                key={h}
+                                className={`flex-1 mx-px h-7 rounded-sm ${bg} cursor-default transition-opacity hover:opacity-80`}
+                                title={`${day} ${h}:00 — ${val} conv.`}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Rendimiento por Canal */}
           <div className="bg-white dark:bg-[#111113] border border-black/[0.06] dark:border-white/[0.05] rounded-3xl p-6 shadow-sm flex flex-col">
