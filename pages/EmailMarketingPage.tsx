@@ -247,6 +247,20 @@ function PreviewModal({
   const [copied, setCopied] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeH, setIframeH] = useState(3000);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mob = window.innerWidth < 768;
+      setIsMobile(mob);
+      if (mob) {
+        setMode('mobile');
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     fetchTemplateHtml(templateId, apiKey)
@@ -276,9 +290,9 @@ function PreviewModal({
   const blobUrl = html ? URL.createObjectURL(new Blob([html], { type: 'text/html' })) : '';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm ${isMobile ? 'p-0 z-[400] items-stretch justify-stretch' : ''}`}>
       <div className="absolute inset-0 cursor-default" onClick={onClose} />
-      <div className="relative z-10 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col w-full max-w-4xl h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className={`relative z-10 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col w-full max-w-4xl h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${isMobile ? 'h-full w-full max-w-none rounded-none border-none' : ''}`}>
         {/* Toolbar */}
         <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10">
           <div className="flex-1 min-w-0">
@@ -300,16 +314,22 @@ function PreviewModal({
               <ExternalLink className="w-3 h-3" />HTML
             </a>
           )}
-          <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5">
-            <button onClick={() => setMode('desktop')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
-              <Monitor className="w-3 h-3" />PC
-            </button>
-            <button onClick={() => setMode('mobile')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+          {!isMobile ? (
+            <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5">
+              <button onClick={() => setMode('desktop')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+                <Monitor className="w-3 h-3" />PC
+              </button>
+              <button onClick={() => setMode('mobile')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+                <Smartphone className="w-3 h-3" />Móvil
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-violet-600 text-white shadow">
               <Smartphone className="w-3 h-3" />Móvil
-            </button>
-          </div>
+            </div>
+          )}
           <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
             <X className="w-3.5 h-3.5" />
           </button>
@@ -328,9 +348,9 @@ function PreviewModal({
             </div>
           )}
           {html && !loading && (
-            <div style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }}>
-              <div style={{ background: '#fff', borderRadius: mode === 'desktop' ? '10px 10px 0 0' : 12, border: '1px solid #d0d0d0', borderBottom: 'none', padding: '10px 14px' }}>
-                {mode === 'desktop' && (
+            <div style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: isMobile ? '0 auto' : '16px auto 0', padding: isMobile ? '0' : '0 12px 32px' }}>
+              <div style={{ background: '#fff', borderRadius: isMobile ? '0' : (mode === 'desktop' ? '10px 10px 0 0' : 12), border: isMobile ? 'none' : '1px solid #d0d0d0', borderBottom: isMobile ? '1px solid #f0f0f0' : 'none', padding: '10px 14px' }}>
+                {!isMobile && mode === 'desktop' && (
                   <div style={{ display: 'flex', gap: 5, marginBottom: 4 }}>
                     <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff5f57' }} />
                     <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#febc2e' }} />
@@ -344,7 +364,7 @@ function PreviewModal({
                 srcDoc={sanitizeHtmlTemplates(html)}
                 onLoad={onIframeLoad}
                 sandbox="allow-same-origin allow-popups"
-                style={{ display: 'block', width: '100%', height: iframeH, border: '1px solid #d0d0d0', background: '#fff' }}
+                style={{ display: 'block', width: '100%', height: iframeH, border: isMobile ? 'none' : '1px solid #d0d0d0', background: '#fff' }}
               />
             </div>
           )}
@@ -895,8 +915,22 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
   const [height, setHeight]   = useState(3000);
   const [preheader, setPreheader] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => { setHeight(3000); setPreheader(''); }, [mode]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mob = window.innerWidth < 768;
+      setIsMobile(mob);
+      if (mob) {
+        setMode('mobile');
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -922,7 +956,7 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
   };
 
   return (
-    <div className="fixed inset-0 md:left-[240px] z-50 flex flex-col">
+    <div className={`fixed inset-0 md:left-[240px] z-50 flex flex-col ${isMobile ? 'z-[400] bg-[#09090b] md:left-0' : ''}`}>
       {/* Toolbar */}
       <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-zinc-950 border-b border-white/10" onClick={e => e.stopPropagation()}>
         <div className="flex-1 min-w-0">
@@ -933,16 +967,22 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
             <p className="text-[9px] text-zinc-500 truncate font-mono">{entry.klaviyo_subject}</p>
           )}
         </div>
-        <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5">
-          <button onClick={() => setMode('desktop')}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
-            <Monitor className="w-3 h-3" />PC
-          </button>
-          <button onClick={() => setMode('mobile')}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+        {!isMobile ? (
+          <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5">
+            <button onClick={() => setMode('desktop')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'desktop' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+              <Monitor className="w-3 h-3" />PC
+            </button>
+            <button onClick={() => setMode('mobile')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold transition-all ${mode === 'mobile' ? 'bg-violet-600 text-white shadow' : 'text-zinc-400 hover:text-white'}`}>
+              <Smartphone className="w-3 h-3" />Celular
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-violet-600 text-white shadow">
             <Smartphone className="w-3 h-3" />Celular
-          </button>
-        </div>
+          </div>
+        )}
         <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
           <X className="w-3.5 h-3.5" />
         </button>
@@ -950,17 +990,17 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
 
       {/* Email viewer */}
       <div className="flex-1 overflow-auto" style={{ background: mode === 'desktop' ? '#d0d0d0' : '#e8e8e8' }}>
-        <div style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: '16px auto 0', padding: '0 12px 32px' }} onClick={e => e.stopPropagation()}>
+        <div style={{ maxWidth: mode === 'desktop' ? 660 : 430, width: '100%', margin: isMobile ? '0 auto' : '16px auto 0', padding: isMobile ? '0' : '0 12px 32px' }} onClick={e => e.stopPropagation()}>
           {/* Email chrome */}
-          <div style={{ background: '#fff', borderRadius: mode === 'desktop' ? '10px 10px 0 0' : 12, border: '1px solid #d0d0d0', borderBottom: mode === 'desktop' ? 'none' : '1px solid #d0d0d0', padding: '10px 14px', marginBottom: mode === 'desktop' ? 0 : 10 }}>
-            {mode === 'desktop' && (
+          <div style={{ background: '#fff', borderRadius: isMobile ? '0' : (mode === 'desktop' ? '10px 10px 0 0' : 12), border: isMobile ? 'none' : '1px solid #d0d0d0', borderBottom: (isMobile || mode === 'mobile') ? '1px solid #f0f0f0' : 'none', padding: '10px 14px', marginBottom: (isMobile || mode === 'mobile') ? 10 : 0 }}>
+            {!isMobile && mode === 'desktop' && (
               <div style={{ display: 'flex', gap: 5, marginBottom: 7 }}>
                 <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff5f57' }} />
                 <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#febc2e' }} />
                 <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#28c840' }} />
               </div>
             )}
-            {mode === 'mobile' && (
+            {(isMobile || mode === 'mobile') && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #f0f0f0' }}>
                 <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <span style={{ color: '#c9a96e', fontSize: 9, fontWeight: 700, fontFamily: 'Arial' }}>TSF</span>
@@ -972,12 +1012,12 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
               </div>
             )}
             <div style={{ fontSize: 10, fontFamily: 'Arial, sans-serif', lineHeight: 1.8 }}>
-              {mode === 'desktop' && (
+              {(!isMobile && mode === 'desktop') && (
                 <div><span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>De:</span><span style={{ color: '#1a73e8' }}>valentina@theskirtingfactoryllc.com</span></div>
               )}
               <div>
                 <span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Asunto:</span>
-                <span style={{ color: '#111', fontWeight: mode === 'mobile' ? 600 : 400 }}>{entry.klaviyo_subject || entry.subject}</span>
+                <span style={{ color: '#111', fontWeight: (isMobile || mode === 'mobile') ? 600 : 400 }}>{entry.klaviyo_subject || entry.subject}</span>
               </div>
               <div>
                 <span style={{ fontWeight: 700, color: '#444', display: 'inline-block', width: 72 }}>Vista Previa:</span>
@@ -987,9 +1027,12 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
           </div>
 
           {/* Email iframe */}
-          <div style={mode === 'desktop'
-            ? { background: '#fff', border: '1px solid #d0d0d0', borderRadius: '0 0 8px 8px', overflow: 'hidden' }
-            : { background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #d0d0d0', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }
+          <div style={isMobile
+            ? { background: '#fff', overflow: 'hidden' }
+            : (mode === 'desktop'
+              ? { background: '#fff', border: '1px solid #d0d0d0', borderRadius: '0 0 8px 8px', overflow: 'hidden' }
+              : { background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #d0d0d0', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }
+            )
           }>
             <iframe
               key={mode}

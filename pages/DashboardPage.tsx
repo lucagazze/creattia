@@ -106,6 +106,34 @@ const ShopifyMetric = ({
     if (r) setTipPos({ x: r.left + r.width / 2, y: r.top });
   };
   const hideTip = () => setTipPos(null);
+
+  const tooltipPos = React.useMemo(() => {
+    if (!tipPos) return null;
+    const tooltipWidth = typeof window !== 'undefined' && window.innerWidth < 640 ? 224 : 256;
+    const halfWidth = tooltipWidth / 2;
+    let adjustedLeft = tipPos.x;
+    let arrowOffset = 50; // percentage
+    
+    if (typeof window !== 'undefined') {
+      const minLeft = halfWidth + 8;
+      const maxLeft = window.innerWidth - halfWidth - 8;
+      
+      if (tipPos.x < minLeft) {
+        adjustedLeft = minLeft;
+        const diff = minLeft - tipPos.x;
+        arrowOffset = 50 - (diff / tooltipWidth) * 100;
+      } else if (tipPos.x > maxLeft) {
+        adjustedLeft = maxLeft;
+        const diff = tipPos.x - maxLeft;
+        arrowOffset = 50 + (diff / tooltipWidth) * 100;
+      }
+    }
+    return {
+      left: adjustedLeft,
+      arrowOffset,
+    };
+  }, [tipPos]);
+
   const isGreen = color === GREEN || color === '#10b981';
   const isPink = color === PINK || color === '#ec4899';
   const isViolet = color === '#8b5cf6';
@@ -141,17 +169,20 @@ const ShopifyMetric = ({
           {info && (
             <div ref={infoRef} className="flex-shrink-0" onClick={(e) => e.stopPropagation()} onMouseEnter={showTip} onMouseLeave={hideTip}>
               <Info className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 hover:text-violet-500 dark:hover:text-violet-400 transition-colors cursor-help" />
-              {tipPos && (
+              {tipPos && tooltipPos && (
                 <div
                   className="fixed z-[9999] w-56 sm:w-64 p-3 bg-zinc-900/98 backdrop-blur-xl border border-zinc-700 text-white text-[11px] rounded-2xl shadow-2xl pointer-events-none"
-                  style={{ left: tipPos.x, top: tipPos.y - 8, transform: 'translateX(-50%) translateY(-100%)' }}
+                  style={{ left: tooltipPos.left, top: tipPos.y - 8, transform: 'translateX(-50%) translateY(-100%)' }}
                 >
                   <div className="flex items-center gap-1.5 mb-1.5">
                     {Icon && <Icon className="w-3 h-3 text-violet-400" />}
                     <span className="font-bold text-violet-400 uppercase tracking-widest text-[9px]">{label}</span>
                   </div>
                   <p className="leading-relaxed font-medium text-zinc-200 normal-case tracking-normal">{info}</p>
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900/98" />
+                  <div 
+                    className="absolute top-full border-4 border-transparent border-t-zinc-900/98" 
+                    style={{ left: `${tooltipPos.arrowOffset}%`, transform: 'translateX(-50%)' }}
+                  />
                 </div>
               )}
             </div>
