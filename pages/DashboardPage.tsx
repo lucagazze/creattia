@@ -2190,18 +2190,18 @@ export default function DashboardPage() {
               <div className="w-2 h-2 rounded-full bg-violet-500" />
               <h2 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Atención al Cliente</h2>
             </div>
-            {fetchingChatwoot && !chatwootSummary ? (
-              <div className="flex items-center justify-center gap-3 py-8">
-                <div className="w-5 h-5 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
-                <span className="text-[12px] text-zinc-400 font-medium">Cargando atención…</span>
-              </div>
-            ) : chatwootSummary ? (
+            <EmailLoader
+              loading={fetchingChatwoot}
+              color="#8b5cf6"
+              labels={['Conversaciones', 'Msj. Entrantes', 'Msj. Salientes', 'Resp. Promedio']}
+            >
+            {chatwootSummary ? (
               <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                 {[
-                  { key: 'conversations_count', label: 'Conversaciones', icon: MessageCircle, isTime: false },
-                  { key: 'incoming_messages_count', label: 'Msj. Entrantes', icon: Inbox, isTime: false },
-                  { key: 'outgoing_messages_count', label: 'Msj. Salientes', icon: Send, isTime: false },
-                  { key: 'avg_first_response_time', label: 'Resp. Promedio', icon: Clock, isTime: true },
+                  { key: 'conversations_count',      label: 'Conversaciones', icon: MessageCircle, isTime: false, info: 'Total de conversaciones iniciadas en el período. Incluye todos los canales conectados (WhatsApp, Instagram, Facebook, Web).' },
+                  { key: 'incoming_messages_count',  label: 'Msj. Entrantes', icon: Inbox,         isTime: false, info: 'Mensajes recibidos de clientes. Refleja el volumen de consultas y la demanda de atención en el período.' },
+                  { key: 'outgoing_messages_count',  label: 'Msj. Salientes', icon: Send,          isTime: false, info: 'Mensajes enviados por el equipo o la IA. Indica la cantidad de respuestas dadas a los clientes.' },
+                  { key: 'avg_first_response_time',  label: 'Resp. Promedio', icon: Clock,         isTime: true,  info: 'Tiempo promedio entre que un cliente escribe y recibe la primera respuesta. Menos tiempo = mejor experiencia.' },
                 ].map(m => {
                   const val = Number(chatwootSummary[m.key] || 0);
                   const prev = Number(prevChatwootSummary?.[m.key] || 0);
@@ -2223,11 +2223,13 @@ export default function DashboardPage() {
                       loading={false}
                       active={activeAtencMetric === m.key}
                       onClick={() => setActiveAtencMetric(activeAtencMetric === m.key ? null : m.key)}
+                      info={m.info}
                     />
                   );
                 })}
               </div>
             ) : null}
+            </EmailLoader>
             {/* Atención expanded chart */}
             {chatwootSummary && activeAtencMetric && (
               <div className="relative mt-2">
