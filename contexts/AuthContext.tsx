@@ -18,35 +18,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const loadedUserIdRef = React.useRef<string | null>(null);
+  const loadProfilePromiseRef = React.useRef<Promise<any> | null>(null);
 
-  const loadProfile = async (userId: string, email?: string) => {
-    if (loadedUserIdRef.current === userId) return;
-    loadedUserIdRef.current = userId;
+  const loadProfile = (userId: string, email?: string) => {
+    if (loadProfilePromiseRef.current) return loadProfilePromiseRef.current;
 
-    const retries = 3;
-    for (let i = 0; i < retries; i++) {
-      try {
-        const p = await db.profile.getByUserId(userId, email);
-        setProfile(p);
-        if (p) {
-          db.activity.log(userId, p.id, 'session_start', {
-            user_email: email,
-            ua: navigator.userAgent,
-            screen: `${window.innerWidth}x${window.innerHeight}`,
-          });
+    const promise = (async () => {
+      const retries = 3;
+      for (let i = 0; i < retries; i++) {
+        try {
+          const p = await db.profile.getByUserId(userId, email);
+          setProfile(p);
+          if (p) {
+            db.activity.log(userId, p.id, 'session_start', {
+              user_email: email,
+              ua: navigator.userAgent,
+              screen: `${window.innerWidth}x${window.innerHeight}`,
+            });
+          }
+          return p;
+        } catch (err) {
+          console.error(`Error loading profile (attempt ${i + 1}/${retries}):`, err);
+          if (i === retries - 1) {
+            setProfile(null);
+            loadProfilePromiseRef.current = null;
+            throw err;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
-        return; // success — exit retry loop
-      } catch (err) {
-        console.error(`Error loading profile (attempt ${i + 1}/${retries}):`, err);
-        if (i === retries - 1) {
-          setProfile(null);
-          loadedUserIdRef.current = null;
-          throw err;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1500));
       }
-    }
+    })();
+
+    loadProfilePromiseRef.current = promise;
+    return promise;
   };
 
   useEffect(() => {
@@ -92,7 +96,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         loadProfile(session.user.id, session.user.email).finally(() => setLoading(false));
       } else {
         setProfile(null);
-        loadedUserIdRef.current = null;
+        loadProfilePromiseRef.current = null;
         setLoading(false);
       }
     });

@@ -512,10 +512,9 @@ export default function AdminPage() {
     else setClients(data ?? []);
     
     if (supabaseAdmin) {
-      loadUnlinkedUsers();
-    } else {
-      setLoading(false);
+      await loadUnlinkedUsers();
     }
+    setLoading(false);
   };
 
   const handleAssociateUser = async (userId: string, email: string, clientId: string) => {
