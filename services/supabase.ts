@@ -6,13 +6,72 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Client estándar (anon key)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Client admin (service role) — para crear usuarios desde AdminPage
-const SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6b2NibnlvZW5qYnB4bWNxb2JuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1Mjg0MjkxMywiZXhwIjoyMDY4NDE4OTEzfQ.jyLHl3PaY7wVTbcWZcr4JgoQi8yC459BbQ7UEDtaS6Y";
+// Custom helper to call the secure backend API
+async function callAdminUsersApi(action: string, payload?: any) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('No active session found. Please log in.');
 
-export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-  auth: { 
-    autoRefreshToken: false, 
-    persistSession: false,
-    storageKey: 'supabase.admin.auth.token'
-  },
-});
+  const res = await fetch('/api/admin-users', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify({ action, payload })
+  });
+
+  const responseData = await res.json();
+  if (!res.ok) {
+    throw new Error(responseData.error || 'API request failed');
+  }
+  return { data: responseData, error: null };
+}
+
+// Mock supabaseAdmin to preserve existing code references but execute securely on the server
+export const supabaseAdmin = {
+  auth: {
+    admin: {
+      listUsers: async (params?: any) => {
+        try {
+          const res = await callAdminUsersApi('listUsers', params);
+          return res;
+        } catch (err: any) {
+          return { data: null, error: err };
+        }
+      },
+      getUserById: async (userId: string) => {
+        try {
+          const res = await callAdminUsersApi('getUserById', { userId });
+          return res;
+        } catch (err: any) {
+          return { data: null, error: err };
+        }
+      },
+      createUser: async (params: any) => {
+        try {
+          const res = await callAdminUsersApi('createUser', params);
+          // Return format expected: { data: { user: ... }, error: null }
+          return { data: { user: res.data.user }, error: null };
+        } catch (err: any) {
+          return { data: null, error: err };
+        }
+      },
+      updateUserById: async (userId: string, data: any) => {
+        try {
+          const res = await callAdminUsersApi('updateUserById', { userId, data });
+          return res;
+        } catch (err: any) {
+          return { data: null, error: err };
+        }
+      },
+      deleteUser: async (userId: string) => {
+        try {
+          const res = await callAdminUsersApi('deleteUser', { userId });
+          return res;
+        } catch (err: any) {
+          return { data: null, error: err };
+        }
+      }
+    }
+  }
+} as any;
