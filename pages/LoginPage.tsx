@@ -20,6 +20,28 @@ export default function LoginPage() {
   const { session } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const isMobileOrStandalone = () => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isStandalone = (window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches;
+    return isMobile || isStandalone;
+  };
+
+  const handlePwaGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + window.location.pathname,
+        },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      showToast(error.message || 'Error al iniciar sesión con Google', 'error');
+      setLoading(false);
+    }
+  };
+
   const client_id = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const isGoogleConfigured = !!client_id;
 
@@ -78,6 +100,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isGoogleConfigured) return;
+    if (isMobileOrStandalone()) return; // Don't load GSI script on mobile or PWA
 
     let script = document.getElementById('google-gsi-script') as HTMLScriptElement;
     if (!script) {
@@ -105,9 +128,10 @@ export default function LoginPage() {
   }, [darkMode, isGoogleConfigured]);
 
   return (
-    <div className={`min-h-screen h-screen flex flex-col font-sans overflow-hidden ${
-      darkMode ? 'bg-[#080808]' : 'bg-[#f2f2f7]'
-    }`}>
+    <div 
+      className={`flex flex-col font-sans overflow-hidden ${darkMode ? 'bg-[#080808]' : 'bg-[#f2f2f7]'}`}
+      style={{ height: '100dvh', minHeight: '100dvh' }}
+    >
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-5 w-full">
         <div className="flex items-center gap-2.5">
@@ -173,6 +197,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       disabled={loading}
+                      onClick={isMobileOrStandalone() ? handlePwaGoogleSignIn : undefined}
                       className={`w-full h-full flex items-center justify-center gap-2.5 rounded-2xl text-[14px] font-bold transition-all duration-200 ${
                         darkMode
                           ? 'bg-white text-black hover:bg-zinc-100 shadow-lg shadow-white/5'
@@ -195,7 +220,7 @@ export default function LoginPage() {
                     </button>
                     
                     {/* 2. Transparent overlay of official Google button */}
-                    {!loading && (
+                    {!loading && !isMobileOrStandalone() && (
                       <div 
                         ref={containerRef} 
                         className="absolute inset-0 cursor-pointer opacity-0 hover:opacity-[0.01] active:opacity-[0.01]" 
