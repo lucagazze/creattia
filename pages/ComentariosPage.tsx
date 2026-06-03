@@ -851,13 +851,10 @@ export default function ComentariosPage() {
     else if (platformFilter === 'facebook') list = list.filter(p => p.platform === 'facebook' && !p.isAd);
     else if (platformFilter === 'ads') list = list.filter(p => p.isAd);
     if (statusFilter === 'pending') list = list.filter(p => p.pendingComments > 0);
-    // Sort by most recent comment timestamp (latest comment in the thread)
+    // Sort by most recent incoming comment (user comment only, not our replies)
     list = [...list].sort((a, b) => {
       const lastTs = (post: PostItem) => {
-        const all = post.comments.flatMap((c: any) => [
-          c.timestamp || c.created_time || post.timestamp,
-          ...((c.replies?.data || []).map((r: any) => r.timestamp || r.created_time || '')),
-        ]).filter(Boolean);
+        const all = post.comments.map((c: any) => c.timestamp || c.created_time || post.timestamp).filter(Boolean);
         const latest = all.length ? all.reduce((mx, ts) => ts > mx ? ts : mx) : post.timestamp;
         return new Date(latest).getTime();
       };

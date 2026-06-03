@@ -1009,18 +1009,18 @@ export default function RedesSocialesPage() {
                         </div>
                       </div>
 
-                      <div className="flex gap-4 flex-wrap justify-center font-semibold">
-                        <div className="px-5 py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center min-w-[90px]">
-                          <p className="text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(igProfile.followers_count)}</p>
-                          <p className="text-[10px] text-zinc-400 font-bold mt-1.5 uppercase">Seguidores</p>
+                      <div className="flex gap-2 sm:gap-4 flex-nowrap justify-center font-semibold">
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(igProfile.followers_count)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Seguidores</p>
                         </div>
-                        <div className="px-5 py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center min-w-[90px]">
-                          <p className="text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(igProfile.media_count)}</p>
-                          <p className="text-[10px] text-zinc-400 font-bold mt-1.5 uppercase">Publicaciones</p>
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(igProfile.media_count)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Publicaciones</p>
                         </div>
-                        <div className="px-5 py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center min-w-[90px]">
-                          <p className="text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtPercent(igEngagementRate)}</p>
-                          <p className="text-[10px] text-zinc-400 font-bold mt-1.5 uppercase">Engagement</p>
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtPercent(igEngagementRate)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Engagement</p>
                         </div>
                       </div>
                     </div>
@@ -1275,18 +1275,18 @@ export default function RedesSocialesPage() {
                         </div>
                       </div>
 
-                      <div className="flex gap-4 flex-wrap justify-center font-semibold">
-                        <div className="px-5 py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center min-w-[90px]">
-                          <p className="text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(fbProfile.followers_count || fbProfile.fan_count)}</p>
-                          <p className="text-[10px] text-zinc-400 font-bold mt-1.5 uppercase">Seguidores</p>
+                      <div className="flex gap-2 sm:gap-4 flex-nowrap justify-center font-semibold">
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(fbProfile.followers_count || fbProfile.fan_count)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Seguidores</p>
                         </div>
-                        <div className="px-5 py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center min-w-[90px]">
-                          <p className="text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(fbProfile.fan_count)}</p>
-                          <p className="text-[10px] text-zinc-400 font-bold mt-1.5 uppercase">Likes</p>
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(fbProfile.fan_count)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Likes</p>
                         </div>
-                        <div className="px-5 py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center min-w-[90px]">
-                          <p className="text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtPercent(fbEngagementRate)}</p>
-                          <p className="text-[10px] text-zinc-400 font-bold mt-1.5 uppercase">Engagement</p>
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtPercent(fbEngagementRate)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Engagement</p>
                         </div>
                       </div>
                     </div>
