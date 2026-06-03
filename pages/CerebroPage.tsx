@@ -7,32 +7,10 @@ import {
   Brain, Globe, Save, RefreshCw, Sparkles, FileText, CheckCircle2,
   ShieldAlert, ArrowUpRight, Instagram, Calendar, ShoppingBag, Package,
   ExternalLink, Search, Tag, Zap, MessageSquare, BookOpen, Loader2,
-  ChevronDown, AlertCircle, Info
+  ChevronDown, AlertCircle, Info, X, CheckCircle, Circle, ChevronRight
 } from 'lucide-react';
 import { AppleLoader } from '../components/ui/AppleLoader';
 
-// ── Textarea field ────────────────────────────────────────────────────────────
-const Field = ({ label, hint, placeholder, value, onChange, rows = 4, badge }: {
-  label: string; hint: string; placeholder: string; value: string;
-  onChange: (v: string) => void; rows?: number; badge?: string;
-}) => (
-  <div className="space-y-1.5">
-    <div className="flex items-center gap-2">
-      <label className="text-[11px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">{label}</label>
-      {badge && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 uppercase tracking-wide">{badge}</span>}
-    </div>
-    <textarea
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full p-3 text-[13px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-y leading-relaxed font-medium"
-    />
-    <p className="text-[11px] text-zinc-400 leading-snug">{hint}</p>
-  </div>
-);
-
-// ── Status pill ───────────────────────────────────────────────────────────────
 const Pill = ({ active, label, icon: Icon }: { active: boolean; label: string; icon: any }) => (
   <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg ${active ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-400'}`}>
     <div className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'}`} />
@@ -40,6 +18,13 @@ const Pill = ({ active, label, icon: Icon }: { active: boolean; label: string; i
     {label}
   </div>
 );
+
+const SCAN_STEPS = [
+  { id: 'web',    label: 'Rastreando sitio web',        detail: 'Explorando páginas, productos y contenido...' },
+  { id: 'social', label: 'Leyendo Instagram y Facebook', detail: 'Analizando publicaciones, perfil y descripción...' },
+  { id: 'ai',     label: 'Consolidando con IA',          detail: 'Generando descripción, tono, ofertas y FAQs...' },
+  { id: 'save',   label: 'Guardando en el Cerebro',      detail: 'Actualizando memoria web y secciones...' },
+];
 
 export default function CerebroPage() {
   const { profile: authProfile } = useAuth();
@@ -49,7 +34,7 @@ export default function CerebroPage() {
 
   const [activeTab, setActiveTab] = useState<'identidad' | 'memoria' | 'catalogo'>('identidad');
 
-  // Identidad fields
+  // Identidad
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [businessDescription, setBusinessDescription] = useState('');
   const [toneInstructions, setToneInstructions] = useState('');
@@ -65,10 +50,19 @@ export default function CerebroPage() {
   // UI
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [scanningAll, setScanningAll] = useState(false);
-  const [scanStep, setScanStep] = useState('');
 
-  // Products
+  // Scan modal
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanningAll, setScanningAll] = useState(false);
+  const [scanCurrentStep, setScanCurrentStep] = useState(0);
+  const [scanDone, setScanDone] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const [scanPreview, setScanPreview] = useState<{ description?: string; tone?: string; offers?: string; faq?: string } | null>(null);
+
+  // Contexto modal
+  const [showContextModal, setShowContextModal] = useState(false);
+
+  // Catálogo
   const [products, setProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -83,7 +77,6 @@ export default function CerebroPage() {
     setInstagramContext((profile as any).instagram_context || '');
     setBrainUpdatedAt((profile as any).brain_updated_at || null);
 
-    // Parse custom_instructions: new format = JSON {tone, offers, faq}, old = plain string
     const rawCI: string = (profile as any).custom_instructions || '';
     try {
       const parsed = JSON.parse(rawCI);
@@ -95,33 +88,30 @@ export default function CerebroPage() {
       setOffers('');
       setFaq('');
     }
-
     setLoading(false);
 
-    // Auto-load products with localStorage cache (1h TTL)
-    const platform = (profile as any).ecommerce_platform;
-    if (platform) {
-      const cacheKey = `products_${profile.id}`;
+    const plt = (profile as any).ecommerce_platform;
+    if (plt) {
+      const ck = `products_${profile.id}`;
       try {
-        const cached = localStorage.getItem(cacheKey);
+        const cached = localStorage.getItem(ck);
         if (cached) {
           const { data, ts } = JSON.parse(cached);
           if (Date.now() - ts < 3_600_000) { setProducts(data); return; }
         }
-      } catch { /* ignore */ }
+      } catch { }
       loadProducts(profile);
     }
   }, [profile?.id]);
 
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveSettings = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!profile) return;
     setSaving(true);
     try {
-      const structuredCI = JSON.stringify({ tone: toneInstructions, offers, faq });
       await db.clients.updateField(profile.id, {
         business_description: businessDescription,
-        custom_instructions: structuredCI,
+        custom_instructions: JSON.stringify({ tone: toneInstructions, offers, faq }),
         website_url: websiteUrl,
         brain_updated_at: new Date().toISOString(),
       });
@@ -137,21 +127,20 @@ export default function CerebroPage() {
   const loadProducts = async (prof?: any) => {
     const p = prof || profile;
     if (!p) return;
-    const platform = (p as any).ecommerce_platform;
-    if (!platform) return;
-    setProductsLoading(true);
-    setProductsError(null);
+    const plt = (p as any).ecommerce_platform;
+    if (!plt) return;
+    setProductsLoading(true); setProductsError(null);
     try {
-      const body: any = { type: 'products', platform };
-      if (platform === 'shopify') { body.shopify_domain = (p as any).shopify_domain; body.shopify_access_token = (p as any).shopify_access_token; }
-      else if (platform === 'wordpress') { body.wordpress_url = (p as any).wordpress_url; body.woo_consumer_key = (p as any).woo_consumer_key; body.woo_consumer_secret = (p as any).woo_consumer_secret; }
-      else if (platform === 'tiendanube') { body.tiendanube_store_id = (p as any).tiendanube_store_id; body.tiendanube_access_token = (p as any).tiendanube_access_token; }
+      const body: any = { type: 'products', platform: plt };
+      if (plt === 'shopify') { body.shopify_domain = (p as any).shopify_domain; body.shopify_access_token = (p as any).shopify_access_token; }
+      else if (plt === 'wordpress') { body.wordpress_url = (p as any).wordpress_url; body.woo_consumer_key = (p as any).woo_consumer_key; body.woo_consumer_secret = (p as any).woo_consumer_secret; }
+      else if (plt === 'tiendanube') { body.tiendanube_store_id = (p as any).tiendanube_store_id; body.tiendanube_access_token = (p as any).tiendanube_access_token; }
       const r = await fetch('/api/scrape-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Error ${r.status}`);
       const { products: loaded } = await r.json();
       setProducts(loaded || []);
       if (loaded?.length) {
-        try { localStorage.setItem(`products_${p.id}`, JSON.stringify({ data: loaded, ts: Date.now() })); } catch { /* storage full */ }
+        try { localStorage.setItem(`products_${p.id}`, JSON.stringify({ data: loaded, ts: Date.now() })); } catch { }
       } else {
         setProductsError('No se encontraron productos activos');
       }
@@ -164,29 +153,56 @@ export default function CerebroPage() {
 
   const handleScanAndTrainAll = async () => {
     if (!profile || !websiteUrl.trim()) { showToast('Ingresá una URL válida antes de escanear.', 'warning'); return; }
+    setShowScanModal(true);
     setScanningAll(true);
-    setScanStep('Iniciando escaneo...');
-    showToast('Escaneando sitio web y redes sociales — puede tardar hasta 1 minuto.', 'info');
+    setScanCurrentStep(0);
+    setScanDone(false);
+    setScanError('');
+    setScanPreview(null);
+
+    // Simulate step progression while waiting for API
+    const stepTimings = [0, 8000, 16000, 24000];
+    stepTimings.forEach((t, i) => {
+      if (i > 0) setTimeout(() => { if (i < SCAN_STEPS.length) setScanCurrentStep(i); }, t);
+    });
+
     try {
-      const steps = ['Rastreando sitio web...', 'Conectando con Instagram y Facebook...', 'Consolidando datos de la marca...', 'Optimizando con IA...', 'Guardando en el Cerebro...'];
-      let si = 0; setScanStep(steps[0]);
-      const iv = setInterval(() => { if (si < steps.length - 1) { si++; setScanStep(steps[si]); } }, 7000);
-      const res = await fetch('/api/scrape-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: profile.id, url: websiteUrl }) });
-      clearInterval(iv);
+      const res = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: profile.id, url: websiteUrl })
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error desconocido');
+
+      setScanCurrentStep(SCAN_STEPS.length - 1);
+
+      // Parse result
+      const newDesc = data.business_description || '';
+      const rawCI: string = data.custom_instructions || '';
+      let newTone = '', newOffers = offers, newFaq = faq;
+      try {
+        const p = JSON.parse(rawCI);
+        newTone = p.tone || '';
+        newOffers = p.offers || offers;
+        newFaq = p.faq || faq;
+      } catch { newTone = rawCI; }
+
+      setScanPreview({ description: newDesc, tone: newTone, offers: newOffers, faq: newFaq });
+
+      // Apply results
       setScrapedContent(data.scraped_content || '');
       setInstagramContext(data.instagram_context || '');
-      setBusinessDescription(data.business_description || '');
-      // Preserve tone/offers/faq from scan result
-      const rawCI: string = data.custom_instructions || '';
-      try { const p = JSON.parse(rawCI); setToneInstructions(p.tone || rawCI); setOffers(p.offers || offers); setFaq(p.faq || faq); } catch { if (rawCI) setToneInstructions(rawCI); }
+      setBusinessDescription(newDesc);
+      setToneInstructions(newTone);
+      setOffers(newOffers);
+      setFaq(newFaq);
       setBrainUpdatedAt(data.brain_updated_at || null);
-      showToast('¡Cerebro entrenado! Web, redes y tono actualizados.', 'success');
+      setScanDone(true);
     } catch (err: any) {
-      showToast(err.message || 'Error al entrenar', 'error');
+      setScanError(err.message || 'Error al entrenar');
     } finally {
-      setScanningAll(false); setScanStep('');
+      setScanningAll(false);
     }
   };
 
@@ -195,8 +211,16 @@ export default function CerebroPage() {
     try { return new Date(d).toLocaleString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' hs'; } catch { return d; }
   };
 
-  const contextScore = [businessDescription, toneInstructions, offers, faq, scrapedContent, instagramContext].filter(Boolean).length;
-  const contextPct = Math.round((contextScore / 6) * 100);
+  const sections = [
+    { key: 'desc',  label: 'Descripción del Negocio', icon: Info,        color: 'blue',   value: businessDescription, tip: 'Completalo manualmente o usá "Escanear y Entrenar"' },
+    { key: 'tone',  label: 'Tono y Estilo',           icon: MessageSquare, color: 'violet', value: toneInstructions,   tip: 'El escaneo lo genera automáticamente del sitio web' },
+    { key: 'offrs', label: 'Ofertas y Promociones',   icon: Tag,          color: 'amber',  value: offers,              tip: 'Escribilo manualmente con las ofertas vigentes' },
+    { key: 'faq',   label: 'Preguntas Frecuentes',    icon: BookOpen,     color: 'emerald',value: faq,                 tip: 'El escaneo extrae las FAQs del sitio automáticamente' },
+    { key: 'web',   label: 'Memoria Web',             icon: Globe,        color: 'indigo', value: scrapedContent,      tip: 'Usá "Escanear y Entrenar" para extraer el contenido del sitio' },
+    { key: 'social',label: 'Memoria Social',          icon: Instagram,    color: 'pink',   value: instagramContext,     tip: 'Vinculá Instagram en la configuración y luego escaneá' },
+  ];
+  const contextScore = sections.filter(s => s.value).length;
+  const contextPct = Math.round((contextScore / sections.length) * 100);
 
   if (loading) return <AppleLoader variant="page" />;
 
@@ -211,28 +235,43 @@ export default function CerebroPage() {
               <Brain className="w-5 h-5 text-violet-500" />
             </div>
             <h1 className="text-[22px] font-black text-zinc-900 dark:text-white tracking-tight">Cerebro de IA</h1>
-            {isViewingAs && (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 text-[9px] font-black uppercase tracking-wide">
-                <ShieldAlert className="w-2.5 h-2.5" />Admin
-              </span>
-            )}
+            {isViewingAs && <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 text-[9px] font-black uppercase"><ShieldAlert className="w-2.5 h-2.5" />Admin</span>}
           </div>
           <p className="text-[12px] text-zinc-400 font-medium ml-11">Todo lo que sabe la IA sobre tu negocio — alimenta comentarios, mensajería y más.</p>
         </div>
 
-        {/* Context score */}
-        <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 shadow-sm">
-          <div className="relative w-10 h-10">
-            <svg viewBox="0 0 36 36" className="w-10 h-10 -rotate-90">
-              <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e4e4e7" strokeWidth="3" />
-              <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" strokeWidth="3" strokeDasharray={`${contextPct} ${100 - contextPct}`} strokeLinecap="round" />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-violet-600">{contextPct}%</span>
-          </div>
-          <div>
-            <p className="text-[11px] font-black text-zinc-700 dark:text-zinc-300">Contexto IA</p>
-            <p className="text-[10px] text-zinc-400">{contextScore}/6 secciones</p>
-          </div>
+        <div className="flex items-center gap-3">
+          {/* Save button at top */}
+          {activeTab === 'identidad' && (
+            <button
+              onClick={() => handleSaveSettings()}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-xl text-[12px] font-black shadow-md shadow-violet-200 dark:shadow-none transition-all"
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              {saving ? 'Guardando…' : 'Guardar'}
+            </button>
+          )}
+
+          {/* Context score — clickable modal */}
+          <button
+            onClick={() => setShowContextModal(true)}
+            className="flex items-center gap-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 shadow-sm hover:border-violet-300 dark:hover:border-violet-700 transition-all"
+          >
+            <div className="relative w-10 h-10">
+              <svg viewBox="0 0 36 36" className="w-10 h-10 -rotate-90">
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e4e4e7" strokeWidth="3" />
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" strokeWidth="3"
+                  strokeDasharray={`${contextPct} ${100 - contextPct}`} strokeLinecap="round" />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-violet-600">{contextPct}%</span>
+            </div>
+            <div className="text-left">
+              <p className="text-[11px] font-black text-zinc-700 dark:text-zinc-300">Contexto IA</p>
+              <p className="text-[10px] text-zinc-400">{contextScore}/6 secciones</p>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+          </button>
         </div>
       </div>
 
@@ -243,157 +282,77 @@ export default function CerebroPage() {
           { id: 'memoria',   label: 'Memoria',   icon: Brain },
           { id: 'catalogo',  label: 'Catálogo',  icon: ShoppingBag },
         ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id as any)}
-            className={`flex items-center gap-1.5 px-5 py-3 text-[13px] font-bold border-b-2 -mb-px transition-all ${activeTab === t.id ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
-          >
-            <t.icon className="w-3.5 h-3.5" />
-            {t.label}
+          <button key={t.id} onClick={() => setActiveTab(t.id as any)}
+            className={`flex items-center gap-1.5 px-5 py-3 text-[13px] font-bold border-b-2 -mb-px transition-all ${activeTab === t.id ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}>
+            <t.icon className="w-3.5 h-3.5" />{t.label}
           </button>
         ))}
       </div>
 
-      {/* ═══════════════════════ TAB: IDENTIDAD ═══════════════════════ */}
+      {/* ═══ TAB: IDENTIDAD ═══ */}
       {activeTab === 'identidad' && (
         <form onSubmit={handleSaveSettings} className="space-y-5">
 
-          {/* URL + Scan block */}
+          {/* URL + Scan */}
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
             <div className="flex items-center gap-2 mb-1">
               <Globe className="w-4 h-4 text-violet-500" />
               <span className="text-[12px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Sitio Web</span>
             </div>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={websiteUrl}
-                onChange={e => setWebsiteUrl(e.target.value)}
+              <input type="text" value={websiteUrl} onChange={e => setWebsiteUrl(e.target.value)}
                 placeholder="https://www.mitienda.com"
-                className="flex-1 px-3 py-2.5 text-[13px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-violet-500 transition-all text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 font-medium"
-              />
+                className="flex-1 px-3 py-2.5 text-[13px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-violet-500 transition-all text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 font-medium" />
               {websiteUrl && (
-                <a href={websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`} target="_blank" rel="noreferrer" className="px-3 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-500 hover:text-zinc-900 transition-all">
+                <a href={websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`} target="_blank" rel="noreferrer"
+                  className="px-3 flex items-center justify-center bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-500 hover:text-zinc-900 transition-all">
                   <ArrowUpRight className="w-4 h-4" />
                 </a>
               )}
             </div>
-
-            {/* Sources status */}
             <div className="grid grid-cols-3 gap-2">
               <Pill active={!!websiteUrl} label={websiteUrl ? 'Web lista' : 'Sin URL'} icon={Globe} />
               <Pill active={!!(profile as any)?.ig_business_id} label={(profile as any)?.ig_username ? `@${(profile as any).ig_username}` : 'Instagram'} icon={Instagram} />
               <Pill active={!!(profile as any)?.fb_page_id} label={(profile as any)?.fb_page_name || 'Facebook'} icon={Globe} />
             </div>
-
             <div className="flex items-center justify-between gap-3 pt-1">
               <div className="flex items-center gap-2 text-[11px] text-zinc-400">
                 <Calendar className="w-3.5 h-3.5" />
                 <span className="font-medium">{fmtDate(brainUpdatedAt)}</span>
               </div>
-              <button
-                type="button"
-                onClick={handleScanAndTrainAll}
-                disabled={scanningAll || !websiteUrl.trim()}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-[12px] font-bold shadow-md shadow-violet-500/20 transition-all"
-              >
-                {scanningAll
-                  ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" />{scanStep || 'Escaneando...'}</>
-                  : <><Sparkles className="w-3.5 h-3.5" />Escanear y Entrenar</>}
+              <button type="button" onClick={handleScanAndTrainAll} disabled={!websiteUrl.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-[12px] font-bold shadow-md shadow-violet-500/20 transition-all">
+                <Sparkles className="w-3.5 h-3.5" />Escanear y Entrenar
               </button>
             </div>
-            <p className="text-[10px] text-zinc-400 -mt-1">Escanea el sitio web y redes sociales y actualiza las 3 secciones automáticamente.</p>
+            <p className="text-[10px] text-zinc-400 -mt-1">Escanea el sitio web y redes sociales — extrae descripción, tono, ofertas y preguntas frecuentes automáticamente.</p>
           </div>
 
           {/* 4 context cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-            {/* Descripción del negocio */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <Info className="w-3.5 h-3.5 text-blue-500" />
+            {[
+              { key: 'desc', label: 'Descripción del Negocio', hint: 'Qué es, qué vende, quién lo maneja', icon: Info, color: 'blue', accentCls: 'focus:border-blue-500', val: businessDescription, set: setBusinessDescription, ph: 'Ej: Somos una fábrica de cuero con 20 años de tradición...' },
+              { key: 'tone', label: 'Tono y Estilo', hint: 'Cómo habla la IA al responder', icon: MessageSquare, color: 'violet', accentCls: 'focus:border-violet-500', val: toneInstructions, set: setToneInstructions, ph: 'Ej: Tono informal y cercano. Voseo argentino...' },
+              { key: 'offers', label: 'Ofertas y Promociones', hint: 'Descuentos activos, combos, cuotas', icon: Tag, color: 'amber', accentCls: 'focus:border-amber-500', val: offers, set: setOffers, ph: 'Ej: Hasta el 30 de junio, 15% off en todos los cueros de más de 5 metros...' },
+              { key: 'faq', label: 'Preguntas Frecuentes', hint: 'Respuestas exactas que la IA debe usar', icon: BookOpen, color: 'emerald', accentCls: 'focus:border-emerald-500', val: faq, set: setFaq, ph: 'P: ¿Hacen envíos internacionales? R: Sí, vía DHL.\nP: ¿Cuál es el mínimo? R: No hay mínimo...' },
+            ].map(f => (
+              <div key={f.key} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className={`w-7 h-7 rounded-lg bg-${f.color}-500/10 flex items-center justify-center shrink-0`}>
+                    <f.icon className={`w-3.5 h-3.5 text-${f.color}-500`} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-black text-zinc-800 dark:text-zinc-200">{f.label}</p>
+                    <p className="text-[10px] text-zinc-400">{f.hint}</p>
+                  </div>
+                  {f.val && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
                 </div>
-                <div>
-                  <p className="text-[12px] font-black text-zinc-800 dark:text-zinc-200">Descripción del Negocio</p>
-                  <p className="text-[10px] text-zinc-400">Qué es, qué vende, quién lo maneja</p>
-                </div>
-                {businessDescription && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
+                <textarea value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.ph} rows={5}
+                  className={`w-full p-3 text-[12.5px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none ${f.accentCls} transition-all text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-y leading-relaxed`} />
               </div>
-              <textarea
-                value={businessDescription}
-                onChange={e => setBusinessDescription(e.target.value)}
-                placeholder="Ej: Somos una fábrica de cuero con 20 años de tradición en Argentina. Vendemos cuero skirting, latigo y harness directo de fábrica. Manuel atiende de L-V de 8 a 15hs..."
-                rows={5}
-                className="w-full p-3 text-[12.5px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-blue-500 transition-all text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-y leading-relaxed"
-              />
-            </div>
-
-            {/* Tono y Estilo */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
-                  <MessageSquare className="w-3.5 h-3.5 text-violet-500" />
-                </div>
-                <div>
-                  <p className="text-[12px] font-black text-zinc-800 dark:text-zinc-200">Tono y Estilo</p>
-                  <p className="text-[10px] text-zinc-400">Cómo habla la IA al responder</p>
-                </div>
-                {toneInstructions && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
-              </div>
-              <textarea
-                value={toneInstructions}
-                onChange={e => setToneInstructions(e.target.value)}
-                placeholder="Ej: Tono informal y cercano. Voseo argentino. No más de 2 oraciones en comentarios. Usar emojis con moderación. Nunca decir 'hola' ni 'gracias por tu mensaje'..."
-                rows={5}
-                className="w-full p-3 text-[12.5px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-violet-500 transition-all text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-y leading-relaxed"
-              />
-            </div>
-
-            {/* Ofertas */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                  <Tag className="w-3.5 h-3.5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-[12px] font-black text-zinc-800 dark:text-zinc-200">Ofertas y Promociones</p>
-                  <p className="text-[10px] text-zinc-400">Descuentos activos, combos, cuotas</p>
-                </div>
-                {offers && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
-              </div>
-              <textarea
-                value={offers}
-                onChange={e => setOffers(e.target.value)}
-                placeholder="Ej: Hasta el 30 de junio, 15% off en todos los cueros de más de 5 metros. Envío gratis en compras +$100 USD. 3 cuotas sin interés con tarjeta Visa o Mastercard. Código de descuento: SUMMER15..."
-                rows={5}
-                className="w-full p-3 text-[12.5px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-amber-500 transition-all text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-y leading-relaxed"
-              />
-            </div>
-
-            {/* FAQ */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-[12px] font-black text-zinc-800 dark:text-zinc-200">Preguntas Frecuentes</p>
-                  <p className="text-[10px] text-zinc-400">Respuestas exactas que la IA debe usar</p>
-                </div>
-                {faq && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />}
-              </div>
-              <textarea
-                value={faq}
-                onChange={e => setFaq(e.target.value)}
-                placeholder="P: ¿Hacen envíos internacionales? R: Sí, enviamos a todo el mundo vía DHL. El costo varía por destino.&#10;P: ¿Cuál es el mínimo de pedido? R: No tenemos mínimo. Se puede pedir desde 1 pie cuadrado.&#10;P: ¿Tienen local físico? R: Sí, estamos en..."
-                rows={5}
-                className="w-full p-3 text-[12.5px] bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:border-emerald-500 transition-all text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-y leading-relaxed"
-              />
-            </div>
+            ))}
           </div>
 
-          {/* How the context feeds the AI */}
           <div className="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900/30 rounded-2xl p-4">
             <div className="flex items-start gap-3">
               <Zap className="w-4 h-4 text-violet-500 mt-0.5 shrink-0" />
@@ -405,11 +364,8 @@ export default function CerebroPage() {
           </div>
 
           <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-xl text-[13px] font-black shadow-md shadow-violet-200 dark:shadow-none transition-all"
-            >
+            <button type="submit" disabled={saving}
+              className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-xl text-[13px] font-black shadow-md shadow-violet-200 dark:shadow-none transition-all">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? 'Guardando...' : 'Guardar Cambios'}
             </button>
@@ -417,67 +373,43 @@ export default function CerebroPage() {
         </form>
       )}
 
-      {/* ═══════════════════════ TAB: MEMORIA ═══════════════════════ */}
+      {/* ═══ TAB: MEMORIA ═══ */}
       {activeTab === 'memoria' && (
         <div className="space-y-5">
-
-          {/* Memory preview */}
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
             <div className="flex border-b border-zinc-100 dark:border-zinc-800">
               {[
                 { id: 'web', label: 'Sitio Web', icon: Globe, active: !!scrapedContent },
                 { id: 'social', label: 'Instagram & Facebook', icon: Instagram, active: !!instagramContext },
               ].map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveMemTab(t.id as any)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 text-[12px] font-bold border-b-2 -mb-px transition-all ${activeMemTab === t.id ? 'border-violet-500 text-violet-600 dark:text-violet-400 bg-white dark:bg-zinc-900' : 'border-transparent text-zinc-400'}`}
-                >
-                  <t.icon className="w-3.5 h-3.5" />
-                  {t.label}
+                <button key={t.id} onClick={() => setActiveMemTab(t.id as any)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 text-[12px] font-bold border-b-2 -mb-px transition-all ${activeMemTab === t.id ? 'border-violet-500 text-violet-600 dark:text-violet-400 bg-white dark:bg-zinc-900' : 'border-transparent text-zinc-400'}`}>
+                  <t.icon className="w-3.5 h-3.5" />{t.label}
                   {t.active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
                 </button>
               ))}
             </div>
             <div className="p-5">
               {activeMemTab === 'web' ? (
-                scrapedContent ? (
-                  <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 max-h-[400px] overflow-y-auto text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 whitespace-pre-line">
-                    {scrapedContent}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 space-y-3">
-                    <Globe className="w-8 h-8 text-zinc-300 dark:text-zinc-700 mx-auto" />
-                    <p className="text-[13px] font-semibold text-zinc-500">Sin contenido web escaneado</p>
-                    <p className="text-[11px] text-zinc-400">Configurá la URL y hacé clic en "Escanear y Entrenar"</p>
-                  </div>
-                )
+                scrapedContent
+                  ? <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 max-h-[500px] overflow-y-auto text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 whitespace-pre-line">{scrapedContent}</div>
+                  : <div className="text-center py-12 space-y-3"><Globe className="w-8 h-8 text-zinc-300 dark:text-zinc-700 mx-auto" /><p className="text-[13px] font-semibold text-zinc-500">Sin contenido web escaneado</p><p className="text-[11px] text-zinc-400">Configurá la URL y hacé clic en "Escanear y Entrenar"</p></div>
               ) : (
-                instagramContext ? (
-                  <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 max-h-[400px] overflow-y-auto text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 whitespace-pre-line">
-                    {instagramContext}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 space-y-3">
-                    <Instagram className="w-8 h-8 text-zinc-300 dark:text-zinc-700 mx-auto" />
-                    <p className="text-[13px] font-semibold text-zinc-500">Sin contenido social sincronizado</p>
-                    <p className="text-[11px] text-zinc-400">Vinculá Instagram y hacé clic en "Escanear y Entrenar"</p>
-                  </div>
-                )
+                instagramContext
+                  ? <div className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 max-h-[500px] overflow-y-auto text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 whitespace-pre-line">{instagramContext}</div>
+                  : <div className="text-center py-12 space-y-3"><Instagram className="w-8 h-8 text-zinc-300 dark:text-zinc-700 mx-auto" /><p className="text-[13px] font-semibold text-zinc-500">Sin contenido social sincronizado</p><p className="text-[11px] text-zinc-400">Vinculá Instagram y hacé clic en "Escanear y Entrenar"</p></div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══════════════════════ TAB: CATÁLOGO ═══════════════════════ */}
+      {/* ═══ TAB: CATÁLOGO ═══ */}
       {activeTab === 'catalogo' && (
         <div>
           {!(profile as any)?.ecommerce_platform ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                <ShoppingBag className="w-6 h-6 text-zinc-400" />
-              </div>
+              <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"><ShoppingBag className="w-6 h-6 text-zinc-400" /></div>
               <p className="text-[14px] font-semibold text-zinc-600 dark:text-zinc-400">Sin tienda conectada</p>
               <p className="text-[12px] text-zinc-400 max-w-xs">Conectá Shopify, WooCommerce o Tiendanube desde el panel de administración.</p>
             </div>
@@ -485,9 +417,7 @@ export default function CerebroPage() {
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
               <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                    <ShoppingBag className="w-4 h-4 text-emerald-600" />
-                  </div>
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center"><ShoppingBag className="w-4 h-4 text-emerald-600" /></div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-[14px] font-black text-zinc-900 dark:text-white">Catálogo de Productos</h2>
@@ -496,33 +426,32 @@ export default function CerebroPage() {
                     <p className="text-[10px] text-zinc-400 capitalize mt-0.5">{(profile as any).ecommerce_platform} · La IA conoce todos estos productos</p>
                   </div>
                 </div>
-                <button onClick={() => { try { localStorage.removeItem(`products_${profile!.id}`); } catch {} loadProducts(); }} disabled={productsLoading} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 transition-all disabled:opacity-50">
+                <button onClick={() => { try { localStorage.removeItem(`products_${profile!.id}`); } catch {} loadProducts(); }} disabled={productsLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 transition-all disabled:opacity-50">
                   <RefreshCw className={`w-3 h-3 ${productsLoading ? 'animate-spin' : ''}`} />{productsLoading ? 'Cargando...' : 'Actualizar'}
                 </button>
               </div>
-
               {productsLoading && <div className="flex items-center justify-center py-16 gap-3"><Loader2 className="w-5 h-5 animate-spin text-emerald-500" /><span className="text-[12px] text-zinc-400">Importando productos...</span></div>}
               {productsError && !productsLoading && <div className="p-5 m-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-[12px] text-red-600">{productsError}</div>}
-
               {products.length > 0 && !productsLoading && (
                 <div className="p-4 space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
-                    <input type="text" placeholder="Buscar producto..." value={productSearch} onChange={e => setProductSearch(e.target.value)} className="w-full pl-8 pr-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[12px] text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 outline-none focus:border-emerald-500 transition-colors" />
+                    <input type="text" placeholder="Buscar producto..." value={productSearch} onChange={e => setProductSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[12px] text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 outline-none focus:border-emerald-500 transition-colors" />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                     {products.filter(p => !productSearch || p.title.toLowerCase().includes(productSearch.toLowerCase()) || (p.type || '').toLowerCase().includes(productSearch.toLowerCase())).map(p => {
                       const isExp = expandedProduct === String(p.id);
-                      const minP = p.variants?.length > 0 ? Math.min(...p.variants.map((v: any) => parseFloat(v.price) || 0)) : 0;
-                      const maxP = p.variants?.length > 0 ? Math.max(...p.variants.map((v: any) => parseFloat(v.price) || 0)) : 0;
-                      const priceStr = minP === maxP ? `$${minP.toFixed(2)}` : `$${minP.toFixed(2)} – $${maxP.toFixed(2)}`;
+                      const prices = p.variants?.map((v: any) => parseFloat(v.price) || 0) || [0];
+                      const minP = Math.min(...prices), maxP = Math.max(...prices);
                       return (
                         <div key={p.id} className="border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden flex flex-col bg-zinc-50 dark:bg-zinc-900 hover:border-emerald-200 dark:hover:border-emerald-800/40 transition-colors">
                           {p.image ? <div className="aspect-square bg-white dark:bg-zinc-800 overflow-hidden"><img src={p.image} alt={p.title} className="w-full h-full object-cover" /></div> : <div className="aspect-square bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"><Package className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>}
                           <div className="p-3 flex-1 flex flex-col gap-1">
                             <p className="text-[12px] font-bold text-zinc-900 dark:text-white leading-tight line-clamp-2">{p.title}</p>
                             <div className="flex items-center gap-1 flex-wrap">{p.type && <span className="text-[9px] text-zinc-400 bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 rounded">{p.type}</span>}{p.variants?.length > 1 && <span className="text-[9px] text-zinc-400 bg-zinc-200 dark:bg-zinc-700 px-1.5 py-0.5 rounded">{p.variants.length} var.</span>}</div>
-                            <p className="text-[13px] font-black text-emerald-600 dark:text-emerald-400 mt-auto">{priceStr}</p>
+                            <p className="text-[13px] font-black text-emerald-600 dark:text-emerald-400 mt-auto">{minP === maxP ? `$${minP.toFixed(2)}` : `$${minP.toFixed(2)} – $${maxP.toFixed(2)}`}</p>
                           </div>
                           <button onClick={() => setExpandedProduct(isExp ? null : String(p.id))} className="w-full flex items-center justify-center gap-1 py-1.5 text-[10px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 border-t border-zinc-100 dark:border-zinc-800 transition-colors">
                             <ChevronDown className={`w-3 h-3 transition-transform ${isExp ? 'rotate-180' : ''}`} />{isExp ? 'Menos' : 'Variantes'}
@@ -545,21 +474,152 @@ export default function CerebroPage() {
                         </div>
                       );
                     })}
-                    {products.filter(p => !productSearch || p.title.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
-                      <div className="col-span-full text-center py-8"><p className="text-[12px] text-zinc-400">Sin resultados para "{productSearch}"</p></div>
-                    )}
                   </div>
                 </div>
               )}
-
               {!productsLoading && !productsError && products.length === 0 && (
-                <div className="p-10 text-center space-y-3">
-                  <Package className="w-8 h-8 text-zinc-300 dark:text-zinc-600 mx-auto" />
-                  <p className="text-[12px] text-zinc-400">Hacé clic en "Actualizar" para cargar los productos de la tienda.</p>
-                </div>
+                <div className="p-10 text-center space-y-3"><Package className="w-8 h-8 text-zinc-300 dark:text-zinc-600 mx-auto" /><p className="text-[12px] text-zinc-400">Hacé clic en "Actualizar" para cargar los productos.</p></div>
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ════════ SCAN MODAL ════════ */}
+      {showScanModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { if (!scanningAll) setShowScanModal(false); }} />
+          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-[560px] w-full shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                  {scanningAll ? <RefreshCw className="w-4 h-4 text-violet-500 animate-spin" /> : scanDone ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                </div>
+                <div>
+                  <p className="text-[14px] font-black text-zinc-900 dark:text-white">{scanningAll ? 'Escaneando...' : scanDone ? 'Escaneo completado' : 'Error al escanear'}</p>
+                  <p className="text-[11px] text-zinc-400">{websiteUrl}</p>
+                </div>
+              </div>
+              {!scanningAll && <button onClick={() => setShowScanModal(false)} className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X className="w-4 h-4" /></button>}
+            </div>
+
+            {/* Steps */}
+            <div className="p-5 space-y-3">
+              {SCAN_STEPS.map((step, i) => {
+                const done = scanDone ? true : i < scanCurrentStep;
+                const current = !scanDone && i === scanCurrentStep && scanningAll;
+                const pending = !scanDone && i > scanCurrentStep;
+                return (
+                  <div key={step.id} className={`flex items-start gap-3 p-3 rounded-xl transition-all ${current ? 'bg-violet-50 dark:bg-violet-950/30' : done ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : 'opacity-40'}`}>
+                    <div className="shrink-0 mt-0.5">
+                      {done ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : current ? <Loader2 className="w-4 h-4 text-violet-500 animate-spin" /> : <Circle className="w-4 h-4 text-zinc-300" />}
+                    </div>
+                    <div>
+                      <p className={`text-[12px] font-bold ${done ? 'text-emerald-700 dark:text-emerald-400' : current ? 'text-violet-700 dark:text-violet-300' : 'text-zinc-400'}`}>{step.label}</p>
+                      {current && <p className="text-[11px] text-violet-500/70 mt-0.5">{step.detail}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Error */}
+            {scanError && (
+              <div className="mx-5 mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-2 text-[12px] text-red-600 dark:text-red-400">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />{scanError}
+              </div>
+            )}
+
+            {/* Preview of extracted data */}
+            {scanDone && scanPreview && (
+              <div className="mx-5 mb-4 border border-emerald-200 dark:border-emerald-800/40 rounded-xl overflow-hidden">
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 border-b border-emerald-200 dark:border-emerald-800/40">
+                  <p className="text-[12px] font-black text-emerald-700 dark:text-emerald-400">Datos extraídos</p>
+                </div>
+                <div className="p-4 space-y-3 max-h-[250px] overflow-y-auto">
+                  {[
+                    { label: 'Descripción', value: scanPreview.description },
+                    { label: 'Tono y Estilo', value: scanPreview.tone },
+                    { label: 'Ofertas detectadas', value: scanPreview.offers },
+                    { label: 'FAQs detectadas', value: scanPreview.faq },
+                  ].map(row => row.value ? (
+                    <div key={row.label}>
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-wide mb-1">{row.label}</p>
+                      <p className="text-[11px] text-zinc-700 dark:text-zinc-300 line-clamp-3 leading-relaxed">{row.value}</p>
+                    </div>
+                  ) : null)}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            {!scanningAll && (
+              <div className="p-5 pt-0 flex justify-end gap-2">
+                {scanDone && (
+                  <button onClick={() => { setShowScanModal(false); handleSaveSettings(); }}
+                    className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[12px] font-bold transition-all">
+                    Guardar Cambios
+                  </button>
+                )}
+                <button onClick={() => setShowScanModal(false)} className="px-5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-xl text-[12px] font-bold transition-all">
+                  {scanDone ? 'Cerrar' : 'Cancelar'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════ CONTEXTO IA MODAL ════════ */}
+      {showContextModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowContextModal(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-[480px] w-full shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="relative w-10 h-10">
+                  <svg viewBox="0 0 36 36" className="w-10 h-10 -rotate-90">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e4e4e7" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" strokeWidth="3"
+                      strokeDasharray={`${contextPct} ${100 - contextPct}`} strokeLinecap="round" />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-violet-600">{contextPct}%</span>
+                </div>
+                <div>
+                  <p className="text-[15px] font-black text-zinc-900 dark:text-white">Contexto de IA</p>
+                  <p className="text-[11px] text-zinc-400">{contextScore} de {sections.length} secciones completas</p>
+                </div>
+              </div>
+              <button onClick={() => setShowContextModal(false)} className="p-1.5 text-zinc-400 hover:text-zinc-700 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-2">
+              {sections.map(s => {
+                const filled = !!s.value;
+                const colorMap: Record<string, string> = { blue: 'text-blue-500 bg-blue-500/10', violet: 'text-violet-500 bg-violet-500/10', amber: 'text-amber-500 bg-amber-500/10', emerald: 'text-emerald-500 bg-emerald-500/10', indigo: 'text-indigo-500 bg-indigo-500/10', pink: 'text-pink-500 bg-pink-500/10' };
+                return (
+                  <div key={s.key} className={`flex items-center gap-3 p-3 rounded-xl ${filled ? 'bg-emerald-50/60 dark:bg-emerald-950/10' : 'bg-zinc-50 dark:bg-zinc-800/40'}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${colorMap[s.color]}`}>
+                      <s.icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">{s.label}</p>
+                      {!filled && <p className="text-[10px] text-zinc-400 leading-snug">{s.tip}</p>}
+                      {filled && <p className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate">{s.value.slice(0, 60)}{s.value.length > 60 ? '…' : ''}</p>}
+                    </div>
+                    {filled
+                      ? <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                      : <div className="w-4 h-4 rounded-full border-2 border-zinc-300 dark:border-zinc-600 shrink-0" />}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-5 pb-5">
+              <p className="text-[11px] text-zinc-400 text-center">Más secciones completas = respuestas de la IA más precisas y personalizadas</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
