@@ -50,3 +50,20 @@ CREATE POLICY "Service role full access"
   FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
+
+-- 8. Policy completa para Administradores del sistema (rol authenticated con is_admin = true)
+CREATE POLICY "Admin full access"
+  ON public.car_business_accounts
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.car_clients
+      WHERE user_id = auth.uid() AND is_admin = true
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.car_clients
+      WHERE user_id = auth.uid() AND is_admin = true
+    )
+  );
