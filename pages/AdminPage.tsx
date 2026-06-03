@@ -119,8 +119,10 @@ const INDUSTRIES = [
   "Otro",
 ];
 
-const toAuthEmail = (input: string) =>
-  input.includes('@') ? input.trim() : `${input.trim().toLowerCase()}@car.algoritmia.com`;
+const toAuthEmail = (input: string) => {
+  const clean = input.trim().toLowerCase();
+  return clean.includes('@') ? clean : `${clean}@car.algoritmia.com`;
+};
 
 const inputCls =
   "w-full h-10 rounded-[9px] border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 px-3.5 text-[13px] text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all";

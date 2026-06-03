@@ -5,8 +5,10 @@ import { useToast } from '../components/Toast';
 import { Loader2, Moon, Sun, EyeOff, Eye, ArrowRight } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
-const toAuthEmail = (input: string) =>
-  input.includes('@') ? input.trim() : `${input.trim().toLowerCase()}@car.algoritmia.com`;
+const toAuthEmail = (input: string) => {
+  const clean = input.trim().toLowerCase();
+  return clean.includes('@') ? clean : `${clean}@car.algoritmia.com`;
+};
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -107,6 +109,8 @@ export default function LoginPage() {
             <form onSubmit={handleLogin} className="space-y-3">
               <input
                 type="text"
+                name="username"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -122,6 +126,8 @@ export default function LoginPage() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
