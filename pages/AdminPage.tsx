@@ -34,6 +34,8 @@ import {
   KeyRound,
   Clock,
   Instagram,
+  ShoppingBag,
+  Save,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useViewAs } from "../contexts/ViewAsContext";
