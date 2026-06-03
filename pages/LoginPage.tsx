@@ -115,6 +115,7 @@ export default function LoginPage() {
                 placeholder="Email o usuario"
                 autoCapitalize="none"
                 autoCorrect="off"
+                inputMode="email"
                 className={`${inputBase} ${inputFocus('email')}`}
               />
 
