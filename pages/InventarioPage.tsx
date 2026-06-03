@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { Package, ShoppingBag, ArrowUpRight, AlertTriangle, Search, ChevronDown, TrendingUp } from 'lucide-react';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { ecommerce } from '../services/ecommerce';
 import { presetToRange } from '../services/metaAds';
 
@@ -119,6 +120,7 @@ export default function InventarioPage() {
   const btnColor: Record<string, string> = { shopify: 'bg-emerald-600 hover:bg-emerald-700', wordpress: 'bg-blue-600 hover:bg-blue-700', tiendanube: 'bg-cyan-600 hover:bg-cyan-700' };
 
   return (
+    <CenteredPageLoader isLoading={loading}>
     <div className="w-full pt-4 pb-20 md:pt-6 animate-fade-in space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
@@ -322,5 +324,6 @@ export default function InventarioPage() {
         </>
       )}
     </div>
+    </CenteredPageLoader>
   );
 }
