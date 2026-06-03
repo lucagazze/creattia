@@ -134,6 +134,15 @@ export const MainLayout = () => {
   const { unreadCount } = useUnread();
   const location = useLocation();
 
+  // Load client-specific token into metaAds cache
+  useEffect(() => {
+    const clientToken = (profile as any)?.fb_page_access_token;
+    const clientPageId = (profile as any)?.fb_page_id;
+    if (clientPageId && clientToken) {
+      metaAds.setClientPageToken(clientPageId, clientToken);
+    }
+  }, [profile]);
+
   // Guard: if profile is null (and loading is false, which is guaranteed here), show error card
   if (!profile) {
     return (
@@ -157,15 +166,6 @@ export const MainLayout = () => {
       </div>
     );
   }
-
-  // Load client-specific token into metaAds cache
-  useEffect(() => {
-    const clientToken = (profile as any)?.fb_page_access_token;
-    const clientPageId = (profile as any)?.fb_page_id;
-    if (clientPageId && clientToken) {
-      metaAds.setClientPageToken(clientPageId, clientToken);
-    }
-  }, [profile]);
 
   const isFixedPage = location.pathname === '/mensajeria';
 
