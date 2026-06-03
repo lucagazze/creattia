@@ -70,10 +70,45 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!url || !token) return;
 
     try {
-      // Use meta endpoint — same source as "Todos X" in MensajeriaPage (statusFilter defaults to 'all')
-      const meta = await chatwoot.getConversationsMeta(url, token, 'all');
-      const count = meta?.all_count ?? meta?.data?.all_count ?? 0;
-      if (typeof count !== 'number') return;
+      // Fetch pages 1 and 2 of open conversations (50 conversations total) in parallel
+      const [page1Res, page2Res] = await Promise.all([
+        chatwoot.getConversationsPage(url, token, 'open', 1).catch(() => ({ payload: [] })),
+        chatwoot.getConversationsPage(url, token, 'open', 2).catch(() => ({ payload: [] }))
+      ]);
+
+      const conversations = [...(page1Res.payload || []), ...(page2Res.payload || [])];
+      const manuallyUnread = getManuallyUnreadSet(profile?.id);
+
+      const isConvUnread = (c: any) => {
+        if (!c) return false;
+        if (c.status === 'resolved') return false;
+
+        // Check if the last non-activity message is outgoing (message_type === 1)
+        const sortedMsgs = [...(c.messages || [])].sort((x, y) => {
+          const timeX = typeof x.created_at === 'number' ? x.created_at : new Date(x.created_at).getTime() / 1000;
+          const timeY = typeof y.created_at === 'number' ? y.created_at : new Date(y.created_at).getTime() / 1000;
+          return timeX - timeY;
+        });
+        const lastRealMsg = [...sortedMsgs].reverse().find((m: any) => m?.message_type !== 2) || 
+                            c.last_non_activity_message || 
+                            (sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null);
+
+        if (lastRealMsg && lastRealMsg.message_type === 1) {
+          return false; // Outgoing message means we already replied
+        }
+
+        const isManualUnread = manuallyUnread.has(c.id);
+        const unread = isManualUnread ? Math.max(1, c.unread_count || 0) : (c.unread_count || 0);
+        return unread > 0 || isManualUnread;
+      };
+
+      // Filter and count unique conversation IDs to avoid any double-counting
+      const uniqueConvs = new Map<number, any>();
+      conversations.forEach(c => {
+        if (c && c.id) uniqueConvs.set(c.id, c);
+      });
+
+      const count = Array.from(uniqueConvs.values()).filter(isConvUnread).length;
 
       setUnreadCount(count);
       if (profile?.id) {
