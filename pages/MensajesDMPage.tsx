@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { metaAds } from '../services/metaAds';
 import { db } from '../services/db';
-import { supabaseAdmin } from '../services/supabase';
+import { supabase, supabaseAdmin } from '../services/supabase';
 import EmailLoader from '../components/ui/EmailLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
@@ -157,15 +157,23 @@ export default function MensajesDMPage() {
       const igId = page.instagram_business_account?.id || null;
       const igUsername = page.instagram_business_account?.username || null;
       
-      // Update in Supabase via supabaseAdmin to bypass any RLS
-      const { error } = await supabaseAdmin
+      const currentStatuses = (profile as any)?.connection_statuses || {};
+      const newStatuses = {
+        ...currentStatuses,
+        facebook: 'ok',
+        ...(igId ? { instagram: 'ok' } : {})
+      };
+
+      // Update in Supabase via standard supabase client (RLS updated)
+      const { error } = await supabase
         .from('car_clients')
         .update({
           fb_page_id: page.id,
           fb_page_name: page.name,
           ig_business_id: igId,
           ig_username: igUsername,
-          fb_page_access_token: page.access_token
+          fb_page_access_token: page.access_token,
+          connection_statuses: newStatuses
         })
         .eq('id', clientId);
 

@@ -190,24 +190,10 @@ function SectionBox({
 const CONN_KEY = (clientId: string, type: string) => `conn_v_${clientId}_${type}`;
 const CONN_TTL = 7 * 24 * 3600 * 1000; // 7 days
 
-function saveConnOk(clientId: string, type: string) {
-  try { localStorage.setItem(CONN_KEY(clientId, type), String(Date.now())); } catch {}
-}
-function saveConnErr(clientId: string, type: string) {
-  try { localStorage.removeItem(CONN_KEY(clientId, type)); } catch {}
-}
-function getConnStatus(clientId: string, type: string): 'ok' | 'unverified' {
-  try {
-    const ts = localStorage.getItem(CONN_KEY(clientId, type));
-    if (ts && Date.now() - Number(ts) < CONN_TTL) return 'ok';
-  } catch {}
-  return 'unverified';
-}
-
 // Badge component: green=verified, amber=configured-unverified, grey=not configured
-// tick prop is unused but forces re-render when connection status changes
-const ConnBadge = ({ hasValue, clientId, type, label, children, tick: _tick }: {
-  hasValue: boolean; clientId: string; type: string; label: string; children: React.ReactNode; tick?: number;
+// tick prop forces re-render when connection status changes
+const ConnBadge = ({ hasValue, clientId, connectionStatuses, type, label, children, tick: _tick }: {
+  hasValue: boolean; clientId: string; connectionStatuses?: any; type: string; label: string; children: React.ReactNode; tick?: number;
 }) => {
   if (!hasValue) {
     return (
@@ -217,7 +203,13 @@ const ConnBadge = ({ hasValue, clientId, type, label, children, tick: _tick }: {
       </span>
     );
   }
-  const verified = getConnStatus(clientId, type) === 'ok';
+  const verified = connectionStatuses?.[type] === 'ok' || (() => {
+    try {
+      const ts = localStorage.getItem(`conn_v_${clientId}_${type}`);
+      if (ts && Date.now() - Number(ts) < 7 * 24 * 3600 * 1000) return true;
+    } catch {}
+    return false;
+  })();
   return (
     <span title={`${label}: ${verified ? '✓ Verificado' : 'Configurado (sin verificar)'}`}
       className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-black relative ${
@@ -287,6 +279,76 @@ export default function AdminPage() {
   const [changingPwd, setChangingPwd] = useState('');
   const [showChangingPwd, setShowChangingPwd] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
+
+  const saveConnOk = async (clientId: string, type: string) => {
+    try { localStorage.setItem(CONN_KEY(clientId, type), String(Date.now())); } catch {}
+    
+    // Update local clients state immediately
+    setClients(prev => prev.map(c => {
+      if (c.id === clientId) {
+        const current = (c as any).connection_statuses || {};
+        return { ...c, connection_statuses: { ...current, [type]: 'ok' } };
+      }
+      return c;
+    }));
+    if (editingClient && editingClient.id === clientId) {
+      setEditingClient((prev: any) => {
+        if (!prev) return null;
+        const current = prev.connection_statuses || {};
+        return { ...prev, connection_statuses: { ...current, [type]: 'ok' } };
+      });
+    }
+
+    try {
+      const { data } = await supabase
+        .from('car_clients')
+        .select('connection_statuses')
+        .eq('id', clientId)
+        .maybeSingle();
+      const current = data?.connection_statuses || {};
+      await supabase
+        .from('car_clients')
+        .update({ connection_statuses: { ...current, [type]: 'ok' } })
+        .eq('id', clientId);
+    } catch (e) {
+      console.error('Error saving connection ok status:', e);
+    }
+  };
+
+  const saveConnErr = async (clientId: string, type: string) => {
+    try { localStorage.removeItem(CONN_KEY(clientId, type)); } catch {}
+
+    // Update local clients state immediately
+    setClients(prev => prev.map(c => {
+      if (c.id === clientId) {
+        const current = (c as any).connection_statuses || {};
+        return { ...c, connection_statuses: { ...current, [type]: 'error' } };
+      }
+      return c;
+    }));
+    if (editingClient && editingClient.id === clientId) {
+      setEditingClient((prev: any) => {
+        if (!prev) return null;
+        const current = prev.connection_statuses || {};
+        return { ...prev, connection_statuses: { ...current, [type]: 'error' } };
+      });
+    }
+
+    try {
+      const { data } = await supabase
+        .from('car_clients')
+        .select('connection_statuses')
+        .eq('id', clientId)
+        .maybeSingle();
+      const current = data?.connection_statuses || {};
+      await supabase
+        .from('car_clients')
+        .update({ connection_statuses: { ...current, [type]: 'error' } })
+        .eq('id', clientId);
+    } catch (e) {
+      console.error('Error saving connection error status:', e);
+    }
+  };
 
   const [unlinkedUsers, setUnlinkedUsers] = useState<any[]>([]);
   const [loadingUnlinked, setLoadingUnlinked] = useState(false);
@@ -1660,18 +1722,18 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
 
                       {/* Connection badges — 🟢 verde=verificado · 🟡 amarillo=sin verificar · ⚪ gris=no configurado */}
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
-                        <ConnBadge hasValue={!!c.meta_account_id} clientId={c.id} type="meta" label="Meta Ads" tick={connTick}>M</ConnBadge>
-                        <ConnBadge hasValue={!!(c.fb_page_id && (c as any).fb_page_access_token)} clientId={c.id} type="facebook" label={c.fb_page_name ? `Facebook: ${c.fb_page_name} tick={connTick}` : 'Facebook'}>
+                        <ConnBadge hasValue={!!c.meta_account_id} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="meta" label="Meta Ads" tick={connTick}>M</ConnBadge>
+                        <ConnBadge hasValue={!!c.fb_page_id} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="facebook" label={c.fb_page_name ? `Facebook: ${c.fb_page_name}` : 'Facebook'} tick={connTick}>
                           <Facebook className="w-2.5 h-2.5" />
                         </ConnBadge>
-                        <ConnBadge hasValue={!!c.ig_username} clientId={c.id} type="instagram" label={c.ig_username ? `Instagram: @${c.ig_username} tick={connTick}` : 'Instagram'}>
+                        <ConnBadge hasValue={!!c.ig_username} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="instagram" label={c.ig_username ? `Instagram: @${c.ig_username}` : 'Instagram'} tick={connTick}>
                           <Instagram className="w-2.5 h-2.5" />
                         </ConnBadge>
-                        <ConnBadge hasValue={!!c.ecommerce_platform && !!c.shopify_access_token} clientId={c.id} type="shopify" label={c.ecommerce_platform ? `Tienda: ${c.ecommerce_platform} tick={connTick}` : 'Sin tienda'}>
+                        <ConnBadge hasValue={!!c.ecommerce_platform && !!c.shopify_access_token} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="shopify" label={c.ecommerce_platform ? `Tienda: ${c.ecommerce_platform}` : 'Sin tienda'} tick={connTick}>
                           {c.ecommerce_platform === 'shopify' ? 'S' : c.ecommerce_platform === 'tiendanube' ? 'TN' : c.ecommerce_platform === 'wordpress' ? 'WP' : 'T'}
                         </ConnBadge>
-                        <ConnBadge hasValue={!!c.klaviyo_api_key} clientId={c.id} type="klaviyo" label="Klaviyo" tick={connTick}>K</ConnBadge>
-                        <ConnBadge hasValue={!!(c.chatwoot_url && c.chatwoot_token)} clientId={c.id} type="chatwoot" label="Chatwoot (Mensajería)" tick={connTick}>C</ConnBadge>
+                        <ConnBadge hasValue={!!c.klaviyo_api_key} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="klaviyo" label="Klaviyo" tick={connTick}>K</ConnBadge>
+                        <ConnBadge hasValue={!!(c.chatwoot_url && c.chatwoot_token)} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="chatwoot" label="Chatwoot (Mensajería)" tick={connTick}>C</ConnBadge>
                       </div>
                     </div>
                   </div>

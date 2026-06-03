@@ -165,6 +165,36 @@ export const MainLayout = () => {
     if (clientPageId && clientToken) {
       metaAds.setClientPageToken(clientPageId, clientToken);
     }
+
+    // Auto-recuperación (self-healing): if client has token in localStorage but it's null in DB
+    if (clientPageId && !clientToken && profile?.id) {
+      const savedToken = localStorage.getItem(`fb_pat_${clientPageId}`);
+      if (savedToken) {
+        const currentStatuses = (profile as any).connection_statuses || {};
+        const updateData: Record<string, any> = {
+          fb_page_access_token: savedToken
+        };
+
+        if (currentStatuses.facebook !== 'ok' || ((profile as any).ig_business_id && currentStatuses.instagram !== 'ok')) {
+          updateData.connection_statuses = {
+            ...currentStatuses,
+            facebook: 'ok',
+            ...((profile as any).ig_business_id ? { instagram: 'ok' } : {})
+          };
+        }
+
+        supabase
+          .from('car_clients')
+          .update(updateData)
+          .eq('id', profile.id)
+          .then(({ error }) => {
+            if (!error) {
+              console.log('Successfully self-healed Facebook token and statuses in DB from localStorage.');
+              metaAds.setClientPageToken(clientPageId, savedToken);
+            }
+          });
+      }
+    }
   }, [profile]);
 
   const handleSaveBusinessName = async (e: React.FormEvent) => {
