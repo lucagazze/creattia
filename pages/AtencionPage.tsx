@@ -834,15 +834,17 @@ export default function AtencionPage() {
                             const intensity = val / maxVal;
                             const bg = val === 0
                               ? 'bg-zinc-100 dark:bg-zinc-800/50'
-                              : intensity > 0.75 ? 'bg-violet-600'
-                              : intensity > 0.5  ? 'bg-violet-500'
-                              : intensity > 0.25 ? 'bg-violet-400'
-                              : 'bg-violet-300 dark:bg-violet-900/60';
+                              : intensity > 0.75 ? 'bg-violet-700'
+                              : intensity > 0.5  ? 'bg-violet-600'
+                              : intensity > 0.25 ? 'bg-violet-500'
+                              : 'bg-violet-400';
+                            // text contrast: white on dark cells, dark on light cells
+                            const textCls = val === 0 ? '' : intensity > 0.25 ? 'text-white' : 'text-violet-900 font-extrabold';
                             const isHov = heatmapHover?.day === row.date && heatmapHover?.hour === h;
                             return (
                               <div
                                 key={h}
-                                className={`relative flex-1 mx-px h-7 rounded-sm ${bg} cursor-default transition-all ${isHov ? 'ring-1 ring-white/60 brightness-110' : ''} flex items-center justify-center`}
+                                className={`relative flex-1 mx-px h-7 rounded-sm ${bg} cursor-default transition-all ${isHov ? 'ring-2 ring-white/60 brightness-110' : ''} flex items-center justify-center`}
                                 onMouseEnter={(e) => {
                                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                                   setHeatmapHover({ day: row.date, hour: h, val, x: rect.left + rect.width / 2, y: rect.top });
@@ -850,7 +852,7 @@ export default function AtencionPage() {
                                 onMouseLeave={() => setHeatmapHover(null)}
                               >
                                 {val > 0 && (
-                                  <span className={`text-[8px] font-black leading-none select-none ${intensity > 0.4 ? 'text-white/90' : 'text-violet-700 dark:text-violet-300'}`}>
+                                  <span className={`text-[8px] leading-none select-none ${textCls}`}>
                                     {val}
                                   </span>
                                 )}

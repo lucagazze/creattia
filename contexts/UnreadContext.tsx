@@ -38,7 +38,7 @@ const getManuallyUnreadSet = (profileId?: string): Set<number> => {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
-const POLL_INTERVAL_MS = 60_000; // poll every 60 seconds
+const POLL_INTERVAL_MS = 20_000; // poll every 20 seconds
 
 export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { profile: authProfile } = useAuth();
@@ -387,11 +387,11 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [fetchCommentsCount]);
 
-  // Poll comments every 5 minutes
+  // Poll comments every 90 seconds
   useEffect(() => {
     if (!profile?.id) return;
     fetchCommentsCount();
-    const interval = setInterval(fetchCommentsCount, 300_000);
+    const interval = setInterval(fetchCommentsCount, 90_000);
     return () => clearInterval(interval);
   }, [profile?.id, fetchCommentsCount]);
 

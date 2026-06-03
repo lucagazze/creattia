@@ -289,6 +289,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       faqContext && `FAQ:\n${faqContext}`,
     ].filter(Boolean).join('\n\n---\n\n');
 
+    // Pre-check: build explicit "verified facts" block for price/product queries
+    let verifiedFacts = '';
+    if (askingPrice || askingProduct) {
+      if (matched.length > 0) {
+        verifiedFacts = `\n⚠️ DATOS VERIFICADOS DEL CATÁLOGO (ÚNICOS QUE PODÉS USAR):\n${
+          matched.map((p: any) => {
+            const vars = p.variants?.length ? ` | variantes: ${p.variants.slice(0,4).join(', ')}` : '';
+            return `  • ${p.title}: PRECIO=${p.price}${vars} → ${buildLink(p)}`;
+          }).join('\n')
+        }\nUsá SOLO estos datos. Si el precio dice "Consultar" → no digas precio.`;
+      } else {
+        verifiedFacts = `\n⚠️ BÚSQUEDA EN CATÁLOGO: El producto que pregunta NO existe en el catálogo disponible.\nRespuesta obligatoria para comentarios: "Te respondemos por privado 📩"\nRespuesta obligatoria para DMs: "Ahora mismo verifico y te confirmo en seguida 🙌"`;
+      }
+    }
+
     // 10. System prompt
     const systemPrompt = `⚠️ IDIOMA: ${LANG}. ${langRule}. Sin excepciones.
 
@@ -308,13 +323,12 @@ ${fewShotContext ? `════ EJEMPLOS DE RESPUESTAS REALES ════\n${f
 ════ ROL ════
 Sos la persona detrás de las redes de "${business_name}". No un bot. Un humano que trabaja en la marca y responde de forma natural.
 
-════ REGLA CRÍTICA — PRODUCTOS Y PRECIOS (NUNCA IGNORAR) ════
-1. SOLO podés mencionar el nombre exacto, precio o URL de un producto si ese producto aparece LITERALMENTE en el catálogo de arriba con un precio real (no "Consultar").
-2. Si alguien pregunta por un producto y lo encontrás en el catálogo → respondé con el nombre y precio EXACTO del catálogo. No redondees ni modifiques el precio.
-3. Si el catálogo muestra "Consultar" para el precio → NO digas ningún precio. Redirigí al privado/DM.
-4. Si el producto NO aparece en el catálogo o no hay catálogo configurado → NO menciones ese producto ni inventes un precio. ${isDM ? 'Decí que vas a verificar y le respondés en breve.' : 'Decí "Te respondemos por privado 📩" y no menciones el producto ni el precio.'}
-5. NUNCA inventar productos, precios, URLs ni disponibilidad. Si no está en el catálogo, no existe para vos.
-${(!productMentioned && (askingPrice || askingProduct)) ? '\n⚠️ ATENCIÓN: El cliente pregunta por un producto/precio pero NO se encontró en el catálogo. Aplicar regla 4: no mencionar producto ni precio, redirigir al privado.' : ''}
+════ REGLA ABSOLUTA — PRODUCTOS, PRECIOS, MEDIDAS, DISPONIBILIDAD ════
+${verifiedFacts || ''}
+⛔ PROHIBICIÓN TOTAL: Nunca menciones ningún precio, medida, talle, color específico, disponibilidad de stock, ni nombre de producto que NO esté en los DATOS VERIFICADOS de arriba o en el catálogo de arriba. Ninguna excepción.
+⛔ Si no tenés datos verificados sobre lo que pregunta → usá exactamente: "${isDM ? 'Ahora mismo verifico y te confirmo en seguida 🙌' : 'Te respondemos por privado 📩'}"
+⛔ El texto de la memoria web y redes sociales puede tener información desactualizada sobre productos. Para respuestas sobre precios y productos, SOLO el catálogo es fuente válida.
+⛔ NUNCA supongas medidas, variantes ni precios que no estén escritos textualmente en el catálogo.
 
 ════ CÓMO RESPONDER ════
 ${isDM
