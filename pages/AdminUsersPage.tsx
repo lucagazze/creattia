@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { supabaseAdmin } from '../services/supabase';
+import { supabase, supabaseAdmin } from '../services/supabase';
 import {
   Users, Loader2, Search, RefreshCw, Building2, X,
   UserCheck, UserX, ChevronDown, ChevronUp, Link2,
@@ -18,6 +18,7 @@ interface UserRow {
   last_sign_in_at?: string;
   provider?: string;
   businesses: BusinessAssoc[];
+  full_name?: string;
 }
 
 interface BusinessAssoc {
@@ -119,18 +120,26 @@ export default function AdminUsersPage() {
     setLoading(true);
     try {
       const [
-        { data: authData },
-        { data: clientsData },
-        { data: bizAccounts },
-        { data: pendingRows },
+        authRes,
+        clientsRes,
+        bizAccountsRes,
+        pendingRes,
       ] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
-        supabaseAdmin.from('car_clients').select('id, business_name, user_id, website_url').order('business_name'),
-        supabaseAdmin.from('car_business_accounts').select('user_id, email, business_id, created_at').not('user_id', 'is', null),
-        supabaseAdmin.from('car_business_accounts').select('id, email, business_id, created_at').is('user_id', null).order('created_at', { ascending: false }),
+        supabase.from('car_clients').select('id, business_name, user_id, website_url').order('business_name'),
+        supabase.from('car_business_accounts').select('user_id, email, business_id, created_at').not('user_id', 'is', null),
+        supabase.from('car_business_accounts').select('id, email, business_id, created_at').is('user_id', null).order('created_at', { ascending: false }),
       ]);
 
-      const authUsers = authData?.users ?? [];
+      if (authRes.error) console.error("AdminUsersPage: Error listing auth users:", authRes.error);
+      if (clientsRes.error) console.error("AdminUsersPage: Error fetching clients:", clientsRes.error);
+      if (bizAccountsRes.error) console.error("AdminUsersPage: Error fetching business accounts:", bizAccountsRes.error);
+      if (pendingRes.error) console.error("AdminUsersPage: Error fetching pending invitations:", pendingRes.error);
+
+      const authUsers = authRes.data?.users ?? [];
+      const clientsData = clientsRes.data ?? [];
+      const bizAccounts = bizAccountsRes.data ?? [];
+      const pendingRows = pendingRes.data ?? [];
 
       // Build client options
       setClients((clientsData ?? []).map(c => ({
@@ -187,6 +196,7 @@ export default function AdminUsersPage() {
         last_sign_in_at: u.last_sign_in_at,
         provider: u.app_metadata?.provider,
         businesses: userBizMap[u.id] ?? [],
+        full_name: u.user_metadata?.full_name || u.user_metadata?.name,
       })));
     } finally {
       setLoading(false);
@@ -200,11 +210,13 @@ export default function AdminUsersPage() {
     if (!supabaseAdmin || !confirmDeleteId) return;
     setDeleting(true);
     try {
-      // Remove from business accounts
-      await supabaseAdmin.from('car_business_accounts').delete().eq('user_id', confirmDeleteId);
-      // Remove as owner
-      await supabaseAdmin.from('car_clients').update({ user_id: null }).eq('user_id', confirmDeleteId);
-      // Delete from auth
+      // Remove from business accounts (regular client)
+      const { error: err1 } = await supabase.from('car_business_accounts').delete().eq('user_id', confirmDeleteId);
+      if (err1) throw err1;
+      // Remove as owner (regular client)
+      const { error: err2 } = await supabase.from('car_clients').update({ user_id: null }).eq('user_id', confirmDeleteId);
+      if (err2) throw err2;
+      // Delete from auth (remains admin client)
       const { error } = await supabaseAdmin.auth.admin.deleteUser(confirmDeleteId);
       if (error) throw error;
       setUsers(p => p.filter(u => u.id !== confirmDeleteId));
@@ -219,10 +231,10 @@ export default function AdminUsersPage() {
 
   // ─── Delete pending invitation ───────────────────────────────────────────
   const handleDeletePending = async () => {
-    if (!supabaseAdmin || !confirmDeletePendingId) return;
+    if (!confirmDeletePendingId) return;
     setDeletingPending(true);
     try {
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('car_business_accounts')
         .delete()
         .eq('id', confirmDeletePendingId);
@@ -240,14 +252,14 @@ export default function AdminUsersPage() {
 
   // ─── Accept / associate user to business ────────────────────────────────
   const handleAccept = async () => {
-    if (!supabaseAdmin || !acceptUserId || !acceptBizId) return;
+    if (!acceptUserId || !acceptBizId) return;
     setAccepting(true);
     try {
       const user = users.find(u => u.id === acceptUserId);
       if (!user) throw new Error('Usuario no encontrado');
 
-      // Insert in car_business_accounts (linking by user_id AND email for Google fallback)
-      const { error } = await supabaseAdmin.from('car_business_accounts').insert({
+      // Insert in car_business_accounts (linking by user_id AND email for Google fallback) using regular client (RLS)
+      const { error } = await supabase.from('car_business_accounts').insert({
         business_id: acceptBizId,
         user_id: acceptUserId,
         email: user.email,
@@ -267,25 +279,26 @@ export default function AdminUsersPage() {
 
   // ─── Add new Google pre-invitation ──────────────────────────────────────
   const handleAddInvitation = async () => {
-    if (!supabaseAdmin || !newEmail || !newBizId) return;
+    if (!newEmail || !newBizId) return;
     setAdding(true);
     setAddError('');
     try {
       const email = newEmail.trim().toLowerCase();
 
-      // Check if email already has an entry in business accounts for this biz
-      const { data: existing } = await supabaseAdmin
+      // Check if email already has an entry in business accounts for this biz (regular client)
+      const { data: existing, error: errExist } = await supabase
         .from('car_business_accounts')
         .select('id')
         .eq('email', email)
         .eq('business_id', newBizId)
         .maybeSingle();
 
+      if (errExist) throw errExist;
       if (existing) throw new Error('Ese email ya está asociado a este negocio');
 
-      // Insert pre-invitation with user_id = null
+      // Insert pre-invitation with user_id = null (regular client)
       // When user logs in with Google, the auth context matches by email
-      const { error } = await supabaseAdmin.from('car_business_accounts').insert({
+      const { error } = await supabase.from('car_business_accounts').insert({
         business_id: newBizId,
         user_id: null,
         email,
@@ -723,7 +736,9 @@ function UserRowItem({
         {/* Email + meta — clickable to expand */}
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onToggle}>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{user.email}</span>
+            <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">
+              {user.full_name ? `${user.full_name} (${user.email})` : user.email}
+            </span>
             <ProviderBadge provider={user.provider} />
           </div>
           <div className="flex items-center gap-3 mt-0.5">

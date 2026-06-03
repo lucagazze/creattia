@@ -1,15 +1,17 @@
-import { db } from '../services/db';
+import { db } from '../services/db.js';
 
+// We need to set up supabase / supabaseAdmin first, or just run the function.
+// Let's import the file directly.
 async function run() {
-  const userId = '3973abe3-ca7c-4a7c-b51a-f5024731bb6c'; // algoritmiadesarrollos@gmail.com
+  const userId = '8bc98369-50fb-4420-9470-fd33f17d8bbd';
   const email = 'algoritmiadesarrollos@gmail.com';
-
+  
   console.log("Calling db.profile.getByUserId...");
   try {
     const profile = await db.profile.getByUserId(userId, email);
-    console.log("Result:", profile);
+    console.log("Profile returned:", profile);
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Error in getByUserId:", err);
   }
 }
 

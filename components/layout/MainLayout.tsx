@@ -136,12 +136,19 @@ export const MainLayout = () => {
   const { unreadCount } = useUnread();
   const location = useLocation();
 
+  const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [savingBusinessName, setSavingBusinessName] = useState(false);
   const [businessNameSaved, setBusinessNameSaved] = useState(false);
 
   // Sync existing metadata business name / website url on mount
   useEffect(() => {
+    if (user?.user_metadata?.full_name) {
+      setFullName(user.user_metadata.full_name);
+    } else if (user?.user_metadata?.name) {
+      setFullName(user.user_metadata.name);
+    }
+
     if (user?.user_metadata?.business_name_request) {
       setBusinessName(user.user_metadata.business_name_request);
       setBusinessNameSaved(true);
@@ -162,11 +169,12 @@ export const MainLayout = () => {
 
   const handleSaveBusinessName = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!businessName.trim()) return;
+    if (!businessName.trim() || !fullName.trim()) return;
     setSavingBusinessName(true);
     try {
       const { error } = await supabase.auth.updateUser({
         data: {
+          full_name: fullName.trim(),
           business_name_request: businessName.trim(),
           website_url: businessName.trim() // store in both for backward compatibility in table columns
         }
@@ -192,7 +200,7 @@ export const MainLayout = () => {
             : 'bg-white border-zinc-200/60 shadow-zinc-200/40'
         }`}>
           {!businessNameSaved ? (
-            // Phase 1: Guided step-by-step registration requesting business name
+            // Phase 1: Guided step-by-step registration requesting name and business url
             <form onSubmit={handleSaveBusinessName} className="space-y-6">
               <div className="w-12 h-12 rounded-[16px] bg-violet-100 dark:bg-violet-500/10 flex items-center justify-center mx-auto">
                 <Building2 className="w-6 h-6 text-violet-600 dark:text-violet-400" />
@@ -200,19 +208,40 @@ export const MainLayout = () => {
               <div>
                 <h2 className="text-[18px] font-bold mb-1.5">Registro de Acceso</h2>
                 <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Para poder ingresar al ecosistema de Algoritmia, por favor ingresá el nombre de tu negocio.
+                  Para poder ingresar al ecosistema de Algoritmia, por favor completá tus datos de acceso.
                 </p>
               </div>
 
               <div className="text-left space-y-1.5">
                 <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                  Nombre de tu negocio
+                  Nombre completo
                 </label>
                 <div className="relative">
                   <input
                     type="text"
                     required
-                    placeholder="ej. Mi Negocio S.A."
+                    placeholder="ej. Juan Pérez"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    disabled={savingBusinessName}
+                    className={`w-full h-11 px-4 rounded-xl border text-[13px] outline-none transition-all font-medium ${
+                      darkMode
+                        ? 'bg-white/5 border-white/8 text-white focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/60'
+                        : 'bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-violet-500 focus:ring-1 focus:ring-violet-500'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="text-left space-y-1.5">
+                <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                  URL del negocio (sitio web o red social)
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. www.minegocio.com"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     disabled={savingBusinessName}
@@ -228,7 +257,7 @@ export const MainLayout = () => {
               <div className="pt-2 space-y-3">
                 <button
                   type="submit"
-                  disabled={savingBusinessName || !businessName.trim()}
+                  disabled={savingBusinessName || !businessName.trim() || !fullName.trim()}
                   className={`w-full h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-bold transition-all disabled:opacity-50 ${
                     darkMode
                       ? 'bg-white text-black hover:bg-zinc-100 shadow-md'

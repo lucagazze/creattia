@@ -441,7 +441,7 @@ export default function AdminPage() {
       };
       if (igId) { updateData.ig_business_id = igId; updateData.ig_username = igUsername; }
 
-      const { error } = await supabaseAdmin.from('car_clients').update(updateData).eq('id', clientId);
+      const { error } = await supabase.from('car_clients').update(updateData).eq('id', clientId);
       if (error) throw error;
 
       metaAds.setClientPageToken(page.id, page.access_token);
@@ -476,8 +476,8 @@ export default function AdminPage() {
     try {
       const [allAuthRes, clientsRes, assocRes] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers(),
-        supabaseAdmin.from('car_clients').select('user_id, business_name'),
-        supabaseAdmin.from('car_business_accounts').select('user_id, email, business_id')
+        supabase.from('car_clients').select('user_id, business_name'),
+        supabase.from('car_business_accounts').select('user_id, email, business_id')
       ]);
 
       if (allAuthRes.error) throw allAuthRes.error;
@@ -522,7 +522,7 @@ export default function AdminPage() {
     if (!supabaseAdmin) return;
     setAssociatingUser(userId);
     try {
-      const { error } = await supabaseAdmin.from('car_business_accounts').insert({
+      const { error } = await supabase.from('car_business_accounts').insert({
         business_id: clientId,
         user_id: userId,
         email: email
@@ -596,7 +596,7 @@ export default function AdminPage() {
         });
       if (authErr) throw authErr;
 
-      const { error: dbErr } = await supabaseAdmin.from("car_clients").insert({
+      const { error: dbErr } = await supabase.from("car_clients").insert({
         user_id: auth.user.id,
         business_name: form.business_name,
         industry: form.industry || null,
@@ -618,7 +618,7 @@ export default function AdminPage() {
   };
 
   const toggleActive = async (c: ClientRow) => {
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from("car_clients")
       .update({ active: !c.active })
       .eq("id", c.id);
@@ -643,8 +643,7 @@ export default function AdminPage() {
         });
       }
     }
-    const client = supabaseAdmin ?? supabase;
-    const { data: assoc } = await client
+    const { data: assoc } = await supabase
       .from('car_business_accounts')
       .select('*')
       .eq('business_id', clientId)
@@ -666,7 +665,7 @@ export default function AdminPage() {
         // Pre-invitation: insert into car_business_accounts with user_id = null
         // When the user signs in with Google OAuth for the first time, the system
         // automatically links their user_id via the email fallback in db.profile.getByUserId
-        const { error: dbErr } = await supabaseAdmin.from('car_business_accounts').insert({
+        const { error: dbErr } = await supabase.from('car_business_accounts').insert({
           business_id: clientId,
           user_id: null,
           email: authEmail,
@@ -680,7 +679,7 @@ export default function AdminPage() {
           email_confirm: true,
         });
         if (authErr) throw authErr;
-        const { error: dbErr } = await supabaseAdmin.from('car_business_accounts').insert({
+        const { error: dbErr } = await supabase.from('car_business_accounts').insert({
           business_id: clientId,
           user_id: auth.user.id,
           email: authEmail,
@@ -705,11 +704,11 @@ export default function AdminPage() {
     setDeletingAccountKey(accKey);
     try {
       if (acc.source === 'car_clients') {
-        const { error } = await supabaseAdmin.from('car_clients').update({ user_id: null }).eq('id', clientId);
+        const { error } = await supabase.from('car_clients').update({ user_id: null }).eq('id', clientId);
         if (error) throw error;
         load();
       } else {
-        const { error } = await supabaseAdmin.from('car_business_accounts').delete().eq('id', acc.id!);
+        const { error } = await supabase.from('car_business_accounts').delete().eq('id', acc.id!);
         if (error) throw error;
       }
       // Only delete from auth if the user has actually signed up (user_id is set)
@@ -1140,7 +1139,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
         fb_page_access_token: editForm.fb_page_access_token || null,
       };
 
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from("car_clients")
         .update(corePayload)
         .eq("id", editingClient.id);
@@ -1175,9 +1174,9 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
             sort_order: order++,
           };
           if (link.id) {
-            await supabaseAdmin.from("car_links").update(payload).eq("id", link.id);
+            await supabase.from("car_links").update(payload).eq("id", link.id);
           } else {
-            await supabaseAdmin.from("car_links").insert(payload);
+            await supabase.from("car_links").insert(payload);
           }
         }
       }
@@ -1547,7 +1546,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
               <table className="w-full text-left border-collapse min-w-[500px]">
                 <thead>
                   <tr className="border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-                    <th className="px-4 py-2.5 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Email</th>
+                    <th className="px-4 py-2.5 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Usuario</th>
                     <th className="px-4 py-2.5 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Web / Negocio</th>
                     <th className="px-4 py-2.5 text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Asociar a Negocio</th>
                     <th className="px-4 py-2.5 text-[11px] font-bold text-zinc-500 uppercase tracking-wider text-right">Acciones</th>
@@ -2545,8 +2544,11 @@ const UnlinkedUserRow = ({
 
   return (
     <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-      <td className="px-4 py-3 text-[13px] font-mono text-zinc-700 dark:text-zinc-300 truncate max-w-[220px]">
-        {user.email}
+      <td className="px-4 py-3 text-[13px] text-zinc-700 dark:text-zinc-300 truncate max-w-[220px]">
+        {user.user_metadata?.full_name && (
+          <div className="font-bold text-zinc-900 dark:text-white mb-0.5">{user.user_metadata.full_name}</div>
+        )}
+        <div className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500">{user.email}</div>
       </td>
       <td className="px-4 py-3 text-[13px] text-zinc-600 dark:text-zinc-400 max-w-[200px] truncate">
         {user.user_metadata?.business_name_request ? (

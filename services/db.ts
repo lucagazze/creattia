@@ -141,62 +141,92 @@ export const db = {
 
   profile: {
     async getByUserId(userId: string, email?: string): Promise<ClientProfile | null> {
-      // Cuenta directa en car_clients
-      const { data } = await supabase
+      // 1. Cuenta directa en car_clients (dueño)
+      const { data, error: errClient } = await supabase
         .from('car_clients')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
+      
+      if (errClient) {
+        console.error("db.profile.getByUserId - Error checking direct owner:", errClient);
+      }
       if (data) return data;
 
-      // Cuenta asociada: buscar el business_id y leer el negocio con supabaseAdmin
-      // (necesario para bypasear RLS — el user_id del negocio no coincide con auth.uid())
-      const adminClient = supabaseAdmin ?? supabase;
-      let link = await adminClient
+      // 2. Cuenta asociada: buscar el business_id en car_business_accounts (usando el cliente standard con RLS)
+      const { data: link, error: errLink } = await supabase
         .from('car_business_accounts')
         .select('id, business_id')
         .eq('user_id', userId)
-        .maybeSingle()
-        .then(res => res.data);
+        .maybeSingle();
+
+      if (errLink) {
+        console.error("db.profile.getByUserId - Error fetching business link by user_id:", errLink);
+      }
+
+      let activeLink = link;
 
       // Fallback: si no se encuentra por user_id pero se proporciona el email, se busca por email para vincularlo dinámicamente
-      if (!link && email) {
+      if (!activeLink && email) {
         const cleanEmail = email.trim().toLowerCase();
-        const { data: matchedLink } = await adminClient
+        const { data: matchedLink, error: errMatch } = await supabase
           .from('car_business_accounts')
           .select('id, business_id, user_id')
           .ilike('email', cleanEmail)
           .maybeSingle();
 
+        if (errMatch) {
+          console.error("db.profile.getByUserId - Error looking up pre-invite by email:", errMatch);
+        }
+
         if (matchedLink) {
-          // Vincular el user_id en car_business_accounts automáticamente
-          // Usamos supabase (sesión del usuario) para que la policy UPDATE de RLS funcione.
-          // Si el adminClient tiene service_role, también lo intentamos como fallback.
-          const updateResult = await supabase
+          // Vincular el user_id en car_business_accounts automáticamente usando el cliente standard (RLS)
+          const { error: errUpdate } = await supabase
             .from('car_business_accounts')
             .update({ user_id: userId })
             .eq('id', matchedLink.id);
 
-          if (updateResult.error && adminClient !== supabase) {
-            // Fallback al service role si el anon client no pudo
-            await adminClient
-              .from('car_business_accounts')
-              .update({ user_id: userId })
-              .eq('id', matchedLink.id);
+          if (errUpdate) {
+            console.error("db.profile.getByUserId - Error updating user_id in business link:", errUpdate);
+            // Fallback al service role si el cliente anon no pudo
+            if (supabaseAdmin) {
+              const { error: errUpdateAdmin } = await supabaseAdmin
+                .from('car_business_accounts')
+                .update({ user_id: userId })
+                .eq('id', matchedLink.id);
+              if (errUpdateAdmin) {
+                console.error("db.profile.getByUserId - Fallback admin update also failed:", errUpdateAdmin);
+              }
+            }
           }
           
-          link = matchedLink;
+          activeLink = matchedLink;
         }
       }
 
+      if (!activeLink) return null;
 
-      if (!link) return null;
-
-      const { data: business } = await adminClient
+      // 3. Leer el negocio con el cliente standard (RLS ahora permite leer negocios asociados)
+      const { data: business, error: errBiz } = await supabase
         .from('car_clients')
         .select('*')
-        .eq('id', link.business_id)
+        .eq('id', activeLink.business_id)
         .maybeSingle();
+
+      if (errBiz) {
+        console.error("db.profile.getByUserId - Error fetching associated business:", errBiz);
+        // Fallback al service role si RLS falló
+        if (supabaseAdmin) {
+          const { data: adminBiz, error: errAdminBiz } = await supabaseAdmin
+            .from('car_clients')
+            .select('*')
+            .eq('id', activeLink.business_id)
+            .maybeSingle();
+          if (errAdminBiz) console.error("db.profile.getByUserId - Fallback admin fetch business failed:", errAdminBiz);
+          return adminBiz ?? null;
+        }
+      }
+
       return business ?? null;
     },
   },

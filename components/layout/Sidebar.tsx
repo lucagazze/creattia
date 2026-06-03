@@ -19,7 +19,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, toggleDarkMode }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, user } = useAuth();
   const { viewAsProfile, setViewAsProfile, isViewingAs } = useViewAs();
   const { unreadCount, pendingCommentsCount } = useUnread();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -93,8 +93,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     return location.pathname.startsWith(path);
   };
 
-  const initials = activeProfile?.business_name
-    ? activeProfile.business_name.slice(0, 2).toUpperCase()
+  const userDisplayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || 'Usuario';
+  const initials = userDisplayName
+    ? userDisplayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
     : '??';
 
   const handleSignOut = async () => {
@@ -320,12 +321,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[12px] font-bold text-zinc-900 dark:text-white truncate">
-                {activeProfile?.business_name || 'Mi Empresa'}
+                {userDisplayName}
               </p>
               <div className="flex items-center gap-1 mt-0.5">
-                <div className={`w-1 h-1 rounded-full ${isViewingAs ? 'bg-violet-500' : 'bg-emerald-500'}`} />
-                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">
-                  {isViewingAs ? 'Vista Admin' : 'Online'}
+                <span className="text-[10px] text-zinc-400 truncate block max-w-[130px]">
+                  {activeProfile?.business_name || 'Mi Empresa'}
                 </span>
               </div>
             </div>
