@@ -70,8 +70,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!url || !token) return;
 
     try {
-      // Use meta endpoint — same source as "Todos X" in MensajeriaPage
-      const meta = await chatwoot.getConversationsMeta(url, token, 'open');
+      // Use meta endpoint — same source as "Todos X" in MensajeriaPage (statusFilter defaults to 'all')
+      const meta = await chatwoot.getConversationsMeta(url, token, 'all');
       const count = meta?.all_count ?? meta?.data?.all_count ?? 0;
       if (typeof count !== 'number') return;
 
