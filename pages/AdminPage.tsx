@@ -957,7 +957,8 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
 
     if (editForm.shopify_domain && editForm.shopify_access_token) {
       try {
-        await ecommerce.getShopifyOrders(editForm.shopify_domain, editForm.shopify_access_token, new Date(Date.now() - 86400000).toISOString(), new Date().toISOString());
+        const today = new Date().toISOString().split('T')[0];
+        await ecommerce.getShopifyOrders(editForm.shopify_domain, editForm.shopify_access_token, today, today);
         testResults.shopify = 'ok';
         saveConnOk(editingClient.id, 'shopify');
       } catch { testResults.shopify = 'error'; saveConnErr(editingClient.id, 'shopify'); errors.push('Shopify'); }
@@ -1021,19 +1022,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
         throw new Error(error.message || JSON.stringify(error));
       }
 
-      // Optional fields — each attempted separately, ignored if column missing
-      const optionalFields: Record<string, any> = {
-        industry: editForm.industry || null,
-        wordpress_url: editForm.wordpress_url || null,
-        woo_consumer_key: editForm.woo_consumer_key || null,
-        woo_consumer_secret: editForm.woo_consumer_secret || null,
-        tiendanube_store_id: editForm.tiendanube_store_id || null,
-        tiendanube_access_token: editForm.tiendanube_access_token || null,
-      };
-      for (const [key, val] of Object.entries(optionalFields)) {
-        const { error: optErr } = await supabase.from("car_clients").update({ [key]: val }).eq("id", editingClient.id);
-        if (optErr && optErr.code !== 'PGRST204') console.warn('[saveConfig] optional field error:', key, optErr.message);
-      }
+      // Note: wordpress/tiendanube columns don't exist in current DB schema — skip to avoid 400s
 
       const isValidUuid = (v?: string) => !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
       if (editForm.new_password && supabaseAdmin) {
