@@ -27,27 +27,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   // Use viewAsProfile if active, otherwise use real profile
   const activeProfile = isViewingAs ? viewAsProfile : profile;
 
-  // Sidebar Menu Items based on User's requested sections:
+  // Channel flags — based on what the client has configured
+  const hasChatwoot  = !!(activeProfile?.chatwoot_url && activeProfile?.chatwoot_token);
+  const hasMeta      = !!(activeProfile?.meta_account_id);
+  const hasKlaviyo   = !!(activeProfile?.klaviyo_api_key);
+  const hasEcommerce = !!(activeProfile?.shopify_domain || activeProfile?.tiendanube_store_id);
+
+  // Sidebar Menu Items — filtered by connected channels
   const principalItems = [
-    { path: '/',                 icon: Home,          label: 'Inicio' },
-    { path: '/mensajeria',       icon: MessageSquare, label: 'Mensajería', badge: unreadCount },
-    { path: '/comentarios',      icon: MessageCircle, label: 'Comentarios', badge: pendingCommentsCount },
-    { path: '/redes-sociales',   icon: Instagram,     label: 'Redes Sociales' },
-    { path: '/contactos',        icon: Users,          label: 'Contactos' },
-    { path: '/inventario',       icon: Package,        label: 'Inventario' },
-  ];
+    { path: '/',               icon: Home,          label: 'Inicio',          show: true },
+    { path: '/mensajeria',     icon: MessageSquare, label: 'Mensajería',      show: hasChatwoot, badge: unreadCount },
+    { path: '/comentarios',    icon: MessageCircle, label: 'Comentarios',     show: hasChatwoot, badge: pendingCommentsCount },
+    { path: '/redes-sociales', icon: Instagram,     label: 'Redes Sociales',  show: hasChatwoot },
+    { path: '/contactos',      icon: Users,         label: 'Contactos',       show: hasChatwoot },
+    { path: '/inventario',     icon: Package,       label: 'Inventario',      show: true },
+  ].filter(i => i.show);
 
   const metricasItems = [
-    { path: '/tienda',           icon: ShoppingBag,   label: 'Tienda Online' },
-    { path: '/captacion',        icon: BarChart2,     label: 'Captación' },
-    { path: '/atencion',         icon: MessageCircle, label: 'Atención' },
-    { path: '/retencion',        icon: Mail,          label: 'Retención' },
-  ];
+    { path: '/tienda',    icon: ShoppingBag,   label: 'Tienda Online', show: hasEcommerce },
+    { path: '/captacion', icon: BarChart2,     label: 'Captación',     show: hasMeta },
+    { path: '/atencion',  icon: MessageCircle, label: 'Atención',      show: hasChatwoot },
+    { path: '/retencion', icon: Mail,          label: 'Retención',     show: hasKlaviyo },
+  ].filter(i => i.show);
 
   const activosItems = [
-    { path: '/admin/meta',         icon: Target,        label: 'Creativos Ads' },
-    { path: '/email-marketing',    icon: Send,          label: 'Email Marketing' },
-  ];
+    { path: '/admin/meta',      icon: Target, label: 'Creativos Ads',    show: hasMeta },
+    { path: '/email-marketing', icon: Send,   label: 'Email Marketing',  show: hasKlaviyo },
+  ].filter(i => i.show);
 
   const configuracionItems = [
     { path: '/links',            icon: Link2,         label: 'Mis Accesos' },
@@ -234,23 +240,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
             {principalItems.map(item => renderItem(item))}
           </div>
 
-          {/* Metricas */}
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Metricas
-            </p>
-            {metricasItems.map(item => renderItem(item))}
-          </div>
+          {/* Metricas — solo si hay al menos 1 item */}
+          {metricasItems.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Metricas
+              </p>
+              {metricasItems.map(item => renderItem(item))}
+            </div>
+          )}
 
-          {/* Activos */}
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-              Activos
-            </p>
-            {activosItems.map(item => renderItem(item))}
-          </div>
+          {/* Activos — solo si hay al menos 1 item */}
+          {activosItems.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                Activos
+              </p>
+              {activosItems.map(item => renderItem(item))}
+            </div>
+          )}
 
           {/* Configuración */}
           <div className="space-y-1.5">
