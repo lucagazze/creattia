@@ -680,6 +680,8 @@ export default function DashboardPage() {
   const [atencChartData, setAtencChartData] = useState<any[]>([]);
   const [atencPrevChartData, setAtencPrevChartData] = useState<any[]>([]);
   const [loadingAtencChart, setLoadingAtencChart] = useState(false);
+  const [atencSeriesAll, setAtencSeriesAll] = useState<Record<string, any[]>>({});
+  const [atencPrevSeriesAll, setAtencPrevSeriesAll] = useState<Record<string, any[]>>({});
   const [currentStore, setCurrentStore] = useState<any>(null);
   const [prevStore, setPrevStore] = useState<any>(null);
   const [fetchingStore, setFetchingStore] = useState(true);
@@ -1121,6 +1123,48 @@ export default function DashboardPage() {
     if (profile?.id) fetchChatwoot();
     return () => { mounted = false; };
   }, [profile?.id, activeSince, activeUntil, refreshKey]);
+
+  // Pre-fetch ALL Atención sparklines when summary loads
+  useEffect(() => {
+    if (!chatwootSummary) return;
+    let mounted = true;
+    const ATENC_KEYS = ['conversations_count', 'incoming_messages_count', 'outgoing_messages_count', 'avg_first_response_time'];
+    const fetchAll = async () => {
+      const prof: any = profile;
+      if (!prof?.chatwoot_url || !prof?.chatwoot_token) return;
+      const untilSecs = Math.floor(new Date(`${activeUntil}T23:59:59Z`).getTime() / 1000);
+      const sinceSecs = Math.floor(new Date(`${activeSince}T00:00:00Z`).getTime() / 1000);
+      const prevRange = getPrevPeriod(activeSince, activeUntil);
+      const prevSinceSecs = Math.floor(new Date(`${prevRange.since}T00:00:00Z`).getTime() / 1000);
+      const prevUntilSecs = Math.floor(new Date(`${prevRange.until}T23:59:59Z`).getTime() / 1000);
+      const parse = (d: any) => {
+        const list = Array.isArray(d) ? d : (d?.data || d?.payload || []);
+        return list.map((item: any) => ({
+          val: Number(item.value || 0),
+          date: new Date((item.timestamp > 10000000000 ? item.timestamp : item.timestamp * 1000)).toISOString().split('T')[0],
+        }));
+      };
+      const results = await Promise.allSettled(
+        ATENC_KEYS.map(k => Promise.all([
+          chatwoot.getReportsTimeSeries(prof.chatwoot_url, prof.chatwoot_token, k, sinceSecs, untilSecs, 'account'),
+          chatwoot.getReportsTimeSeries(prof.chatwoot_url, prof.chatwoot_token, k, prevSinceSecs, prevUntilSecs, 'account'),
+        ]).then(([curr, prev]) => ({ key: k, curr: parse(curr), prev: parse(prev) })))
+      );
+      if (!mounted) return;
+      const currMap: Record<string, any[]> = {};
+      const prevMap: Record<string, any[]> = {};
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          currMap[ATENC_KEYS[i]] = r.value.curr;
+          prevMap[ATENC_KEYS[i]] = r.value.prev;
+        }
+      });
+      setAtencSeriesAll(currMap);
+      setAtencPrevSeriesAll(prevMap);
+    };
+    fetchAll();
+    return () => { mounted = false; };
+  }, [chatwootSummary, profile?.id, activeSince, activeUntil]);
 
   // Fetch Atención chart when a metric is clicked
   useEffect(() => {
@@ -2154,10 +2198,10 @@ export default function DashboardPage() {
             ) : chatwootSummary ? (
               <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                 {[
-                  { key: 'conversations_count', label: 'Conversaciones', icon: MessageCircle, color: '#8b5cf6', isTime: false },
-                  { key: 'incoming_messages_count', label: 'Msj. Entrantes', icon: Inbox, color: '#10b981', isTime: false },
-                  { key: 'outgoing_messages_count', label: 'Msj. Salientes', icon: Send, color: '#3b82f6', isTime: false },
-                  { key: 'avg_first_response_time', label: 'Resp. Promedio', icon: Clock, color: '#f59e0b', isTime: true },
+                  { key: 'conversations_count', label: 'Conversaciones', icon: MessageCircle, isTime: false },
+                  { key: 'incoming_messages_count', label: 'Msj. Entrantes', icon: Inbox, isTime: false },
+                  { key: 'outgoing_messages_count', label: 'Msj. Salientes', icon: Send, isTime: false },
+                  { key: 'avg_first_response_time', label: 'Resp. Promedio', icon: Clock, isTime: true },
                 ].map(m => {
                   const val = Number(chatwootSummary[m.key] || 0);
                   const prev = Number(prevChatwootSummary?.[m.key] || 0);
@@ -2174,8 +2218,8 @@ export default function DashboardPage() {
                       value={displayVal}
                       change={change}
                       trend={trend}
-                      data={activeAtencMetric === m.key ? atencChartData : []}
-                      color={m.color}
+                      data={activeAtencMetric === m.key ? atencChartData : (atencSeriesAll[m.key] || [])}
+                      color={'#8b5cf6'}
                       loading={false}
                       active={activeAtencMetric === m.key}
                       onClick={() => setActiveAtencMetric(activeAtencMetric === m.key ? null : m.key)}
@@ -2204,7 +2248,7 @@ export default function DashboardPage() {
                   ];
                   const cfg = ATENC_METRICS.find(m => m.key === activeAtencMetric);
                   if (!cfg) return null;
-                  return <MetricDetailChart label={cfg.label} color={cfg.color} data={atencChartData} prevData={atencPrevChartData} />;
+                  return <MetricDetailChart label={cfg.label} color={'#8b5cf6'} data={atencChartData.length ? atencChartData : (atencSeriesAll[activeAtencMetric] || [])} prevData={atencPrevChartData.length ? atencPrevChartData : (atencPrevSeriesAll[activeAtencMetric] || [])} />;
                 })()}
               </div>
             )}
