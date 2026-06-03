@@ -9,6 +9,7 @@ import { metaAds } from '../services/metaAds';
 interface UnreadContextType {
   /** Number of open conversations (badge count shown in sidebar) */
   unreadCount: number;
+  setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
   /** Number of pending comments on IG, FB, and Ads */
   pendingCommentsCount: number;
   /** Manually refresh the count (called e.g. after sending a message) */
@@ -19,6 +20,7 @@ interface UnreadContextType {
 
 const UnreadContext = createContext<UnreadContextType>({
   unreadCount: 0,
+  setUnreadCount: () => {},
   pendingCommentsCount: 0,
   refresh: () => {},
   markRead: () => {},
@@ -70,13 +72,18 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!url || !token) return;
 
     try {
-      // Fetch pages 1 and 2 of open conversations (50 conversations total) in parallel
-      const [page1Res, page2Res] = await Promise.all([
+      // Fetch pages 1, 2, and 3 of open conversations (75 conversations total) in parallel
+      const [page1Res, page2Res, page3Res] = await Promise.all([
         chatwoot.getConversationsPage(url, token, 'open', 1).catch(() => ({ payload: [] })),
-        chatwoot.getConversationsPage(url, token, 'open', 2).catch(() => ({ payload: [] }))
+        chatwoot.getConversationsPage(url, token, 'open', 2).catch(() => ({ payload: [] })),
+        chatwoot.getConversationsPage(url, token, 'open', 3).catch(() => ({ payload: [] }))
       ]);
 
-      const conversations = [...(page1Res.payload || []), ...(page2Res.payload || [])];
+      const conversations = [
+        ...(page1Res.payload || []),
+        ...(page2Res.payload || []),
+        ...(page3Res.payload || [])
+      ];
       const manuallyUnread = getManuallyUnreadSet(profile?.id);
 
       const isConvUnread = (c: any) => {
@@ -418,7 +425,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [profile?.id]);
 
   return (
-    <UnreadContext.Provider value={{ unreadCount, pendingCommentsCount, refresh: fetchCount, markRead }}>
+    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, refresh: fetchCount, markRead }}>
       {children}
     </UnreadContext.Provider>
   );

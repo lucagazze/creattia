@@ -197,7 +197,7 @@ export default function MensajeriaPage() {
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const isAdmin = authProfile?.is_admin;
   const { showToast } = useToast();
-  const { markRead } = useUnread();
+  const { markRead, setUnreadCount } = useUnread();
 
   const cwUrl = (profile as any)?.chatwoot_url;
   const cwToken = (profile as any)?.chatwoot_token;
@@ -340,6 +340,14 @@ export default function MensajeriaPage() {
     const unread = isManualUnread ? Math.max(1, c.unread_count || 0) : (c.unread_count || 0);
     return unread > 0 || isManualUnread;
   }, [manuallyUnread]);
+
+  // Synchronize the unreadCount state in UnreadContext with the exact current client-side calculation
+  useEffect(() => {
+    if (conversations.length > 0) {
+      const count = conversations.filter(isConvUnread).length;
+      setUnreadCount(count);
+    }
+  }, [conversations, isConvUnread, setUnreadCount]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
