@@ -50,6 +50,7 @@ export default function CerebroPage() {
   // UI
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
 
   // Scan modal
   const [showScanModal, setShowScanModal] = useState(false);
@@ -117,6 +118,8 @@ export default function CerebroPage() {
         brain_updated_at: new Date().toISOString(),
       });
       setBrainUpdatedAt(new Date().toISOString());
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 3000);
       showToast('Cerebro actualizado correctamente.', 'success');
     } catch (err: any) {
       showToast('Error al guardar: ' + err.message, 'error');
@@ -294,19 +297,7 @@ export default function CerebroPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Save button at top */}
-          {activeTab === 'identidad' && (
-            <button
-              onClick={() => handleSaveSettings()}
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-xl text-[12px] font-black shadow-md shadow-violet-200 dark:shadow-none transition-all"
-            >
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              {saving ? 'Guardando…' : 'Guardar'}
-            </button>
-          )}
-
-          {/* Context score — clickable modal */}
+          {/* Context score — clickable modal (izquierda) */}
           <button
             onClick={() => setShowContextModal(true)}
             className="flex items-center gap-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 shadow-sm hover:border-violet-300 dark:hover:border-violet-700 transition-all"
@@ -325,6 +316,18 @@ export default function CerebroPage() {
             </div>
             <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
           </button>
+
+          {/* Save button at top (derecha) */}
+          {activeTab === 'identidad' && (
+            <button
+              onClick={() => handleSaveSettings()}
+              disabled={saving}
+              className={`flex items-center gap-2 px-4 py-2 disabled:opacity-50 text-white rounded-xl text-[12px] font-black shadow-md transition-all ${savedOk ? 'bg-emerald-500 shadow-emerald-200 dark:shadow-none' : 'bg-violet-600 hover:bg-violet-700 shadow-violet-200 dark:shadow-none'}`}
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : savedOk ? <CheckCircle className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+              {saving ? 'Guardando…' : savedOk ? '¡Guardado!' : 'Guardar'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -418,9 +421,9 @@ export default function CerebroPage() {
 
           <div className="flex justify-end">
             <button type="submit" disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-xl text-[13px] font-black shadow-md shadow-violet-200 dark:shadow-none transition-all">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? 'Guardando...' : 'Guardar Cambios'}
+              className={`flex items-center gap-2 px-6 py-2.5 disabled:opacity-50 text-white rounded-xl text-[13px] font-black shadow-md transition-all ${savedOk ? 'bg-emerald-500 shadow-emerald-200 dark:shadow-none' : 'bg-violet-600 hover:bg-violet-700 shadow-violet-200 dark:shadow-none'}`}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : savedOk ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+              {saving ? 'Guardando...' : savedOk ? '¡Guardado con éxito!' : 'Guardar Cambios'}
             </button>
           </div>
         </form>
