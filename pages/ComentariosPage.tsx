@@ -553,6 +553,11 @@ export default function ComentariosPage() {
     return () => { active = false; };
   }, [clientId, igId, fbPageId, igUsername, metaAccountId, refreshKey, isCommentPending]);
 
+  // Sync sidebar badge when load completes
+  useEffect(() => {
+    if (!loading) window.dispatchEvent(new Event('car_comments_update'));
+  }, [loading]);
+
   // Open post slide-over — reload comments from API for freshness
   const openPost = async (post: PostItem) => {
     setSelectedPost(post);
