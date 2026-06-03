@@ -73,30 +73,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const conversations = await chatwoot.getConversations(url, token, 'open');
       if (!Array.isArray(conversations)) return;
 
-      const manuallyUnread = getManuallyUnreadSet(profile?.id);
-
-      const count = conversations.filter((c: any) => {
-        if (!c) return false;
-        if (c.status === 'resolved') return false;
-
-        // Sort messages to find the last real message (message_type !== 2)
-        const sortedMsgs = [...(c.messages || [])].sort((x, y) => {
-          const timeX = typeof x.created_at === 'number' ? x.created_at : new Date(x.created_at).getTime() / 1000;
-          const timeY = typeof y.created_at === 'number' ? y.created_at : new Date(y.created_at).getTime() / 1000;
-          return timeX - timeY;
-        });
-        const lastRealMsg = [...sortedMsgs].reverse().find((m: any) => m?.message_type !== 2) || 
-                            c.last_non_activity_message || 
-                            (sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null);
-
-        if (lastRealMsg && lastRealMsg.message_type === 1) {
-          return false; // Outgoing message means we already replied
-        }
-
-        const isManualUnread = manuallyUnread.has(c.id);
-        const unread = isManualUnread ? Math.max(1, c.unread_count || 0) : (c.unread_count || 0);
-        return unread > 0 || isManualUnread;
-      }).length;
+      // Count ALL open conversations — matches the "Todos" tab in Mensajería
+      const count = conversations.filter((c: any) => c && c.status !== 'resolved').length;
 
       setUnreadCount(count);
       if (profile?.id) {

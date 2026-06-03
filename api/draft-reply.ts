@@ -213,15 +213,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Detect if message is asking about a specific product/price
     const askingPrice = /precio|price|cost|cuánto|cuanto|vale|valor|cuesta|how much|\$|pesos|dolar/i.test(itemText);
-    const askingProduct = /tenés|tienen|hay|stock|disponible|comprar|buy|quiero|necesito|busco|want|need|available/i.test(itemText);
+    const askingProduct = /tenés|tienen|hay\s+(stock|tela|disponible)|busco\s+\w|necesito\s+(comprar|tela|saber)|quiero\s+(comprar|saber\s+el\s+precio|ver\s+el\s+precio)|want\s+to\s+buy|do\s+you\s+have/i.test(itemText);
     const productMentioned = matched.length > 0;
+
+    // Generic greeting/intro — don't trigger catalog enforcement
+    const isGenericGreeting = /^[¡!]?\s*(hola|hi|hello|buenas|buen\s*(día|dia|tarde|noche)|hey|buenos)\b/i.test(itemText.trim())
+      || (!askingPrice && itemText.trim().split(/\s+/).length <= 10 && !/tenés|tienen|cuánto|precio|stock|disponible|específic/i.test(itemText));
 
     // Build catalog context with validation hints
     let productsContext = '';
     if (parsedCatalog.length === 0) {
       productsContext = 'Sin catálogo configurado.';
-    } else if ((askingPrice || askingProduct) && !productMentioned) {
-      // Query seems product-related but no match found in catalog
+    } else if ((askingPrice || askingProduct) && !productMentioned && !isGenericGreeting) {
+      // Specific product query but NOT found in catalog
       productsContext = `Catálogo disponible (${parsedCatalog.length} productos). El producto específico que pregunta el cliente NO fue encontrado en el catálogo.\n\n⚠️ PRODUCTO NO ENCONTRADO EN CATÁLOGO — Ver instrucciones de respuesta abajo.`;
     } else {
       productsContext = `Catálogo (${parsedCatalog.length} productos totales, ${relevantCatalog.length} relevantes):\n${
@@ -291,7 +295,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Pre-check: build explicit "verified facts" block for price/product queries
     let verifiedFacts = '';
-    if (askingPrice || askingProduct) {
+    if ((askingPrice || askingProduct) && !isGenericGreeting) {
       if (matched.length > 0) {
         verifiedFacts = `\n⚠️ DATOS VERIFICADOS DEL CATÁLOGO (ÚNICOS QUE PODÉS USAR):\n${
           matched.map((p: any) => {
