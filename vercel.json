@@ -5,6 +5,10 @@
       "destination": "/api/klaviyo/[...path]"
     },
     {
+      "source": "/api/shopify/:path*",
+      "destination": "/api/shopify/[...path]"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
