@@ -268,7 +268,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 Extraé del texto del negocio "${bName}" exactamente estos 4 campos en JSON:
 
-1. "business_description": Copiá la información que EXISTE en el texto: qué vende, productos mencionados con sus precios exactos si aparecen, políticas de envío, cambios/devoluciones, formas de pago, datos de contacto. SOLO lo que está escrito. Máx 450 palabras.
+1. "business_description": Resumí la información del negocio para que la IA la use al responder clientes. Incluir: qué es el negocio, a quién le vende, su diferencial, políticas de envío y devolución (resumidas), formas de pago, datos de contacto. NO listar productos ni precios individuales (eso lo maneja el catálogo de la tienda). SOLO lo que está escrito en el texto. Máx 350 palabras.
 
 2. "tone": Del estilo de escritura que observás en el texto, describí cómo debe hablar la IA: nivel de formalidad, uso de voseo argentino (si corresponde), cantidad de emojis, longitud de respuestas. Máx 120 palabras.
 
@@ -615,37 +615,44 @@ Crea un resumen en español súper práctico centrado en:
               messages: [
                 {
                   role: 'system',
-                  content: `Sos un experto en análisis de negocios. Analizá el texto extraído del sitio web del negocio "${business_name}" y generá una base de conocimiento exhaustiva en español.
+                  content: `Sos un extractor de información de sitios web. Tu trabajo es copiar y organizar TODA la información del sitio de "${business_name}" que NO sea el catálogo de productos (los productos y precios los maneja un sistema separado).
 
-Extraé y organizá TODA la información disponible en estas secciones:
+Extraé y transcribí LITERALMENTE toda la información disponible en estas secciones. Si una sección no tiene información, omitila:
 
-1. INFORMACIÓN GENERAL
-   - Qué es el negocio, qué vende, diferencial de la marca
-   - Nombres del equipo (dueños, vendedores, atención al cliente)
-   - Canales de contacto: teléfono, email, WhatsApp, dirección
+1. SOBRE EL NEGOCIO
+   - Historia, misión, valores, diferencial de la marca
+   - Quiénes son, el equipo, las personas detrás del negocio
+   - Todo el texto de la página "Nosotros" / "About" / "Quiénes somos"
 
-2. CATÁLOGO COMPLETO DE PRODUCTOS / SERVICIOS
-   - Nombre de cada producto con descripción breve
-   - Precios exactos si están mencionados (con moneda)
-   - Variantes disponibles (talles, colores, medidas)
-   - Materiales, calidad, origen
+2. CONTACTO Y ATENCIÓN
+   - Teléfono, email, WhatsApp, redes sociales
+   - Dirección física, ciudad, país
+   - Horarios de atención
+   - Cómo contactar para consultas o problemas
 
 3. ENVÍOS Y ENTREGAS
-   - Tiempos de entrega por zona
-   - Costos de envío y umbral de envío gratis
-   - Transportistas y horarios de despacho
+   - Tiempos de entrega por zona/país
+   - Costos de envío, envío gratis (mínimo si lo hay)
+   - Transportistas, métodos de despacho
+   - Política completa de envíos, todo el texto
 
 4. CAMBIOS, DEVOLUCIONES Y GARANTÍAS
-   - Plazos y condiciones
-   - Cómo iniciar un reclamo
+   - Todo el texto de la política de devoluciones/cambios
+   - Plazos, condiciones, excepciones
+   - Cómo iniciar un cambio o reclamo
 
-5. FORMAS DE PAGO Y FINANCIACIÓN
-   - Métodos aceptados, cuotas, descuentos por forma de pago
+5. FORMAS DE PAGO
+   - Métodos aceptados (tarjetas, transferencia, efectivo, etc.)
+   - Cuotas, financiación, descuentos por forma de pago
 
 6. PREGUNTAS FRECUENTES
-   - Preguntas más comunes con sus respuestas exactas
+   - Cada pregunta y su respuesta COMPLETA, textualmente
 
-Sé exhaustivo. Si hay precios, incluilos. Si hay horarios, incluilos. No inventés información.`
+7. CUALQUIER OTRO TEXTO IMPORTANTE
+   - Políticas, términos, certificaciones, premios, procesos de fabricación, garantías de calidad, o cualquier texto informativo que no sea un listado de productos
+
+IMPORTANTE: NO incluir listados de productos con precios. El catálogo se maneja por separado. Sí podés mencionar las categorías generales de lo que vende, pero sin entrar en productos específicos ni precios.
+Copiá los textos con fidelidad. No inventés nada.`
                 },
                 { role: 'user', content: combinedText }
               ],
