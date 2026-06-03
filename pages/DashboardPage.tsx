@@ -97,6 +97,14 @@ const ShopifyMetric = ({
   icon: Icon,
   info,
 }: any) => {
+  const [tipPos, setTipPos] = React.useState<{ x: number; y: number } | null>(null);
+  const infoRef = React.useRef<HTMLDivElement>(null);
+  const showTip = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const r = infoRef.current?.getBoundingClientRect();
+    if (r) setTipPos({ x: r.left + r.width / 2, y: r.top });
+  };
+  const hideTip = () => setTipPos(null);
   const isGreen = color === GREEN || color === '#10b981';
   const isPink = color === PINK || color === '#ec4899';
   const isViolet = color === '#8b5cf6';
@@ -128,21 +136,21 @@ const ShopifyMetric = ({
             {label}
           </span>
           {info && (
-            <div className="relative inline-block group/info flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div ref={infoRef} className="flex-shrink-0" onClick={(e) => e.stopPropagation()} onMouseEnter={showTip} onMouseLeave={hideTip}>
               <Info className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 hover:text-violet-500 dark:hover:text-violet-400 transition-colors cursor-help" />
-              {/* Premium micro-tooltip */}
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 sm:w-64 p-3 bg-zinc-900/95 dark:bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 dark:border-zinc-800 text-white text-[11px] rounded-2xl shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-200 z-[150] pointer-events-none">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  {Icon && <Icon className="w-3 h-3 text-violet-400" />}
-                  <span className="font-bold text-violet-400 uppercase tracking-widest text-[9px]">
-                    {label}
-                  </span>
+              {tipPos && (
+                <div
+                  className="fixed z-[9999] w-56 sm:w-64 p-3 bg-zinc-900/98 backdrop-blur-xl border border-zinc-700 text-white text-[11px] rounded-2xl shadow-2xl pointer-events-none"
+                  style={{ left: tipPos.x, top: tipPos.y - 8, transform: 'translateX(-50%) translateY(-100%)' }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    {Icon && <Icon className="w-3 h-3 text-violet-400" />}
+                    <span className="font-bold text-violet-400 uppercase tracking-widest text-[9px]">{label}</span>
+                  </div>
+                  <p className="leading-relaxed font-medium text-zinc-200 normal-case tracking-normal">{info}</p>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900/98" />
                 </div>
-                <p className="leading-relaxed font-medium text-zinc-200 normal-case tracking-normal">
-                  {info}
-                </p>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900/95 dark:border-t-zinc-950/95" />
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -187,6 +195,18 @@ const ShopifyMetric = ({
     </button>
   );
 };
+
+const formatDuration = (secs: number) => {
+  if (!secs) return '0m';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+};
+
+const toUnixDash = (dateStr: string, end = false) =>
+  Math.floor(new Date(`${dateStr}T${end ? '23:59:59' : '00:00:00'}Z`).getTime() / 1000);
 
 const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
   const [hoveredLine, setHoveredLine] = useState<"curr" | "prev" | null>(null);
@@ -656,6 +676,10 @@ export default function DashboardPage() {
   const [chatwootSummary, setChatwootSummary] = useState<any>(null);
   const [prevChatwootSummary, setPrevChatwootSummary] = useState<any>(null);
   const [fetchingChatwoot, setFetchingChatwoot] = useState(false);
+  const [activeAtencMetric, setActiveAtencMetric] = useState<string | null>(null);
+  const [atencChartData, setAtencChartData] = useState<any[]>([]);
+  const [atencPrevChartData, setAtencPrevChartData] = useState<any[]>([]);
+  const [loadingAtencChart, setLoadingAtencChart] = useState(false);
   const [currentStore, setCurrentStore] = useState<any>(null);
   const [prevStore, setPrevStore] = useState<any>(null);
   const [fetchingStore, setFetchingStore] = useState(true);
@@ -1097,6 +1121,42 @@ export default function DashboardPage() {
     if (profile?.id) fetchChatwoot();
     return () => { mounted = false; };
   }, [profile?.id, activeSince, activeUntil, refreshKey]);
+
+  // Fetch Atención chart when a metric is clicked
+  useEffect(() => {
+    if (!activeAtencMetric) return;
+    let mounted = true;
+    const fetchAtencChart = async () => {
+      const prof: any = profile;
+      if (!prof?.chatwoot_url || !prof?.chatwoot_token) return;
+      setLoadingAtencChart(true);
+      try {
+        const untilSecs = Math.floor(new Date(`${activeUntil}T23:59:59Z`).getTime() / 1000);
+        const sinceSecs = Math.floor(new Date(`${activeSince}T00:00:00Z`).getTime() / 1000);
+        const prevRange = getPrevPeriod(activeSince, activeUntil);
+        const prevSinceSecs = Math.floor(new Date(`${prevRange.since}T00:00:00Z`).getTime() / 1000);
+        const prevUntilSecs = Math.floor(new Date(`${prevRange.until}T23:59:59Z`).getTime() / 1000);
+        const [curr, prev] = await Promise.all([
+          chatwoot.getReportsTimeSeries(prof.chatwoot_url, prof.chatwoot_token, activeAtencMetric, sinceSecs, untilSecs, 'account'),
+          chatwoot.getReportsTimeSeries(prof.chatwoot_url, prof.chatwoot_token, activeAtencMetric, prevSinceSecs, prevUntilSecs, 'account'),
+        ]);
+        const parse = (d: any) => {
+          const list = Array.isArray(d) ? d : (d?.data || d?.payload || []);
+          return list.map((item: any) => ({
+            val: Number(item.value || 0),
+            date: new Date((item.timestamp > 10000000000 ? item.timestamp : item.timestamp * 1000)).toISOString().split('T')[0],
+          }));
+        };
+        if (mounted) { setAtencChartData(parse(curr)); setAtencPrevChartData(parse(prev)); }
+      } catch (e) {
+        console.error('Atenc chart error:', e);
+      } finally {
+        if (mounted) setLoadingAtencChart(false);
+      }
+    };
+    fetchAtencChart();
+    return () => { mounted = false; };
+  }, [activeAtencMetric, profile?.id, activeSince, activeUntil]);
 
   const handleApply = () => {
     setActivePreset(pendingPreset);
@@ -2114,16 +2174,40 @@ export default function DashboardPage() {
                       value={displayVal}
                       change={change}
                       trend={trend}
-                      data={[]}
+                      data={activeAtencMetric === m.key ? atencChartData : []}
                       color={m.color}
                       loading={false}
-                      active={false}
-                      onClick={() => {}}
+                      active={activeAtencMetric === m.key}
+                      onClick={() => setActiveAtencMetric(activeAtencMetric === m.key ? null : m.key)}
                     />
                   );
                 })}
               </div>
             ) : null}
+            {/* Atención expanded chart */}
+            {chatwootSummary && activeAtencMetric && (
+              <div className="relative mt-2">
+                {loadingAtencChart && (
+                  <div className="absolute inset-0 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-[20px]">
+                    <div className="flex items-center gap-2 text-[12px] text-zinc-500">
+                      <div className="w-4 h-4 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+                      Cargando gráfico...
+                    </div>
+                  </div>
+                )}
+                {(() => {
+                  const ATENC_METRICS = [
+                    { key: 'conversations_count', label: 'Conversaciones', color: '#8b5cf6' },
+                    { key: 'incoming_messages_count', label: 'Msj. Entrantes', color: '#10b981' },
+                    { key: 'outgoing_messages_count', label: 'Msj. Salientes', color: '#3b82f6' },
+                    { key: 'avg_first_response_time', label: 'Resp. Promedio', color: '#f59e0b' },
+                  ];
+                  const cfg = ATENC_METRICS.find(m => m.key === activeAtencMetric);
+                  if (!cfg) return null;
+                  return <MetricDetailChart label={cfg.label} color={cfg.color} data={atencChartData} prevData={atencPrevChartData} />;
+                })()}
+              </div>
+            )}
           </div>
         )}
 

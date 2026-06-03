@@ -1345,54 +1345,51 @@ export default function ComentariosPage() {
                                   className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-[12.5px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:border-violet-500 outline-none transition-all min-h-[50px] font-medium shadow-inner"
                                 />
                                 <div className="flex items-center gap-2">
-                                  {/* Language selector + IA button — merged */}
-                                  <div className="flex items-center rounded-lg border border-violet-100/50 dark:border-violet-900/20 overflow-visible relative">
-                                    {/* Lang dropdown trigger */}
-                                    <div className="relative">
-                                      <button
-                                        type="button"
-                                        onClick={() => setLangDropdownOpen(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
-                                        className="flex items-center gap-0.5 px-1.5 py-1.5 text-[12px] bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 dark:hover:bg-violet-950/40 text-zinc-500 dark:text-zinc-400 transition-all border-r border-violet-100/50 dark:border-violet-900/20"
-                                        title="Cambiar idioma"
-                                      >
-                                        {(() => {
-                                          const cur = replyLangs[comment.id] || detectLang(comment.text || comment.message || '');
-                                          return LANGS.find(l => l.code === cur)?.flag ?? '🇦🇷';
-                                        })()}
-                                        <svg className="w-2.5 h-2.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                      </button>
-                                      {langDropdownOpen[comment.id] && (
-                                        <div className="absolute bottom-full left-0 mb-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[110px]">
-                                          {LANGS.map(l => {
-                                            const cur = replyLangs[comment.id] || detectLang(comment.text || comment.message || '');
-                                            return (
-                                              <button
-                                                key={l.code}
-                                                type="button"
-                                                onClick={() => {
-                                                  setReplyLangs(prev => ({ ...prev, [comment.id]: l.code }));
-                                                  setLangDropdownOpen(prev => ({ ...prev, [comment.id]: false }));
-                                                  generateDraft({ ...comment, _forceLang: l.code });
-                                                }}
-                                                className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all ${cur === l.code ? 'font-bold text-violet-600 dark:text-violet-400' : 'text-zinc-700 dark:text-zinc-300'}`}
-                                              >
-                                                {l.flag} {l.label}
-                                              </button>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-                                    </div>
-                                    {/* IA button */}
+                                  {/* IA button — main action */}
+                                  <button
+                                    type="button"
+                                    onClick={() => generateDraft(comment)}
+                                    disabled={submitting[comment.id] || draftLoading[comment.id]}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[12px] font-black shadow-sm shadow-violet-500/25 transition-all"
+                                  >
+                                    {draftLoading[comment.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                    IA
+                                  </button>
+                                  {/* Language selector — secondary */}
+                                  <div className="relative">
                                     <button
                                       type="button"
-                                      onClick={() => generateDraft(comment)}
-                                      disabled={submitting[comment.id] || draftLoading[comment.id]}
-                                      className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 text-[11px] font-black transition-all"
+                                      onClick={() => setLangDropdownOpen(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
+                                      className="flex items-center gap-0.5 px-2 py-1.5 text-[11px] bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-lg transition-all"
+                                      title="Cambiar idioma"
                                     >
-                                      {draftLoading[comment.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                      IA
+                                      {(() => {
+                                        const cur = replyLangs[comment.id] || detectLang(comment.text || comment.message || '');
+                                        return LANGS.find(l => l.code === cur)?.flag ?? '🇦🇷';
+                                      })()}
+                                      <svg className="w-2.5 h-2.5 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                     </button>
+                                    {langDropdownOpen[comment.id] && (
+                                      <div className="absolute bottom-full left-0 mb-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[110px]">
+                                        {LANGS.map(l => {
+                                          const cur = replyLangs[comment.id] || detectLang(comment.text || comment.message || '');
+                                          return (
+                                            <button
+                                              key={l.code}
+                                              type="button"
+                                              onClick={() => {
+                                                setReplyLangs(prev => ({ ...prev, [comment.id]: l.code }));
+                                                setLangDropdownOpen(prev => ({ ...prev, [comment.id]: false }));
+                                                generateDraft({ ...comment, _forceLang: l.code });
+                                              }}
+                                              className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all ${cur === l.code ? 'font-bold text-violet-600 dark:text-violet-400' : 'text-zinc-700 dark:text-zinc-300'}`}
+                                            >
+                                              {l.flag} {l.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                   <button
                                     type="submit"

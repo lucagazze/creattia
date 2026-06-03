@@ -211,14 +211,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const others = parsedCatalog.filter((p: any) => !matched.includes(p)).slice(0, 40 - matched.length);
     const relevantCatalog = matched.concat(others);
 
-    const productsContext = relevantCatalog.length > 0
-      ? `Catálogo (${parsedCatalog.length} productos, mostrando ${relevantCatalog.length} relevantes):\n${
-          relevantCatalog.map((p: any) => {
-            const vars = p.variants && p.variants.length > 0 ? ` | vars: ${p.variants.slice(0, 4).join(', ')}` : '';
-            return `- ${p.title}: ${p.price}${vars} → ${buildLink(p)}`;
-          }).join('\n')
-        }`
-      : 'Sin catálogo configurado.';
+    // Detect if message is asking about a specific product/price
+    const askingPrice = /precio|price|cost|cuánto|cuanto|vale|valor|cuesta|how much|\$|pesos|dolar/i.test(itemText);
+    const askingProduct = /tenés|tienen|hay|stock|disponible|comprar|buy|quiero|necesito|busco|want|need|available/i.test(itemText);
+    const productMentioned = matched.length > 0;
+
+    // Build catalog context with validation hints
+    let productsContext = '';
+    if (parsedCatalog.length === 0) {
+      productsContext = 'Sin catálogo configurado.';
+    } else if ((askingPrice || askingProduct) && !productMentioned) {
+      // Query seems product-related but no match found in catalog
+      productsContext = `Catálogo disponible (${parsedCatalog.length} productos). El producto específico que pregunta el cliente NO fue encontrado en el catálogo.\n\n⚠️ PRODUCTO NO ENCONTRADO EN CATÁLOGO — Ver instrucciones de respuesta abajo.`;
+    } else {
+      productsContext = `Catálogo (${parsedCatalog.length} productos totales, ${relevantCatalog.length} relevantes):\n${
+        relevantCatalog.map((p: any) => {
+          const vars = p.variants && p.variants.length > 0 ? ` | vars: ${p.variants.slice(0, 4).join(', ')}` : '';
+          return `- ${p.title}: ${p.price}${vars} → ${buildLink(p)}`;
+        }).join('\n')
+      }`;
+    }
 
     const linksBlock = clientLinks.length > 0
       ? clientLinks.map((l: any) => `- ${l.title}: ${formatToWww(l.url)}`).join('\n')
@@ -295,6 +307,14 @@ ${fewShotContext ? `════ EJEMPLOS DE RESPUESTAS REALES ════\n${f
 
 ════ ROL ════
 Sos la persona detrás de las redes de "${business_name}". No un bot. Un humano que trabaja en la marca y responde de forma natural.
+
+════ REGLA CRÍTICA — PRODUCTOS Y PRECIOS (NUNCA IGNORAR) ════
+1. SOLO podés mencionar el nombre exacto, precio o URL de un producto si ese producto aparece LITERALMENTE en el catálogo de arriba con un precio real (no "Consultar").
+2. Si alguien pregunta por un producto y lo encontrás en el catálogo → respondé con el nombre y precio EXACTO del catálogo. No redondees ni modifiques el precio.
+3. Si el catálogo muestra "Consultar" para el precio → NO digas ningún precio. Redirigí al privado/DM.
+4. Si el producto NO aparece en el catálogo o no hay catálogo configurado → NO menciones ese producto ni inventes un precio. ${isDM ? 'Decí que vas a verificar y le respondés en breve.' : 'Decí "Te respondemos por privado 📩" y no menciones el producto ni el precio.'}
+5. NUNCA inventar productos, precios, URLs ni disponibilidad. Si no está en el catálogo, no existe para vos.
+${(!productMentioned && (askingPrice || askingProduct)) ? '\n⚠️ ATENCIÓN: El cliente pregunta por un producto/precio pero NO se encontró en el catálogo. Aplicar regla 4: no mencionar producto ni precio, redirigir al privado.' : ''}
 
 ════ CÓMO RESPONDER ════
 ${isDM
