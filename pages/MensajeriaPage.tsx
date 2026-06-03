@@ -224,6 +224,17 @@ export default function MensajeriaPage() {
     setMessages([]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId]);
+
+  // Synchronize conversations list to sessionStorage cache automatically on every state change
+  useEffect(() => {
+    if (convCacheKey && conversations.length > 0) {
+      try {
+        sessionStorage.setItem(convCacheKey, JSON.stringify(conversations.slice(0, 300)));
+      } catch (e) {
+        console.warn("Error caching conversations:", e);
+      }
+    }
+  }, [conversations, convCacheKey]);
   const [convMeta, setConvMeta] = useState<{ all_count: number; unassigned_count: number; assigned_count: number } | null>(() => {
     try {
       const saved = sessionStorage.getItem(`car_conv_meta_${profile?.id || 'default'}`);
@@ -510,9 +521,7 @@ export default function MensajeriaPage() {
         const updated = prev.map((c: any) => apiMap.has(c.id) ? apiMap.get(c.id) : c);
         const prevIds = new Set(prev.map((c: any) => c.id));
         const newOnes = firstPayload.filter((c: any) => !prevIds.has(c.id));
-        const merged = [...newOnes, ...updated];
-        try { if (convCacheKey) sessionStorage.setItem(convCacheKey, JSON.stringify(merged.slice(0, 50))); } catch {}
-        return merged;
+        return [...newOnes, ...updated];
       });
       setHasMore(firstHasMore);
       setCurrentPage(1);
