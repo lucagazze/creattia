@@ -55,18 +55,24 @@ function extractInternalLinks(html: string, baseUrl: string): string[] {
 }
 
 function prioritizeLinks(links: string[]): string[] {
-  const keywords = [
-    /envio/i, /shipping/i, /entrega/i,
-    /devoluc/i, /refund/i, /cambio/i, /retorn/i,
-    /faq/i, /pregunta/i, /ayuda/i, /soporte/i, /help/i,
+  // High priority: FAQ, contact, about, shipping, policies
+  const highPriority = [
+    /faq/i, /pregunta/i, /ayuda/i, /soporte/i, /help/i, /question/i,
     /nosotros/i, /about/i, /quienes/i, /contacto/i, /contact/i,
-    /product/i, /tienda/i, /shop/i, /catalog/i, /collection/i,
-    /precio/i, /price/i, /tarifa/i,
+    /envio/i, /shipping/i, /entrega/i, /delivery/i,
+    /devoluc/i, /refund/i, /cambio/i, /retorn/i, /return/i,
     /garantia/i, /warranty/i,
-    /politic/i, /terms/i, /condicion/i,
+    /politic/i, /terms/i, /condicion/i, /aviso/i,
+    /pago/i, /payment/i, /cuotas/i,
+    /precio/i, /price/i, /tarifa/i,
   ];
-  const matches = links.filter(link => keywords.some(regex => regex.test(link)));
-  return [...new Set(matches)].slice(0, 10);
+  // Lower priority: catalog/products (we skip these now)
+  const lowPriority = [
+    /product/i, /tienda/i, /shop/i, /catalog/i, /collection/i,
+  ];
+  const high = links.filter(link => highPriority.some(r => r.test(link)));
+  const low = links.filter(link => !high.includes(link) && lowPriority.some(r => r.test(link)));
+  return [...new Set([...high, ...low])].slice(0, 15);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -264,33 +270,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!webCtx) return res.status(400).json({ error: 'Primero escaneá el sitio web' });
 
-      const fieldsPrompt = `Sos un extractor de información. Tu único trabajo es copiar datos que EXISTEN LITERALMENTE en el texto que te dan. NUNCA inferís, NUNCA suponés, NUNCA completás con conocimiento propio.
+      const fieldsPrompt = `Sos un extractor de información ESTRICTO. Analizás el texto RAW extraído del sitio web de "${bName}" y extraés 4 campos en JSON. Tu único trabajo es COPIAR lo que está escrito. Jamás inventás, inferís ni completás con suposiciones.
 
-Extraé del texto del negocio "${bName}" exactamente estos 4 campos en JSON:
+CAMPO 1 — "business_description":
+Resumí en 300-400 palabras: qué es el negocio, a quién le vende, su diferencial, políticas de envío y devolución (con los datos exactos del texto), formas de pago, datos de contacto. No listar productos individuales con precios. Solo información presente en el texto.
 
-1. "business_description": Resumí la información del negocio para que la IA la use al responder clientes. Incluir: qué es el negocio, a quién le vende, su diferencial, políticas de envío y devolución (resumidas), formas de pago, datos de contacto. NO listar productos ni precios individuales (eso lo maneja el catálogo de la tienda). SOLO lo que está escrito en el texto. Máx 350 palabras.
+CAMPO 2 — "tone":
+Describí en 100-130 palabras cómo debe hablar la IA: nivel de formalidad/informalidad, si usa voseo argentino, cuántos emojis, longitud ideal de respuestas. Basarte en el estilo de escritura que ves en el texto.
 
-2. "tone": Del estilo de escritura que observás en el texto, describí cómo debe hablar la IA: nivel de formalidad, uso de voseo argentino (si corresponde), cantidad de emojis, longitud de respuestas. Máx 120 palabras.
+CAMPO 3 — "offers":
+REGLA ABSOLUTA: Solo podés poner aquí descuentos o promociones que estén LITERALMENTE escritos en el texto con su porcentaje o monto exacto (ej: "20% OFF", "3x2", "envio gratis en compras mayores a $X").
+Si no encontras ningun descuento con valor numerico explicito en el texto → el campo DEBE ser exactamente: ""
+Ante cualquier duda → ""
 
-3. "offers": ⚠️ REGLA ABSOLUTA: Este campo SOLO puede contener descuentos, promociones o cuotas que estén TEXTUALMENTE escritos en el texto con su porcentaje, monto o condición exacta. Si el texto NO menciona explícitamente un descuento activo con su valor específico → devolvé exactamente el string vacío "". PROHIBIDO inferir, suponer o inventar ofertas. Si hay duda → "".
+CAMPO 4 — "faq":
+Buscá en TODO el texto cualquier sección de preguntas y respuestas (puede llamarse FAQ, Preguntas Frecuentes, Ayuda, Questions, etc.).
+Copiá CADA PAR pregunta-respuesta que encuentres, textualmente.
+Formato OBLIGATORIO: "P: [pregunta exacta]\nR: [respuesta completa]\n\n"
+Si el texto no contiene ninguna pregunta/respuesta → ""
+IMPORTANTE: Si encontras 10 FAQs, copiá las 10. Si encontras 20, copiá las 20. No truncar.
 
-4. "faq": Preguntas y respuestas COPIADAS de información que está en el texto. Formato: "P: ¿pregunta?\nR: respuesta\n\n". Solo preguntas cuya respuesta esté en el texto. No inventar respuestas.
-
-⛔ PROHIBIDO ABSOLUTO: inventar cualquier dato que no esté en el texto proporcionado. Si no está escrito, no existe.
-
-RESPONDÉ ÚNICAMENTE CON JSON VÁLIDO. Sin texto extra ni markdown.`;
+PROHIBICION TOTAL: No inventar nada. Si no está en el texto → no existe.
+RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
 
       const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4o',
           messages: [
             { role: 'system', content: fieldsPrompt },
-            { role: 'user', content: `INFORMACIÓN WEB:\n${webCtx.slice(0, 22000)}\n\nINFORMACIÓN REDES SOCIALES:\n${socialCtx.slice(0, 6000)}` }
+            { role: 'user', content: `TEXTO COMPLETO DEL SITIO WEB:\n${webCtx.slice(0, 50000)}\n\nINFORMACIÓN REDES SOCIALES:\n${socialCtx.slice(0, 8000)}` }
           ],
           temperature: 0,
-          max_tokens: 2500,
+          max_tokens: 4000,
           response_format: { type: 'json_object' }
         }),
       });
@@ -600,71 +613,9 @@ Crea un resumen en español súper práctico centrado en:
             })
           );
 
-          let combinedText = `--- PÁGINA DE INICIO (HOME) ---\n${homepageText}\n\n` +
-            subpagesContent.filter(Boolean).join('\n\n');
-          combinedText = combinedText.slice(0, 45000);
-
-          const openaiWebRes = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${openAiKey}`
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
-              messages: [
-                {
-                  role: 'system',
-                  content: `Sos un extractor de información de sitios web. Tu trabajo es copiar y organizar TODA la información del sitio de "${business_name}" que NO sea el catálogo de productos (los productos y precios los maneja un sistema separado).
-
-Extraé y transcribí LITERALMENTE toda la información disponible en estas secciones. Si una sección no tiene información, omitila:
-
-1. SOBRE EL NEGOCIO
-   - Historia, misión, valores, diferencial de la marca
-   - Quiénes son, el equipo, las personas detrás del negocio
-   - Todo el texto de la página "Nosotros" / "About" / "Quiénes somos"
-
-2. CONTACTO Y ATENCIÓN
-   - Teléfono, email, WhatsApp, redes sociales
-   - Dirección física, ciudad, país
-   - Horarios de atención
-   - Cómo contactar para consultas o problemas
-
-3. ENVÍOS Y ENTREGAS
-   - Tiempos de entrega por zona/país
-   - Costos de envío, envío gratis (mínimo si lo hay)
-   - Transportistas, métodos de despacho
-   - Política completa de envíos, todo el texto
-
-4. CAMBIOS, DEVOLUCIONES Y GARANTÍAS
-   - Todo el texto de la política de devoluciones/cambios
-   - Plazos, condiciones, excepciones
-   - Cómo iniciar un cambio o reclamo
-
-5. FORMAS DE PAGO
-   - Métodos aceptados (tarjetas, transferencia, efectivo, etc.)
-   - Cuotas, financiación, descuentos por forma de pago
-
-6. PREGUNTAS FRECUENTES
-   - Cada pregunta y su respuesta COMPLETA, textualmente
-
-7. CUALQUIER OTRO TEXTO IMPORTANTE
-   - Políticas, términos, certificaciones, premios, procesos de fabricación, garantías de calidad, o cualquier texto informativo que no sea un listado de productos
-
-IMPORTANTE: NO incluir listados de productos con precios. El catálogo se maneja por separado. Sí podés mencionar las categorías generales de lo que vende, pero sin entrar en productos específicos ni precios.
-Copiá los textos con fidelidad. No inventés nada.`
-                },
-                { role: 'user', content: combinedText }
-              ],
-              temperature: 0.2,
-              max_tokens: 2500,
-            }),
-          });
-
-          if (openaiWebRes.ok) {
-            const webResJson = await openaiWebRes.json();
-            websiteSummary = webResJson.choices?.[0]?.message?.content?.trim() || '';
-          }
+          // Store raw cleaned text — no AI summarization here to preserve all FAQ content
+          const rawPages = [`=== HOME ===\n${homepageText}`, ...subpagesContent.filter(Boolean)];
+          websiteSummary = rawPages.join('\n\n').slice(0, 60000);
         }
       } catch (e: any) {
         console.error('[Unified Scraper] Web scrape failed:', e);

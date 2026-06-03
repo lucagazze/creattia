@@ -52,6 +52,9 @@ export default function CerebroPage() {
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
 
+  // Confirm scan modal
+  const [showConfirmScan, setShowConfirmScan] = useState(false);
+
   // Scan modal
   const [showScanModal, setShowScanModal] = useState(false);
   const [scanningAll, setScanningAll] = useState(false);
@@ -376,7 +379,7 @@ export default function CerebroPage() {
                 <Calendar className="w-3.5 h-3.5" />
                 <span className="font-medium">{fmtDate(brainUpdatedAt)}</span>
               </div>
-              <button type="button" onClick={handleScanAndTrainAll} disabled={!websiteUrl.trim()}
+              <button type="button" onClick={() => websiteUrl.trim() && setShowConfirmScan(true)} disabled={!websiteUrl.trim()}
                 className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-[12px] font-bold shadow-md shadow-violet-500/20 transition-all">
                 <Sparkles className="w-3.5 h-3.5" />Escanear y Entrenar
               </button>
@@ -538,6 +541,41 @@ export default function CerebroPage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ════════ CONFIRM SCAN MODAL ════════ */}
+      {showConfirmScan && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowConfirmScan(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-[400px] w-full shadow-2xl p-6 animate-in fade-in slide-in-from-bottom-4 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-violet-500" />
+              </div>
+              <div>
+                <p className="text-[15px] font-black text-zinc-900 dark:text-white">¿Escanear y Entrenar?</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Esto va a sobrescribir el Cerebro de IA actual</p>
+              </div>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl p-3 mb-5">
+              <p className="text-[12px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                El escaneo va a reemplazar la descripción, tono, ofertas y FAQs con la información extraída del sitio. El contenido que escribiste manualmente también se va a actualizar.
+              </p>
+            </div>
+            <p className="text-[12px] text-zinc-500 mb-5">Sitio a escanear: <span className="font-bold text-zinc-700 dark:text-zinc-300">{websiteUrl}</span></p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowConfirmScan(false)} className="flex-1 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-[13px] font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all">
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setShowConfirmScan(false); handleScanAndTrainAll(); }}
+                className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[13px] font-black shadow-md shadow-violet-500/20 transition-all"
+              >
+                Sí, escanear
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
