@@ -913,7 +913,7 @@ export default function RedesSocialesPage() {
   };
 
   return (
-    <CenteredPageLoader isLoading={igLoading && fbLoading}>
+    <CenteredPageLoader isLoading={igLoading || fbLoading || authLoading}>
     <div className="space-y-5 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300">
       
       {/* Page Header */}

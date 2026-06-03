@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { supabase } from '../services/supabase';
 import { AppleLoader } from '../components/ui/AppleLoader';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import SmoothImage from '../components/ui/SmoothImage';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 
@@ -558,6 +559,7 @@ export default function InformesPage() {
   const currentTabGlow = activeTab === 'instagram' ? 'shadow-pink-500/20' : 'shadow-blue-600/20';
 
   return (
+    <CenteredPageLoader isLoading={loadingSocial}>
     <div className="space-y-6 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300 print:bg-white print:p-0 print:space-y-4">
       
       {/* Header section */}
@@ -671,8 +673,6 @@ export default function InformesPage() {
             Este cliente no tiene una página de Facebook vinculada en la base de datos.
           </p>
         </div>
-      ) : loadingSocial ? (
-        <AppleLoader variant="page" />
       ) : (
         <div className="space-y-6 md:space-y-8">
           
@@ -959,5 +959,6 @@ export default function InformesPage() {
         </div>
       )}
     </div>
+    </CenteredPageLoader>
   );
 }

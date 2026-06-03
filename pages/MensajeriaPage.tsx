@@ -13,6 +13,7 @@ import {
   BookOpen, ShoppingBag, Plus, Trash2, Link, Mic, ChevronLeft, X, Play
 } from 'lucide-react';
 import { AppleLoader } from '../components/ui/AppleLoader';
+import { CustomAudioPlayer } from '../components/ui/CustomAudioPlayer';
 
 const fmtTime = (ts: any) => {
   if (!ts) return '';
@@ -128,11 +129,8 @@ const renderMessageContent = (msg: any, contactName = 'Cliente', onImageClick?: 
 
             if (fType.includes('audio') || url.match(/\.(mp3|wav|ogg|oga|opus|m4a)/i)) {
               return (
-                <div key={idx} className="mt-1 flex flex-col gap-1">
-                  <audio src={url} controls className="max-w-full h-8" />
-                  <a href={url} download target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline px-1 w-fit font-bold" onClick={e => e.stopPropagation()}>
-                    Descargar audio
-                  </a>
+                <div key={idx} className="mt-1">
+                  <CustomAudioPlayer src={url} />
                 </div>
               );
             }

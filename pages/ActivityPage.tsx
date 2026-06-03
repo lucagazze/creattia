@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { usePresence } from '../contexts/PresenceContext';
 import { AppleLoader } from '../components/ui/AppleLoader';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import {
   AreaChart,
   Area,
@@ -112,7 +113,7 @@ export default function ActivityPage() {
     return ((curr - prev) / prev) * 100;
   };
 
-  if (loading) return <AppleLoader variant="page" />;
+  if (loading) return <CenteredPageLoader isLoading={loading}>{null}</CenteredPageLoader>;
 
   return (
     <div className="space-y-8">
