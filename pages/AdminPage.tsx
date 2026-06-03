@@ -2549,19 +2549,14 @@ const UnlinkedUserRow = ({
         {user.email}
       </td>
       <td className="px-4 py-3 text-[13px] text-zinc-600 dark:text-zinc-400 max-w-[200px] truncate">
-        {user.user_metadata?.website_url ? (
-          <a
-            href={
-              user.user_metadata.website_url.startsWith("http")
-                ? user.user_metadata.website_url
-                : `https://${user.user_metadata.website_url}`
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-violet-600 dark:text-violet-400 hover:underline font-semibold"
-          >
+        {user.user_metadata?.business_name_request ? (
+          <span className="font-bold text-zinc-800 dark:text-zinc-200">
+            {user.user_metadata.business_name_request}
+          </span>
+        ) : user.user_metadata?.website_url ? (
+          <span className="font-medium text-zinc-600 dark:text-zinc-400">
             {user.user_metadata.website_url}
-          </a>
+          </span>
         ) : (
           <span className="text-zinc-400 dark:text-zinc-600 italic">No especificado</span>
         )}

@@ -47,7 +47,7 @@ class RouteErrorBoundary extends React.Component<{ children: React.ReactNode }, 
     return this.props.children;
   }
 }
-import { Menu, Sun, Moon, AlertCircle, Globe, Check, Loader2 } from 'lucide-react';
+import { Menu, Sun, Moon, AlertCircle, Globe, Check, Loader2, Building2, Clock, ArrowRight } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../services/supabase';
@@ -136,15 +136,18 @@ export const MainLayout = () => {
   const { unreadCount } = useUnread();
   const location = useLocation();
 
-  const [websiteUrl, setWebsiteUrl] = useState('');
-  const [savingWebsite, setSavingWebsite] = useState(false);
-  const [websiteSaved, setWebsiteSaved] = useState(false);
+  const [businessName, setBusinessName] = useState('');
+  const [savingBusinessName, setSavingBusinessName] = useState(false);
+  const [businessNameSaved, setBusinessNameSaved] = useState(false);
 
-  // Sync existing metadata website url on mount
+  // Sync existing metadata business name / website url on mount
   useEffect(() => {
-    if (user?.user_metadata?.website_url) {
-      setWebsiteUrl(user.user_metadata.website_url);
-      setWebsiteSaved(true);
+    if (user?.user_metadata?.business_name_request) {
+      setBusinessName(user.user_metadata.business_name_request);
+      setBusinessNameSaved(true);
+    } else if (user?.user_metadata?.website_url) {
+      setBusinessName(user.user_metadata.website_url);
+      setBusinessNameSaved(true);
     }
   }, [user]);
 
@@ -157,90 +160,139 @@ export const MainLayout = () => {
     }
   }, [profile]);
 
-  const handleSaveWebsite = async (e: React.FormEvent) => {
+  const handleSaveBusinessName = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!websiteUrl.trim()) return;
-    setSavingWebsite(true);
+    if (!businessName.trim()) return;
+    setSavingBusinessName(true);
     try {
       const { error } = await supabase.auth.updateUser({
-        data: { website_url: websiteUrl.trim() }
+        data: {
+          business_name_request: businessName.trim(),
+          website_url: businessName.trim() // store in both for backward compatibility in table columns
+        }
       });
       if (error) throw error;
-      setWebsiteSaved(true);
+      setBusinessNameSaved(true);
     } catch (err: any) {
-      console.error("Error updating website url:", err);
+      console.error("Error updating business name:", err);
     } finally {
-      setSavingWebsite(false);
+      setSavingBusinessName(false);
     }
   };
 
-  // Guard: if profile is null (and loading is false, which is guaranteed here), show error card
+  // Guard: if profile is null (and loading is false, which is guaranteed here), show onboarding / pending screen
   if (!profile) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f5f5f7] dark:bg-[#0a0a0a] text-center">
-        <div className="max-w-md w-full bg-white dark:bg-[#161618] rounded-[24px] p-8 border border-black/[0.06] dark:border-white/[0.05] shadow-xl text-zinc-900 dark:text-white">
-          <div className="w-12 h-12 rounded-[16px] bg-rose-100 dark:bg-rose-500/10 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-6 h-6 text-rose-500" />
-          </div>
-          <h2 className="text-[17px] font-bold mb-2">Acceso pendiente de aprobación</h2>
-          <p className="text-[13px] text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
-            Tu cuenta ya está registrada en el sistema. Una vez que el administrador vincule tu perfil a tu negocio, podrás ingresar de forma automática.
-          </p>
-
-          <form onSubmit={handleSaveWebsite} className="mb-6 text-left border-t border-b border-zinc-100 dark:border-zinc-850/60 py-5">
-            <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
-              Sitio web de tu negocio
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input
-                  type="text"
-                  placeholder="ejemplo.com"
-                  value={websiteUrl}
-                  onChange={(e) => {
-                    setWebsiteUrl(e.target.value);
-                    setWebsiteSaved(false);
-                  }}
-                  disabled={savingWebsite}
-                  className="w-full h-10 pl-9 pr-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-[13px] outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-medium"
-                />
+      <div className={`min-h-screen flex flex-col items-center justify-center p-4 text-center ${
+        darkMode ? 'bg-[#080808]' : 'bg-[#f2f2f7]'
+      }`}>
+        <div className={`max-w-md w-full rounded-[24px] p-8 border shadow-xl text-zinc-900 dark:text-white transition-all ${
+          darkMode
+            ? 'bg-white/[0.04] border-white/[0.07] shadow-2xl'
+            : 'bg-white border-zinc-200/60 shadow-zinc-200/40'
+        }`}>
+          {!businessNameSaved ? (
+            // Phase 1: Guided step-by-step registration requesting business name
+            <form onSubmit={handleSaveBusinessName} className="space-y-6">
+              <div className="w-12 h-12 rounded-[16px] bg-violet-100 dark:bg-violet-500/10 flex items-center justify-center mx-auto">
+                <Building2 className="w-6 h-6 text-violet-600 dark:text-violet-400" />
               </div>
-              <button
-                type="submit"
-                disabled={savingWebsite || !websiteUrl.trim() || websiteSaved}
-                className={`h-10 px-4 rounded-xl text-[12px] font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 ${
-                  websiteSaved
-                    ? 'bg-emerald-500 text-white cursor-default'
-                    : 'bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white active:scale-95'
-                }`}
-              >
-                {savingWebsite ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : websiteSaved ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>Guardado</span>
-                  </>
-                ) : (
-                  <span>Guardar</span>
-                )}
-              </button>
-            </div>
-            {websiteSaved && (
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2.5 font-medium flex items-center gap-1">
-                <Check className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>Sitio web guardado correctamente.</span>
-              </p>
-            )}
-          </form>
+              <div>
+                <h2 className="text-[18px] font-bold mb-1.5">Registro de Acceso</h2>
+                <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Para poder ingresar al ecosistema de Algoritmia, por favor ingresá el nombre de tu negocio.
+                </p>
+              </div>
 
-          <button
-            onClick={() => signOut()}
-            className="w-full h-11 bg-zinc-900 hover:bg-black dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-[12px] text-sm font-bold shadow-md transition-all"
-          >
-            Cerrar sesión
-          </button>
+              <div className="text-left space-y-1.5">
+                <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                  Nombre de tu negocio
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. Mi Negocio S.A."
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    disabled={savingBusinessName}
+                    className={`w-full h-11 px-4 rounded-xl border text-[13px] outline-none transition-all font-medium ${
+                      darkMode
+                        ? 'bg-white/5 border-white/8 text-white focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/60'
+                        : 'bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-violet-500 focus:ring-1 focus:ring-violet-500'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 space-y-3">
+                <button
+                  type="submit"
+                  disabled={savingBusinessName || !businessName.trim()}
+                  className={`w-full h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-bold transition-all disabled:opacity-50 ${
+                    darkMode
+                      ? 'bg-white text-black hover:bg-zinc-100 shadow-md'
+                      : 'bg-zinc-900 text-white hover:bg-black shadow-md shadow-zinc-900/10'
+                  }`}
+                >
+                  {savingBusinessName ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Enviar Solicitud</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => signOut()}
+                  className={`w-full h-11 rounded-xl text-[13px] font-bold border transition-all ${
+                    darkMode
+                      ? 'border-white/8 hover:bg-white/5 text-zinc-400'
+                      : 'border-zinc-200 hover:bg-zinc-50 text-zinc-500'
+                  }`}
+                >
+                  Cerrar sesión
+                </button>
+              </div>
+            </form>
+          ) : (
+            // Phase 2: Pending Approval indicator screen
+            <div className="space-y-6">
+              <div className="w-12 h-12 rounded-[16px] bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center mx-auto">
+                <Clock className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-[18px] font-bold mb-1.5">Solicitud de Acceso Enviada</h2>
+                <div className="text-[13px] text-zinc-500 dark:text-zinc-400 space-y-3 leading-relaxed">
+                  <p>
+                    Tu solicitud para el negocio <strong className="text-zinc-800 dark:text-zinc-200">"{businessName}"</strong> ha sido registrada.
+                  </p>
+                  <p>
+                    Esperá a que el administrador te acepte la solicitud directamente para poder ingresar al ecosistema.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/60 space-y-3">
+                <button
+                  onClick={() => signOut()}
+                  className={`w-full h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-bold transition-all ${
+                    darkMode
+                      ? 'bg-white text-black hover:bg-zinc-100'
+                      : 'bg-zinc-900 text-white hover:bg-black'
+                  }`}
+                >
+                  Cerrar sesión
+                </button>
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                  Una vez que el administrador te dé de alta, ingresá de vuelta con tu cuenta de Google.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
