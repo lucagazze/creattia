@@ -899,7 +899,15 @@ export default function AtencionPage() {
                       <td className="py-3 pr-2 font-bold text-zinc-900 dark:text-white">
                         <p>{inbox.name}</p>
                         <span className="text-[9px] font-semibold text-zinc-400 uppercase tracking-tighter">
-                          {inbox.channel_type === 'Channel::Whatsapp' ? 'WhatsApp' : inbox.channel_type === 'Channel::FacebookPage' ? 'Facebook' : 'Sitio Web'}
+                          {(() => {
+                            const ct = inbox.channel_type || '';
+                            if (ct.includes('Whatsapp') || ct.includes('WhatsApp')) return 'WhatsApp';
+                            if (ct.includes('FacebookPage') || ct.includes('Facebook')) return 'Facebook';
+                            if (ct.includes('Instagram')) return 'Instagram';
+                            if (ct.includes('Email') || ct.includes('email')) return 'Email';
+                            if (ct.includes('WebWidget') || ct.includes('Web')) return 'Sitio Web';
+                            return ct.replace('Channel::', '') || 'Otro';
+                          })()}
                         </span>
                       </td>
                       <td className="py-3 px-2 text-right font-black text-violet-600 dark:text-violet-400">
