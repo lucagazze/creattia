@@ -11,6 +11,7 @@ import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMe
 import EmailLoader from '../components/ui/EmailLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 
 const VIOLET = '#8b5cf6';
 
@@ -120,6 +121,7 @@ export default function AtencionPage() {
   const [error, setError] = useState<string | null>(null);
   const [summaryData, setSummaryData] = useState<any>(null);
   const [prevSummaryData, setPrevSummaryData] = useState<any>(null);
+  const isDateReloading = loading && !!summaryData;
 
   // Live state counters
   const [liveMetaOpen, setLiveMetaOpen] = useState<any>(null);
@@ -536,6 +538,7 @@ export default function AtencionPage() {
 
   return (
     <CenteredPageLoader isLoading={loading && !summaryData}>
+    <TopLoadingBar loading={isDateReloading} color={VIOLET} namespace="atencion" />
     <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
@@ -773,11 +776,12 @@ export default function AtencionPage() {
         </div>
       )}
 
+      <div>
       {summaryData || loading ? (
         <div className="space-y-6">
           {/* Key Metrics Period Cards Grid */}
           <EmailLoader
-            loading={loading && !summaryData}
+            loading={loading}
             color={VIOLET}
             labels={['Conversaciones Totales', 'Mensajes Entrantes', 'Mensajes Salientes', 'Tiempo Resp. Promedio']}
           >
@@ -821,6 +825,7 @@ export default function AtencionPage() {
             ) : null}
           </EmailLoader>
 
+          <div className={`space-y-6 transition-opacity duration-200 ${loading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
           {summaryData && (
             <>
               {/* Time Series Detail Charts */}
@@ -997,9 +1002,12 @@ export default function AtencionPage() {
           </div>
             </>
           )}
+          </div>
         </div>
       ) : null}
-    </div>
+      </div>
+      </div>
     </CenteredPageLoader>
+
   );
 }

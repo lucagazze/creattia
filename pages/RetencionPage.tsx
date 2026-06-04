@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { DatePreset, presetToRange, getPrevPeriod, today, daysAgo } from '../services/metaAds';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import { klaviyo } from '../services/klaviyo';
 import {
   Calendar, ChevronDown, TrendingUp, Mail, Zap, Package, MousePointerClick, DollarSign, MailOpen, Download, Loader2
@@ -120,6 +121,7 @@ export default function RetencionPage() {
   const [fetchingKlaviyo, setFetchingKlaviyo] = useState(true);
   const [fetchingDetailed, setFetchingDetailed] = useState(false);
   const [currentKlaviyo, setCurrentKlaviyo] = useState<any>(null);
+  const isDateReloading = fetchingKlaviyo && !!currentKlaviyo;
   const [prevKlaviyo, setPrevKlaviyo] = useState<any>(null);
   const [expandedMetric, setExpandedMetric] = useState<string | null>('k-sent');
   const [detailedStats, setDetailedStats] = useState<any>(null);
@@ -220,6 +222,7 @@ export default function RetencionPage() {
 
   return (
     <CenteredPageLoader isLoading={fetchingKlaviyo && !currentKlaviyo}>
+    <TopLoadingBar loading={isDateReloading} color={MAIN_COLOR} namespace="retencion" />
     <div className="w-full space-y-8 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
@@ -281,11 +284,12 @@ export default function RetencionPage() {
         <p className="text-[15px] font-bold text-zinc-900">Período: {activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} — ${fmtDateRange(activeUntil)}`}</p>
       </div>
 
+      <div>
       {/* Main Metrics */}
       {profile?.klaviyo_api_key && (
         <div className="space-y-4">
           <div className="relative bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-            <EmailLoader loading={fetchingKlaviyo && !currentKlaviyo} color={MAIN_COLOR} labels={['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email']}>
+            <EmailLoader loading={fetchingKlaviyo} color={MAIN_COLOR} labels={['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email']}>
               {currentKlaviyo ? (
                 <div className="overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                   <DashboardMetric icon={Package} label="Entregas" value={currentKlaviyo ? currentKlaviyo.sent?.toLocaleString('es-AR') : '...'} change={getKlaviyoChange(currentKlaviyo?.sent, prevKlaviyo?.sent)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} info="Total de correos electrónicos enviados con éxito y recibidos por los destinatarios." />
@@ -300,6 +304,7 @@ export default function RetencionPage() {
         </div>
       )}
 
+      <div className={`space-y-6 transition-opacity duration-200 ${fetchingKlaviyo ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
       {/* Tables */}
       {profile?.klaviyo_api_key && (() => {
         const fmtN = (n: number) => n > 0 ? n.toLocaleString('es-AR', { maximumFractionDigits: 0 }) : '—';
@@ -488,8 +493,11 @@ export default function RetencionPage() {
           </div>
         );
       })()}
+      </div>
+      </div>
       <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
     </CenteredPageLoader>
+
   );
 }

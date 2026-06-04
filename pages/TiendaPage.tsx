@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import { ShoppingBag, DollarSign, Package, Calendar, ChevronDown, Receipt, Tag, TrendingUp, CheckCircle, Clock, BarChart2, Download, X, Search, AlertCircle, XCircle, Loader2, RefreshCw, Users, ChevronRight } from 'lucide-react';
 import { ecommerce } from '../services/ecommerce';
 import { getPrevPeriod, today, daysAgo, presetToRange } from '../services/metaAds';
@@ -118,6 +119,7 @@ export default function TiendaPage() {
   const [data, setData] = useState<any>(null);
   const [prevData, setPrevData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const isDateReloading = loading && !!data;
   const [expandedMetric, setExpandedMetric] = useState<string | null>('s-revenue');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
@@ -233,6 +235,7 @@ export default function TiendaPage() {
 
   return (
     <CenteredPageLoader isLoading={loading && !data}>
+    <TopLoadingBar loading={isDateReloading} color={PINK} namespace="tienda" />
     <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
@@ -315,10 +318,11 @@ export default function TiendaPage() {
       </div>
 
 
+      <div>
       {(data || loading) ? (
           <div className="space-y-6">
             {/* Top Stats */}
-            <EmailLoader loading={loading && !data} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']}>
+            <EmailLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']}>
               {data ? (
                 <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
               <DashboardMetric 
@@ -363,6 +367,7 @@ export default function TiendaPage() {
             </div>
               ) : null}
             </EmailLoader>
+            <div className={`space-y-6 transition-opacity duration-200 ${loading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
             {data && (
               <>
                 {/* Expanded Chart */}
@@ -540,6 +545,7 @@ export default function TiendaPage() {
             </div>
               </>
             )}
+            </div>
           </div>
       ) : null}
 
@@ -734,9 +740,11 @@ export default function TiendaPage() {
           </div>
         </div>
       )}
+      </div>
       <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
     </CenteredPageLoader>
+
   );
 }
 

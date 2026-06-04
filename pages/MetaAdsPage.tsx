@@ -3,6 +3,7 @@ import { metaAds, daysAgo, today, presetToRange, DatePreset } from '../services/
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import {
   Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw, ChevronLeft, ChevronRight, Calendar, ChevronDown
 } from 'lucide-react';
@@ -198,6 +199,7 @@ export default function MetaAdsPage() {
   const [resolvedThumbnails, setResolvedThumbnails] = useState<Record<string, string>>({});
   const [resolvedDetails, setResolvedDetails] = useState<Record<string, any>>({});
   const [resolvingIds, setResolvingIds] = useState<Record<string, boolean>>({});
+  const isDateReloading = loading && activeAds.length > 0;
 
   // Date picker state
   const [activePreset, setActivePreset] = useState<DatePreset | 'custom'>('yesterday');
@@ -431,6 +433,7 @@ export default function MetaAdsPage() {
 
   return (
     <CenteredPageLoader isLoading={loading || authLoading}>
+      <TopLoadingBar loading={isDateReloading} color="#3b82f6" namespace="metaads" />
       <div className="w-full animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -607,7 +610,7 @@ export default function MetaAdsPage() {
         );
 
         return (
-          <div className={`space-y-10 transition-opacity duration-200 ${loading ? 'opacity-65 pointer-events-none' : ''}`}>
+          <div className={`space-y-10 transition-opacity duration-200 ${isDateReloading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
             {Object.entries(grouped).map(([cid, group]) => (
               <div key={cid}>
                 <div className="flex items-center gap-2 mb-5">

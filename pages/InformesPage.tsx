@@ -17,6 +17,7 @@ import {
 import { supabase } from '../services/supabase';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import SmoothImage from '../components/ui/SmoothImage';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 
@@ -283,6 +284,7 @@ export default function InformesPage() {
   const [fbProfile, setFbProfile] = useState<any>(null);
   const [socialSnapshots, setSocialSnapshots] = useState<any[]>([]);
   const [loadingSocial, setLoadingSocial] = useState(true);
+  const isDateReloading = loadingSocial && (!!igProfile || !!fbProfile);
   const [error, setError] = useState<string | null>(null);
   const [fbError, setFbError] = useState<string | null>(null);
 
@@ -733,6 +735,7 @@ export default function InformesPage() {
 
   return (
     <CenteredPageLoader isLoading={loadingSocial && !igProfile && !fbProfile}>
+    <TopLoadingBar loading={isDateReloading} color="#8b5cf6" namespace="informes" />
     <div className="space-y-6 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300 print:bg-white print:p-0 print:space-y-4">
       
       {/* Header section */}
@@ -817,6 +820,7 @@ export default function InformesPage() {
         </div>
       </div>
 
+      <div>
       {/* Main content body */}
       {error ? (
         <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 p-5 rounded-3xl flex items-start gap-3">
@@ -921,6 +925,7 @@ export default function InformesPage() {
             );
           })()}
 
+          <div className={`space-y-6 md:space-y-8 transition-opacity duration-200 ${loadingSocial ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
           {/* ── Metric Evolution Detail Chart ─────────────────────────────────── */}
           {!loadingSocial && (() => {
             const isIg = activeTab === 'instagram';
@@ -1055,10 +1060,13 @@ export default function InformesPage() {
               </div>
             )}
           </div>
+          </div>
 
         </div>
       )}
+      </div>
     </div>
     </CenteredPageLoader>
+
   );
 }

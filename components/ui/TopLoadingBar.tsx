@@ -4,6 +4,7 @@ interface Props {
   loading: boolean;
   color?: string;
   inline?: boolean; // true = inside a section (absolute), false = top of page (fixed)
+  namespace?: string;
 }
 
 const getProgressForTime = (startTime: number) => {
@@ -32,12 +33,14 @@ const getProgressForTime = (startTime: number) => {
   }
 };
 
-export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inline = false }) => {
+export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inline = false, namespace }) => {
   const [visible, setVisible] = useState(() => loading);
   
+  const startTimeKey = namespace ? `__loadingStartTime_${namespace}` : '__loadingStartTime';
+
   const [progress, setProgress] = useState(() => {
     if (!loading) return 0;
-    const startTime = (window as any).__loadingStartTime || 0;
+    const startTime = (window as any)[startTimeKey] || 0;
     if (Date.now() - startTime < 5000 && startTime > 0) {
       return getProgressForTime(startTime).startVal;
     }
@@ -64,10 +67,10 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
       setVisible(true);
 
       // Initialize or get start time
-      let startTime = (window as any).__loadingStartTime || 0;
+      let startTime = (window as any)[startTimeKey] || 0;
       if (Date.now() - startTime >= 5000 || startTime === 0) {
         startTime = Date.now();
-        (window as any).__loadingStartTime = startTime;
+        (window as any)[startTimeKey] = startTime;
       }
 
       const { startVal, targetVal, transition, remainingTime } = getProgressForTime(startTime);
@@ -90,7 +93,7 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
 
     } else if (visible) {
       // Finished loading
-      const startTime = (window as any).__loadingStartTime || 0;
+      const startTime = (window as any)[startTimeKey] || 0;
       const elapsed = startTime > 0 ? Date.now() - startTime : 9999;
       const fastPhaseDuration = 700;
 
@@ -107,7 +110,7 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
             setVisible(false);
             setProgress(0);
             setTransitionStyle('none');
-            delete (window as any).__loadingStartTime;
+            delete (window as any)[startTimeKey];
           }, 300);
         }, delay);
       } else {
@@ -118,11 +121,11 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
           setVisible(false);
           setProgress(0);
           setTransitionStyle('none');
-          delete (window as any).__loadingStartTime;
+          delete (window as any)[startTimeKey];
         }, 300);
       }
     }
-  }, [loading, visible]);
+  }, [loading, visible, startTimeKey]);
 
   if (!visible) return null;
 

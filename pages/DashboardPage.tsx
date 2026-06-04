@@ -64,6 +64,7 @@ import {
 } from "recharts";
 import EmailLoader from "../components/ui/EmailLoader";
 import { CenteredPageLoader } from "../components/ui/CenteredPageLoader";
+import { TopLoadingBar } from "../components/ui/TopLoadingBar";
 
 const BLUE = "#3b82f6";
 const GREEN = "#10b981";
@@ -876,6 +877,7 @@ export default function DashboardPage() {
   const [historical90d, setHistorical90d] = useState<any[]>([]);
   const [fetching90d, setFetching90d] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const isDateReloading = !loadingInitial && (fetchingStore || fetchingMeta || fetchingKlaviyo || fetchingChatwoot);
   const datePickerRef = useRef<HTMLDivElement>(null);
   const clientPickerRef = useRef<HTMLDivElement>(null);
   const [showClientPicker, setShowClientPicker] = useState(false);
@@ -1538,6 +1540,7 @@ export default function DashboardPage() {
 
   return (
     <CenteredPageLoader isLoading={loadingInitial}>
+    <TopLoadingBar loading={isDateReloading} color={BLUE} namespace="dashboard" />
     <div className="w-full space-y-6 sm:space-y-10 pt-4 md:pt-6">
       {/* Admin Client Picker */}
       {authProfile?.is_admin && allClients.length > 0 && (
@@ -1821,7 +1824,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
-              loading={fetchingStore && !currentStore}
+              loading={fetchingStore}
               color={PINK}
               labels={showMER ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'M.E.R. (Eficiencia)'] : ['Ticket Promedio', 'Pedidos', 'Ingresos']}
             >
@@ -2024,7 +2027,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
-              loading={fetchingMeta && !currentMeta}
+              loading={fetchingMeta}
               color={"#3b82f6"}
               labels={
                 selectedMetaGoal === 'purchases'
@@ -2254,7 +2257,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
-              loading={fetchingKlaviyo && !currentKlaviyo}
+              loading={fetchingKlaviyo}
               color={GREEN}
               labels={isEcommerce ? ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'] : ['Entregas', 'Tasa de Apertura', 'Tasa de Clics']}
             >
@@ -2467,7 +2470,7 @@ export default function DashboardPage() {
               <h2 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Atención al Cliente</h2>
             </div>
             <EmailLoader
-              loading={fetchingChatwoot && !chatwootSummary}
+              loading={fetchingChatwoot}
               color="#8b5cf6"
               labels={['Conversaciones', 'Msj. Entrantes', 'Msj. Salientes', 'Resp. Promedio']}
             >
