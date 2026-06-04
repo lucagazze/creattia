@@ -117,6 +117,97 @@ async function fetchKlaviyoData(apiKey: string) {
   }
 }
 
+function getArgentinaDateParts(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === 'year')!.value, 10);
+  const month = parseInt(parts.find(p => p.type === 'month')!.value, 10);
+  const day = parseInt(parts.find(p => p.type === 'day')!.value, 10);
+  const hour = parseInt(parts.find(p => p.type === 'hour')!.value, 10);
+  const minute = parseInt(parts.find(p => p.type === 'minute')!.value, 10);
+  return { year, month, day, hour, minute };
+}
+
+function getArgentinaRange(preset?: string, days?: number): { sinceIso: string; untilIso: string; periodLabel: string } {
+  const { year, month, day } = getArgentinaDateParts();
+  const todayStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  
+  let since = todayStr;
+  let until = todayStr;
+  let periodLabel = 'hoy';
+
+  if (preset === 'today') {
+    since = todayStr;
+    until = todayStr;
+    periodLabel = 'hoy';
+  } else if (preset === 'yesterday') {
+    const prevDate = new Date(new Date(`${todayStr}T12:00:00-03:00`).getTime() - 86400000);
+    const pParts = getArgentinaDateParts(prevDate);
+    const prevStr = `${pParts.year}-${String(pParts.month).padStart(2, '0')}-${String(pParts.day).padStart(2, '0')}`;
+    since = prevStr;
+    until = prevStr;
+    periodLabel = 'ayer';
+  } else if (preset === 'this_month') {
+    since = `${year}-${String(month).padStart(2, '0')}-01`;
+    until = todayStr;
+    periodLabel = 'este mes';
+  } else if (preset === 'last_month') {
+    const y = month === 1 ? year - 1 : year;
+    const m = month === 1 ? 12 : month - 1;
+    const lastDay = new Date(y, m, 0).getDate();
+    since = `${y}-${String(m).padStart(2, '0')}-01`;
+    until = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+    periodLabel = 'el mes pasado';
+  } else if (preset === 'last_7d') {
+    const prevDate = new Date(new Date(`${todayStr}T12:00:00-03:00`).getTime() - 7 * 86400000);
+    const pParts = getArgentinaDateParts(prevDate);
+    since = `${pParts.year}-${String(pParts.month).padStart(2, '0')}-${String(pParts.day).padStart(2, '0')}`;
+    until = todayStr;
+    periodLabel = 'los últimos 7 días';
+  } else if (preset === 'last_14d') {
+    const prevDate = new Date(new Date(`${todayStr}T12:00:00-03:00`).getTime() - 14 * 86400000);
+    const pParts = getArgentinaDateParts(prevDate);
+    since = `${pParts.year}-${String(pParts.month).padStart(2, '0')}-${String(pParts.day).padStart(2, '0')}`;
+    until = todayStr;
+    periodLabel = 'los últimos 14 días';
+  } else if (preset === 'last_30d') {
+    const prevDate = new Date(new Date(`${todayStr}T12:00:00-03:00`).getTime() - 30 * 86400000);
+    const pParts = getArgentinaDateParts(prevDate);
+    since = `${pParts.year}-${String(pParts.month).padStart(2, '0')}-${String(pParts.day).padStart(2, '0')}`;
+    until = todayStr;
+    periodLabel = 'los últimos 30 días';
+  } else if (preset === 'last_90d') {
+    const prevDate = new Date(new Date(`${todayStr}T12:00:00-03:00`).getTime() - 90 * 86400000);
+    const pParts = getArgentinaDateParts(prevDate);
+    since = `${pParts.year}-${String(pParts.month).padStart(2, '0')}-${String(pParts.day).padStart(2, '0')}`;
+    until = todayStr;
+    periodLabel = 'los últimos 90 días';
+  } else if (days) {
+    const prevDate = new Date(new Date(`${todayStr}T12:00:00-03:00`).getTime() - days * 86400000);
+    const pParts = getArgentinaDateParts(prevDate);
+    since = `${pParts.year}-${String(pParts.month).padStart(2, '0')}-${String(pParts.day).padStart(2, '0')}`;
+    until = todayStr;
+    periodLabel = `los últimos ${days} días`;
+  } else {
+    since = `${year}-${String(month).padStart(2, '0')}-01`;
+    until = todayStr;
+    periodLabel = 'este mes';
+  }
+
+  const sinceIso = new Date(`${since}T00:00:00-03:00`).toISOString();
+  const untilIso = new Date(`${until}T23:59:59-03:00`).toISOString();
+
+  return { sinceIso, untilIso, periodLabel };
+}
+
 // ── Keyword → tool prediction for speculative pre-fetching ───────────────────
 function predictTools(lastMessage: string): string[] {
   const q = lastMessage.toLowerCase();
@@ -262,7 +353,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         description: 'Shopify/Tiendanube e-commerce sales data: revenue, orders, AOV. Use for questions about sales, revenue, or orders.',
         parameters: { type: 'object', properties: {
           clientId: { type: 'string', description: 'Client UUID' },
-          days: { type: 'number', description: 'Days to look back: 7, 14, 30, 90. Default 30 (or this month).' }
+          days: { type: 'number', description: 'Days to look back: 7, 14, 30, 90. Optional.' },
+          preset: {
+            type: 'string',
+            enum: ['today', 'yesterday', 'this_month', 'last_month', 'last_7d', 'last_14d', 'last_30d', 'last_90d'],
+            description: 'Date range preset. Strongly preferred over days when the user asks about specific time periods like "hoy", "ayer", "este mes", "mes pasado".'
+          }
         }, required: ['clientId'] },
       },
     },
@@ -330,6 +426,7 @@ RULES:
 7. RELATING DATA: You can relate different data sources if requested (e.g. MER = total revenue / total spend). Keep it clean and brief.
 8. HONESTY: If you don't know the answer or lack the requested data, say so clearly and professionally. NEVER invent numbers, data, or details.
 9. NO EXTERNAL LINKS: NEVER include external links, websites, or URLs that take the user out of the app. Only use the provided internal navigation links on their own line.
+10. E-COMMERCE PRESETS RULE: When querying sales data via get_ecommerce_data, you MUST use the 'preset' parameter corresponding to the time period mentioned (e.g. use 'this_month' when asked for "este mes", 'today' for "hoy", 'yesterday' for "ayer", 'last_month' for "el mes pasado"). Never calculate 'days' manually or use default values when a specific calendar range preset applies.
 
 NAVIGATION LINKS (use on its own line when helpful):
 - Meta Ads: [Ver Captación](/#/captacion)
@@ -587,22 +684,21 @@ CRITICAL RULES FOR FOLLOWUPS AND OPTIONS:
           }
 
         } else if (name === 'get_ecommerce_data') {
-          const { clientId, days } = args;
+          const { clientId, days, preset } = args;
           if (!clientId || !isAuthorizedForClient(clientId)) { toolResult = { error: 'Access denied' }; }
           else {
             const client = await getClientData(clientId, 'ecommerce_platform,shopify_domain,shopify_access_token,tiendanube_store_id,tiendanube_access_token');
             if (!client) { toolResult = { error: 'Client not found' }; }
             else {
-              const now = new Date();
-              let sinceIso: string;
-              if (days) {
-                const sinceDate = new Date();
-                sinceDate.setDate(now.getDate() - days);
-                sinceIso = sinceDate.toISOString();
-              } else {
-                sinceIso = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-              }
-              const untilIso = now.toISOString();
+              const { sinceIso, untilIso, periodLabel } = getArgentinaRange(preset, days);
+              const formatArgDate = (isoStr: string) => {
+                return new Date(isoStr).toLocaleDateString('es-AR', {
+                  timeZone: 'America/Argentina/Buenos_Aires',
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                });
+              };
               if (client.ecommerce_platform === 'shopify') {
                 try {
                   const domain = client.shopify_domain?.replace(/^https?:\/\//, '').replace(/\/$/, '');
@@ -613,7 +709,13 @@ CRITICAL RULES FOR FOLLOWUPS AND OPTIONS:
                   const { orders = [] } = await r.json();
                   const valid = orders.filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided');
                   const revenue = valid.reduce((s: number, o: any) => s + parseFloat(o.total_price || 0), 0);
-                  toolResult = { platform: 'Shopify', revenue: +revenue.toFixed(2), ordersCount: valid.length, aov: valid.length ? +(revenue/valid.length).toFixed(2) : 0, period: `${new Date(sinceIso).toLocaleDateString('es-AR')} a ${now.toLocaleDateString('es-AR')}` };
+                  toolResult = { 
+                    platform: 'Shopify', 
+                    revenue: +revenue.toFixed(2), 
+                    ordersCount: valid.length, 
+                    aov: valid.length ? +(revenue/valid.length).toFixed(2) : 0, 
+                    period: `${formatArgDate(sinceIso)} a ${formatArgDate(untilIso)} (${periodLabel})` 
+                  };
                 } catch (e: any) { toolResult = { error: `Shopify: ${e.message}` }; }
               } else if (client.ecommerce_platform === 'tiendanube') {
                 try {
@@ -624,7 +726,13 @@ CRITICAL RULES FOR FOLLOWUPS AND OPTIONS:
                   const orders = await r.json();
                   const valid = Array.isArray(orders) ? orders.filter((o: any) => o.status !== 'cancelled') : [];
                   const revenue = valid.reduce((s: number, o: any) => s + parseFloat(o.total || 0), 0);
-                  toolResult = { platform: 'Tiendanube', revenue: +revenue.toFixed(2), ordersCount: valid.length, aov: valid.length ? +(revenue/valid.length).toFixed(2) : 0, period: `${new Date(sinceIso).toLocaleDateString('es-AR')} a ${now.toLocaleDateString('es-AR')}` };
+                  toolResult = { 
+                    platform: 'Tiendanube', 
+                    revenue: +revenue.toFixed(2), 
+                    ordersCount: valid.length, 
+                    aov: valid.length ? +(revenue/valid.length).toFixed(2) : 0, 
+                    period: `${formatArgDate(sinceIso)} a ${formatArgDate(untilIso)} (${periodLabel})` 
+                  };
                 } catch (e: any) { toolResult = { error: `Tiendanube: ${e.message}` }; }
               } else { toolResult = { error: `Platform ${client.ecommerce_platform || 'not configured'}` }; }
             }

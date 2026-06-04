@@ -21,7 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const navigate = useNavigate();
   const { profile, signOut, user } = useAuth();
   const { viewAsProfile, setViewAsProfile, isViewingAs } = useViewAs();
-  const { unreadCount, pendingCommentsCount, commentsLoading } = useUnread();
+  const { unreadCount, pendingCommentsCount, commentsLoading, unreadLoading } = useUnread();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Use viewAsProfile if active, otherwise use real profile
@@ -128,17 +128,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         }`}
       >
         <Icon className={`w-4 h-4 flex-shrink-0 transition-all duration-150 ${
-          item.path === '/comentarios' && commentsLoading
-            ? 'text-violet-500 dark:text-violet-400 animate-spin'
-            : isActive
-              ? 'text-white dark:text-zinc-950'
-              : isUnconfigured
-                ? 'text-zinc-350 dark:text-zinc-600'
-                : 'text-zinc-450 dark:text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 group-hover:scale-110'
+          isActive
+            ? 'text-white dark:text-zinc-950'
+            : isUnconfigured
+              ? 'text-zinc-350 dark:text-zinc-600'
+              : 'text-zinc-450 dark:text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 group-hover:scale-110'
         }`} />
         <span className="tracking-tight flex-1">{item.label}</span>
-        {/* Unread badge */}
-        {item.path === '/comentarios' && commentsLoading ? (
+        {/* Unread badge / Loading spinner */}
+        {((item.path === '/comentarios' && commentsLoading) || (item.path === '/mensajeria' && unreadLoading)) ? (
           <Loader2 className="w-3.5 h-3.5 text-violet-500 dark:text-violet-400 animate-spin shrink-0" />
         ) : badgeCount > 0 ? (
           <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-sm shadow-red-500/30 animate-in fade-in zoom-in-90 duration-300">

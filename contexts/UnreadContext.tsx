@@ -16,6 +16,8 @@ interface UnreadContextType {
   setPendingCommentsCount: React.Dispatch<React.SetStateAction<number>>;
   /** Whether the comments count is currently loading */
   commentsLoading: boolean;
+  /** Whether the unread messages count is currently loading */
+  unreadLoading: boolean;
   /** Manually refresh the count (called e.g. after sending a message) */
   refresh: () => void;
   /** Instantly decrement badge by 1 when a conversation is opened — no network round-trip */
@@ -28,6 +30,7 @@ const UnreadContext = createContext<UnreadContextType>({
   pendingCommentsCount: 0,
   setPendingCommentsCount: () => {},
   commentsLoading: false,
+  unreadLoading: false,
   refresh: () => {},
   markRead: () => {},
 });
@@ -58,7 +61,11 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingCommentsCount, setPendingCommentsCount] = useState(0);
   const [commentsLoading, setCommentsLoading] = useState(true);
+  const [unreadLoading, setUnreadLoading] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const isFirstCommentsFetch = useRef(true);
+  const isFirstUnreadFetch = useRef(true);
 
   // Load cached count or reset when switching profiles to prevent flash of wrong client
   useEffect(() => {
@@ -67,9 +74,17 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const cachedComments = localStorage.getItem(`car_pending_comments_count_${profile.id}`);
       setUnreadCount(cachedUnread ? parseInt(cachedUnread, 10) : 0);
       setPendingCommentsCount(cachedComments ? parseInt(cachedComments, 10) : 0);
+      
+      // Reset first fetch flags to show spinners on profile change
+      isFirstCommentsFetch.current = true;
+      isFirstUnreadFetch.current = true;
+      setCommentsLoading(true);
+      setUnreadLoading(true);
     } else {
       setUnreadCount(0);
       setPendingCommentsCount(0);
+      setCommentsLoading(false);
+      setUnreadLoading(false);
     }
     document.title = 'Portal C.A.R | Algoritmia';
   }, [profile?.id]);
@@ -83,11 +98,20 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                          location.pathname.toLowerCase().startsWith('/mensajeria');
     if (isMensajeria) {
       console.log('[UnreadContext] fetchCount bypassed: active path is /mensajeria');
+      setUnreadLoading(false);
       return;
     }
     const url = profile?.chatwoot_url;
     const token = profile?.chatwoot_token;
-    if (!url || !token) return;
+    if (!url || !token) {
+      setUnreadLoading(false);
+      return;
+    }
+
+    const isFirst = isFirstUnreadFetch.current;
+    if (isFirst) {
+      setUnreadLoading(true);
+    }
 
     try {
       // 1. Fetch page 1 of open conversations to get total count
@@ -154,6 +178,11 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } catch (err) {
       console.error('[UnreadContext] Error fetching count:', err);
+    } finally {
+      if (isFirst) {
+        setUnreadLoading(false);
+        isFirstUnreadFetch.current = false;
+      }
     }
   }, [profile?.id, profile?.chatwoot_url, profile?.chatwoot_token, location.pathname]);
 
@@ -337,7 +366,10 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    setCommentsLoading(true);
+    const isFirst = isFirstCommentsFetch.current;
+    if (isFirst) {
+      setCommentsLoading(true);
+    }
     try {
       let total = 0;
 
@@ -461,7 +493,10 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (e) {
       console.error('Error in fetchCommentsCount:', e);
     } finally {
-      setCommentsLoading(false);
+      if (isFirst) {
+        setCommentsLoading(false);
+        isFirstCommentsFetch.current = false;
+      }
     }
   }, [profile?.id, profile?.fb_page_id, (profile as any)?.ig_business_id, (profile as any)?.ig_username, profile?.meta_account_id, location.pathname]);
 
@@ -498,7 +533,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [profile?.id]);
 
   return (
-    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, setPendingCommentsCount, commentsLoading, refresh: fetchCount, markRead }}>
+    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, setPendingCommentsCount, commentsLoading, unreadLoading, refresh: fetchCount, markRead }}>
       {children}
     </UnreadContext.Provider>
   );
