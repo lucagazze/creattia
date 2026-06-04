@@ -57,13 +57,22 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
   const [transitionStyle, setTransitionStyle] = useState('none');
   const [msgIdx, setMsgIdx] = useState(0);
   const [msgVisible, setMsgVisible] = useState(true);
+  const timeoutsRef = React.useRef<{ t1?: any; t2?: any; t3?: any }>({});
 
   useEffect(() => {
-    let t1: any;
-    let t2: any;
-    let t3: any;
+    return () => {
+      clearTimeout(timeoutsRef.current.t1);
+      clearTimeout(timeoutsRef.current.t2);
+      clearTimeout(timeoutsRef.current.t3);
+    };
+  }, []);
 
+  useEffect(() => {
     if (isLoading) {
+      clearTimeout(timeoutsRef.current.t1);
+      clearTimeout(timeoutsRef.current.t2);
+      clearTimeout(timeoutsRef.current.t3);
+
       setPhase('loading');
 
       // Initialize or get start time
@@ -78,14 +87,14 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
       setTransitionStyle('none');
 
       // Next frame to trigger transition
-      t1 = setTimeout(() => {
+      timeoutsRef.current.t1 = setTimeout(() => {
         setTransitionStyle(transition);
         setProgress(targetVal);
       }, 30);
 
       // If we are in the fast linear phase, schedule the slow creep phase
       if (targetVal === 75) {
-        t2 = setTimeout(() => {
+        timeoutsRef.current.t2 = setTimeout(() => {
           setTransitionStyle('width 15s cubic-bezier(0.1, 0.6, 0.1, 1)');
           setProgress(95);
         }, remainingTime + 30);
@@ -93,22 +102,37 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
 
     } else {
       // Finished loading
-      setTransitionStyle('width 0.25s ease-out');
-      setProgress(100);
-      setPhase('fading');
+      const startTime = (window as any).__loadingStartTime || 0;
+      const elapsed = startTime > 0 ? Date.now() - startTime : 9999;
+      const fastPhaseDuration = 1500;
 
-      // Transition to done after the progress bar finishes and fade out completes
-      t3 = setTimeout(() => {
-        setPhase('done');
-        delete (window as any).__loadingStartTime;
-      }, 400);
+      clearTimeout(timeoutsRef.current.t2);
+
+      if (elapsed < fastPhaseDuration) {
+        // Enforce the 1.5s constant progress before zooming to 100%
+        const delay = fastPhaseDuration - elapsed;
+        clearTimeout(timeoutsRef.current.t3);
+        timeoutsRef.current.t3 = setTimeout(() => {
+          setTransitionStyle('width 0.25s ease-out');
+          setProgress(100);
+          setPhase('fading');
+          timeoutsRef.current.t2 = setTimeout(() => {
+            setPhase('done');
+            delete (window as any).__loadingStartTime;
+          }, 300);
+        }, delay);
+      } else {
+        setTransitionStyle('width 0.25s ease-out');
+        setProgress(100);
+        setPhase('fading');
+
+        clearTimeout(timeoutsRef.current.t3);
+        timeoutsRef.current.t3 = setTimeout(() => {
+          setPhase('done');
+          delete (window as any).__loadingStartTime;
+        }, 300);
+      }
     }
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
   }, [isLoading]);
 
   // Rotating messages with fade animation
@@ -145,7 +169,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
               className="w-14 h-14 object-contain"
               style={{
                 animation: 'alg-bounce 0.85s ease-in-out infinite',
-                filter: 'drop-shadow(0 0 18px rgba(139,92,246,0.55))',
+                filter: 'drop-shadow(0 0 18px rgba(139, 92, 246, 0.55))',
               }}
             />
             <span className="text-[11px] font-black text-zinc-550 dark:text-zinc-400 uppercase tracking-[0.22em]">

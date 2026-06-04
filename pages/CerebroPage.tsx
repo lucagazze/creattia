@@ -28,7 +28,7 @@ const SCAN_STEPS = [
 ];
 
 export default function CerebroPage() {
-  const { profile: authProfile } = useAuth();
+  const { profile: authProfile, loading: authLoading } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const { showToast } = useToast();
@@ -76,7 +76,11 @@ export default function CerebroPage() {
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!profile) return;
+    if (authLoading) return;
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
     setWebsiteUrl((profile as any).website_url || '');
     setBusinessDescription((profile as any).business_description || '');
     setScrapedContent((profile as any).scraped_content || '');
@@ -108,7 +112,7 @@ export default function CerebroPage() {
       } catch { }
       loadProducts(profile);
     }
-  }, [profile?.id]);
+  }, [profile?.id, authLoading]);
 
   const handleSaveSettings = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -283,7 +287,7 @@ export default function CerebroPage() {
   const contextPct = Math.round((contextScore / sections.length) * 100);
 
   return (
-    <CenteredPageLoader isLoading={loading}>
+    <CenteredPageLoader isLoading={loading || authLoading}>
     <div className="w-full pt-4 pb-20 md:pt-6 px-4 md:px-0 animate-fade-in">
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">

@@ -45,13 +45,22 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
   });
 
   const [transitionStyle, setTransitionStyle] = useState('none');
+  const timeoutsRef = React.useRef<{ t1?: any; t2?: any; t3?: any }>({});
 
   useEffect(() => {
-    let t1: any;
-    let t2: any;
-    let t3: any;
+    return () => {
+      clearTimeout(timeoutsRef.current.t1);
+      clearTimeout(timeoutsRef.current.t2);
+      clearTimeout(timeoutsRef.current.t3);
+    };
+  }, []);
 
+  useEffect(() => {
     if (loading) {
+      clearTimeout(timeoutsRef.current.t1);
+      clearTimeout(timeoutsRef.current.t2);
+      clearTimeout(timeoutsRef.current.t3);
+
       setVisible(true);
 
       // Initialize or get start time
@@ -66,14 +75,14 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
       setTransitionStyle('none');
 
       // Next frame to trigger transition
-      t1 = setTimeout(() => {
+      timeoutsRef.current.t1 = setTimeout(() => {
         setTransitionStyle(transition);
         setProgress(targetVal);
       }, 30);
 
       // If we are in the fast linear phase, schedule the slow creep phase
       if (targetVal === 75) {
-        t2 = setTimeout(() => {
+        timeoutsRef.current.t2 = setTimeout(() => {
           setTransitionStyle('width 15s cubic-bezier(0.1, 0.6, 0.1, 1)');
           setProgress(95);
         }, remainingTime + 30);
@@ -81,22 +90,38 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
 
     } else if (visible) {
       // Finished loading
-      setTransitionStyle('width 0.25s ease-out');
-      setProgress(100);
+      const startTime = (window as any).__loadingStartTime || 0;
+      const elapsed = startTime > 0 ? Date.now() - startTime : 9999;
+      const fastPhaseDuration = 1500;
 
-      t3 = setTimeout(() => {
-        setVisible(false);
-        setProgress(0);
-        setTransitionStyle('none');
-        delete (window as any).__loadingStartTime;
-      }, 300);
+      clearTimeout(timeoutsRef.current.t2);
+
+      if (elapsed < fastPhaseDuration) {
+        // Enforce the 1.5s constant progress before zooming to 100%
+        const delay = fastPhaseDuration - elapsed;
+        clearTimeout(timeoutsRef.current.t3);
+        timeoutsRef.current.t3 = setTimeout(() => {
+          setTransitionStyle('width 0.25s ease-out');
+          setProgress(100);
+          timeoutsRef.current.t2 = setTimeout(() => {
+            setVisible(false);
+            setProgress(0);
+            setTransitionStyle('none');
+            delete (window as any).__loadingStartTime;
+          }, 300);
+        }, delay);
+      } else {
+        setTransitionStyle('width 0.25s ease-out');
+        setProgress(100);
+        clearTimeout(timeoutsRef.current.t3);
+        timeoutsRef.current.t3 = setTimeout(() => {
+          setVisible(false);
+          setProgress(0);
+          setTransitionStyle('none');
+          delete (window as any).__loadingStartTime;
+        }, 300);
+      }
     }
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
   }, [loading, visible]);
 
   if (!visible) return null;

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { metaAds, daysAgo, today, presetToRange } from '../services/metaAds';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import {
   Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw, ChevronLeft, ChevronRight, Calendar, ChevronDown
 } from 'lucide-react';
@@ -184,14 +185,14 @@ const CreativePreviewModal = ({ preview, prefetchedData, onClose }: {
 };
 
 export default function MetaAdsPage() {
-  const { profile: authProfile } = useAuth();
+  const { profile: authProfile, loading: authLoading } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
 
   const [activeAds, setActiveAds] = useState<any[]>([]);
   const [adInsightsMap, setAdInsightsMap] = useState<Record<string, any>>({});
   const [campaignMap, setCampaignMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activePreview, setActivePreview] = useState<any | null>(null);
 
   const [resolvedThumbnails, setResolvedThumbnails] = useState<Record<string, string>>({});
@@ -408,7 +409,8 @@ export default function MetaAdsPage() {
   const accountId = (profile as any)?.meta_account_id;
 
   return (
-    <div className="w-full animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
+    <CenteredPageLoader isLoading={loading || authLoading}>
+      <div className="w-full animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
@@ -627,6 +629,7 @@ export default function MetaAdsPage() {
           onClose={() => setActivePreview(null)} 
         />
       )}
-    </div>
+      </div>
+    </CenteredPageLoader>
   );
 }
