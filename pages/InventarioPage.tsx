@@ -51,11 +51,12 @@ export default function InventarioPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [filter, setFilter] = useState<'all' | 'low' | 'out' | 'ok'>('all');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
-  // Top products by orders (last 30 days)
+  // Top products by orders (last 30 days) — always fresh, no cache
   const [topProducts, setTopProducts] = useState<{ title: string; quantity: number }[]>([]);
+  const [topProductsMap, setTopProductsMap] = useState<Record<string, number>>({});
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   const getInventoryUrl = () => {
@@ -81,12 +82,21 @@ export default function InventarioPage() {
     if (platform !== 'shopify' || !shopifyDomain || !shopifyToken) return;
     setLoadingOrders(true);
     const range = presetToRange('last_30d');
+    // Force-bypass sessionStorage cache so we get fresh data every time the page mounts
+    const cacheKey = `ec:dashboard:${shopifyDomain}:${range.since}:${range.until}`;
+    try { sessionStorage.removeItem(cacheKey); } catch { /* ignore */ }
     ecommerce.getDashboardData(platform, shopifyDomain, shopifyToken, range.since, range.until)
       .then(data => {
         const top = (data?.topProducts || [])
           .slice(0, 10)
           .map((p: any) => ({ title: p.title, quantity: p.quantity }));
         setTopProducts(top);
+        // Build a quick lookup map: title (lowercase) -> order count
+        const map: Record<string, number> = {};
+        top.forEach((p: { title: string; quantity: number }) => {
+          map[p.title.toLowerCase()] = p.quantity;
+        });
+        setTopProductsMap(map);
       })
       .catch(() => {})
       .finally(() => setLoadingOrders(false));
@@ -106,6 +116,7 @@ export default function InventarioPage() {
       if (!matchSearch) return false;
       if (filter === 'out') return p.variants.some(v => (v.inventory_quantity ?? 0) <= 0);
       if (filter === 'low') return p.variants.some(v => { const qty = v.inventory_quantity ?? 0; return qty > 0 && qty <= LOW_STOCK_THRESHOLD; });
+      if (filter === 'ok') return p.variants.every(v => (v.inventory_quantity ?? 0) > LOW_STOCK_THRESHOLD);
       return true;
     });
   }, [products, search, filter]);
@@ -216,7 +227,7 @@ export default function InventarioPage() {
                   Stock bajo {lowCount}
                 </button>
               )}
-              {okCount > 0 && <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">OK {okCount}</span>}
+              {okCount > 0 && <button onClick={() => setFilter('ok')} className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all ${filter === 'ok' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>OK {okCount}</button>}
             </div>
           )}
 
@@ -275,9 +286,19 @@ export default function InventarioPage() {
                           </div>
                         )}
 
-                        {/* Title */}
+                        {/* Title + order count */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-semibold text-zinc-900 dark:text-white truncate">{product.title}</p>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="text-[13px] font-semibold text-zinc-900 dark:text-white truncate">{product.title}</p>
+                            {(() => {
+                              const orderQty = topProductsMap[product.title.toLowerCase()];
+                              return orderQty ? (
+                                <span className="shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                                  {orderQty} ped.
+                                </span>
+                              ) : null;
+                            })()}
+                          </div>
                           {!isSingle && (
                             <p className="text-[10px] text-zinc-400">{product.variants.length} variantes</p>
                           )}

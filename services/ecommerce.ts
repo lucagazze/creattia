@@ -278,7 +278,7 @@ export const ecommerce = {
     });
 
     const topProducts = Object.values(productStats)
-      .sort((a, b) => b.revenue - a.revenue)
+      .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
 
     // Estimate sessions from orders (ShopifyQL not available on standard plans)

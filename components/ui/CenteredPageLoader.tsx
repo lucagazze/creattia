@@ -163,7 +163,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
       {/* The loader overlay is rendered as long as phase is not done */}
       {phase !== 'done' && (
         <div
-          className={`md:absolute fixed inset-0 z-[9999] md:z-[99] flex flex-col items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a] transition-opacity duration-300 ${
+          className={`md:absolute fixed inset-x-0 bottom-0 top-14 md:inset-0 z-[9999] md:z-[99] flex flex-col items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a] transition-opacity duration-300 ${
             phase === 'fading' ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
         >
