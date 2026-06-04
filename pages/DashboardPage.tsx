@@ -2613,6 +2613,11 @@ export default function DashboardPage() {
                 const isOrderToday = date.getFullYear() === todayDate.getFullYear() &&
                                      date.getMonth() === todayDate.getMonth() &&
                                      date.getDate() === todayDate.getDate();
+                const yesterdayDate = new Date();
+                yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+                const isOrderYesterday = date.getFullYear() === yesterdayDate.getFullYear() &&
+                                         date.getMonth() === yesterdayDate.getMonth() &&
+                                         date.getDate() === yesterdayDate.getDate();
 
                 // Payment Status
                 let paymentText = 'Pendiente';
@@ -2667,6 +2672,11 @@ export default function DashboardPage() {
                           {isOrderToday && (
                             <span className="text-[7.5px] font-black text-pink-500 dark:text-pink-400 uppercase tracking-wider bg-pink-500/10 dark:bg-pink-500/20 px-1.5 py-[1px] rounded shrink-0">
                               Hoy
+                            </span>
+                          )}
+                          {isOrderYesterday && (
+                            <span className="text-[7.5px] font-black text-violet-500 dark:text-violet-400 uppercase tracking-wider bg-violet-500/10 dark:bg-violet-500/20 px-1.5 py-[1px] rounded shrink-0">
+                              Ayer
                             </span>
                           )}
                           <span>{fmtDateStr} hs</span>
