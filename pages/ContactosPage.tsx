@@ -8,6 +8,7 @@ import {
   Loader2, ArrowLeft, ArrowRight, Bot, MessageSquare, 
   ExternalLink, Save, Check, FileText, AlertCircle
 } from 'lucide-react';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 
 export default function ContactosPage() {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export default function ContactosPage() {
 
   // Contacts list states
   const [contacts, setContacts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,7 +59,10 @@ export default function ContactosPage() {
 
   // Load Contacts
   const loadContacts = useCallback(async () => {
-    if (!cwUrl || !cwToken) return;
+    if (!cwUrl || !cwToken) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -297,7 +301,8 @@ export default function ContactosPage() {
   });
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
+    <CenteredPageLoader isLoading={loading}>
+      <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         
@@ -720,6 +725,7 @@ export default function ContactosPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </CenteredPageLoader>
   );
 }

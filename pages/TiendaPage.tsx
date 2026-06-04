@@ -427,6 +427,10 @@ export default function TiendaPage() {
                           hour: '2-digit',
                           minute: '2-digit',
                         });
+                        const todayDate = new Date();
+                        const isOrderToday = date.getFullYear() === todayDate.getFullYear() &&
+                                             date.getMonth() === todayDate.getMonth() &&
+                                             date.getDate() === todayDate.getDate();
 
                         // Payment Badge Styling
                         let paymentBadge = "bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200/10";
@@ -475,7 +479,14 @@ export default function TiendaPage() {
                                     {order.order_number}
                                   </span>
                                 </div>
-                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal mt-0.5">{fmtDateStr} hs</p>
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal mt-0.5 flex items-center gap-1.5">
+                                  {isOrderToday && (
+                                    <span className="text-[7.5px] font-black text-pink-500 dark:text-pink-400 uppercase tracking-wider bg-pink-500/10 dark:bg-pink-500/20 px-1.5 py-[1px] rounded shrink-0">
+                                      Hoy
+                                    </span>
+                                  )}
+                                  <span>{fmtDateStr} hs</span>
+                                </p>
                               </div>
                             </td>
                             <td className="py-4 px-4">

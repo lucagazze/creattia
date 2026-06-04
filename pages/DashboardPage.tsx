@@ -1530,9 +1530,9 @@ export default function DashboardPage() {
 
   if (!profile) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-[50vh]">
-        <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-700 border-t-violet-600 dark:border-t-violet-500 rounded-full animate-spin" />
-      </div>
+      <CenteredPageLoader isLoading={true}>
+        <div />
+      </CenteredPageLoader>
     );
   }
 
@@ -2609,6 +2609,10 @@ export default function DashboardPage() {
                   hour: '2-digit',
                   minute: '2-digit',
                 });
+                const todayDate = new Date();
+                const isOrderToday = date.getFullYear() === todayDate.getFullYear() &&
+                                     date.getMonth() === todayDate.getMonth() &&
+                                     date.getDate() === todayDate.getDate();
 
                 // Payment Status
                 let paymentText = 'Pendiente';
@@ -2650,15 +2654,22 @@ export default function DashboardPage() {
                           <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">
                             {order.customer_name}
                           </span>
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${paymentColor}`}>
-                            {paymentText}
-                          </span>
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${fulfillmentColor}`}>
-                            {fulfillmentText}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={`text-[7px] font-bold px-1 py-0.5 rounded uppercase tracking-wider ${paymentColor}`}>
+                              {paymentText}
+                            </span>
+                            <span className={`text-[7px] font-bold px-1 py-0.5 rounded uppercase tracking-wider ${fulfillmentColor}`}>
+                              {fulfillmentText}
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium truncate mt-0.5">
-                          {fmtDateStr} hs
+                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium truncate mt-0.5 flex items-center gap-1.5">
+                          {isOrderToday && (
+                            <span className="text-[7.5px] font-black text-pink-500 dark:text-pink-400 uppercase tracking-wider bg-pink-500/10 dark:bg-pink-500/20 px-1.5 py-[1px] rounded shrink-0">
+                              Hoy
+                            </span>
+                          )}
+                          <span>{fmtDateStr} hs</span>
                         </p>
                       </div>
                     </div>
@@ -2803,23 +2814,19 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex-1 p-3 rounded-xl border border-zinc-150/60 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-900/10 flex items-center justify-between gap-2">
                   <span className="text-[11px] font-bold text-zinc-450 dark:text-zinc-550">Estado de Envío</span>
-                  <button
-                    onClick={toggleFulfillment}
-                    disabled={fulfillingOrder}
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all hover:opacity-80 active:scale-95 disabled:opacity-50 ${
-                      selectedOrder.fulfillment_status === 'fulfilled'
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/15"
-                        : selectedOrder.fulfillment_status === 'partial'
-                          ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-500/15"
-                          : "bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-450 border border-zinc-200/10"
-                    }`}
-                  >
-                    {fulfillingOrder ? '...' : selectedOrder.fulfillment_status === 'fulfilled'
-                      ? 'Enviado ✓'
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    selectedOrder.fulfillment_status === 'fulfilled'
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/15"
+                      : selectedOrder.fulfillment_status === 'partial'
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-500/15"
+                        : "bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-450 border border-zinc-200/10"
+                  }`}>
+                    {selectedOrder.fulfillment_status === 'fulfilled'
+                      ? 'Enviado'
                       : selectedOrder.fulfillment_status === 'partial'
                         ? 'Parcial'
                         : 'No enviado'}
-                  </button>
+                  </span>
                 </div>
               </div>
 

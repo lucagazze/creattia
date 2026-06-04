@@ -845,8 +845,11 @@ const CalendarView = memo(function CalendarView({
         ) : (
           <div className="space-y-2.5 overflow-y-auto flex-1 pr-0.5">
             {scheduledCampaigns.map(c => {
-              const diffMs = new Date(c.send_time ?? c.scheduled_at ?? '').getTime() - Date.now();
-              const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+              const sendDate = new Date(c.send_time ?? c.scheduled_at ?? '');
+              const today = new Date();
+              const sendDateZero = new Date(sendDate.getFullYear(), sendDate.getMonth(), sendDate.getDate());
+              const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+              const diffDays = Math.round((sendDateZero.getTime() - todayZero.getTime()) / (1000 * 60 * 60 * 24));
               const isUrgent = diffDays <= 2;
               const isToday = diffDays === 0;
               const isTomorrow = diffDays === 1;

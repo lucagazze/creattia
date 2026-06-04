@@ -7,15 +7,16 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ViewAsProvider } from './contexts/ViewAsContext';
 import LoginPage from './pages/LoginPage';
 import EmailPreviewPublicPage from './pages/EmailPreviewPublicPage';
+import { CenteredPageLoader } from './components/ui/CenteredPageLoader';
 
 const ProtectedRoute = () => {
   const { session, loading } = useAuth();
   const location = useLocation();
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a]">
-      <div className="w-5 h-5 border-2 border-zinc-300 dark:border-zinc-700 border-t-violet-600 dark:border-t-violet-500 rounded-full animate-spin" />
-    </div>
+    <CenteredPageLoader isLoading={true}>
+      <div />
+    </CenteredPageLoader>
   );
   
   if (!session) {

@@ -18,7 +18,7 @@ const MESSAGES = [
 
 const getProgressForTime = (startTime: number) => {
   const elapsed = Date.now() - startTime;
-  const fastPhaseDuration = 1500; // 1.5 seconds for constant-speed progress 0% -> 75%
+  const fastPhaseDuration = 700; // 700ms for constant-speed progress 0% -> 75%
   
   if (elapsed < fastPhaseDuration) {
     const currentProgress = Math.round((elapsed / fastPhaseDuration) * 75);
@@ -104,7 +104,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
       // Finished loading
       const startTime = (window as any).__loadingStartTime || 0;
       const elapsed = startTime > 0 ? Date.now() - startTime : 9999;
-      const fastPhaseDuration = 1500;
+      const fastPhaseDuration = 700;
 
       clearTimeout(timeoutsRef.current.t2);
 
@@ -168,8 +168,9 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
               alt="Algoritmia"
               className="w-14 h-14 object-contain"
               style={{
-                animation: 'alg-bounce 0.85s ease-in-out infinite',
+                animation: 'alg-bounce 2s ease-in-out infinite',
                 filter: 'drop-shadow(0 0 18px rgba(139, 92, 246, 0.55))',
+                willChange: 'transform',
               }}
             />
             <span className="text-[11px] font-black text-zinc-550 dark:text-zinc-400 uppercase tracking-[0.22em]">
@@ -209,8 +210,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
       <style>{`
         @keyframes alg-bounce {
           0%, 100% { transform: translateY(0px); }
-          45%       { transform: translateY(-18px); }
-          65%       { transform: translateY(-10px); }
+          50%      { transform: translateY(-12px); }
         }
       `}</style>
     </>

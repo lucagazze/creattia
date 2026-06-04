@@ -990,8 +990,11 @@ function CalendarView({
         ) : (
           <div className="space-y-3 overflow-y-auto max-h-[400px] pr-1">
             {scheduledCampaigns.map(c => {
-              const diffMs = new Date(c.send_time ?? c.scheduled_at ?? '').getTime() - Date.now();
-              const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+              const sendDate = new Date(c.send_time ?? c.scheduled_at ?? '');
+              const today = new Date();
+              const sendDateZero = new Date(sendDate.getFullYear(), sendDate.getMonth(), sendDate.getDate());
+              const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+              const diffDays = Math.round((sendDateZero.getTime() - todayZero.getTime()) / (1000 * 60 * 60 * 24));
               const countdownLabel = diffDays === 1 ? 'Mañana' :
                 diffDays === 0 ? 'Hoy' :
                 diffDays < 0 ? 'Pasado' : `Faltan ${diffDays} días`;
