@@ -138,12 +138,11 @@ export default function EmailLoader({ loading, color = '#10b981', labels = ['Ent
       {/* Progress bar — thin strip at the bottom, no extra height */}
       <div className="h-0.5 bg-zinc-100 dark:bg-zinc-800/60 relative overflow-hidden">
         <div
-          className="absolute inset-y-0 left-0 transition-all"
+          className="absolute inset-y-0 left-0"
           style={{
             width: `${progress}%`,
             background: `linear-gradient(90deg, ${color}66, ${color})`,
             boxShadow: `0 0 6px ${color}`,
-            transition: progress === 0 ? 'none' : loading ? 'width 0.15s ease-out' : 'width 0.06s linear',
           }}
         />
       </div>
