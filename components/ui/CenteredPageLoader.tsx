@@ -123,19 +123,18 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
     return () => clearInterval(interval);
   }, [phase]);
 
-  if (phase === 'done') return <>{children}</>;
-
   return (
-    <div className="relative w-full min-h-screen">
-      {/* The actual page content is only mounted when it's fading, triggering entrance animations */}
-      {phase === 'fading' && children}
+    <>
+      {/* The actual page content is only mounted when it's fading or done, triggering entrance animations exactly once */}
+      {(phase === 'fading' || phase === 'done') && children}
 
-      {/* The loader overlay */}
-      <div
-        className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a] transition-opacity duration-300 ${
-          phase === 'fading' ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
-      >
+      {/* The loader overlay is rendered as long as phase is not done */}
+      {phase !== 'done' && (
+        <div
+          className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a] transition-opacity duration-300 ${
+            phase === 'fading' ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
           {/* Logo con bounce */}
           <div className="mb-10 flex flex-col items-center gap-5">
             <img
@@ -178,6 +177,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
             </p>
           </div>
         </div>
+      )}
 
       {/* Keyframes inyectados inline */}
       <style>{`
@@ -187,6 +187,6 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
           65%       { transform: translateY(-10px); }
         }
       `}</style>
-    </div>
+    </>
   );
 };
