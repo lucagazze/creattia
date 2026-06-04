@@ -14,6 +14,8 @@ interface UnreadContextType {
   /** Number of pending comments on IG, FB, and Ads */
   pendingCommentsCount: number;
   setPendingCommentsCount: React.Dispatch<React.SetStateAction<number>>;
+  /** Whether the comments count is currently loading */
+  commentsLoading: boolean;
   /** Manually refresh the count (called e.g. after sending a message) */
   refresh: () => void;
   /** Instantly decrement badge by 1 when a conversation is opened — no network round-trip */
@@ -25,6 +27,7 @@ const UnreadContext = createContext<UnreadContextType>({
   setUnreadCount: () => {},
   pendingCommentsCount: 0,
   setPendingCommentsCount: () => {},
+  commentsLoading: false,
   refresh: () => {},
   markRead: () => {},
 });
@@ -54,6 +57,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingCommentsCount, setPendingCommentsCount] = useState(0);
+  const [commentsLoading, setCommentsLoading] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load cached count or reset when switching profiles to prevent flash of wrong client
@@ -315,9 +319,13 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                           location.pathname.toLowerCase().startsWith('/comentarios');
     if (isComentarios) {
       console.log('[UnreadContext] fetchCommentsCount bypassed: active path is /comentarios');
+      setCommentsLoading(false);
       return;
     }
-    if (!profile) return;
+    if (!profile) {
+      setCommentsLoading(false);
+      return;
+    }
     const fbPageId = (profile as any)?.fb_page_id;
     const igId = (profile as any)?.ig_business_id;
     const igUsername = (profile as any)?.ig_username;
@@ -325,9 +333,11 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (!fbPageId && !igId) {
       setPendingCommentsCount(0);
+      setCommentsLoading(false);
       return;
     }
 
+    setCommentsLoading(true);
     try {
       let total = 0;
 
@@ -450,6 +460,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } catch (e) {
       console.error('Error in fetchCommentsCount:', e);
+    } finally {
+      setCommentsLoading(false);
     }
   }, [profile?.id, profile?.fb_page_id, (profile as any)?.ig_business_id, (profile as any)?.ig_username, profile?.meta_account_id, location.pathname]);
 
@@ -486,7 +498,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [profile?.id]);
 
   return (
-    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, setPendingCommentsCount, refresh: fetchCount, markRead }}>
+    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, setPendingCommentsCount, commentsLoading, refresh: fetchCount, markRead }}>
       {children}
     </UnreadContext.Provider>
   );
