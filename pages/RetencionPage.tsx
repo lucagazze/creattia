@@ -5,7 +5,7 @@ import { DatePreset, presetToRange, getPrevPeriod, today, daysAgo } from '../ser
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { klaviyo } from '../services/klaviyo';
 import {
-  Calendar, ChevronDown, TrendingUp, Mail, Zap, Package, MousePointerClick, DollarSign, MailOpen, Download
+  Calendar, ChevronDown, TrendingUp, Mail, Zap, Package, MousePointerClick, DollarSign, MailOpen, Download, Loader2
 } from 'lucide-react';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 import EmailLoader from '../components/ui/EmailLoader';
@@ -123,6 +123,17 @@ export default function RetencionPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [fetchingConfig, setFetchingConfig] = useState(false);
 
+  const [prevProfileId, setPrevProfileId] = useState(profile?.id);
+  if (profile?.id !== prevProfileId) {
+    setPrevProfileId(profile?.id);
+    setCurrentKlaviyo(null);
+    setPrevKlaviyo(null);
+    setDetailedStats(null);
+    setFlows([]);
+    setCampaigns([]);
+    setFetchingKlaviyo(true);
+  }
+
   const fetchIdRef = useRef(0);
 
   const fetchData = async (_preset: string, since: string, until: string, fetchId: number) => {
@@ -136,9 +147,6 @@ export default function RetencionPage() {
 
     setFetchingKlaviyo(true);
     setFetchingDetailed(true);
-    setCurrentKlaviyo(null);
-    setPrevKlaviyo(null);
-    setDetailedStats(null);
 
     // Stage 1: current period metrics — shows main KPIs as soon as possible
     try {
@@ -204,7 +212,7 @@ export default function RetencionPage() {
   };
 
   return (
-    <CenteredPageLoader isLoading={fetchingKlaviyo}>
+    <CenteredPageLoader isLoading={fetchingKlaviyo && !currentKlaviyo}>
     <div className="w-full space-y-8 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
@@ -221,7 +229,11 @@ export default function RetencionPage() {
         <div className="flex items-center gap-3 print:hidden">
           <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] h-11 relative" ref={datePickerRef}>
             <button onClick={() => setShowDatePicker(!showDatePicker)} className="flex items-center gap-2 px-4 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group">
-              <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-emerald-500 transition-colors" />
+              {fetchingKlaviyo && currentKlaviyo ? (
+                <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
+              ) : (
+                <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-emerald-500 transition-colors" />
+              )}
               <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-200">
                 {activePreset === 'custom' ? (activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}`) : PRESETS.find(p => p.id === activePreset)?.label || activePreset}
               </span>
@@ -269,10 +281,10 @@ export default function RetencionPage() {
             <EmailLoader loading={fetchingKlaviyo} color={MAIN_COLOR} labels={['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email']}>
               {currentKlaviyo ? (
                 <div className="overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
-                  <DashboardMetric icon={Package} label="Entregas" value={currentKlaviyo ? currentKlaviyo.sent?.toLocaleString('es-AR') : '...'} change={getKlaviyoChange(currentKlaviyo?.sent, prevKlaviyo?.sent)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} />
-                  <DashboardMetric icon={MailOpen} label="Tasa de Apertura" value={currentKlaviyo ? `${((currentKlaviyo.opens / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / ((currentKlaviyo?.dailySent || [])[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-open-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-open-rate' ? null : 'k-open-rate')} />
-                  <DashboardMetric icon={MousePointerClick} label="Tasa de Clics" value={currentKlaviyo ? `${((currentKlaviyo.clicks / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.clicks / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.clicks / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.clicks / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.clicks / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / ((currentKlaviyo?.dailySent || [])[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-click-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-click-rate' ? null : 'k-click-rate')} />
-                  <DashboardMetric icon={DollarSign} label="Ingresos Email" value={currentKlaviyo ? `$ ${currentKlaviyo.attributed?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '...'} change={getKlaviyoChange(currentKlaviyo?.attributed, prevKlaviyo?.attributed)} trend={(currentKlaviyo?.attributed || 0) >= (prevKlaviyo?.attributed || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyAttributed || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-attr'} onClick={() => setExpandedMetric(expandedMetric === 'k-attr' ? null : 'k-attr')} />
+                  <DashboardMetric icon={Package} label="Entregas" value={currentKlaviyo ? currentKlaviyo.sent?.toLocaleString('es-AR') : '...'} change={getKlaviyoChange(currentKlaviyo?.sent, prevKlaviyo?.sent)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} info="Total de correos electrónicos enviados con éxito y recibidos por los destinatarios." />
+                  <DashboardMetric icon={MailOpen} label="Tasa de Apertura" value={currentKlaviyo ? `${((currentKlaviyo.opens / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.opens / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.opens / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyOpens?.map((d: any, i: number) => ({ val: ((d.val / ((currentKlaviyo?.dailySent || [])[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-open-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-open-rate' ? null : 'k-open-rate')} info="Porcentaje de destinatarios que abrieron el correo enviado (aperturas / entregados)." />
+                  <DashboardMetric icon={MousePointerClick} label="Tasa de Clics" value={currentKlaviyo ? `${((currentKlaviyo.clicks / (currentKlaviyo.sent || 1)) * 100).toFixed(1)}%` : '...'} change={getKlaviyoChange((currentKlaviyo?.clicks / (currentKlaviyo?.sent || 1)), (prevKlaviyo?.clicks / (prevKlaviyo?.sent || 1)))} trend={((currentKlaviyo?.clicks / (currentKlaviyo?.sent || 1)) || 0) >= ((prevKlaviyo?.clicks / (prevKlaviyo?.sent || 1)) || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyClicks?.map((d: any, i: number) => ({ val: ((d.val / ((currentKlaviyo?.dailySent || [])[i]?.val || 1)) * 100), date: d.date })) || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-click-rate'} onClick={() => setExpandedMetric(expandedMetric === 'k-click-rate' ? null : 'k-click-rate')} info="Porcentaje de destinatarios que hicieron clic en al menos un enlace dentro del correo (clics / entregados)." />
+                  <DashboardMetric icon={DollarSign} label="Ingresos Email" value={currentKlaviyo ? `$ ${currentKlaviyo.attributed?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}` : '...'} change={getKlaviyoChange(currentKlaviyo?.attributed, prevKlaviyo?.attributed)} trend={(currentKlaviyo?.attributed || 0) >= (prevKlaviyo?.attributed || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailyAttributed || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-attr'} onClick={() => setExpandedMetric(expandedMetric === 'k-attr' ? null : 'k-attr')} info="Ingresos totales de ventas atribuidos a campañas o flujos de correo electrónico en Klaviyo." />
                 </div>
               ) : null}
             </EmailLoader>

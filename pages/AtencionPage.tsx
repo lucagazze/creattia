@@ -143,8 +143,10 @@ export default function AtencionPage() {
   const [loadingHeatmap, setLoadingHeatmap] = useState(false);
   const [heatmapHover, setHeatmapHover] = useState<{ day: string; hour: number; val: number; x: number; y: number } | null>(null);
 
-  // Reset all data states when client profile changes to prevent stale data leakage
-  useEffect(() => {
+  // Reset all data states when client profile changes to prevent stale data leakage immediately in render
+  const [prevProfileId, setPrevProfileId] = useState(profile?.id);
+  if (profile?.id !== prevProfileId) {
+    setPrevProfileId(profile?.id);
     setInboxes([]);
     setAgents([]);
     setSummaryData(null);
@@ -157,7 +159,8 @@ export default function AtencionPage() {
     setAllPrevSeriesData({});
     setInboxBreakdowns([]);
     setHeatmapRows([]);
-  }, [profile?.id]);
+    setLoading(true);
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -532,7 +535,7 @@ export default function AtencionPage() {
   }
 
   return (
-    <CenteredPageLoader isLoading={loading}>
+    <CenteredPageLoader isLoading={loading && !summaryData}>
     <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
@@ -555,7 +558,11 @@ export default function AtencionPage() {
               onClick={() => setShowDatePicker(!showDatePicker)}
               className="flex items-center gap-2 px-4 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group"
             >
-              <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-violet-500 transition-colors" />
+              {loading && summaryData ? (
+                <Loader2 className="w-4 h-4 text-violet-500 animate-spin" />
+              ) : (
+                <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-violet-500 transition-colors" />
+              )}
               <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-200">
                 {activePreset === 'custom'
                   ? (activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}`)
@@ -690,8 +697,7 @@ export default function AtencionPage() {
       {/* Channel / Inbox Selector */}
       {inboxes.length > 0 && (
         <div 
-          className="mb-8 flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 w-full sm:w-auto"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="mb-8 flex flex-wrap items-center gap-2 w-full sm:w-auto"
         >
           {/* All */}
           <button

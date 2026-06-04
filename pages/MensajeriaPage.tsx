@@ -212,20 +212,51 @@ export default function MensajeriaPage() {
   });
   const [isFirstLoadDone, setIsFirstLoadDone] = useState(false);
 
-  // Reset conversations when switching profiles (admin view-as) — no data cross-contamination
-  useEffect(() => {
-    try {
-      const key = profileId ? `car_convs_${profileId}` : null;
-      const cached = key ? sessionStorage.getItem(key) : null;
-      setConversations(cached ? JSON.parse(cached) : []);
-    } catch {
-      setConversations([]);
+  const [prevProfileId, setPrevProfileId] = useState(profileId);
+  if (profileId !== prevProfileId) {
+    setPrevProfileId(profileId);
+    
+    // Clear/load cached conversations
+    const key = profileId ? `car_convs_${profileId}` : null;
+    let cachedConvs: any[] = [];
+    if (key) {
+      try {
+        const cached = sessionStorage.getItem(key);
+        if (cached) cachedConvs = JSON.parse(cached);
+      } catch {}
     }
+    setConversations(cachedConvs);
+    
+    // Clear/load cached convMeta
+    let cachedMeta: any = null;
+    if (profileId) {
+      try {
+        const saved = sessionStorage.getItem(`car_conv_meta_${profileId}`);
+        if (saved) cachedMeta = JSON.parse(saved);
+      } catch {}
+    }
+    setConvMeta(cachedMeta);
+
+    // Clear/load cached channelMetas
+    let cachedChannelMetas: any = {};
+    if (profileId) {
+      try {
+        const saved = sessionStorage.getItem(`car_channel_metas_${profileId}`);
+        if (saved) cachedChannelMetas = JSON.parse(saved);
+      } catch {}
+    }
+    setChannelMetas(cachedChannelMetas);
+
     setIsFirstLoadDone(false);
     setSelected(null);
     setMessages([]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileId]);
+    setInboxes([]);
+    setCustomLinks([]);
+    setCannedResponses([]);
+    setShopifyProducts([]);
+    setSummary(null);
+    setSelectedIds(new Set());
+  }
 
   // Synchronize conversations list to sessionStorage cache automatically on every state change
   useEffect(() => {
@@ -1765,7 +1796,7 @@ export default function MensajeriaPage() {
 
           {/* List */}
           <div
-            className="flex-1 overflow-y-auto py-2 space-y-1 pb-20 md:pb-2"
+            className="flex-1 overflow-y-auto overscroll-y-contain py-2 space-y-1 pb-20 md:pb-2"
             style={{ overflowAnchor: 'none' }}
             onScroll={(e) => {
               const target = e.currentTarget;
@@ -2009,7 +2040,7 @@ export default function MensajeriaPage() {
                 {/* Messages list */}
                 <div
                   ref={messagesContainerRef}
-                  className="flex-1 overflow-y-auto px-4 md:px-5 py-4 md:space-y-3 space-y-2 bg-zinc-50/50 dark:bg-zinc-950"
+                  className="flex-1 overflow-y-auto overscroll-y-contain px-4 md:px-5 py-4 md:space-y-3 space-y-2 bg-zinc-50/50 dark:bg-zinc-950"
                   onScroll={(e) => {
                     const el = e.currentTarget;
                     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;

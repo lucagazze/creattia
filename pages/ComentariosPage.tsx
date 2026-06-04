@@ -943,8 +943,7 @@ export default function ComentariosPage() {
       {/* Filters + Sort */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
         <div 
-          className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 w-full sm:w-auto"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="flex flex-wrap items-center gap-2 w-full sm:w-auto"
         >
           {(['all', 'instagram', 'facebook', 'ads'] as const).map(p => {
             const count = p === 'all' ? platformCounts.all

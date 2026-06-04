@@ -97,15 +97,35 @@ const ShopifyMetric = ({
   onClick,
   icon: Icon,
   info,
-}: any) => {
-  const [tipPos, setTipPos] = React.useState<{ x: number; y: number } | null>(null);
+}: any) => {  const [tipPos, setTipPos] = React.useState<{ x: number; y: number } | null>(null);
   const infoRef = React.useRef<HTMLDivElement>(null);
+  
+  const handleInfoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tipPos) {
+      setTipPos(null);
+    } else {
+      const r = infoRef.current?.getBoundingClientRect();
+      if (r) setTipPos({ x: r.left + r.width / 2, y: r.top });
+    }
+  };
+
   const showTip = (e: React.MouseEvent) => {
     e.stopPropagation();
     const r = infoRef.current?.getBoundingClientRect();
     if (r) setTipPos({ x: r.left + r.width / 2, y: r.top });
   };
   const hideTip = () => setTipPos(null);
+
+  React.useEffect(() => {
+    if (!tipPos) return;
+    const handleDocumentClick = (e: MouseEvent) => {
+      if (infoRef.current?.contains(e.target as Node)) return;
+      setTipPos(null);
+    };
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, [tipPos]);
 
   const tooltipPos = React.useMemo(() => {
     if (!tipPos) return null;
@@ -167,7 +187,7 @@ const ShopifyMetric = ({
             {label}
           </span>
           {info && (
-            <div ref={infoRef} className="flex-shrink-0" onClick={(e) => e.stopPropagation()} onMouseEnter={showTip} onMouseLeave={hideTip}>
+            <div ref={infoRef} className="flex-shrink-0" onClick={handleInfoClick} onMouseEnter={showTip} onMouseLeave={hideTip}>
               <Info className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 hover:text-violet-500 dark:hover:text-violet-400 transition-colors cursor-help" />
               {tipPos && tooltipPos && (
                 <div

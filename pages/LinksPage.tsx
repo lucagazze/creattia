@@ -30,11 +30,23 @@ export default function LinksPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!profile) return;
-    db.links.getByClientId(profile.id).then(data => {
-      setLinks(data);
+    if (!profile) {
+      setLinks([]);
       setLoading(false);
-    });
+      return;
+    }
+    setLoading(true);
+    db.links.getByClientId(profile.id)
+      .then(data => {
+        setLinks(data || []);
+      })
+      .catch(err => {
+        console.error("Error loading client links:", err);
+        setLinks([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [profile]);
 
   return (

@@ -115,7 +115,13 @@ export default function TiendaPage() {
   const [expandedMetric, setExpandedMetric] = useState<string | null>('s-revenue');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
-
+  const [prevProfileId, setPrevProfileId] = useState(profile?.id);
+  if (profile?.id !== prevProfileId) {
+    setPrevProfileId(profile?.id);
+    setData(null);
+    setPrevData(null);
+    setLoading(true);
+  }
 
   // Date Picker State
   const [activePreset, setActivePreset] = useState<any>('last_14d');
@@ -220,7 +226,7 @@ export default function TiendaPage() {
   }
 
   return (
-    <CenteredPageLoader isLoading={loading}>
+    <CenteredPageLoader isLoading={loading && !data}>
     <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
@@ -240,7 +246,11 @@ export default function TiendaPage() {
                 onClick={() => setShowDatePicker(!showDatePicker)} 
                 className="flex items-center gap-2 px-4 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group"
               >
-                <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-pink-500 transition-colors" />
+                {loading && data ? (
+                  <Loader2 className="w-4 h-4 text-pink-500 animate-spin" />
+                ) : (
+                  <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-pink-500 transition-colors" />
+                )}
                 <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-200">
                   {activePreset === 'custom' 
                     ? (activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}`)
@@ -315,6 +325,7 @@ export default function TiendaPage() {
                 loading={loading} 
                 active={expandedMetric === 's-orders'} 
                 onClick={() => setExpandedMetric(expandedMetric === 's-orders' ? null : 's-orders')} 
+                info="Cantidad total de órdenes procesadas y confirmadas en tu tienda Shopify durante el período seleccionado."
               />
               <DashboardMetric 
                 icon={DollarSign}
@@ -327,6 +338,7 @@ export default function TiendaPage() {
                 loading={loading} 
                 active={expandedMetric === 's-revenue'} 
                 onClick={() => setExpandedMetric(expandedMetric === 's-revenue' ? null : 's-revenue')} 
+                info="Suma total facturada por ventas brutas en tu tienda Shopify en el período seleccionado."
               />
               <DashboardMetric 
                 icon={Receipt}
@@ -339,6 +351,7 @@ export default function TiendaPage() {
                 loading={loading} 
                 active={expandedMetric === 's-aov'} 
                 onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')} 
+                info="El valor promedio gastado en cada pedido. Se calcula dividiendo los ingresos totales por la cantidad de pedidos."
               />
             </div>
               ) : null}

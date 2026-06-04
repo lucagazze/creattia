@@ -1088,7 +1088,7 @@ export default function RedesSocialesPage() {
 
                   {/* Feed Filters */}
                   <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700 p-0.5 rounded-xl overflow-x-auto no-scrollbar flex-shrink-0">
+                    <div className="flex flex-wrap items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700 p-0.5 rounded-xl flex-shrink-0">
                       {[
                         { id: 'all', label: 'Todo', labelMobile: 'Todo', icon: Instagram },
                         { id: 'IMAGE', label: 'Imágenes', labelMobile: 'Fotos', icon: ImageIcon },
@@ -1371,7 +1371,7 @@ export default function RedesSocialesPage() {
 
                   {/* Feed Filters */}
                   <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700 p-0.5 rounded-xl overflow-x-auto no-scrollbar flex-shrink-0">
+                    <div className="flex flex-wrap items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200/50 dark:border-zinc-700 p-0.5 rounded-xl flex-shrink-0">
                       {[
                         { id: 'all', label: 'Todo', icon: MessageCircle },
                         { id: 'PHOTO', label: 'Con Fotos', icon: ImageIcon },

@@ -6,7 +6,7 @@ import {
   TrendingUp, Instagram, ArrowUpRight,
   Calendar, ChevronDown, ThumbsUp, MessageCircle,
   Image as ImageIcon, Facebook, Info,
-  BarChart2, RefreshCw, FileText, Download, Users
+  BarChart2, RefreshCw, FileText, Download, Users, Loader2
 } from 'lucide-react';
 import { metaAds, DatePreset, presetToRange, getPrevPeriod, today } from '../services/metaAds';
 import { 
@@ -30,17 +30,17 @@ const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
 ];
 
 const IG_METRICS_CONFIG = [
-  { key: 'followers',    label: 'Seguidores',      icon: Users,      color: '#ec4899' },
-  { key: 'posts',        label: 'Publicaciones',   icon: ImageIcon,  color: '#8b5cf6' },
-  { key: 'interactions', label: 'Interacciones',   icon: ThumbsUp,   color: '#f59e0b' },
-  { key: 'engagement',   label: 'Engagement',      icon: BarChart2,  color: '#10b981' },
+  { key: 'followers',    label: 'Seguidores',      icon: Users,      color: '#ec4899', info: 'Cantidad de usuarios únicos que siguen tu cuenta comercial de Instagram.' },
+  { key: 'posts',        label: 'Publicaciones',   icon: ImageIcon,  color: '#8b5cf6', info: 'Número total de fotos, videos y carruseles publicados en tu cuenta en el período.' },
+  { key: 'interactions', label: 'Interacciones',   icon: ThumbsUp,   color: '#f59e0b', info: 'Suma de likes y comentarios recibidos en todas tus publicaciones en el período.' },
+  { key: 'engagement',   label: 'Engagement',      icon: BarChart2,  color: '#10b981', info: 'Tasa de interacción promedio por publicación en relación al tamaño de tu audiencia.' },
 ] as const;
 
 const FB_METRICS_CONFIG = [
-  { key: 'followers',    label: 'Seguidores',      icon: Users,      color: '#3b82f6' },
-  { key: 'posts',        label: 'Publicaciones',   icon: ImageIcon,  color: '#8b5cf6' },
-  { key: 'interactions', label: 'Interacciones',   icon: ThumbsUp,   color: '#f59e0b' },
-  { key: 'engagement',   label: 'Engagement',      icon: BarChart2,  color: '#10b981' },
+  { key: 'followers',    label: 'Seguidores',      icon: Users,      color: '#3b82f6', info: 'Cantidad total de personas que siguen o le dieron "Me Gusta" a tu página de Facebook.' },
+  { key: 'posts',        label: 'Publicaciones',   icon: ImageIcon,  color: '#8b5cf6', info: 'Número total de estados, fotos y videos publicados en el muro de tu página en el período.' },
+  { key: 'interactions', label: 'Interacciones',   icon: ThumbsUp,   color: '#f59e0b', info: 'Suma total de reacciones, likes, comentarios y veces compartido en tu feed en el período.' },
+  { key: 'engagement',   label: 'Engagement',      icon: BarChart2,  color: '#10b981', info: 'Tasa de interacción promedio en tu página de Facebook en relación al total de seguidores.' },
 ] as const;
 
 type SocialMetricKey = 'followers' | 'posts' | 'interactions' | 'engagement';
@@ -133,6 +133,17 @@ export default function InformesPage() {
   const [expandedMetric, setExpandedMetric] = useState<SocialMetricKey>('followers');
 
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const [prevClientId, setPrevClientId] = useState(clientId);
+  if (clientId !== prevClientId) {
+    setPrevClientId(clientId);
+    setIgProfile(null);
+    setFbProfile(null);
+    setSocialSnapshots([]);
+    setIgMedia([]);
+    setFbMedia([]);
+    setLoadingSocial(true);
+  }
 
   // Calculate current range and previous comparison range
   const range = useMemo(() => activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset), [activePreset, activeSince, activeUntil]);
@@ -559,7 +570,7 @@ export default function InformesPage() {
   const currentTabGlow = activeTab === 'instagram' ? 'shadow-pink-500/20' : 'shadow-blue-600/20';
 
   return (
-    <CenteredPageLoader isLoading={loadingSocial}>
+    <CenteredPageLoader isLoading={loadingSocial && !igProfile && !fbProfile}>
     <div className="space-y-6 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300 print:bg-white print:p-0 print:space-y-4">
       
       {/* Header section */}
@@ -608,7 +619,11 @@ export default function InformesPage() {
           {/* Styled Datepicker Dropdown */}
           <div className="flex items-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-1.5 py-1 shadow-sm h-10 relative z-40" ref={datePickerRef}>
             <button onClick={() => setShowDatePicker(!showDatePicker)} className="flex items-center gap-2 px-3 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-xl transition-all group">
-              <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-violet-500 transition-colors" />
+              {loadingSocial && (igProfile || fbProfile) ? (
+                <Loader2 className="w-4 h-4 text-violet-500 animate-spin" />
+              ) : (
+                <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-violet-500 transition-colors" />
+              )}
               <span className="text-[12px] font-black text-zinc-700 dark:text-zinc-200">
                 {activePreset === 'custom' ? `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}` : PRESETS.find(p => p.id === activePreset)?.label || activePreset}
               </span>
@@ -736,6 +751,7 @@ export default function InformesPage() {
                       loading={loadingSocial}
                       active={expandedMetric === m.key}
                       onClick={() => setExpandedMetric(m.key as SocialMetricKey)}
+                      info={m.info}
                     />
                   );
                 })}

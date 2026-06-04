@@ -135,6 +135,14 @@ export const MainLayout = () => {
   const { isViewingAs } = useViewAs();
   const { unreadCount } = useUnread();
   const location = useLocation();
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Scroll to top on navigation/page transition
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
 
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
@@ -399,7 +407,7 @@ export const MainLayout = () => {
           </button>
         </div>
 
-        <div className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
+        <div ref={scrollContainerRef} className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
           location.pathname === '/mensajeria' || location.pathname === '/contactos'
             ? 'overflow-hidden p-0 h-[calc(100dvh-56px)] md:h-screen flex flex-col'
             : isFixedPage 

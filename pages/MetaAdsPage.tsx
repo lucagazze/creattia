@@ -211,6 +211,18 @@ export default function MetaAdsPage() {
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const datePickerRef = useRef<HTMLDivElement>(null);
 
+  const [prevProfileId, setPrevProfileId] = useState(profile?.id);
+  if (profile?.id !== prevProfileId) {
+    setPrevProfileId(profile?.id);
+    setActiveAds([]);
+    setAdInsightsMap({});
+    setCampaignMap({});
+    setResolvedThumbnails({});
+    setResolvedDetails({});
+    setResolvingIds({});
+    setLoading(true);
+  }
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) setShowDatePicker(false);
@@ -306,14 +318,7 @@ export default function MetaAdsPage() {
 
   useEffect(() => { fetchAds(activeSince, activeUntil); }, [profile?.id, activeSince, activeUntil]);
 
-  useEffect(() => {
-    setActiveAds([]);
-    setAdInsightsMap({});
-    setCampaignMap({});
-    setResolvedThumbnails({});
-    setResolvedDetails({});
-    setResolvingIds({});
-  }, [profile?.id]);
+
 
   // Sequential concurrent sliding window batch thumbnail and asset resolver (limit: 4 parallel requests)
   useEffect(() => {
@@ -421,9 +426,13 @@ export default function MetaAdsPage() {
             onClick={() => setShowDatePicker(!showDatePicker)}
             className="flex items-center gap-2 px-4 h-9 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full text-[12px] font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm"
           >
-            <Calendar className="w-3.5 h-3.5 text-blue-500" />
+            {loading && activeAds.length > 0 ? (
+              <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+            ) : (
+              <Calendar className="w-3.5 h-3.5 text-blue-500" />
+            )}
             {presetLabel}
-            <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
           </button>
           {showDatePicker && (
             <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl z-50 flex flex-col sm:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-150 max-w-[calc(100vw-2rem)] w-[min(430px,calc(100vw-2rem))]">
@@ -462,7 +471,7 @@ export default function MetaAdsPage() {
       )}
 
       {/* Skeletons while loading */}
-      {accountId && loading && (
+      {accountId && loading && activeAds.length === 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
             <div key={i} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 flex flex-col">
@@ -488,7 +497,7 @@ export default function MetaAdsPage() {
       )}
 
       {/* Ads grid */}
-      {accountId && !loading && activeAds.length > 0 && (() => {
+      {accountId && activeAds.length > 0 && (() => {
         const adsWithSpend = activeAds.filter(ad => parseFloat(adInsightsMap[ad.id]?.spend || 0) > 0);
         const grouped: Record<string, { campaignName: string; ads: any[] }> = {};
         adsWithSpend.forEach(ad => {
@@ -503,7 +512,7 @@ export default function MetaAdsPage() {
         );
 
         return (
-          <div className="space-y-10">
+          <div className={`space-y-10 transition-opacity duration-200 ${loading ? 'opacity-65 pointer-events-none' : ''}`}>
             {Object.entries(grouped).map(([cid, group]) => (
               <div key={cid}>
                 <div className="flex items-center gap-2 mb-5">
