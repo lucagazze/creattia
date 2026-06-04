@@ -234,7 +234,7 @@ export default function TiendaPage() {
   }
 
   return (
-    <CenteredPageLoader isLoading={loading && !data}>
+    <CenteredPageLoader isLoading={false}>
 
     <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6">
       {/* Header */}

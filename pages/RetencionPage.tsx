@@ -221,7 +221,7 @@ export default function RetencionPage() {
   };
 
   return (
-    <CenteredPageLoader isLoading={fetchingKlaviyo && !currentKlaviyo}>
+    <CenteredPageLoader isLoading={false}>
 
     <div className="w-full space-y-8 pt-4 md:pt-6">
       {/* Header */}

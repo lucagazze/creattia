@@ -735,7 +735,7 @@ export default function InformesPage() {
   const currentTabGlow = activeTab === 'instagram' ? 'shadow-pink-500/20' : 'shadow-blue-600/20';
 
   return (
-    <CenteredPageLoader isLoading={loadingSocial && !igProfile && !fbProfile}>
+    <CenteredPageLoader isLoading={false}>
 
     <div className="space-y-6 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300 print:bg-white print:p-0 print:space-y-4">
       

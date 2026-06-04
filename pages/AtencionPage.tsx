@@ -537,7 +537,7 @@ export default function AtencionPage() {
   }
 
   return (
-    <CenteredPageLoader isLoading={loading && !summaryData}>
+    <CenteredPageLoader isLoading={false}>
 
     <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6">
       {/* Header */}

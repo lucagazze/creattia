@@ -516,7 +516,7 @@ export default function CaptacionPage() {
   const gradientId = `grad-${expandedMetric}`;
 
   return (
-    <CenteredPageLoader isLoading={loading && !summary}>
+    <CenteredPageLoader isLoading={false}>
 
     <div className="w-full space-y-8 print:space-y-6 print:p-0 pt-4 md:pt-6 print:max-w-none">
       {/* Header */}
