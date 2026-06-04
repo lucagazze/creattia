@@ -120,6 +120,7 @@ export default function RedesSocialesPage() {
   const [selectedPostType, setSelectedPostType] = useState<'instagram' | 'facebook'>('instagram');
   const [comments, setComments] = useState<any[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'post' | 'comments'>('comments');
   const [commentInput, setCommentInput] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -581,6 +582,7 @@ export default function RedesSocialesPage() {
     setReplyingTo(null);
     setCommentInput('');
     setSubmitError(null);
+    setMobileTab('comments');
     fetchComments(postId, type);
   };
 
@@ -1626,11 +1628,40 @@ export default function RedesSocialesPage() {
                 </button>
               </div>
 
+              {/* Mobile tab bar */}
+              <div className="md:hidden flex border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+                <button
+                  onClick={() => setMobileTab('post')}
+                  className={`flex-1 py-2.5 text-[12px] font-black transition-colors ${
+                    mobileTab === 'post'
+                      ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
+                      : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
+                >
+                  Publicación
+                </button>
+                <button
+                  onClick={() => setMobileTab('comments')}
+                  className={`flex-1 py-2.5 text-[12px] font-black transition-colors flex items-center justify-center gap-1.5 ${
+                    mobileTab === 'comments'
+                      ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
+                      : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
+                >
+                  Comentarios
+                  {!loadingComments && comments.length > 0 && (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>
+                  )}
+                </button>
+              </div>
+
               {/* Split Body Container */}
               <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-5 h-full">
                 
                 {/* Column 1: Post Media Context (Left Side - 40% width on md/lg, hidden on mobile) */}
-                <div className="hidden md:flex md:col-span-2 flex-col justify-start border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-5 overflow-y-auto h-full space-y-4">
+                <div className={`${
+                  mobileTab === 'comments' ? 'hidden md:flex' : 'flex'
+                } md:col-span-2 flex-col justify-start border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-5 overflow-y-auto h-full space-y-4`}>
                   {activePost ? (
                     <>
                       {/* Media Player */}
@@ -1689,7 +1720,9 @@ export default function RedesSocialesPage() {
                 </div>
 
                 {/* Column 2: Comments List & Inputs (Right Side - 60% width on md/lg, full width on mobile) */}
-                <div className="col-span-1 md:col-span-3 flex flex-col justify-between h-full overflow-hidden">
+                <div className={`${
+                  mobileTab === 'post' ? 'hidden md:flex' : 'flex'
+                } col-span-1 md:col-span-3 flex flex-col justify-between h-full overflow-hidden`}>
                   
                   {/* Comments List */}
                   <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/10 dark:bg-zinc-950/5">
