@@ -243,6 +243,11 @@ export default function InformesPage() {
   }, [clientId, activeSince, activeUntil, refreshKey, profile]);
 
   const handleApply = () => {
+    setIgProfile(null);
+    setFbProfile(null);
+    setIgMedia([]);
+    setFbMedia([]);
+    setSocialSnapshots([]);
     setActivePreset(pendingPreset);
     setActiveSince(pendingSince);
     setActiveUntil(pendingUntil || pendingSince);

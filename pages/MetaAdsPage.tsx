@@ -273,6 +273,9 @@ export default function MetaAdsPage() {
   };
 
   const handleApplyDate = () => {
+    setActiveAds([]);
+    setAdInsightsMap({});
+    setCampaignMap({});
     setActivePreset(pendingPreset);
     setActiveSince(pendingSince);
     setActiveUntil(pendingUntil || pendingSince);

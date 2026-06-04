@@ -401,7 +401,7 @@ export default function CaptacionPage() {
   }, []);
 
 
-  const handleApply = () => { setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil || pendingSince); setShowDatePicker(false); };
+  const handleApply = () => { setSummary(null); setPrevSummary(null); setDaily([]); setPrevDaily([]); setGenderData([]); setRegionData([]); setPlatformData([]); setAgeData([]); setCampaigns([]); setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil || pendingSince); setShowDatePicker(false); };
   const handleExportPDF = () => {
     const html = document.documentElement;
     const wasDark = html.classList.contains('dark');

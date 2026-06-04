@@ -502,6 +502,13 @@ export default function AtencionPage() {
   }, [profile?.chatwoot_url, profile?.chatwoot_token, loading, refreshKey, selectedInboxId]);
 
   const handleApplyDate = () => {
+    setSummaryData(null);
+    setPrevSummaryData(null);
+    setChartData([]);
+    setPrevChartData([]);
+    setAllSeriesData({});
+    setAllPrevSeriesData({});
+    setInboxBreakdowns([]);
     setActivePreset(pendingPreset);
     setActiveSince(pendingSince);
     setActiveUntil(pendingUntil || pendingSince);

@@ -1364,6 +1364,10 @@ export default function DashboardPage() {
   }, [activeAtencMetric, profile?.id, activeSince, activeUntil]);
 
   const handleApply = () => {
+    setCurrentStore(null);
+    setCurrentMeta(null);
+    setCurrentKlaviyo(null);
+    setChatwootSummary(null);
     setActivePreset(pendingPreset);
     setActiveSince(pendingSince);
     setActiveUntil(pendingUntil || pendingSince);
