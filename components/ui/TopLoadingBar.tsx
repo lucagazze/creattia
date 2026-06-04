@@ -8,9 +8,11 @@ interface Props {
 
 const getProgressForTime = (startTime: number) => {
   const elapsed = Date.now() - startTime;
-  if (elapsed < 500) {
-    const currentProgress = Math.round((elapsed / 500) * 75);
-    const remainingTime = 500 - elapsed;
+  const fastPhaseDuration = 1500; // 1.5 seconds for constant-speed progress 0% -> 75%
+  
+  if (elapsed < fastPhaseDuration) {
+    const currentProgress = Math.round((elapsed / fastPhaseDuration) * 75);
+    const remainingTime = fastPhaseDuration - elapsed;
     return {
       startVal: currentProgress,
       targetVal: 75,
@@ -18,7 +20,7 @@ const getProgressForTime = (startTime: number) => {
       remainingTime,
     };
   } else {
-    const elapsedSince75 = elapsed - 500;
+    const elapsedSince75 = elapsed - fastPhaseDuration;
     const currentProgress = Math.min(95, Math.round(75 + (elapsedSince75 / 15000) * 20));
     const remainingTime = Math.max(100, 15000 - elapsedSince75);
     return {
