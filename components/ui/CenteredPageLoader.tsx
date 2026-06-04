@@ -16,21 +16,45 @@ const MESSAGES = [
   'Traemos la info más fresca...',
 ];
 
+// Global cache variables to track previous loader state during page transitions
+let globalProgress = 0;
+let globalPhase: 'loading' | 'fading' | 'done' = 'loading';
+let globalMsgIdx = 0;
+let lastUnmountTime = 0;
+
 export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => {
-  const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<'loading' | 'fading' | 'done'>('loading');
-  const [msgIdx, setMsgIdx] = useState(0);
+  // Reuse progress state if a loader was unmounted within the last 250ms and was still loading
+  const shouldReuse = Date.now() - lastUnmountTime < 250 && globalPhase === 'loading';
+
+  const [progress, setProgress] = useState(shouldReuse ? globalProgress : 0);
+  const [phase, setPhase] = useState<'loading' | 'fading' | 'done'>(shouldReuse ? globalPhase : 'loading');
+  const [msgIdx, setMsgIdx] = useState(shouldReuse ? globalMsgIdx : 0);
   const [msgVisible, setMsgVisible] = useState(true);
+
+  // Sync state with global cache variables on every state change to persist it on unmount
+  useEffect(() => {
+    globalProgress = progress;
+    globalPhase = phase;
+    globalMsgIdx = msgIdx;
+  }, [progress, phase, msgIdx]);
+
+  useEffect(() => {
+    return () => {
+      lastUnmountTime = Date.now();
+    };
+  }, []);
 
   // Progress simulation
   useEffect(() => {
     if (isLoading) {
-      setProgress(0);
-      setPhase('loading');
-      const t1 = setTimeout(() => setProgress(18), 80);
-      const t2 = setTimeout(() => setProgress(42), 400);
-      const t3 = setTimeout(() => setProgress(67), 950);
-      const t4 = setTimeout(() => setProgress(83), 1900);
+      if (!shouldReuse) {
+        setProgress(0);
+        setPhase('loading');
+      }
+      const t1 = setTimeout(() => setProgress(prev => Math.max(prev, 18)), 80);
+      const t2 = setTimeout(() => setProgress(prev => Math.max(prev, 42)), 400);
+      const t3 = setTimeout(() => setProgress(prev => Math.max(prev, 67)), 950);
+      const t4 = setTimeout(() => setProgress(prev => Math.max(prev, 83)), 1900);
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
     } else {
       setProgress(100);
@@ -38,7 +62,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
       const t = setTimeout(() => setPhase('done'), 380);
       return () => clearTimeout(t);
     }
-  }, [isLoading]);
+  }, [isLoading, shouldReuse]);
 
   // Rotating messages with fade
   useEffect(() => {

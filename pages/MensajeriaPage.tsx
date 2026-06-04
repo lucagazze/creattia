@@ -191,12 +191,15 @@ const STATUS_COLORS: Record<string, string> = {
 export default function MensajeriaPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile: authProfile } = useAuth();
+  const { profile: authProfile, loading: authLoading } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const isAdmin = authProfile?.is_admin;
   const { showToast } = useToast();
   const { markRead, setUnreadCount } = useUnread();
+
+  const hasViewAsIdStored = !!localStorage.getItem('view_as_client_id');
+  const isProfileLoading = hasViewAsIdStored ? (viewAsProfile === null) : authLoading;
 
   const cwUrl = (profile as any)?.chatwoot_url;
   const cwToken = (profile as any)?.chatwoot_token;
@@ -294,6 +297,7 @@ export default function MensajeriaPage() {
   const [hasMore, setHasMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [totalOpenCount, setTotalOpenCount] = useState(0);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; conv: any } | null>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
   const [statusFilter, setStatusFilter] = useState<'open' | 'all'>('all');
@@ -377,6 +381,7 @@ export default function MensajeriaPage() {
     setLoadingInboxes(true);
     setLoadingMetas(true);
     setLoading(true);
+    setTotalOpenCount(0);
     setSelected(null);
     setMessages([]);
     setInboxes([]);
@@ -443,6 +448,7 @@ export default function MensajeriaPage() {
 
   // Load inboxes once when credentials are ready
   useEffect(() => {
+    if (isProfileLoading) return;
     if (!cwUrl || !cwToken) {
       setLoadingInboxes(false);
       return;
@@ -459,10 +465,11 @@ export default function MensajeriaPage() {
       }
     };
     initInboxes();
-  }, [cwUrl, cwToken]);
+  }, [cwUrl, cwToken, isProfileLoading]);
 
   // Load total counts for each channel key and overall counts immediately in parallel
   useEffect(() => {
+    if (isProfileLoading) return;
     if (!cwUrl || !cwToken) {
       setLoadingMetas(false);
       return;
@@ -526,7 +533,7 @@ export default function MensajeriaPage() {
     };
 
     loadChannelMetas();
-  }, [cwUrl, cwToken, inboxes, statusFilter, profile?.id, loadingInboxes]);
+  }, [cwUrl, cwToken, inboxes, statusFilter, profile?.id, loadingInboxes, isProfileLoading]);
 
   const fetchConversationsData = useCallback(async () => {
     if (!cwUrl || !cwToken) return null;
@@ -564,10 +571,12 @@ export default function MensajeriaPage() {
       allFetchedConversations,
       firstHasMore,
       meta,
+      openCount,
     };
   }, [cwUrl, cwToken, statusFilter, channelFilter, getInboxIdForChannel]);
 
   const loadConversations = useCallback(async () => {
+    if (isProfileLoading) return;
     if (!cwUrl || !cwToken) {
       setLoading(false);
       return;
@@ -585,6 +594,7 @@ export default function MensajeriaPage() {
 
       if (!data) return;
       setSummary(sm);
+      setTotalOpenCount(data.openCount || 0);
 
       if (data.meta && channelFilter === 'all') {
         setConvMeta({
@@ -612,7 +622,7 @@ export default function MensajeriaPage() {
     } finally {
       setLoading(false);
     }
-  }, [cwUrl, cwToken, channelFilter, fetchConversationsData]);
+  }, [cwUrl, cwToken, channelFilter, fetchConversationsData, isProfileLoading]);
 
   // Sync first load completion when all fetches are done
   useEffect(() => {
@@ -740,6 +750,9 @@ export default function MensajeriaPage() {
       try {
         const data = await fetchConversationsData();
         if (!data) return;
+        if (data.openCount !== undefined) {
+          setTotalOpenCount(data.openCount);
+        }
         setConversations(prev => {
           const apiMap = new Map<number, any>();
           prev.forEach((c: any) => {
@@ -1558,6 +1571,10 @@ export default function MensajeriaPage() {
     return name.includes(s) || phone.includes(s) || email.includes(s) || String(c.id).includes(s) || lastMsg.includes(s);
   });
 
+  const allOpenConversationsLoaded = isFirstLoadDone 
+    ? conversations.filter(c => c.status === 'open').length >= totalOpenCount 
+    : false;
+
   const toggleSelect = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedIds(prev => {
@@ -1848,7 +1865,7 @@ export default function MensajeriaPage() {
               if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
                 if (filtered.length > currentPage * 25) {
                   setCurrentPage(prev => prev + 1);
-                } else {
+                } else if (hasMore && (!showPendingOnly || !allOpenConversationsLoaded)) {
                   loadMoreConversations();
                 }
               }
@@ -1950,8 +1967,8 @@ export default function MensajeriaPage() {
               );
             })}
 
-            {/* Load more — only when server has more pages */}
-            {hasMore && (
+            {/* Load more — only when client-side has more, or server has more pages and filters allow it */}
+            {((filtered.length > currentPage * 25) || (hasMore && (!showPendingOnly || !allOpenConversationsLoaded))) && (
               <div className="flex items-center justify-center py-3 text-[10px] text-zinc-400 gap-1.5">
                 {loadingMore ? (
                   <><Loader2 className="w-3 h-3 animate-spin" /> Cargando más...</>
