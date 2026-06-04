@@ -46,28 +46,21 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     
     const client_id = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID;
     const redirect_uri = `${window.location.origin}/google-callback.html`;
-    const nonce = Math.random().toString(36).substring(2);
-    
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${client_id}` +
-      `&redirect_uri=${encodeURIComponent(redirect_uri)}` +
-      `&response_type=id_token` +
-      `&scope=openid%20email%20profile` +
-      `&prompt=select_account` +
-      `&nonce=${nonce}`;
+    const rawNonce = Math.random().toString(36).substring(2);
 
     const width = 500;
     const height = 600;
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
     
+    // Open popup synchronously to prevent the browser from blocking it
     const popup = window.open(
-      url,
+      'about:blank',
       'google-signin',
       `width=${width},height=${height},top=${top},left=${left},status=no,resizable=yes`
     );
@@ -78,47 +71,81 @@ export default function LoginPage() {
       return;
     }
 
-    const handleMessage = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+    try {
+      // Hash the nonce with SHA-256 (required by Supabase Auth server verification)
+      const encoder = new TextEncoder();
+      const data = encoder.encode(rawNonce);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashedNonce = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       
-      if (event.data && event.data.source === 'google-oauth-popup') {
-        window.removeEventListener('message', handleMessage);
-        clearInterval(checkClosedInterval);
+      const url = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${client_id}` +
+        `&redirect_uri=${encodeURIComponent(redirect_uri)}` +
+        `&response_type=id_token` +
+        `&scope=openid%20email%20profile` +
+        `&prompt=select_account` +
+        `&nonce=${hashedNonce}`;
+
+      popup.location.href = url;
+
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
         
-        const hash = event.data.hash;
-        const params = new URLSearchParams(hash.substring(1));
-        const idToken = params.get('id_token');
-        
-        popup.close();
-        
-        if (idToken) {
+        if (event.data && event.data.source === 'google-oauth-popup') {
+          window.removeEventListener('message', handleMessage);
+          clearInterval(checkClosedInterval);
+          
+          const hash = event.data.hash;
+          const params = new URLSearchParams(hash.substring(1));
+          const idToken = params.get('id_token');
+          
           try {
-            const { error } = await supabase.auth.signInWithIdToken({
-              provider: 'google',
-              token: idToken,
-              nonce: nonce,
-            });
-            if (error) throw error;
-          } catch (err: any) {
-            showToast(err.message || 'Error al iniciar sesión con Google', 'error');
+            popup.close();
+          } catch (e) {
+            console.error('Error closing popup:', e);
+          }
+          
+          if (idToken) {
+            try {
+              const { error } = await supabase.auth.signInWithIdToken({
+                provider: 'google',
+                token: idToken,
+                nonce: rawNonce,
+              });
+              if (error) throw error;
+            } catch (err: any) {
+              showToast(err.message || 'Error al iniciar sesión con Google', 'error');
+              setLoading(false);
+            }
+          } else {
+            showToast('No se recibió el token de Google', 'error');
             setLoading(false);
           }
-        } else {
-          showToast('No se recibió el token de Google', 'error');
-          setLoading(false);
         }
-      }
-    };
+      };
 
-    window.addEventListener('message', handleMessage);
+      window.addEventListener('message', handleMessage);
 
-    const checkClosedInterval = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkClosedInterval);
-        window.removeEventListener('message', handleMessage);
-        setLoading(false);
-      }
-    }, 500);
+      const checkClosedInterval = setInterval(() => {
+        try {
+          if (popup.closed) {
+            clearInterval(checkClosedInterval);
+            window.removeEventListener('message', handleMessage);
+            setLoading(false);
+          }
+        } catch (e) {
+          // Ignore potential Cross-Origin-Opener-Policy errors when reading popup property
+        }
+      }, 500);
+
+    } catch (err: any) {
+      try {
+        popup.close();
+      } catch (e) {}
+      showToast('Error al inicializar sesión con Google', 'error');
+      setLoading(false);
+    }
   };
 
   return (
