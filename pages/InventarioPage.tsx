@@ -291,7 +291,7 @@ export default function InventarioPage() {
           ) : (
             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
               <div className={`h-1 w-full ${platformColor[platform] || 'bg-zinc-400'}`} />
-              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <div className="divide-y divide-zinc-200 dark:divide-zinc-700">
                 {filteredProducts.map(product => {
                   const isSingle = product.variants.length === 1;
                   const singleQty = isSingle ? (product.variants[0].inventory_quantity ?? 0) : null;
@@ -306,7 +306,7 @@ export default function InventarioPage() {
                     <div key={product.id} id={`product-row-${product.id}`}>
                       {/* Parent row */}
                       <div
-                        className={`flex items-center gap-3 px-4 py-3 transition-all duration-300 ${
+                        className={`flex items-center gap-3 px-4 py-2 transition-all duration-300 ${
                           !isSingle ? 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50' : ''
                         } ${
                           highlightedId === product.id
@@ -317,10 +317,10 @@ export default function InventarioPage() {
                       >
                         {/* Image */}
                         {product.image?.src ? (
-                          <img src={product.image.src} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0 bg-zinc-100" />
+                          <img src={product.image.src} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0 bg-zinc-100" />
                         ) : (
-                          <div className="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                            <Package className="w-4 h-4 text-zinc-400" />
+                          <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                            <Package className="w-3.5 h-3.5 text-zinc-400" />
                           </div>
                         )}
 
@@ -365,7 +365,7 @@ export default function InventarioPage() {
                             const isLow = qty > 0 && qty <= LOW_STOCK_THRESHOLD;
                             const variantOrderQty = variantOrdersMap[String(v.id)] || 0;
                             return (
-                              <div key={v.id} className={`flex items-center gap-3 pl-14 pr-4 py-2.5 ${isOut ? 'bg-red-50/40 dark:bg-red-950/10' : isLow ? 'bg-amber-50/40 dark:bg-amber-950/10' : ''}`}>
+                              <div key={v.id} className={`flex items-center gap-3 pl-14 pr-4 py-1.5 ${isOut ? 'bg-red-50/40 dark:bg-red-950/10' : isLow ? 'bg-amber-50/40 dark:bg-amber-950/10' : ''}`}>
                                 <div className="flex-grow flex items-center justify-between gap-2 min-w-0">
                                   <p className="text-[12px] text-zinc-700 dark:text-zinc-300 truncate">{v.title === 'Default Title' ? product.title : v.title}</p>
                                   {variantOrderQty > 0 && (
