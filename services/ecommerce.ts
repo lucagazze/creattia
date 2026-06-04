@@ -279,7 +279,7 @@ export const ecommerce = {
 
     const topProducts = Object.values(productStats)
       .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5);
+      .slice(0, 7);
 
     // Estimate sessions from orders (ShopifyQL not available on standard plans)
     const BASE_CONV_RATE = 2.56;

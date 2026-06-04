@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { Package, ShoppingBag, ArrowUpRight, AlertTriangle, Search, ChevronDown, TrendingUp } from 'lucide-react';
@@ -53,6 +53,7 @@ export default function InventarioPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'low' | 'out' | 'ok'>('all');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [highlightedId, setHighlightedId] = useState<number | null>(null);
 
   // Top products by orders (last 30 days) — always fresh, no cache
   const [topProducts, setTopProducts] = useState<{ title: string; quantity: number }[]>([]);
@@ -88,7 +89,7 @@ export default function InventarioPage() {
     ecommerce.getDashboardData(platform, shopifyDomain, shopifyToken, range.since, range.until)
       .then(data => {
         const top = (data?.topProducts || [])
-          .slice(0, 10)
+          .slice(0, 7)
           .map((p: any) => ({ title: p.title, quantity: p.quantity }));
         setTopProducts(top);
         // Build a quick lookup map: title (lowercase) -> order count
@@ -126,6 +127,31 @@ export default function InventarioPage() {
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
+
+  // Click on a top-product row: find the matching product, scroll to it, expand it and flash highlight
+  const jumpToProduct = useCallback((title: string) => {
+    const match = products.find(p => p.title.toLowerCase() === title.toLowerCase());
+    if (!match) return;
+
+    // Reset filters/search so the product is visible in the list
+    setFilter('all');
+    setSearch('');
+
+    // Expand multi-variant products so the user sees the stock breakdown
+    if (match.variants.length > 1) {
+      setExpanded(prev => { const next = new Set(prev); next.add(match.id); return next; });
+    }
+
+    // Scroll + highlight — give React one tick to re-render with cleared filters
+    setTimeout(() => {
+      const el = document.getElementById(`product-row-${match.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      setHighlightedId(match.id);
+      setTimeout(() => setHighlightedId(null), 1800);
+    }, 80);
+  }, [products]);
 
   const platformColor: Record<string, string> = { shopify: 'bg-emerald-500', wordpress: 'bg-blue-600', tiendanube: 'bg-cyan-500' };
   const btnColor: Record<string, string> = { shopify: 'bg-emerald-600 hover:bg-emerald-700', wordpress: 'bg-blue-600 hover:bg-blue-700', tiendanube: 'bg-cyan-600 hover:bg-cyan-700' };
@@ -184,7 +210,7 @@ export default function InventarioPage() {
               </div>
               {loadingOrders ? (
                 <div className="p-4 space-y-2">
-                  {[...Array(5)].map((_, i) => <div key={i} className="h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 animate-pulse" />)}
+                  {[...Array(7)].map((_, i) => <div key={i} className="h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 animate-pulse" />)}
                 </div>
               ) : (
                 <div className="divide-y divide-zinc-50 dark:divide-zinc-800/60">
@@ -192,18 +218,22 @@ export default function InventarioPage() {
                     const maxQty = topProducts[0]?.quantity || 1;
                     const width = Math.round((p.quantity / maxQty) * 100);
                     return (
-                      <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                      <button
+                        key={i}
+                        onClick={() => jumpToProduct(p.title)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/10 active:bg-emerald-100/60 dark:active:bg-emerald-900/20 transition-colors text-left group cursor-pointer"
+                      >
                         <span className="text-[11px] font-black text-zinc-400 w-5 shrink-0">{i + 1}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-[12px] font-semibold text-zinc-900 dark:text-white truncate">{p.title}</p>
+                            <p className="text-[12px] font-semibold text-zinc-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{p.title}</p>
                             <span className="text-[12px] font-black text-emerald-600 shrink-0">{p.quantity} ped.</span>
                           </div>
                           <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                             <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${width}%` }} />
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -271,10 +301,16 @@ export default function InventarioPage() {
                   const hasLow = variantQtys.some(q => q > 0 && q <= LOW_STOCK_THRESHOLD);
 
                   return (
-                    <div key={product.id}>
+                    <div key={product.id} id={`product-row-${product.id}`}>
                       {/* Parent row */}
                       <div
-                        className={`flex items-center gap-3 px-4 py-3 ${!isSingle ? 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50' : ''} ${hasOut ? 'bg-red-50/40 dark:bg-red-950/10' : hasLow ? 'bg-amber-50/40 dark:bg-amber-950/10' : ''}`}
+                        className={`flex items-center gap-3 px-4 py-3 transition-all duration-300 ${
+                          !isSingle ? 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50' : ''
+                        } ${
+                          highlightedId === product.id
+                            ? 'ring-2 ring-inset ring-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/15'
+                            : hasOut ? 'bg-red-50/40 dark:bg-red-950/10' : hasLow ? 'bg-amber-50/40 dark:bg-amber-950/10' : ''
+                        }`}
                         onClick={() => !isSingle && toggle(product.id)}
                       >
                         {/* Image */}
