@@ -14,7 +14,7 @@ import {
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 import EmailLoader from '../components/ui/EmailLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
-import { TopLoadingBar } from '../components/ui/TopLoadingBar';
+
 
 const BLUE = '#3b82f6';
 const GREEN = '#10b981';
@@ -517,7 +517,7 @@ export default function CaptacionPage() {
 
   return (
     <CenteredPageLoader isLoading={loading && !summary}>
-    <TopLoadingBar loading={isDateReloading} color={BLUE} namespace="captacion" />
+
     <div className="w-full space-y-8 print:space-y-6 print:p-0 pt-4 md:pt-6 print:max-w-none">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">

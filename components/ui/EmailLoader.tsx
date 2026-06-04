@@ -13,50 +13,82 @@ interface Props {
  */
 export default function EmailLoader({ loading, color = '#10b981', labels = ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'], children }: Props) {
   const [progress, setProgress] = useState(0);
-  const [visible, setVisible] = useState(true);
-  const intervalRef = useRef<any>(null);
+  const [visible, setVisible] = useState(loading);
+  const animationRef = useRef<number | null>(null);
+  const finishIntervalRef = useRef<any>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; clearInterval(intervalRef.current); };
+    return () => {
+      mountedRef.current = false;
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (finishIntervalRef.current) clearInterval(finishIntervalRef.current);
+    };
   }, []);
 
   useEffect(() => {
     if (loading) {
       setVisible(true);
       setProgress(0);
+
+      if (finishIntervalRef.current) {
+        clearInterval(finishIntervalRef.current);
+        finishIntervalRef.current = null;
+      }
+
+      const startTime = Date.now();
+      const tick = () => {
+        if (!mountedRef.current) return;
+        const elapsed = Date.now() - startTime;
+        if (elapsed <= 700) {
+          setProgress((elapsed / 700) * 75);
+        } else {
+          const slowElapsed = elapsed - 700;
+          const slowProgress = 75 + (1 - Math.exp(-slowElapsed / 8000)) * (98 - 75);
+          setProgress(slowProgress);
+        }
+        animationRef.current = requestAnimationFrame(tick);
+      };
+      animationRef.current = requestAnimationFrame(tick);
+
+      return () => {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+      };
     }
   }, [loading]);
 
-  // Fill to ~88% while loading
-  useEffect(() => {
-    if (!visible || !loading) return;
-    intervalRef.current = setInterval(() => {
-      if (!mountedRef.current) return;
-      setProgress(prev => {
-        const remaining = 88 - prev;
-        const step = Math.max(0.4, remaining * 0.07);
-        return prev >= 88 ? 88 : prev + step;
-      });
-    }, 80);
-    return () => clearInterval(intervalRef.current);
-  }, [visible, loading]);
-
-  // When loading finishes, rush to 100% then hide
   useEffect(() => {
     if (!loading && visible) {
-      clearInterval(intervalRef.current);
-      let p = progress;
-      const rush = setInterval(() => {
-        if (!mountedRef.current) { clearInterval(rush); return; }
-        p += 5;
-        setProgress(Math.min(p, 100));
-        if (p >= 100) {
-          clearInterval(rush);
-          setTimeout(() => { if (mountedRef.current) setVisible(false); }, 250);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+
+      let current = progress;
+      finishIntervalRef.current = setInterval(() => {
+        if (!mountedRef.current) return;
+        current += 5;
+        if (current >= 100) {
+          setProgress(100);
+          clearInterval(finishIntervalRef.current);
+          finishIntervalRef.current = null;
+          setTimeout(() => {
+            if (mountedRef.current) setVisible(false);
+          }, 250);
+        } else {
+          setProgress(current);
         }
       }, 16);
+
+      return () => {
+        if (finishIntervalRef.current) {
+          clearInterval(finishIntervalRef.current);
+        }
+      };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, visible]);

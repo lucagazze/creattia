@@ -17,7 +17,7 @@ import {
 import { supabase } from '../services/supabase';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
-import { TopLoadingBar } from '../components/ui/TopLoadingBar';
+
 import SmoothImage from '../components/ui/SmoothImage';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 
@@ -735,7 +735,7 @@ export default function InformesPage() {
 
   return (
     <CenteredPageLoader isLoading={loadingSocial && !igProfile && !fbProfile}>
-    <TopLoadingBar loading={isDateReloading} color="#8b5cf6" namespace="informes" />
+
     <div className="space-y-6 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300 print:bg-white print:p-0 print:space-y-4">
       
       {/* Header section */}

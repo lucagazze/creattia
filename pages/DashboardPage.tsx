@@ -64,7 +64,7 @@ import {
 } from "recharts";
 import EmailLoader from "../components/ui/EmailLoader";
 import { CenteredPageLoader } from "../components/ui/CenteredPageLoader";
-import { TopLoadingBar } from "../components/ui/TopLoadingBar";
+
 
 const BLUE = "#3b82f6";
 const GREEN = "#10b981";
@@ -1540,7 +1540,7 @@ export default function DashboardPage() {
 
   return (
     <CenteredPageLoader isLoading={loadingInitial}>
-    <TopLoadingBar loading={isDateReloading} color={BLUE} namespace="dashboard" />
+
     <div className="w-full space-y-6 sm:space-y-10 pt-4 md:pt-6">
       {/* Admin Client Picker */}
       {authProfile?.is_admin && allClients.length > 0 && (

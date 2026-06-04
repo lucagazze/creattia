@@ -3,7 +3,7 @@ import { metaAds, daysAgo, today, presetToRange, DatePreset } from '../services/
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
-import { TopLoadingBar } from '../components/ui/TopLoadingBar';
+
 import {
   Layers, Film, X, Download, Loader2, ImageIcon, RefreshCw, ChevronLeft, ChevronRight, Calendar, ChevronDown
 } from 'lucide-react';
@@ -433,7 +433,7 @@ export default function MetaAdsPage() {
 
   return (
     <CenteredPageLoader isLoading={loading || authLoading}>
-      <TopLoadingBar loading={isDateReloading} color="#3b82f6" namespace="metaads" />
+
       <div className="w-full animate-fade-in pb-20 pt-6 px-4 md:px-6 lg:px-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">

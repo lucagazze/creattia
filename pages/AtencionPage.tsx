@@ -11,7 +11,7 @@ import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMe
 import EmailLoader from '../components/ui/EmailLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
-import { TopLoadingBar } from '../components/ui/TopLoadingBar';
+
 
 const VIOLET = '#8b5cf6';
 
@@ -538,7 +538,7 @@ export default function AtencionPage() {
 
   return (
     <CenteredPageLoader isLoading={loading && !summaryData}>
-    <TopLoadingBar loading={isDateReloading} color={VIOLET} namespace="atencion" />
+
     <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">

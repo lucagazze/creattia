@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { DatePreset, presetToRange, getPrevPeriod, today, daysAgo } from '../services/metaAds';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
-import { TopLoadingBar } from '../components/ui/TopLoadingBar';
+
 import { klaviyo } from '../services/klaviyo';
 import {
   Calendar, ChevronDown, TrendingUp, Mail, Zap, Package, MousePointerClick, DollarSign, MailOpen, Download, Loader2
@@ -222,7 +222,7 @@ export default function RetencionPage() {
 
   return (
     <CenteredPageLoader isLoading={fetchingKlaviyo && !currentKlaviyo}>
-    <TopLoadingBar loading={isDateReloading} color={MAIN_COLOR} namespace="retencion" />
+
     <div className="w-full space-y-8 pt-4 md:pt-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 print:hidden">
