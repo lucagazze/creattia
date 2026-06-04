@@ -84,6 +84,7 @@ export default function ComentariosPage() {
   const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('pending');
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
   const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
+  const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
 
   const LANGS: { code: 'en' | 'es'; flag: string; label: string }[] = [
     { code: 'en', flag: '🇺🇸', label: 'English' },
@@ -487,7 +488,7 @@ export default function ComentariosPage() {
         // Unified deep fetch of 50 items + ads list
         const [igMediaRes50, fbMediaRes50, adsRes] = await Promise.all([
           igId
-            ? metaAds.getInstagramMedia(igId, 50).catch(err => { setIgError(err.message); return []; })
+            ? metaAds.getInstagramMedia(igId, 50, undefined, fbPageId || undefined).catch(err => { setIgError(err.message); return []; })
             : Promise.resolve([]),
           fbPageId
             ? metaAds.getFacebookPageFeed(fbPageId, 50).catch(err => { setFbError(err.message); return []; })
@@ -525,7 +526,7 @@ export default function ComentariosPage() {
           const topTargets = uniqueTargets.slice(0, 40);
           const commentsPromises = topTargets.map(async (target) => {
             try {
-              const res = await metaAds.getAdCreativeComments(target.storyId, target.platform);
+              const res = await metaAds.getAdCreativeComments(target.storyId, target.platform, fbPageId || undefined);
               return { storyId: target.storyId, platform: target.platform, comments: res.data || [] };
             } catch {
               return { storyId: target.storyId, platform: target.platform, comments: [] };
@@ -625,13 +626,13 @@ export default function ComentariosPage() {
       });
 
       if (post.isAd) {
-        const res = await metaAds.getAdCreativeComments(post.id, post.platform);
+        const res = await metaAds.getAdCreativeComments(post.id, post.platform, fbPageId || undefined);
         const fresh = (res.data || [])
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
         setComments(fresh);
       } else if (post.platform === 'instagram') {
-        const res = await metaAds.getInstagramMediaComments(post.id);
+        const res = await metaAds.getInstagramMediaComments(post.id, fbPageId || undefined);
         const fresh = (res.data || [])
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
@@ -683,12 +684,13 @@ export default function ComentariosPage() {
   };
 
   // Generate AI draft for one comment
-  const generateDraft = async (comment: any) => {
+  const generateDraft = async (comment: any, replyTarget?: any) => {
     if (!selectedPost || !clientId) return;
-    const text = comment.text || comment.message || '';
+    const target = replyTarget || comment;
+    const text = target.text || target.message || '';
     // _forceLang comes from clicking a specific flag in the dropdown
-    const lang: 'en' | 'es' = comment._forceLang || replyLangs[comment.id] || detectLang(text);
-    if (!replyLangs[comment.id] || comment._forceLang) setReplyLangs(prev => ({ ...prev, [comment.id]: lang }));
+    const lang: 'en' | 'es' = target._forceLang || replyLangs[comment.id] || detectLang(text);
+    if (!replyLangs[comment.id] || target._forceLang) setReplyLangs(prev => ({ ...prev, [comment.id]: lang }));
     setDraftLoading(prev => ({ ...prev, [comment.id]: true }));
     setReplyErrors(prev => ({ ...prev, [comment.id]: null }));
     try {
@@ -702,7 +704,7 @@ export default function ComentariosPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientId, itemText: text, username: comment.username,
+          clientId, itemText: text, username: target.username,
           postCaption, allComments,
           postMediaUrl: selectedPost.thumbnail || selectedPost.mediaUrl || undefined,
           postPlatform: selectedPost.platform || undefined,
@@ -711,7 +713,16 @@ export default function ComentariosPage() {
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      if (data.draft) setReplyTexts(prev => ({ ...prev, [comment.id]: data.draft }));
+      if (data.draft) {
+        let draftText = data.draft;
+        if (replyTarget) {
+          const prefix = `@${replyTarget.username} `;
+          if (!draftText.toLowerCase().startsWith(`@${replyTarget.username.toLowerCase()}`)) {
+            draftText = prefix + draftText;
+          }
+        }
+        setReplyTexts(prev => ({ ...prev, [comment.id]: draftText }));
+      }
     } catch {
       setReplyErrors(prev => ({ ...prev, [comment.id]: 'No se pudo generar el borrador.' }));
     } finally {
@@ -766,10 +777,12 @@ export default function ComentariosPage() {
 
     try {
       if (selectedPost.platform === 'instagram') {
-        await metaAds.replyToInstagramComment(comment.id, text);
+        await metaAds.replyToInstagramComment(comment.id, text, fbPageId || undefined);
       } else {
         await metaAds.replyToFacebookComment(comment.id, text);
       }
+
+      setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
 
       if (user?.id && clientId) {
         db.activity.log(user.id, clientId, 'reply_sent', {
@@ -819,11 +832,11 @@ export default function ComentariosPage() {
     const liked = !!likedIds[commentId];
     try {
       if (liked) {
-        await metaAds.unlikeComment(commentId, selectedPost.platform, igId);
+        await metaAds.unlikeComment(commentId, selectedPost.platform, igId, fbPageId || undefined);
         setLikedIds(prev => ({ ...prev, [commentId]: false }));
         setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: Math.max(0, (c.like_count || 0) - 1) } : c));
       } else {
-        await metaAds.likeComment(commentId, selectedPost.platform, igId);
+        await metaAds.likeComment(commentId, selectedPost.platform, igId, fbPageId || undefined);
         setLikedIds(prev => ({ ...prev, [commentId]: true }));
         setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c));
       }
@@ -1324,6 +1337,19 @@ export default function ComentariosPage() {
                                     <p className={`text-[12px] leading-relaxed ${rIsMe ? (r.isSending ? 'text-violet-400 dark:text-violet-600 italic' : 'text-violet-700 dark:text-violet-300 font-semibold') : 'text-zinc-600 dark:text-zinc-400 font-medium'}`}>
                                       {r.text || r.message}
                                     </p>
+                                    {!rIsMe && !r.isSending && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveReplyTargets(prev => ({ ...prev, [comment.id]: r }));
+                                          setOpenReplies(prev => ({ ...prev, [comment.id]: true }));
+                                          setReplyTexts(prev => ({ ...prev, [comment.id]: `@${r.username} ` }));
+                                        }}
+                                        className="text-[10px] font-black text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition-colors block mt-0.5"
+                                      >
+                                        Responder
+                                      </button>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -1333,7 +1359,17 @@ export default function ComentariosPage() {
                           {/* Action buttons */}
                           <div className="mt-3 ml-9 flex items-center gap-2">
                             <button
-                              onClick={() => setOpenReplies(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
+                              onClick={() => {
+                                const nextOpen = !replyOpen;
+                                setOpenReplies(prev => ({ ...prev, [comment.id]: nextOpen }));
+                                if (nextOpen) {
+                                  setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
+                                  setReplyTexts(prev => ({ ...prev, [comment.id]: '' }));
+                                } else {
+                                  setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
+                                  setReplyTexts(prev => ({ ...prev, [comment.id]: '' }));
+                                }
+                              }}
                               className="text-[11px] font-black text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition-colors"
                             >
                               {replyOpen ? 'Cancelar' : 'Responder'}
@@ -1342,13 +1378,29 @@ export default function ComentariosPage() {
 
                           {/* Reply box */}
                           {replyOpen && (
-                            <div className="mt-3 ml-9 space-y-2">
+                            <div className="mt-3 ml-9 space-y-2 animate-in fade-in duration-200">
                               {replyErrors[comment.id] && (
                                 <p className="text-[10px] text-red-500 font-bold">{replyErrors[comment.id]}</p>
                               )}
+                              {activeReplyTargets[comment.id] && (
+                                <div className="flex items-center justify-between bg-violet-50/50 dark:bg-violet-950/10 px-3 py-1.5 rounded-lg border border-violet-100/30 dark:border-violet-900/10 text-[11px] font-bold text-violet-700 dark:text-violet-400">
+                                  <span>Respondiendo a @{activeReplyTargets[comment.id].username}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
+                                      setReplyTexts(prev => ({ ...prev, [comment.id]: '' }));
+                                    }}
+                                    className="text-violet-400 hover:text-violet-600 dark:hover:text-violet-300"
+                                    title="Quitar respuesta dirigida"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
                               <form onSubmit={e => submitReply(e, comment)} className="space-y-2">
                                 <AutoResizeTextarea
-                                  placeholder={`Responder a @${comment.username}...`}
+                                  placeholder={activeReplyTargets[comment.id] ? `Responder a @${activeReplyTargets[comment.id].username}...` : `Responder a @${comment.username}...`}
                                   value={replyTexts[comment.id] || ''}
                                   onChange={e => setReplyTexts(prev => ({ ...prev, [comment.id]: e.target.value }))}
                                   disabled={submitting[comment.id] || draftLoading[comment.id]}
@@ -1358,7 +1410,7 @@ export default function ComentariosPage() {
                                   {/* IA button — main action */}
                                   <button
                                     type="button"
-                                    onClick={() => generateDraft(comment)}
+                                    onClick={() => generateDraft(comment, activeReplyTargets[comment.id])}
                                     disabled={submitting[comment.id] || draftLoading[comment.id]}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[12px] font-black shadow-sm shadow-violet-500/25 transition-all"
                                   >
@@ -1388,9 +1440,14 @@ export default function ComentariosPage() {
                                               key={l.code}
                                               type="button"
                                               onClick={() => {
+                                                const target = activeReplyTargets[comment.id];
                                                 setReplyLangs(prev => ({ ...prev, [comment.id]: l.code }));
                                                 setLangDropdownOpen(prev => ({ ...prev, [comment.id]: false }));
-                                                generateDraft({ ...comment, _forceLang: l.code });
+                                                if (target) {
+                                                  generateDraft(comment, { ...target, _forceLang: l.code });
+                                                } else {
+                                                  generateDraft({ ...comment, _forceLang: l.code });
+                                                }
                                               }}
                                               className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all ${cur === l.code ? 'font-bold text-violet-600 dark:text-violet-400' : 'text-zinc-700 dark:text-zinc-300'}`}
                                             >
@@ -1406,7 +1463,7 @@ export default function ComentariosPage() {
                                     disabled={submitting[comment.id] || draftLoading[comment.id] || !(replyTexts[comment.id] || '').trim()}
                                     className="flex items-center gap-1 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black shadow-sm transition-all"
                                   >
-                                    {submitting[comment.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                    {submitting[comment.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3 h-3" />}
                                     Enviar
                                   </button>
                                 </div>

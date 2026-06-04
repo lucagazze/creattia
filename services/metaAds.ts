@@ -56,7 +56,7 @@ export const INSTAGRAM_ACCOUNTS: Record<string, { igId: string; username: string
 // (columns: ig_business_id, ig_username, meta_account_id)
 // The old CLIENT_META_MAP has been migrated to the database.
 
-export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'last_30d' | 'last_90d' | 'last_6months' | 'this_month' | 'last_month' | 'this_year' | 'last_year';
+export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'last_30d' | 'last_90d' | 'last_6months' | 'this_month' | 'last_month' | 'this_year' | 'last_year' | 'max';
 export type TimeRange = { since: string; until: string };
 
 export const getArgentinaDateStr = (date: Date): string => {
@@ -133,6 +133,9 @@ export const presetToRange = (preset: DatePreset): TimeRange => {
     const m = month === 1 ? 12 : month - 1;
     const lastDay = new Date(y, m, 0).getDate();
     return { since: `${y}-${String(m).padStart(2, '0')}-01`, until: `${y}-${String(m).padStart(2, '0')}-${lastDay}` };
+  }
+  if (preset === 'max') {
+    return { since: '2020-01-01', until: t };
   }
   return { since: daysAgo(30), until: t };
 };
@@ -227,8 +230,64 @@ const apiGetPage = async (pageId: string, endpoint: string, params: Record<strin
   return json;
 };
 
+const apiPostPage = async (pageId: string, endpoint: string, params: Record<string, string> = {}, body?: any): Promise<any> => {
+  const token = await getPageAccessToken(pageId);
+  const url = new URL(`${BASE}/${endpoint}`);
+  url.searchParams.set('access_token', token);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const fetchOptions: RequestInit = {
+    method: 'POST',
+  };
+  if (body) {
+    fetchOptions.headers = { 'Content-Type': 'application/json' };
+    fetchOptions.body = JSON.stringify(body);
+  }
+  const res = await fetch(url.toString(), fetchOptions);
+  const json = await res.json();
+  if (json?.error) {
+    throw new Error(json.error.message || `Meta API error`);
+  }
+  return json;
+};
+
+const apiDeletePage = async (pageId: string, endpoint: string, params: Record<string, string> = {}): Promise<any> => {
+  const token = await getPageAccessToken(pageId);
+  const url = new URL(`${BASE}/${endpoint}`);
+  url.searchParams.set('access_token', token);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString(), {
+    method: 'DELETE',
+  });
+  const json = await res.json();
+  if (json?.error) {
+    throw new Error(json.error.message || `Meta API error`);
+  }
+  return json;
+};
+
+const getActivePageId = (): string => {
+  const active = localStorage.getItem('active_fb_page_id') || '';
+  if (active) return active;
+  // Fallback: search localStorage for fb_pat_{pageId}
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('fb_pat_')) {
+        const pageId = key.replace('fb_pat_', '');
+        if (pageId) {
+          try {
+            localStorage.setItem('active_fb_page_id', pageId);
+          } catch {}
+          return pageId;
+        }
+      }
+    }
+  } catch {}
+  return '';
+};
+
 const apiGetPageActive = async (endpoint: string, params: Record<string, string> = {}): Promise<any> => {
-  const activePageId = localStorage.getItem('active_fb_page_id') || '';
+  const activePageId = getActivePageId();
   const token = activePageId ? await getPageAccessToken(activePageId) : getToken();
   const url = new URL(`${BASE}/${endpoint}`);
   url.searchParams.set('access_token', token);
@@ -242,7 +301,7 @@ const apiGetPageActive = async (endpoint: string, params: Record<string, string>
 };
 
 const apiPostPageActive = async (endpoint: string, params: Record<string, string> = {}, body?: any): Promise<any> => {
-  const activePageId = localStorage.getItem('active_fb_page_id') || '';
+  const activePageId = getActivePageId();
   const token = activePageId ? await getPageAccessToken(activePageId) : getToken();
   const url = new URL(`${BASE}/${endpoint}`);
   url.searchParams.set('access_token', token);
@@ -263,7 +322,7 @@ const apiPostPageActive = async (endpoint: string, params: Record<string, string
 };
 
 const apiDeletePageActive = async (endpoint: string, params: Record<string, string> = {}): Promise<any> => {
-  const activePageId = localStorage.getItem('active_fb_page_id') || '';
+  const activePageId = getActivePageId();
   const token = activePageId ? await getPageAccessToken(activePageId) : getToken();
   const url = new URL(`${BASE}/${endpoint}`);
   url.searchParams.set('access_token', token);
@@ -535,18 +594,24 @@ export const metaAds = {
     return { data: pages };
   },
 
-  getInstagramProfile: (igId: string) =>
-    apiGetPageActive(igId, {
-      fields: 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,website',
-    }),
+  getInstagramProfile: (igId: string, fbPageId?: string) =>
+    fbPageId
+      ? apiGetPage(fbPageId, igId, {
+          fields: 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,website',
+        })
+      : apiGetPageActive(igId, {
+          fields: 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,website',
+        }),
 
-  getInstagramMedia: (igId: string, limit = 8, after?: string) => {
+  getInstagramMedia: (igId: string, limit = 8, after?: string, fbPageId?: string) => {
     const params: Record<string, string> = {
       fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,comments.limit(50){id,text,timestamp,username,like_count,replies{id,text,timestamp,username}}',
       limit: String(limit),
     };
     if (after) params.after = after;
-    return apiGetPageActive(`${igId}/media`, params);
+    return fbPageId
+      ? apiGetPage(fbPageId, `${igId}/media`, params)
+      : apiGetPageActive(`${igId}/media`, params);
   },
 
   getInstagramMediaPermalink: (mediaId: string, fbPageId?: string) =>
@@ -554,18 +619,26 @@ export const metaAds = {
       ? apiGetPage(fbPageId, mediaId, { fields: 'permalink,shortcode' })
       : apiGetPageActive(mediaId, { fields: 'permalink,shortcode' }),
 
-  getInstagramMediaComments: (mediaId: string) =>
-    apiGetPageActive(`${mediaId}/comments`, {
+  getInstagramMediaComments: (mediaId: string, fbPageId?: string) => {
+    const params = {
       fields: 'id,text,timestamp,username,like_count,replies.limit(100){id,text,timestamp,username,from}',
       limit: '100',
-    }),
-
-  replyToInstagramComment: async (commentId: string, message: string) => {
-    return apiPostPageActive(`${commentId}/replies`, { message });
+    };
+    return fbPageId
+      ? apiGetPage(fbPageId, `${mediaId}/comments`, params)
+      : apiGetPageActive(`${mediaId}/comments`, params);
   },
 
-  createInstagramMediaComment: async (mediaId: string, message: string) => {
-    return apiPostPageActive(`${mediaId}/comments`, { message });
+  replyToInstagramComment: async (commentId: string, message: string, fbPageId?: string) => {
+    return fbPageId
+      ? apiPostPage(fbPageId, `${commentId}/replies`, { message })
+      : apiPostPageActive(`${commentId}/replies`, { message });
+  },
+
+  createInstagramMediaComment: async (mediaId: string, message: string, fbPageId?: string) => {
+    return fbPageId
+      ? apiPostPage(fbPageId, `${mediaId}/comments`, { message })
+      : apiPostPageActive(`${mediaId}/comments`, { message });
   },
 
   // Recent account activity — changes made in the last N days (pauses, budget edits, new ads)
@@ -700,30 +773,42 @@ export const metaAds = {
   },
 
   // Helper to fetch comments of an Ad's creative
-  getAdCreativeComments: (storyId: string, platform: 'instagram' | 'facebook' = 'instagram') =>
-    apiGetPageActive(`${storyId}/comments`, {
+  getAdCreativeComments: (storyId: string, platform: 'instagram' | 'facebook' = 'instagram', pageId?: string) => {
+    const params = {
       fields: platform === 'instagram'
         ? 'id,text,message,timestamp,created_time,from{id,name},username,like_count,replies{id,text,message,from{id,name},username,timestamp,created_time}'
         : 'id,message,created_time,from{id,name},like_count,replies{id,message,from{id,name},created_time}',
       limit: '100',
-    }),
+    };
+    return pageId 
+      ? apiGetPage(pageId, `${storyId}/comments`, params)
+      : apiGetPageActive(`${storyId}/comments`, params);
+  },
 
   getFacebookUserName: (userId: string, pageId: string) =>
     apiGetPage(pageId, userId, { fields: 'name' }),
 
-  likeComment: async (commentId: string, platform: 'instagram' | 'facebook', igUserId?: string) => {
+  likeComment: async (commentId: string, platform: 'instagram' | 'facebook', igUserId?: string, fbPageId?: string) => {
     if (platform === 'instagram' && igUserId) {
-      return apiPostPageActive(`${igUserId}/likes`, { comment_id: commentId });
+      return fbPageId
+        ? apiPostPage(fbPageId, `${igUserId}/likes`, { comment_id: commentId })
+        : apiPostPageActive(`${igUserId}/likes`, { comment_id: commentId });
     } else {
-      return apiPostPageActive(`${commentId}/likes`);
+      return fbPageId
+        ? apiPostPage(fbPageId, `${commentId}/likes`)
+        : apiPostPageActive(`${commentId}/likes`);
     }
   },
 
-  unlikeComment: async (commentId: string, platform: 'instagram' | 'facebook', igUserId?: string) => {
+  unlikeComment: async (commentId: string, platform: 'instagram' | 'facebook', igUserId?: string, fbPageId?: string) => {
     if (platform === 'instagram' && igUserId) {
-      return apiDeletePageActive(`${igUserId}/likes`, { comment_id: commentId });
+      return fbPageId
+        ? apiDeletePage(fbPageId, `${igUserId}/likes`, { comment_id: commentId })
+        : apiDeletePageActive(`${igUserId}/likes`, { comment_id: commentId });
     } else {
-      return apiDeletePageActive(`${commentId}/likes`);
+      return fbPageId
+        ? apiDeletePage(fbPageId, `${commentId}/likes`)
+        : apiDeletePageActive(`${commentId}/likes`);
     }
   },
 
@@ -733,6 +818,8 @@ export const metaAds = {
       // Also persist to localStorage so it survives page reloads
       try {
         localStorage.setItem(`fb_pat_${pageId}`, token);
+        // Ensure this page is set as active
+        localStorage.setItem('active_fb_page_id', pageId);
       } catch (e) {
         console.warn("Storage full: could not save fb_pat to localStorage", e);
       }

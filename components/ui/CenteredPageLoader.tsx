@@ -55,7 +55,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
   });
 
   const [transitionStyle, setTransitionStyle] = useState('none');
-  const [msgIdx, setMsgIdx] = useState(0);
+  const [msgIdx, setMsgIdx] = useState(() => Math.floor(Math.random() * MESSAGES.length));
   const [msgVisible, setMsgVisible] = useState(true);
   const timeoutsRef = React.useRef<{ t1?: any; t2?: any; t3?: any }>({});
 
@@ -141,7 +141,13 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
     const cycle = () => {
       setMsgVisible(false);
       setTimeout(() => {
-        setMsgIdx((i: number) => (i + 1) % MESSAGES.length);
+        setMsgIdx((currentIdx: number) => {
+          let nextIdx;
+          do {
+            nextIdx = Math.floor(Math.random() * MESSAGES.length);
+          } while (nextIdx === currentIdx && MESSAGES.length > 1);
+          return nextIdx;
+        });
         setMsgVisible(true);
       }, 350);
     };

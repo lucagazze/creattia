@@ -1659,6 +1659,7 @@ export default function DashboardPage() {
                         last_month: "Mes pasado",
                         this_year: "Este año",
                         last_year: "Año pasado",
+                        max: "Máximo",
                       } as any
                     )[activePreset] || activePreset}
               </span>
@@ -1681,6 +1682,7 @@ export default function DashboardPage() {
                     { id: "last_month", label: "Mes pasado" },
                     { id: "this_year", label: "Este año" },
                     { id: "last_year", label: "Año pasado" },
+                    { id: "max", label: "Máximo" },
                   ].map((p) => (
                     <button
                       key={p.id}

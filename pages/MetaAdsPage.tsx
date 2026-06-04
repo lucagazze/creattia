@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { metaAds, daysAgo, today, presetToRange } from '../services/metaAds';
+import { metaAds, daysAgo, today, presetToRange, DatePreset } from '../services/metaAds';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
@@ -200,13 +200,13 @@ export default function MetaAdsPage() {
   const [resolvingIds, setResolvingIds] = useState<Record<string, boolean>>({});
 
   // Date picker state
-  const [activePreset, setActivePreset] = useState<string>('last_14d');
-  const [activeSince, setActiveSince] = useState(daysAgo(28));
-  const [activeUntil, setActiveUntil] = useState(today());
+  const [activePreset, setActivePreset] = useState<DatePreset | 'custom'>('yesterday');
+  const [activeSince, setActiveSince] = useState(presetToRange('yesterday').since);
+  const [activeUntil, setActiveUntil] = useState(presetToRange('yesterday').until);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [pendingPreset, setPendingPreset] = useState<string>('last_14d');
-  const [pendingSince, setPendingSince] = useState(daysAgo(28));
-  const [pendingUntil, setPendingUntil] = useState(today());
+  const [pendingPreset, setPendingPreset] = useState<DatePreset | 'custom'>('yesterday');
+  const [pendingSince, setPendingSince] = useState(presetToRange('yesterday').since);
+  const [pendingUntil, setPendingUntil] = useState(presetToRange('yesterday').until);
   const [hovering, setHovering] = useState<string | null>(null);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -232,41 +232,62 @@ export default function MetaAdsPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const PRESETS = [
-    { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_14d', label: 'Últimos 14 días' },
-    { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_30d', label: 'Últimos 30 días' },
-    { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' },
-    { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' },
+  const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
+    { id: 'today', label: 'Hoy' },
+    { id: 'yesterday', label: 'Ayer' },
+    { id: 'last_7d', label: 'Últimos 7 días' },
+    { id: 'last_14d', label: 'Últimos 14 días' },
+    { id: 'last_28d', label: 'Últimos 28 días' },
+    { id: 'last_30d', label: 'Últimos 30 días' },
+    { id: 'last_90d', label: 'Últimos 90 días' },
+    { id: 'this_month', label: 'Este mes' },
+    { id: 'last_month', label: 'Mes pasado' },
+    { id: 'this_year', label: 'Este año' },
+    { id: 'max', label: 'Máximo' },
   ];
-  const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const todayStr = today();
 
-  const MiniCalMeta = ({ year, month, since, until, hovering: hov, onDay, onHover, onPrev, onNext }: any) => {
+  const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
+    const touchStart = useRef<number>(0);
+    const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+    const handleTouchEnd = (e: React.TouchEvent) => {
+      const diff = touchStart.current - e.changedTouches[0].clientX;
+      if (diff > 40 && onNext) onNext();
+      if (diff < -40 && onPrev) onPrev();
+    };
+
     const days: any[] = [];
     const first = new Date(year, month, 1).getDay();
     const startOffset = first === 0 ? 6 : first - 1;
     for (let i = 0; i < startOffset; i++) days.push(null);
     const lastDay = new Date(year, month + 1, 0).getDate();
-    for (let i = 1; i <= lastDay; i++) {
-      const d = new Date(year, month, i);
-      days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
-    }
+    for (let i = 1; i <= lastDay; i++) days.push(new Date(year, month, i).toISOString().split('T')[0]);
+    const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const todayStr = today();
+
+    const prevDate = useRef(new Date(year, month, 1).getTime());
+    const current = new Date(year, month, 1).getTime();
+    let animClass = 'animate-in fade-in zoom-in-95 duration-200';
+    if (current > prevDate.current) animClass = 'animate-in fade-in slide-in-from-right-16 duration-300';
+    else if (current < prevDate.current) animClass = 'animate-in fade-in slide-in-from-left-16 duration-300';
+    useEffect(() => { prevDate.current = current; }, [current]);
+
     return (
-      <div className="w-[240px]">
+      <div className="w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="flex items-center mb-4 px-1">
-          <div className="w-8 flex justify-start">{onPrev && <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md"><ChevronLeft className="w-4 h-4 text-zinc-400" /></button>}</div>
+          <div className="w-8 flex justify-start">{onPrev && <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group"><ChevronDown className="w-4 h-4 rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" /></button>}</div>
           <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">{MONTHS_ES[month]} {year}</span>
-          <div className="w-8 flex justify-end">{onNext && <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md"><ChevronRight className="w-4 h-4 text-zinc-400" /></button>}</div>
+          <div className="w-8 flex justify-end">{onNext && <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group"><ChevronDown className="w-4 h-4 -rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" /></button>}</div>
         </div>
-        <div className="grid grid-cols-7 gap-y-1">
-          {['L','M','M','J','V','S','D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
+        <div key={`${year}-${month}`} className={`grid grid-cols-7 gap-y-1 ${animClass}`}>
+          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
           {days.map((d, i) => {
-            if (!d) return <div key={`e-${i}`} />;
-            const isFut = d > todayStr;
-            const isSel = d === since || d === until;
-            const isRange = since && until && d > since && d < until;
-            const isHov = since && !until && hov && ((d > since && d <= hov) || (d < since && d >= hov));
-            return <button key={d} onMouseEnter={() => !isFut && onHover(d)} onClick={() => !isFut && onDay(d)} disabled={isFut} className={`h-8 w-8 text-[11px] font-bold transition-all flex items-center justify-center rounded-full ${isSel ? 'bg-blue-600 text-white' : (isRange || isHov) ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600' : isFut ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>{d.split('-')[2]}</button>;
+            if (!d) return <div key={`empty-${i}`} />;
+            const isToday = d === todayStr; const isFuture = d > todayStr; const isSelected = d === since || d === until;
+            const isInRange = since && until && d > since && d < until;
+            const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
+            return (
+              <button key={d} onMouseEnter={() => !isFuture && onHover(d)} onClick={() => !isFuture && onDay(d)} disabled={isFuture} className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${isSelected ? 'bg-blue-600 text-white rounded-full z-10 shadow-md shadow-blue-200 dark:shadow-none' : (isInRange || isHovering) ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600' : isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'} ${isToday && !isSelected ? 'text-blue-600 dark:text-blue-500 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''}`}>{d.split('-')[2]}</button>
+            );
           })}
         </div>
       </div>
@@ -437,23 +458,95 @@ export default function MetaAdsPage() {
             <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
           </button>
           {showDatePicker && (
-            <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-2xl z-50 flex flex-col sm:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-150 max-w-[calc(100vw-2rem)] w-[min(430px,calc(100vw-2rem))]">
-              {/* Presets — horizontal scroll on mobile, vertical list on sm+ */}
-              <div className="sm:w-[140px] border-b sm:border-b-0 sm:border-r border-zinc-100 dark:border-zinc-800 p-2 flex flex-row sm:flex-col gap-0.5 overflow-x-auto sm:overflow-x-visible no-scrollbar">
+            <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[290px] sm:w-[320px] md:w-auto origin-top-right">
+              {/* Presets — horizontal scroll on mobile, vertical list on md+ */}
+              <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible no-scrollbar">
                 {PRESETS.map(p => (
-                  <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 sm:flex-shrink text-left px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                  <button
+                    key={p.id}
+                    onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id); setPendingSince(r.since); setPendingUntil(r.until); }}
+                    className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
+                  >
+                    {p.label}
+                  </button>
                 ))}
               </div>
-              <div className="p-4 flex flex-col gap-4">
-                <MiniCalMeta year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering}
-                  onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { setPendingUntil(iso < pendingSince ? (setPendingSince(iso), pendingSince) : iso); } }}
-                  onHover={setHovering}
-                  onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else setCalMonth(calMonth - 1); }}
-                  onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else setCalMonth(calMonth + 1); }}
-                />
-                <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                  <button onClick={() => setShowDatePicker(false)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Cancelar</button>
-                  <button onClick={handleApplyDate} className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition-colors">Aplicar</button>
+              <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+                  <MiniCal
+                    year={calYear}
+                    month={calMonth}
+                    since={pendingSince}
+                    until={pendingUntil}
+                    hovering={hovering}
+                    onDay={(iso: string) => {
+                      setPendingPreset('custom');
+                      if (!pendingSince || (pendingSince && pendingUntil)) {
+                        setPendingSince(iso);
+                        setPendingUntil('');
+                      } else {
+                        if (iso < pendingSince) {
+                          setPendingUntil(pendingSince);
+                          setPendingSince(iso);
+                        } else {
+                          setPendingUntil(iso);
+                        }
+                      }
+                    }}
+                    onHover={setHovering}
+                    onPrev={() => {
+                      if (calMonth === 0) {
+                        setCalYear(calYear - 1);
+                        setCalMonth(11);
+                      } else {
+                        setCalMonth(calMonth - 1);
+                      }
+                    }}
+                    onNext={() => {
+                      if (calMonth === 11) {
+                        setCalYear(calYear + 1);
+                        setCalMonth(0);
+                      } else {
+                        setCalMonth(calMonth + 1);
+                      }
+                    }}
+                  />
+                  <div className="hidden md:block">
+                    <MiniCal
+                      year={calMonth === 11 ? calYear + 1 : calYear}
+                      month={calMonth === 11 ? 0 : calMonth + 1}
+                      since={pendingSince}
+                      until={pendingUntil}
+                      hovering={hovering}
+                      onDay={(iso: string) => {
+                        setPendingPreset('custom');
+                        if (!pendingSince || (pendingSince && pendingUntil)) {
+                          setPendingSince(iso);
+                          setPendingUntil('');
+                        } else {
+                          if (iso < pendingSince) {
+                            setPendingUntil(pendingSince);
+                            setPendingSince(iso);
+                          } else {
+                            setPendingUntil(iso);
+                          }
+                        }
+                      }}
+                      onHover={setHovering}
+                      onNext={() => {
+                        if (calMonth === 11) {
+                          setCalYear(calYear + 1);
+                          setCalMonth(0);
+                        } else {
+                          setCalMonth(calMonth + 1);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="w-full flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                  <button onClick={() => setShowDatePicker(false)} className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Cancelar</button>
+                  <button onClick={handleApplyDate} className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-md shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-colors">Aplicar</button>
                 </div>
               </div>
             </div>

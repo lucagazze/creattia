@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { 
   Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X, 
-  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play
+  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play, Send
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -11,6 +11,18 @@ import EmailLoader from '../components/ui/EmailLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { db } from '../services/db';
 import SmoothImage from '../components/ui/SmoothImage';
+
+const LANGS: { code: 'en' | 'es'; flag: string; label: string }[] = [
+  { code: 'en', flag: '🇺🇸', label: 'English' },
+  { code: 'es', flag: '🇦🇷', label: 'Español' },
+];
+
+const detectLang = (text: string): 'en' | 'es' => {
+  const en = /\b(the|is|are|was|were|have|has|had|will|would|can|could|do|does|did|not|this|that|with|from|they|them|what|how|when|where|why|who|your|our|get|got|been|just|like|good|great|need|want|buy|order|price|ship|help|don't|I've|it's|you're|we're|haven't|didn't|won't|can't|i|my|me|we|us)\b/i.test(text);
+  const es = /\b(es|el|la|los|las|un|una|que|de|en|por|para|con|como|pero|más|tengo|quiero|puedo|tienes|precio|envío|gracias|hola|si|no|del|al|muy|bien|cuando|también|qué|cómo|todo|este|esto)\b/i.test(text);
+  if (en && !es) return 'en';
+  return 'es';
+};
 
 // Formatting utilities
 const fmtNumber = (v: any) => {
@@ -119,6 +131,9 @@ export default function RedesSocialesPage() {
   const [commentRepliesSubmitting, setCommentRepliesSubmitting] = useState<Record<string, boolean>>({});
   const [commentRepliesErrors, setCommentRepliesErrors] = useState<Record<string, string | null>>({});
   const [activeReplyCommentIds, setActiveReplyCommentIds] = useState<Record<string, boolean>>({});
+  const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
+  const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
+  const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
   const [bulkDraftsLoading, setBulkDraftsLoading] = useState(false);
 
   // Likes local state optimization
@@ -224,7 +239,7 @@ export default function RedesSocialesPage() {
       const [igResults, fbResults] = await Promise.all([
         Promise.all(igPosts.map(async (post) => {
           try {
-            const res = await metaAds.getInstagramMediaComments(post.id);
+            const res = await metaAds.getInstagramMediaComments(post.id, fbPageId || undefined);
             const cs = res?.data || [];
             newCache[post.id] = cs; // cache ALL comments for AI context
             return cs.filter(isCommentPending).map((c: any) => ({
@@ -273,7 +288,7 @@ export default function RedesSocialesPage() {
     setPendingRepliesSubmitting(prev => ({ ...prev, [item.comment.id]: true }));
     try {
       if (item.network === 'instagram') {
-        await metaAds.replyToInstagramComment(item.comment.id, text);
+        await metaAds.replyToInstagramComment(item.comment.id, text, fbPageId || undefined);
       } else {
         await metaAds.replyToFacebookComment(item.comment.id, text);
       }
@@ -354,7 +369,7 @@ export default function RedesSocialesPage() {
     
     try {
       if (selectedPostType === 'instagram') {
-        await metaAds.replyToInstagramComment(commentId, replyText);
+        await metaAds.replyToInstagramComment(commentId, replyText, fbPageId || undefined);
       } else {
         await metaAds.replyToFacebookComment(commentId, replyText);
       }
@@ -399,7 +414,11 @@ export default function RedesSocialesPage() {
   };
 
   // Single comment AI draft generator (inline)
-  const handleSingleCommentDraft = async (commentId: string, itemText: string, username: string) => {
+  const handleSingleCommentDraft = async (commentId: string, itemText: string, username: string, replyTarget?: any) => {
+    const target = replyTarget || { text: itemText, username };
+    const text = target.text || target.message || '';
+    const lang: 'en' | 'es' = target._forceLang || replyLangs[commentId] || detectLang(text);
+    if (!replyLangs[commentId] || target._forceLang) setReplyLangs(prev => ({ ...prev, [commentId]: lang }));
     setCommentRepliesLoadingDraft(prev => ({ ...prev, [commentId]: true }));
     setCommentRepliesErrors(prev => ({ ...prev, [commentId]: null }));
     try {
@@ -413,16 +432,24 @@ export default function RedesSocialesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
-          itemText,
-          username,
+          itemText: text,
+          username: target.username,
           postCaption: postCaptionContext,
           otherComments: otherCommentsList,
+          forceLang: lang,
         }),
       });
       if (!res.ok) throw new Error(`Draft reply error: ${res.status}`);
       const data = await res.json();
       if (data.draft) {
-        setCommentReplies(prev => ({ ...prev, [commentId]: data.draft }));
+        let draftText = data.draft;
+        if (replyTarget) {
+          const prefix = `@${replyTarget.username} `;
+          if (!draftText.toLowerCase().startsWith(`@${replyTarget.username.toLowerCase()}`)) {
+            draftText = prefix + draftText;
+          }
+        }
+        setCommentReplies(prev => ({ ...prev, [commentId]: draftText }));
       }
     } catch (err: any) {
       console.error(`Failed to generate draft for comment ${commentId}:`, err);
@@ -440,11 +467,11 @@ export default function RedesSocialesPage() {
     const isCurrentlyLiked = !!likedCommentIds[commentId];
     try {
       if (isCurrentlyLiked) {
-        await metaAds.unlikeComment(commentId, selectedPostType, igId);
+        await metaAds.unlikeComment(commentId, selectedPostType, igId, fbPageId || undefined);
         setLikedCommentIds(prev => ({ ...prev, [commentId]: false }));
         setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: Math.max(0, (c.like_count || 0) - 1) } : c));
       } else {
-        await metaAds.likeComment(commentId, selectedPostType, igId);
+        await metaAds.likeComment(commentId, selectedPostType, igId, fbPageId || undefined);
         setLikedCommentIds(prev => ({ ...prev, [commentId]: true }));
         setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c));
       }
@@ -569,6 +596,9 @@ export default function RedesSocialesPage() {
     setCommentRepliesSubmitting({});
     setCommentRepliesErrors({});
     setActiveReplyCommentIds({});
+    setReplyLangs({});
+    setLangDropdownOpen({});
+    setActiveReplyTargets({});
     setLikedCommentIds({});
     setLikingCommentIds({});
   };
@@ -670,9 +700,9 @@ export default function RedesSocialesPage() {
     try {
       if (selectedPostType === 'instagram') {
         if (prevReplyingTo) {
-          await metaAds.replyToInstagramComment(prevReplyingTo.id, text);
+          await metaAds.replyToInstagramComment(prevReplyingTo.id, text, fbPageId || undefined);
         } else {
-          await metaAds.createInstagramMediaComment(selectedPostId, text);
+          await metaAds.createInstagramMediaComment(selectedPostId, text, fbPageId || undefined);
         }
       } else {
         if (prevReplyingTo) {
@@ -787,8 +817,8 @@ export default function RedesSocialesPage() {
 
     if (igId) {
       Promise.all([
-        metaAds.getInstagramProfile(igId).catch(() => null),
-        metaAds.getInstagramMedia(igId, 8).catch(() => []),
+        metaAds.getInstagramProfile(igId, fbPageId || undefined).catch(() => null),
+        metaAds.getInstagramMedia(igId, 8, undefined, fbPageId || undefined).catch(() => []),
       ]).then(([profileRes, mediaRes]) => {
         if (!active) return;
         setIgProfile(profileRes);
@@ -883,7 +913,7 @@ export default function RedesSocialesPage() {
     if (!igId || !igNextCursor || loadingMoreIg) return;
     setLoadingMoreIg(true);
     try {
-      const res = await metaAds.getInstagramMedia(igId, 8, igNextCursor);
+      const res = await metaAds.getInstagramMedia(igId, 8, igNextCursor, fbPageId || undefined);
       const newPosts = res?.data || [];
       setIgMedia(prev => [...prev, ...newPosts]);
       setIgNextCursor(res?.paging?.cursors?.after || null);
@@ -1662,7 +1692,7 @@ export default function RedesSocialesPage() {
                 <div className="col-span-1 md:col-span-3 flex flex-col justify-between h-full overflow-hidden">
                   
                   {/* Comments List */}
-                  <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-zinc-50/10 dark:bg-zinc-950/5">
+                  <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/10 dark:bg-zinc-950/5">
                     {loadingComments ? (
                       <AppleLoader variant="table" count={3} />
                     ) : comments.length === 0 ? (
@@ -1672,7 +1702,7 @@ export default function RedesSocialesPage() {
                         <p className="text-[11.5px] text-zinc-450 mt-1">Nadie comentó en esta publicación aún.</p>
                       </div>
                     ) : (
-                      <div className="space-y-3.5">
+                      <div className="space-y-4">
                         {comments.some(isCommentPending) && (
                           <button
                             onClick={handleBulkDrafts}
@@ -1693,153 +1723,238 @@ export default function RedesSocialesPage() {
                           const commentText = comment.text || comment.message || '';
                           const commentDate = comment.timestamp || comment.created_time;
                           const dateStr = commentDate
-                            ? new Date(commentDate).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                            ? new Date(commentDate).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
                             : '';
                           const isLiked = !!likedCommentIds[comment.id];
                           const isLiking = !!likingCommentIds[comment.id];
                           const isPending = isCommentPending(comment);
-                          const showInlineForm = isPending || !!activeReplyCommentIds[comment.id];
+                          const replyOpen = !!activeReplyCommentIds[comment.id];
+                          const replies = comment.replies?.data || [];
 
                           return (
                             <div 
                               key={comment.id}
-                              className="flex gap-3 items-start text-[12.5px] py-3 border-b border-zinc-150/60 dark:border-zinc-800/50 last:border-b-0"
+                              className={`bg-white dark:bg-zinc-900 border rounded-2xl overflow-hidden transition-all ${
+                                isPending
+                                  ? 'border-amber-200 dark:border-amber-800/40 shadow-sm'
+                                  : 'border-zinc-200/60 dark:border-zinc-800/60'
+                              }`}
                             >
-                              {/* Avatar circle */}
-                              <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-850 flex items-center justify-center font-bold text-[10px] text-zinc-500 dark:text-zinc-400 flex-shrink-0">
-                                {commentUser ? commentUser.slice(0,2).toUpperCase() : 'U'}
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                {/* Username and text inline */}
-                                <div className="leading-snug break-words">
-                                  <span className="font-extrabold text-zinc-900 dark:text-white mr-1.5">@{commentUser}</span>
-                                  <span className="text-zinc-700 dark:text-zinc-100 font-medium">{commentText}</span>
-                                </div>
-
-                                {/* Meta row */}
-                                <div className="flex items-center gap-3.5 mt-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-bold">
-                                  <span>{dateStr}</span>
-                                  {isPending && (
-                                    <span className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wide">
-                                      Pendiente
-                                    </span>
-                                  )}
-                                  {comment.isSending && (
-                                    <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold flex items-center gap-1">
-                                      <Loader2 className="w-2.5 h-2.5 animate-spin" /> Enviando...
-                                    </span>
-                                  )}
-                                  <button
-                                    onClick={() => {
-                                      setActiveReplyCommentIds(prev => ({ ...prev, [comment.id]: !prev[comment.id] }));
-                                      setReplyingTo({ id: comment.id, username: commentUser });
-                                    }}
-                                    className="text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
-                                  >
-                                    Responder
-                                  </button>
-                                </div>
-
-                                {/* Inline Form */}
-                                {showInlineForm && (
-                                  <form onSubmit={(e) => handleSubmitPerComment(e, comment.id)} className="mt-3.5 space-y-2 pt-3 border-t border-zinc-100 dark:border-zinc-850/40">
-                                    <div className="flex gap-2">
-                                      <AutoResizeTextarea
-                                        placeholder={`Responder a @${commentUser}...`}
-                                        value={commentReplies[comment.id] || ''}
-                                        onChange={(e) => setCommentReplies(prev => ({ ...prev, [comment.id]: e.target.value }))}
-                                        className="flex-1 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-850 rounded-xl text-[12px] text-zinc-850 dark:text-zinc-200 placeholder:text-zinc-450 focus:outline-none focus:ring-1 focus:ring-violet-500 leading-normal"
-                                        disabled={commentRepliesSubmitting[comment.id] || commentRepliesLoadingDraft[comment.id]}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSingleCommentDraft(comment.id, commentText, commentUser)}
-                                        disabled={commentRepliesLoadingDraft[comment.id] || commentRepliesSubmitting[comment.id]}
-                                        className="px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/25 dark:hover:bg-violet-900/40 text-violet-650 dark:text-violet-400 rounded-xl text-[11px] font-bold border border-violet-100/50 dark:border-violet-900/25 flex items-center justify-center cursor-pointer"
-                                        title="Generar borrador con IA"
-                                      >
-                                        {commentRepliesLoadingDraft[comment.id] ? (
-                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                        ) : (
-                                          <Sparkles className="w-3.5 h-3.5" />
-                                        )}
-                                      </button>
-                                      <button
-                                        type="submit"
-                                        disabled={commentRepliesSubmitting[comment.id] || commentRepliesLoadingDraft[comment.id] || !commentReplies[comment.id]?.trim()}
-                                        className="px-3 py-1.5 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[11px] font-bold disabled:opacity-50 flex items-center justify-center cursor-pointer"
-                                      >
-                                        {commentRepliesSubmitting[comment.id] ? (
-                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                        ) : (
-                                          'Enviar'
-                                        )}
-                                      </button>
+                              <div className="p-4">
+                                {/* Comment header */}
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-850 flex items-center justify-center font-bold text-[10px] text-zinc-550 dark:text-zinc-400 flex-shrink-0">
+                                      {commentUser ? commentUser.slice(0, 2).toUpperCase() : 'U'}
                                     </div>
-                                    {commentRepliesErrors[comment.id] && (
-                                      <p className="text-[10px] text-red-500 font-semibold">{commentRepliesErrors[comment.id]}</p>
+                                    <div>
+                                      <span className="text-[12px] font-black text-zinc-900 dark:text-white">@{commentUser}</span>
+                                      <span className="text-[10px] text-zinc-400 ml-2">{dateStr}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    {isPending && (
+                                      <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 uppercase">
+                                        Pendiente
+                                      </span>
                                     )}
-                                  </form>
+                                    {!isPending && (
+                                      <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 uppercase">
+                                        Respondido
+                                      </span>
+                                    )}
+                                    <button
+                                      onClick={() => handleLikeComment(comment.id)}
+                                      disabled={isLiking}
+                                      className={`flex items-center gap-0.5 text-[11px] font-bold transition-colors ${
+                                        isLiked 
+                                          ? selectedPostType === 'instagram' 
+                                            ? 'text-red-500' 
+                                            : 'text-blue-600' 
+                                          : 'text-zinc-400 hover:text-red-500'
+                                      }`}
+                                    >
+                                      {selectedPostType === 'instagram' ? (
+                                        <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
+                                      ) : (
+                                        <ThumbsUp className={`w-3.5 h-3.5 ${isLiked ? 'fill-blue-600 text-blue-600' : ''}`} />
+                                      )}
+                                      {comment.like_count || 0}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Comment text / sticker / gift */}
+                                {comment.attachment?.media?.image?.src ? (
+                                  <div className="ml-9 mt-1">
+                                    <img
+                                      src={comment.attachment.media.image.src}
+                                      alt={comment.attachment.type || 'sticker'}
+                                      className="max-w-[100px] max-h-[100px] rounded-lg object-contain"
+                                    />
+                                    {commentText && (
+                                      <p className="text-[13px] text-zinc-800 dark:text-zinc-100 leading-relaxed font-medium mt-1">{commentText}</p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-[13px] text-zinc-800 dark:text-zinc-100 leading-relaxed font-medium ml-9">
+                                    {commentText}
+                                  </p>
                                 )}
 
-                                {/* Nested Replies */}
-                                {comment.replies?.data && comment.replies.data.length > 0 && (
-                                  <div className="pl-4 mt-3.5 space-y-3 border-l border-zinc-150 dark:border-zinc-800">
-                                    {comment.replies.data.map((reply: any) => {
-                                      const rDateStr = reply.timestamp || reply.created_time
-                                        ? new Date(reply.timestamp || reply.created_time).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                                        : '';
-                                      const replyUser = reply.username || reply.from?.name || 'Página';
-                                      const isPage = (replyUser && igUsername && replyUser.toLowerCase() === igUsername.toLowerCase()) || reply.from?.id === fbPageId;
+                                {/* Existing replies */}
+                                {replies.length > 0 && (
+                                  <div className="ml-9 mt-3 space-y-2 pl-3 border-l-2 border-zinc-100 dark:border-zinc-800">
+                                    {replies.map((r: any) => {
+                                      const rIsMe = (r.username && igUsername && r.username.toLowerCase() === igUsername.toLowerCase()) || 
+                                                    r.from?.id === fbPageId;
                                       return (
-                                        <div key={reply.id} className="flex gap-2.5 items-start text-[11.5px]">
-                                          <div className="w-5.5 h-5.5 rounded-full bg-zinc-105 dark:bg-zinc-850 flex items-center justify-center font-bold text-[9px] text-zinc-500 dark:text-zinc-400 flex-shrink-0">
-                                            {replyUser.slice(0,2).toUpperCase()}
+                                        <div key={r.id} className="space-y-0.5">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className={`text-[10px] font-black ${rIsMe ? 'text-violet-600 dark:text-violet-400' : 'text-zinc-500'}`}>
+                                              @{r.username || r.from?.username || r.from?.name || 'Yo'}
+                                            </span>
+                                            {r.isSending && (
+                                              <span className="text-[9px] text-zinc-400 dark:text-zinc-505 font-bold flex items-center gap-1">
+                                                <Loader2 className="w-2.5 h-2.5 animate-spin" /> Enviando...
+                                              </span>
+                                            )}
                                           </div>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="leading-snug break-words">
-                                              <span className="font-extrabold text-zinc-800 dark:text-white mr-1.5">@{replyUser}</span>
-                                              <span className="text-zinc-600 dark:text-zinc-200 font-medium">{reply.text || reply.message}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                              <div className="text-[9px] text-zinc-400 font-bold">{rDateStr}</div>
-                                              {reply.isSending && (
-                                                <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-bold flex items-center gap-1">
-                                                  <Loader2 className="w-2.5 h-2.5 animate-spin" /> Enviando...
-                                                </span>
-                                              )}
-                                            </div>
-                                          </div>
+                                          <p className={`text-[12px] leading-relaxed ${rIsMe ? (r.isSending ? 'text-violet-400 dark:text-violet-600 italic' : 'text-violet-700 dark:text-violet-300 font-semibold') : 'text-zinc-600 dark:text-zinc-400 font-medium'}`}>
+                                            {r.text || r.message}
+                                          </p>
+                                          {!rIsMe && !r.isSending && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setActiveReplyTargets(prev => ({ ...prev, [comment.id]: r }));
+                                                setActiveReplyCommentIds(prev => ({ ...prev, [comment.id]: true }));
+                                                setCommentReplies(prev => ({ ...prev, [comment.id]: `@${r.username} ` }));
+                                              }}
+                                              className="text-[10px] font-black text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition-colors block mt-0.5"
+                                            >
+                                              Responder
+                                            </button>
+                                          )}
                                         </div>
                                       );
                                     })}
                                   </div>
                                 )}
-                              </div>
 
-                              {/* Like Heart/ThumbsUp floating on the right side of the comment! */}
-                              <div className="flex flex-col items-center gap-0.5 flex-shrink-0 pr-1 select-none">
-                                <button
-                                  onClick={() => handleLikeComment(comment.id)}
-                                  disabled={isLiking}
-                                  className={`p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-850/60 transition-colors disabled:opacity-50 cursor-pointer ${
-                                    isLiked 
-                                      ? selectedPostType === 'instagram' 
-                                        ? 'text-red-500' 
-                                        : 'text-blue-600' 
-                                      : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-350'
-                                  }`}
-                                  title={isLiked ? "Quitar me gusta" : "Dar me gusta"}
-                                >
-                                  {selectedPostType === 'instagram' ? (
-                                    <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current text-red-500' : ''}`} />
-                                  ) : (
-                                    <ThumbsUp className={`w-3.5 h-3.5 ${isLiked ? 'fill-current text-blue-600' : ''}`} />
-                                  )}
-                                </button>
-                                {comment.like_count > 0 && (
-                                  <span className="text-[10px] text-zinc-400 font-bold leading-none">{comment.like_count}</span>
+                                {/* Action buttons */}
+                                <div className="mt-3 ml-9 flex items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      const nextOpen = !replyOpen;
+                                      setActiveReplyCommentIds(prev => ({ ...prev, [comment.id]: nextOpen }));
+                                      if (nextOpen) {
+                                        setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
+                                        setCommentReplies(prev => ({ ...prev, [comment.id]: '' }));
+                                      } else {
+                                        setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
+                                        setCommentReplies(prev => ({ ...prev, [comment.id]: '' }));
+                                      }
+                                    }}
+                                    className="text-[11px] font-black text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition-colors"
+                                  >
+                                    {replyOpen ? 'Cancelar' : 'Responder'}
+                                  </button>
+                                </div>
+
+                                {/* Reply box */}
+                                {replyOpen && (
+                                  <div className="mt-3 ml-9 space-y-2 animate-in fade-in duration-200">
+                                    {commentRepliesErrors[comment.id] && (
+                                      <p className="text-[10px] text-red-500 font-bold">{commentRepliesErrors[comment.id]}</p>
+                                    )}
+                                    {activeReplyTargets[comment.id] && (
+                                      <div className="flex items-center justify-between bg-violet-50/50 dark:bg-violet-950/10 px-3 py-1.5 rounded-lg border border-violet-100/30 dark:border-violet-900/10 text-[11px] font-bold text-violet-700 dark:text-violet-400">
+                                        <span>Respondiendo a @{activeReplyTargets[comment.id].username}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
+                                            setCommentReplies(prev => ({ ...prev, [comment.id]: '' }));
+                                          }}
+                                          className="text-violet-400 hover:text-violet-600 dark:hover:text-violet-300"
+                                          title="Quitar respuesta dirigida"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
+                                    <form onSubmit={e => handleSubmitPerComment(e, comment.id)} className="space-y-2">
+                                      <AutoResizeTextarea
+                                        placeholder={activeReplyTargets[comment.id] ? `Responder a @${activeReplyTargets[comment.id].username}...` : `Responder a @${commentUser}...`}
+                                        value={commentReplies[comment.id] || ''}
+                                        onChange={e => setCommentReplies(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                                        disabled={commentRepliesSubmitting[comment.id] || commentRepliesLoadingDraft[comment.id]}
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2.5 text-[12.5px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-450 focus:border-violet-500 outline-none transition-all min-h-[50px] font-medium shadow-inner"
+                                      />
+                                      <div className="flex items-center gap-2">
+                                        {/* IA button — main action */}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSingleCommentDraft(comment.id, commentText, commentUser, activeReplyTargets[comment.id])}
+                                          disabled={commentRepliesSubmitting[comment.id] || commentRepliesLoadingDraft[comment.id]}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[12px] font-black shadow-sm shadow-violet-500/25 transition-all"
+                                        >
+                                          {commentRepliesLoadingDraft[comment.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                          IA
+                                        </button>
+                                        {/* Language selector — secondary */}
+                                        <div className="relative">
+                                          <button
+                                            type="button"
+                                            onClick={() => setLangDropdownOpen(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
+                                            className="flex items-center gap-0.5 px-2 py-1.5 text-[11px] bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 rounded-lg transition-all"
+                                            title="Cambiar idioma"
+                                          >
+                                            {(() => {
+                                              const cur = replyLangs[comment.id] || detectLang(commentText);
+                                              return LANGS.find(l => l.code === cur)?.flag ?? '🇦🇷';
+                                            })()}
+                                            <svg className="w-2.5 h-2.5 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                          </button>
+                                          {langDropdownOpen[comment.id] && (
+                                            <div className="absolute bottom-full left-0 mb-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[110px]">
+                                              {LANGS.map(l => {
+                                                const cur = replyLangs[comment.id] || detectLang(commentText);
+                                                return (
+                                                  <button
+                                                    key={l.code}
+                                                    type="button"
+                                                    onClick={() => {
+                                                      const target = activeReplyTargets[comment.id];
+                                                      setReplyLangs(prev => ({ ...prev, [comment.id]: l.code }));
+                                                      setLangDropdownOpen(prev => ({ ...prev, [comment.id]: false }));
+                                                      if (target) {
+                                                        handleSingleCommentDraft(comment.id, commentText, commentUser, { ...target, _forceLang: l.code });
+                                                      } else {
+                                                        handleSingleCommentDraft(comment.id, commentText, commentUser, { text: commentText, username: commentUser, _forceLang: l.code });
+                                                      }
+                                                    }}
+                                                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-all ${cur === l.code ? 'font-bold text-violet-600 dark:text-violet-400' : 'text-zinc-700 dark:text-zinc-300'}`}
+                                                  >
+                                                    {l.flag} {l.label}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <button
+                                          type="submit"
+                                          disabled={commentRepliesSubmitting[comment.id] || commentRepliesLoadingDraft[comment.id] || !(commentReplies[comment.id] || '').trim()}
+                                          className="flex items-center gap-1 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black shadow-sm transition-all"
+                                        >
+                                          {commentRepliesSubmitting[comment.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3 h-3" />}
+                                          Enviar
+                                        </button>
+                                      </div>
+                                    </form>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1850,58 +1965,13 @@ export default function RedesSocialesPage() {
                   </div>
 
                   {/* Bottom Actions & Input */}
-                  <div className="p-4 border-t border-zinc-150/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 space-y-3 flex-shrink-0">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      {replyingTo ? (
-                        <div className="flex items-center gap-2 text-[12px] text-zinc-500">
-                          <span>Respondiendo a <strong>@{replyingTo.username}</strong></span>
-                          <button 
-                            onClick={() => setReplyingTo(null)}
-                            className="text-red-500 hover:underline font-bold ml-1.5"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-[11.5px] text-zinc-400 font-bold">
-                          Elegí un comentario para responder directamente.
-                        </div>
-                      )}
-
-                      {replyingTo && (
-                        <button
-                          type="button"
-                          onClick={generateSocialCommentDraft}
-                          disabled={submittingReply || loadingDraft}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/25 dark:hover:bg-violet-900/40 text-violet-650 dark:text-violet-400 rounded-xl text-[11px] font-black border border-violet-100/50 dark:border-violet-900/25 transition-all shadow-sm cursor-pointer"
-                        >
-                          {loadingDraft ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-3.5 h-3.5" />
-                          )}
-                          Borrador con IA (Algor)
-                        </button>
-                      )}
-                    </div>
-
+                  <div className="p-4 border-t border-zinc-150/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 flex-shrink-0">
                     {submitError && (
-                      <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 text-[12px] text-amber-700 dark:text-amber-400 leading-relaxed font-semibold">
+                      <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 text-[12px] text-amber-700 dark:text-amber-400 leading-relaxed font-semibold mb-3">
                         <div className="flex items-start gap-1.5">
                           <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5 animate-bounce" />
                           <span>{submitError}</span>
                         </div>
-                        {selectedPostPermalink && (
-                          <a
-                            href={selectedPostPermalink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-3 w-full h-9 bg-amber-600 hover:bg-amber-700 text-white text-[11.5px] font-black rounded-xl transition-all flex items-center justify-center gap-1 shadow-sm shadow-amber-600/10 hover:scale-[1.01]"
-                          >
-                            <ArrowUpRight className="w-4 h-4" />
-                            Responder en la Plataforma
-                          </a>
-                        )}
                       </div>
                     )}
 
@@ -1909,7 +1979,7 @@ export default function RedesSocialesPage() {
                       <AutoResizeTextarea 
                         value={commentInput}
                         onChange={(e) => setCommentInput(e.target.value)}
-                        placeholder={replyingTo ? `Escribí tu respuesta...` : `Escribí tu comentario...`}
+                        placeholder="Escribí un nuevo comentario en el post..."
                         disabled={submittingReply}
                         className="flex-1 bg-white dark:bg-zinc-950 border border-zinc-250 dark:border-zinc-800 rounded-xl px-3.5 py-2 text-[13px] text-zinc-850 dark:text-zinc-100 placeholder:text-zinc-450 outline-none focus:border-violet-500 dark:focus:border-violet-500 transition-colors shadow-inner font-medium leading-normal"
                       />
@@ -1921,7 +1991,7 @@ export default function RedesSocialesPage() {
                         {submittingReply ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          'Enviar'
+                          'Comentar'
                         )}
                       </button>
                     </form>

@@ -132,7 +132,8 @@ export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { darkMode, toggleDarkMode } = useTheme();
   const { profile, signOut, user } = useAuth();
-  const { isViewingAs } = useViewAs();
+  const { isViewingAs, viewAsProfile } = useViewAs();
+  const activeProfile = isViewingAs ? viewAsProfile : profile;
   const { unreadCount } = useUnread();
   const location = useLocation();
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -168,33 +169,40 @@ export const MainLayout = () => {
 
   // Load client-specific token into metaAds cache
   useEffect(() => {
-    const clientToken = (profile as any)?.fb_page_access_token;
-    const clientPageId = (profile as any)?.fb_page_id;
+    const clientToken = (activeProfile as any)?.fb_page_access_token;
+    const clientPageId = (activeProfile as any)?.fb_page_id;
     if (clientPageId && clientToken) {
       metaAds.setClientPageToken(clientPageId, clientToken);
     }
+    if (clientPageId) {
+      try {
+        localStorage.setItem('active_fb_page_id', clientPageId);
+      } catch (e) {
+        console.warn("Storage full: could not save active_fb_page_id", e);
+      }
+    }
 
     // Auto-recuperación (self-healing): if client has token in localStorage but it's null in DB
-    if (clientPageId && !clientToken && profile?.id) {
+    if (clientPageId && !clientToken && activeProfile?.id) {
       const savedToken = localStorage.getItem(`fb_pat_${clientPageId}`);
       if (savedToken) {
-        const currentStatuses = (profile as any).connection_statuses || {};
+        const currentStatuses = (activeProfile as any).connection_statuses || {};
         const updateData: Record<string, any> = {
           fb_page_access_token: savedToken
         };
 
-        if (currentStatuses.facebook !== 'ok' || ((profile as any).ig_business_id && currentStatuses.instagram !== 'ok')) {
+        if (currentStatuses.facebook !== 'ok' || ((activeProfile as any).ig_business_id && currentStatuses.instagram !== 'ok')) {
           updateData.connection_statuses = {
             ...currentStatuses,
             facebook: 'ok',
-            ...((profile as any).ig_business_id ? { instagram: 'ok' } : {})
+            ...((activeProfile as any).ig_business_id ? { instagram: 'ok' } : {})
           };
         }
 
         supabase
           .from('car_clients')
           .update(updateData)
-          .eq('id', profile.id)
+          .eq('id', activeProfile.id)
           .then(({ error }) => {
             if (!error) {
               console.log('Successfully self-healed Facebook token and statuses in DB from localStorage.');
@@ -203,7 +211,7 @@ export const MainLayout = () => {
           });
       }
     }
-  }, [profile]);
+  }, [activeProfile]);
 
   const handleSaveBusinessName = async (e: React.FormEvent) => {
     e.preventDefault();

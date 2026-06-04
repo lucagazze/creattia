@@ -377,7 +377,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       let igPosts: any[] = [];
       if (igId) {
         try {
-          const res = await metaAds.getInstagramMedia(igId, 50);
+          const res = await metaAds.getInstagramMedia(igId, 50, undefined, fbPageId);
           igPosts = res?.data || res || [];
         } catch (e) {
           console.error('Error fetching IG media for unread count:', e);
@@ -463,7 +463,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const targetsToFetch = uniqueTargets.slice(0, 40);
             const commentsPromises = targetsToFetch.map(async (target) => {
               try {
-                const res = await metaAds.getAdCreativeComments(target.storyId, target.platform);
+                const res = await metaAds.getAdCreativeComments(target.storyId, target.platform, fbPageId);
                 return { target, comments: res.data || [] };
               } catch {
                 return { target, comments: [] };

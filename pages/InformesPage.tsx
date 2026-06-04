@@ -188,6 +188,7 @@ const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
   { id: 'last_90d', label: 'Últimos 90 días' },
   { id: 'this_month', label: 'Este mes' },
   { id: 'last_month', label: 'Mes anterior' },
+  { id: 'max', label: 'Máximo' },
 ];
 
 const IG_METRICS_CONFIG = [
@@ -346,7 +347,7 @@ export default function InformesPage() {
       try {
         // 1. Fetch current profile data
         const [igRes, fbRes] = await Promise.all([
-          igId ? metaAds.getInstagramProfile(igId).catch(() => null) : null,
+          igId ? metaAds.getInstagramProfile(igId, fbPageId || undefined).catch(() => null) : null,
           fbPageId ? metaAds.getFacebookPageInfo(fbPageId).catch(() => null) : null,
         ]);
         if (igRes) setIgProfile(igRes);
@@ -380,7 +381,7 @@ export default function InformesPage() {
 
         // 3. Fetch Meta Feed for post-level analysis (up to 50 posts)
         const [igMediaRes, fbFeedRes] = await Promise.all([
-          igId ? metaAds.getInstagramMedia(igId, 50).catch(() => []) : [],
+          igId ? metaAds.getInstagramMedia(igId, 50, undefined, fbPageId || undefined).catch(() => []) : [],
           fbPageId ? metaAds.getFacebookPageFeed(fbPageId, 50).catch((err: any) => { setFbError(err.message || String(err)); return []; }) : [],
         ]);
 
