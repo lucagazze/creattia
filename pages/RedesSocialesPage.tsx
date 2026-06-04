@@ -740,6 +740,40 @@ export default function RedesSocialesPage() {
     setFbLoading(true);
   }, [refreshKey]);
 
+  // Reset all states when client changes
+  useEffect(() => {
+    setIgProfile(null);
+    setIgMedia([]);
+    setIgNextCursor(null);
+    setIgLoading(true);
+    setError(null);
+    
+    setFbProfile(null);
+    setFbMedia([]);
+    setFbNextCursor(null);
+    setFbLoading(false);
+    setFbError(null);
+
+    setPlayingVideoId(null);
+    setSelectedPostId(null);
+    setSelectedPostPermalink(null);
+    setComments([]);
+    setReplyingTo(null);
+    setCommentInput('');
+    setSubmitError(null);
+    setCommentReplies({});
+    setCommentRepliesLoadingDraft({});
+    setCommentRepliesSubmitting({});
+    setCommentRepliesErrors({});
+    setActiveReplyCommentIds({});
+    setLikedCommentIds({});
+    setLikingCommentIds({});
+
+    setShowPendingPanel(false);
+    setPendingItems([]);
+    setPendingLoaded(false);
+  }, [clientId]);
+
   // Load Instagram independently (SWR)
   useEffect(() => {
     if (!clientId) return;

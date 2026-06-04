@@ -317,6 +317,15 @@ export default function ComentariosPage() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
+  // Clear states when client changes to prevent stale leakage
+  useEffect(() => {
+    setPosts([]);
+    setSelectedPost(null);
+    setLoading(true);
+    setFbError(null);
+    setIgError(null);
+  }, [clientId]);
+
   // Load from cache initially
   useEffect(() => {
     if (!clientId) return;

@@ -1765,13 +1765,92 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
           </div>
         )}
       </div>
-
-      {/* Editing Modal */}
+                  {/* Editing Modal */}
       {editingClient && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-4xl h-[85vh] flex overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 flex-col md:flex-row animate-in fade-in zoom-in-95 duration-200">
-            {/* Sidebar navigation */}
-            <div className="w-full md:w-64 bg-zinc-50 dark:bg-zinc-950 border-r border-zinc-150 dark:border-zinc-800 p-5 flex flex-col justify-between flex-shrink-0">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center md:p-4 p-0">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-4xl h-full md:h-[85vh] rounded-none md:rounded-2xl flex overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 flex-col md:flex-row animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Mobile Top Navigation & Header */}
+            <div className="flex md:hidden flex-col bg-zinc-50 dark:bg-zinc-950 border-b border-zinc-150 dark:border-zinc-800 flex-shrink-0">
+              {/* Header: Logo, Client Name, Close button, View As */}
+              <div className="flex items-center justify-between p-4 pb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white text-[13px] font-bold shadow-md flex-shrink-0">
+                    {editingClient.business_name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-zinc-900 dark:text-white truncate text-[13px] leading-tight">
+                      {editingClient.business_name}
+                    </h4>
+                    <p className="text-[9px] text-zinc-400">
+                      ID: {editingClient.id.slice(0, 8)}...
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* View As Button Mobile */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setViewAsProfile(
+                        viewAsProfile?.id === editingClient.id
+                          ? null
+                          : { ...editingClient, is_admin: false } as any,
+                      );
+                      closeEdit();
+                      if (viewAsProfile?.id !== editingClient.id) navigate("/");
+                    }}
+                    className={`py-1.5 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all border ${
+                      viewAsProfile?.id === editingClient.id
+                        ? "bg-violet-600 text-white border-violet-600"
+                        : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800"
+                    }`}
+                  >
+                    <MonitorPlay className="w-3.5 h-3.5" />
+                    {viewAsProfile?.id === editingClient.id ? "Detener" : "Ver como"}
+                  </button>
+                  {/* Close button */}
+                  <button
+                    type="button"
+                    onClick={() => closeEdit()}
+                    className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 bg-white dark:bg-zinc-900"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Tab Selector Mobile: Horizontal Scrollable Row */}
+              <div className="flex border-t border-zinc-150 dark:border-zinc-800/80 px-2 overflow-x-auto scrollbar-none">
+                {[
+                  { id: "general", label: "General", icon: UserPlus },
+                  { id: "integrations", label: "Conexiones", icon: Globe },
+                  { id: "users", label: "Accesos", icon: Users },
+                  { id: "links", label: "Accesos Directos", icon: Copy },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`py-2.5 px-3.5 text-[11px] font-bold flex items-center gap-1.5 transition-all border-b-2 whitespace-nowrap ${
+                        isActive
+                          ? "border-violet-500 text-violet-600 dark:text-violet-400"
+                          : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <Icon className={`w-3.5 h-3.5 ${isActive ? "text-violet-500" : "text-zinc-400"}`} />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sidebar navigation (desktop only) */}
+            <div className="hidden md:flex w-64 bg-zinc-50 dark:bg-zinc-955 border-r border-zinc-150 dark:border-zinc-800 p-5 flex-col justify-between flex-shrink-0">
               <div className="space-y-6">
                 {/* Client Profile Header */}
                 <div className="space-y-2">
@@ -1792,30 +1871,10 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                 <button
                   type="button"
                   onClick={async () => {
-                    const clientProfile: any = {
-                      id: editingClient.id,
-                      user_id: editingClient.user_id,
-                      business_name: editingClient.business_name,
-                      industry: editingClient.industry,
-                      plan: editingClient.plan,
-                      active: editingClient.active,
-                      is_admin: editingClient.is_admin,
-                      meta_account_id: editingClient.meta_account_id,
-                      ig_business_id: (editingClient as any).ig_business_id,
-                      ig_username: (editingClient as any).ig_username,
-                      fb_page_id: (editingClient as any).fb_page_id,
-                      fb_page_name: (editingClient as any).fb_page_name,
-                      fb_page_access_token: (editingClient as any).fb_page_access_token,
-                      klaviyo_api_key: editingClient.klaviyo_api_key,
-                      chatwoot_url: editingClient.chatwoot_url,
-                      chatwoot_token: editingClient.chatwoot_token,
-                      ecommerce_platform: editingClient.ecommerce_platform,
-                      shopify_domain: editingClient.shopify_domain,
-                      shopify_access_token: editingClient.shopify_access_token,
-                      client_tags: editingClient.client_tags || [],
-                    };
                     setViewAsProfile(
-                      viewAsProfile?.id === editingClient.id ? null : clientProfile,
+                      viewAsProfile?.id === editingClient.id
+                        ? null
+                        : { ...editingClient, is_admin: false } as any,
                     );
                     closeEdit();
                     if (viewAsProfile?.id !== editingClient.id) navigate("/");
@@ -1871,8 +1930,8 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
 
             {/* Content pane */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              {/* Header inside pane */}
-              <div className="px-6 py-4 border-b border-zinc-150 dark:border-zinc-850 flex justify-between items-center bg-white dark:bg-zinc-900">
+              {/* Header inside pane (desktop only) */}
+              <div className="hidden md:flex px-6 py-4 border-b border-zinc-150 dark:border-zinc-850 justify-between items-center bg-white dark:bg-zinc-900">
                 <h3 className="text-[15px] font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                   {activeTab === "general" && <UserPlus className="w-4 h-4 text-violet-500" />}
                   {activeTab === "integrations" && <Globe className="w-4 h-4 text-violet-500" />}

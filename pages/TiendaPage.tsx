@@ -28,10 +28,10 @@ const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, 
   const lastDay = new Date(year, month + 1, 0).getDate();
   for (let i = 1; i <= lastDay; i++) {
     const d = new Date(year, month, i);
-    days.push(d.toISOString().split('T')[0]);
+    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
   const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = today();
 
   return (
     <div className="w-[240px]" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -172,6 +172,11 @@ export default function TiendaPage() {
     const timer = setTimeout(fetchData, 150);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [profile?.id, activePreset, activeSince, activeUntil, refreshKey]);
+
+  useEffect(() => {
+    setData(null);
+    setPrevData(null);
+  }, [profile?.id]);
 
   const handleApply = () => {
     setActivePreset(pendingPreset); setActiveSince(pendingSince); setActiveUntil(pendingUntil || pendingSince); setRefreshKey(prev => prev + 1); setShowDatePicker(false);

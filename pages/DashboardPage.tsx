@@ -605,7 +605,7 @@ const MiniCal = ({
   const lastDay = new Date(year, month + 1, 0).getDate();
   for (let i = 1; i <= lastDay; i++) {
     const d = new Date(year, month, i);
-    days.push(d.toISOString().split("T")[0]);
+    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
   const MONTHS_ES = [
     "Enero",
@@ -621,7 +621,7 @@ const MiniCal = ({
     "Noviembre",
     "Diciembre",
   ];
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = today();
 
   const prevDate = React.useRef(new Date(year, month, 1).getTime());
   const current = new Date(year, month, 1).getTime();
@@ -892,6 +892,26 @@ export default function DashboardPage() {
       setPrevKlaviyo(null);
     }
   }, [profile?.id, activePreset, activeSince, activeUntil]);
+
+  // Reset all data states when client profile changes to prevent stale data leakage
+  useEffect(() => {
+    setCurrentStore(null);
+    setPrevStore(null);
+    setCurrentMeta(null);
+    setPrevMeta(null);
+    setMetaDaily([]);
+    setPrevMetaDaily([]);
+    setCurrentKlaviyo(null);
+    setPrevKlaviyo(null);
+    setChatwootSummary(null);
+    setPrevChatwootSummary(null);
+    setAtencSeriesAll({});
+    setAtencPrevSeriesAll({});
+    setAtencChartData([]);
+    setAtencPrevChartData([]);
+    setLinks([]);
+    setHistorical90d([]);
+  }, [profile?.id]);
 
   // Global keydown listeners for Escape
   useEffect(() => {
@@ -1245,10 +1265,22 @@ export default function DashboardPage() {
       const prevUntilSecs = Math.floor(new Date(`${prevRange.until}T23:59:59Z`).getTime() / 1000);
       const parse = (d: any) => {
         const list = Array.isArray(d) ? d : (d?.data || d?.payload || []);
-        return list.map((item: any) => ({
-          val: Number(item.value || 0),
-          date: new Date((item.timestamp > 10000000000 ? item.timestamp : item.timestamp * 1000)).toISOString().split('T')[0],
-        }));
+        return list.map((item: any) => {
+          let dateStr = today();
+          try {
+            const ts = Number(item?.timestamp || 0);
+            if (!isNaN(ts) && ts > 0) {
+              const dateObj = new Date(ts > 10000000000 ? ts : ts * 1000);
+              if (!isNaN(dateObj.getTime())) {
+                dateStr = dateObj.toISOString().split('T')[0];
+              }
+            }
+          } catch (e) {}
+          return {
+            val: Number(item?.value || 0),
+            date: dateStr,
+          };
+        });
       };
       const results = await Promise.allSettled(
         ATENC_KEYS.map(k => Promise.all([
@@ -1292,10 +1324,22 @@ export default function DashboardPage() {
         ]);
         const parse = (d: any) => {
           const list = Array.isArray(d) ? d : (d?.data || d?.payload || []);
-          return list.map((item: any) => ({
-            val: Number(item.value || 0),
-            date: new Date((item.timestamp > 10000000000 ? item.timestamp : item.timestamp * 1000)).toISOString().split('T')[0],
-          }));
+          return list.map((item: any) => {
+            let dateStr = today();
+            try {
+              const ts = Number(item?.timestamp || 0);
+              if (!isNaN(ts) && ts > 0) {
+                const dateObj = new Date(ts > 10000000000 ? ts : ts * 1000);
+                if (!isNaN(dateObj.getTime())) {
+                  dateStr = dateObj.toISOString().split('T')[0];
+                }
+              }
+            } catch (e) {}
+            return {
+              val: Number(item?.value || 0),
+              date: dateStr,
+            };
+          });
         };
         if (mounted) { setAtencChartData(parse(curr)); setAtencPrevChartData(parse(prev)); }
       } catch (e) {
@@ -1311,7 +1355,7 @@ export default function DashboardPage() {
   const handleApply = () => {
     setActivePreset(pendingPreset);
     setActiveSince(pendingSince);
-    setActiveUntil(pendingUntil);
+    setActiveUntil(pendingUntil || pendingSince);
     setRefreshKey((prev) => prev + 1);
     setShowDatePicker(false);
   };
@@ -1439,12 +1483,8 @@ export default function DashboardPage() {
                     key={c.id}
                     onClick={() => {
                       setViewAsProfile({
-                        id: c.id, user_id: c.user_id, business_name: c.business_name,
-                        industry: c.industry, plan: c.plan, active: c.active, is_admin: false,
-                        meta_account_id: c.meta_account_id, klaviyo_api_key: c.klaviyo_api_key,
-                        chatwoot_url: c.chatwoot_url, chatwoot_token: c.chatwoot_token,
-                        ecommerce_platform: c.ecommerce_platform, shopify_domain: c.shopify_domain,
-                        shopify_access_token: c.shopify_access_token, client_tags: c.client_tags || [],
+                        ...c,
+                        is_admin: false,
                       } as any);
                       setShowClientPicker(false);
                     }}

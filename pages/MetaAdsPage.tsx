@@ -226,7 +226,7 @@ export default function MetaAdsPage() {
     { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' },
   ];
   const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = today();
 
   const MiniCalMeta = ({ year, month, since, until, hovering: hov, onDay, onHover, onPrev, onNext }: any) => {
     const days: any[] = [];
@@ -234,7 +234,10 @@ export default function MetaAdsPage() {
     const startOffset = first === 0 ? 6 : first - 1;
     for (let i = 0; i < startOffset; i++) days.push(null);
     const lastDay = new Date(year, month + 1, 0).getDate();
-    for (let i = 1; i <= lastDay; i++) days.push(new Date(year, month, i).toISOString().split('T')[0]);
+    for (let i = 1; i <= lastDay; i++) {
+      const d = new Date(year, month, i);
+      days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
     return (
       <div className="w-[240px]">
         <div className="flex items-center mb-4 px-1">
@@ -270,7 +273,16 @@ export default function MetaAdsPage() {
 
   const fetchAds = (since?: string, until?: string) => {
     const accountId = (profile as any)?.meta_account_id;
-    if (!accountId) return;
+    if (!accountId) {
+      setActiveAds([]);
+      setAdInsightsMap({});
+      setCampaignMap({});
+      setResolvedThumbnails({});
+      setResolvedDetails({});
+      setResolvingIds({});
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setResolvedThumbnails({});
     setResolvedDetails({});
@@ -293,6 +305,15 @@ export default function MetaAdsPage() {
   };
 
   useEffect(() => { fetchAds(activeSince, activeUntil); }, [profile?.id, activeSince, activeUntil]);
+
+  useEffect(() => {
+    setActiveAds([]);
+    setAdInsightsMap({});
+    setCampaignMap({});
+    setResolvedThumbnails({});
+    setResolvedDetails({});
+    setResolvingIds({});
+  }, [profile?.id]);
 
   // Sequential concurrent sliding window batch thumbnail and asset resolver (limit: 4 parallel requests)
   useEffect(() => {

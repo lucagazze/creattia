@@ -259,6 +259,15 @@ export default function MensajeriaPage() {
   const [swipeTouchStartX, setSwipeTouchStartX] = useState<number | null>(null);
   const [activeImagePreview, setActiveImagePreview] = useState<string | null>(null);
   const [activeVideoPreview, setActiveVideoPreview] = useState<string | null>(null);
+  const [imagePreviewLoading, setImagePreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeImagePreview) {
+      setImagePreviewLoading(true);
+    } else {
+      setImagePreviewLoading(false);
+    }
+  }, [activeImagePreview]);
   
   // Sidebar State Variables
   const [showSidebar, setShowSidebar] = useState(false);
@@ -1666,7 +1675,7 @@ export default function MensajeriaPage() {
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? '' : ch.iconColor}`} />
                 <span>{ch.label}</span>
-                {count > 0 && (
+                {isFirstLoadDone && count > 0 && (
                   <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${
                     isActive ? 'bg-white/20 text-white dark:bg-black/10 dark:text-inherit' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
                   }`}>
@@ -1904,7 +1913,7 @@ export default function MensajeriaPage() {
                   {isActive && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-zinc-900 dark:bg-white rounded-full" />}
                   <div className="relative">
                     <Icon className="w-5 h-5" />
-                    {count > 0 && !isActive && (
+                    {isFirstLoadDone && count > 0 && !isActive && (
                       <span className="absolute -top-1.5 -right-2 bg-emerald-500 text-white text-[8px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center px-0.5 border border-white dark:border-zinc-950">
                         {count > 99 ? '99+' : count}
                       </span>
@@ -2287,16 +2296,29 @@ export default function MensajeriaPage() {
           >
             <X className="w-6 h-6" />
           </button>
-          <div 
-            className="relative max-w-full max-h-full flex items-center justify-center animate-in zoom-in-95 duration-200"
-            onClick={e => e.stopPropagation()}
-          >
-            <img 
-              src={activeImagePreview} 
-              alt="Preview" 
-              className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl border border-white/10"
-            />
-          </div>
+          
+          {imagePreviewLoading && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+              <Loader2 className="w-8 h-8 animate-spin text-white/70" />
+            </div>
+          )}
+
+          <img 
+            src={activeImagePreview} 
+            alt="Preview" 
+            className={`max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl border border-white/10 z-25 transition-all duration-350 ${
+              imagePreviewLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+            }`}
+            onLoad={() => setImagePreviewLoading(false)}
+            onError={() => {
+              setImagePreviewLoading(false);
+              setActiveImagePreview(null);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveImagePreview(null);
+            }}
+          />
         </div>
       )}
 
@@ -2312,17 +2334,13 @@ export default function MensajeriaPage() {
           >
             <X className="w-6 h-6" />
           </button>
-          <div 
-            className="relative max-w-full max-h-full flex items-center justify-center animate-in zoom-in-95 duration-200"
-            onClick={e => e.stopPropagation()}
-          >
-            <video 
-              src={activeVideoPreview} 
-              controls 
-              autoPlay
-              className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl border border-white/10 bg-black"
-            />
-          </div>
+          <video 
+            src={activeVideoPreview} 
+            controls 
+            autoPlay
+            className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl border border-white/10 bg-black z-25"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

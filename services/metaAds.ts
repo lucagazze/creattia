@@ -59,12 +59,35 @@ export const INSTAGRAM_ACCOUNTS: Record<string, { igId: string; username: string
 export type DatePreset = 'today' | 'yesterday' | 'last_7d' | 'last_14d' | 'last_28d' | 'last_30d' | 'last_90d' | 'last_6months' | 'this_month' | 'last_month' | 'this_year' | 'last_year';
 export type TimeRange = { since: string; until: string };
 
+export const getArgentinaDateStr = (date: Date): string => {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+};
+
+export const getArgentinaDateParts = (date: Date = new Date()): { year: number; month: number; day: number } => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === 'year')!.value, 10);
+  const month = parseInt(parts.find(p => p.type === 'month')!.value, 10);
+  const day = parseInt(parts.find(p => p.type === 'day')!.value, 10);
+  return { year, month, day };
+};
+
 export const daysAgo = (n: number): string => {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
+  return getArgentinaDateStr(d);
 };
-export const today = (): string => new Date().toISOString().split('T')[0];
+export const today = (): string => getArgentinaDateStr(new Date());
 
 // Get the previous equivalent period for trend comparison
 export const getPrevPeriod = (since: string, until: string): TimeRange => {
@@ -75,8 +98,8 @@ export const getPrevPeriod = (since: string, until: string): TimeRange => {
   const prevUntil = new Date(s.getTime() - 86_400_000);
   const prevSince = new Date(prevUntil.getTime() - ms);
   return {
-    since: prevSince.toISOString().split('T')[0],
-    until: prevUntil.toISOString().split('T')[0],
+    since: getArgentinaDateStr(prevSince),
+    until: getArgentinaDateStr(prevUntil),
   };
 };
 
@@ -92,21 +115,22 @@ export const presetToRange = (preset: DatePreset): TimeRange => {
   if (preset === 'last_90d')    return { since: daysAgo(90), until: daysAgo(1) };
   if (preset === 'last_6months') return { since: daysAgo(180), until: daysAgo(1) };
   if (preset === 'this_year') {
-    const now = new Date();
-    return { since: `${now.getFullYear()}-01-01`, until: daysAgo(1) };
+    const { year } = getArgentinaDateParts();
+    return { since: `${year}-01-01`, until: daysAgo(1) };
   }
   if (preset === 'last_year') {
-    const prevYear = new Date().getFullYear() - 1;
+    const { year } = getArgentinaDateParts();
+    const prevYear = year - 1;
     return { since: `${prevYear}-01-01`, until: `${prevYear}-12-31` };
   }
   if (preset === 'this_month') {
-    const now = new Date();
-    return { since: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, until: daysAgo(1) };
+    const { year, month } = getArgentinaDateParts();
+    return { since: `${year}-${String(month).padStart(2, '0')}-01`, until: daysAgo(1) };
   }
   if (preset === 'last_month') {
-    const now = new Date();
-    const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    const m = now.getMonth() === 0 ? 12 : now.getMonth();
+    const { year, month } = getArgentinaDateParts();
+    const y = month === 1 ? year - 1 : year;
+    const m = month === 1 ? 12 : month - 1;
     const lastDay = new Date(y, m, 0).getDate();
     return { since: `${y}-${String(m).padStart(2, '0')}-01`, until: `${y}-${String(m).padStart(2, '0')}-${lastDay}` };
   }

@@ -160,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     <>
       {/* Logout confirmation modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setShowLogoutModal(false)}>
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4" onClick={() => setShowLogoutModal(false)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
             className="relative bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-200 dark:border-zinc-700 shadow-2xl p-8 max-w-[360px] w-full text-center animate-in fade-in zoom-in-95 duration-200"

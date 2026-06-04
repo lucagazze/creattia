@@ -38,10 +38,10 @@ const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, 
   const lastDay = new Date(year, month + 1, 0).getDate();
   for (let i = 1; i <= lastDay; i++) {
     const d = new Date(year, month, i);
-    days.push(d.toISOString().split('T')[0]);
+    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   }
   const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = today();
 
   return (
     <div className="w-[240px]">
@@ -142,6 +142,22 @@ export default function AtencionPage() {
   const [heatmapRows, setHeatmapRows] = useState<{ date: string; label: string; hours: number[] }[]>([]);
   const [loadingHeatmap, setLoadingHeatmap] = useState(false);
   const [heatmapHover, setHeatmapHover] = useState<{ day: string; hour: number; val: number; x: number; y: number } | null>(null);
+
+  // Reset all data states when client profile changes to prevent stale data leakage
+  useEffect(() => {
+    setInboxes([]);
+    setAgents([]);
+    setSummaryData(null);
+    setPrevSummaryData(null);
+    setLiveMetaOpen(null);
+    setLiveMetaPending(null);
+    setChartData([]);
+    setPrevChartData([]);
+    setAllSeriesData({});
+    setAllPrevSeriesData({});
+    setInboxBreakdowns([]);
+    setHeatmapRows([]);
+  }, [profile?.id]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -303,10 +319,22 @@ export default function AtencionPage() {
 
         const parseSeries = (data: any) => {
           const list = Array.isArray(data) ? data : (data?.data || data?.payload || []);
-          return list.map((item: any) => ({
-            val: Number(item.value || 0),
-            date: new Date((item.timestamp > 10000000000 ? item.timestamp : item.timestamp * 1000)).toISOString().split('T')[0],
-          }));
+          return list.map((item: any) => {
+            let dateStr = today();
+            try {
+              const ts = Number(item?.timestamp || 0);
+              if (!isNaN(ts) && ts > 0) {
+                const dateObj = new Date(ts > 10000000000 ? ts : ts * 1000);
+                if (!isNaN(dateObj.getTime())) {
+                  dateStr = dateObj.toISOString().split('T')[0];
+                }
+              }
+            } catch (e) {}
+            return {
+              val: Number(item?.value || 0),
+              date: dateStr,
+            };
+          });
         };
 
         setChartData(parseSeries(currSeries));
@@ -381,10 +409,22 @@ export default function AtencionPage() {
 
       const parseSeries = (data: any) => {
         const list = Array.isArray(data) ? data : (data?.data || data?.payload || []);
-        return list.map((item: any) => ({
-          val: Number(item.value || 0),
-          date: new Date((item.timestamp > 10000000000 ? item.timestamp : item.timestamp * 1000)).toISOString().split('T')[0],
-        }));
+        return list.map((item: any) => {
+          let dateStr = today();
+          try {
+            const ts = Number(item?.timestamp || 0);
+            if (!isNaN(ts) && ts > 0) {
+              const dateObj = new Date(ts > 10000000000 ? ts : ts * 1000);
+              if (!isNaN(dateObj.getTime())) {
+                dateStr = dateObj.toISOString().split('T')[0];
+              }
+            }
+          } catch (e) {}
+          return {
+            val: Number(item?.value || 0),
+            date: dateStr,
+          };
+        });
       };
 
       const keys = METRICS_CONFIG.map(m => m.key);
