@@ -80,6 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    localStorage.removeItem('view_as_client_id');
     await supabase.auth.signOut();
   };
 

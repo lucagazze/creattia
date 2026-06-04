@@ -197,9 +197,7 @@ export default function MensajeriaPage() {
   const isAdmin = authProfile?.is_admin;
   const { showToast } = useToast();
   const { markRead, setUnreadCount } = useUnread();
-
-  const hasViewAsIdStored = !!localStorage.getItem('view_as_client_id');
-  const isProfileLoading = hasViewAsIdStored ? (viewAsProfile === null) : authLoading;
+  const isProfileLoading = isViewingAs ? (viewAsProfile === null) : authLoading;
 
   const cwUrl = (profile as any)?.chatwoot_url;
   const cwToken = (profile as any)?.chatwoot_token;

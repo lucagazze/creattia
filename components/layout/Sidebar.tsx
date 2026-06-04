@@ -216,7 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       `}>
 
         {/* View-as banner */}
-        {isViewingAs && (
+        {isViewingAs && profile?.is_admin && (
           <div className="flex-shrink-0 mx-3 mt-3 bg-violet-600 rounded-[10px] px-3 py-2 flex items-center gap-2">
             <div className="flex-1 min-w-0">
               <p className="text-[9px] font-black text-violet-200 uppercase tracking-widest animate-in fade-in duration-200">Viendo como</p>
