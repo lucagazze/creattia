@@ -75,7 +75,6 @@ export default function RedesSocialesPage() {
   // Loading and Error States
   const [igLoading, setIgLoading] = useState(true);
   const [fbLoading, setFbLoading] = useState(false);
-  const loading = activeTab === 'instagram' ? igLoading : fbLoading;
   const [error, setError] = useState<string | null>(null);
   const [fbError, setFbError] = useState<string | null>(null);
 
@@ -142,6 +141,11 @@ export default function RedesSocialesPage() {
   const igId = (profile as any)?.ig_business_id;
   const igUsername = (profile as any)?.ig_username;
   const fbPageId = (profile as any)?.fb_page_id;
+
+  // Unified loading states to prevent flashing empty/unconnected pages
+  const isIgTabLoading = !!igId && !igProfile && igLoading;
+  const isFbTabLoading = !!fbPageId && !fbProfile && (fbLoading || activeTab === 'facebook');
+  const loading = authLoading || (profile === undefined) || (activeTab === 'instagram' ? isIgTabLoading : isFbTabLoading);
 
   // Helper to determine if a comment thread is unanswered/pending
   const isCommentPending = (comment: any) => {

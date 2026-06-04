@@ -9,29 +9,48 @@ interface Props {
 export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inline = false }) => {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
+  const [transitionStyle, setTransitionStyle] = useState('none');
 
   useEffect(() => {
+    let t1: any;
+    let t2: any;
+    let t3: any;
+
     if (loading) {
       setVisible(true);
       setProgress(0);
-      const start = Date.now();
-      const tick = setInterval(() => {
-        const elapsed = Date.now() - start;
-        const p = elapsed < 400 ? (elapsed / 400) * 30
-          : elapsed < 1500 ? 30 + ((elapsed - 400) / 1100) * 30
-          : Math.min(85, 60 + ((elapsed - 1500) / 10000) * 25);
-        setProgress(p);
-      }, 50);
-      return () => clearInterval(tick);
+      setTransitionStyle('none');
+
+      // Next frame to trigger transition from 0 to 75
+      t1 = setTimeout(() => {
+        setTransitionStyle('width 0.5s linear');
+        setProgress(75);
+      }, 30);
+
+      // After 530ms (30ms delay + 500ms transition), if still loading, slow down progress to 95%
+      t2 = setTimeout(() => {
+        setTransitionStyle('width 15s cubic-bezier(0.1, 0.6, 0.1, 1)');
+        setProgress(95);
+      }, 530);
+
     } else if (visible) {
+      // Finished loading
+      setTransitionStyle('width 0.25s ease-out');
       setProgress(100);
-      const t = setTimeout(() => {
+
+      t3 = setTimeout(() => {
         setVisible(false);
         setProgress(0);
-      }, 350);
-      return () => clearTimeout(t);
+        setTransitionStyle('none');
+      }, 300);
     }
-  }, [loading]);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [loading, visible]);
 
   if (!visible) return null;
 
@@ -48,11 +67,7 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
           background: `linear-gradient(to right, ${color}cc, ${color})`,
           boxShadow: `0 0 6px ${color}60`,
           opacity: progress >= 100 ? 0 : 1,
-          transition: progress >= 100
-            ? 'width 0.1s ease, opacity 0.3s ease 0.05s'
-            : progress === 0
-              ? 'none'
-              : 'width 0.18s ease',
+          transition: transitionStyle === 'none' ? 'none' : `${transitionStyle}, opacity 0.25s ease-out 0.05s`,
         }}
       />
     </div>
