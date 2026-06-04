@@ -7,7 +7,7 @@ interface Props {
 
 const MESSAGES = [
   'Conectando con tu cuenta...',
-  'Cargando datos del cliente...',
+  'Cargando datos...',
   'Sincronizando campañas...',
   'Preparando todo para vos...',
   'Casi listo...',

@@ -425,47 +425,49 @@ const CampaignCard = memo(function CampaignCard({
   return (
     <div
       onClick={handleCardClick}
-      className={`bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-2xl px-5 py-4 flex items-start gap-4 hover:border-zinc-300 dark:hover:border-white/15 transition-all ${
+      className={`bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-2xl px-4 py-3.5 md:px-5 md:py-4 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 hover:border-zinc-300 dark:hover:border-white/15 transition-all ${
         c.message?.template_id ? 'cursor-pointer hover:bg-zinc-50/50 dark:hover:bg-white/[0.01]' : ''
       }`}
     >
-      <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5">
-        <Mail className="w-4 h-4 text-zinc-400" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-2 flex-wrap">
-          <p className="text-[13px] font-bold text-zinc-900 dark:text-white leading-tight">{c.name}</p>
-          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
+      {/* Icon + content row */}
+      <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-100 dark:bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Mail className="w-4 h-4 text-zinc-400" />
         </div>
-        {c.message?.subject && (
-          <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate font-mono">
-            {c.message.subject}
-          </p>
-        )}
-        {c.message?.preview_text && (
-          <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate italic">
-            {c.message.preview_text}
-          </p>
-        )}
-        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-zinc-400 dark:text-zinc-500">
-          {dateIcon}
-          <span>{dateLabel}</span>
-        </div>
-        {error && (
-          <div className="mt-2 text-[11px] text-red-500 font-medium flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
-            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>{error}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2 flex-wrap">
+            <p className="text-[13px] font-bold text-zinc-900 dark:text-white leading-tight">{c.name}</p>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full whitespace-nowrap ${st.cls}`}>{st.label}</span>
           </div>
-        )}
+          {c.message?.subject && (
+            <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate font-mono">
+              {c.message.subject}
+            </p>
+          )}
+          {c.message?.preview_text && (
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 truncate italic">
+              {c.message.preview_text}
+            </p>
+          )}
+          <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+            {dateIcon}
+            <span className="truncate">{dateLabel}</span>
+          </div>
+          {error && (
+            <div className="mt-2 text-[11px] text-red-500 font-medium flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
+
+      {/* Action buttons — full-width row on mobile, side column on sm+ */}
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0" onClick={e => e.stopPropagation()}>
         {c.message?.template_id && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onPreview();
-            }}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-violet-600 hover:text-white transition-all border border-zinc-200 dark:border-white/5"
+            onClick={(e) => { e.stopPropagation(); onPreview(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-violet-600 hover:text-white transition-all border border-zinc-200 dark:border-white/5"
           >
             <Eye className="w-3.5 h-3.5" />Ver
           </button>
@@ -473,14 +475,10 @@ const CampaignCard = memo(function CampaignCard({
 
         {c.status === 'Draft' && c.message?.id && onSchedule && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSchedule(c.id, c.message!.id);
-            }}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-violet-600 hover:bg-violet-700 text-white transition-all border border-violet-600"
+            onClick={(e) => { e.stopPropagation(); onSchedule(c.id, c.message!.id); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-violet-600 hover:bg-violet-700 text-white transition-all border border-violet-600"
           >
-            <CalendarClock className="w-3.5 h-3.5" />
-            Programar
+            <CalendarClock className="w-3.5 h-3.5" />Programar
           </button>
         )}
 
@@ -493,13 +491,9 @@ const CampaignCard = memo(function CampaignCard({
                 handleAction('delete', onDelete);
               }
             }}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
           >
-            {loadingAction === 'delete' ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="w-3.5 h-3.5" />
-            )}
+            {loadingAction === 'delete' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
             Eliminar
           </button>
         )}
@@ -513,13 +507,9 @@ const CampaignCard = memo(function CampaignCard({
                 handleAction('revert', onRevert);
               }
             }}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 disabled:opacity-40 transition-all border border-zinc-200 dark:border-white/5"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 disabled:opacity-40 transition-all border border-zinc-200 dark:border-white/5"
           >
-            {loadingAction === 'revert' ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Undo2 className="w-3.5 h-3.5" />
-            )}
+            {loadingAction === 'revert' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Undo2 className="w-3.5 h-3.5" />}
             Borrador
           </button>
         )}
@@ -533,13 +523,9 @@ const CampaignCard = memo(function CampaignCard({
                 handleAction('cancel', onCancel);
               }
             }}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white disabled:opacity-40 transition-all border border-red-500/10"
           >
-            {loadingAction === 'cancel' ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <X className="w-3.5 h-3.5" />
-            )}
+            {loadingAction === 'cancel' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
             Cancelar
           </button>
         )}
@@ -1167,45 +1153,43 @@ export default function EmailMarketingPage() {
         )}
 
         {/* Stats strip */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 md:gap-3">
           {[
-            { label: 'Campañas',       val: campaigns.length, icon: <Mail className="w-4 h-4 text-violet-500" /> },
-            { label: 'Enviadas',        val: campaigns.filter(c => c.status === 'Sent').length, icon: <Send className="w-4 h-4 text-emerald-500" /> },
-            { label: 'Flows activos',   val: flows.filter(f => f.status === 'live').length, icon: <Zap className="w-4 h-4 text-amber-500" /> },
+            { label: 'Campañas',     val: campaigns.length, icon: <Mail className="w-4 h-4 text-violet-500" /> },
+            { label: 'Enviadas',     val: campaigns.filter(c => c.status === 'Sent').length, icon: <Send className="w-4 h-4 text-emerald-500" /> },
+            { label: 'Flows',        val: flows.filter(f => f.status === 'live').length, icon: <Zap className="w-4 h-4 text-amber-500" /> },
           ].map(s => (
-            <div key={s.label} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-zinc-50 dark:bg-white/5 flex items-center justify-center">{s.icon}</div>
-              <div>
-                <p className="text-[20px] font-black text-zinc-900 dark:text-white leading-none">{loading ? '—' : s.val}</p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">{s.label}</p>
+            <div key={s.label} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.07] rounded-2xl p-3 md:p-4 flex items-center gap-2 md:gap-3">
+              <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-zinc-50 dark:bg-white/5 flex items-center justify-center shrink-0">{s.icon}</div>
+              <div className="min-w-0">
+                <p className="text-[18px] md:text-[20px] font-black text-zinc-900 dark:text-white leading-none">{loading ? '—' : s.val}</p>
+                <p className="text-[10px] md:text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">{s.label}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
-        <div className="overflow-x-auto no-scrollbar">
-          <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-white/5 rounded-2xl w-max min-w-full sm:w-fit">
-            {[
-              { id: 'calendar', label: 'Calendario', count: campaigns.filter(c => c.status === 'Scheduled').length, icon: <CalendarClock className="w-3.5 h-3.5" /> },
-              { id: 'campaigns', label: 'Campañas', count: campaigns.length, icon: <Mail className="w-3.5 h-3.5" /> },
-              { id: 'flows', label: 'Flows', count: flows.length, icon: <Workflow className="w-3.5 h-3.5" /> },
-            ].map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id as any)}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap ${
-                  tab === t.id ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
-                }`}
-              >
-                {t.icon}
-                {t.label}
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400' : 'bg-zinc-200 dark:bg-white/10 text-zinc-400'}`}>
-                  {t.count}
-                </span>
-              </button>
-            ))}
-          </div>
+        <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-white/5 rounded-2xl overflow-x-auto no-scrollbar">
+          {[
+            { id: 'calendar',  label: 'Calendario', count: campaigns.filter(c => c.status === 'Scheduled').length, icon: <CalendarClock className="w-3.5 h-3.5" /> },
+            { id: 'campaigns', label: 'Campañas',   count: campaigns.length, icon: <Mail className="w-3.5 h-3.5" /> },
+            { id: 'flows',     label: 'Flows',      count: flows.length,     icon: <Workflow className="w-3.5 h-3.5" /> },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id as any)}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap ${
+                tab === t.id ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+              }`}
+            >
+              {t.icon}
+              <span className="hidden xs:inline sm:inline">{t.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${tab === t.id ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400' : 'bg-zinc-200 dark:bg-white/10 text-zinc-400'}`}>
+                {t.count}
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* Tab content — keyed to animate on tab change */}
