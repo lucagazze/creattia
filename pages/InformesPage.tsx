@@ -20,6 +20,167 @@ import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import SmoothImage from '../components/ui/SmoothImage';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 
+const isArrayOfObjectsEqual = (a: any[] | undefined | null, b: any[] | undefined | null) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const itemA = a[i];
+    const itemB = b[i];
+    if (itemA === itemB) continue;
+    if (!itemA || !itemB) return false;
+    const keysA = Object.keys(itemA);
+    for (let j = 0; j < keysA.length; j++) {
+      const key = keysA[j];
+      if (itemA[key] !== itemB[key]) return false;
+    }
+  }
+  return true;
+};
+
+interface InteractionsChartProps {
+  data: any[];
+  activeTab: string;
+  darkMode: boolean;
+}
+
+const InteractionsChartComponent = ({ data, activeTab, darkMode }: InteractionsChartProps) => {
+  const fmtN = (n: any) => {
+    if (n === null || n === undefined) return '';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return n.toString();
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-zinc-955/90 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 backdrop-blur-md p-3.5 rounded-2xl shadow-xl text-zinc-900 dark:text-white text-[12px] font-semibold space-y-1.5 animate-in fade-in duration-200">
+          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+            {label ? label.split('-').reverse().join('/') : ''}
+          </p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-1.5 text-zinc-550 dark:text-zinc-350">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span>{entry.name}:</span>
+              </span>
+              <span className="font-black text-zinc-900 dark:text-white">
+                {entry.value.toLocaleString('es-AR')}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="h-60 md:h-64">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 10, right: 10, bottom: 5, left: -20 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? '#1f1f23' : '#f1f1f4'} />
+          <XAxis 
+            dataKey="date" 
+            tick={{ fontSize: 9, fill: '#a1a1aa' }} 
+            tickFormatter={(d) => { if (!d) return ''; const p = d.split('-'); return `${p[2]}/${p[1]}`; }} 
+          />
+          <YAxis 
+            yAxisId="left"
+            tick={{ fontSize: 9, fill: '#a1a1aa' }} 
+            tickFormatter={fmtN}
+          />
+          <YAxis 
+            yAxisId="right"
+            orientation="right"
+            tick={{ fontSize: 9, fill: '#a1a1aa' }} 
+            tickFormatter={fmtN}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Bar 
+            yAxisId="left"
+            dataKey="Interacciones" 
+            fill={activeTab === 'instagram' ? '#f472b6' : '#60a5fa'} 
+            radius={[4, 4, 0, 0]}
+          />
+          <Bar 
+            yAxisId="right"
+            dataKey="Publicaciones" 
+            fill="#a78bfa" 
+            radius={[4, 4, 0, 0]}
+          />
+          <Legend wrapperStyle={{ fontSize: 10 }} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const InteractionsChart = React.memo(InteractionsChartComponent, (prev, next) => {
+  return (
+    prev.activeTab === next.activeTab &&
+    prev.darkMode === next.darkMode &&
+    isArrayOfObjectsEqual(prev.data, next.data)
+  );
+});
+
+interface PostTypesChartProps {
+  data: any[];
+}
+
+const PostTypesChartComponent = ({ data }: PostTypesChartProps) => {
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="h-40">
+        <ResponsiveContainer width={160} height={160}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={44}
+              outerRadius={70}
+              paddingAngle={3}
+              dataKey="value"
+              stroke="none"
+            >
+              {data.map((entry: any, idx: number) => (
+                <Cell key={`cell-${idx}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              content={({ active, payload }: any) =>
+                active && payload?.[0] ? (
+                  <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-3 py-2 rounded-xl shadow-lg text-[11px] font-bold">
+                    <span style={{ color: payload[0].payload.color }}>{payload[0].name}: </span>
+                    <span className="text-zinc-800 dark:text-white">{payload[0].value} posts</span>
+                  </div>
+                ) : null
+              }
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="w-full space-y-2">
+        {data.map((entry: any) => (
+          <div key={entry.name} className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
+              <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">{entry.name}</span>
+            </div>
+            <span className="text-[11px] font-black text-zinc-800 dark:text-white">{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const PostTypesChart = React.memo(PostTypesChartComponent, (prev, next) => {
+  return isArrayOfObjectsEqual(prev.data, next.data);
+});
+
 const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
   { id: 'last_7d', label: 'Últimos 7 días' },
   { id: 'last_14d', label: 'Últimos 14 días' },
@@ -792,43 +953,7 @@ export default function InformesPage() {
                 <h3 className="text-[14px] font-black text-zinc-800 dark:text-white">Actividad e Interacciones</h3>
                 <p className="text-[11px] text-zinc-400">Total diario de likes, comentarios y publicaciones publicadas</p>
               </div>
-              <div className="h-60 md:h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dailyInteractionsData} margin={{ top: 10, right: 10, bottom: 5, left: -20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? '#1f1f23' : '#f1f1f4'} />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fontSize: 9, fill: '#a1a1aa' }} 
-                      tickFormatter={(d) => { if (!d) return ''; const p = d.split('-'); return `${p[2]}/${p[1]}`; }} 
-                    />
-                    <YAxis 
-                      yAxisId="left"
-                      tick={{ fontSize: 9, fill: '#a1a1aa' }} 
-                      tickFormatter={fmtN}
-                    />
-                    <YAxis 
-                      yAxisId="right"
-                      orientation="right"
-                      tick={{ fontSize: 9, fill: '#a1a1aa' }} 
-                      tickFormatter={fmtN}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar 
-                      yAxisId="left"
-                      dataKey="Interacciones" 
-                      fill={activeTab === 'instagram' ? '#f472b6' : '#60a5fa'} 
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar 
-                      yAxisId="right"
-                      dataKey="Publicaciones" 
-                      fill="#a78bfa" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <InteractionsChart data={dailyInteractionsData} activeTab={activeTab} darkMode={darkMode} />
             </div>
 
             {/* Post-type Donut PieChart (1/3 width) */}
@@ -843,49 +968,7 @@ export default function InformesPage() {
                   <p className="text-[12px] font-bold text-zinc-400">Sin publicaciones en este período</p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-4">
-                  <div className="h-40">
-                    <ResponsiveContainer width={160} height={160}>
-                      <PieChart>
-                        <Pie
-                          data={postTypeData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={44}
-                          outerRadius={70}
-                          paddingAngle={3}
-                          dataKey="value"
-                          stroke="none"
-                        >
-                          {postTypeData.map((entry, idx) => (
-                            <Cell key={`cell-${idx}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          content={({ active, payload }: any) =>
-                            active && payload?.[0] ? (
-                              <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-3 py-2 rounded-xl shadow-lg text-[11px] font-bold">
-                                <span style={{ color: payload[0].payload.color }}>{payload[0].name}: </span>
-                                <span className="text-zinc-800 dark:text-white">{payload[0].value} posts</span>
-                              </div>
-                            ) : null
-                          }
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="w-full space-y-2">
-                    {postTypeData.map(entry => (
-                      <div key={entry.name} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
-                          <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">{entry.name}</span>
-                        </div>
-                        <span className="text-[11px] font-black text-zinc-800 dark:text-white">{entry.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <PostTypesChart data={postTypeData} />
               )}
             </div>
 

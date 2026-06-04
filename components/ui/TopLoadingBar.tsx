@@ -8,7 +8,7 @@ interface Props {
 
 const getProgressForTime = (startTime: number) => {
   const elapsed = Date.now() - startTime;
-  const fastPhaseDuration = 1500; // 1.5 seconds for constant-speed progress 0% -> 75%
+  const fastPhaseDuration = 700; // 700ms for constant-speed progress 0% -> 75%
   
   if (elapsed < fastPhaseDuration) {
     const currentProgress = Math.round((elapsed / fastPhaseDuration) * 75);
@@ -92,7 +92,7 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
       // Finished loading
       const startTime = (window as any).__loadingStartTime || 0;
       const elapsed = startTime > 0 ? Date.now() - startTime : 9999;
-      const fastPhaseDuration = 1500;
+      const fastPhaseDuration = 700;
 
       clearTimeout(timeoutsRef.current.t2);
 

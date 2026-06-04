@@ -6,7 +6,25 @@ const BLUE = "#3b82f6";
 const GREEN = "#10b981";
 const RED = "#ef4444";
 
-export const DashboardMetric = ({
+const isArrayOfObjectsEqual = (a: any[] | undefined | null, b: any[] | undefined | null) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const itemA = a[i];
+    const itemB = b[i];
+    if (itemA === itemB) continue;
+    if (!itemA || !itemB) return false;
+    const keysA = Object.keys(itemA);
+    for (let j = 0; j < keysA.length; j++) {
+      const key = keysA[j];
+      if (itemA[key] !== itemB[key]) return false;
+    }
+  }
+  return true;
+};
+
+const DashboardMetricComponent = ({
   label,
   value,
   change,
@@ -180,7 +198,21 @@ export const DashboardMetric = ({
   );
 };
 
-export const MetricDetailChart = ({ label, data = [], prevData = [], color, emptyMessage }: any) => {
+export const DashboardMetric = React.memo(DashboardMetricComponent, (prev: any, next: any) => {
+  return (
+    prev.label === next.label &&
+    prev.value === next.value &&
+    prev.change === next.change &&
+    prev.trend === next.trend &&
+    prev.color === next.color &&
+    prev.loading === next.loading &&
+    prev.active === next.active &&
+    prev.info === next.info &&
+    isArrayOfObjectsEqual(prev.data, next.data)
+  );
+});
+
+const MetricDetailChartComponent = ({ label, data = [], prevData = [], color, emptyMessage }: any) => {
   const [hoveredLine, setHoveredLine] = useState<"curr" | "prev" | null>(null);
 
   const hasData = (data || []).some((d: any) => d.val > 0);
@@ -426,3 +458,13 @@ export const MetricDetailChart = ({ label, data = [], prevData = [], color, empt
     </div>
   );
 };
+
+export const MetricDetailChart = React.memo(MetricDetailChartComponent, (prev: any, next: any) => {
+  return (
+    prev.label === next.label &&
+    prev.color === next.color &&
+    prev.emptyMessage === next.emptyMessage &&
+    isArrayOfObjectsEqual(prev.data, next.data) &&
+    isArrayOfObjectsEqual(prev.prevData, next.prevData)
+  );
+});

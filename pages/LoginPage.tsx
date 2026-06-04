@@ -2,12 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { useToast } from '../components/Toast';
-import { Loader2, Moon, Sun, Info, HelpCircle, UserCheck } from 'lucide-react';
+import { Loader2, Moon, Sun, Info, HelpCircle, UserCheck, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
+const toAuthEmail = (input: string) => {
+  const clean = input.trim().toLowerCase();
+  return clean.includes('@') ? clean : `${clean}@algoritmia.team`;
+};
+
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { darkMode, toggleDarkMode } = useTheme();
@@ -18,6 +26,25 @@ export default function LoginPage() {
       navigate('/');
     }
   }, [session, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      showToast('Por favor completa todos los campos', 'error');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: toAuthEmail(email),
+        password,
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      showToast(error.message || 'Error al iniciar sesión', 'error');
+      setLoading(false);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -95,10 +122,13 @@ export default function LoginPage() {
               ? 'bg-white/[0.04] border border-white/[0.07] shadow-2xl'
               : 'bg-white border border-zinc-200/60 shadow-xl shadow-zinc-200/40'
           }`}>
-            <div className="space-y-3.5 sm:space-y-5">
-              <div className="relative w-full">
+            <div className="space-y-4">
+              {/* Google login at the top */}
+              <div className="space-y-3">
+                <p className={`text-[11px] font-semibold text-center leading-relaxed ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                  Si no tenés una cuenta, ingresá con Google para solicitar tu invitación.
+                </p>
                 <div className="relative w-full h-11 sm:h-12 overflow-hidden rounded-2xl">
-                  {/* 1. Our beautiful original HTML button */}
                   <button
                     type="button"
                     disabled={loading}
@@ -125,64 +155,73 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
- 
+
               {/* Divider */}
-              <div className="relative flex py-0.5 sm:py-1 items-center">
+              <div className="relative flex py-1 items-center">
                 <div className="flex-grow border-t border-zinc-200/60 dark:border-white/[0.06]"></div>
-                <span className="flex-shrink mx-3 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">¿Cómo funciona?</span>
+                <span className="flex-shrink mx-3 text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">o ingresá con tu correo</span>
                 <div className="flex-grow border-t border-zinc-200/60 dark:border-white/[0.06]"></div>
               </div>
- 
-              {/* Instruction list */}
-              <div className="space-y-2.5 sm:space-y-4">
-                <div className="flex gap-2 sm:gap-3">
-                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    darkMode ? 'bg-white/5 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
-                  }`}>
-                    <Info className="w-3.5 h-3.5 sm:w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className={`text-[11px] sm:text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
-                      1. Ingreso único
-                    </h4>
-                    <p className={`text-[10px] sm:text-[11px] leading-snug sm:leading-relaxed mt-0 sm:mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                      Hacé clic arriba para autenticarte. Podés usar tu cuenta personal de Google (Gmail).
-                    </p>
+
+              {/* Username & Password Form */}
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    Email o Usuario
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ejemplo@algoritmia.team o usuario"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`w-full h-11 sm:h-12 px-4 rounded-2xl border text-[13.5px] font-semibold outline-none transition-all duration-200 ${
+                      darkMode
+                        ? 'bg-white/5 border-white/8 text-white placeholder:text-zinc-650 focus:border-violet-500/80 focus:bg-white/[0.08]'
+                        : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/80 focus:bg-white shadow-[inset_0_1px_2px_rgba(0,0,0,0.015)]'
+                    }`}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    Contraseña
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={`w-full h-11 sm:h-12 pl-4 pr-11 rounded-2xl border text-[13.5px] font-semibold outline-none transition-all duration-200 ${
+                        darkMode
+                          ? 'bg-white/5 border-white/8 text-white placeholder:text-zinc-650 focus:border-violet-500/80 focus:bg-white/[0.08]'
+                          : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/80 focus:bg-white shadow-[inset_0_1px_2px_rgba(0,0,0,0.015)]'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 hover:scale-110 active:scale-95 transition-all ${
+                        darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'
+                      }`}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
- 
-                <div className="flex gap-2 sm:gap-3">
-                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    darkMode ? 'bg-white/5 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
-                  }`}>
-                    <UserCheck className="w-3.5 h-3.5 sm:w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className={`text-[11px] sm:text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
-                      2. Vinculación automática
-                    </h4>
-                    <p className={`text-[10px] sm:text-[11px] leading-snug sm:leading-relaxed mt-0 sm:mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                      Si el correo de tu cuenta de Google ya fue invitado por el administrador, ingresarás directamente a la plataforma de tu negocio.
-                    </p>
-                  </div>
-                </div>
- 
-                <div className="flex gap-2 sm:gap-3">
-                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                    darkMode ? 'bg-white/5 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
-                  }`}>
-                    <HelpCircle className="w-3.5 h-3.5 sm:w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className={`text-[11px] sm:text-[12px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>
-                      ¿Sos un usuario nuevo?
-                    </h4>
-                    <p className={`text-[10px] sm:text-[11px] leading-snug sm:leading-relaxed mt-0 sm:mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                      Si ingresás por primera vez y aún no estás registrado, verás una pantalla de <strong>"Acceso pendiente"</strong>. Esperá a que el administrador te acepte la solicitud directamente.
-                    </p>
-                  </div>
-                </div>
-              </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full h-11 sm:h-12 rounded-2xl text-[14px] font-bold transition-all duration-200 flex items-center justify-center gap-2 ${
+                    darkMode
+                      ? 'bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-650/20'
+                      : 'bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-200/50'
+                  }`}
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Ingresar</span>}
+                </button>
+              </form>
             </div>
           </div>
  

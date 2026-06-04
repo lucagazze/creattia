@@ -86,7 +86,25 @@ const ensureMetaToken = async (): Promise<void> => {
   }
 };
 
-const ShopifyMetric = ({
+const isArrayOfObjectsEqual = (a: any[] | undefined | null, b: any[] | undefined | null) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const itemA = a[i];
+    const itemB = b[i];
+    if (itemA === itemB) continue;
+    if (!itemA || !itemB) return false;
+    const keysA = Object.keys(itemA);
+    for (let j = 0; j < keysA.length; j++) {
+      const key = keysA[j];
+      if (itemA[key] !== itemB[key]) return false;
+    }
+  }
+  return true;
+};
+
+const ShopifyMetricComponent = ({
   label,
   value,
   change,
@@ -263,6 +281,20 @@ const ShopifyMetric = ({
   );
 };
 
+const ShopifyMetric = React.memo(ShopifyMetricComponent, (prev: any, next: any) => {
+  return (
+    prev.label === next.label &&
+    prev.value === next.value &&
+    prev.change === next.change &&
+    prev.trend === next.trend &&
+    prev.color === next.color &&
+    prev.loading === next.loading &&
+    prev.active === next.active &&
+    prev.info === next.info &&
+    isArrayOfObjectsEqual(prev.data, next.data)
+  );
+});
+
 const formatDuration = (secs: number) => {
   if (!secs) return '0m';
   const h = Math.floor(secs / 3600);
@@ -275,7 +307,7 @@ const formatDuration = (secs: number) => {
 const toUnixDash = (dateStr: string, end = false) =>
   Math.floor(new Date(`${dateStr}T${end ? '23:59:59' : '00:00:00'}Z`).getTime() / 1000);
 
-const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
+const MetricDetailChartComponent = ({ label, data = [], prevData = [], color }: any) => {
   const [hoveredLine, setHoveredLine] = useState<"curr" | "prev" | null>(null);
 
   const merged = (data || []).map((d: any, i: number) => ({
@@ -599,6 +631,62 @@ const MetricDetailChart = ({ label, data = [], prevData = [], color }: any) => {
     </div>
   );
 };
+
+const MetricDetailChart = React.memo(MetricDetailChartComponent, (prev: any, next: any) => {
+  return (
+    prev.label === next.label &&
+    prev.color === next.color &&
+    isArrayOfObjectsEqual(prev.data, next.data) &&
+    isArrayOfObjectsEqual(prev.prevData, next.prevData)
+  );
+});
+
+const HistoricalRevenueChartComponent = ({ data, color }: any) => {
+  return (
+    <div className="h-[300px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ left: -30, right: 0, top: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="colorRev90" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.2} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#3f3f46" opacity={0.1} />
+          <XAxis
+            dataKey="date"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: 10, fill: "#71717a" }}
+            minTickGap={30}
+            tickFormatter={(val) => {
+              const d = new Date(val);
+              return `${d.getDate()}/${d.getMonth() + 1}`;
+            }}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: 10, fill: "#71717a" }}
+            tickFormatter={(val) => `$${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
+            width={35}
+          />
+          <Tooltip
+            contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: "8px" }}
+            itemStyle={{ color: "#fff", fontSize: "12px" }}
+            labelStyle={{ color: "#a1a1aa", fontSize: "10px" }}
+            formatter={(v: any) => [`$ ${Number(v).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`, "Ingresos"]}
+          />
+          <Area type="monotone" dataKey="revenue" stroke={color} strokeWidth={2} fillOpacity={1} fill="url(#colorRev90)" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const HistoricalRevenueChart = React.memo(HistoricalRevenueChartComponent, (prev: any, next: any) => {
+  return prev.color === next.color && isArrayOfObjectsEqual(prev.data, next.data);
+});
 
 const MiniCal = ({
   year,
@@ -2460,44 +2548,7 @@ export default function DashboardPage() {
             {fetching90d ? (
               <div className="h-[300px] flex items-center justify-center animate-pulse bg-zinc-50 dark:bg-zinc-800/50 rounded-xl" />
             ) : historical90d.length > 0 ? (
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={historical90d} margin={{ left: -30, right: 0, top: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorRev90" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={PINK} stopOpacity={0.2} />
-                        <stop offset="95%" stopColor={PINK} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#3f3f46" opacity={0.1} />
-                    <XAxis
-                      dataKey="date"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fill: "#71717a" }}
-                      minTickGap={30}
-                      tickFormatter={(val) => {
-                        const d = new Date(val);
-                        return `${d.getDate()}/${d.getMonth() + 1}`;
-                      }}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fill: "#71717a" }}
-                      tickFormatter={(val) => `$${val >= 1000 ? (val / 1000).toFixed(0) + "k" : val}`}
-                      width={35}
-                    />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: "8px" }}
-                      itemStyle={{ color: "#fff", fontSize: "12px" }}
-                      labelStyle={{ color: "#a1a1aa", fontSize: "10px" }}
-                      formatter={(v: any) => [`$ ${Number(v).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`, "Ingresos"]}
-                    />
-                    <Area type="monotone" dataKey="revenue" stroke={PINK} strokeWidth={2} fillOpacity={1} fill="url(#colorRev90)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              <HistoricalRevenueChart data={historical90d} color={PINK} />
             ) : (
               <div className="h-[300px] flex flex-col items-center justify-center text-zinc-400 gap-4">
                 <BarChart2 className="w-10 h-10 opacity-20" />
