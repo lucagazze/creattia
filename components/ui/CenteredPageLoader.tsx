@@ -16,9 +16,42 @@ const MESSAGES = [
   'Traemos la info más fresca...',
 ];
 
+const getProgressForTime = (startTime: number) => {
+  const elapsed = Date.now() - startTime;
+  if (elapsed < 500) {
+    const currentProgress = Math.round((elapsed / 500) * 75);
+    const remainingTime = 500 - elapsed;
+    return {
+      startVal: currentProgress,
+      targetVal: 75,
+      transition: `width ${remainingTime}ms linear`,
+      remainingTime,
+    };
+  } else {
+    const elapsedSince75 = elapsed - 500;
+    const currentProgress = Math.min(95, Math.round(75 + (elapsedSince75 / 15000) * 20));
+    const remainingTime = Math.max(100, 15000 - elapsedSince75);
+    return {
+      startVal: currentProgress,
+      targetVal: 95,
+      transition: `width ${remainingTime}ms cubic-bezier(0.1, 0.6, 0.1, 1)`,
+      remainingTime,
+    };
+  }
+};
+
 export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => {
-  const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<'loading' | 'fading' | 'done'>('loading');
+  const [phase, setPhase] = useState<'loading' | 'fading' | 'done'>(() => isLoading ? 'loading' : 'done');
+  
+  const [progress, setProgress] = useState(() => {
+    if (!isLoading) return 0;
+    const startTime = (window as any).__loadingStartTime || 0;
+    if (Date.now() - startTime < 5000 && startTime > 0) {
+      return getProgressForTime(startTime).startVal;
+    }
+    return 0;
+  });
+
   const [transitionStyle, setTransitionStyle] = useState('none');
   const [msgIdx, setMsgIdx] = useState(0);
   const [msgVisible, setMsgVisible] = useState(true);
@@ -29,21 +62,32 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
     let t3: any;
 
     if (isLoading) {
-      setProgress(0);
-      setTransitionStyle('none');
       setPhase('loading');
 
-      // Next frame to trigger transition from 0 to 75
+      // Initialize or get start time
+      let startTime = (window as any).__loadingStartTime || 0;
+      if (Date.now() - startTime >= 5000 || startTime === 0) {
+        startTime = Date.now();
+        (window as any).__loadingStartTime = startTime;
+      }
+
+      const { startVal, targetVal, transition, remainingTime } = getProgressForTime(startTime);
+      setProgress(startVal);
+      setTransitionStyle('none');
+
+      // Next frame to trigger transition
       t1 = setTimeout(() => {
-        setTransitionStyle('width 0.5s linear');
-        setProgress(75);
+        setTransitionStyle(transition);
+        setProgress(targetVal);
       }, 30);
 
-      // After 530ms (30ms delay + 500ms transition), if still loading, slow down progress to 95%
-      t2 = setTimeout(() => {
-        setTransitionStyle('width 15s cubic-bezier(0.1, 0.6, 0.1, 1)');
-        setProgress(95);
-      }, 530);
+      // If we are in the fast linear phase, schedule the slow creep phase
+      if (targetVal === 75) {
+        t2 = setTimeout(() => {
+          setTransitionStyle('width 15s cubic-bezier(0.1, 0.6, 0.1, 1)');
+          setProgress(95);
+        }, remainingTime + 30);
+      }
 
     } else {
       // Finished loading
@@ -54,6 +98,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
       // Transition to done after the progress bar finishes and fade out completes
       t3 = setTimeout(() => {
         setPhase('done');
+        delete (window as any).__loadingStartTime;
       }, 400);
     }
 
@@ -104,7 +149,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
               filter: 'drop-shadow(0 0 18px rgba(139,92,246,0.55))',
             }}
           />
-          <span className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.22em]">
+          <span className="text-[11px] font-black text-zinc-550 dark:text-zinc-400 uppercase tracking-[0.22em]">
             C.A.R · Algoritmia
           </span>
         </div>

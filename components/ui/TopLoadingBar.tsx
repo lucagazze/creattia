@@ -6,9 +6,42 @@ interface Props {
   inline?: boolean; // true = inside a section (absolute), false = top of page (fixed)
 }
 
+const getProgressForTime = (startTime: number) => {
+  const elapsed = Date.now() - startTime;
+  if (elapsed < 500) {
+    const currentProgress = Math.round((elapsed / 500) * 75);
+    const remainingTime = 500 - elapsed;
+    return {
+      startVal: currentProgress,
+      targetVal: 75,
+      transition: `width ${remainingTime}ms linear`,
+      remainingTime,
+    };
+  } else {
+    const elapsedSince75 = elapsed - 500;
+    const currentProgress = Math.min(95, Math.round(75 + (elapsedSince75 / 15000) * 20));
+    const remainingTime = Math.max(100, 15000 - elapsedSince75);
+    return {
+      startVal: currentProgress,
+      targetVal: 95,
+      transition: `width ${remainingTime}ms cubic-bezier(0.1, 0.6, 0.1, 1)`,
+      remainingTime,
+    };
+  }
+};
+
 export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inline = false }) => {
-  const [progress, setProgress] = useState(0);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(() => loading);
+  
+  const [progress, setProgress] = useState(() => {
+    if (!loading) return 0;
+    const startTime = (window as any).__loadingStartTime || 0;
+    if (Date.now() - startTime < 5000 && startTime > 0) {
+      return getProgressForTime(startTime).startVal;
+    }
+    return 0;
+  });
+
   const [transitionStyle, setTransitionStyle] = useState('none');
 
   useEffect(() => {
@@ -18,20 +51,31 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
 
     if (loading) {
       setVisible(true);
-      setProgress(0);
+
+      // Initialize or get start time
+      let startTime = (window as any).__loadingStartTime || 0;
+      if (Date.now() - startTime >= 5000 || startTime === 0) {
+        startTime = Date.now();
+        (window as any).__loadingStartTime = startTime;
+      }
+
+      const { startVal, targetVal, transition, remainingTime } = getProgressForTime(startTime);
+      setProgress(startVal);
       setTransitionStyle('none');
 
-      // Next frame to trigger transition from 0 to 75
+      // Next frame to trigger transition
       t1 = setTimeout(() => {
-        setTransitionStyle('width 0.5s linear');
-        setProgress(75);
+        setTransitionStyle(transition);
+        setProgress(targetVal);
       }, 30);
 
-      // After 530ms (30ms delay + 500ms transition), if still loading, slow down progress to 95%
-      t2 = setTimeout(() => {
-        setTransitionStyle('width 15s cubic-bezier(0.1, 0.6, 0.1, 1)');
-        setProgress(95);
-      }, 530);
+      // If we are in the fast linear phase, schedule the slow creep phase
+      if (targetVal === 75) {
+        t2 = setTimeout(() => {
+          setTransitionStyle('width 15s cubic-bezier(0.1, 0.6, 0.1, 1)');
+          setProgress(95);
+        }, remainingTime + 30);
+      }
 
     } else if (visible) {
       // Finished loading
@@ -42,6 +86,7 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
         setVisible(false);
         setProgress(0);
         setTransitionStyle('none');
+        delete (window as any).__loadingStartTime;
       }, 300);
     }
 
