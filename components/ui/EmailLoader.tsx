@@ -15,41 +15,68 @@ export default function EmailLoader({ loading, color = '#10b981', labels = ['Ent
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(loading);
   const animationRef = useRef<number | null>(null);
-  const finishIntervalRef = useRef<any>(null);
   const mountedRef = useRef(true);
+  const loadingRef = useRef(loading);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+    if (loading) {
+      setVisible(true);
+    }
+  }, [loading]);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      if (finishIntervalRef.current) clearInterval(finishIntervalRef.current);
     };
   }, []);
 
   useEffect(() => {
-    if (loading) {
-      setVisible(true);
+    if (visible) {
       setProgress(0);
 
-      if (finishIntervalRef.current) {
-        clearInterval(finishIntervalRef.current);
-        finishIntervalRef.current = null;
-      }
-
       const startTime = Date.now();
+      let phase = 'loading'; // 'loading' | 'finishing'
+      let finishStartTime = 0;
+      let startProgress = 0;
+      let currentProgress = 0;
+
       const tick = () => {
         if (!mountedRef.current) return;
-        const elapsed = Date.now() - startTime;
-        if (elapsed <= 700) {
-          setProgress((elapsed / 700) * 75);
-        } else {
-          const slowElapsed = elapsed - 700;
-          const slowProgress = 75 + (1 - Math.exp(-slowElapsed / 8000)) * (98 - 75);
-          setProgress(slowProgress);
+
+        if (phase === 'loading') {
+          const elapsed = Date.now() - startTime;
+          if (elapsed <= 700) {
+            currentProgress = (elapsed / 700) * 75;
+            setProgress(currentProgress);
+          } else {
+            if (!loadingRef.current) {
+              phase = 'finishing';
+              finishStartTime = Date.now();
+              startProgress = currentProgress;
+            } else {
+              const slowElapsed = elapsed - 700;
+              currentProgress = 75 + (1 - Math.exp(-slowElapsed / 8000)) * (98 - 75);
+              setProgress(currentProgress);
+            }
+          }
+          animationRef.current = requestAnimationFrame(tick);
+        } else if (phase === 'finishing') {
+          const elapsed = Date.now() - finishStartTime;
+          if (elapsed <= 200) {
+            setProgress(startProgress + (elapsed / 200) * (100 - startProgress));
+            animationRef.current = requestAnimationFrame(tick);
+          } else {
+            setProgress(100);
+            setTimeout(() => {
+              if (mountedRef.current) setVisible(false);
+            }, 250);
+          }
         }
-        animationRef.current = requestAnimationFrame(tick);
       };
+
       animationRef.current = requestAnimationFrame(tick);
 
       return () => {
@@ -59,39 +86,7 @@ export default function EmailLoader({ loading, color = '#10b981', labels = ['Ent
         }
       };
     }
-  }, [loading]);
-
-  useEffect(() => {
-    if (!loading && visible) {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
-
-      let current = progress;
-      finishIntervalRef.current = setInterval(() => {
-        if (!mountedRef.current) return;
-        current += 5;
-        if (current >= 100) {
-          setProgress(100);
-          clearInterval(finishIntervalRef.current);
-          finishIntervalRef.current = null;
-          setTimeout(() => {
-            if (mountedRef.current) setVisible(false);
-          }, 250);
-        } else {
-          setProgress(current);
-        }
-      }, 16);
-
-      return () => {
-        if (finishIntervalRef.current) {
-          clearInterval(finishIntervalRef.current);
-        }
-      };
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, visible]);
+  }, [visible]);
 
   if (!visible) return <>{children}</>;
 

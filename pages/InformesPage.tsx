@@ -17,6 +17,7 @@ import {
 import { supabase } from '../services/supabase';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import EmailLoader from '../components/ui/EmailLoader';
 
 import SmoothImage from '../components/ui/SmoothImage';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
@@ -900,28 +901,30 @@ export default function InformesPage() {
             };
 
             return (
-              <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 md:grid-cols-3 xl:flex xl:flex-nowrap">
-                {config.map(m => {
-                  const { val, changePct, trend } = getValue(m.key);
-                  const series = (metricSeriesData as any)[m.key] || [];
-                  return (
-                    <DashboardMetric
-                      key={m.key}
-                      icon={m.icon}
-                      label={m.label}
-                      value={val}
-                      change={changePct}
-                      trend={trend}
-                      data={series}
-                      color={m.color}
-                      loading={loadingSocial}
-                      active={expandedMetric === m.key}
-                      onClick={() => setExpandedMetric(m.key as SocialMetricKey)}
-                      info={m.info}
-                    />
-                  );
-                })}
-              </div>
+              <EmailLoader loading={loadingSocial} color="#8b5cf6" labels={config.map(m => m.label)}>
+                <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 md:grid-cols-3 xl:flex xl:flex-nowrap">
+                  {config.map(m => {
+                    const { val, changePct, trend } = getValue(m.key);
+                    const series = (metricSeriesData as any)[m.key] || [];
+                    return (
+                      <DashboardMetric
+                        key={m.key}
+                        icon={m.icon}
+                        label={m.label}
+                        value={val}
+                        change={changePct}
+                        trend={trend}
+                        data={series}
+                        color={m.color}
+                        loading={loadingSocial}
+                        active={expandedMetric === m.key}
+                        onClick={() => setExpandedMetric(m.key as SocialMetricKey)}
+                        info={m.info}
+                      />
+                    );
+                  })}
+                </div>
+              </EmailLoader>
             );
           })()}
 
