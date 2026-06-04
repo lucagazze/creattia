@@ -1539,7 +1539,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <CenteredPageLoader isLoading={loadingInitial}>
+    <CenteredPageLoader isLoading={false}>
 
     <div className="w-full space-y-6 sm:space-y-10 pt-4 md:pt-6">
       {/* Admin Client Picker */}
