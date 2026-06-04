@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CustomAudioPlayer } from '../components/ui/CustomAudioPlayer';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 
 const fmtTime = (ts: any) => {
   if (!ts) return '';
@@ -211,6 +212,8 @@ export default function MensajeriaPage() {
     } catch { return []; }
   });
   const [isFirstLoadDone, setIsFirstLoadDone] = useState(false);
+  const [loadingInboxes, setLoadingInboxes] = useState(true);
+  const [loadingMetas, setLoadingMetas] = useState(true);
 
 
 
@@ -276,7 +279,7 @@ export default function MensajeriaPage() {
   const [customLinks, setCustomLinks] = useState<any[]>([]);
   const [loadingLinks, setLoadingLinks] = useState(false);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -361,6 +364,9 @@ export default function MensajeriaPage() {
     setChannelMetas(cachedChannelMetas);
 
     setIsFirstLoadDone(false);
+    setLoadingInboxes(true);
+    setLoadingMetas(true);
+    setLoading(true);
     setSelected(null);
     setMessages([]);
     setInboxes([]);
@@ -427,13 +433,19 @@ export default function MensajeriaPage() {
 
   // Load inboxes once when credentials are ready
   useEffect(() => {
-    if (!cwUrl || !cwToken) return;
+    if (!cwUrl || !cwToken) {
+      setLoadingInboxes(false);
+      return;
+    }
     const initInboxes = async () => {
+      setLoadingInboxes(true);
       try {
         const inboxList = await chatwoot.getInboxes(cwUrl, cwToken).catch(() => []);
         setInboxes(inboxList);
       } catch (err) {
         console.error("Error fetching inboxes on mount:", err);
+      } finally {
+        setLoadingInboxes(false);
       }
     };
     initInboxes();
@@ -441,9 +453,16 @@ export default function MensajeriaPage() {
 
   // Load total counts for each channel key and overall counts immediately in parallel
   useEffect(() => {
-    if (!cwUrl || !cwToken) return;
+    if (!cwUrl || !cwToken) {
+      setLoadingMetas(false);
+      return;
+    }
+    if (loadingInboxes) {
+      return;
+    }
 
     const loadChannelMetas = async () => {
+      setLoadingMetas(true);
       try {
         // Fetch overall meta
         const overallMetaRes = await chatwoot.getConversationsMeta(cwUrl, cwToken, statusFilter).catch(() => null);
@@ -458,7 +477,10 @@ export default function MensajeriaPage() {
           try { sessionStorage.setItem(`car_conv_meta_${profile?.id || 'default'}`, JSON.stringify(newMeta)); } catch {}
         }
 
-        if (inboxes.length === 0) return;
+        if (inboxes.length === 0) {
+          setLoadingMetas(false);
+          return;
+        }
 
         const metas: Record<string, { all_count: number; unassigned_count: number; assigned_count: number }> = {};
         await Promise.all(inboxes.map(async (inbox: any) => {
@@ -488,11 +510,13 @@ export default function MensajeriaPage() {
         try { sessionStorage.setItem(`car_channel_metas_${profile?.id || 'default'}`, JSON.stringify(metas)); } catch {}
       } catch (err) {
         console.error('Error loading channel metas:', err);
+      } finally {
+        setLoadingMetas(false);
       }
     };
 
     loadChannelMetas();
-  }, [cwUrl, cwToken, inboxes, statusFilter, profile?.id]);
+  }, [cwUrl, cwToken, inboxes, statusFilter, profile?.id, loadingInboxes]);
 
   const fetchConversationsData = useCallback(async () => {
     if (!cwUrl || !cwToken) return null;
@@ -534,9 +558,11 @@ export default function MensajeriaPage() {
   }, [cwUrl, cwToken, statusFilter, channelFilter, getInboxIdForChannel]);
 
   const loadConversations = useCallback(async () => {
-    if (!cwUrl || !cwToken) return;
-    // Only show spinner if we have nothing cached
-    setConversations(prev => { if (prev.length === 0) setLoading(true); return prev; });
+    if (!cwUrl || !cwToken) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     setError(null);
     setCurrentPage(1);
     setHasMore(false);
@@ -575,9 +601,15 @@ export default function MensajeriaPage() {
       setError(e.message);
     } finally {
       setLoading(false);
-      setIsFirstLoadDone(true);
     }
   }, [cwUrl, cwToken, channelFilter, fetchConversationsData]);
+
+  // Sync first load completion when all fetches are done
+  useEffect(() => {
+    if (!loading && !loadingMetas && !loadingInboxes) {
+      setIsFirstLoadDone(true);
+    }
+  }, [loading, loadingMetas, loadingInboxes]);
 
   const loadMoreConversations = useCallback(async () => {
     if (!cwUrl || !cwToken || loadingMore || !hasMore) return;
@@ -1662,7 +1694,8 @@ export default function MensajeriaPage() {
   }
 
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
+    <CenteredPageLoader isLoading={!isFirstLoadDone}>
+      <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
 
       {/* Top Header Bar */}
       <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">
@@ -2376,6 +2409,7 @@ export default function MensajeriaPage() {
           />
         </div>
       )}
-    </div>
+      </div>
+    </CenteredPageLoader>
   );
 }

@@ -748,7 +748,7 @@ export default function InformesPage() {
                       trend={trend}
                       data={series}
                       color={m.color}
-                      loading={loadingSocial}
+                      loading={loadingSocial && !igProfile && !fbProfile}
                       active={expandedMetric === m.key}
                       onClick={() => setExpandedMetric(m.key as SocialMetricKey)}
                       info={m.info}

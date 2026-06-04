@@ -592,7 +592,7 @@ export default function MensajesDMPage() {
         body: JSON.stringify({
           clientId,
           itemText: selectedConv.lastMessage || '',
-          username: selectedConv.username || selectedConv.name || '',
+          username: selectedConv.username || '',
           conversationHistory: history,
           postPlatform: selectedConv.platform || undefined,
           isDM: true,

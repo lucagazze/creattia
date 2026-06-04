@@ -370,18 +370,18 @@ export const ecommerce = {
     let nextUrl: string | null = `${BASE}/products.json?fields=id,title,image,variants&limit=250`;
 
     while (nextUrl) {
-      const res = await fetch(nextUrl, {
+      const res: Response = await fetch(nextUrl, {
         headers: { 'X-Shopify-Access-Token': token, 'X-Shop-Domain': cleanDomain }
       });
       if (!res.ok) throw new Error(`Shopify API Error: ${res.status}`);
       const data = await res.json();
       allProducts = allProducts.concat(data.products ?? []);
-      const link = res.headers.get('Link');
+      const link: string | null = res.headers.get('Link');
       nextUrl = null;
       if (link) {
-        const nextPart = link.split(',').find((s: string) => s.includes('rel="next"'));
+        const nextPart: string | undefined = link.split(',').find((s: string) => s.includes('rel="next"'));
         if (nextPart) {
-          const match = nextPart.match(/<([^>]+)>/);
+          const match: RegExpMatchArray | null = nextPart.match(/<([^>]+)>/);
           if (match) nextUrl = match[1];
         }
       }

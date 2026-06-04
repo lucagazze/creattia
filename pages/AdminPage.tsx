@@ -555,7 +555,7 @@ export default function AdminPage() {
       const assocData = assocRes.data || [];
 
       // Find users not mapped in car_clients or car_business_accounts
-      const unlinked = authUsers.filter(u => {
+      const unlinked = authUsers.filter((u: any) => {
         const isOwner = clientsData.some((c: any) => c.user_id === u.id);
         const isAssoc = assocData.some((a: any) => a.user_id === u.id);
         return !isOwner && !isAssoc;

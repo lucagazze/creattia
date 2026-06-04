@@ -189,7 +189,7 @@ export default function AdminUsersPage() {
         created_at: r.created_at,
       })));
 
-      setUsers(authUsers.map(u => ({
+      setUsers(authUsers.map((u: any) => ({
         id: u.id,
         email: u.email ?? '',
         created_at: u.created_at,

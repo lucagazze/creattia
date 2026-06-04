@@ -49,7 +49,8 @@ import {
   MessageCircle,
   Inbox,
   Send,
-  Clock
+  Clock,
+  Loader2
 } from "lucide-react";
 import {
   AreaChart,
@@ -900,16 +901,6 @@ export default function DashboardPage() {
       } catch (e) {
         console.error("Error parsing dashboard cache:", e);
       }
-    } else {
-      // Clear values when changing client or range to avoid stale UI flash
-      setCurrentStore(null);
-      setPrevStore(null);
-      setCurrentMeta(null);
-      setPrevMeta(null);
-      setMetaDaily([]);
-      setPrevMetaDaily([]);
-      setCurrentKlaviyo(null);
-      setPrevKlaviyo(null);
     }
   }, [profile?.id, activePreset, activeSince, activeUntil]);
 
@@ -1559,7 +1550,11 @@ export default function DashboardPage() {
               onClick={() => setShowDatePicker(!showDatePicker)}
               className="flex items-center gap-2 px-4 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group"
             >
-              <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-blue-500 transition-colors" />
+              {(fetchingStore || fetchingMeta || fetchingKlaviyo) && (currentStore || currentMeta || currentKlaviyo) ? (
+                <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+              ) : (
+                <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-blue-500 transition-colors" />
+              )}
               <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-200">
                 {activePreset === "custom"
                   ? (activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}`)
@@ -1736,7 +1731,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
-              loading={fetchingStore}
+              loading={fetchingStore && !currentStore}
               color={PINK}
               labels={showMER ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'M.E.R. (Eficiencia)'] : ['Ticket Promedio', 'Pedidos', 'Ingresos']}
             >
@@ -1758,7 +1753,7 @@ export default function DashboardPage() {
                       date: d.date,
                     }))}
                     color={PINK}
-                    loading={fetchingStore}
+                    loading={fetchingStore && !currentStore}
                     active={expandedMetric === "s-aov"}
                     onClick={() =>
                       setExpandedMetric(
@@ -1785,7 +1780,7 @@ export default function DashboardPage() {
                       date: d.date,
                     }))}
                     color={PINK}
-                    loading={fetchingStore}
+                    loading={fetchingStore && !currentStore}
                     active={expandedMetric === "s-orders"}
                     onClick={() =>
                       setExpandedMetric(
@@ -1812,7 +1807,7 @@ export default function DashboardPage() {
                       date: d.date,
                     }))}
                     color={PINK}
-                    loading={fetchingStore}
+                    loading={fetchingStore && !currentStore}
                     active={expandedMetric === "s-revenue"}
                     onClick={() =>
                       setExpandedMetric(
@@ -1830,7 +1825,7 @@ export default function DashboardPage() {
                       trend={currentMER >= prevMER ? "up" : "down"}
                       data={merDaily}
                       color={PINK}
-                      loading={fetchingStore || fetchingMeta}
+                      loading={(fetchingStore || fetchingMeta) && !currentStore && !currentMeta}
                       active={expandedMetric === "mer-efficiency"}
                       onClick={() =>
                         setExpandedMetric(
@@ -1939,7 +1934,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
-              loading={fetchingMeta}
+              loading={fetchingMeta && !currentMeta}
               color={"#3b82f6"}
               labels={
                 selectedMetaGoal === 'purchases'
@@ -1969,7 +1964,7 @@ export default function DashboardPage() {
                       date: d.date,
                     }))}
                     color={MAIN_COLOR}
-                    loading={fetchingMeta}
+                    loading={fetchingMeta && !currentMeta}
                     active={expandedMetric === "meta-inversion"}
                     onClick={() =>
                       setExpandedMetric(
@@ -1995,7 +1990,7 @@ export default function DashboardPage() {
                       date: d.date,
                     }))}
                     color={MAIN_COLOR}
-                    loading={fetchingMeta}
+                    loading={fetchingMeta && !currentMeta}
                     active={expandedMetric === "meta-alcance"}
                     onClick={() =>
                       setExpandedMetric(
@@ -2016,7 +2011,7 @@ export default function DashboardPage() {
                         change={getMetaChange(currentMeta?.purchases, prevMeta?.purchases)}
                         trend={(currentMeta?.purchases || 0) >= (prevMeta?.purchases || 0) ? "up" : "down"}
                         data={metaDaily?.map((d: any) => ({ val: d.purchases, date: d.date }))}
-                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-purchases"}
+                        color={MAIN_COLOR} loading={fetchingMeta && !currentMeta} active={expandedMetric === "meta-purchases"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-purchases" ? null : "meta-purchases")}
                         info="Compras totales es el número acumulado de ventas en la tienda atribuidas a la interacción directa con tus anuncios de Meta Ads."
                       />
@@ -2027,7 +2022,7 @@ export default function DashboardPage() {
                         change={getMetaChange(currentMeta?.roas, prevMeta?.roas)}
                         trend={(currentMeta?.roas || 0) >= (prevMeta?.roas || 0) ? "up" : "down"}
                         data={metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))}
-                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-roas"}
+                        color={MAIN_COLOR} loading={fetchingMeta && !currentMeta} active={expandedMetric === "meta-roas"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-roas" ? null : "meta-roas")}
                         info="Return on Ad Spend (ROAS) es el retorno de inversión publicitaria. Se calcula como los ingresos atribuidos a Meta divididos por la inversión en pauta."
                       />
@@ -2038,7 +2033,7 @@ export default function DashboardPage() {
                         change={getMetaChange(currentMeta?.purchase_value, prevMeta?.purchase_value)}
                         trend={(currentMeta?.purchase_value || 0) >= (prevMeta?.purchase_value || 0) ? "up" : "down"}
                         data={metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))}
-                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-roas-v"}
+                        color={MAIN_COLOR} loading={fetchingMeta && !currentMeta} active={expandedMetric === "meta-roas-v"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-roas-v" ? null : "meta-roas-v")}
                         info="Retorno es el valor monetario (ingresos) generado por las compras que son atribuidas directamente a tus campañas de anuncios en Meta."
                       />
@@ -2054,7 +2049,7 @@ export default function DashboardPage() {
                         change={getMetaChange(currentMeta?.leads, prevMeta?.leads)}
                         trend={(currentMeta?.leads || 0) >= (prevMeta?.leads || 0) ? "up" : "down"}
                         data={metaDaily?.map((d: any) => ({ val: d.leads, date: d.date }))}
-                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-leads"}
+                        color={MAIN_COLOR} loading={fetchingMeta && !currentMeta} active={expandedMetric === "meta-leads"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-leads" ? null : "meta-leads")}
                         info="Leads representa la cantidad de clientes potenciales capturados a través de formularios o eventos registrados desde tus anuncios en Meta."
                       />
@@ -2068,7 +2063,7 @@ export default function DashboardPage() {
                         )}
                         trend={(currentMeta?.leads ? currentMeta.spend / currentMeta.leads : 0) <= (prevMeta?.leads ? prevMeta.spend / prevMeta.leads : 0) ? "up" : "down"}
                         data={metaDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))}
-                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-cpl"}
+                        color={MAIN_COLOR} loading={fetchingMeta && !currentMeta} active={expandedMetric === "meta-cpl"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-cpl" ? null : "meta-cpl")}
                         info="Costo por Lead (CPL) representa el valor promedio invertido para capturar a cada cliente potencial (Inversión total dividida por número de Leads)."
                       />
@@ -2084,7 +2079,7 @@ export default function DashboardPage() {
                         change={getMetaChange(currentMeta?.messages, prevMeta?.messages)}
                         trend={(currentMeta?.messages || 0) >= (prevMeta?.messages || 0) ? "up" : "down"}
                         data={metaDaily?.map((d: any) => ({ val: d.messages, date: d.date }))}
-                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-messages"}
+                        color={MAIN_COLOR} loading={fetchingMeta && !currentMeta} active={expandedMetric === "meta-messages"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-messages" ? null : "meta-messages")}
                         info="Mensajes es la cantidad de conversaciones por chat (Messenger, Instagram Direct o WhatsApp) iniciadas directamente por usuarios desde tus anuncios."
                       />
@@ -2098,7 +2093,7 @@ export default function DashboardPage() {
                         )}
                         trend={(currentMeta?.messages ? currentMeta.spend / currentMeta.messages : 0) <= (prevMeta?.messages ? prevMeta.spend / prevMeta.messages : 0) ? "up" : "down"}
                         data={metaDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))}
-                        color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-cpm"}
+                        color={MAIN_COLOR} loading={fetchingMeta && !currentMeta} active={expandedMetric === "meta-cpm"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-cpm" ? null : "meta-cpm")}
                         info="Costo por Mensaje es el valor promedio invertido para que un usuario inicie una nueva conversación desde tus anuncios (Inversión / Mensajes)."
                       />
@@ -2169,7 +2164,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
-              loading={fetchingKlaviyo}
+              loading={fetchingKlaviyo && !currentKlaviyo}
               color={GREEN}
               labels={isEcommerce ? ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'] : ['Entregas', 'Tasa de Apertura', 'Tasa de Clics']}
             >
@@ -2191,7 +2186,7 @@ export default function DashboardPage() {
                     }
                     data={currentKlaviyo?.dailySent || []}
                     color={GREEN}
-                    loading={fetchingKlaviyo}
+                    loading={fetchingKlaviyo && !currentKlaviyo}
                     active={expandedMetric === "k-sent"}
                     onClick={() =>
                       setExpandedMetric(
@@ -2225,7 +2220,7 @@ export default function DashboardPage() {
                       })) || []
                     }
                     color={GREEN}
-                    loading={fetchingKlaviyo}
+                    loading={fetchingKlaviyo && !currentKlaviyo}
                     active={expandedMetric === "k-open-rate"}
                     onClick={() =>
                       setExpandedMetric(
@@ -2259,7 +2254,7 @@ export default function DashboardPage() {
                       })) || []
                     }
                     color={GREEN}
-                    loading={fetchingKlaviyo}
+                    loading={fetchingKlaviyo && !currentKlaviyo}
                     active={expandedMetric === "k-click-rate"}
                     onClick={() =>
                       setExpandedMetric(
@@ -2286,7 +2281,7 @@ export default function DashboardPage() {
                     }
                     data={currentKlaviyo?.dailyAttributed || []}
                     color={GREEN}
-                    loading={fetchingKlaviyo}
+                    loading={fetchingKlaviyo && !currentKlaviyo}
                     active={expandedMetric === "k-attr"}
                     onClick={() =>
                       setExpandedMetric(
@@ -2382,7 +2377,7 @@ export default function DashboardPage() {
               <h2 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Atención al Cliente</h2>
             </div>
             <EmailLoader
-              loading={fetchingChatwoot}
+              loading={fetchingChatwoot && !chatwootSummary}
               color="#8b5cf6"
               labels={['Conversaciones', 'Msj. Entrantes', 'Msj. Salientes', 'Resp. Promedio']}
             >

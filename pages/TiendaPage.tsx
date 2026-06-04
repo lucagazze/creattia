@@ -12,6 +12,12 @@ import AnalisisProductosPage from './AnalisisProductosPage';
 
 const PINK = '#ec4899';
 
+const fmtCurr = (n: number) => {
+  if (typeof n !== 'number') return '—';
+  const showDecimals = n < 10 || n % 1 !== 0;
+  return `$ ${n.toLocaleString('es-AR', showDecimals ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 })}`;
+};
+
 const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
   const touchStart = React.useRef<number>(0);
   const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
@@ -311,7 +317,7 @@ export default function TiendaPage() {
       {(data || loading) ? (
           <div className="space-y-6">
             {/* Top Stats */}
-            <EmailLoader loading={loading} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']}>
+            <EmailLoader loading={loading && !data} color={PINK} labels={['Pedidos', 'Ingresos', 'Ticket Promedio']}>
               {data ? (
                 <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
               <DashboardMetric 
@@ -322,7 +328,7 @@ export default function TiendaPage() {
                 trend={(data.orders || 0) >= (prevData?.orders || 0) ? 'up' : 'down'} 
                 data={data.daily?.map((d: any) => ({ val: d.orders, date: d.date }))} 
                 color={PINK} 
-                loading={loading} 
+                loading={loading && !data} 
                 active={expandedMetric === 's-orders'} 
                 onClick={() => setExpandedMetric(expandedMetric === 's-orders' ? null : 's-orders')} 
                 info="Cantidad total de órdenes procesadas y confirmadas en tu tienda Shopify durante el período seleccionado."
@@ -330,12 +336,12 @@ export default function TiendaPage() {
               <DashboardMetric 
                 icon={DollarSign}
                 label="Ingresos" 
-                value={`$ ${data.revenue?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || '0'}`} 
+                value={fmtCurr(data.revenue || 0)} 
                 change={prevData?.revenue ? ((data.revenue - prevData.revenue) / prevData.revenue) * 100 : undefined}
                 trend={(data.revenue || 0) >= (prevData?.revenue || 0) ? 'up' : 'down'} 
                 data={data.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))} 
                 color={PINK} 
-                loading={loading} 
+                loading={loading && !data} 
                 active={expandedMetric === 's-revenue'} 
                 onClick={() => setExpandedMetric(expandedMetric === 's-revenue' ? null : 's-revenue')} 
                 info="Suma total facturada por ventas brutas en tu tienda Shopify en el período seleccionado."
@@ -343,12 +349,12 @@ export default function TiendaPage() {
               <DashboardMetric 
                 icon={Receipt}
                 label="Ticket Promedio" 
-                value={`$ ${data.aov?.toLocaleString('es-AR', { maximumFractionDigits: 0 }) || '0'}`} 
+                value={fmtCurr(data.aov || 0)} 
                 change={prevData?.aov ? ((data.aov - prevData.aov) / prevData.aov) * 100 : undefined}
                 trend={(data.aov || 0) >= (prevData?.aov || 0) ? 'up' : 'down'} 
                 data={data.daily?.map((d: any) => ({ val: d.aov, date: d.date }))} 
                 color={PINK} 
-                loading={loading} 
+                loading={loading && !data} 
                 active={expandedMetric === 's-aov'} 
                 onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')} 
                 info="El valor promedio gastado en cada pedido. Se calcula dividiendo los ingresos totales por la cantidad de pedidos."
