@@ -597,7 +597,6 @@ export default function RedesSocialesPage() {
         if (parsed.igProfile) setIgProfile(parsed.igProfile);
         if (parsed.igMedia) setIgMedia(parsed.igMedia);
         if (parsed.igNextCursor) setIgNextCursor(parsed.igNextCursor);
-        setIgLoading(false);
       } catch (e) {
         console.error('Error parsing IG cache:', e);
       }
@@ -615,7 +614,6 @@ export default function RedesSocialesPage() {
         if (parsed.fbProfile) setFbProfile(parsed.fbProfile);
         if (parsed.fbMedia) setFbMedia(parsed.fbMedia);
         if (parsed.fbNextCursor) setFbNextCursor(parsed.fbNextCursor);
-        setFbLoading(false);
       } catch (e) {
         console.error('Error parsing FB cache:', e);
       }
@@ -783,8 +781,7 @@ export default function RedesSocialesPage() {
     if (!clientId) return;
 
     let active = true;
-    const hasCache = sessionStorage.getItem(`ig_cache_${clientId}`);
-    setIgLoading(!hasCache && !!igId);
+    setIgLoading(!!igId);
     setError(null);
     setIgNextCursor(null);
 
@@ -841,7 +838,7 @@ export default function RedesSocialesPage() {
         if (parsed.fbNextCursor) setFbNextCursor(parsed.fbNextCursor);
       } catch (e) { /* ignore parse error */ }
     }
-    setFbLoading(!hasCache);
+    setFbLoading(!!fbPageId);
     setFbError(null);
     setFbNextCursor(null);
 
