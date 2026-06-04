@@ -784,6 +784,7 @@ export default function AtencionPage() {
             loading={loading}
             color={VIOLET}
             labels={['Conversaciones Totales', 'Mensajes Entrantes', 'Mensajes Salientes', 'Tiempo Resp. Promedio']}
+            duration={700}
           >
             {summaryData ? (
               <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
