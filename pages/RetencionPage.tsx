@@ -289,7 +289,7 @@ export default function RetencionPage() {
       {profile?.klaviyo_api_key && (
         <div className="space-y-4">
           <div className="relative bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
-            <EmailLoader loading={fetchingKlaviyo} color={MAIN_COLOR} labels={['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email']}>
+            <EmailLoader loading={fetchingKlaviyo} color={MAIN_COLOR} labels={['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email']} duration={1000}>
               {currentKlaviyo ? (
                 <div className="overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                   <DashboardMetric icon={Package} label="Entregas" value={currentKlaviyo ? currentKlaviyo.sent?.toLocaleString('es-AR') : '...'} change={getKlaviyoChange(currentKlaviyo?.sent, prevKlaviyo?.sent)} trend={(currentKlaviyo?.sent || 0) >= (prevKlaviyo?.sent || 0) ? 'up' : 'down'} data={currentKlaviyo?.dailySent || []} color={MAIN_COLOR} loading={fetchingKlaviyo} active={expandedMetric === 'k-sent'} onClick={() => setExpandedMetric(expandedMetric === 'k-sent' ? null : 'k-sent')} info="Total de correos electrónicos enviados con éxito y recibidos por los destinatarios." />

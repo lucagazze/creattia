@@ -4,6 +4,7 @@ interface Props {
   loading: boolean;
   color?: string;
   labels?: string[];
+  duration?: number;
   children?: React.ReactNode;
 }
 
@@ -11,7 +12,7 @@ interface Props {
  * Inline progress bar that matches the exact footprint of the metric cards row.
  * No layout shift: same height and border-radius as the cards.
  */
-export default function EmailLoader({ loading, color = '#10b981', labels = ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'], children }: Props) {
+export default function EmailLoader({ loading, color = '#10b981', labels = ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'], duration = 500, children }: Props) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(loading);
   const animationRef = useRef<number | null>(null);
@@ -54,8 +55,8 @@ export default function EmailLoader({ loading, color = '#10b981', labels = ['Ent
 
         if (phase === 'loading') {
           const elapsed = Date.now() - startTime;
-          if (elapsed <= 500) {
-            currentProgress = (elapsed / 500) * 75;
+          if (elapsed <= duration) {
+            currentProgress = (elapsed / duration) * 75;
             setProgress(currentProgress);
           } else {
             if (!loadingRef.current) {
@@ -63,7 +64,7 @@ export default function EmailLoader({ loading, color = '#10b981', labels = ['Ent
               finishStartTime = Date.now();
               startProgress = currentProgress;
             } else {
-              const slowElapsed = elapsed - 500;
+              const slowElapsed = elapsed - duration;
               currentProgress = 75 + (1 - Math.exp(-slowElapsed / 8000)) * (98 - 75);
               setProgress(currentProgress);
             }
@@ -85,7 +86,7 @@ export default function EmailLoader({ loading, color = '#10b981', labels = ['Ent
 
       animationRef.current = requestAnimationFrame(tick);
     }
-  }, [loading]);
+  }, [loading, duration]);
 
   if (!visible) return <>{children}</>;
 

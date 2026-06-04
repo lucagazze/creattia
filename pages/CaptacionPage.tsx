@@ -608,7 +608,7 @@ export default function CaptacionPage() {
                 : ['Inversión', 'Alcance', 'Mensajes', 'Costo x Msj'];
               return (
                 <>
-                  <EmailLoader loading={loading} color={BLUE} labels={singleLabels}>
+                  <EmailLoader loading={loading} color={BLUE} labels={singleLabels} duration={700}>
                     {summary ? (
                       <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                         <DashboardMetric icon={DollarSign} label="Inversión" value={fmt(summary?.spend || 0, true)} change={getChange(summary?.spend, prevSummary?.spend)} trend={getTrend(summary?.spend, prevSummary?.spend)} data={daily?.map((d: any) => ({ val: d.spend, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'spend'} onClick={() => setExpandedMetric(expandedMetric === 'spend' ? null : 'spend')} info="Inversión total acumulada en Meta Ads para la cuenta seleccionada durante el período." />
@@ -681,7 +681,7 @@ export default function CaptacionPage() {
               <>
                 <div className="space-y-2">
                   <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><BarChart2 className="w-3.5 h-3.5" /> Métricas Generales</h3>
-                  <EmailLoader loading={loading} color={BLUE} labels={['Inversión', 'Alcance']}>
+                  <EmailLoader loading={loading} color={BLUE} labels={['Inversión', 'Alcance']} duration={700}>
                     {summary ? (
                       <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                         <DashboardMetric icon={DollarSign} label="Inversión" value={fmt(summary?.spend || 0, true)} change={getChange(summary?.spend, prevSummary?.spend)} trend={getTrend(summary?.spend, prevSummary?.spend)} data={daily?.map((d: any) => ({ val: d.spend, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'spend'} onClick={() => setExpandedMetric(expandedMetric === 'spend' ? null : 'spend')} info="Inversión total acumulada en Meta Ads para la cuenta seleccionada durante el período." />
@@ -702,7 +702,7 @@ export default function CaptacionPage() {
                       {isEcom && (
                         <div className="space-y-2">
                           <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Globe className="w-3.5 h-3.5" /> Tienda Online</h3>
-                          <EmailLoader loading={loading} color={BLUE} labels={['Compras', 'ROAS', 'Retorno']}>
+                          <EmailLoader loading={loading} color={BLUE} labels={['Compras', 'ROAS', 'Retorno']} duration={700}>
                             {summary ? (
                               <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 overflow-hidden scrollbar-hide">
                                 <DashboardMetric icon={Target} label="Compras" value={fmt(summary?.purchases || 0)} change={getChange(summary?.purchases, prevSummary?.purchases)} trend={getTrend(summary?.purchases, prevSummary?.purchases)} data={daily?.map((d: any) => ({ val: d.purchases, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'purchases'} onClick={() => setExpandedMetric(expandedMetric === 'purchases' ? null : 'purchases')} info="Cantidad total de eventos de compra en el sitio atribuidos a tus campañas en Facebook/Instagram." />
@@ -716,7 +716,7 @@ export default function CaptacionPage() {
                       {isLead && (
                         <div className="space-y-2">
                           <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Clientes Potenciales</h3>
-                          <EmailLoader loading={loading} color={BLUE} labels={['Leads', 'CPL']}>
+                          <EmailLoader loading={loading} color={BLUE} labels={['Leads', 'CPL']} duration={700}>
                             {summary ? (
                               <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 overflow-hidden scrollbar-hide">
                                 <DashboardMetric icon={Target} label="Leads" value={fmt(summary?.leads || 0)} change={getChange(summary?.leads, prevSummary?.leads)} trend={getTrend(summary?.leads, prevSummary?.leads)} data={daily?.map((d: any) => ({ val: d.leads, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'leads'} onClick={() => setExpandedMetric(expandedMetric === 'leads' ? null : 'leads')} info="Cantidad de contactos o clientes potenciales (leads) captados a través de formularios de tus anuncios." />
@@ -733,7 +733,7 @@ export default function CaptacionPage() {
                     {isWpp && (
                       <div className="space-y-2">
                         <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mensajes (WhatsApp)</h3>
-                        <EmailLoader loading={loading} color={BLUE} labels={['Mensajes', 'Costo x Msj']}>
+                        <EmailLoader loading={loading} color={BLUE} labels={['Mensajes', 'Costo x Msj']} duration={700}>
                           {summary ? (
                             <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                               <DashboardMetric icon={MessageSquare} label="Mensajes" value={fmt(summary?.messages || 0)} change={getChange(summary?.messages, prevSummary?.messages)} trend={getTrend(summary?.messages, prevSummary?.messages)} data={daily?.map((d: any) => ({ val: d.messages, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'messages'} onClick={() => setExpandedMetric(expandedMetric === 'messages' ? null : 'messages')} info="Conversaciones de mensajes de texto de clientes nuevas o iniciadas a partir de clics en tus anuncios." />
@@ -751,7 +751,7 @@ export default function CaptacionPage() {
                       {isEcom && (
                         <div className="space-y-2">
                           <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Globe className="w-3.5 h-3.5" /> Tienda Online</h3>
-                          <EmailLoader loading={loading} color={BLUE} labels={['Compras', 'ROAS', 'Retorno']}>
+                          <EmailLoader loading={loading} color={BLUE} labels={['Compras', 'ROAS', 'Retorno']} duration={700}>
                             {summary ? (
                               <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-3 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                                 <DashboardMetric icon={Target} label="Compras" value={fmt(summary?.purchases || 0)} change={getChange(summary?.purchases, prevSummary?.purchases)} trend={getTrend(summary?.purchases, prevSummary?.purchases)} data={daily?.map((d: any) => ({ val: d.purchases, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'purchases'} onClick={() => setExpandedMetric(expandedMetric === 'purchases' ? null : 'purchases')} info="Cantidad total de eventos de compra en el sitio atribuidos a tus campañas en Facebook/Instagram." />
@@ -765,7 +765,7 @@ export default function CaptacionPage() {
                       {isLead && (
                         <div className="space-y-2">
                           <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Clientes Potenciales</h3>
-                          <EmailLoader loading={loading} color={BLUE} labels={['Leads', 'CPL']}>
+                          <EmailLoader loading={loading} color={BLUE} labels={['Leads', 'CPL']} duration={700}>
                             {summary ? (
                               <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                                 <DashboardMetric icon={Target} label="Leads" value={fmt(summary?.leads || 0)} change={getChange(summary?.leads, prevSummary?.leads)} trend={getTrend(summary?.leads, prevSummary?.leads)} data={daily?.map((d: any) => ({ val: d.leads, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'leads'} onClick={() => setExpandedMetric(expandedMetric === 'leads' ? null : 'leads')} info="Cantidad de contactos o clientes potenciales (leads) captados a través de formularios de tus anuncios." />
@@ -778,7 +778,7 @@ export default function CaptacionPage() {
                       {isWpp && (
                         <div className="space-y-2">
                           <h3 className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Smartphone className="w-3.5 h-3.5" /> Mensajes (WhatsApp)</h3>
-                          <EmailLoader loading={loading} color={BLUE} labels={['Mensajes', 'Costo x Msj']}>
+                          <EmailLoader loading={loading} color={BLUE} labels={['Mensajes', 'Costo x Msj']} duration={700}>
                             {summary ? (
                               <div className="bg-white dark:bg-zinc-900 rounded-[12px] border border-black/[0.06] dark:border-white/[0.06] shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-2 lg:flex lg:flex-nowrap lg:overflow-x-auto scrollbar-hide">
                                 <DashboardMetric icon={MessageSquare} label="Mensajes" value={fmt(summary?.messages || 0)} change={getChange(summary?.messages, prevSummary?.messages)} trend={getTrend(summary?.messages, prevSummary?.messages)} data={daily?.map((d: any) => ({ val: d.messages, date: d.date }))} color={BLUE} loading={loading} active={expandedMetric === 'messages'} onClick={() => setExpandedMetric(expandedMetric === 'messages' ? null : 'messages')} info="Conversaciones de mensajes de texto de clientes nuevas o iniciadas a partir de clics en tus anuncios." />
