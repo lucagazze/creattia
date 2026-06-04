@@ -13,10 +13,6 @@
       "destination": "/api/shopify/[...path]"
     },
     {
-      "source": "/supabase/:path*",
-      "destination": "https://czocbnyoenjbpxmcqobn.supabase.co/:path*"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
