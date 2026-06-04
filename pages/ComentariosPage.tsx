@@ -941,8 +941,11 @@ export default function ComentariosPage() {
       </div>
 
       {/* Filters + Sort */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+        <div 
+          className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 w-full sm:w-auto"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {(['all', 'instagram', 'facebook', 'ads'] as const).map(p => {
             const count = p === 'all' ? platformCounts.all
               : p === 'instagram' ? platformCounts.instagram
@@ -963,7 +966,7 @@ export default function ComentariosPage() {
               <button
                 key={p}
                 onClick={() => setPlatformFilter(p)}
-                className={`px-3.5 py-1.5 rounded-full text-[11px] font-black transition-all border flex items-center gap-2 ${
+                className={`px-3.5 py-1.5 rounded-full text-[11px] font-black transition-all border flex items-center gap-2 whitespace-nowrap flex-shrink-0 ${
                   isActive
                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-sm'
                     : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
