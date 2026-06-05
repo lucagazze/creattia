@@ -1824,6 +1824,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
+              key={`store-${activeSince}-${activeUntil}`}
               loading={fetchingStore}
               color={PINK}
               labels={showMER ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'M.E.R. (Eficiencia)'] : ['Ticket Promedio', 'Pedidos', 'Ingresos']}
@@ -2028,6 +2029,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
+              key={`meta-${activeSince}-${activeUntil}`}
               loading={fetchingMeta}
               color={"#3b82f6"}
               duration={700}
@@ -2259,6 +2261,7 @@ export default function DashboardPage() {
               )}
             </div>
             <EmailLoader
+              key={`klaviyo-${activeSince}-${activeUntil}`}
               loading={fetchingKlaviyo}
               color={GREEN}
               labels={isEcommerce ? ['Entregas', 'Tasa de Apertura', 'Tasa de Clics', 'Ingresos Email'] : ['Entregas', 'Tasa de Apertura', 'Tasa de Clics']}
@@ -2473,6 +2476,7 @@ export default function DashboardPage() {
               <h2 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Atención al Cliente</h2>
             </div>
             <EmailLoader
+              key={`chatwoot-${activeSince}-${activeUntil}`}
               loading={fetchingChatwoot}
               color="#8b5cf6"
               labels={['Conversaciones', 'Msj. Entrantes', 'Msj. Salientes', 'Resp. Promedio']}
