@@ -327,13 +327,24 @@ export default function AdminUsersPage() {
   };
 
   // ─── Create user with email + password ───────────────────────────────────
+  // Converts a plain username to email just like the login page does
+  const toAuthEmail = (input: string) => {
+    const clean = input.trim().toLowerCase();
+    return clean.includes('@') ? clean : `${clean}@algoritmia.team`;
+  };
+
   const handleCreateUser = async () => {
     if (!createEmail || !createPassword) return;
     setCreating(true);
     setCreateError('');
     try {
-      const email = createEmail.trim().toLowerCase();
+      const email = toAuthEmail(createEmail);
       if (createPassword.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres');
+      // Validate the username has no spaces or invalid chars
+      const usernameRaw = createEmail.trim();
+      if (!usernameRaw.includes('@') && !/^[a-zA-Z0-9._-]+$/.test(usernameRaw)) {
+        throw new Error('El nombre de usuario solo puede contener letras, números, puntos, guiones y guiones bajos');
+      }
 
       // 1. Create auth user via backend (email_confirm = true so they can log in immediately)
       const { data: createdData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
@@ -355,7 +366,8 @@ export default function AdminUsersPage() {
         if (assocErr) throw assocErr;
       }
 
-      showToast(`Usuario ${email} creado ✓`);
+      const displayName = createEmail.trim().includes('@') ? email : createEmail.trim();
+      showToast(`Usuario "${displayName}" creado ✓`);
       setCreateEmail('');
       setCreatePassword('');
       setCreateBizId('');
@@ -570,21 +582,26 @@ export default function AdminUsersPage() {
         <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/60 dark:bg-emerald-950/30 p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex items-center gap-2">
             <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-[13px] font-black text-emerald-800 dark:text-emerald-300">Crear usuario con email y contraseña</h2>
-            <p className="text-[11px] text-emerald-600 dark:text-emerald-500">— podrá ingresar inmediatamente sin confirmación de email</p>
+            <h2 className="text-[13px] font-black text-emerald-800 dark:text-emerald-300">Crear usuario con contraseña</h2>
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-500">— podrá ingresar de inmediato con su usuario o email</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1.5">Email</label>
+              <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1.5">Usuario o Email</label>
               <input
-                type="email"
-                placeholder="cliente@ejemplo.com"
+                type="text"
+                placeholder="juanperez o juan@email.com"
                 value={createEmail}
                 onChange={e => setCreateEmail(e.target.value)}
                 autoCapitalize="none"
                 autoCorrect="off"
                 className="w-full h-10 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-zinc-900 text-[13px] text-zinc-900 dark:text-zinc-100 px-3 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
               />
+              {createEmail.trim() && !createEmail.includes('@') && (
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                  Se registrará como: <span className="font-bold">{createEmail.trim().toLowerCase()}@algoritmia.team</span>
+                </p>
+              )}
             </div>
             <div>
               <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1.5">Contraseña</label>
