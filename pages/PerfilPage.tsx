@@ -50,10 +50,8 @@ export default function PerfilPage() {
 
   // ── Password ──────────────────────────────────────────────────────────────
   const [showPwdSection, setShowPwdSection] = useState(false);
-  const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
-  const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
@@ -128,17 +126,10 @@ export default function PerfilPage() {
     if (newPwd !== confirmPwd) { setPwdError('Las contraseñas no coinciden'); return; }
     setSavingPwd(true);
     try {
-      // Re-authenticate with current password first
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: user?.email ?? '',
-        password: currentPwd,
-      });
-      if (signInErr) throw new Error('La contraseña actual es incorrecta');
-
       const { error } = await supabase.auth.updateUser({ password: newPwd });
       if (error) throw error;
 
-      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
+      setNewPwd(''); setConfirmPwd('');
       setShowPwdSection(false);
       showToast('Contraseña cambiada correctamente ✓');
     } catch (err: any) {
@@ -258,7 +249,7 @@ export default function PerfilPage() {
       {!isGoogleUser && (
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
           <button
-            onClick={() => { setShowPwdSection(v => !v); setPwdError(''); setCurrentPwd(''); setNewPwd(''); setConfirmPwd(''); }}
+            onClick={() => { setShowPwdSection(v => !v); setPwdError(''); setNewPwd(''); setConfirmPwd(''); }}
             className="w-full flex items-center gap-3 px-5 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
           >
             <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
@@ -275,16 +266,6 @@ export default function PerfilPage() {
 
           {showPwdSection && (
             <div className="px-5 pb-5 space-y-3 border-t border-zinc-100 dark:border-zinc-800 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              {/* Current */}
-              <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">Contraseña actual</label>
-                <div className="relative">
-                  <input type={showCurrent ? 'text' : 'password'} value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} placeholder="Tu contraseña actual" className={inputClass + ' pr-9'} />
-                  <button type="button" onClick={() => setShowCurrent(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors">
-                    {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
               {/* New */}
               <div>
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">Nueva contraseña</label>
@@ -318,7 +299,7 @@ export default function PerfilPage() {
 
               <button
                 onClick={handleChangePassword}
-                disabled={savingPwd || !currentPwd || !newPwd || !confirmPwd || newPwd !== confirmPwd}
+                disabled={savingPwd || !newPwd || !confirmPwd || newPwd !== confirmPwd}
                 className="w-full h-10 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-amber-500/20"
               >
                 {savingPwd ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
