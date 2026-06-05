@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, 
+  Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag,
   AlertTriangle, Activity, Library, Workflow, Instagram, Inbox, MessageSquare, Brain, Users, Package,
-  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User
+  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -52,6 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/comentarios',    icon: MessageCircle, label: 'Comentarios',     configured: hasRedes, badge: pendingCommentsCount },
     { path: '/redes-sociales', icon: Instagram,     label: 'Redes Sociales',  configured: hasRedes },
     { path: '/contactos',      icon: Users,         label: 'Contactos',       configured: hasChatwoot },
+    { path: '/pedidos',         icon: ShoppingCart,  label: 'Pedidos',         configured: hasEcommerce },
     { path: '/inventario',     icon: Package,       label: 'Inventario',      configured: hasEcommerce },
   ].filter(i => isAdmin || i.configured);
 
