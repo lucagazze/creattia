@@ -21,7 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const navigate = useNavigate();
   const { profile, signOut, user } = useAuth();
   const { viewAsProfile, setViewAsProfile, isViewingAs } = useViewAs();
-  const { unreadCount, pendingCommentsCount, commentsLoading, unreadLoading } = useUnread();
+  const { unreadCount, pendingCommentsCount, commentsLoading, unreadLoading, pendingOrdersCount, ordersLoading } = useUnread();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Use viewAsProfile if active, otherwise use real profile
@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/comentarios',    icon: MessageCircle, label: 'Comentarios',     configured: hasRedes, badge: pendingCommentsCount },
     { path: '/redes-sociales', icon: Instagram,     label: 'Redes Sociales',  configured: hasRedes },
     { path: '/contactos',      icon: Users,         label: 'Contactos',       configured: hasChatwoot },
-    { path: '/pedidos',         icon: ShoppingCart,  label: 'Pedidos',         configured: hasEcommerce },
+    { path: '/pedidos',         icon: ShoppingCart,  label: 'Pedidos',         configured: hasEcommerce, badge: pendingOrdersCount, badgeLoading: ordersLoading },
     { path: '/inventario',     icon: Package,       label: 'Inventario',      configured: hasEcommerce },
   ].filter(i => isAdmin || i.configured);
 
@@ -115,7 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     setIsOpen(false);
   };
 
-  const renderItem = (item: { path: string; icon: any; label: string; badge?: number; configured?: boolean }) => {
+  const renderItem = (item: { path: string; icon: any; label: string; badge?: number; badgeLoading?: boolean; configured?: boolean }) => {
     const Icon = item.icon;
     const isActive = isActivePath(item.path);
     const badgeCount = (item.badge ?? 0);
@@ -143,8 +143,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         }`} />
         <span className="tracking-tight flex-1">{item.label}</span>
         {/* Unread badge / Loading spinner */}
-        {((item.path === '/comentarios' && commentsLoading) || (item.path === '/mensajeria' && unreadLoading)) ? (
-          <Loader2 className="w-3.5 h-3.5 text-violet-500 dark:text-violet-400 animate-spin shrink-0" />
+        {((item.path === '/comentarios' && commentsLoading) || (item.path === '/mensajeria' && unreadLoading) || (item.path === '/pedidos' && ordersLoading)) ? (
+          <Loader2 className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400 animate-spin shrink-0" />
         ) : badgeCount > 0 ? (
           <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-sm shadow-red-500/30 animate-in fade-in zoom-in-90 duration-300">
             {badgeCount > 99 ? '99+' : badgeCount}

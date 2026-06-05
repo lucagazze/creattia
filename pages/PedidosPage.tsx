@@ -2,16 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { ecommerce } from '../services/ecommerce';
-import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import {
   ShoppingCart, Search, ChevronDown, ChevronUp, Package,
-  Clock, CheckCircle, XCircle, AlertTriangle, RefreshCw,
-  User, MapPin, Tag, Truck, CreditCard, ChevronRight
+  CheckCircle, AlertTriangle, RefreshCw,
+  User, MapPin, Tag, Truck, CreditCard
 } from 'lucide-react';
 
 const PINK = '#ec4899';
-
-// ─── helpers ───────────────────────────────────────────────────────────────
 
 const fmtCurr = (n: number) => {
   if (typeof n !== 'number') return '—';
@@ -35,32 +32,26 @@ const daysAgo = (n: number) => {
   return d.toISOString().split('T')[0];
 };
 
-// ─── badges ────────────────────────────────────────────────────────────────
-
 function PaymentBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    paid:                { label: 'Pagado',       cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
-    pending:             { label: 'Pendiente',    cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
-    refunded:            { label: 'Reembolsado',  cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
-    partially_refunded:  { label: 'Reemb. parcial', cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
-    voided:              { label: 'Anulado',      cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400' },
-    authorized:          { label: 'Autorizado',   cls: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' },
+    paid:               { label: 'Pagado',        cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+    pending:            { label: 'Pendiente',     cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+    refunded:           { label: 'Reembolsado',   cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+    partially_refunded: { label: 'Reemb. parcial',cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+    voided:             { label: 'Anulado',       cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400' },
+    authorized:         { label: 'Autorizado',    cls: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' },
   };
   const { label, cls } = map[status] ?? { label: status, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500' };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${cls}`}>
-      {label}
-    </span>
-  );
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${cls}`}>{label}</span>;
 }
 
 function FulfillmentBadge({ status }: { status: string | null }) {
   const s = status || 'unfulfilled';
   const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
-    fulfilled:          { label: 'Enviado',       cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', icon: <Truck className="w-2.5 h-2.5" /> },
-    unfulfilled:        { label: 'Sin enviar',    cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400', icon: <Package className="w-2.5 h-2.5" /> },
-    partial:            { label: 'Parcial',       cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400', icon: <Package className="w-2.5 h-2.5" /> },
-    restocked:          { label: 'Devuelto',      cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500', icon: <RefreshCw className="w-2.5 h-2.5" /> },
+    fulfilled:   { label: 'Enviado',    cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', icon: <Truck className="w-2.5 h-2.5" /> },
+    unfulfilled: { label: 'Sin enviar', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400', icon: <Package className="w-2.5 h-2.5" /> },
+    partial:     { label: 'Parcial',    cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400', icon: <Package className="w-2.5 h-2.5" /> },
+    restocked:   { label: 'Devuelto',   cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500', icon: <RefreshCw className="w-2.5 h-2.5" /> },
   };
   const { label, cls, icon } = map[s] ?? { label: s, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500', icon: null };
   return (
@@ -72,11 +63,16 @@ function FulfillmentBadge({ status }: { status: string | null }) {
 
 // ─── order row ─────────────────────────────────────────────────────────────
 
-function OrderRow({ order }: { order: any }) {
+function OrderRow({ order, productImages }: { order: any; productImages: Record<string, string> }) {
   const [open, setOpen] = useState(false);
   const customerName = order.customer
     ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() || 'Sin nombre'
     : 'Sin cliente';
+
+  const lineItems: any[] = order.line_items || [];
+  const firstItem = lineItems[0];
+  const extraCount = lineItems.length - 1;
+  const firstImage = firstItem ? productImages[String(firstItem.product_id)] : null;
 
   return (
     <>
@@ -99,9 +95,32 @@ function OrderRow({ order }: { order: any }) {
             <div className="text-[10px] text-zinc-400 truncate max-w-[160px]">{order.customer.email}</div>
           )}
         </td>
-        {/* Items */}
-        <td className="px-4 py-3 text-[11px] text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-          {order.line_items?.reduce((s: number, i: any) => s + i.quantity, 0) ?? 0} ud.
+        {/* Products preview */}
+        <td className="px-4 py-3">
+          {firstItem ? (
+            <div className="flex items-center gap-2">
+              {/* Product image */}
+              <div className="w-8 h-8 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center">
+                {firstImage ? (
+                  <img src={firstImage} alt={firstItem.title} className="w-full h-full object-cover" />
+                ) : (
+                  <Package className="w-4 h-4 text-zinc-400" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate max-w-[200px]">
+                  {firstItem.title}
+                </p>
+                <p className="text-[10px] text-zinc-400">
+                  x{firstItem.quantity}
+                  {firstItem.variant_title && firstItem.variant_title !== 'Default Title' && ` · ${firstItem.variant_title}`}
+                  {extraCount > 0 && <span className="ml-1 text-violet-500 font-bold">+{extraCount} más</span>}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <span className="text-[11px] text-zinc-400">—</span>
+          )}
         </td>
         {/* Payment */}
         <td className="px-4 py-3"><PaymentBadge status={order.financial_status} /></td>
@@ -121,47 +140,57 @@ function OrderRow({ order }: { order: any }) {
       {open && (
         <tr className="bg-zinc-50 dark:bg-white/[0.02] border-b border-zinc-100 dark:border-white/[0.04]">
           <td colSpan={8} className="px-5 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-              {/* Products */}
+              {/* Products con imágenes */}
               <div>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <Package className="w-3 h-3" /> Productos
                 </p>
-                <div className="space-y-1.5">
-                  {(order.line_items || []).map((item: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{item.title}</p>
-                        {item.variant_title && item.variant_title !== 'Default Title' && (
-                          <p className="text-[10px] text-zinc-400">{item.variant_title}</p>
-                        )}
+                <div className="space-y-2">
+                  {lineItems.map((item: any, i: number) => {
+                    const img = productImages[String(item.product_id)];
+                    return (
+                      <div key={i} className="flex items-center gap-3">
+                        {/* Image */}
+                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center border border-zinc-200 dark:border-white/[0.06]">
+                          {img ? (
+                            <img src={img} alt={item.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package className="w-4 h-4 text-zinc-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 leading-tight">{item.title}</p>
+                          {item.variant_title && item.variant_title !== 'Default Title' && (
+                            <p className="text-[10px] text-zinc-400 mt-0.5">{item.variant_title}</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-[12px] font-black text-zinc-800 dark:text-zinc-200">{fmtCurr(parseFloat(item.price || 0))}</p>
+                          <p className="text-[10px] text-zinc-400 font-bold">×{item.quantity}</p>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-[11px] font-black text-zinc-700 dark:text-zinc-300">{fmtCurr(item.price)}</p>
-                        <p className="text-[10px] text-zinc-400">x{item.quantity}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Customer & Shipping */}
               <div>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <User className="w-3 h-3" /> Cliente
                 </p>
                 {order.customer ? (
                   <div className="space-y-1">
-                    <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100">{customerName}</p>
+                    <p className="text-[13px] font-black text-zinc-800 dark:text-zinc-100">{customerName}</p>
                     {order.customer.email && <p className="text-[11px] text-zinc-500">{order.customer.email}</p>}
                     {order.customer.phone && <p className="text-[11px] text-zinc-500">{order.customer.phone}</p>}
-                    <p className="text-[10px] text-zinc-400 mt-1">{order.customer.orders_count ?? 0} pedidos · {fmtCurr(order.customer.total_spent ?? 0)} total</p>
+                    <p className="text-[10px] text-zinc-400 mt-1">{order.customer.orders_count ?? 0} pedidos · {fmtCurr(parseFloat(order.customer.total_spent || 0))} total</p>
                   </div>
                 ) : (
                   <p className="text-[12px] text-zinc-400">Sin datos de cliente</p>
                 )}
-
                 {order.shipping_address && (
                   <div className="mt-3">
                     <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
@@ -176,7 +205,7 @@ function OrderRow({ order }: { order: any }) {
 
               {/* Totals */}
               <div>
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <CreditCard className="w-3 h-3" /> Resumen
                 </p>
                 <div className="space-y-1.5">
@@ -193,7 +222,7 @@ function OrderRow({ order }: { order: any }) {
                   {(order.shipping_lines || []).map((sl: any, i: number) => (
                     <div key={i} className="flex justify-between text-[11px]">
                       <span className="text-zinc-500 flex items-center gap-1"><Truck className="w-2.5 h-2.5" /> {sl.title}</span>
-                      <span className="font-bold text-zinc-700 dark:text-zinc-300">{fmtCurr(sl.price)}</span>
+                      <span className="font-bold text-zinc-700 dark:text-zinc-300">{fmtCurr(parseFloat(sl.price || 0))}</span>
                     </div>
                   ))}
                   {parseFloat(order.total_tax || 0) > 0 && (
@@ -230,10 +259,10 @@ function OrderRow({ order }: { order: any }) {
 // ─── main page ─────────────────────────────────────────────────────────────
 
 const PRESETS = [
-  { label: 'Hoy',       since: () => today(),        until: () => today() },
-  { label: '7 días',    since: () => daysAgo(6),     until: () => today() },
-  { label: '30 días',   since: () => daysAgo(29),    until: () => today() },
-  { label: '90 días',   since: () => daysAgo(89),    until: () => today() },
+  { label: 'Hoy',    since: () => today(),     until: () => today() },
+  { label: '7 días', since: () => daysAgo(6),  until: () => today() },
+  { label: '30 días',since: () => daysAgo(29), until: () => today() },
+  { label: '90 días',since: () => daysAgo(89), until: () => today() },
 ];
 
 export default function PedidosPage() {
@@ -241,17 +270,17 @@ export default function PedidosPage() {
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = (isViewingAs ? viewAsProfile : authProfile) as any;
 
-  const platform = profile?.ecommerce_platform;
   const shopifyDomain = (profile?.shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const shopifyToken = profile?.shopify_access_token;
 
   const [orders, setOrders] = useState<any[]>([]);
+  const [productImages, setProductImages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterPayment, setFilterPayment] = useState<string>('all');
   const [filterFulfillment, setFilterFulfillment] = useState<string>('all');
-  const [preset, setPreset] = useState(2); // default 30 días
+  const [preset, setPreset] = useState(2);
   const [since, setSince] = useState(daysAgo(29));
   const [until, setUntil] = useState(today());
   const [sortAsc, setSortAsc] = useState(false);
@@ -274,6 +303,21 @@ export default function PedidosPage() {
       setLoading(false);
     }
   };
+
+  // Load product images once (cached by ecommerce service)
+  useEffect(() => {
+    if (!shopifyDomain || !shopifyToken) return;
+    ecommerce.getProducts(shopifyDomain, shopifyToken)
+      .then(products => {
+        const map: Record<string, string> = {};
+        for (const p of products) {
+          const imgSrc = typeof p.image === 'string' ? p.image : p.image?.src;
+          if (imgSrc) map[String(p.id)] = imgSrc;
+        }
+        setProductImages(map);
+      })
+      .catch(() => {});
+  }, [shopifyDomain, shopifyToken]);
 
   useEffect(() => {
     load(since, until);
@@ -301,11 +345,9 @@ export default function PedidosPage() {
         return num.includes(q) || name.includes(q) || email.includes(q);
       });
     }
-    if (sortAsc) return [...list].reverse();
-    return list;
+    return sortAsc ? [...list].reverse() : list;
   }, [orders, filterPayment, filterFulfillment, search, sortAsc]);
 
-  // Summary stats
   const stats = useMemo(() => {
     const valid = orders.filter(o => !o.cancelled_at && o.financial_status !== 'voided');
     const revenue = valid.reduce((s, o) => s + parseFloat(o.total_price || 0), 0);
@@ -328,7 +370,7 @@ export default function PedidosPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] dark:bg-[#0a0a0a]">
-      <div className="max-w-[1100px] mx-auto px-4 py-8 space-y-6">
+      <div className="px-4 py-8 space-y-6">
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -353,9 +395,9 @@ export default function PedidosPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'Total pedidos', value: stats.total.toString(), icon: ShoppingCart, color: 'text-violet-500' },
-            { label: 'Ingresos', value: fmtCurr(stats.revenue), icon: CreditCard, color: 'text-emerald-500' },
-            { label: 'Pagados', value: stats.paid.toString(), icon: CheckCircle, color: 'text-emerald-500' },
-            { label: 'Sin enviar', value: stats.unshipped.toString(), icon: Package, color: 'text-orange-500' },
+            { label: 'Ingresos',      value: fmtCurr(stats.revenue), icon: CreditCard,   color: 'text-emerald-500' },
+            { label: 'Pagados',       value: stats.paid.toString(),  icon: CheckCircle,  color: 'text-emerald-500' },
+            { label: 'Sin enviar',    value: stats.unshipped.toString(), icon: Package,  color: 'text-orange-500' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-white/[0.05] p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
@@ -369,7 +411,6 @@ export default function PedidosPage() {
 
         {/* Filters */}
         <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-white/[0.05] p-4 shadow-sm space-y-3">
-          {/* Presets */}
           <div className="flex items-center gap-2 flex-wrap">
             {PRESETS.map((p, i) => (
               <button
@@ -386,24 +427,18 @@ export default function PedidosPage() {
             ))}
             <div className="flex items-center gap-2 ml-auto">
               <input
-                type="date"
-                value={since}
-                max={until}
+                type="date" value={since} max={until}
                 onChange={e => { setPreset(-1); setSince(e.target.value); }}
                 className="px-2 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-white/[0.06] text-[11px] font-bold text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
               <span className="text-[11px] text-zinc-400 font-bold">—</span>
               <input
-                type="date"
-                value={until}
-                min={since}
+                type="date" value={until} min={since}
                 onChange={e => { setPreset(-1); setUntil(e.target.value); }}
                 className="px-2 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-white/[0.06] text-[11px] font-bold text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
             </div>
           </div>
-
-          {/* Search + status filters */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
@@ -416,8 +451,7 @@ export default function PedidosPage() {
               />
             </div>
             <select
-              value={filterPayment}
-              onChange={e => setFilterPayment(e.target.value)}
+              value={filterPayment} onChange={e => setFilterPayment(e.target.value)}
               className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-white/[0.06] text-[11px] font-bold text-zinc-600 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
             >
               <option value="all">Todos los pagos</option>
@@ -428,8 +462,7 @@ export default function PedidosPage() {
               <option value="voided">Anulado</option>
             </select>
             <select
-              value={filterFulfillment}
-              onChange={e => setFilterFulfillment(e.target.value)}
+              value={filterFulfillment} onChange={e => setFilterFulfillment(e.target.value)}
               className="px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-white/[0.06] text-[11px] font-bold text-zinc-600 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-violet-500"
             >
               <option value="all">Todos los envíos</option>
@@ -465,7 +498,6 @@ export default function PedidosPage() {
             </div>
           ) : (
             <>
-              {/* Result count */}
               <div className="px-4 py-3 border-b border-zinc-100 dark:border-white/[0.04] flex items-center justify-between">
                 <p className="text-[11px] font-bold text-zinc-400">
                   {filtered.length} pedido{filtered.length !== 1 ? 's' : ''}
@@ -479,19 +511,18 @@ export default function PedidosPage() {
                   {sortAsc ? 'Más antiguos primero' : 'Más recientes primero'}
                 </button>
               </div>
-
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px]">
+                <table className="w-full min-w-[700px]">
                   <thead>
                     <tr className="border-b border-zinc-100 dark:border-white/[0.04]">
-                      {['Pedido', 'Fecha', 'Cliente', 'Items', 'Pago', 'Envío', 'Total', ''].map(h => (
+                      {['Pedido', 'Fecha', 'Cliente', 'Productos', 'Pago', 'Envío', 'Total', ''].map(h => (
                         <th key={h} className="px-4 py-3 text-left text-[10px] font-black text-zinc-400 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map(order => (
-                      <OrderRow key={order.id} order={order} />
+                      <OrderRow key={order.id} order={order} productImages={productImages} />
                     ))}
                   </tbody>
                 </table>

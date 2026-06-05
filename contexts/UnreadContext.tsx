@@ -4,23 +4,21 @@ import { useViewAs } from './ViewAsContext';
 import { useLocation } from 'react-router-dom';
 import { chatwoot } from '../services/chatwoot';
 import { metaAds } from '../services/metaAds';
+import { ecommerce } from '../services/ecommerce';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UnreadContextType {
-  /** Number of open conversations (badge count shown in sidebar) */
   unreadCount: number;
   setUnreadCount: React.Dispatch<React.SetStateAction<number>>;
-  /** Number of pending comments on IG, FB, and Ads */
   pendingCommentsCount: number;
   setPendingCommentsCount: React.Dispatch<React.SetStateAction<number>>;
-  /** Whether the comments count is currently loading */
   commentsLoading: boolean;
-  /** Whether the unread messages count is currently loading */
   unreadLoading: boolean;
-  /** Manually refresh the count (called e.g. after sending a message) */
+  /** Unfulfilled orders count (badge on Pedidos in sidebar) */
+  pendingOrdersCount: number;
+  ordersLoading: boolean;
   refresh: () => void;
-  /** Instantly decrement badge by 1 when a conversation is opened — no network round-trip */
   markRead: () => void;
 }
 
@@ -31,6 +29,8 @@ const UnreadContext = createContext<UnreadContextType>({
   setPendingCommentsCount: () => {},
   commentsLoading: false,
   unreadLoading: false,
+  pendingOrdersCount: 0,
+  ordersLoading: false,
   refresh: () => {},
   markRead: () => {},
 });
@@ -62,6 +62,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [pendingCommentsCount, setPendingCommentsCount] = useState(0);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [unreadLoading, setUnreadLoading] = useState(true);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [ordersLoading, setOrdersLoading] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isFirstCommentsFetch = useRef(true);
@@ -520,6 +522,42 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => clearInterval(interval);
   }, [profile?.id, fetchCommentsCount]);
 
+  // ─── Pedidos sin enviar ───────────────────────────────────────────────────
+
+  const fetchOrdersCount = useCallback(async () => {
+    if (document.visibilityState !== 'visible') return;
+    const shopifyDomain = (profile as any)?.shopify_domain;
+    const shopifyToken = (profile as any)?.shopify_access_token;
+    if (!shopifyDomain || !shopifyToken) {
+      setPendingOrdersCount(0);
+      setOrdersLoading(false);
+      return;
+    }
+    try {
+      const count = await ecommerce.getUnfulfilledCount(
+        shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+        shopifyToken
+      );
+      setPendingOrdersCount(count);
+    } catch {
+      // silent
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [profile?.id, (profile as any)?.shopify_domain, (profile as any)?.shopify_access_token]);
+
+  useEffect(() => {
+    const shopifyDomain = (profile as any)?.shopify_domain;
+    const shopifyToken = (profile as any)?.shopify_access_token;
+    if (!shopifyDomain || !shopifyToken) { setPendingOrdersCount(0); return; }
+    setOrdersLoading(true);
+    fetchOrdersCount();
+    const interval = setInterval(fetchOrdersCount, 5_000);
+    return () => clearInterval(interval);
+  }, [profile?.id, fetchOrdersCount]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   const markRead = useCallback(() => {
     setUnreadCount(prev => {
       const nextVal = Math.max(0, prev - 1);
@@ -533,7 +571,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [profile?.id]);
 
   return (
-    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, setPendingCommentsCount, commentsLoading, unreadLoading, refresh: fetchCount, markRead }}>
+    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, setPendingCommentsCount, commentsLoading, unreadLoading, pendingOrdersCount, ordersLoading, refresh: fetchCount, markRead }}>
       {children}
     </UnreadContext.Provider>
   );

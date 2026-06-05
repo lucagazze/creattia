@@ -417,6 +417,22 @@ export const ecommerce = {
     return result;
   },
 
+  getUnfulfilledCount: async (domain: string, token: string): Promise<number> => {
+    const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const res = await fetch(
+        `${BASE}/orders.json?status=any&fulfillment_status=unfulfilled&limit=250&created_at_min=${since}`,
+        { headers: { 'X-Shopify-Access-Token': token, 'X-Shop-Domain': cleanDomain } }
+      );
+      if (!res.ok) return 0;
+      const data = await res.json();
+      return (data.orders ?? []).filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided').length;
+    } catch {
+      return 0;
+    }
+  },
+
   getProducts: async (domain: string, token: string): Promise<any[]> => {
     const cacheKey = `products:${domain}`;
     const cached = ecGetCached(cacheKey);
