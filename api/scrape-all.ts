@@ -43,6 +43,101 @@ const SKIP_EXTENSIONS = /\.(css|js|jpg|jpeg|png|gif|svg|webp|ico|woff|woff2|ttf|
 const SKIP_PATHS = /\/(wp-content|wp-includes|wp-json|wp-admin|feed|tag|author|page\/\d+|cart|checkout|mi-cuenta|my-account|wishlist|compare|carrito)\//i;
 const SKIP_PRODUCT_PAGES = /\/(product|producto|shop\/|tienda\/|categoria-producto|product-category|collections\/|collection\/).+/i;
 
+function normalizeOrder(o: any, platform: string) {
+  if (platform === 'shopify') {
+    return o;
+  }
+  if (platform === 'tiendanube') {
+    const isCancelled = o.status === 'cancelled';
+    const financial_status = o.payment_status === 'paid' ? 'paid' : o.payment_status === 'pending' ? 'pending' : 'pending';
+    const fulfillment_status = o.shipping_status === 'shipped' ? 'fulfilled' : 'unfulfilled';
+    return {
+      id: o.id,
+      order_number: `#${o.number}`,
+      created_at: o.created_at,
+      cancelled_at: isCancelled ? o.updated_at || new Date().toISOString() : null,
+      total_price: parseFloat(o.total || 0),
+      subtotal_price: parseFloat(o.subtotal || 0),
+      total_discounts: parseFloat(o.discount || 0),
+      total_tax: parseFloat(o.tax || 0),
+      financial_status,
+      fulfillment_status,
+      customer_name: o.customer ? `${o.customer.name || ''}`.trim() : 'Sin Cliente',
+      email: o.customer?.email || null,
+      phone: o.customer?.phone || null,
+      line_items: (o.line_items || []).map((it: any) => ({
+        product_id: it.product_id,
+        variant_id: it.variant_id || it.product_id,
+        title: it.name,
+        quantity: it.quantity,
+        price: parseFloat(it.price || 0),
+        variant_title: it.variant_values ? it.variant_values.map((vv: any) => vv.es || vv.en || Object.values(vv || {})[0] || '').filter(Boolean).join(' / ') : null
+      })),
+      shipping_address: o.shipping_address ? {
+        name: o.shipping_address.name,
+        address1: o.shipping_address.address,
+        city: o.shipping_address.city,
+        province: o.shipping_address.province,
+        zip: o.shipping_address.zipcode,
+        country: o.shipping_address.country
+      } : null,
+      customer: o.customer ? {
+        first_name: o.customer.name?.split(' ')[0] || '',
+        last_name: o.customer.name?.split(' ').slice(1).join(' ') || '',
+        email: o.customer.email,
+        phone: o.customer.phone,
+        orders_count: 1,
+        total_spent: parseFloat(o.total || 0)
+      } : null
+    };
+  }
+  if (platform === 'wordpress') {
+    const isCancelled = ['cancelled', 'failed'].includes(o.status);
+    const financial_status = o.status === 'completed' || o.status === 'processing' ? 'paid' : o.status === 'refunded' ? 'refunded' : 'pending';
+    const fulfillment_status = o.status === 'completed' ? 'fulfilled' : 'unfulfilled';
+    return {
+      id: o.id,
+      order_number: `#${o.number}`,
+      created_at: o.date_created,
+      cancelled_at: isCancelled ? o.date_modified || new Date().toISOString() : null,
+      total_price: parseFloat(o.total || 0),
+      subtotal_price: parseFloat(o.total || 0) - parseFloat(o.shipping_total || 0),
+      total_discounts: parseFloat(o.discount_total || 0),
+      total_tax: parseFloat(o.total_tax || 0),
+      financial_status,
+      fulfillment_status,
+      customer_name: o.billing ? `${o.billing.first_name || ''} ${o.billing.last_name || ''}`.trim() : 'Sin Cliente',
+      email: o.billing?.email || null,
+      phone: o.billing?.phone || null,
+      line_items: (o.line_items || []).map((it: any) => ({
+        product_id: it.product_id,
+        variant_id: it.variation_id || it.product_id,
+        title: it.name,
+        quantity: it.quantity,
+        price: parseFloat(it.price || 0),
+        variant_title: it.meta_data?.map((m: any) => m.value).join(' / ') || null
+      })),
+      shipping_address: o.shipping ? {
+        name: `${o.shipping.first_name || ''} ${o.shipping.last_name || ''}`.trim(),
+        address1: o.shipping.address_1,
+        city: o.shipping.city,
+        province: o.shipping.state,
+        zip: o.shipping.postcode,
+        country: o.shipping.country
+      } : null,
+      customer: o.billing ? {
+        first_name: o.billing.first_name,
+        last_name: o.billing.last_name,
+        email: o.billing.email,
+        phone: o.billing.phone,
+        orders_count: 1,
+        total_spent: parseFloat(o.total || 0)
+      } : null
+    };
+  }
+  return o;
+}
+
 function extractInternalLinks(html: string, baseUrl: string): string[] {
   const links: string[] = [];
   const regex = /href=["']([^"']+)["']/gi;
@@ -269,12 +364,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── PRODUCTS PROXY (merged from api/products.ts to stay under 12 function limit) ──
   if (type === 'products') {
     try {
+      let active_platform = platform;
+      let active_shopify_domain = shopify_domain;
+      let active_shopify_access_token = shopify_access_token;
+      let active_wordpress_url = wordpress_url;
+      let active_woo_consumer_key = woo_consumer_key;
+      let active_woo_consumer_secret = woo_consumer_secret;
+      let active_tiendanube_store_id = tiendanube_store_id;
+      let active_tiendanube_access_token = tiendanube_access_token;
+
+      if (clientId && (!active_platform || 
+          (active_platform === 'shopify' && (!active_shopify_domain || !active_shopify_access_token)) ||
+          (active_platform === 'wordpress' && (!active_wordpress_url || !active_woo_consumer_key || !active_woo_consumer_secret)) ||
+          (active_platform === 'tiendanube' && (!active_tiendanube_store_id || !active_tiendanube_access_token))
+      )) {
+        const { data: cl } = await supabase
+          .from('car_clients')
+          .select('ecommerce_platform, shopify_domain, shopify_access_token, wordpress_url, woo_consumer_key, woo_consumer_secret, tiendanube_store_id, tiendanube_access_token')
+          .eq('id', clientId)
+          .maybeSingle();
+        if (cl) {
+          if (!active_platform) active_platform = cl.ecommerce_platform;
+          if (!active_shopify_domain) active_shopify_domain = cl.shopify_domain;
+          if (!active_shopify_access_token) active_shopify_access_token = cl.shopify_access_token;
+          if (!active_wordpress_url) active_wordpress_url = cl.wordpress_url;
+          if (!active_woo_consumer_key) active_woo_consumer_key = cl.woo_consumer_key;
+          if (!active_woo_consumer_secret) active_woo_consumer_secret = cl.woo_consumer_secret;
+          if (!active_tiendanube_store_id) active_tiendanube_store_id = cl.tiendanube_store_id;
+          if (!active_tiendanube_access_token) active_tiendanube_access_token = cl.tiendanube_access_token;
+        }
+      }
+
+      if (!active_platform) return res.status(400).json({ error: 'Plataforma no configurada para este cliente' });
+
       let products: any[] = [];
-      if (platform === 'shopify') {
-        const domain = (shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-        if (!domain || !shopify_access_token) return res.status(400).json({ error: 'Shopify no configurado' });
+      if (active_platform === 'shopify') {
+        const domain = (active_shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        if (!domain || !active_shopify_access_token) return res.status(400).json({ error: 'Shopify no configurado' });
         const r = await fetch(`https://${domain}/admin/api/2024-01/products.json?limit=250&fields=id,title,body_html,handle,status,variants,images,product_type,tags`, {
-          headers: { 'X-Shopify-Access-Token': shopify_access_token, 'Accept': 'application/json' },
+          headers: { 'X-Shopify-Access-Token': active_shopify_access_token, 'Accept': 'application/json' },
         });
         if (!r.ok) return res.status(r.status).json({ error: `Shopify error ${r.status}` });
         const data = await r.json();
@@ -294,10 +422,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             available: v.inventory_policy === 'continue' || (v.inventory_quantity ?? 1) > 0,
           })),
         }));
-      } else if (platform === 'wordpress') {
-        const base = (wordpress_url || '').replace(/\/$/, '');
-        if (!base || !woo_consumer_key || !woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
-        const creds = Buffer.from(`${woo_consumer_key}:${woo_consumer_secret}`).toString('base64');
+      } else if (active_platform === 'wordpress') {
+        const base = (active_wordpress_url || '').replace(/\/$/, '');
+        if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
+        const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
         for (let page = 1; page <= 5; page++) {
           const r = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`, { headers: { 'Authorization': `Basic ${creds}` } });
           if (!r.ok) {
@@ -309,21 +437,296 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
           const data: any[] = await r.json();
           if (!data.length) break;
-          products = products.concat(data.map((p: any) => ({ id: p.id, title: p.name, description: p.short_description?.replace(/<[^>]+>/g, ' ').trim().slice(0, 300) || '', type: p.categories?.[0]?.name || '', tags: p.tags?.map((t: any) => t.name).join(', ') || '', image: p.images?.[0]?.src || null, url: p.permalink || '', variants: p.attributes?.length > 0 ? [{ title: p.attributes.map((a: any) => a.options?.join('/')).join(' · '), price: p.price, sku: p.sku, available: p.stock_status === 'instock' }] : [{ title: '', price: p.price, sku: p.sku, available: p.stock_status === 'instock' }] })));
+          products = products.concat(data.map((p: any) => ({
+            id: p.id,
+            title: p.name,
+            description: p.short_description?.replace(/<[^>]+>/g, ' ').trim().slice(0, 300) || '',
+            type: p.categories?.[0]?.name || '',
+            tags: p.tags?.map((t: any) => t.name).join(', ') || '',
+            image: p.images?.[0]?.src || null,
+            url: p.permalink || '',
+            variants: p.attributes?.length > 0 ? [{
+              id: p.id,
+              title: p.attributes.map((a: any) => a.options?.join('/')).join(' · '),
+              price: p.price,
+              compare_at_price: p.sale_price || null,
+              sku: p.sku || '',
+              inventory_quantity: p.stock_quantity ?? (p.stock_status === 'instock' ? 99 : 0),
+              available: p.stock_status === 'instock'
+            }] : [{
+              id: p.id,
+              title: '',
+              price: p.price,
+              compare_at_price: p.sale_price || null,
+              sku: p.sku || '',
+              inventory_quantity: p.stock_quantity ?? (p.stock_status === 'instock' ? 99 : 0),
+              available: p.stock_status === 'instock'
+            }]
+          })));
         }
-      } else if (platform === 'tiendanube') {
-        if (!tiendanube_store_id || !tiendanube_access_token) return res.status(400).json({ error: 'Tiendanube no configurado' });
+      } else if (active_platform === 'tiendanube') {
+        if (!active_tiendanube_store_id || !active_tiendanube_access_token) return res.status(400).json({ error: 'Tiendanube no configurado' });
         for (let page = 1; page <= 5; page++) {
-          const r = await fetch(`https://api.tiendanube.com/v1/${tiendanube_store_id}/products?per_page=200&page=${page}`, { headers: { 'Authentication': `bearer ${tiendanube_access_token}`, 'User-Agent': 'AlgorBot/1.0' } });
+          const r = await fetch(`https://api.tiendanube.com/v1/${active_tiendanube_store_id}/products?per_page=200&page=${page}`, { headers: { 'Authentication': `bearer ${active_tiendanube_access_token}`, 'User-Agent': 'AlgorBot/1.0' } });
           if (!r.ok) break;
           const data: any[] = await r.json();
           if (!data.length) break;
-          products = products.concat(data.map((p: any) => ({ id: p.id, title: p.name?.es || p.name?.en || Object.values(p.name || {})[0] || '', description: (p.description?.es || p.description?.en || '').replace(/<[^>]+>/g, ' ').trim().slice(0, 300), type: p.categories?.[0]?.name?.es || '', tags: '', image: p.images?.[0]?.src || null, url: p.canonical_url || '', variants: (p.variants || []).map((v: any) => ({ title: v.values?.map((val: any) => val.es || val.en).join(' / ') || '', price: v.price, sku: v.sku, available: v.stock === null || v.stock > 0 })) })));
+          products = products.concat(data.map((p: any) => ({
+            id: p.id,
+            title: p.name?.es || p.name?.en || Object.values(p.name || {})[0] || '',
+            description: (p.description?.es || p.description?.en || '').replace(/<[^>]+>/g, ' ').trim().slice(0, 300),
+            type: p.categories?.[0]?.name?.es || '',
+            tags: '',
+            image: p.images?.[0]?.src || null,
+            url: p.canonical_url || '',
+            variants: (p.variants || []).map((v: any) => ({
+              id: v.id,
+              title: v.values?.map((val: any) => val.es || val.en).join(' / ') || '',
+              price: v.price,
+              compare_at_price: v.compare_at_price || null,
+              sku: v.sku || '',
+              inventory_quantity: v.stock !== null ? v.stock : 99,
+              available: v.stock === null || v.stock > 0
+            }))
+          })));
         }
       } else {
         return res.status(400).json({ error: 'Plataforma no soportada' });
       }
       return res.status(200).json({ products });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Error interno' });
+    }
+  }
+
+  // ── E-COMMERCE DASHBOARD DATA AGGREGATION ──
+  if (type === 'dashboard') {
+    try {
+      const { since, until } = req.body as any;
+      if (!since || !until) return res.status(400).json({ error: 'Faltan fechas since/until' });
+
+      let active_platform = platform;
+      let active_shopify_domain = shopify_domain;
+      let active_shopify_access_token = shopify_access_token;
+      let active_wordpress_url = wordpress_url;
+      let active_woo_consumer_key = woo_consumer_key;
+      let active_woo_consumer_secret = woo_consumer_secret;
+      let active_tiendanube_store_id = tiendanube_store_id;
+      let active_tiendanube_access_token = tiendanube_access_token;
+
+      if (clientId && (!active_platform || 
+          (active_platform === 'shopify' && (!active_shopify_domain || !active_shopify_access_token)) ||
+          (active_platform === 'wordpress' && (!active_wordpress_url || !active_woo_consumer_key || !active_woo_consumer_secret)) ||
+          (active_platform === 'tiendanube' && (!active_tiendanube_store_id || !active_tiendanube_access_token))
+      )) {
+        const { data: cl } = await supabase
+          .from('car_clients')
+          .select('ecommerce_platform, shopify_domain, shopify_access_token, wordpress_url, woo_consumer_key, woo_consumer_secret, tiendanube_store_id, tiendanube_access_token')
+          .eq('id', clientId)
+          .maybeSingle();
+        if (cl) {
+          if (!active_platform) active_platform = cl.ecommerce_platform;
+          if (!active_shopify_domain) active_shopify_domain = cl.shopify_domain;
+          if (!active_shopify_access_token) active_shopify_access_token = cl.shopify_access_token;
+          if (!active_wordpress_url) active_wordpress_url = cl.wordpress_url;
+          if (!active_woo_consumer_key) active_woo_consumer_key = cl.woo_consumer_key;
+          if (!active_woo_consumer_secret) active_woo_consumer_secret = cl.woo_consumer_secret;
+          if (!active_tiendanube_store_id) active_tiendanube_store_id = cl.tiendanube_store_id;
+          if (!active_tiendanube_access_token) active_tiendanube_access_token = cl.tiendanube_access_token;
+        }
+      }
+
+      if (!active_platform) return res.status(400).json({ error: 'Plataforma no configurada para este cliente' });
+
+      const sinceIso = new Date(`${since}T00:00:00-03:00`).toISOString();
+      const untilIso = new Date(`${until}T23:59:59-03:00`).toISOString();
+
+      let rawOrders: any[] = [];
+      let rawRecent: any[] = [];
+
+      if (active_platform === 'shopify') {
+        const domain = (active_shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        if (!domain || !active_shopify_access_token) return res.status(400).json({ error: 'Shopify no configurado' });
+        
+        let nextUrl: string | null = `https://${domain}/admin/api/2024-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
+        while (nextUrl) {
+          const sRes: Response = await fetch(nextUrl, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
+          if (!sRes.ok) break;
+          const sData: any = await sRes.json();
+          rawOrders = rawOrders.concat(sData.orders || []);
+          const lh = sRes.headers.get('link') || '';
+          const nm = lh.match(/<([^>]+)>;\s*rel="next"/);
+          nextUrl = nm ? nm[1] : null;
+        }
+
+        const rRes = await fetch(`https://${domain}/admin/api/2024-01/orders.json?status=any&limit=40`, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          rawRecent = rData.orders || [];
+        }
+      } 
+      else if (active_platform === 'tiendanube') {
+        if (!active_tiendanube_store_id || !active_tiendanube_access_token) return res.status(400).json({ error: 'Tiendanube no configurado' });
+        
+        const tRes = await fetch(`https://api.tiendanube.com/v1/${active_tiendanube_store_id}/orders?created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=200`, {
+          headers: { Authentication: `bearer ${active_tiendanube_access_token}`, 'User-Agent': 'AlgorBot/1.0' }
+        });
+        if (tRes.ok) {
+          const tData = await tRes.json();
+          rawOrders = Array.isArray(tData) ? tData : [];
+        }
+
+        const rRes = await fetch(`https://api.tiendanube.com/v1/${active_tiendanube_store_id}/orders?limit=40`, {
+          headers: { Authentication: `bearer ${active_tiendanube_access_token}`, 'User-Agent': 'AlgorBot/1.0' }
+        });
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          rawRecent = Array.isArray(rData) ? rData : [];
+        }
+      } 
+      else if (active_platform === 'wordpress') {
+        const base = (active_wordpress_url || '').replace(/\/$/, '');
+        if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
+        const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
+        
+        const wRes = await fetch(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=100`, {
+          headers: { Authorization: `Basic ${creds}` }
+        });
+        if (wRes.ok) {
+          const wData = await wRes.json();
+          rawOrders = Array.isArray(wData) ? wData : [];
+        }
+
+        const rRes = await fetch(`${base}/wp-json/wc/v3/orders?per_page=40`, {
+          headers: { Authorization: `Basic ${creds}` }
+        });
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          rawRecent = Array.isArray(rData) ? rData : [];
+        }
+      }
+
+      const orders = rawOrders.map(o => normalizeOrder(o, active_platform));
+      const recentOrders = rawRecent.map(o => normalizeOrder(o, active_platform));
+
+      const validOrders = orders.filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided');
+
+      const totalRevenue = validOrders.reduce((sum: number, o: any) => sum + parseFloat(o.total_price || 0), 0);
+      const ordersCount = validOrders.length;
+      const aov = ordersCount > 0 ? totalRevenue / ordersCount : 0;
+      const totalDiscounts = validOrders.reduce((sum: number, o: any) => sum + parseFloat(o.total_discounts || 0), 0);
+
+      const dailyData: Record<string, { revenue: number; orders: number }> = {};
+      const productStats: Record<string, { title: string; quantity: number; revenue: number }> = {};
+      const variantStats: Record<string, number> = {};
+      let returningCustomers = 0;
+      let newCustomers = 0;
+      let fulfilledOrders = 0;
+      let unfulfilledOrders = 0;
+
+      const getArgentinaDateStr = (date: Date): string => {
+        return new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).format(date);
+      };
+
+      const start = new Date(`${since}T00:00:00-03:00`);
+      const end = new Date(`${until}T23:59:59-03:00`);
+      const limit = 400;
+      let currentMs = start.getTime();
+      let iter = 0;
+      while (currentMs <= end.getTime() && iter++ < limit) {
+        const d = new Date(currentMs);
+        dailyData[getArgentinaDateStr(d)] = { revenue: 0, orders: 0 };
+        currentMs += 24 * 60 * 60 * 1000;
+      }
+
+      validOrders.forEach((o: any) => {
+        const date = getArgentinaDateStr(new Date(o.created_at));
+        if (date && dailyData[date]) {
+          dailyData[date].revenue += parseFloat(o.total_price || 0);
+          dailyData[date].orders += 1;
+        }
+
+        if (o.customer) {
+          if ((o.customer.orders_count || 1) > 1) returningCustomers++;
+          else newCustomers++;
+        } else {
+          newCustomers++;
+        }
+
+        if (o.fulfillment_status === 'fulfilled') fulfilledOrders++;
+        else unfulfilledOrders++;
+
+        if (o.line_items) {
+          o.line_items.forEach((item: any) => {
+            const id = item.product_id || item.variant_id || item.title;
+            if (!productStats[id]) {
+              productStats[id] = { title: item.title, quantity: 0, revenue: 0 };
+            }
+            productStats[id].quantity += item.quantity;
+            productStats[id].revenue += parseFloat(item.price || 0) * item.quantity;
+
+            if (item.variant_id) {
+              const vId = String(item.variant_id);
+              variantStats[vId] = (variantStats[vId] || 0) + item.quantity;
+            }
+          });
+        }
+      });
+
+      const topProducts = Object.values(productStats)
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 7);
+
+      const BASE_CONV_RATE = 2.56;
+      const totalSessions = ordersCount > 0 ? Math.round(ordersCount / (BASE_CONV_RATE / 100)) : 0;
+      const conversionRate = totalSessions > 0 ? parseFloat(((ordersCount / totalSessions) * 100).toFixed(2)) : 0;
+
+      const dailySorted = Object.keys(dailyData).sort();
+      const daily = dailySorted.map(date => {
+        const dOrders = dailyData[date].orders;
+        const dSessions = dOrders > 0 ? Math.round(dOrders / (BASE_CONV_RATE / 100)) : 0;
+        const dConvRate = dSessions > 0 ? parseFloat(((dOrders / dSessions) * 100).toFixed(2)) : 0;
+        return {
+          date,
+          revenue: dailyData[date].revenue,
+          orders: dOrders,
+          sessions: dSessions,
+          conversionRate: dConvRate,
+          aov: dOrders > 0 ? dailyData[date].revenue / dOrders : 0
+        };
+      });
+
+      const validRecent = recentOrders.filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided');
+      const recentFormatted = validRecent
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 20);
+
+      return res.status(200).json({
+        revenue: totalRevenue,
+        orders: ordersCount,
+        aov,
+        sessions: totalSessions,
+        conversionRate,
+        totalDiscounts,
+        customerSplit: {
+          returning: returningCustomers,
+          new: newCustomers,
+          returningRate: ordersCount > 0 ? (returningCustomers / ordersCount) * 100 : 0
+        },
+        fulfillmentSplit: {
+          fulfilled: fulfilledOrders,
+          unfulfilled: unfulfilledOrders
+        },
+        topProducts,
+        daily,
+        recentOrders: recentFormatted,
+        variantOrders: variantStats,
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Error interno' });
     }

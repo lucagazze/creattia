@@ -160,7 +160,12 @@ export default function TiendaPage() {
     let cancelled = false;
     const fetchData = async () => {
       const p: any = profile;
-      if (!p || !p.ecommerce_platform || !p.shopify_domain || !p.shopify_access_token) {
+      const hasStoreConfig = p?.ecommerce_platform && (
+        (p.ecommerce_platform === 'shopify' && p.shopify_domain && p.shopify_access_token) ||
+        (p.ecommerce_platform === 'wordpress' && p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) ||
+        (p.ecommerce_platform === 'tiendanube' && p.tiendanube_store_id && p.tiendanube_access_token)
+      );
+      if (!hasStoreConfig) {
         if (!cancelled) setLoading(false);
         return;
       }
@@ -170,8 +175,8 @@ export default function TiendaPage() {
       const prevRange = getPrevPeriod(range.since, range.until);
       try {
         const [res, prevRes] = await Promise.all([
-          ecommerce.getDashboardData(p.ecommerce_platform, p.shopify_domain, p.shopify_access_token, range.since, range.until),
-          ecommerce.getDashboardData(p.ecommerce_platform, p.shopify_domain, p.shopify_access_token, prevRange.since, prevRange.until)
+          ecommerce.getDashboardData(p.ecommerce_platform, p.shopify_domain, p.shopify_access_token, range.since, range.until, p.id),
+          ecommerce.getDashboardData(p.ecommerce_platform, p.shopify_domain, p.shopify_access_token, prevRange.since, prevRange.until, p.id)
         ]);
         if (cancelled) return;
         setData(res);
@@ -219,7 +224,14 @@ export default function TiendaPage() {
     return `${day} ${month} ${year}`;
   };
 
-  if (!profile || !(profile as any).ecommerce_platform) {
+  const p: any = profile;
+  const hasStoreConfig = p?.ecommerce_platform && (
+    (p.ecommerce_platform === 'shopify' && p.shopify_domain && p.shopify_access_token) ||
+    (p.ecommerce_platform === 'wordpress' && p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) ||
+    (p.ecommerce_platform === 'tiendanube' && p.tiendanube_store_id && p.tiendanube_access_token)
+  );
+
+  if (!hasStoreConfig) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in px-4">
         <div className="w-16 h-16 bg-pink-100 dark:bg-pink-500/10 rounded-full flex items-center justify-center mb-6">
@@ -227,7 +239,7 @@ export default function TiendaPage() {
         </div>
         <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">Tienda no configurada</h2>
         <p className="text-[15px] text-zinc-500 max-w-md text-center leading-relaxed">
-          Para ver las métricas de tu e-commerce, necesitas conectar tu tienda Shopify o Tiendanube desde el panel de administración.
+          Para ver las métricas de tu e-commerce, necesitas conectar tu tienda Shopify, WooCommerce o Tiendanube desde el panel de administración.
         </p>
       </div>
     );

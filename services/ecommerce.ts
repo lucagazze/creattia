@@ -207,8 +207,38 @@ export const ecommerce = {
     return results;
   },
 
-  getDashboardData: async (platform: string, domain: string, token: string, since: string, until: string) => {
-    if (platform !== 'shopify') return null;
+  getDashboardData: async (platform: string, domain: string, token: string, since: string, until: string, clientId?: string) => {
+    if (clientId || platform !== 'shopify') {
+      const cacheKey = `dashboard:${clientId || domain}:${since}:${until}`;
+      const cached = ecGetCached(cacheKey);
+      if (cached) return cached;
+
+      try {
+        const res = await fetch('/api/scrape-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId,
+            type: 'dashboard',
+            platform,
+            since,
+            until,
+            shopify_domain: domain,
+            shopify_access_token: token
+          })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        ecSetCache(cacheKey, data);
+        return data;
+      } catch (err) {
+        console.error('[ecommerce.getDashboardData] Error:', err);
+        throw err;
+      }
+    }
 
     const cacheKey = `dashboard:${domain}:${since}:${until}`;
     const cached = ecGetCached(cacheKey);

@@ -1052,11 +1052,12 @@ export default function DashboardPage() {
 
       const prof: any = profile;
       const fetchShopify = async () => {
-        if (
-          !prof?.ecommerce_platform ||
-          !prof?.shopify_domain ||
-          !prof?.shopify_access_token
-        ) {
+        const hasStoreConfig = prof?.ecommerce_platform && (
+          (prof.ecommerce_platform === 'shopify' && prof.shopify_domain && prof.shopify_access_token) ||
+          (prof.ecommerce_platform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
+          (prof.ecommerce_platform === 'tiendanube' && prof.tiendanube_store_id && prof.tiendanube_access_token)
+        );
+        if (!hasStoreConfig) {
           setFetchingStore(false);
           return;
         }
@@ -1070,6 +1071,7 @@ export default function DashboardPage() {
               prof.shopify_access_token,
               range.since,
               range.until,
+              prof.id,
             ),
             ecommerce.getDashboardData(
               prof.ecommerce_platform,
@@ -1077,6 +1079,7 @@ export default function DashboardPage() {
               prof.shopify_access_token,
               prevRange.since,
               prevRange.until,
+              prof.id,
             ),
           ]);
           if (!currStore || !prevStoreData) {
@@ -1292,12 +1295,12 @@ export default function DashboardPage() {
     let mounted = true;
     const fetch90d = async () => {
       const prof: any = profile;
-      if (
-        !prof?.ecommerce_platform ||
-        !prof?.shopify_domain ||
-        !prof?.shopify_access_token
-      )
-        return;
+      const hasStoreConfig = prof?.ecommerce_platform && (
+        (prof.ecommerce_platform === 'shopify' && prof.shopify_domain && prof.shopify_access_token) ||
+        (prof.ecommerce_platform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
+        (prof.ecommerce_platform === 'tiendanube' && prof.tiendanube_store_id && prof.tiendanube_access_token)
+      );
+      if (!hasStoreConfig) return;
       setFetching90d(true);
       try {
         const range90 = presetToRange("last_90d");
@@ -1307,6 +1310,7 @@ export default function DashboardPage() {
           prof.shopify_access_token,
           range90.since,
           range90.until,
+          prof.id,
         );
         if (mounted && store90) {
           setHistorical90d(store90.daily || []);

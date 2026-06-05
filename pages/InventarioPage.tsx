@@ -37,7 +37,7 @@ function StockBadge({ qty }: { qty: number }) {
 }
 
 export default function InventarioPage() {
-  const { profile: authProfile } = useAuth();
+  const { profile: authProfile, session } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = (isViewingAs ? viewAsProfile : authProfile) as any;
 
@@ -71,23 +71,48 @@ export default function InventarioPage() {
   const destination = getInventoryUrl();
 
   useEffect(() => {
-    if (platform !== 'shopify' || !shopifyDomain || !shopifyToken) return;
+    if (!platform || !profile?.id) return;
     setLoading(true);
     setError(null);
-    ecommerce.getProducts(shopifyDomain, shopifyToken)
-      .then(setProducts)
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [platform, shopifyDomain, shopifyToken]);
+
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch('/api/scrape-all', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          },
+          body: JSON.stringify({
+            clientId: profile.id,
+            type: 'products',
+            platform: platform
+          })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        setProducts(data.products || []);
+      } catch (e: any) {
+        setError(e.message || 'Error al cargar productos');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [platform, profile?.id, session?.access_token]);
 
   useEffect(() => {
-    if (platform !== 'shopify' || !shopifyDomain || !shopifyToken) return;
+    if (!platform || !profile?.id) return;
     setLoadingOrders(true);
     const range = presetToRange('last_30d');
     // Force-bypass sessionStorage cache so we get fresh data every time the page mounts
-    const cacheKey = `ec:dashboard:${shopifyDomain}:${range.since}:${range.until}`;
+    const cacheKey = `ec:dashboard:${profile.id || shopifyDomain}:${range.since}:${range.until}`;
     try { sessionStorage.removeItem(cacheKey); } catch { /* ignore */ }
-    ecommerce.getDashboardData(platform, shopifyDomain, shopifyToken, range.since, range.until)
+    ecommerce.getDashboardData(platform, shopifyDomain, shopifyToken, range.since, range.until, profile.id)
       .then(data => {
         const top = (data?.topProducts || [])
           .slice(0, 7)
@@ -103,7 +128,7 @@ export default function InventarioPage() {
       })
       .catch(() => {})
       .finally(() => setLoadingOrders(false));
-  }, [platform, shopifyDomain, shopifyToken]);
+  }, [platform, profile?.id, shopifyDomain, shopifyToken]);
 
   // Stats per variant (flat) for filter counts
   const allVariants = useMemo(() => products.flatMap(p => p.variants.map(v => ({ ...v, inventory_quantity: v.inventory_quantity ?? 0 }))), [products]);
