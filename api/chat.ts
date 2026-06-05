@@ -266,6 +266,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   // 1. Authenticate user from Bearer token
+  const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.trim().toLowerCase().startsWith('bearer')) {
     return res.status(401).json({ error: 'Missing or invalid Authorization header' });
   }

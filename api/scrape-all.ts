@@ -372,6 +372,178 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // ── PRODUCT ANALYSIS — RUN/CALCULATE ─────────────────────────────────────
+  if (type === 'run-analysis') {
+    if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
+    try {
+      let active_platform = platform;
+      let active_shopify_domain = shopify_domain;
+      let active_shopify_access_token = shopify_access_token;
+      let active_wordpress_url = wordpress_url;
+      let active_woo_consumer_key = woo_consumer_key;
+      let active_woo_consumer_secret = woo_consumer_secret;
+      let active_tiendanube_store_id = tiendanube_store_id;
+      let active_tiendanube_access_token = tiendanube_access_token;
+
+      const { data: cl } = await supabase
+        .from('car_clients')
+        .select('ecommerce_platform, shopify_domain, shopify_access_token, wordpress_url, woo_consumer_key, woo_consumer_secret, tiendanube_store_id, tiendanube_access_token')
+        .eq('id', clientId)
+        .maybeSingle();
+      if (cl) {
+        if (!active_platform) active_platform = cl.ecommerce_platform;
+        if (!active_shopify_domain) active_shopify_domain = cl.shopify_domain;
+        if (!active_shopify_access_token) active_shopify_access_token = cl.shopify_access_token;
+        if (!active_wordpress_url) active_wordpress_url = cl.wordpress_url;
+        if (!active_woo_consumer_key) active_woo_consumer_key = cl.woo_consumer_key;
+        if (!active_woo_consumer_secret) active_woo_consumer_secret = cl.woo_consumer_secret;
+        if (!active_tiendanube_store_id) active_tiendanube_store_id = cl.tiendanube_store_id;
+        if (!active_tiendanube_access_token) active_tiendanube_access_token = cl.tiendanube_access_token;
+      }
+
+      if (!active_platform) return res.status(400).json({ error: 'Plataforma no configurada para este cliente' });
+
+      // 2 years range
+      const since = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const until = new Date().toISOString().split('T')[0];
+      const sinceIso = new Date(`${since}T00:00:00-03:00`).toISOString();
+      const untilIso = new Date(`${until}T23:59:59-03:00`).toISOString();
+
+      let rawOrders: any[] = [];
+
+      if (active_platform === 'shopify') {
+        const domain = (active_shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+        if (!domain || !active_shopify_access_token) return res.status(400).json({ error: 'Shopify no configurado' });
+        
+        let nextUrl: string | null = `https://${domain}/admin/api/2024-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
+        let pagesCount = 0;
+        while (nextUrl && pagesCount++ < 15) {
+          const sRes: Response = await fetch(nextUrl, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
+          if (!sRes.ok) break;
+          const sData: any = await sRes.json();
+          rawOrders = rawOrders.concat(sData.orders || []);
+          const lh = sRes.headers.get('link') || '';
+          const nm = lh.match(/<([^>]+)>;\s*rel="next"/);
+          nextUrl = nm ? nm[1] : null;
+        }
+      } 
+      else if (active_platform === 'wordpress') {
+        const base = (active_wordpress_url || '').replace(/\/$/, '');
+        if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
+        const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
+        
+        let page = 1;
+        while (page <= 30) {
+          const wRes = await fetch(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=100&page=${page}`, {
+            headers: { Authorization: `Basic ${creds}` }
+          });
+          if (!wRes.ok) break;
+          const wData = await wRes.json();
+          if (!Array.isArray(wData) || wData.length === 0) break;
+          rawOrders = rawOrders.concat(wData);
+          if (wData.length < 100) break;
+          page++;
+        }
+      } 
+      else if (active_platform === 'tiendanube') {
+        if (!active_tiendanube_store_id || !active_tiendanube_access_token) return res.status(400).json({ error: 'Tiendanube no configurado' });
+        
+        let page = 1;
+        while (page <= 15) {
+          const tRes = await fetch(`https://api.tiendanube.com/v1/${active_tiendanube_store_id}/orders?created_at_min=${sinceIso}&created_at_max=${untilIso}&per_page=200&page=${page}`, {
+            headers: { Authentication: `bearer ${active_tiendanube_access_token}`, 'User-Agent': 'AlgorBot/1.0' }
+          });
+          if (!tRes.ok) break;
+          const tData = await tRes.json();
+          if (!Array.isArray(tData) || tData.length === 0) break;
+          rawOrders = rawOrders.concat(tData);
+          if (tData.length < 200) break;
+          page++;
+        }
+      }
+
+      const orders: any[] = rawOrders.map(o => normalizeOrder(o, active_platform));
+      const byCustomer = new Map<string, any[]>();
+      for (const o of orders) {
+        if (o.cancelled_at) continue;
+        if (!['paid', 'partially_refunded', 'pending', 'authorized'].includes(o.financial_status)) continue;
+        if (!o.line_items?.length) continue;
+        const email = (o.email || '').toLowerCase().trim();
+        if (!email) continue;
+        const date = new Date(o.created_at);
+        const items = (o.line_items || []).map((it: any) => ({ name: it.title, price: parseFloat(it.price || 0), qty: it.quantity }));
+        if (!byCustomer.has(email)) byCustomer.set(email, []);
+        byCustomer.get(email)!.push({ email, date, id: String(o.id), items });
+      }
+      for (const [, list] of byCustomer) list.sort((a: any, b: any) => a.date.getTime() - b.date.getTime());
+
+      const paidWithEmail: any[] = [];
+      for (const [, list] of byCustomer) paidWithEmail.push(...list);
+
+      const productNames = new Set<string>();
+      for (const o of paidWithEmail) for (const it of o.items) if (it.name) productNames.add(it.name);
+
+      const results: any[] = [];
+      for (const pName of productNames) {
+        const ordersWithP = paidWithEmail.filter(o => o.items.some((it: any) => it.name === pName));
+        if (ordersWithP.length < 2) continue;
+
+        const firstOrdersWithP = ordersWithP.filter(o => byCustomer.get(o.email)?.[0]?.id === o.id);
+        const entryPointPct = Math.round((firstOrdersWithP.length / ordersWithP.length) * 100);
+
+        const customersFirstP = [...new Set(firstOrdersWithP.map(o => o.email))];
+        const customersReturned = customersFirstP.filter(e => (byCustomer.get(e)?.length ?? 0) >= 2);
+        const secondPurchasePct = customersFirstP.length > 0 ? Math.round((customersReturned.length / customersFirstP.length) * 100) : 0;
+
+        let repurchaseDays = 0;
+        if (customersReturned.length > 0) {
+          const gaps = customersReturned.map(e => {
+            const list = byCustomer.get(e)!;
+            return (list[1].date.getTime() - list[0].date.getTime()) / 86400000;
+          }).filter(d => d >= 0);
+          if (gaps.length > 0) repurchaseDays = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+        }
+
+        const crossSellCounts = new Map<string, number>();
+        for (const email of customersFirstP) {
+          const allOrds = byCustomer.get(email) || [];
+          for (let i = 1; i < allOrds.length; i++)
+            for (const it of allOrds[i].items)
+              if (it.name !== pName) crossSellCounts.set(it.name, (crossSellCounts.get(it.name) || 0) + 1);
+        }
+        const crossSell = [...crossSellCounts.entries()]
+          .sort((a, b) => b[1] - a[1]).slice(0, 2)
+          .map(([name, count]) => ({ name, count, pct: Math.round(count / Math.max(customersFirstP.length, 1) * 100) }));
+
+        const allItemPrices = ordersWithP.flatMap(o => o.items.filter((it: any) => it.name === pName).map((it: any) => it.price));
+        const avgPrice = allItemPrices.length > 0 ? allItemPrices.reduce((a: number, b: number) => a + b, 0) / allItemPrices.length : 0;
+        const combinedAOV = ordersWithP.reduce((s: number, o: any) => s + o.items.reduce((ss: number, it: any) => ss + it.price * it.qty, 0), 0) / Math.max(ordersWithP.length, 1);
+
+        results.push({ name: pName, totalOrders: ordersWithP.length, firstPurchases: firstOrdersWithP.length, entryPointPct, secondPurchasePct, repurchaseDays, avgPrice, combinedAOV, crossSell });
+      }
+
+      results.sort((a: any, b: any) => b.totalOrders - a.totalOrders);
+
+      // Save to database
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('car_product_analysis')
+        .upsert(
+          { client_id: clientId, data: results, calculated_at: now, updated_at: now },
+          { onConflict: 'client_id' }
+        );
+      if (error) return res.status(500).json({ error: error.message });
+
+      return res.status(200).json({
+        found: true,
+        results,
+        calculated_at: now,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   // ── PRODUCTS PROXY (merged from api/products.ts to stay under 12 function limit) ──
   if (type === 'products') {
     try {

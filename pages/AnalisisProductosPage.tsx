@@ -58,8 +58,7 @@ export default function AnalisisProductosPage() {
 
   const loadProductAnalysis = async (forceRefresh = false) => {
     if (!p?.ecommerce_platform) return;
-    const isShopify = p.ecommerce_platform === 'shopify' && p.shopify_domain && p.shopify_access_token;
-    const cacheKey = isShopify ? `pa:${p.shopify_domain}` : `pa:${p.id}`;
+    const cacheKey = `pa:${p.id}`;
 
     if (!forceRefresh) {
       try {
@@ -71,6 +70,9 @@ export default function AnalisisProductosPage() {
           return;
         }
       } catch { }
+      
+      setProductLoading(true);
+      setProductError(null);
       try {
         const { data: { session: freshSession } } = await supabase.auth.getSession();
         const token = freshSession?.access_token || '';
@@ -89,29 +91,44 @@ export default function AnalisisProductosPage() {
             const calcDate = new Date(dbData.calculated_at);
             setProductCacheDate(calcDate);
             try { localStorage.setItem(cacheKey, JSON.stringify({ data: dbData.results, ts: calcDate.getTime() })); } catch { }
+            setProductLoading(false);
             return;
           }
         }
-      } catch { }
-    }
-
-    if (!isShopify) {
-      setProductLoading(false);
-      if (forceRefresh) {
-        setProductError('El cálculo en tiempo real solo está disponible para Shopify. Para WooCommerce y Tiendanube, el análisis se calcula periódicamente en segundo plano.');
+      } catch (err) {
+        console.error('Error loading product analysis from DB:', err);
       }
-      return;
+      // If we got here, it means no cached analysis was found in the DB, so we auto-run it.
     }
 
     setProductLoading(true);
     setProductError(null);
     try {
-      const results = await ecommerce.analyzeProducts(p.shopify_domain, p.shopify_access_token, forceRefresh);
-      setProductAnalysis(results);
-      const now = new Date();
-      setProductCacheDate(now);
-      try { localStorage.setItem(cacheKey, JSON.stringify({ data: results, ts: now.getTime() })); } catch { }
-      if (p.id) saveAnalysisToDB(results, p.id);
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || '';
+      const runRes = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ type: 'run-analysis', clientId: p.id }),
+      });
+      
+      if (!runRes.ok) {
+        const errData = await runRes.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${runRes.status}`);
+      }
+      
+      const runData = await runRes.json();
+      if (runData.results) {
+        setProductAnalysis(runData.results);
+        const calcDate = new Date(runData.calculated_at);
+        setProductCacheDate(calcDate);
+        try { localStorage.setItem(cacheKey, JSON.stringify({ data: runData.results, ts: calcDate.getTime() })); } catch { }
+      } else {
+        throw new Error('No se generaron resultados de análisis');
+      }
     } catch (err: any) {
       setProductError(err.message || 'Error al analizar productos');
     } finally {

@@ -48,6 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // 1. Authenticate the caller using their Authorization token
+  const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.trim().toLowerCase().startsWith('bearer')) {
     return res.status(401).json({ error: 'Missing or invalid Authorization header' });
   }
