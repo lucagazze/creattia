@@ -13,6 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'x-shopify-domain, x-shop-domain, x-shopify-access-token, x-wc-base-url, x-wc-consumer-key, x-wc-consumer-secret, x-tn-store-id, x-tn-token, Content-Type, Accept');
+  res.setHeader('Access-Control-Expose-Headers', 'X-WP-Total, X-WP-TotalPages, Link');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
