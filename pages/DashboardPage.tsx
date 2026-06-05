@@ -1478,7 +1478,7 @@ export default function DashboardPage() {
       : presetToRange(activePreset);
   const activePrevRange = getPrevPeriod(activeRange.since, activeRange.until);
 
-  const showMER = !!(profile as any)?.ecommerce_platform && !!profile?.meta_account_id;
+  const showMER = false;
   const currentMER = (currentStore && currentMeta && currentMeta.spend > 0)
     ? currentStore.revenue / currentMeta.spend
     : 0;
