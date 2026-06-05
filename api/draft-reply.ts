@@ -39,7 +39,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     const { data: authData, error: authError } = await authSupabase.auth.getUser(token);
     if (authError || !authData?.user) {
-      return res.status(401).json({ error: 'Invalid auth token', details: authError?.message });
+      const tokenPreview = token ? `${token.substring(0, 10)}...${token.substring(Math.max(0, token.length - 10))}` : 'empty';
+      const errMsg = `Invalid auth token: ${authError?.message || 'No user data'} (len: ${token ? token.length : 0}, preview: ${tokenPreview})`;
+      console.error('getUser failed:', authError, 'token:', tokenPreview);
+      return res.status(401).json({ error: errMsg });
     }
     user = authData.user;
 
