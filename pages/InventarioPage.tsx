@@ -160,7 +160,10 @@ export default function InventarioPage() {
 
   // Click on a top-product row: find the matching product, scroll to it, expand it and flash highlight
   const jumpToProduct = useCallback((title: string) => {
-    const match = products.find(p => p.title.toLowerCase() === title.toLowerCase());
+    const q = title.toLowerCase().trim();
+    // Try exact match first, then partial match (for WooCommerce where topProduct title may differ slightly)
+    const match = products.find(p => p.title.toLowerCase() === q)
+      ?? products.find(p => p.title.toLowerCase().includes(q) || q.includes(p.title.toLowerCase()));
     if (!match) return;
 
     // Reset filters/search so the product is visible in the list

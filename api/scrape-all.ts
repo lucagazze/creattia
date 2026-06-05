@@ -110,14 +110,23 @@ function normalizeOrder(o: any, platform: string) {
       customer_name: o.billing ? `${o.billing.first_name || ''} ${o.billing.last_name || ''}`.trim() : 'Sin Cliente',
       email: o.billing?.email || null,
       phone: o.billing?.phone || null,
-      line_items: (o.line_items || []).map((it: any) => ({
-        product_id: it.product_id,
-        variant_id: it.variation_id || it.product_id,
-        title: it.name,
-        quantity: it.quantity,
-        price: parseFloat(it.price || 0),
-        variant_title: it.meta_data?.map((m: any) => m.value).join(' / ') || null
-      })),
+      line_items: (o.line_items || []).map((it: any) => {
+        // For variable products, WooCommerce sometimes appends variation info to the name.
+        // Strip it to get the parent product name for topProducts grouping.
+        const hasVariation = it.variation_id && it.variation_id > 0;
+        const cleanName = hasVariation
+          ? (it.name || '').split(' – ')[0].split(' - ')[0].trim()
+          : (it.name || '');
+        return {
+          product_id: it.product_id,
+          variant_id: it.variation_id || it.product_id,
+          title: it.name,
+          product_name: cleanName, // parent product name (no variation suffix)
+          quantity: it.quantity,
+          price: parseFloat(it.price || 0),
+          variant_title: it.meta_data?.filter((m: any) => m.display_key && !m.display_key.startsWith('_')).map((m: any) => m.display_value).join(' / ') || null
+        };
+      }),
       shipping_address: o.shipping ? {
         name: `${o.shipping.first_name || ''} ${o.shipping.last_name || ''}`.trim(),
         address1: o.shipping.address_1,
@@ -609,6 +618,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const base = (active_wordpress_url || '').replace(/\/$/, '');
         if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
         const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
+
+        // Raw WooCommerce products (without variations yet)
+        const rawWooProducts: any[] = [];
         for (let page = 1; page <= 5; page++) {
           const r = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`, { headers: { 'Authorization': `Basic ${creds}` } });
           if (!r.ok) {
@@ -620,7 +632,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
           const data: any[] = await r.json();
           if (!data.length) break;
-          products = products.concat(data.map((p: any) => ({
+          rawWooProducts.push(...data);
+        }
+
+        // Fetch real variations for variable products in parallel batches of 10
+        const variableProducts = rawWooProducts.filter((p: any) => p.type === 'variable');
+        const variationsMap: Record<number, any[]> = {};
+
+        const BATCH = 10;
+        for (let i = 0; i < variableProducts.length; i += BATCH) {
+          const batch = variableProducts.slice(i, i + BATCH);
+          const results = await Promise.all(
+            batch.map(async (p: any) => {
+              try {
+                const vr = await fetch(
+                  `${base}/wp-json/wc/v3/products/${p.id}/variations?per_page=100`,
+                  { headers: { 'Authorization': `Basic ${creds}` } }
+                );
+                if (!vr.ok) return { id: p.id, vars: [] };
+                const vars: any[] = await vr.json();
+                return { id: p.id, vars };
+              } catch {
+                return { id: p.id, vars: [] };
+              }
+            })
+          );
+          results.forEach(({ id, vars }) => { variationsMap[id] = vars; });
+        }
+
+        products = rawWooProducts.map((p: any) => {
+          const realVariations: any[] = variationsMap[p.id] || [];
+          let variants: any[];
+
+          if (realVariations.length > 0) {
+            // Variable product with fetched variations
+            variants = realVariations.map((v: any) => ({
+              id: v.id,
+              title: v.attributes?.map((a: any) => a.option).join(' / ') || `Variación ${v.id}`,
+              price: v.price || v.regular_price || '',
+              compare_at_price: v.sale_price || null,
+              sku: v.sku || '',
+              inventory_quantity: v.stock_quantity !== null && v.stock_quantity !== undefined
+                ? v.stock_quantity
+                : (v.stock_status === 'instock' ? 99 : 0),
+              available: v.stock_status === 'instock',
+            }));
+          } else if (p.type === 'variable') {
+            // Variable but variations not fetched — show parent stock as single variant
+            variants = [{
+              id: p.id,
+              title: p.attributes?.map((a: any) => a.options?.join('/')).join(' · ') || '',
+              price: p.price || '',
+              compare_at_price: p.sale_price || null,
+              sku: p.sku || '',
+              inventory_quantity: p.stock_quantity ?? (p.stock_status === 'instock' ? 99 : 0),
+              available: p.stock_status === 'instock',
+            }];
+          } else {
+            // Simple product
+            variants = [{
+              id: p.id,
+              title: '',
+              price: p.price || '',
+              compare_at_price: p.sale_price || null,
+              sku: p.sku || '',
+              inventory_quantity: p.stock_quantity !== null && p.stock_quantity !== undefined
+                ? p.stock_quantity
+                : (p.stock_status === 'instock' ? 99 : 0),
+              available: p.stock_status === 'instock',
+            }];
+          }
+
+          return {
             id: p.id,
             title: p.name,
             description: p.short_description?.replace(/<[^>]+>/g, ' ').trim().slice(0, 300) || '',
@@ -628,25 +711,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             tags: p.tags?.map((t: any) => t.name).join(', ') || '',
             image: p.images?.[0]?.src || null,
             url: p.permalink || '',
-            variants: p.attributes?.length > 0 ? [{
-              id: p.id,
-              title: p.attributes.map((a: any) => a.options?.join('/')).join(' · '),
-              price: p.price,
-              compare_at_price: p.sale_price || null,
-              sku: p.sku || '',
-              inventory_quantity: p.stock_quantity ?? (p.stock_status === 'instock' ? 99 : 0),
-              available: p.stock_status === 'instock'
-            }] : [{
-              id: p.id,
-              title: '',
-              price: p.price,
-              compare_at_price: p.sale_price || null,
-              sku: p.sku || '',
-              inventory_quantity: p.stock_quantity ?? (p.stock_status === 'instock' ? 99 : 0),
-              available: p.stock_status === 'instock'
-            }]
-          })));
-        }
+            variants,
+          };
+        });
       } else if (active_platform === 'tiendanube') {
         if (!active_tiendanube_store_id || !active_tiendanube_access_token) return res.status(400).json({ error: 'Tiendanube no configurado' });
         for (let page = 1; page <= 5; page++) {
@@ -846,9 +913,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (o.line_items) {
           o.line_items.forEach((item: any) => {
+            // Group by parent product_id so all variations of the same product are counted together.
+            // Use product_name (clean parent name) if available, otherwise strip variation suffix from title.
             const id = item.product_id || item.variant_id || item.title;
+            const displayTitle = item.product_name || item.title || '';
             if (!productStats[id]) {
-              productStats[id] = { title: item.title, quantity: 0, revenue: 0 };
+              productStats[id] = { title: displayTitle, quantity: 0, revenue: 0 };
             }
             productStats[id].quantity += item.quantity;
             productStats[id].revenue += parseFloat(item.price || 0) * item.quantity;
