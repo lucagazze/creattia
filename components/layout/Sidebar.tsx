@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag, 
   AlertTriangle, Activity, Library, Workflow, Instagram, Inbox, MessageSquare, Brain, Users, Package,
-  Calculator, Coins, Target, Send, Zap, Building2, Loader2
+  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -68,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   ].filter(i => isAdmin || i.configured);
 
   const configuracionItems = [
+    { path: '/perfil',           icon: User,   label: 'Mi Perfil',      configured: true },
     { path: '/links',            icon: Link2,  label: 'Mis Accesos',    configured: true },
     { path: '/cerebro',          icon: Brain,  label: 'Cerebro de IA',  configured: true, adminOnly: true },
   ].filter(i => !i.adminOnly || isAdmin);
@@ -100,6 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const initials = userDisplayName
     ? userDisplayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
     : '??';
+  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
 
   const handleSignOut = async () => {
     setShowLogoutModal(false);
@@ -321,19 +323,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         {/* Footer Info */}
         <div className="flex-shrink-0 p-3 border-t border-zinc-100 dark:border-white/[0.03] bg-zinc-50/50 dark:bg-white/[0.01]">
           <div className="flex items-center gap-2.5 bg-white dark:bg-[#111] p-2.5 rounded-xl border border-zinc-200 dark:border-white/[0.05] shadow-sm">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-zinc-800 to-black dark:from-zinc-200 dark:to-white text-white dark:text-black flex items-center justify-center text-[11px] font-black shadow-inner">
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-bold text-zinc-900 dark:text-white truncate">
-                {userDisplayName}
-              </p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-[10px] text-zinc-400 truncate block max-w-[130px]">
-                  {activeProfile?.business_name || 'Mi Empresa'}
-                </span>
+            <Link
+              to="/perfil"
+              onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+              className="flex items-center gap-2.5 flex-1 min-w-0 hover:opacity-85 active:scale-[0.98] transition-all"
+            >
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-zinc-800 to-black dark:from-zinc-200 dark:to-white text-white dark:text-black flex items-center justify-center text-[11px] font-black shadow-inner overflow-hidden shrink-0">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
               </div>
-            </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-[12px] font-bold text-zinc-900 dark:text-white truncate">
+                  {userDisplayName}
+                </p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-[10px] text-zinc-400 truncate block max-w-[130px]">
+                    {activeProfile?.business_name || 'Mi Empresa'}
+                  </span>
+                </div>
+              </div>
+            </Link>
             {!isViewingAs && (
               <button
                 onClick={() => setShowLogoutModal(true)}

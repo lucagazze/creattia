@@ -345,7 +345,7 @@ export default function PerfilPage() {
         <div className="space-y-2.5">
           {[
             { label: 'Email', value: user?.email ?? '—' },
-            { label: 'ID de usuario', value: user?.id?.slice(0, 18) + '…' ?? '—', mono: true },
+            { label: 'ID de usuario', value: user?.id ? user.id.slice(0, 18) + '…' : '—', mono: true },
             { label: 'Proveedor', value: isGoogleUser ? 'Google' : 'Email / Contraseña' },
             { label: 'Negocio', value: profile?.business_name ?? '—' },
             { label: 'Último acceso', value: timeAgo(user?.last_sign_in_at) || '—' },
