@@ -327,6 +327,9 @@ export default function AdminPage() {
     const addLog = (msg: string) => setIaLog(prev => [...prev, msg]);
 
     try {
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || '';
+
       addLog(`Guardando URL: ${iaModalUrl}...`);
       const { error: urlErr } = await supabase
         .from("car_clients")
@@ -343,7 +346,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ clientId: iaModalClient.id, url: iaModalUrl, action: 'scrape-website' })
       });
@@ -368,7 +371,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ clientId: iaModalClient.id, url: iaModalUrl, action: 'sync-instagram' })
       });
@@ -392,7 +395,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ clientId: iaModalClient.id, action: 'generate-fields' })
       });
@@ -1072,13 +1075,16 @@ setStatuses((p) => ({ ...p, shopify: "error" }));
       showToast("Ingresá la URL, Consumer Key y Consumer Secret", "warning");
       return;
     }
+    const { data: { session: freshSession } } = await supabase.auth.getSession();
+    const token = freshSession?.access_token || '';
+
     setTestingWoo(true);
     try {
       const res = await fetch('/api/scrape-all', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           clientId: editingClient?.id || '',
@@ -1116,13 +1122,16 @@ setStatuses((p) => ({ ...p, shopify: "error" }));
       showToast("Ingresá el Store ID y el Access Token de Tiendanube", "warning");
       return;
     }
+    const { data: { session: freshSession } } = await supabase.auth.getSession();
+    const token = freshSession?.access_token || '';
+
     setTestingTiendanube(true);
     try {
       const res = await fetch('/api/scrape-all', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           clientId: editingClient?.id || '',
@@ -1215,6 +1224,9 @@ setStatuses((p) => ({ ...p, meta: "error" }));
 
   const syncCatalog = async () => {
     if (!editingClient?.id) return;
+    const { data: { session: freshSession } } = await supabase.auth.getSession();
+    const token = freshSession?.access_token || '';
+
     setSyncingCatalog(true);
     setCatalogSyncResult(null);
     try {
@@ -1222,7 +1234,7 @@ setStatuses((p) => ({ ...p, meta: "error" }));
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ clientId: editingClient.id, action: 'sync-catalog' }),
       });
@@ -1364,6 +1376,9 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
     if (!editingClient) return;
     setSavingConfig(true);
 
+    const { data: { session: freshSession } } = await supabase.auth.getSession();
+    const token = freshSession?.access_token || '';
+
     // Auto-test all configured connections before saving
     const errors: string[] = [];
     const testResults: Record<string, 'ok' | 'error'> = {};
@@ -1382,7 +1397,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             clientId: editingClient.id,
@@ -1410,7 +1425,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             clientId: editingClient.id,
@@ -1562,6 +1577,10 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
     setScanningAll(true);
     setScanProgress({ done: 0, total: withUrl.length, current: '', errors: [] });
     const errors: string[] = [];
+
+    const { data: { session: freshSession } } = await supabase.auth.getSession();
+    const token = freshSession?.access_token || '';
+
     for (let i = 0; i < withUrl.length; i++) {
       const cl: any = withUrl[i];
       setScanProgress({ done: i, total: withUrl.length, current: cl.business_name, errors });
@@ -1571,7 +1590,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
           method: 'POST', 
           headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`
+            'Authorization': `Bearer ${token}`
           }, 
           body: JSON.stringify({ ...base, action: 'scrape-website' }) 
         });
@@ -1579,7 +1598,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
           method: 'POST', 
           headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`
+            'Authorization': `Bearer ${token}`
           }, 
           body: JSON.stringify({ ...base, action: 'sync-instagram' }) 
         });
@@ -1587,7 +1606,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
           method: 'POST', 
           headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`
+            'Authorization': `Bearer ${token}`
           }, 
           body: JSON.stringify({ clientId: cl.id, action: 'generate-fields' }) 
         });
