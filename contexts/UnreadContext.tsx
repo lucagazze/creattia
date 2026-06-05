@@ -523,29 +523,57 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const fetchOrdersCount = useCallback(async () => {
     if (document.visibilityState !== 'visible') return;
     const shopifyDomain = (profile as any)?.shopify_domain;
-    const shopifyToken = (profile as any)?.shopify_access_token;
-    if (!shopifyDomain || !shopifyToken) {
+    const shopifyToken  = (profile as any)?.shopify_access_token;
+    const wordpressUrl  = (profile as any)?.wordpress_url;
+    const wooKey        = (profile as any)?.woo_consumer_key;
+    const wooSecret     = (profile as any)?.woo_consumer_secret;
+    const tnStoreId     = (profile as any)?.tiendanube_store_id;
+    const tnToken       = (profile as any)?.tiendanube_access_token;
+
+    const isShopify = !!(shopifyDomain && shopifyToken);
+    const isWoo     = !!(wordpressUrl && wooKey && wooSecret);
+    const isTN      = !!(tnStoreId && tnToken);
+
+    if (!isShopify && !isWoo && !isTN) {
       setPendingOrdersCount(0);
       setOrdersLoading(false);
       return;
     }
     try {
-      const count = await ecommerce.getUnfulfilledCount(
-        shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, ''),
-        shopifyToken
-      );
+      let count = 0;
+      if (isShopify) {
+        count = await ecommerce.getUnfulfilledCount(
+          shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+          shopifyToken
+        );
+      } else if (isWoo) {
+        count = await ecommerce.getWooUnfulfilledCount(wordpressUrl, wooKey, wooSecret);
+      } else if (isTN) {
+        count = await ecommerce.getTiendaNubeUnfulfilledCount(tnStoreId, tnToken);
+      }
       setPendingOrdersCount(count);
     } catch {
       // silent
     } finally {
       setOrdersLoading(false);
     }
-  }, [profile?.id, (profile as any)?.shopify_domain, (profile as any)?.shopify_access_token]);
+  }, [
+    profile?.id,
+    (profile as any)?.shopify_domain, (profile as any)?.shopify_access_token,
+    (profile as any)?.wordpress_url, (profile as any)?.woo_consumer_key, (profile as any)?.woo_consumer_secret,
+    (profile as any)?.tiendanube_store_id, (profile as any)?.tiendanube_access_token,
+  ]);
 
   useEffect(() => {
     const shopifyDomain = (profile as any)?.shopify_domain;
-    const shopifyToken = (profile as any)?.shopify_access_token;
-    if (!shopifyDomain || !shopifyToken) { setPendingOrdersCount(0); return; }
+    const shopifyToken  = (profile as any)?.shopify_access_token;
+    const wordpressUrl  = (profile as any)?.wordpress_url;
+    const wooKey        = (profile as any)?.woo_consumer_key;
+    const wooSecret     = (profile as any)?.woo_consumer_secret;
+    const tnStoreId     = (profile as any)?.tiendanube_store_id;
+    const tnToken       = (profile as any)?.tiendanube_access_token;
+    const hasEcommerce  = (shopifyDomain && shopifyToken) || (wordpressUrl && wooKey && wooSecret) || (tnStoreId && tnToken);
+    if (!hasEcommerce) { setPendingOrdersCount(0); return; }
     setOrdersLoading(true);
     fetchOrdersCount();
     const interval = setInterval(fetchOrdersCount, 5_000);

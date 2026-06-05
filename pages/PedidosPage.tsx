@@ -507,24 +507,14 @@ export default function PedidosPage() {
       <div className="w-full pt-4 pb-20 md:pt-6 space-y-4">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(236,72,153,0.12)' }}>
-              <ShoppingCart className="w-[18px] h-[18px]" style={{ color: PINK }} />
-            </div>
-            <div>
-              <h1 className="text-[20px] font-black text-zinc-900 dark:text-white tracking-tight">Pedidos</h1>
-              <p className="text-[11px] text-zinc-400 font-medium">Todos los pedidos de tu tienda</p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(236,72,153,0.12)' }}>
+            <ShoppingCart className="w-[18px] h-[18px]" style={{ color: PINK }} />
           </div>
-          <button
-            onClick={() => load(since, until)}
-            disabled={loading}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white dark:bg-[#111] border border-zinc-200 dark:border-white/[0.06] text-[11px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 shadow-sm"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Actualizar</span>
-          </button>
+          <div>
+            <h1 className="text-[20px] font-black text-zinc-900 dark:text-white tracking-tight">Pedidos</h1>
+            <p className="text-[11px] text-zinc-400 font-medium">Todos los pedidos de tu tienda</p>
+          </div>
         </div>
 
         {/* ── Stats ── */}

@@ -433,6 +433,28 @@ export const ecommerce = {
     }
   },
 
+  getWooUnfulfilledCount: async (baseUrl: string, ck: string, cs: string): Promise<number> => {
+    try {
+      const res = await fetch(`/api/shopify/wc/orders?status=processing&per_page=1`, {
+        headers: { 'x-wc-base-url': baseUrl.replace(/\/$/, ''), 'x-wc-consumer-key': ck, 'x-wc-consumer-secret': cs },
+      });
+      if (!res.ok) return 0;
+      return parseInt(res.headers.get('X-WP-Total') || '0', 10);
+    } catch { return 0; }
+  },
+
+  getTiendaNubeUnfulfilledCount: async (storeId: string, token: string): Promise<number> => {
+    try {
+      const params = new URLSearchParams({ payment_status: 'paid', shipping_status: 'unpacked', per_page: '200', page: '1' });
+      const res = await fetch(`/api/shopify/tn/orders?${params}`, {
+        headers: { 'x-tn-store-id': storeId, 'x-tn-token': token },
+      });
+      if (!res.ok) return 0;
+      const data = await res.json();
+      return Array.isArray(data) ? data.length : 0;
+    } catch { return 0; }
+  },
+
   getTiendaNubeOrders: async (storeId: string, token: string, since: string, until: string): Promise<any[]> => {
     const cacheKey = `tn_orders:${storeId}:${since}:${until}`;
     const cached = ecGetCached(cacheKey);
