@@ -702,11 +702,13 @@ export default function ComentariosPage() {
         text: c.text || c.message || '',
         reply: c.reply || undefined,
       }));
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || '';
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           clientId, itemText: text, username: target.username,

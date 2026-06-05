@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
+import { supabase } from '../services/supabase';
 import { Package, ShoppingBag, ArrowUpRight, AlertTriangle, Search, ChevronDown, TrendingUp } from 'lucide-react';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { ecommerce } from '../services/ecommerce';
@@ -77,11 +78,13 @@ export default function InventarioPage() {
 
     const fetchProducts = async () => {
       try {
+        const { data: { session: freshSession } } = await supabase.auth.getSession();
+        const token = freshSession?.access_token || '';
         const res = await fetch('/api/scrape-all', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             clientId: profile.id,
@@ -103,7 +106,7 @@ export default function InventarioPage() {
     };
 
     fetchProducts();
-  }, [platform, profile?.id, session?.access_token]);
+  }, [platform, profile?.id]);
 
   useEffect(() => {
     if (!platform || !profile?.id) return;

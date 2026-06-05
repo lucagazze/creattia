@@ -799,11 +799,13 @@ export default function MensajeriaPage() {
         const who = m?.message_type === 1 ? 'Agente' : (contact(selected).name || 'Cliente');
         return `${who}: ${m?.content || '[archivo adjunto]'}`;
       });
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || '';
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           clientId: profile.id,

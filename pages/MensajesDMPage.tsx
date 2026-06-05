@@ -586,11 +586,13 @@ export default function MensajesDMPage() {
         const isMe = m.from?.id === fbPageId || (igId && m.from?.id === igId);
         return `${isMe ? 'Marca' : selectedConv.username}: ${m.message || '(archivo)'}`;
       });
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || '';
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           clientId,

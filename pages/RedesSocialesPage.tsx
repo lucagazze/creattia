@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
+import { supabase } from '../services/supabase';
 import { metaAds } from '../services/metaAds';
 import EmailLoader from '../components/ui/EmailLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
@@ -199,11 +200,13 @@ export default function RedesSocialesPage() {
           .filter(c => c.id !== comment.id)
           .map(c => `@${c.username || c.from?.name || 'usuario'}: ${c.text || c.message || ''}`);
 
+        const { data: { session: freshSession } } = await supabase.auth.getSession();
+        const token = freshSession?.access_token || '';
         const res = await fetch('/api/draft-reply', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || ''}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             clientId,
@@ -316,11 +319,13 @@ export default function RedesSocialesPage() {
         .map(c => `@${c.username || c.from?.name || 'usuario'}: ${c.text || c.message || ''}`)
         .slice(0, 25);
 
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || '';
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           clientId,
@@ -434,11 +439,13 @@ export default function RedesSocialesPage() {
         .filter(c => c.id !== commentId)
         .map(c => `@${c.username || c.from?.name || 'usuario'}: ${c.text || c.message || ''}`);
 
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || '';
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           clientId,
