@@ -159,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
             </svg>
           </span>
         )}
-        {isActive && !badgeCount && <div className="w-1.5 h-1.5 rounded-full bg-violet-500 dark:bg-violet-400" />}
+        {isActive && !badgeCount && !item.badgeLoading && <div className="w-1.5 h-1.5 rounded-full bg-violet-500 dark:bg-violet-400" />}
       </Link>
     );
   };
