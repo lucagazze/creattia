@@ -380,6 +380,14 @@ export default function AdminUsersPage() {
     }
   };
 
+  // ─── Change password ────────────────────────────────────────────────────
+  const handleChangePassword = async (userId: string, newPassword: string): Promise<string | null> => {
+    if (!supabaseAdmin) return 'Cliente admin no disponible';
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: newPassword });
+    if (error) return error.message;
+    return null;
+  };
+
   // ─── Filtered + sorted list ─────────────────────────────────────────────
   const displayed = useMemo(() => {
     let list = users.filter(u => {
@@ -814,6 +822,7 @@ export default function AdminUsersPage() {
                     onToggle={() => setExpandedId(expandedId === user.id ? null : user.id)}
                     onDelete={() => setConfirmDeleteId(user.id)}
                     onAccept={() => { setAcceptUserId(user.id); setAcceptBizId(''); }}
+                    onChangePassword={handleChangePassword}
                     showAccept
                   />
                 ))}
@@ -837,6 +846,7 @@ export default function AdminUsersPage() {
                     onToggle={() => setExpandedId(expandedId === user.id ? null : user.id)}
                     onDelete={() => setConfirmDeleteId(user.id)}
                     onAccept={() => { setAcceptUserId(user.id); setAcceptBizId(''); }}
+                    onChangePassword={handleChangePassword}
                     showAccept={false}
                   />
                 ))}
@@ -859,7 +869,7 @@ export default function AdminUsersPage() {
 
 // ─── UserRowItem sub-component ────────────────────────────────────────────────
 function UserRowItem({
-  user, isLast, expanded, onToggle, onDelete, onAccept, showAccept,
+  user, isLast, expanded, onToggle, onDelete, onAccept, onChangePassword, showAccept,
 }: {
   user: UserRow;
   isLast: boolean;
@@ -867,8 +877,31 @@ function UserRowItem({
   onToggle: () => void;
   onDelete: () => void;
   onAccept: () => void;
+  onChangePassword: (userId: string, password: string) => Promise<string | null>;
   showAccept: boolean;
 }) {
+  const [newPwd, setNewPwd] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState(false);
+
+  const handlePwdChange = async () => {
+    if (newPwd.length < 6) { setPwdError('Mínimo 6 caracteres'); return; }
+    setPwdLoading(true);
+    setPwdError('');
+    setPwdSuccess(false);
+    const err = await onChangePassword(user.id, newPwd);
+    if (err) {
+      setPwdError(err);
+    } else {
+      setPwdSuccess(true);
+      setNewPwd('');
+      setTimeout(() => setPwdSuccess(false), 3000);
+    }
+    setPwdLoading(false);
+  };
+
   return (
     <>
       <div className={`flex items-center gap-3 px-4 py-3 transition-colors group ${!isLast ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}>
@@ -877,7 +910,7 @@ function UserRowItem({
           {user.email.slice(0, 2).toUpperCase()}
         </div>
 
-        {/* Email + meta — clickable to expand */}
+        {/* Email + meta */}
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onToggle}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">
@@ -935,41 +968,82 @@ function UserRowItem({
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-          {user.businesses.length > 0 && (
-            <button onClick={onToggle} className="h-7 w-7 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-all">
-              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-          )}
+          <button onClick={onToggle} className="h-7 w-7 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-all">
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
         </div>
       </div>
 
       {/* Expanded detail */}
-      {expanded && user.businesses.length > 0 && (
-        <div className={`px-4 pb-4 pt-2 bg-zinc-50/60 dark:bg-zinc-800/20 ${!isLast ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}>
-          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Negocios asociados</p>
-          <div className="space-y-1.5">
-            {user.businesses.map(b => (
-              <div key={b.business_id} className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 shadow-sm">
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${b.role === 'owner' ? 'bg-violet-100 dark:bg-violet-500/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
-                  <Building2 className={`w-3.5 h-3.5 ${b.role === 'owner' ? 'text-violet-600 dark:text-violet-400' : 'text-zinc-500'}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{b.business_name}</p>
-                  <p className="text-[10px] text-zinc-400">{b.role === 'owner' ? '👑 Propietario' : '👤 Secundario'}</p>
-                </div>
-                {b.website_url && (
-                  <a href={b.website_url.startsWith('http') ? b.website_url : `https://${b.website_url}`} target="_blank" rel="noopener noreferrer"
-                    className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1 flex-shrink-0">
-                    <Link2 className="w-3 h-3" />Web
-                  </a>
-                )}
-                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0 ${b.role === 'owner' ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>
-                  {b.role === 'owner' ? 'Owner' : 'Secundario'}
-                </span>
+      {expanded && (
+        <div className={`px-4 pb-4 pt-3 bg-zinc-50/60 dark:bg-zinc-800/20 space-y-4 ${!isLast ? 'border-b border-zinc-100 dark:border-zinc-800' : ''}`}>
+
+          {/* Cambiar contraseña */}
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <KeyRound className="w-3 h-3" /> Cambiar contraseña
+            </p>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 max-w-[280px]">
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  placeholder="Nueva contraseña (mín. 6 caracteres)"
+                  value={newPwd}
+                  onChange={e => { setNewPwd(e.target.value); setPwdError(''); setPwdSuccess(false); }}
+                  onKeyDown={e => e.key === 'Enter' && handlePwdChange()}
+                  className="w-full h-9 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-[12px] text-zinc-900 dark:text-zinc-100 px-3 pr-9 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                >
+                  {showPwd ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
               </div>
-            ))}
+              <button
+                onClick={handlePwdChange}
+                disabled={pwdLoading || !newPwd}
+                className="h-9 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-bold flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-sm shadow-violet-500/20"
+              >
+                {pwdLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                Guardar
+              </button>
+            </div>
+            {pwdError && <p className="text-[11px] text-red-500 font-semibold mt-1.5">{pwdError}</p>}
+            {pwdSuccess && <p className="text-[11px] text-emerald-500 font-semibold mt-1.5">✓ Contraseña actualizada</p>}
           </div>
-          <div className="mt-2 pt-2 border-t border-zinc-150 dark:border-zinc-800">
+
+          {/* Negocios asociados */}
+          {user.businesses.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Negocios asociados</p>
+              <div className="space-y-1.5">
+                {user.businesses.map(b => (
+                  <div key={b.business_id} className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-150 dark:border-zinc-800 shadow-sm">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${b.role === 'owner' ? 'bg-violet-100 dark:bg-violet-500/20' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
+                      <Building2 className={`w-3.5 h-3.5 ${b.role === 'owner' ? 'text-violet-600 dark:text-violet-400' : 'text-zinc-500'}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{b.business_name}</p>
+                      <p className="text-[10px] text-zinc-400">{b.role === 'owner' ? '👑 Propietario' : '👤 Secundario'}</p>
+                    </div>
+                    {b.website_url && (
+                      <a href={b.website_url.startsWith('http') ? b.website_url : `https://${b.website_url}`} target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1 flex-shrink-0">
+                        <Link2 className="w-3 h-3" />Web
+                      </a>
+                    )}
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0 ${b.role === 'owner' ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>
+                      {b.role === 'owner' ? 'Owner' : 'Secundario'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="pt-1 border-t border-zinc-150 dark:border-zinc-800">
             <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">ID Supabase</p>
             <p className="text-[10px] text-zinc-500 font-mono mt-0.5 truncate">{user.id}</p>
           </div>
