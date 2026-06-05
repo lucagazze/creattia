@@ -1,3 +1,4 @@
+import { supabase } from './supabase';
 // ─── sessionStorage result cache — survives page refreshes, cleared on tab close ───
 const EC_PREFIX = 'ec:';
 const EC_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -214,9 +215,15 @@ export const ecommerce = {
       if (cached) return cached;
 
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const freshToken = session?.access_token || '';
+
         const res = await fetch('/api/scrape-all', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${freshToken}`
+          },
           body: JSON.stringify({
             clientId,
             type: 'dashboard',
