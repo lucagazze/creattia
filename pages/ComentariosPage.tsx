@@ -354,9 +354,6 @@ export default function ComentariosPage() {
     setLoading(!hasCache);
     setIgError(null);
     setFbError(null);
-    // Reset badge immediately so we never show a stale cached number while loading
-    setPendingCommentsCount(0);
-    if (clientId) { try { localStorage.setItem(`car_pending_comments_count_${clientId}`, '0'); } catch { /* ignore */ } }
 
     const processMediaRes = (igRes: any, fbRes: any, activeAds: any[] = [], adsComments: any[] = []) => {
       const items: PostItem[] = [];

@@ -213,6 +213,7 @@ export default function MensajeriaPage() {
     } catch { return []; }
   });
   const [isFirstLoadDone, setIsFirstLoadDone] = useState(false);
+  const [bgFetchDone, setBgFetchDone] = useState(true);
   const [loadingInboxes, setLoadingInboxes] = useState(true);
   const [loadingMetas, setLoadingMetas] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -413,14 +414,13 @@ export default function MensajeriaPage() {
     return unread > 0 || isManualUnread;
   }, [manuallyUnread]);
 
-  // Synchronize the unreadCount state in UnreadContext with the exact current client-side calculation
+  // Synchronize the unreadCount state in UnreadContext — wait for background pages to finish
   useEffect(() => {
-    if (!loading && isFirstLoadDone) {
+    if (!loading && isFirstLoadDone && bgFetchDone) {
       const count = conversations.filter(isConvUnread).length;
-      console.log('[MensajeriaPage] Synchronized unread count to:', count);
       setUnreadCount(count);
     }
-  }, [conversations, isConvUnread, loading, isFirstLoadDone, setUnreadCount]);
+  }, [conversations, isConvUnread, loading, isFirstLoadDone, bgFetchDone, setUnreadCount]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -614,15 +614,18 @@ export default function MensajeriaPage() {
 
       // Merge remaining open pages in background
       if (data.backgroundFetch) {
+        setBgFetchDone(false);
         data.backgroundFetch.then((extraConvs: any[]) => {
-          if (!extraConvs || extraConvs.length === 0) return;
-          setConversations(prev => {
-            const apiMap = new Map<number, any>();
-            prev.forEach((c: any) => { if (c && c.id) apiMap.set(c.id, c); });
-            extraConvs.forEach((c: any) => { if (c && c.id) apiMap.set(c.id, c); });
-            return Array.from(apiMap.values());
-          });
-        }).catch(() => { /* background load failed silently */ });
+          if (extraConvs && extraConvs.length > 0) {
+            setConversations(prev => {
+              const apiMap = new Map<number, any>();
+              prev.forEach((c: any) => { if (c && c.id) apiMap.set(c.id, c); });
+              extraConvs.forEach((c: any) => { if (c && c.id) apiMap.set(c.id, c); });
+              return Array.from(apiMap.values());
+            });
+          }
+          setBgFetchDone(true);
+        }).catch(() => { setBgFetchDone(true); });
       }
     } catch (e: any) {
       setError(e.message);
