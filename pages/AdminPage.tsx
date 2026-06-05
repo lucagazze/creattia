@@ -88,6 +88,8 @@ interface ClientRow {
   fb_page_access_token?: string;
   website_url?: string;
   brain_updated_at?: string;
+  products_catalog?: string;
+  catalog_synced_at?: string;
 }
 
 const SCAN_STEPS = [
@@ -1966,6 +1968,31 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                           <span>{c.brain_updated_at ? new Date(c.brain_updated_at).toLocaleDateString("es-AR", { day: '2-digit', month: 'short' }) : 'IA'}</span>
                         </div>
 
+                        {/* Catalog Status badge */}
+                        {(() => {
+                          let count = 0;
+                          if (c.products_catalog) {
+                            try {
+                              const parsed = typeof c.products_catalog === 'string' ? JSON.parse(c.products_catalog) : c.products_catalog;
+                              if (Array.isArray(parsed)) count = parsed.length;
+                            } catch (_) {}
+                          }
+                          const hasCatalog = count > 0;
+                          return (
+                            <div 
+                              className={`h-5 px-1.5 rounded flex items-center gap-1 text-[9px] font-black shrink-0 ${
+                                hasCatalog 
+                                  ? 'bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 ring-1 ring-blue-400/30' 
+                                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
+                              }`}
+                              title={hasCatalog ? `Catálogo sincronizado: ${count} productos · Última vez: ${c.catalog_synced_at ? new Date(c.catalog_synced_at).toLocaleString() : 'Desconocida'}` : 'Catálogo vacío o no sincronizado'}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-sm shrink-0 ${hasCatalog ? 'bg-blue-500' : 'bg-zinc-400 dark:bg-zinc-650'}`} />
+                              <span>{hasCatalog ? `${count} PRODS` : 'SIN CAT'}</span>
+                            </div>
+                          );
+                        })()}
+
                         <ConnBadge hasValue={!!c.meta_account_id} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="meta" label="Meta Ads" tick={connTick}>M</ConnBadge>
                         <ConnBadge hasValue={!!c.fb_page_id} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="facebook" label={c.fb_page_name ? `Facebook: ${c.fb_page_name}` : 'Facebook'} tick={connTick}>
                           <Facebook className="w-2.5 h-2.5" />
@@ -2302,6 +2329,52 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                             >
                               <Brain className="w-4 h-4" />
                               <span>Analizar con IA</span>
+                            </button>
+                          </div>
+                        </div>
+                      </SectionBox>
+
+                      <SectionBox title="Catálogo de Productos" badge="Tienda">
+                        <div className="space-y-3">
+                          <p className="text-[12px] text-zinc-500 leading-relaxed font-medium">
+                            Sincronizá el catálogo de productos de la tienda (WooCommerce, Shopify, Tiendanube o Meta) para que la IA responda con precios e información exacta.
+                          </p>
+                          <div className="flex items-center justify-between flex-wrap gap-2.5 pt-1">
+                            <div>
+                              {(() => {
+                                let count = 0;
+                                if (editingClient.products_catalog) {
+                                  try {
+                                    const parsed = typeof editingClient.products_catalog === 'string' ? JSON.parse(editingClient.products_catalog) : editingClient.products_catalog;
+                                    if (Array.isArray(parsed)) count = parsed.length;
+                                  } catch (_) {}
+                                }
+                                const hasCatalog = count > 0;
+                                return hasCatalog ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                    Sincronizado: {count} productos · {editingClient.catalog_synced_at ? new Date(editingClient.catalog_synced_at).toLocaleDateString("es-AR", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Fecha desconocida'} hs
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                                    Sin catálogo sincronizado
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={syncCatalog}
+                              disabled={syncingCatalog}
+                              className={`h-9 px-4 rounded-[9px] text-[12px] font-bold transition-all shadow-md flex items-center gap-1.5 ${
+                                syncingCatalog 
+                                  ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-450 cursor-not-allowed' 
+                                  : 'bg-blue-600 hover:bg-blue-750 text-white shadow-blue-500/10'
+                              }`}
+                            >
+                              <RefreshCw className={`w-4 h-4 ${syncingCatalog ? 'animate-spin' : ''}`} />
+                              <span>{syncingCatalog ? 'Sincronizando...' : 'Sincronizar Catálogo'}</span>
                             </button>
                           </div>
                         </div>

@@ -336,21 +336,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const queryNorm = normalizeText(itemText);
     const queryWords = queryNorm.split(/\s+/).filter(w => w.length >= 3);
 
-    // Filter catalog to relevant products (max 40) using smart fuzzy matching
+    // Words that are generic in fabric shop catalog
+    const genericWords = new Set(['tela', 'telas', 'bolsa', 'bolsas', 'panos', 'pano', 'combo', 'combos', 'retazo', 'retazos']);
+
+    const getPrimaryKeyword = (title: string): string => {
+      const words = normalizeText(title).split(/\s+/).filter(w => w.length >= 3);
+      for (const w of words) {
+        if (!genericWords.has(w)) return w;
+      }
+      return words[0] || '';
+    };
+
+    // Filter catalog to relevant products (max 40) using strict fabric keyword matching
     const matched = parsedCatalog.filter((p: any) => {
-      const titleNorm = normalizeText(p.title);
-      const titleWords = titleNorm.split(/\s+/).filter(w => w.length >= 3);
+      const primaryKey = getPrimaryKeyword(p.title);
+      if (!primaryKey) return false;
       
-      return titleWords.some(tw => {
-        if (queryNorm.includes(tw) || tw.includes(queryNorm)) return true;
-        
-        return queryWords.some(qw => {
-          if (qw === tw) return true;
-          if (qw.includes(tw) || tw.includes(qw)) return true;
-          const dist = getEditDistance(qw, tw);
-          const maxAllowed = Math.min(2, Math.floor(Math.max(qw.length, tw.length) / 3));
-          return dist <= maxAllowed;
-        });
+      return queryWords.some(qw => {
+        if (qw === primaryKey) return true;
+        if (qw.includes(primaryKey) || primaryKey.includes(qw)) return true;
+        const dist = getEditDistance(qw, primaryKey);
+        const maxAllowed = Math.min(1, Math.floor(Math.max(qw.length, primaryKey.length) / 4)); // strict edit distance for primary keyword (max 1 char diff)
+        return dist <= maxAllowed;
       });
     });
     const others = parsedCatalog.filter((p: any) => !matched.includes(p)).slice(0, 40 - matched.length);
@@ -483,6 +490,7 @@ ${verifiedFacts || ''}
 ⛔ REGLAS GENERALES:
 - Si el producto NO está en el catálogo, debés usar obligatoriamente la frase de derivación/fallback de arriba ("Te respondemos por privado 📩" o "Ahora mismo verifico y te confirmo en seguida 🙌").
 - Si el producto SÍ está en el catálogo, NO uses la frase de derivación/fallback. Respondé con el precio del catálogo y respondé a las preguntas del cliente.
+- Si el cliente pregunta por una tela o producto específico que NO está en el catálogo o en los DATOS VERIFICADOS (como por ejemplo, pregunta por "percal" y en los datos solo tenés "microfibra sabanera" o "tussor", que son telas totalmente distintas), NO asumas que son lo mismo ni inventes que tenés stock o precio. En ese caso, debés indicar cordialmente que no lo tenés y usar obligatoriamente la frase de derivación/fallback ("Te respondemos por privado 📩" o "Ahora mismo verifico y te confirmo en seguida 🙌").
 - Podés usar la información del "CEREBRO DEL NEGOCIO" (descripción, web, redes, FAQ, etc.) para responder preguntas sobre características del producto (por ejemplo, ancho de una tela, composición, talle, etc.) si ese producto ya está en el catálogo.
 - Para los precios y disponibilidad, la única fuente válida es el catálogo. Nunca inventes ni supongas precios o promociones que no estén en el catálogo.
 
