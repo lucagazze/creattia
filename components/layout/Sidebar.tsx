@@ -144,7 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         <span className="tracking-tight flex-1">{item.label}</span>
         {/* Unread badge / Loading spinner */}
         {((item.path === '/comentarios' && commentsLoading) || (item.path === '/mensajeria' && unreadLoading) || (item.path === '/pedidos' && ordersLoading)) ? (
-          <Loader2 className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400 animate-spin shrink-0" />
+          <Loader2 className="w-3.5 h-3.5 text-violet-500 dark:text-violet-400 animate-spin shrink-0" />
         ) : badgeCount > 0 ? (
           <span className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-sm shadow-red-500/30 animate-in fade-in zoom-in-90 duration-300">
             {badgeCount > 99 ? '99+' : badgeCount}

@@ -433,6 +433,86 @@ export const ecommerce = {
     }
   },
 
+  getWooCommerceOrders: async (baseUrl: string, ck: string, cs: string, since: string, until: string): Promise<any[]> => {
+    const cacheKey = `wc_orders:${baseUrl}:${since}:${until}`;
+    const cached = ecGetCached(cacheKey);
+    if (cached) return cached;
+
+    const after = new Date(`${since}T00:00:00-03:00`).toISOString();
+    const before = new Date(`${until}T23:59:59-03:00`).toISOString();
+
+    const wcStatusToFinancial = (status: string): string => {
+      if (['processing', 'completed', 'on-hold'].includes(status)) return 'paid';
+      if (status === 'pending') return 'pending';
+      if (status === 'refunded') return 'refunded';
+      return 'voided'; // cancelled, failed
+    };
+    const wcStatusToFulfillment = (status: string): string | null => {
+      if (status === 'completed') return 'fulfilled';
+      if (['refunded', 'cancelled'].includes(status)) return 'restocked';
+      return null; // unfulfilled
+    };
+
+    let allOrders: any[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    while (page <= totalPages) {
+      const params = new URLSearchParams({ after, before, per_page: '100', page: String(page), orderby: 'date', order: 'desc' });
+      const res = await fetch(`/api/woocommerce/orders?${params.toString()}`, {
+        headers: { 'x-wc-base-url': baseUrl, 'x-wc-consumer-key': ck, 'x-wc-consumer-secret': cs },
+      });
+      if (!res.ok) throw new Error(`WooCommerce API Error: ${res.status}`);
+      if (page === 1) totalPages = parseInt(res.headers.get('X-WP-TotalPages') || '1', 10);
+      const data: any[] = await res.json();
+      if (!Array.isArray(data) || data.length === 0) break;
+      allOrders = allOrders.concat(data);
+      page++;
+    }
+
+    // Normalize to Shopify-like shape
+    const normalized = allOrders.map((o: any) => ({
+      id: o.id,
+      order_number: o.number,
+      name: `#${o.number}`,
+      created_at: o.date_created_gmt ? `${o.date_created_gmt}Z` : o.date_created,
+      financial_status: wcStatusToFinancial(o.status),
+      fulfillment_status: wcStatusToFulfillment(o.status),
+      total_price: o.total,
+      subtotal_price: o.subtotal || String(parseFloat(o.total || '0') - parseFloat(o.total_tax || '0') - parseFloat(o.shipping_total || '0')),
+      total_tax: o.total_tax,
+      total_discounts: o.discount_total,
+      cancelled_at: o.status === 'cancelled' ? o.date_modified : null,
+      shipping_lines: (o.shipping_lines || []).map((sl: any) => ({ title: sl.method_title || 'Envío', price: sl.total || '0' })),
+      discount_codes: (o.coupon_lines || []).map((c: any) => ({ code: c.code })),
+      customer: {
+        first_name: o.billing?.first_name || '',
+        last_name: o.billing?.last_name || '',
+        email: o.billing?.email || '',
+        phone: o.billing?.phone || '',
+        orders_count: 0,
+        total_spent: '0',
+      },
+      shipping_address: o.shipping?.address_1 ? {
+        address1: o.shipping.address_1,
+        city: o.shipping.city,
+        province: o.shipping.state,
+        country: o.shipping.country,
+      } : null,
+      line_items: (o.line_items || []).map((item: any) => ({
+        product_id: item.product_id,
+        title: item.name,
+        variant_title: item.variation_id ? null : null,
+        quantity: item.quantity,
+        price: String(item.price || 0),
+        _wc_image: item.image?.src || null,
+      })),
+    }));
+
+    ecSetCache(cacheKey, normalized);
+    return normalized;
+  },
+
   getProducts: async (domain: string, token: string): Promise<any[]> => {
     const cacheKey = `products:${domain}`;
     const cached = ecGetCached(cacheKey);

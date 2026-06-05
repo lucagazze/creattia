@@ -96,10 +96,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (document.visibilityState !== 'visible') {
       return;
     }
-    const isMensajeria = window.location.hash.toLowerCase().startsWith('#/mensajeria') || 
-                         location.pathname.toLowerCase().startsWith('/mensajeria');
+    const isMensajeria = window.location.hash.toLowerCase().startsWith('#/mensajeria');
     if (isMensajeria) {
-      console.log('[UnreadContext] fetchCount bypassed: active path is /mensajeria');
       setUnreadLoading(false);
       return;
     }
@@ -186,7 +184,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isFirstUnreadFetch.current = false;
       }
     }
-  }, [profile?.id, profile?.chatwoot_url, profile?.chatwoot_token, location.pathname]);
+  }, [profile?.id, profile?.chatwoot_url, profile?.chatwoot_token]);
 
   // Keep a ref to the latest fetchCount function to prevent connection churn in WebSocket
   const fetchCountRef = useRef(fetchCount);
@@ -322,8 +320,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Trigger fetchCount immediately when navigating away from /mensajeria
   // to sync the count on other pages without waiting for the next poll.
   useEffect(() => {
-    const isMensajeria = window.location.hash.toLowerCase().startsWith('#/mensajeria') || 
-                         location.pathname.toLowerCase().startsWith('/mensajeria');
+    const isMensajeria = window.location.hash.toLowerCase().startsWith('#/mensajeria');
     if (!isMensajeria) {
       fetchCount();
     }
@@ -346,8 +343,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Skip requests when the tab is in the background
     if (document.visibilityState !== 'visible') return;
     // Skip when the user is already on /comentarios — the page updates the count directly
-    const isComentarios = window.location.hash.toLowerCase().startsWith('#/comentarios') ||
-                          location.pathname.toLowerCase().startsWith('/comentarios');
+    const isComentarios = window.location.hash.toLowerCase().startsWith('#/comentarios');
     if (isComentarios) {
       console.log('[UnreadContext] fetchCommentsCount bypassed: active path is /comentarios');
       setCommentsLoading(false);
@@ -500,7 +496,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isFirstCommentsFetch.current = false;
       }
     }
-  }, [profile?.id, profile?.fb_page_id, (profile as any)?.ig_business_id, (profile as any)?.ig_username, profile?.meta_account_id, location.pathname]);
+  }, [profile?.id, profile?.fb_page_id, (profile as any)?.ig_business_id, (profile as any)?.ig_username, profile?.meta_account_id]);
 
   // Sync comments update event
   useEffect(() => {

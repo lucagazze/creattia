@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { ecommerce } from '../services/ecommerce';
@@ -71,7 +71,7 @@ function FulfillmentBadge({ status }: { status: string | null }) {
 
 // ─── order row ────────────────────────────────────────────────────────────
 
-function OrderRow({ order, productImages }: { order: any; productImages: Record<string, string> }) {
+const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; productImages: Record<string, string> }) {
   const [open, setOpen] = useState(false);
 
   const customerName = order.customer
@@ -81,13 +81,17 @@ function OrderRow({ order, productImages }: { order: any; productImages: Record<
   const lineItems: any[] = order.line_items || [];
   const firstItem = lineItems[0];
   const extraCount = lineItems.length - 1;
-  const firstImage = firstItem ? productImages[String(firstItem.product_id)] : null;
+  const firstImage = firstItem
+    ? (firstItem._wc_image || productImages[String(firstItem.product_id)] || null)
+    : null;
   const { label: dateLabel, tag: dateTag } = fmtDate(order.created_at);
+
+  const handleToggle = useCallback(() => setOpen(v => !v), []);
 
   return (
     <>
       <tr
-        onClick={() => setOpen(v => !v)}
+        onClick={handleToggle}
         className={`border-b border-zinc-100/80 dark:border-white/[0.04] cursor-pointer transition-colors group ${
           open
             ? 'bg-zinc-50 dark:bg-white/[0.025]'
@@ -131,7 +135,7 @@ function OrderRow({ order, productImages }: { order: any; productImages: Record<
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center border border-zinc-200/60 dark:border-white/[0.06] shadow-sm">
                 {firstImage
-                  ? <img src={firstImage} alt={firstItem.title} className="w-full h-full object-cover" />
+                  ? <img src={firstImage} alt={firstItem.title} className="w-full h-full object-cover" loading="lazy" />
                   : <Package className="w-3.5 h-3.5 text-zinc-400" />
                 }
               </div>
@@ -193,12 +197,12 @@ function OrderRow({ order, productImages }: { order: any; productImages: Record<
                 </p>
                 <div className="space-y-2.5">
                   {lineItems.map((item: any, i: number) => {
-                    const img = productImages[String(item.product_id)];
+                    const img = item._wc_image || productImages[String(item.product_id)];
                     return (
                       <div key={i} className="flex items-center gap-3">
                         <div className="w-11 h-11 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center border border-zinc-200/60 dark:border-white/[0.06] shadow-sm">
                           {img
-                            ? <img src={img} alt={item.title} className="w-full h-full object-cover" />
+                            ? <img src={img} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
                             : <Package className="w-4 h-4 text-zinc-400" />
                           }
                         </div>
@@ -228,9 +232,11 @@ function OrderRow({ order, productImages }: { order: any; productImages: Record<
                     <p className="text-[13px] font-black text-zinc-800 dark:text-zinc-100">{customerName}</p>
                     {order.customer.email && <p className="text-[11px] text-zinc-500">{order.customer.email}</p>}
                     {order.customer.phone && <p className="text-[11px] text-zinc-500">{order.customer.phone}</p>}
-                    <p className="text-[10px] text-zinc-400 mt-1.5">
-                      {order.customer.orders_count ?? 0} pedidos · {fmtCurr(parseFloat(order.customer.total_spent || 0))} total
-                    </p>
+                    {order.customer.orders_count > 0 && (
+                      <p className="text-[10px] text-zinc-400 mt-1.5">
+                        {order.customer.orders_count} pedidos · {fmtCurr(parseFloat(order.customer.total_spent || 0))} total
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <p className="text-[12px] text-zinc-400">Sin datos de cliente</p>
@@ -298,11 +304,11 @@ function OrderRow({ order, productImages }: { order: any; productImages: Record<
       )}
     </>
   );
-}
+});
 
 // ─── Pagination ───────────────────────────────────────────────────────────
 
-function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+const Pagination = memo(function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
   if (totalPages <= 1) return null;
 
   const pages: (number | '…')[] = [];
@@ -349,7 +355,7 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
       </button>
     </div>
   );
-}
+});
 
 // ─── presets ──────────────────────────────────────────────────────────────
 
@@ -367,9 +373,15 @@ export default function PedidosPage() {
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = (isViewingAs ? viewAsProfile : authProfile) as any;
 
-  const shopifyDomain = (profile?.shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const shopifyToken  = profile?.shopify_access_token;
-  const hasEcommerce  = !!(shopifyDomain && shopifyToken) || !!(profile?.tiendanube_store_id) || !!(profile?.wordpress_url);
+  const platform         = profile?.ecommerce_platform || '';
+  const shopifyDomain    = (profile?.shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const shopifyToken     = profile?.shopify_access_token || '';
+  const wordpressUrl     = (profile?.wordpress_url || '').replace(/\/$/, '');
+  const wooConsumerKey   = profile?.woo_consumer_key || '';
+  const wooConsumerSecret = profile?.woo_consumer_secret || '';
+  const isShopify        = !!(shopifyDomain && shopifyToken);
+  const isWoo            = !!(wordpressUrl && wooConsumerKey && wooConsumerSecret);
+  const hasEcommerce     = isShopify || isWoo || !!(profile?.tiendanube_store_id);
 
   const [orders, setOrders]               = useState<any[]>([]);
   const [productImages, setProductImages] = useState<Record<string, string>>({});
@@ -386,41 +398,55 @@ export default function PedidosPage() {
   const [sortAsc, setSortAsc]                   = useState(false);
   const [page, setPage]                         = useState(1);
 
-  const load = async (s: string, u: string, isInitial = false) => {
-    if (!shopifyDomain || !shopifyToken) return;
+  const load = useCallback(async (s: string, u: string, isInitial = false) => {
+    if (!isShopify && !isWoo) return;
     setLoading(true);
     setError(null);
     try {
-      const raw = await ecommerce.getShopifyOrders(shopifyDomain, shopifyToken, s, u);
-      const sorted = [...raw].sort((a: any, b: any) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      setOrders(sorted);
+      if (isShopify) {
+        const [raw, products] = await Promise.all([
+          ecommerce.getShopifyOrders(shopifyDomain, shopifyToken, s, u),
+          isInitial
+            ? ecommerce.getProducts(shopifyDomain, shopifyToken).then(prods => {
+                const map: Record<string, string> = {};
+                for (const p of prods) {
+                  const src = typeof p.image === 'string' ? p.image : p.image?.src;
+                  if (src) map[String(p.id)] = src;
+                }
+                return map;
+              }).catch(() => ({} as Record<string, string>))
+            : Promise.resolve(null),
+        ]);
+        if (products !== null) setProductImages(products);
+        const sorted = [...raw].sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setOrders(sorted);
+      } else if (isWoo) {
+        const raw = await ecommerce.getWooCommerceOrders(wordpressUrl, wooConsumerKey, wooConsumerSecret, s, u);
+        const sorted = [...raw].sort((a: any, b: any) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setOrders(sorted);
+      }
     } catch (e: any) {
       setError(e?.message || 'Error al cargar pedidos');
     } finally {
       setLoading(false);
       if (isInitial) setInitialLoad(false);
     }
-  };
+  }, [isShopify, isWoo, shopifyDomain, shopifyToken, wordpressUrl, wooConsumerKey, wooConsumerSecret]);
 
+  // Products for Shopify are now fetched in parallel inside `load`. For refreshes (non-initial), skip re-fetching products.
   useEffect(() => {
-    if (!shopifyDomain || !shopifyToken) { setInitialLoad(false); return; }
-    ecommerce.getProducts(shopifyDomain, shopifyToken)
-      .then(products => {
-        const map: Record<string, string> = {};
-        for (const p of products) {
-          const src = typeof p.image === 'string' ? p.image : p.image?.src;
-          if (src) map[String(p.id)] = src;
-        }
-        setProductImages(map);
-      })
-      .catch(() => {});
-  }, [shopifyDomain, shopifyToken]);
+    load(since, until, true);
+  }, [shopifyDomain, shopifyToken, wordpressUrl, wooConsumerKey, wooConsumerSecret]);
 
+  // Re-fetch on date range change (not initial)
   useEffect(() => {
-    load(since, until, initialLoad);
-  }, [since, until, shopifyDomain, shopifyToken]);
+    if (initialLoad) return;
+    load(since, until, false);
+  }, [since, until]);
 
   const setPresetRange = (idx: number) => {
     setPreset(idx);
