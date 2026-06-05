@@ -4,7 +4,7 @@ import {
   Users, Loader2, Search, RefreshCw, Building2, X,
   UserCheck, UserX, ChevronDown, ChevronUp, Link2,
   Trash2, CheckCircle2, ArrowUpDown, Plus, UserPlus,
-  AlertTriangle, CalendarDays, SortAsc, SortDesc
+  AlertTriangle, CalendarDays, SortAsc, SortDesc, Eye, EyeOff, KeyRound
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -101,6 +101,15 @@ export default function AdminUsersPage() {
   const [newBizId, setNewBizId] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState('');
+
+  // Create user with email+password
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createBizId, setCreateBizId] = useState('');
+  const [createShowPwd, setCreateShowPwd] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -317,6 +326,48 @@ export default function AdminUsersPage() {
     }
   };
 
+  // ─── Create user with email + password ───────────────────────────────────
+  const handleCreateUser = async () => {
+    if (!createEmail || !createPassword) return;
+    setCreating(true);
+    setCreateError('');
+    try {
+      const email = createEmail.trim().toLowerCase();
+      if (createPassword.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres');
+
+      // 1. Create auth user via backend (email_confirm = true so they can log in immediately)
+      const { data: createdData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: createPassword,
+        email_confirm: true,
+      });
+      if (createErr) throw createErr;
+      const newUserId = createdData?.user?.id;
+      if (!newUserId) throw new Error('No se obtuvo el ID del usuario creado');
+
+      // 2. If a business was selected, associate the new user
+      if (createBizId) {
+        const { error: assocErr } = await supabase.from('car_business_accounts').insert({
+          business_id: createBizId,
+          user_id: newUserId,
+          email,
+        });
+        if (assocErr) throw assocErr;
+      }
+
+      showToast(`Usuario ${email} creado ✓`);
+      setCreateEmail('');
+      setCreatePassword('');
+      setCreateBizId('');
+      setShowCreateForm(false);
+      load();
+    } catch (err: any) {
+      setCreateError(err.message || 'Error al crear el usuario');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   // ─── Filtered + sorted list ─────────────────────────────────────────────
   const displayed = useMemo(() => {
     let list = users.filter(u => {
@@ -475,7 +526,14 @@ export default function AdminUsersPage() {
         </div>
         <div className="sm:ml-auto flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setShowAddForm(v => !v)}
+            onClick={() => { setShowCreateForm(v => !v); setShowAddForm(false); }}
+            className={`h-9 px-4 rounded-xl text-[12px] font-bold flex items-center gap-2 transition-all ${showCreateForm ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20'}`}
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            Crear usuario
+          </button>
+          <button
+            onClick={() => { setShowAddForm(v => !v); setShowCreateForm(false); }}
             className={`h-9 px-4 rounded-xl text-[12px] font-bold flex items-center gap-2 transition-all ${showAddForm ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200' : 'bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-500/20'}`}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -507,7 +565,76 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* ── Add form ── */}
+      {/* ── Create user form (email + password) ── */}
+      {showCreateForm && (
+        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/60 dark:bg-emerald-950/30 p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <h2 className="text-[13px] font-black text-emerald-800 dark:text-emerald-300">Crear usuario con email y contraseña</h2>
+            <p className="text-[11px] text-emerald-600 dark:text-emerald-500">— podrá ingresar inmediatamente sin confirmación de email</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1.5">Email</label>
+              <input
+                type="email"
+                placeholder="cliente@ejemplo.com"
+                value={createEmail}
+                onChange={e => setCreateEmail(e.target.value)}
+                autoCapitalize="none"
+                autoCorrect="off"
+                className="w-full h-10 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-zinc-900 text-[13px] text-zinc-900 dark:text-zinc-100 px-3 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1.5">Contraseña</label>
+              <div className="relative">
+                <input
+                  type={createShowPwd ? 'text' : 'password'}
+                  placeholder="Mínimo 6 caracteres"
+                  value={createPassword}
+                  onChange={e => setCreatePassword(e.target.value)}
+                  className="w-full h-10 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-zinc-900 text-[13px] text-zinc-900 dark:text-zinc-100 px-3 pr-9 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCreateShowPwd(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                >
+                  {createShowPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1.5">Negocio (opcional)</label>
+              <select
+                value={createBizId}
+                onChange={e => setCreateBizId(e.target.value)}
+                className="w-full h-10 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-zinc-900 text-[13px] text-zinc-900 dark:text-zinc-100 px-3 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+              >
+                <option value="">Sin negocio asignado</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          </div>
+          {createError && <p className="text-[11px] text-red-500 font-semibold">{createError}</p>}
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => { setShowCreateForm(false); setCreateEmail(''); setCreatePassword(''); setCreateBizId(''); setCreateError(''); }} className="h-9 px-4 rounded-xl border border-zinc-200 dark:border-zinc-700 text-[12px] font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all">
+              Cancelar
+            </button>
+            <button
+              onClick={handleCreateUser}
+              disabled={creating || !createEmail || !createPassword}
+              className="h-9 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-bold flex items-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-emerald-500/20"
+            >
+              {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+              Crear usuario
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add form (Google pre-invite) ── */}
       {showAddForm && (
         <div className="rounded-2xl border border-violet-200 dark:border-violet-800/50 bg-violet-50/60 dark:bg-violet-950/30 p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex items-center gap-2">
