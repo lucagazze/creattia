@@ -28,7 +28,7 @@ const SCAN_STEPS = [
 ];
 
 export default function CerebroPage() {
-  const { profile: authProfile, loading: authLoading } = useAuth();
+  const { profile: authProfile, loading: authLoading, session } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const { showToast } = useToast();
@@ -143,11 +143,18 @@ export default function CerebroPage() {
     if (!plt) return;
     setProductsLoading(true); setProductsError(null);
     try {
-      const body: any = { type: 'products', platform: plt };
+      const body: any = { type: 'products', platform: plt, clientId: p.id };
       if (plt === 'shopify') { body.shopify_domain = (p as any).shopify_domain; body.shopify_access_token = (p as any).shopify_access_token; }
       else if (plt === 'wordpress') { body.wordpress_url = (p as any).wordpress_url; body.woo_consumer_key = (p as any).woo_consumer_key; body.woo_consumer_secret = (p as any).woo_consumer_secret; }
       else if (plt === 'tiendanube') { body.tiendanube_store_id = (p as any).tiendanube_store_id; body.tiendanube_access_token = (p as any).tiendanube_access_token; }
-      const r = await fetch('/api/scrape-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const r = await fetch('/api/scrape-all', { 
+        method: 'POST', 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        }, 
+        body: JSON.stringify(body) 
+      });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Error ${r.status}`);
       const { products: loaded } = await r.json();
       setProducts(loaded || []);
@@ -182,7 +189,10 @@ export default function CerebroPage() {
 
       const webRes = await fetch('/api/scrape-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({ clientId: profile.id, url: websiteUrl, action: 'scrape-website' })
       });
       const webData = await webRes.json();
@@ -205,7 +215,10 @@ export default function CerebroPage() {
 
       const socialRes = await fetch('/api/scrape-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({ clientId: profile.id, url: websiteUrl, action: 'sync-instagram' })
       });
       const socialData = await socialRes.json();
@@ -227,7 +240,10 @@ export default function CerebroPage() {
 
       const fieldsRes = await fetch('/api/scrape-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({ clientId: profile.id, action: 'generate-fields' })
       });
       const fieldsData = await fieldsRes.json();

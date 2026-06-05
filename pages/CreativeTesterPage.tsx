@@ -107,7 +107,7 @@ const MetricBar = ({ label, value, color, reason }: { label: string; value: numb
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function CreativeTesterPage() {
-  const { profile: authProfile, loading: authLoading } = useAuth();
+  const { profile: authProfile, loading: authLoading, session } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
 
@@ -215,7 +215,10 @@ export default function CreativeTesterPage() {
         try {
           const r = await fetch('/api/scrape-all', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token || ''}`
+            },
             body: JSON.stringify({ type: 'analyze-creative', frames, isVideo }),
           });
           if (r.ok) analysisResult = await r.json();

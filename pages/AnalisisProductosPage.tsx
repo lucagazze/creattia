@@ -27,7 +27,7 @@ const TotalBadge: React.FC<{ score: number }> = ({ score }) => {
 };
 
 export default function AnalisisProductosPage() {
-  const { profile: authProfile } = useAuth();
+  const { profile: authProfile, session } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
 
@@ -43,7 +43,11 @@ export default function AnalisisProductosPage() {
   const saveAnalysisToDB = async (results: any[], clientId: string) => {
     try {
       await fetch('/api/scrape-all', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({ type: 'save-analysis', clientId, data: results }),
       });
     } catch { }
@@ -63,7 +67,11 @@ export default function AnalisisProductosPage() {
       } catch { }
       try {
         const dbRes = await fetch('/api/scrape-all', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          },
           body: JSON.stringify({ type: 'load-analysis', clientId: p.id }),
         });
         if (dbRes.ok) {

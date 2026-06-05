@@ -265,6 +265,58 @@ function startSpeculativeFetches(
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // 1. Authenticate user from Bearer token
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+  }
+  const token = authHeader.split(' ')[1];
+
+  let user: any = null;
+  let dbProfile: any = null;
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid auth token' });
+    }
+    user = authData.user;
+
+    // Fetch client profile (direct owner or mapped business account)
+    const { data: ownerProfile, error: ownerErr } = await supabase
+      .from('car_clients')
+      .select('id, is_admin, business_name, klaviyo_api_key, meta_account_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (ownerProfile) {
+      dbProfile = ownerProfile;
+    } else {
+      const { data: link } = await supabase
+        .from('car_business_accounts')
+        .select('business_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (link?.business_id) {
+        const { data: biz } = await supabase
+          .from('car_clients')
+          .select('id, is_admin, business_name, klaviyo_api_key, meta_account_id')
+          .eq('id', link.business_id)
+          .maybeSingle();
+        if (biz) {
+          dbProfile = biz;
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('Server auth error in api/chat:', err);
+    return res.status(500).json({ error: 'Auth check failed' });
+  }
+
+  if (!dbProfile) {
+    return res.status(403).json({ error: 'Access denied: Profile not found' });
+  }
+
   const currentDate = new Date();
   const argentineTime = currentDate.toLocaleString('es-AR', {
     timeZone: 'America/Argentina/Buenos_Aires',
@@ -279,13 +331,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const openAiKey = process.env.OPENAI_API_KEY;
   if (!openAiKey) return res.status(500).json({ error: 'OpenAI API key not configured' });
 
-  const { messages, profile, activeClientId, activeBusinessName, klaviyoApiKey, metaAccountId } = req.body as {
+  const { messages, activeClientId, activeBusinessName } = req.body as {
     messages: Array<{ role: string; content: string }>;
-    profile?: { id: string; is_admin: boolean; business_name: string; klaviyo_api_key?: string; meta_account_id?: string };
     activeClientId?: string;
     activeBusinessName?: string;
-    klaviyoApiKey?: string;
-    metaAccountId?: string;
   };
 
   if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: 'messages array required' });
@@ -296,11 +345,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Connection', 'keep-alive');
   const sendEvent = (data: object) => { try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {} };
 
-  const isAdmin = !!profile?.is_admin;
-  const userClientId = profile?.id;
-  const fallbackClientId = activeClientId || userClientId;
-  const directKlaviyoKey = klaviyoApiKey || profile?.klaviyo_api_key;
-  const directMetaAccountId = metaAccountId || profile?.meta_account_id;
+  const isAdmin = !!dbProfile.is_admin;
+  const userClientId = dbProfile.id;
+  const fallbackClientId = (isAdmin && activeClientId) ? activeClientId : userClientId;
+  const directKlaviyoKey = dbProfile.klaviyo_api_key;
+  const directMetaAccountId = dbProfile.meta_account_id;
 
   // Fetch client brain info (description, website, tone guidelines)
   const clientInfo = fallbackClientId
@@ -454,9 +503,10 @@ CRITICAL RULES FOR FOLLOWUPS AND OPTIONS:
 
     // We need the Meta token for speculative fetches — get it from cache (fast) or DB
     const tokenForSpec = directMetaAccountId ? await getMetaToken() : '';
-    const specMetaId = directMetaAccountId || (await getClientData(fallbackClientId || '', 'meta_account_id').catch(() => null))?.meta_account_id;
+    const specKlaviyoKey = (fallbackClientId === userClientId) ? directKlaviyoKey : (await getClientData(fallbackClientId || '', 'klaviyo_api_key').catch(() => null))?.klaviyo_api_key;
+    const specMetaId = (fallbackClientId === userClientId) ? directMetaAccountId : (await getClientData(fallbackClientId || '', 'meta_account_id').catch(() => null))?.meta_account_id;
 
-    startSpeculativeFetches(predictedTools, fallbackClientId || '', directKlaviyoKey, specMetaId, tokenForSpec, specCache);
+    startSpeculativeFetches(predictedTools, fallbackClientId || '', specKlaviyoKey, specMetaId, tokenForSpec, specCache);
 
     let apiMessages: any[] = [{ role: 'system', content: systemMessage }, ...messages];
     let finalReply = '';
@@ -515,7 +565,7 @@ CRITICAL RULES FOR FOLLOWUPS AND OPTIONS:
             getClientData(clientId, 'meta_account_id'),
             getMetaToken(),
           ]);
-          let id = clientData?.meta_account_id || (clientId === fallbackClientId ? directMetaAccountId : undefined);
+          let id = (clientId === userClientId) ? directMetaAccountId : clientData?.meta_account_id;
           if (!id) return null;
           if (!id.startsWith('act_')) id = `act_${id}`;
           return token ? { adAccountId: id, token } : null;
@@ -547,7 +597,7 @@ CRITICAL RULES FOR FOLLOWUPS AND OPTIONS:
           if (!clientId || !isAuthorizedForClient(clientId)) { toolResult = { error: 'Access denied' }; }
           else {
             // Resolve API key: prefer direct key from client, fallback to DB
-            let apiKey = (clientId === fallbackClientId) ? directKlaviyoKey : undefined;
+            let apiKey = (clientId === userClientId) ? directKlaviyoKey : undefined;
             if (!apiKey) apiKey = (await getClientData(clientId, 'klaviyo_api_key'))?.klaviyo_api_key;
 
             if (!apiKey) {

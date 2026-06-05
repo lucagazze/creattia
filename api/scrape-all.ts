@@ -100,7 +100,7 @@ function prioritizeLinks(links: string[]): string[] {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -110,12 +110,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // 1. Authenticate (check cron bypass first, then user session)
+  const authHeader = req.headers.authorization;
+  const isCron = (authHeader && authHeader === `Bearer ${process.env.CRON_SECRET}`) || req.headers['x-vercel-cron'] === '1';
+
+  let isAdmin = false;
+  let userClientId: string | null = null;
+
+  if (!isCron) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+    }
+    const token = authHeader.split(' ')[1];
+
+    let user: any = null;
+    let dbProfile: any = null;
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !authData?.user) {
+        return res.status(401).json({ error: 'Invalid auth token', details: authError?.message });
+      }
+      user = authData.user;
+
+      // Fetch client profile (direct owner or mapped business account)
+      const { data: ownerProfile } = await supabase
+        .from('car_clients')
+        .select('id, is_admin')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (ownerProfile) {
+        dbProfile = ownerProfile;
+      } else {
+        const { data: link } = await supabase
+          .from('car_business_accounts')
+          .select('business_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (link?.business_id) {
+          const { data: biz } = await supabase
+            .from('car_clients')
+            .select('id, is_admin')
+            .eq('id', link.business_id)
+            .maybeSingle();
+          if (biz) {
+            dbProfile = biz;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('Server auth error in api/scrape-all:', err);
+      return res.status(500).json({ error: 'Auth check failed' });
+    }
+
+    if (!dbProfile) {
+      return res.status(403).json({ error: 'Access denied: Profile not found' });
+    }
+
+    isAdmin = !!dbProfile.is_admin;
+    userClientId = dbProfile.id;
+  }
+
   const openAiKey = process.env.OPENAI_API_KEY;
   if (!openAiKey) {
     return res.status(500).json({ error: 'OpenAI API key not configured' });
   }
 
   const { clientId, url, action, type, platform, shopify_domain, shopify_access_token, wordpress_url, woo_consumer_key, woo_consumer_secret, tiendanube_store_id, tiendanube_access_token, frames, isVideo } = req.body as any;
+
+  if (!isCron && type !== 'analyze-creative') {
+    if (!clientId) {
+      return res.status(400).json({ error: 'Missing clientId' });
+    }
+    if (!isAdmin && clientId !== userClientId) {
+      return res.status(403).json({ error: 'Access denied: client mismatch' });
+    }
+  }
 
   // ── CREATIVE ANALYSIS (TRIBE v2) ──────────────────────────────────────────
   if (type === 'analyze-creative') {

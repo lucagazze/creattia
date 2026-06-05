@@ -96,9 +96,42 @@ export default function App() {
 
     window.addEventListener('error', handleChunkError);
     window.addEventListener('unhandledrejection', handleChunkError);
+
+    // Anti-copy, anti-inspect, and right-click blockers in production
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    const handleDragStart = (e: DragEvent) => e.preventDefault();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F12') {
+        e.preventDefault();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key?.toLowerCase() === 'u') {
+        e.preventDefault();
+        return;
+      }
+      const isInspect = (e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(e.key?.toLowerCase());
+      const isMacInspect = e.metaKey && e.altKey && ['i', 'j', 'c'].includes(e.key?.toLowerCase());
+      if (isInspect || isMacInspect) {
+        e.preventDefault();
+        return;
+      }
+    };
+
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocalhost) {
+      document.addEventListener('contextmenu', handleContextMenu);
+      document.addEventListener('dragstart', handleDragStart);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
     return () => {
       window.removeEventListener('error', handleChunkError);
       window.removeEventListener('unhandledrejection', handleChunkError);
+      if (!isLocalhost) {
+        document.removeEventListener('contextmenu', handleContextMenu);
+        document.removeEventListener('dragstart', handleDragStart);
+        document.removeEventListener('keydown', handleKeyDown);
+      }
     };
   }, []);
 

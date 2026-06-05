@@ -41,6 +41,7 @@ import {
   CheckCircle2,
   Trash2,
   AlertCircle,
+  Circle,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useViewAs } from "../contexts/ViewAsContext";
@@ -85,7 +86,16 @@ interface ClientRow {
   fb_page_id?: string;
   fb_page_name?: string;
   fb_page_access_token?: string;
+  website_url?: string;
+  brain_updated_at?: string;
 }
+
+const SCAN_STEPS = [
+  { id: 'web',    label: 'Rastreando sitio web',        detail: 'Explorando páginas, productos y contenido...' },
+  { id: 'social', label: 'Leyendo Instagram y Facebook', detail: 'Analizando publicaciones, perfil y descripción...' },
+  { id: 'ai',     label: 'Consolidando con IA',          detail: 'Generando descripción, tono, ofertas y FAQs...' },
+  { id: 'save',   label: 'Guardando en el Cerebro',      detail: 'Actualizando memoria web y secciones...' },
+];
 
 const CLIENT_TAGS = [
   { id: 'tienda_online', label: 'Tienda Online (E-commerce)', color: 'bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-400', desc: 'Sincroniza y monitorea datos de ventas y conversión' },
@@ -99,6 +109,7 @@ const blank = () => ({
   business_name: "",
   industry: "Dermocosmética",
   plan: "CAR Growth",
+  website_url: "",
 });
 
 function genPwd() {
@@ -224,7 +235,7 @@ const ConnBadge = ({ hasValue, clientId, connectionStatuses, type, label, childr
 };
 
 export default function AdminPage() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -279,6 +290,134 @@ export default function AdminPage() {
   const [changingPwd, setChangingPwd] = useState('');
   const [showChangingPwd, setShowChangingPwd] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
+
+  // IA Scan Modal state
+  const [iaModalClient, setIaModalClient] = useState<ClientRow | null>(null);
+  const [iaModalUrl, setIaModalUrl] = useState("");
+  const [iaScanning, setIaScanning] = useState(false);
+  const [iaCurrentStep, setIaCurrentStep] = useState(0);
+  const [iaDone, setIaDone] = useState(false);
+  const [iaError, setIaError] = useState("");
+  const [iaLog, setIaLog] = useState<string[]>([]);
+
+  const openIaModal = (client: ClientRow, customUrl?: string) => {
+    setIaModalClient(client);
+    setIaModalUrl(customUrl || client.website_url || "");
+    setIaScanning(false);
+    setIaCurrentStep(0);
+    setIaDone(false);
+    setIaError("");
+    setIaLog([]);
+  };
+
+  const handleRunIaScan = async () => {
+    if (!iaModalClient || !iaModalUrl.trim()) {
+      showToast('Ingresá una URL válida antes de escanear.', 'warning');
+      return;
+    }
+    setIaScanning(true);
+    setIaCurrentStep(0);
+    setIaDone(false);
+    setIaError('');
+    setIaLog([]);
+
+    const addLog = (msg: string) => setIaLog(prev => [...prev, msg]);
+
+    try {
+      addLog(`Guardando URL: ${iaModalUrl}...`);
+      const { error: urlErr } = await supabase
+        .from("car_clients")
+        .update({ website_url: iaModalUrl })
+        .eq("id", iaModalClient.id);
+      if (urlErr) throw urlErr;
+      addLog(`✓ URL guardada con éxito`);
+
+      // ── STEP 1: Scan website ──────────────────────────────────────────
+      setIaCurrentStep(0);
+      addLog(`Abriendo ${iaModalUrl}...`);
+
+      const webRes = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify({ clientId: iaModalClient.id, url: iaModalUrl, action: 'scrape-website' })
+      });
+      const webData = await webRes.json();
+      if (!webRes.ok) throw new Error(webData.error || 'Error escaneando sitio web');
+
+      addLog(`✓ Página de inicio leída`);
+      if (webData.pages_visited?.length) {
+        webData.pages_visited.forEach((p: string) => {
+          try { addLog(`  → ${new URL(p).pathname}`); } catch { addLog(`  → ${p}`); }
+        });
+        addLog(`✓ ${webData.pages_visited.length} subpáginas escaneadas`);
+      }
+      const webLen = (webData.scraped_content || '').length;
+      addLog(`✓ ${webLen.toLocaleString()} caracteres extraídos`);
+
+      // ── STEP 2: Social media ──────────────────────────────────────────
+      setIaCurrentStep(1);
+      addLog(`Buscando publicaciones de Instagram y Facebook...`);
+
+      const socialRes = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify({ clientId: iaModalClient.id, url: iaModalUrl, action: 'sync-instagram' })
+      });
+      const socialData = await socialRes.json();
+      const socialContent: string = socialData.instagram_context || '';
+      if (socialContent && socialContent !== 'Redes sociales no vinculadas.') {
+        addLog(`✓ Publicaciones procesadas`);
+      } else {
+        addLog(`  ℹ Redes sociales no vinculadas (opcional)`);
+      }
+
+      // ── STEP 3: Generate fields with AI ──────────────────────────────
+      setIaCurrentStep(2);
+      addLog(`Analizando con IA...`);
+      addLog(`  → Extrayendo descripción del negocio`);
+      addLog(`  → Detectando tono y estilo`);
+      addLog(`  → Buscando ofertas activas`);
+      addLog(`  → Extrayendo preguntas frecuentes`);
+
+      const fieldsRes = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify({ clientId: iaModalClient.id, action: 'generate-fields' })
+      });
+      const fieldsData = await fieldsRes.json();
+      if (!fieldsRes.ok) throw new Error(fieldsData.error || 'Error generando campos de IA');
+
+      if (fieldsData.business_description) addLog(`✓ Descripción generada`);
+      if (fieldsData.tone) addLog(`✓ Tono y estilo definido`);
+      if (fieldsData.offers) addLog(`✓ Ofertas detectadas`);
+      else addLog(`  ℹ Sin ofertas activas detectadas`);
+      if (fieldsData.faq) {
+        const faqCount = (fieldsData.faq.match(/^P:/gm) || []).length;
+        addLog(`✓ ${faqCount} preguntas frecuentes extraídas`);
+      }
+
+      // ── STEP 4: Done ──────────────────────────────────────────────────
+      setIaCurrentStep(3);
+      addLog(`✓ Todo guardado en el Cerebro de IA`);
+      setIaDone(true);
+      showToast('Cerebro IA entrenado y guardado correctamente.', 'success');
+      load();
+    } catch (err: any) {
+      setIaError(err.message || 'Error al escanear');
+      addLog(`❌ Error: ${err.message || 'Error al escanear'}`);
+    } finally {
+      setIaScanning(false);
+    }
+  };
 
   const saveConnOk = async (clientId: string, type: string) => {
     try { localStorage.setItem(CONN_KEY(clientId, type), String(Date.now())); } catch {}
@@ -678,6 +817,7 @@ export default function AdminPage() {
         business_name: form.business_name,
         industry: form.industry || null,
         plan: form.plan,
+        website_url: form.website_url || null,
         active: true,
         is_admin: false,
       });
@@ -857,6 +997,7 @@ export default function AdminPage() {
       fb_page_id: c.fb_page_id || "",
       fb_page_name: c.fb_page_name || "",
       fb_page_access_token: (c as any).fb_page_access_token || "",
+      website_url: c.website_url || "",
     });
     setStatuses({});
     setEditingClient(c);
@@ -1016,7 +1157,10 @@ setStatuses((p) => ({ ...p, meta: "error" }));
     try {
       const res = await fetch('/api/scrape-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({ clientId: editingClient.id, action: 'sync-catalog' }),
       });
       const data = await res.json();
@@ -1218,6 +1362,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
         fb_page_id: editForm.fb_page_id || null,
         fb_page_name: editForm.fb_page_name || null,
         fb_page_access_token: editForm.fb_page_access_token || null,
+        website_url: editForm.website_url || null,
       };
 
       const { error } = await supabase
@@ -1301,9 +1446,30 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
       setScanProgress({ done: i, total: withUrl.length, current: cl.business_name, errors });
       try {
         const base = { clientId: cl.id, url: cl.website_url };
-        await fetch('/api/scrape-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...base, action: 'scrape-website' }) });
-        await fetch('/api/scrape-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...base, action: 'sync-instagram' }) });
-        await fetch('/api/scrape-all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: cl.id, action: 'generate-fields' }) });
+        await fetch('/api/scrape-all', { 
+          method: 'POST', 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          }, 
+          body: JSON.stringify({ ...base, action: 'scrape-website' }) 
+        });
+        await fetch('/api/scrape-all', { 
+          method: 'POST', 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          }, 
+          body: JSON.stringify({ ...base, action: 'sync-instagram' }) 
+        });
+        await fetch('/api/scrape-all', { 
+          method: 'POST', 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          }, 
+          body: JSON.stringify({ clientId: cl.id, action: 'generate-fields' }) 
+        });
       } catch (e: any) {
         errors.push(`${cl.business_name}: ${e.message}`);
       }
@@ -1561,6 +1727,15 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                   </select>
                 </Field>
               </div>
+              <Field label="URL del sitio web">
+                <input
+                  type="url"
+                  value={form.website_url}
+                  onChange={(e) => f("website_url", e.target.value)}
+                  placeholder="https://minegocio.com"
+                  className={inputCls}
+                />
+              </Field>
               <Field label="Plan C.A.R">
                 <div className="flex gap-2">
                   {PLANS.map((p) => (
@@ -1730,6 +1905,19 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
 
                       {/* Connection badges — 🟢 verde=verificado · 🟡 amarillo=sin verificar · ⚪ gris=no configurado */}
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        {/* IA Brain Status badge */}
+                        <div 
+                          className={`h-5 px-1.5 rounded flex items-center gap-1 text-[9px] font-black shrink-0 ${
+                            c.brain_updated_at 
+                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-400/30' 
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
+                          }`}
+                          title={c.brain_updated_at ? `Cerebro IA analizado: ${new Date(c.brain_updated_at).toLocaleString()}` : 'Cerebro IA sin analizar'}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-sm shrink-0 ${c.brain_updated_at ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400 dark:bg-zinc-650'}`} />
+                          <span>{c.brain_updated_at ? new Date(c.brain_updated_at).toLocaleDateString("es-AR", { day: '2-digit', month: 'short' }) : 'IA'}</span>
+                        </div>
+
                         <ConnBadge hasValue={!!c.meta_account_id} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="meta" label="Meta Ads" tick={connTick}>M</ConnBadge>
                         <ConnBadge hasValue={!!c.fb_page_id} clientId={c.id} connectionStatuses={(c as any).connection_statuses} type="facebook" label={c.fb_page_name ? `Facebook: ${c.fb_page_name}` : 'Facebook'} tick={connTick}>
                           <Facebook className="w-2.5 h-2.5" />
@@ -1746,7 +1934,15 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      title="Analizar Cerebro IA"
+                      onClick={() => openIaModal(c)}
+                      className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all flex items-center justify-center bg-white dark:bg-zinc-900"
+                    >
+                      <Brain className="w-4 h-4" />
+                    </button>
                     {active ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -2010,6 +2206,47 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                           ))}
                         </div>
                       </Field>
+
+                      <Field label="URL del sitio web">
+                        <input
+                          type="url"
+                          value={editForm.website_url || ""}
+                          onChange={(e) => ef("website_url", e.target.value)}
+                          placeholder="https://minegocio.com"
+                          className={inputCls}
+                        />
+                      </Field>
+
+                      <SectionBox title="Cerebro de IA (Análisis)" badge="IA">
+                        <div className="space-y-3">
+                          <p className="text-[12px] text-zinc-500 leading-relaxed">
+                            El Cerebro de IA almacena toda la información contextual de este negocio para responder dudas en la mensajería y comentarios.
+                          </p>
+                          <div className="flex items-center justify-between flex-wrap gap-2.5 pt-1">
+                            <div>
+                              {editingClient.brain_updated_at ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  Analizado: {new Date(editingClient.brain_updated_at).toLocaleDateString("es-AR", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} hs
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                                  Sin analizar
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => openIaModal(editingClient, editForm.website_url)}
+                              className="h-9 px-4 rounded-[9px] bg-violet-600 hover:bg-violet-750 text-white text-[12px] font-bold transition-all shadow-md shadow-violet-500/10 flex items-center gap-1.5"
+                            >
+                              <Brain className="w-4 h-4" />
+                              <span>Analizar con IA</span>
+                            </button>
+                          </div>
+                        </div>
+                      </SectionBox>
 
                       {/* Objetivos */}
                       <SectionBox title="Tipo de Cliente y Objetivos" badge="Tags">
@@ -2347,7 +2584,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                               <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
                             </div>
                           ) : (
-                            <div className="rounded-[10px] border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+                            <div className="rounded-[10px] border border-zinc-100 dark:border-zinc-800 overflow-hidden overflow-x-auto">
                               <table className="w-full text-left">
                                 <thead>
                                   <tr className="bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800">
@@ -2618,6 +2855,153 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
             >
               Cancelar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── IA Scan Modal ────────────────────────────────────────────────── */}
+      {iaModalClient && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center bg-white dark:bg-zinc-900">
+              <div className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-violet-500" />
+                <h3 className="text-[15px] font-bold text-zinc-900 dark:text-white">
+                  Análisis con IA: {iaModalClient.business_name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !iaScanning && setIaModalClient(null)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-650 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all disabled:opacity-30"
+                disabled={iaScanning}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              <div>
+                <label className={labelCls}>URL del Negocio para Escanear</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={iaModalUrl}
+                    onChange={(e) => setIaModalUrl(e.target.value)}
+                    placeholder="https://minegocio.com"
+                    disabled={iaScanning}
+                    className={inputCls}
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  Se guardará y usará esta URL para rastrear el sitio web y detectar información.
+                </p>
+              </div>
+
+              {/* Progress Steps */}
+              {(iaScanning || iaLog.length > 0) && (
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-3">
+                    {SCAN_STEPS.map((step, idx) => {
+                      const isPending = idx > iaCurrentStep;
+                      const isCurrent = idx === iaCurrentStep && iaScanning;
+                      const isDone = idx < iaCurrentStep || (idx === iaCurrentStep && iaDone);
+
+                      return (
+                        <div key={step.id} className="flex gap-3 items-start">
+                          <div className="mt-0.5">
+                            {isDone ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            ) : isCurrent ? (
+                              <Loader2 className="w-4 h-4 text-violet-500 animate-spin shrink-0" />
+                            ) : (
+                              <Circle className="w-4 h-4 text-zinc-300 dark:text-zinc-700 shrink-0" />
+                            )}
+                          </div>
+                          <div>
+                            <p className={`text-[12px] font-bold leading-none ${isDone ? 'text-zinc-900 dark:text-zinc-100' : isCurrent ? 'text-violet-600 dark:text-violet-400' : 'text-zinc-400'}`}>
+                              {step.label}
+                            </p>
+                            <p className="text-[10px] text-zinc-400 mt-0.5">
+                              {step.detail}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Logs Console */}
+                  <div className="bg-zinc-900 dark:bg-black text-[11px] font-mono p-4 rounded-xl text-zinc-350 h-40 overflow-y-auto space-y-1 scrollbar-hide border border-zinc-800">
+                    {iaLog.map((log, i) => (
+                      <p key={i} className={log.startsWith('❌') ? 'text-red-400' : log.startsWith('✓') ? 'text-emerald-400' : 'text-zinc-400'}>
+                        {log}
+                      </p>
+                    ))}
+                    {iaScanning && (
+                      <div className="flex items-center gap-1.5 text-zinc-500">
+                        <span className="w-1 h-3 bg-zinc-500 animate-pulse" />
+                        <span>procesando...</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {iaError && (
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-xl p-3.5 flex gap-2.5 items-start text-red-650 dark:text-red-450 text-[12px]">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-0.5">Ocurrió un error en el análisis</span>
+                    {iaError}
+                  </div>
+                </div>
+              )}
+
+              {iaDone && (
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 rounded-xl p-3.5 flex gap-2.5 items-start text-emerald-650 dark:text-emerald-450 text-[12px]">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-0.5">Análisis completado</span>
+                    Se extrajeron todos los datos del negocio, tono e instrucciones. Ya están cargados en el Cerebro de IA.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIaModalClient(null)}
+                disabled={iaScanning}
+                className="h-9 px-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-[12px] font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all disabled:opacity-50"
+              >
+                Cerrar
+              </button>
+              {!iaDone && (
+                <button
+                  type="button"
+                  onClick={handleRunIaScan}
+                  disabled={iaScanning || !iaModalUrl.trim()}
+                  className="h-9 px-5 rounded-xl bg-violet-600 hover:bg-violet-750 disabled:opacity-50 text-white text-[12px] font-bold flex items-center gap-1.5 transition-all shadow"
+                >
+                  {iaScanning ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Analizando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Comenzar Análisis</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

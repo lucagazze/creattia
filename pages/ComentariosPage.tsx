@@ -49,7 +49,7 @@ type PostItem = {
 
 export default function ComentariosPage() {
   const { isViewingAs, viewAsProfile } = useViewAs();
-  const { profile: authProfile, user } = useAuth();
+  const { profile: authProfile, user, session } = useAuth();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const clientId = profile?.id;
   const { setPendingCommentsCount } = useUnread();
@@ -704,7 +704,10 @@ export default function ComentariosPage() {
       }));
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({
           clientId, itemText: text, username: target.username,
           postCaption, allComments,

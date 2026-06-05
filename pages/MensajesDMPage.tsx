@@ -40,7 +40,7 @@ type ConvItem = {
 
 export default function MensajesDMPage() {
   const { isViewingAs, viewAsProfile } = useViewAs();
-  const { profile: authProfile, user } = useAuth();
+  const { profile: authProfile, user, session } = useAuth();
   const profile      = isViewingAs ? viewAsProfile : authProfile;
   const clientId     = profile?.id;
   const fbPageId     = (profile as any)?.fb_page_id;
@@ -588,7 +588,10 @@ export default function MensajesDMPage() {
       });
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({
           clientId,
           itemText: selectedConv.lastMessage || '',

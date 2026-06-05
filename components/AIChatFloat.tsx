@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { supabase } from '../services/supabase';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -460,10 +461,17 @@ export const AIChatFloat = () => {
     };
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: updatedMessages, profile, activeClientId, activeBusinessName, klaviyoApiKey: activeKlaviyoKey, metaAccountId: activeMetaAccountId }),
+        headers,
+        body: JSON.stringify({ messages: updatedMessages, activeClientId, activeBusinessName }),
       });
 
       if (!res.ok) throw new Error('API error');

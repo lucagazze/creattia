@@ -42,7 +42,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           try {
             const resCat = await fetch(`${baseUrl}/api/scrape-all`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': authHeader || ''
+              },
               body: JSON.stringify({ clientId: client.id, action: 'sync-catalog' })
             });
             const catData = await resCat.json();
@@ -58,7 +61,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           try {
             const resWeb = await fetch(`${baseUrl}/api/scrape-all`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': authHeader || ''
+              },
               body: JSON.stringify({ clientId: client.id, url: client.website_url, action: 'scrape-website' })
             });
             r.website = resWeb.ok ? 'ok' : `failed (${resWeb.status})`;
@@ -72,7 +78,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           try {
             const resIg = await fetch(`${baseUrl}/api/scrape-all`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': authHeader || ''
+              },
               body: JSON.stringify({ clientId: client.id, action: 'sync-instagram' })
             });
             r.instagram = resIg.ok ? 'ok' : `failed (${resIg.status})`;

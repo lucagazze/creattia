@@ -18,10 +18,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // 1. Authenticate user from Bearer token
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+  }
+  const token = authHeader.split(' ')[1];
+
+  let user: any = null;
+  let dbProfile: any = null;
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'Invalid auth token', details: authError?.message });
+    }
+    user = authData.user;
+
+    // Fetch client profile (direct owner or mapped business account)
+    const { data: ownerProfile } = await supabase
+      .from('car_clients')
+      .select('id, is_admin')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (ownerProfile) {
+      dbProfile = ownerProfile;
+    } else {
+      const { data: link } = await supabase
+        .from('car_business_accounts')
+        .select('business_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (link?.business_id) {
+        const { data: biz } = await supabase
+          .from('car_clients')
+          .select('id, is_admin')
+          .eq('id', link.business_id)
+          .maybeSingle();
+        if (biz) {
+          dbProfile = biz;
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error('Server auth error in api/draft-reply:', err);
+    return res.status(500).json({ error: 'Auth check failed' });
+  }
+
+  if (!dbProfile) {
+    return res.status(403).json({ error: 'Access denied: Profile not found' });
+  }
+
+  const isAdmin = !!dbProfile.is_admin;
+  const userClientId = dbProfile.id;
 
   const geminiKey = process.env.GOOGLE_AI_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
@@ -38,6 +93,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!clientId || !itemText) {
     return res.status(400).json({ error: 'Missing clientId or itemText' });
+  }
+
+  if (!isAdmin && clientId !== userClientId) {
+    return res.status(403).json({ error: 'Access denied: client mismatch' });
   }
 
   try {

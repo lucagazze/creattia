@@ -445,7 +445,7 @@ export const MainLayout = () => {
               <Route path="/admin/email-monitor" element={<EmailMonitorPage />} />
               <Route path="/email-marketing" element={<EmailMarketingPage />} />
               <Route path="/entradas" element={<EntradasPage />} />
-              <Route path="/cerebro" element={<CerebroPage />} />
+              <Route path="/cerebro" element={profile?.is_admin ? <CerebroPage /> : <Navigate to="/" replace />} />
               <Route path="/inventario" element={<InventarioPage />} />
               <Route path="/analisis-productos" element={<Navigate to="/tienda" replace />} />
               <Route path="/contactos" element={<ContactosPage />} />

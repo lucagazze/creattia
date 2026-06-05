@@ -75,7 +75,7 @@ AutoResizeTextarea.displayName = 'AutoResizeTextarea';
 
 export default function RedesSocialesPage() {
   const { isViewingAs, viewAsProfile } = useViewAs();
-  const { profile: authProfile, user, loading: authLoading } = useAuth();
+  const { profile: authProfile, user, loading: authLoading, session } = useAuth();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const clientId = profile?.id;
 
@@ -201,7 +201,10 @@ export default function RedesSocialesPage() {
 
         const res = await fetch('/api/draft-reply', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || ''}`
+          },
           body: JSON.stringify({
             clientId,
             itemText: itemTextStr,
@@ -315,7 +318,10 @@ export default function RedesSocialesPage() {
 
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({
           clientId,
           itemText: item.comment.text || item.comment.message || '',
@@ -430,7 +436,10 @@ export default function RedesSocialesPage() {
 
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({
           clientId,
           itemText: text,
@@ -507,7 +516,10 @@ export default function RedesSocialesPage() {
 
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({
           clientId,
           itemText: commentToReply.text || commentToReply.message || '',

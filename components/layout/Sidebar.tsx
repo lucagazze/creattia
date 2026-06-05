@@ -69,8 +69,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
   const configuracionItems = [
     { path: '/links',            icon: Link2,  label: 'Mis Accesos',    configured: true },
-    { path: '/cerebro',          icon: Brain,  label: 'Cerebro de IA',  configured: true },
-  ];
+    { path: '/cerebro',          icon: Brain,  label: 'Cerebro de IA',  configured: true, adminOnly: true },
+  ].filter(i => !i.adminOnly || isAdmin);
 
   const adminItems = [
     { path: '/admin',                  icon: Building2, label: 'Gestión Negocios' },

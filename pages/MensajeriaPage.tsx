@@ -191,7 +191,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function MensajeriaPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile: authProfile, loading: authLoading } = useAuth();
+  const { profile: authProfile, loading: authLoading, session } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const isAdmin = authProfile?.is_admin;
@@ -801,7 +801,10 @@ export default function MensajeriaPage() {
       });
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
         body: JSON.stringify({
           clientId: profile.id,
           itemText: lastIncoming?.content || lastMsg?.content || '',
