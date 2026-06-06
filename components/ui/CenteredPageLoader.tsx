@@ -45,14 +45,7 @@ const getProgressForTime = (startTime: number) => {
 export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => {
   const [phase, setPhase] = useState<'loading' | 'fading' | 'done'>(() => isLoading ? 'loading' : 'done');
   
-  const [progress, setProgress] = useState(() => {
-    if (!isLoading) return 0;
-    const startTime = (window as any).__loadingStartTime || 0;
-    if (Date.now() - startTime < 5000 && startTime > 0) {
-      return getProgressForTime(startTime).startVal;
-    }
-    return 0;
-  });
+  const [progress, setProgress] = useState(0);
 
   const [transitionStyle, setTransitionStyle] = useState('none');
   const [msgIdx, setMsgIdx] = useState(() => Math.floor(Math.random() * MESSAGES.length));
@@ -75,12 +68,9 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
 
       setPhase('loading');
 
-      // Initialize or get start time
-      let startTime = (window as any).__loadingStartTime || 0;
-      if (Date.now() - startTime >= 5000 || startTime === 0) {
-        startTime = Date.now();
-        (window as any).__loadingStartTime = startTime;
-      }
+      // Always start fresh — each new page load resets from 0
+      const startTime = Date.now();
+      (window as any).__loadingStartTime = startTime;
 
       const { startVal, targetVal, transition, remainingTime } = getProgressForTime(startTime);
       setProgress(startVal);
@@ -163,7 +153,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
       {/* The loader overlay is rendered as long as phase is not done */}
       {phase !== 'done' && (
         <div
-          className={`md:absolute fixed inset-x-0 bottom-0 top-14 md:inset-0 z-[9999] md:z-[99] flex flex-col items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a] transition-opacity duration-300 ${
+          className={`md:absolute fixed inset-x-0 bottom-0 top-14 md:inset-0 z-[150] md:z-[99] flex flex-col items-center justify-center bg-[#f5f5f7] dark:bg-[#0a0a0a] transition-opacity duration-300 ${
             phase === 'fading' ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
         >

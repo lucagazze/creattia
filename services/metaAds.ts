@@ -171,16 +171,7 @@ const getPageAccessToken = async (pageId: string): Promise<string> => {
     // 1. In-memory cache (fastest — set by setClientPageToken or previous lookup)
     if (pageTokensCache[pageId]) return pageTokensCache[pageId];
 
-    // 2. localStorage: token saved during the connection flow (most reliable for client pages)
-    //    Key: fb_pat_{pageId} — set when client links their page or on setClientPageToken
-    const lsKey = `fb_pat_${pageId}`;
-    const savedToken = localStorage.getItem(lsKey);
-    if (savedToken) {
-      pageTokensCache[pageId] = savedToken; // warm the memory cache
-      return savedToken;
-    }
-
-    // 3. Fallback: try /me/accounts with the agency token
+    // 2. Fallback: try /me/accounts with the agency token
     //    This only works for pages the agency token has direct admin access to (i.e. Algoritmia's own pages)
     const userToken = (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
     if (!userToken) return '';
@@ -815,13 +806,10 @@ export const metaAds = {
   setClientPageToken: (pageId: string, token: string) => {
     if (pageId && token) {
       pageTokensCache[pageId] = token;
-      // Also persist to localStorage so it survives page reloads
       try {
-        localStorage.setItem(`fb_pat_${pageId}`, token);
-        // Ensure this page is set as active
         localStorage.setItem('active_fb_page_id', pageId);
       } catch (e) {
-        console.warn("Storage full: could not save fb_pat to localStorage", e);
+        console.warn("Storage full: could not save active_fb_page_id", e);
       }
     }
   },

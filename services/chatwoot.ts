@@ -1,7 +1,11 @@
+import { supabase } from './supabase';
+
 const proxy = async (chatwoot_url: string, chatwoot_token: string, path: string, body?: any, method?: string) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const authHeader = session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {};
   const res = await fetch('/api/scrape-website', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader },
     body: JSON.stringify({ chatwoot_url, chatwoot_token, path, ...(body !== undefined ? { body } : {}), ...(method ? { method } : {}) }),
   });
   const text = await res.text().catch(() => '{}');
