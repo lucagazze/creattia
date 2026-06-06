@@ -802,47 +802,69 @@ export default function MetaAdsPage() {
                       ) : mediaData.type === 'carousel' && mediaData.cards?.length > 0 ? (() => {
                         const card = mediaData.cards[panelCarouselIndex];
                         return (
-                          <div className="relative">
-                            {card.isVideo && card.videoSrc ? (
-                              panelPlayingVideo ? (
-                                <video src={card.videoSrc} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full max-h-56 object-contain bg-black" />
-                              ) : (
-                                <div className="relative cursor-pointer" onClick={() => setPanelPlayingVideo(true)}>
-                                  <img src={card.url} alt="" referrerPolicy="no-referrer" className="w-full max-h-56 object-cover" />
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                    <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div>
+                          <div>
+                            {/* Fixed-height image area — arrows use top-1/2 relative to this */}
+                            <div className="relative h-56 bg-zinc-50 dark:bg-zinc-950">
+                              {card.isVideo && card.videoSrc ? (
+                                panelPlayingVideo ? (
+                                  <video src={card.videoSrc} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full h-full object-contain bg-black" />
+                                ) : (
+                                  <div className="relative h-full cursor-pointer" onClick={() => setPanelPlayingVideo(true)}>
+                                    {card.url ? (
+                                      <img src={card.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800"><Film className="w-8 h-8 text-zinc-400" /></div>
+                                    )}
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                      <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div>
+                                    </div>
                                   </div>
-                                </div>
-                              )
-                            ) : (
-                              <img src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} referrerPolicy="no-referrer" className="w-full max-h-56 object-cover" />
-                            )}
+                                )
+                              ) : card.url ? (
+                                <img src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} referrerPolicy="no-referrer" className="w-full h-full object-contain transition-all duration-300" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
+                              )}
+                              {/* Arrows — correctly centered on the image area only */}
+                              {mediaData.cards.length > 1 && (
+                                <>
+                                  <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex - 1 + mediaData.cards.length) % mediaData.cards.length); setPanelPlayingVideo(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-all z-10"><ChevronLeft className="w-4 h-4" /></button>
+                                  <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex + 1) % mediaData.cards.length); setPanelPlayingVideo(false); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-all z-10"><ChevronRight className="w-4 h-4" /></button>
+                                </>
+                              )}
+                            </div>
+                            {/* Dots + caption outside the relative container */}
                             {mediaData.cards.length > 1 && (
-                              <>
-                                <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex - 1 + mediaData.cards.length) % mediaData.cards.length); setPanelPlayingVideo(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-all"><ChevronLeft className="w-4 h-4" /></button>
-                                <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex + 1) % mediaData.cards.length); setPanelPlayingVideo(false); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-all"><ChevronRight className="w-4 h-4" /></button>
-                                <div className="flex justify-center gap-1 py-2">
-                                  {mediaData.cards.map((_: any, idx: number) => (
-                                    <button key={idx} onClick={() => { setPanelCarouselIndex(idx); setPanelPlayingVideo(false); }} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === panelCarouselIndex ? 'bg-violet-500 scale-125' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
-                                  ))}
-                                </div>
-                              </>
+                              <div className="flex justify-center gap-1 py-2 bg-zinc-50 dark:bg-zinc-950">
+                                {mediaData.cards.map((_: any, idx: number) => (
+                                  <button key={idx} onClick={() => { setPanelCarouselIndex(idx); setPanelPlayingVideo(false); }} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === panelCarouselIndex ? 'bg-violet-500 scale-125' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
+                                ))}
+                              </div>
+                            )}
+                            {card.name && (
+                              <p className="px-3 pb-2.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 text-center truncate bg-zinc-50 dark:bg-zinc-950">{card.name}</p>
                             )}
                           </div>
                         );
                       })() : mediaData.type === 'video_source' ? (
                         panelPlayingVideo ? (
-                          <video src={mediaData.source || undefined} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full max-h-56 object-contain bg-black" />
+                          <video src={mediaData.source || undefined} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full max-h-64 object-contain bg-black" />
                         ) : (
-                          <div className="relative cursor-pointer" onClick={() => setPanelPlayingVideo(true)}>
-                            <img src={mediaData.picture || thumbUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-56 object-cover" />
+                          <div className="relative h-56 cursor-pointer bg-zinc-950" onClick={() => setPanelPlayingVideo(true)}>
+                            {(mediaData.picture || thumbUrl) ? (
+                              <img src={mediaData.picture || thumbUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center"><Film className="w-8 h-8 text-zinc-400" /></div>
+                            )}
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                               <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div>
                             </div>
                           </div>
                         )
                       ) : mediaData.type === 'image' ? (
-                        <img src={mediaData.url || undefined} alt={selectedAd.name} referrerPolicy="no-referrer" className="w-full max-h-56 object-cover" />
+                        <div className="h-56 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
+                          <img src={mediaData.url || undefined} alt={selectedAd.name} referrerPolicy="no-referrer" className="max-w-full max-h-56 w-full h-full object-contain" />
+                        </div>
                       ) : mediaData.type === 'ad_preview' && mediaData.embed_html ? (() => {
                         const resizedHtml = mediaData.embed_html
                           .replace(/width="\d+"/g, 'width="100%"')
@@ -854,7 +876,9 @@ export default function MetaAdsPage() {
                         });
                         return <div className="w-full overflow-hidden" style={{ height: 280 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
                       })() : thumbUrl ? (
-                        <img src={thumbUrl} alt={selectedAd.name} referrerPolicy="no-referrer" className="w-full max-h-56 object-cover" />
+                        <div className="h-56 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
+                          <img src={thumbUrl} alt={selectedAd.name} referrerPolicy="no-referrer" className="max-w-full max-h-56 w-full h-full object-contain" />
+                        </div>
                       ) : (
                         <div className="h-36 flex items-center justify-center"><ImageIcon className="w-10 h-10 text-zinc-300 dark:text-zinc-600" /></div>
                       )}
