@@ -2,12 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -17,29 +17,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Authenticate caller — reject unauthenticated requests
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.trim().toLowerCase().startsWith('bearer')) {
-    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
-  }
-  const token = authHeader.split(' ')[1] || '';
-  if (!token) return res.status(401).json({ error: 'Empty token' });
-
-  try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid auth token' });
-    }
-  } catch {
-    return res.status(401).json({ error: 'Auth check failed' });
-  }
-
   const { chatwoot_url, chatwoot_token, path, body: cwBody, method: cwMethod } = req.body;
   if (!chatwoot_url || !chatwoot_token || !path) {
     return res.status(400).json({ error: 'Missing chatwoot params' });
+  }
+
+  // Validate chatwoot_token belongs to a registered client in our DB
+  try {
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: client } = await supabase
+      .from('car_clients')
+      .select('id')
+      .eq('chatwoot_token', chatwoot_token)
+      .single();
+    if (!client) return res.status(403).json({ error: 'Unauthorized' });
+  } catch {
+    return res.status(403).json({ error: 'Auth check failed' });
   }
   try {
     const method = cwMethod || (cwBody !== undefined ? 'POST' : 'GET');
