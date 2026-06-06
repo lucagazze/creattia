@@ -108,14 +108,14 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
         }`}
       >
         {/* # */}
-        <td className="px-5 py-3">
-          <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100">
+        <td className="px-3 sm:px-5 py-3">
+          <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 whitespace-nowrap">
             #{order.order_number || order.name}
           </span>
         </td>
 
-        {/* Fecha */}
-        <td className="px-4 py-3">
+        {/* Fecha — hidden on mobile */}
+        <td className="hidden sm:table-cell px-4 py-3">
           <div className="flex flex-col gap-1">
             {dateTag && (
               <span className={`self-start text-[9px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded ${
@@ -132,15 +132,27 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
         </td>
 
         {/* Cliente */}
-        <td className="px-4 py-3">
-          <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate max-w-[150px]">{customerName}</p>
+        <td className="px-3 sm:px-4 py-3 max-w-[120px] sm:max-w-none">
+          <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{customerName}</p>
           {order.customer?.email && (
-            <p className="text-[10px] text-zinc-400 truncate max-w-[150px] mt-0.5">{order.customer.email}</p>
+            <p className="text-[10px] text-zinc-400 truncate hidden sm:block mt-0.5">{order.customer.email}</p>
           )}
+          {/* On mobile: show date tag + fulfillment inline */}
+          <div className="flex items-center gap-1.5 mt-1 sm:hidden">
+            {dateTag && (
+              <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded ${
+                dateTag === 'Hoy'
+                  ? 'bg-pink-500/10 text-pink-500'
+                  : 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+              }`}>{dateTag}</span>
+            )}
+            {!dateTag && <span className="text-[10px] text-zinc-400">{dateLabel}</span>}
+            <span className="text-[10px] text-zinc-400">{dateTime}</span>
+          </div>
         </td>
 
-        {/* Productos */}
-        <td className="px-4 py-3">
+        {/* Productos — hidden on mobile */}
+        <td className="hidden sm:table-cell px-4 py-3">
           {firstItem ? (
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center border border-zinc-200/60 dark:border-white/[0.06]">
@@ -169,21 +181,21 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
           )}
         </td>
 
-        {/* Pago */}
-        <td className="px-4 py-3"><PaymentBadge status={order.financial_status} /></td>
+        {/* Pago — hidden on mobile+tablet */}
+        <td className="hidden md:table-cell px-4 py-3"><PaymentBadge status={order.financial_status} /></td>
 
         {/* Envío */}
-        <td className="px-4 py-3"><FulfillmentBadge status={order.fulfillment_status} /></td>
+        <td className="px-2 sm:px-4 py-3"><FulfillmentBadge status={order.fulfillment_status} /></td>
 
         {/* Total */}
-        <td className="px-4 py-3 text-right">
-          <span className="text-[13px] font-black text-zinc-900 dark:text-white whitespace-nowrap">
+        <td className="px-2 sm:px-4 py-3 text-right">
+          <span className="text-[12px] sm:text-[13px] font-black text-zinc-900 dark:text-white whitespace-nowrap">
             {fmtCurr(parseFloat(order.total_price || 0))}
           </span>
         </td>
 
         {/* Expand */}
-        <td className="px-4 py-3">
+        <td className="px-2 sm:px-4 py-3">
           <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
             open ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200' : 'text-zinc-400'
           }`}>
@@ -656,12 +668,17 @@ export default function PedidosPage() {
 
               {/* Table */}
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[680px]">
+                <table className="w-full">
                   <thead>
                     <tr className="border-b border-zinc-100 dark:border-white/[0.04] bg-zinc-50/50 dark:bg-white/[0.015]">
-                      {['Pedido', 'Fecha', 'Cliente', 'Productos', 'Pago', 'Envío', 'Total', ''].map(h => (
-                        <th key={h} className="px-5 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">{h}</th>
-                      ))}
+                      <th className="px-3 sm:px-5 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Pedido</th>
+                      <th className="hidden sm:table-cell px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Fecha</th>
+                      <th className="px-3 sm:px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Cliente</th>
+                      <th className="hidden sm:table-cell px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Productos</th>
+                      <th className="hidden md:table-cell px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Pago</th>
+                      <th className="px-2 sm:px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Envío</th>
+                      <th className="px-2 sm:px-4 py-2.5 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Total</th>
+                      <th className="px-2 sm:px-4 py-2.5"></th>
                     </tr>
                   </thead>
                   <tbody>
