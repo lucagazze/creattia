@@ -275,11 +275,33 @@ export default function MetaAdsPage() {
 
   useEffect(() => { fetchAds(activeSince, activeUntil); }, [profile?.id, activeSince, activeUntil]);
 
-  // ── Sliding-window thumbnail resolver ───────────────────────────────────────
+  // ── Creative resolver (shared fetch logic) ─────────────────────────────────
+  const resolveCreative = useCallback(async (ad: any) => {
+    const params = new URLSearchParams();
+    if (ad.id) params.set('adId', ad.id);
+    if (ad.creative?.id) params.set('creativeId', ad.creative.id);
+    if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
+    try {
+      const res = await fetch(`/api/meta-video?${params}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      let thumbnail: string | null = null;
+      if (data.type === 'carousel' && data.cards?.[0]?.url) thumbnail = data.cards[0].url;
+      else if (data.type === 'video_source' && data.picture) thumbnail = data.picture;
+      else if (data.type === 'image' && data.url) thumbnail = data.url;
+      setResolvedDetails(prev => ({ ...prev, [ad.id]: data }));
+      if (thumbnail) setResolvedThumbnails(prev => ({ ...prev, [ad.id]: thumbnail! }));
+    } catch {
+      setResolvedDetails(prev => ({ ...prev, [ad.id]: { type: 'failed' } }));
+    } finally {
+      // Always clear the resolving flag so the spinner doesn't get stuck
+      setResolvingIds(prev => { const next = { ...prev }; delete next[ad.id]; return next; });
+    }
+  }, []);
+
+  // ── Sliding-window background resolver ──────────────────────────────────────
   useEffect(() => {
-    const accountId = metaAccountId;
-    if (!accountId || activeAds.length === 0) return;
-    let isMounted = true;
+    if (!metaAccountId || activeAds.length === 0) return;
     const activeCount = Object.keys(resolvingIds).length;
     if (activeCount >= 4) return;
     const toResolve = activeAds.filter(ad => !resolvedDetails[ad.id] && !resolvingIds[ad.id]);
@@ -287,30 +309,8 @@ export default function MetaAdsPage() {
     const batch = toResolve.slice(0, 4 - activeCount);
     if (batch.length === 0) return;
     setResolvingIds(prev => { const next = { ...prev }; batch.forEach(ad => { next[ad.id] = true; }); return next; });
-    batch.forEach(async (ad) => {
-      const params = new URLSearchParams();
-      if (ad.id) params.set('adId', ad.id);
-      if (ad.creative?.id) params.set('creativeId', ad.creative.id);
-      if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
-      try {
-        const res = await fetch(`/api/meta-video?${params}`);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        if (!isMounted) return;
-        let thumbnail: string | null = null;
-        if (data.type === 'carousel' && data.cards?.[0]?.url) thumbnail = data.cards[0].url;
-        else if (data.type === 'video_source' && data.picture) thumbnail = data.picture;
-        else if (data.type === 'image' && data.url) thumbnail = data.url;
-        setResolvedDetails(prev => ({ ...prev, [ad.id]: data }));
-        if (thumbnail) setResolvedThumbnails(prev => ({ ...prev, [ad.id]: thumbnail }));
-      } catch {
-        if (isMounted) setResolvedDetails(prev => ({ ...prev, [ad.id]: { type: 'failed' } }));
-      } finally {
-        if (isMounted) setResolvingIds(prev => { const next = { ...prev }; delete next[ad.id]; return next; });
-      }
-    });
-    return () => { isMounted = false; };
-  }, [activeAds, resolvedDetails, resolvingIds, profile]);
+    batch.forEach(ad => resolveCreative(ad));
+  }, [activeAds, resolvedDetails, resolvingIds, metaAccountId, resolveCreative]);
 
   // ── Open ad slide-over ───────────────────────────────────────────────────────
   const openAd = useCallback(async (ad: any) => {
@@ -333,6 +333,13 @@ export default function MetaAdsPage() {
     const initialPlatform: 'instagram' | 'facebook' = igStoryId ? 'instagram' : 'facebook';
 
     setSelectedAd({ ad, adId: ad.id, name: ad.name, body, igStoryId, fbStoryId, igPermalink, fbPermalink });
+
+    // Resolve creative immediately if not already loaded/in-progress
+    if (!resolvedDetails[ad.id] && !resolvingIds[ad.id]) {
+      setResolvingIds(prev => ({ ...prev, [ad.id]: true }));
+      resolveCreative(ad);
+    }
+
     setCommentsByPlatform({ instagram: [], facebook: [] });
     setActiveCommentPlatform(initialPlatform);
     setLoadingByPlatform({ instagram: !!igStoryId, facebook: !!fbStoryId });
