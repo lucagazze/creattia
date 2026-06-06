@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
+import SmoothImage from '../components/ui/SmoothImage';
 import { db } from '../services/db';
 import { supabase } from '../services/supabase';
 
@@ -814,80 +815,82 @@ export default function MetaAdsPage() {
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+                <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-5 h-full">
 
-                  {/* Left: creative + info */}
-                  <div className={`${mobileTab === 'comments' ? 'hidden md:flex' : 'flex'} md:w-[300px] flex-shrink-0 flex-col border-r border-zinc-100 dark:border-zinc-800 p-5 overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10`}>
+                  {/* Left: creative + info (col-span-2 = 40%) */}
+                  <div className={`${mobileTab === 'comments' ? 'hidden md:flex' : 'flex'} md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-5 overflow-y-auto space-y-4 bg-zinc-50/15 dark:bg-zinc-950/10 h-full`}>
 
-                    {/* Creative */}
-                    <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-zinc-100 dark:bg-zinc-900">
-                      {!mediaData || resolvingIds[selectedAd.adId] ? (
-                        <div className="aspect-square flex flex-col items-center justify-center gap-2">
-                          <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
-                          <span className="text-[10px] text-zinc-400 font-bold">Cargando creativo...</span>
-                        </div>
-                      ) : mediaData.type === 'carousel' && mediaData.cards?.length > 0 ? (() => {
-                        const card = mediaData.cards[panelCarouselIndex];
-                        return (
-                          <div>
-                            <div className="relative aspect-square bg-zinc-50 dark:bg-zinc-950">
-                              {card.isVideo && card.videoSrc ? (
-                                panelPlayingVideo ? (
-                                  <video src={card.videoSrc} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="absolute inset-0 w-full h-full object-contain bg-black" />
-                                ) : (
-                                  <div className="absolute inset-0 cursor-pointer" onClick={() => setPanelPlayingVideo(true)}>
-                                    {card.url ? <img src={card.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800"><Film className="w-8 h-8 text-zinc-400" /></div>}
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30"><div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div></div>
-                                  </div>
-                                )
-                              ) : card.url ? (
-                                <img src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-contain transition-all duration-300" />
-                              ) : (
-                                <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
-                              )}
-                              {mediaData.cards.length > 1 && (
-                                <>
-                                  <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex - 1 + mediaData.cards.length) % mediaData.cards.length); setPanelPlayingVideo(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-all z-10"><ChevronLeft className="w-4 h-4" /></button>
-                                  <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex + 1) % mediaData.cards.length); setPanelPlayingVideo(false); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-all z-10"><ChevronRight className="w-4 h-4" /></button>
-                                </>
-                              )}
-                            </div>
-                            {mediaData.cards.length > 1 && (
-                              <div className="flex justify-center gap-1 py-2 bg-zinc-50 dark:bg-zinc-950">
-                                {mediaData.cards.map((_: any, idx: number) => (
-                                  <button key={idx} onClick={() => { setPanelCarouselIndex(idx); setPanelPlayingVideo(false); }} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === panelCarouselIndex ? 'bg-violet-500 scale-125' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
-                                ))}
-                              </div>
+                    {/* Creative — mismo patrón que RedesSociales */}
+                    {(!mediaData || resolvingIds[selectedAd.adId]) ? (
+                      <div className="rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 aspect-square w-full flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
+                        <span className="text-[10px] text-zinc-400 font-bold">Cargando creativo...</span>
+                      </div>
+                    ) : mediaData.type === 'video_source' ? (
+                      <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm w-full aspect-square relative flex items-center justify-center">
+                        <video
+                          src={mediaData.source || undefined}
+                          poster={mediaData.picture || thumbUrl || undefined}
+                          controls
+                          preload="none"
+                          playsInline
+                          {...{ referrerPolicy: 'no-referrer' }}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : mediaData.type === 'carousel' && mediaData.cards?.length > 0 ? (() => {
+                      const card = mediaData.cards[panelCarouselIndex];
+                      return (
+                        <div className="rounded-2xl overflow-hidden border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm w-full">
+                          <div className="relative aspect-square bg-zinc-50 dark:bg-zinc-950">
+                            {card.isVideo && card.videoSrc ? (
+                              <video src={card.videoSrc} poster={card.url || undefined} controls preload="none" playsInline {...{ referrerPolicy: 'no-referrer' }} className="absolute inset-0 w-full h-full object-contain bg-black" />
+                            ) : card.url ? (
+                              <SmoothImage src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} containerClassName="absolute inset-0 w-full h-full" className="object-cover" />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
                             )}
-                            {card.name && <p className="px-3 pb-2.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 text-center truncate bg-zinc-50 dark:bg-zinc-950">{card.name}</p>}
+                            {mediaData.cards.length > 1 && (
+                              <>
+                                <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex - 1 + mediaData.cards.length) % mediaData.cards.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronLeft className="w-4 h-4" /></button>
+                                <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex + 1) % mediaData.cards.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronRight className="w-4 h-4" /></button>
+                              </>
+                            )}
                           </div>
-                        );
-                      })() : mediaData.type === 'video_source' ? (
-                        panelPlayingVideo ? (
-                          <video src={mediaData.source || undefined} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full aspect-video object-contain bg-black" />
-                        ) : (
-                          <div className="relative aspect-video cursor-pointer bg-zinc-950" onClick={() => setPanelPlayingVideo(true)}>
-                            {(mediaData.picture || thumbUrl) ? <img src={mediaData.picture || thumbUrl || ''} alt="" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center"><Film className="w-8 h-8 text-zinc-400" /></div>}
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30"><div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-6 h-6 fill-zinc-900 text-zinc-900 ml-0.5" /></div></div>
-                          </div>
-                        )
-                      ) : mediaData.type === 'image' ? (
-                        <img src={mediaData.url || undefined} alt={selectedAd.name} referrerPolicy="no-referrer" className="w-full h-auto" />
-                      ) : mediaData.type === 'ad_preview' && mediaData.embed_html ? (() => {
-                        const resizedHtml = mediaData.embed_html
-                          .replace(/width="\d+"/g, 'width="100%"')
-                          .replace(/height="\d+"/g, 'height="320"')
-                          .replace(/<iframe/g, `<iframe style="width:100%;height:320px;border:none;"`);
-                        const cleanHtml = DOMPurify.sanitize(resizedHtml, {
-                          ADD_TAGS: ['iframe'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style', 'src', 'width', 'height'],
-                        });
-                        return <div className="w-full overflow-hidden" style={{ height: 320 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
-                      })() : thumbUrl ? (
-                        <img src={thumbUrl} alt={selectedAd.name} referrerPolicy="no-referrer" className="w-full h-auto" />
-                      ) : (
-                        <div className="aspect-square flex items-center justify-center"><ImageIcon className="w-10 h-10 text-zinc-300 dark:text-zinc-600" /></div>
-                      )}
-                    </div>
+                          {mediaData.cards.length > 1 && (
+                            <div className="flex justify-center gap-1.5 py-2.5 bg-zinc-50 dark:bg-zinc-950">
+                              {mediaData.cards.map((_: any, idx: number) => (
+                                <button key={idx} onClick={() => setPanelCarouselIndex(idx)} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === panelCarouselIndex ? 'bg-violet-500 scale-125' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
+                              ))}
+                            </div>
+                          )}
+                          {card.name && <p className="px-3 pb-2.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 text-center truncate bg-zinc-50 dark:bg-zinc-950">{card.name}</p>}
+                        </div>
+                      );
+                    })() : mediaData.type === 'image' || thumbUrl ? (
+                      <div className="rounded-2xl overflow-hidden bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm w-full aspect-square relative flex items-center justify-center">
+                        <SmoothImage
+                          src={(mediaData.type === 'image' ? mediaData.url : thumbUrl) || ''}
+                          alt={selectedAd.name}
+                          containerClassName="w-full h-full"
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : mediaData.type === 'ad_preview' && mediaData.embed_html ? (() => {
+                      const resizedHtml = mediaData.embed_html
+                        .replace(/width="\d+"/g, 'width="100%"')
+                        .replace(/height="\d+"/g, 'height="400"')
+                        .replace(/<iframe/g, `<iframe style="width:100%;height:400px;border:none;"`);
+                      const cleanHtml = DOMPurify.sanitize(resizedHtml, {
+                        ADD_TAGS: ['iframe'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style', 'src', 'width', 'height'],
+                      });
+                      return <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 w-full" style={{ height: 400 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
+                    })() : (
+                      <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800 aspect-square w-full flex flex-col items-center justify-center text-zinc-400 gap-2">
+                        <ImageIcon className="w-8 h-8" />
+                        <span className="text-[11px] font-bold">Sin preview disponible</span>
+                      </div>
+                    )}
 
                     {/* Ad name */}
                     <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
@@ -993,8 +996,8 @@ export default function MetaAdsPage() {
                     </div>
                   </div>
 
-                  {/* Right: Comments */}
-                  <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} flex-1 overflow-y-auto flex-col`}>
+                  {/* Right: Comments (col-span-3 = 60%) */}
+                  <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} md:col-span-3 overflow-y-auto flex-col`}>
 
                     {/* Platform switcher (right panel header) — only when both platforms */}
                     {hasBothPlatforms && (
