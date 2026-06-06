@@ -4,6 +4,15 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
+const META_DOMAINS = ['fbcdn.net', 'facebook.com', 'facebookmobi.com', 'cdninstagram.com', 'instagram.com', 'fb.com'];
+function isMetaUrl(urlStr: string): boolean {
+  try {
+    const u = new URL(urlStr);
+    if (u.protocol !== 'https:') return false;
+    return META_DOMAINS.some(d => u.hostname === d || u.hostname.endsWith('.' + d));
+  } catch { return false; }
+}
+
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -45,8 +54,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { adId, creativeId, videoId, action, url, filename } = req.query;
 
   if (action === 'download') {
-    if (!url || typeof url !== 'string') {
-      return res.status(400).json({ error: 'url parameter is required for download' });
+    if (!url || typeof url !== 'string' || !isMetaUrl(url)) {
+      return res.status(400).json({ error: 'url must be a valid Meta/Facebook CDN URL' });
     }
     try {
       const mediaRes = await fetch(url);

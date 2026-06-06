@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { metaAds, daysAgo, today, presetToRange, DatePreset } from '../services/metaAds';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -170,10 +171,14 @@ const CreativePreviewModal = ({ preview, prefetchedData, onClose }: {
                   aspect = `${w}/${h}`;
                 }
               }
-              const cleanHtml = mediaData.embed_html
+              const resizedHtml = mediaData.embed_html
                 .replace(/width="\d+"/g, 'width="100%"')
                 .replace(/height="\d+"/g, 'height="100%"')
                 .replace(/<iframe/g, `<iframe style="width:100%;height:100%;aspect-ratio:${aspect};max-height:80vh;border:none;"`);
+              const cleanHtml = DOMPurify.sanitize(resizedHtml, {
+                ADD_TAGS: ['iframe'],
+                ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style', 'src', 'width', 'height'],
+              });
               
               return (
                 <div 

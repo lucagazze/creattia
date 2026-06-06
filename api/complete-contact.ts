@@ -20,12 +20,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).send('Missing Google credential token');
     }
 
-    // Determine redirect target origin based on the request host
-    const host = req.headers.host || 'car.algoritmiadesarrollos.com.ar';
-    const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
+    // Use hardcoded production domain — never trust req.headers.host for redirects
+    const host = req.headers.host || '';
+    const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const redirectBase = isLocal ? `http://${host}` : 'https://car.algoritmiadesarrollos.com.ar';
 
     res.writeHead(302, {
-      Location: `${protocol}://${host}/?id_token=${encodeURIComponent(credential)}`
+      Location: `${redirectBase}/?id_token=${encodeURIComponent(credential)}`
     });
     res.end();
     return;

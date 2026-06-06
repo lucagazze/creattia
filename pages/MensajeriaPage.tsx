@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -73,10 +74,7 @@ const renderMessageContent = (msg: any, contactName = 'Cliente', onImageClick?: 
   let contentNode = null;
 
   if (hasHtml) {
-    // Strip script and iframe tags to avoid XSS
-    const cleanHtml = htmlToRender
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+    const cleanHtml = DOMPurify.sanitize(htmlToRender, { USE_PROFILES: { html: true } });
 
     contentNode = (
       <div 

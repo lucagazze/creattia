@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
+    "@types/dompurify": "^3.0.5",
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.8",
     "lucide-react": "^0.363.0",
     "ogg-opus-decoder": "^1.7.3",
     "react": "^18.2.0",
