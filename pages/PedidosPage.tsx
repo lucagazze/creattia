@@ -17,28 +17,37 @@ const fmtCurr = (n: number) => {
   return `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
+// Argentina is UTC-3, no DST. All date strings use this timezone.
+const TZ = 'America/Argentina/Buenos_Aires';
+// Returns YYYY-MM-DD in Argentina time
+const toArgYMD = (d: Date): string =>
+  new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(d);
+const argDateStr = (offsetDays = 0): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return toArgYMD(d);
+};
+const todayStr     = () => argDateStr(0);
+const daysAgo      = (n: number) => argDateStr(-n);
+const yesterdayStr = () => argDateStr(-1);
+
 const fmtDate = (iso: string) => {
   const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  const toStr = (d: Date) => d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  if (toStr(d) === toStr(today)) return { label: toStr(d), tag: 'Hoy', time };
-  if (toStr(d) === toStr(yesterday)) return { label: toStr(d), tag: 'Ayer', time };
-  return { label: toStr(d), tag: null, time };
+  const label = d.toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' });
+  const parts = new Intl.DateTimeFormat('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+  const h = parts.find(p => p.type === 'hour')?.value ?? '00';
+  const m = parts.find(p => p.type === 'minute')?.value ?? '00';
+  const time = `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+  const ymd = toArgYMD(d);
+  if (ymd === argDateStr(0))  return { label, tag: 'Hoy',  time };
+  if (ymd === argDateStr(-1)) return { label, tag: 'Ayer', time };
+  return { label, tag: null, time };
 };
 
 const fmtDateTime = (iso: string) => {
   const d = new Date(iso);
-  return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 };
-
-const todayStr = () => new Date().toISOString().split('T')[0];
-const daysAgo = (n: number) => {
-  const d = new Date(); d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
-};
-const yesterdayStr = () => daysAgo(1);
 
 // ─── badges ───────────────────────────────────────────────────────────────
 
