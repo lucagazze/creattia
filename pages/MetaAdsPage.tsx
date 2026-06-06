@@ -822,7 +822,7 @@ export default function MetaAdsPage() {
                     {/* Creative */}
                     <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-zinc-100 dark:bg-zinc-900">
                       {!mediaData || resolvingIds[selectedAd.adId] ? (
-                        <div className="h-48 flex flex-col items-center justify-center gap-2">
+                        <div className="aspect-square flex flex-col items-center justify-center gap-2">
                           <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
                           <span className="text-[10px] text-zinc-400 font-bold">Cargando creativo...</span>
                         </div>
@@ -830,20 +830,20 @@ export default function MetaAdsPage() {
                         const card = mediaData.cards[panelCarouselIndex];
                         return (
                           <div>
-                            <div className="relative h-56 bg-zinc-50 dark:bg-zinc-950">
+                            <div className="relative aspect-square bg-zinc-50 dark:bg-zinc-950">
                               {card.isVideo && card.videoSrc ? (
                                 panelPlayingVideo ? (
-                                  <video src={card.videoSrc} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full h-full object-contain bg-black" />
+                                  <video src={card.videoSrc} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="absolute inset-0 w-full h-full object-contain bg-black" />
                                 ) : (
-                                  <div className="relative h-full cursor-pointer" onClick={() => setPanelPlayingVideo(true)}>
+                                  <div className="absolute inset-0 cursor-pointer" onClick={() => setPanelPlayingVideo(true)}>
                                     {card.url ? <img src={card.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800"><Film className="w-8 h-8 text-zinc-400" /></div>}
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/30"><div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div></div>
                                   </div>
                                 )
                               ) : card.url ? (
-                                <img src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} referrerPolicy="no-referrer" className="w-full h-full object-contain transition-all duration-300" />
+                                <img src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-contain transition-all duration-300" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
+                                <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
                               )}
                               {mediaData.cards.length > 1 && (
                                 <>
@@ -864,32 +864,28 @@ export default function MetaAdsPage() {
                         );
                       })() : mediaData.type === 'video_source' ? (
                         panelPlayingVideo ? (
-                          <video src={mediaData.source || undefined} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full max-h-64 object-contain bg-black" />
+                          <video src={mediaData.source || undefined} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full aspect-video object-contain bg-black" />
                         ) : (
-                          <div className="relative h-56 cursor-pointer bg-zinc-950" onClick={() => setPanelPlayingVideo(true)}>
-                            {(mediaData.picture || thumbUrl) ? <img src={mediaData.picture || thumbUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center"><Film className="w-8 h-8 text-zinc-400" /></div>}
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30"><div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div></div>
+                          <div className="relative aspect-video cursor-pointer bg-zinc-950" onClick={() => setPanelPlayingVideo(true)}>
+                            {(mediaData.picture || thumbUrl) ? <img src={mediaData.picture || thumbUrl || ''} alt="" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center"><Film className="w-8 h-8 text-zinc-400" /></div>}
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30"><div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-6 h-6 fill-zinc-900 text-zinc-900 ml-0.5" /></div></div>
                           </div>
                         )
                       ) : mediaData.type === 'image' ? (
-                        <div className="h-56 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
-                          <img src={mediaData.url || undefined} alt={selectedAd.name} referrerPolicy="no-referrer" className="max-w-full max-h-56 w-full h-full object-contain" />
-                        </div>
+                        <img src={mediaData.url || undefined} alt={selectedAd.name} referrerPolicy="no-referrer" className="w-full h-auto" />
                       ) : mediaData.type === 'ad_preview' && mediaData.embed_html ? (() => {
                         const resizedHtml = mediaData.embed_html
                           .replace(/width="\d+"/g, 'width="100%"')
-                          .replace(/height="\d+"/g, 'height="280"')
-                          .replace(/<iframe/g, `<iframe style="width:100%;height:280px;border:none;"`);
+                          .replace(/height="\d+"/g, 'height="320"')
+                          .replace(/<iframe/g, `<iframe style="width:100%;height:320px;border:none;"`);
                         const cleanHtml = DOMPurify.sanitize(resizedHtml, {
                           ADD_TAGS: ['iframe'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style', 'src', 'width', 'height'],
                         });
-                        return <div className="w-full overflow-hidden" style={{ height: 280 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
+                        return <div className="w-full overflow-hidden" style={{ height: 320 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
                       })() : thumbUrl ? (
-                        <div className="h-56 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
-                          <img src={thumbUrl} alt={selectedAd.name} referrerPolicy="no-referrer" className="max-w-full max-h-56 w-full h-full object-contain" />
-                        </div>
+                        <img src={thumbUrl} alt={selectedAd.name} referrerPolicy="no-referrer" className="w-full h-auto" />
                       ) : (
-                        <div className="h-36 flex items-center justify-center"><ImageIcon className="w-10 h-10 text-zinc-300 dark:text-zinc-600" /></div>
+                        <div className="aspect-square flex items-center justify-center"><ImageIcon className="w-10 h-10 text-zinc-300 dark:text-zinc-600" /></div>
                       )}
                     </div>
 
