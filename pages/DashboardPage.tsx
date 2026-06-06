@@ -2683,7 +2683,12 @@ export default function DashboardPage() {
                           <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">
                             {order.customer_name}
                           </span>
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                            {order.customer?.orders_count === 1 && (
+                              <span className="text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                1er pedido
+                              </span>
+                            )}
                             <span className={`text-[7px] font-bold px-1 py-0.5 rounded uppercase tracking-wider ${paymentColor}`}>
                               {paymentText}
                             </span>

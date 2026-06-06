@@ -133,11 +133,18 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
 
         {/* Cliente */}
         <td className="px-3 sm:px-4 py-3 max-w-[120px] sm:max-w-none">
-          <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{customerName}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{customerName}</p>
+            {order.customer?.orders_count === 1 && (
+              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                1er pedido
+              </span>
+            )}
+          </div>
           {order.customer?.email && (
             <p className="text-[10px] text-zinc-400 truncate hidden sm:block mt-0.5">{order.customer.email}</p>
           )}
-          {/* On mobile: show date tag + fulfillment inline */}
+          {/* On mobile: show date tag + time inline */}
           <div className="flex items-center gap-1.5 mt-1 sm:hidden">
             {dateTag && (
               <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded ${
