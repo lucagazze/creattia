@@ -35,9 +35,11 @@ type SelectedAd = {
   ad: any;
   adId: string;
   name: string;
-  platform: 'instagram' | 'facebook';
-  storyId: string;
-  permalink: string | null;
+  body: string | null;
+  igStoryId: string | null;
+  fbStoryId: string | null;
+  igPermalink: string | null;
+  fbPermalink: string | null;
 };
 
 export default function MetaAdsPage() {
@@ -45,7 +47,6 @@ export default function MetaAdsPage() {
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
 
-  // Profile fields used for comments
   const fbPageId = (profile as any)?.fb_page_id;
   const igId = (profile as any)?.ig_business_id;
   const igUsername = (profile as any)?.ig_username;
@@ -78,8 +79,16 @@ export default function MetaAdsPage() {
 
   // ── Slide-over state ─────────────────────────────────────────────────────────
   const [selectedAd, setSelectedAd] = useState<SelectedAd | null>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [loadingComments, setLoadingComments] = useState(false);
+
+  // Comments per platform (both fetched in parallel)
+  const [commentsByPlatform, setCommentsByPlatform] = useState<{ instagram: any[]; facebook: any[] }>({ instagram: [], facebook: [] });
+  const [activeCommentPlatform, setActiveCommentPlatform] = useState<'instagram' | 'facebook'>('instagram');
+  const [loadingByPlatform, setLoadingByPlatform] = useState<{ instagram: boolean; facebook: boolean }>({ instagram: false, facebook: false });
+
+  // Derived: currently visible comments + loading flag
+  const comments = commentsByPlatform[activeCommentPlatform];
+  const loadingComments = loadingByPlatform[activeCommentPlatform];
+
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
   const [draftLoading, setDraftLoading] = useState<Record<string, boolean>>({});
@@ -111,17 +120,13 @@ export default function MetaAdsPage() {
   const [prevProfileId, setPrevProfileId] = useState(profile?.id);
   if (profile?.id !== prevProfileId) {
     setPrevProfileId(profile?.id);
-    setActiveAds([]);
-    setAdInsightsMap({});
-    setCampaignMap({});
-    setResolvedThumbnails({});
-    setResolvedDetails({});
-    setResolvingIds({});
+    setActiveAds([]); setAdInsightsMap({}); setCampaignMap({});
+    setResolvedThumbnails({}); setResolvedDetails({}); setResolvingIds({});
     setLoading(true);
     setSelectedAd(null);
   }
 
-  // ── Keyboard / click-outside handlers ───────────────────────────────────────
+  // ── Keyboard / click-outside ─────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) setShowDatePicker(false);
@@ -155,6 +160,16 @@ export default function MetaAdsPage() {
     );
     return !isFromPage(sorted[sorted.length - 1]);
   }, [isFromPage]);
+
+  // Switch platform tab and reset reply UI
+  const switchCommentPlatform = useCallback((platform: 'instagram' | 'facebook') => {
+    setActiveCommentPlatform(platform);
+    setOpenReplies({});
+    setReplyTexts({});
+    setReplyErrors({});
+    setLikedIds({});
+    setCommentFilter('pending');
+  }, []);
 
   // ── Date picker helpers ──────────────────────────────────────────────────────
   const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
@@ -257,7 +272,7 @@ export default function MetaAdsPage() {
 
   useEffect(() => { fetchAds(activeSince, activeUntil); }, [profile?.id, activeSince, activeUntil]);
 
-  // ── Sliding-window thumbnail resolver (4 parallel) ───────────────────────────
+  // ── Sliding-window thumbnail resolver ───────────────────────────────────────
   useEffect(() => {
     const accountId = metaAccountId;
     if (!accountId || activeAds.length === 0) return;
@@ -266,8 +281,7 @@ export default function MetaAdsPage() {
     if (activeCount >= 4) return;
     const toResolve = activeAds.filter(ad => !resolvedDetails[ad.id] && !resolvingIds[ad.id]);
     if (toResolve.length === 0) return;
-    const limit = 4 - activeCount;
-    const batch = toResolve.slice(0, limit);
+    const batch = toResolve.slice(0, 4 - activeCount);
     if (batch.length === 0) return;
     setResolvingIds(prev => { const next = { ...prev }; batch.forEach(ad => { next[ad.id] = true; }); return next; });
     batch.forEach(async (ad) => {
@@ -277,7 +291,7 @@ export default function MetaAdsPage() {
       if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
       try {
         const res = await fetch(`/api/meta-video?${params}`);
-        if (!res.ok) throw new Error('Fetch failed');
+        if (!res.ok) throw new Error();
         const data = await res.json();
         if (!isMounted) return;
         let thumbnail: string | null = null;
@@ -297,68 +311,74 @@ export default function MetaAdsPage() {
 
   // ── Open ad slide-over ───────────────────────────────────────────────────────
   const openAd = useCallback(async (ad: any) => {
-    const hasIG = !!ad.creative?.effective_instagram_story_id;
-    const platform: 'instagram' | 'facebook' = hasIG ? 'instagram' : 'facebook';
-    const storyId = hasIG
-      ? ad.creative.effective_instagram_story_id
-      : (ad.creative?.effective_object_story_id || '');
+    const igStoryId: string | null = ad.creative?.effective_instagram_story_id || null;
+    const fbStoryId: string | null = ad.creative?.effective_object_story_id || null;
 
-    let permalink: string | null = null;
-    if (platform === 'instagram') {
-      permalink = ad.creative?.instagram_permalink_url || null;
-    } else {
-      const sid = ad.creative?.effective_object_story_id;
-      if (sid?.includes('_')) {
-        const [pId, ptId] = sid.split('_');
-        permalink = `https://www.facebook.com/permalink.php?story_fbid=${ptId}&id=${pId}`;
+    const igPermalink: string | null = ad.creative?.instagram_permalink_url || null;
+    let fbPermalink: string | null = null;
+    if (fbStoryId?.includes('_')) {
+      const [pId, ptId] = fbStoryId.split('_');
+      fbPermalink = `https://www.facebook.com/permalink.php?story_fbid=${ptId}&id=${pId}`;
+    }
+
+    const body: string | null =
+      ad.creative?.body ||
+      ad.creative?.object_story_spec?.link_data?.message ||
+      ad.creative?.object_story_spec?.video_data?.message ||
+      null;
+
+    const initialPlatform: 'instagram' | 'facebook' = igStoryId ? 'instagram' : 'facebook';
+
+    setSelectedAd({ ad, adId: ad.id, name: ad.name, body, igStoryId, fbStoryId, igPermalink, fbPermalink });
+    setCommentsByPlatform({ instagram: [], facebook: [] });
+    setActiveCommentPlatform(initialPlatform);
+    setLoadingByPlatform({ instagram: !!igStoryId, facebook: !!fbStoryId });
+    setOpenReplies({}); setReplyTexts({}); setReplyErrors({}); setLikedIds({});
+    setCommentFilter('pending'); setMobileTab('comments');
+    setPanelCarouselIndex(0); setPanelPlayingVideo(false);
+
+    const resolveName = (c: any, fallback: string) =>
+      c.username || c.from?.username || c.from?.name || c.name ||
+      (c.from?.id ? `Usuario ${String(c.from.id).slice(-6)}` : fallback);
+
+    const normalizeComment = (c: any, idx: number) => ({
+      ...c,
+      username: resolveName(c, `Usuario ${idx + 1}`),
+      text: c.text || c.message || '',
+      timestamp: c.timestamp || c.created_time || new Date().toISOString(),
+      attachment: c.attachment || null,
+      from: c.from || null,
+      replies: c.replies
+        ? { data: (c.replies.data || []).map((r: any, ri: number) => ({
+              ...r,
+              username: resolveName(r, `Usuario ${ri + 1}`),
+              text: r.text || r.message || '',
+              timestamp: r.timestamp || r.created_time || new Date().toISOString(),
+              attachment: r.attachment || null,
+              from: r.from || null,
+            })) }
+        : { data: [] },
+    });
+
+    const fetchForPlatform = async (storyId: string, platform: 'instagram' | 'facebook') => {
+      try {
+        const res = await metaAds.getAdCreativeComments(storyId, platform, fbPageId || undefined);
+        const fresh = (res.data || []).filter((c: any) => !isFromPage(c)).map(normalizeComment);
+        setCommentsByPlatform(prev => ({ ...prev, [platform]: fresh }));
+      } catch { /* keep empty */ } finally {
+        setLoadingByPlatform(prev => ({ ...prev, [platform]: false }));
       }
-    }
+    };
 
-    setSelectedAd({ ad, adId: ad.id, name: ad.name, platform, storyId, permalink });
-    setComments([]);
-    setOpenReplies({});
-    setReplyTexts({});
-    setReplyErrors({});
-    setLikedIds({});
-    setCommentFilter('pending');
-    setMobileTab('comments');
-    setPanelCarouselIndex(0);
-    setPanelPlayingVideo(false);
+    const fetches: Promise<void>[] = [];
+    if (igStoryId) fetches.push(fetchForPlatform(igStoryId, 'instagram'));
+    if (fbStoryId) fetches.push(fetchForPlatform(fbStoryId, 'facebook'));
+    if (fetches.length === 0) setLoadingByPlatform({ instagram: false, facebook: false });
 
-    if (!storyId) return;
-
-    setLoadingComments(true);
-    try {
-      const res = await metaAds.getAdCreativeComments(storyId, platform, fbPageId || undefined);
-      const resolveName = (c: any, fallback: string) =>
-        c.username || c.from?.username || c.from?.name || c.name ||
-        (c.from?.id ? `Usuario ${String(c.from.id).slice(-6)}` : fallback);
-      const normalizeComment = (c: any, idx: number) => ({
-        ...c,
-        username: resolveName(c, `Usuario ${idx + 1}`),
-        text: c.text || c.message || '',
-        timestamp: c.timestamp || c.created_time || new Date().toISOString(),
-        attachment: c.attachment || null,
-        from: c.from || null,
-        replies: c.replies
-          ? { data: (c.replies.data || []).map((r: any, ri: number) => ({
-                ...r,
-                username: resolveName(r, `Usuario ${ri + 1}`),
-                text: r.text || r.message || '',
-                timestamp: r.timestamp || r.created_time || new Date().toISOString(),
-                attachment: r.attachment || null,
-                from: r.from || null,
-              })) }
-          : { data: [] },
-      });
-      const fresh = (res.data || []).filter((c: any) => !isFromPage(c)).map(normalizeComment);
-      setComments(fresh);
-    } catch { /* keep empty */ } finally {
-      setLoadingComments(false);
-    }
+    Promise.all(fetches);
   }, [fbPageId, isFromPage]);
 
-  // ── Generate AI draft ────────────────────────────────────────────────────────
+  // ── AI draft ─────────────────────────────────────────────────────────────────
   const generateDraft = async (comment: any, replyTarget?: any) => {
     if (!selectedAd || !clientId) return;
     const target = replyTarget || comment;
@@ -368,20 +388,16 @@ export default function MetaAdsPage() {
     setDraftLoading(prev => ({ ...prev, [comment.id]: true }));
     setReplyErrors(prev => ({ ...prev, [comment.id]: null }));
     try {
-      const allComments = comments.map((c: any) => ({ username: c.username, text: c.text || c.message || '', reply: c.reply }));
+      const allComments = comments.map((c: any) => ({ username: c.username, text: c.text || c.message || '' }));
       const { data: { session: freshSession } } = await supabase.auth.getSession();
       const token = freshSession?.access_token || '';
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
-          clientId,
-          itemText: text,
-          username: target.username,
-          postCaption: selectedAd.name,
-          allComments,
-          postPlatform: selectedAd.platform,
-          forceLang: lang,
+          clientId, itemText: text, username: target.username,
+          postCaption: selectedAd.name, allComments,
+          postPlatform: activeCommentPlatform, forceLang: lang,
         }),
       });
       if (!res.ok) throw new Error();
@@ -405,7 +421,7 @@ export default function MetaAdsPage() {
   const bulkGenerateDrafts = async () => {
     if (!selectedAd || !clientId) return;
     setBulkLoading(true);
-    const pending = comments.filter(c => isCommentPending(c, selectedAd.platform));
+    const pending = comments.filter(c => isCommentPending(c, activeCommentPlatform));
     setOpenReplies(prev => { const copy = { ...prev }; pending.forEach(c => { copy[c.id] = true; }); return copy; });
     await Promise.all(pending.map(c => generateDraft(c)));
     setBulkLoading(false);
@@ -418,13 +434,16 @@ export default function MetaAdsPage() {
     if (!text || !selectedAd) return;
     const localId = `local_${Date.now()}`;
     const newReply = { id: localId, username: igUsername || 'Yo', text, timestamp: new Date().toISOString(), from: { id: fbPageId, name: 'Yo' }, isSending: true };
-    setComments(prev => prev.map(c => c.id !== comment.id ? c : { ...c, replies: { data: [...(c.replies?.data || []), newReply] } }));
+    const updateComments = (updater: (arr: any[]) => any[]) => {
+      setCommentsByPlatform(prev => ({ ...prev, [activeCommentPlatform]: updater(prev[activeCommentPlatform]) }));
+    };
+    updateComments(arr => arr.map(c => c.id !== comment.id ? c : { ...c, replies: { data: [...(c.replies?.data || []), newReply] } }));
     setReplyTexts(prev => { const copy = { ...prev }; delete copy[comment.id]; return copy; });
     setOpenReplies(prev => ({ ...prev, [comment.id]: false }));
     setSubmitting(prev => ({ ...prev, [comment.id]: true }));
     setReplyErrors(prev => ({ ...prev, [comment.id]: null }));
     try {
-      if (selectedAd.platform === 'instagram') {
+      if (activeCommentPlatform === 'instagram') {
         await metaAds.replyToInstagramComment(comment.id, text, fbPageId || undefined);
       } else {
         await metaAds.replyToFacebookComment(comment.id, text);
@@ -432,19 +451,15 @@ export default function MetaAdsPage() {
       setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
       if (user?.id && clientId) {
         db.activity.log(user.id, clientId, 'reply_sent', {
-          reply_text: text,
-          incoming_text: comment.text || comment.message || '',
-          platform: selectedAd.platform,
-          item_id: comment.id,
-          user_email: user.email || '',
+          reply_text: text, incoming_text: comment.text || '', platform: activeCommentPlatform, item_id: comment.id, user_email: user.email || '',
         }).catch(() => {});
       }
-      setComments(prev => prev.map(c => {
+      updateComments(arr => arr.map(c => {
         if (c.id !== comment.id) return c;
         return { ...c, replies: { data: (c.replies?.data || []).map((r: any) => r.id === localId ? { ...r, isSending: false } : r) } };
       }));
     } catch {
-      setComments(prev => prev.map(c => {
+      updateComments(arr => arr.map(c => {
         if (c.id !== comment.id) return c;
         return { ...c, replies: { data: (c.replies?.data || []).filter((r: any) => r.id !== localId) } };
       }));
@@ -460,27 +475,24 @@ export default function MetaAdsPage() {
   const toggleLike = async (commentId: string) => {
     if (!selectedAd) return;
     const liked = !!likedIds[commentId];
+    const updateComments = (updater: (arr: any[]) => any[]) => {
+      setCommentsByPlatform(prev => ({ ...prev, [activeCommentPlatform]: updater(prev[activeCommentPlatform]) }));
+    };
     try {
       if (liked) {
-        await metaAds.unlikeComment(commentId, selectedAd.platform, igId, fbPageId || undefined);
+        await metaAds.unlikeComment(commentId, activeCommentPlatform, igId, fbPageId || undefined);
         setLikedIds(prev => ({ ...prev, [commentId]: false }));
-        setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: Math.max(0, (c.like_count || 0) - 1) } : c));
+        updateComments(arr => arr.map(c => c.id === commentId ? { ...c, like_count: Math.max(0, (c.like_count || 0) - 1) } : c));
       } else {
-        await metaAds.likeComment(commentId, selectedAd.platform, igId, fbPageId || undefined);
+        await metaAds.likeComment(commentId, activeCommentPlatform, igId, fbPageId || undefined);
         setLikedIds(prev => ({ ...prev, [commentId]: true }));
-        setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c));
+        updateComments(arr => arr.map(c => c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c));
       }
     } catch { /* silent */ }
   };
 
   // ── Misc helpers ─────────────────────────────────────────────────────────────
-  const fmtN = (n: any) => {
-    const v = parseInt(n);
-    if (isNaN(v)) return '—';
-    if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
-    return String(v);
-  };
-
+  const fmtN = (n: any) => { const v = parseInt(n); if (isNaN(v)) return '—'; if (v >= 1000) return `${(v / 1000).toFixed(1)}K`; return String(v); };
   const accountId = metaAccountId;
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -506,11 +518,7 @@ export default function MetaAdsPage() {
               onClick={() => setShowDatePicker(!showDatePicker)}
               className="flex items-center gap-2 px-4 h-9 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full text-[12px] font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm"
             >
-              {loading && activeAds.length > 0 ? (
-                <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
-              ) : (
-                <Calendar className="w-3.5 h-3.5 text-blue-500" />
-              )}
+              {loading && activeAds.length > 0 ? <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" /> : <Calendar className="w-3.5 h-3.5 text-blue-500" />}
               {presetLabel}
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
             </button>
@@ -518,37 +526,20 @@ export default function MetaAdsPage() {
               <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[290px] sm:w-[320px] md:w-auto origin-top-right">
                 <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible no-scrollbar">
                   {PRESETS.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id); setPendingSince(r.since); setPendingUntil(r.until); }}
-                      className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-                    >
-                      {p.label}
-                    </button>
+                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
                 <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
                   <div className="flex flex-col md:flex-row gap-4 md:gap-8">
-                    <MiniCal
-                      year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering}
-                      onDay={(iso: string) => {
-                        setPendingPreset('custom');
-                        if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); }
-                        else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } }
-                      }}
+                    <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering}
+                      onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }}
                       onHover={setHovering}
                       onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else setCalMonth(calMonth - 1); }}
                       onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else setCalMonth(calMonth + 1); }}
                     />
                     <div className="hidden md:block">
-                      <MiniCal
-                        year={calMonth === 11 ? calYear + 1 : calYear} month={calMonth === 11 ? 0 : calMonth + 1}
-                        since={pendingSince} until={pendingUntil} hovering={hovering}
-                        onDay={(iso: string) => {
-                          setPendingPreset('custom');
-                          if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); }
-                          else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } }
-                        }}
+                      <MiniCal year={calMonth === 11 ? calYear + 1 : calYear} month={calMonth === 11 ? 0 : calMonth + 1} since={pendingSince} until={pendingUntil} hovering={hovering}
+                        onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }}
                         onHover={setHovering}
                         onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else setCalMonth(calMonth + 1); }}
                       />
@@ -636,17 +627,11 @@ export default function MetaAdsPage() {
                       const resultLabel = purchases > 0 ? 'Ventas' : leads > 0 ? 'Leads' : messages > 0 ? 'Msgs' : 'Result.';
                       const isVideo = ad.creative?.object_type === 'VIDEO' || !!ad.creative?.video_id;
                       const isCarousel = resolvedDetails[ad.id]?.type === 'carousel' || ad.creative?.object_type === 'CAROUSEL';
-                      const resolvedThumb = resolvedThumbnails[ad.id];
-                      const thumbUrl = resolvedThumb || ad.creative?.image_url || ad.creative?.thumbnail_url;
+                      const thumbUrl = resolvedThumbnails[ad.id] || ad.creative?.image_url || ad.creative?.thumbnail_url;
                       const isResolving = resolvingIds[ad.id];
 
                       return (
-                        <div
-                          key={ad.id}
-                          className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 shadow-sm hover:shadow-lg hover:border-zinc-300 dark:hover:border-zinc-700 transition-all duration-200 flex flex-col cursor-pointer"
-                          onClick={() => openAd(ad)}
-                        >
-                          {/* Thumbnail */}
+                        <div key={ad.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900/50 shadow-sm hover:shadow-lg hover:border-zinc-300 dark:hover:border-zinc-700 transition-all duration-200 flex flex-col cursor-pointer" onClick={() => openAd(ad)}>
                           <div className="relative w-full h-52 bg-zinc-100 dark:bg-zinc-800 group overflow-hidden flex-shrink-0">
                             {thumbUrl ? (<>
                               <img src={thumbUrl} alt="" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60" aria-hidden />
@@ -671,8 +656,6 @@ export default function MetaAdsPage() {
                             {!isVideo && isCarousel && (<div className="absolute top-2 right-2 z-30 flex items-center gap-1 bg-black/60 text-white px-2 py-0.5 rounded-full text-[9px] font-bold uppercase backdrop-blur-sm"><Layers className="w-3 h-3" /> Carousel</div>)}
                             <div className="absolute top-2 left-2 z-30"><span className="text-[9px] font-black px-2 py-1 rounded-lg bg-emerald-500/90 backdrop-blur-sm text-white uppercase tracking-wider">Activo</span></div>
                           </div>
-
-                          {/* Info */}
                           <div className="p-4 flex flex-col gap-3 flex-1">
                             <div>
                               <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2">{ad.name || 'Sin nombre'}</p>
@@ -713,7 +696,7 @@ export default function MetaAdsPage() {
           );
         })()}
 
-        {/* ── SLIDE-OVER ────────────────────────────────────────────────────── */}
+        {/* ── SLIDE-OVER ──────────────────────────────────────────────────────── */}
         {selectedAd && (() => {
           const mediaData = resolvedDetails[selectedAd.adId];
           const insights = adInsightsMap[selectedAd.adId];
@@ -726,7 +709,15 @@ export default function MetaAdsPage() {
           const adRoas = parseFloat(insights?.purchase_roas?.[0]?.value || 0);
           const adCtr = parseFloat(insights?.inline_link_click_ctr || 0);
           const thumbUrl = resolvedThumbnails[selectedAd.adId] || selectedAd.ad.creative?.image_url || selectedAd.ad.creative?.thumbnail_url;
-          const pendingCount = comments.filter(c => isCommentPending(c, selectedAd.platform));
+
+          const pendingCount = comments.filter(c => isCommentPending(c, activeCommentPlatform)).length;
+          const hasBothPlatforms = !!(selectedAd.igStoryId && selectedAd.fbStoryId);
+          const activePermalink = activeCommentPlatform === 'instagram' ? selectedAd.igPermalink : selectedAd.fbPermalink;
+
+          const igTotal = commentsByPlatform.instagram.length;
+          const fbTotal = commentsByPlatform.facebook.length;
+          const igPending = commentsByPlatform.instagram.filter(c => isCommentPending(c, 'instagram')).length;
+          const fbPending = commentsByPlatform.facebook.filter(c => isCommentPending(c, 'facebook')).length;
 
           return (
             <div className="fixed inset-0 z-[400] flex justify-end animate-in fade-in duration-200">
@@ -737,15 +728,15 @@ export default function MetaAdsPage() {
                 {/* Header */}
                 <div className="px-4 md:px-6 py-3 md:py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 flex items-center justify-between flex-shrink-0 gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white ${selectedAd.platform === 'instagram' ? 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600' : 'bg-blue-600'}`}>
-                      {selectedAd.platform === 'instagram' ? <Instagram className="w-4 h-4" /> : <Facebook className="w-4 h-4" />}
+                    <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white ${activeCommentPlatform === 'instagram' ? 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600' : 'bg-blue-600'}`}>
+                      {activeCommentPlatform === 'instagram' ? <Instagram className="w-4 h-4" /> : <Facebook className="w-4 h-4" />}
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-black text-zinc-900 dark:text-white text-[13px] md:text-[15px] leading-tight truncate">{selectedAd.name || 'Anuncio'}</h3>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Anuncio activo</span>
-                        {!loadingComments && pendingCount.length > 0 && (
-                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">{pendingCount.length} sin responder</span>
+                        {!loadingComments && pendingCount > 0 && (
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{pendingCount} sin responder</span>
                         )}
                       </div>
                     </div>
@@ -753,46 +744,39 @@ export default function MetaAdsPage() {
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       onClick={bulkGenerateDrafts}
-                      disabled={bulkLoading || pendingCount.length === 0}
+                      disabled={bulkLoading || pendingCount === 0}
                       className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 dark:hover:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-xl text-[11px] font-black border border-violet-100/50 dark:border-violet-900/20 transition-all disabled:opacity-50"
                     >
                       {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      <span className="hidden md:inline">Generar borradores para todos ({pendingCount.length})</span>
-                      <span className="md:hidden">{pendingCount.length > 0 && <span className="text-[10px] font-black">{pendingCount.length}</span>}</span>
+                      <span className="hidden md:inline">Generar borradores ({pendingCount})</span>
+                      <span className="md:hidden">{pendingCount > 0 && <span className="text-[10px] font-black">{pendingCount}</span>}</span>
                     </button>
-                    {selectedAd.permalink && (
-                      <a href={selectedAd.permalink} target="_blank" rel="noreferrer"
-                        className="inline-flex items-center gap-1 p-1.5 md:px-3 md:py-1.5 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl text-[11px] text-zinc-600 dark:text-zinc-300 font-bold border border-zinc-200 dark:border-zinc-700 transition-all">
+                    {activePermalink && (
+                      <a href={activePermalink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 p-1.5 md:px-3 md:py-1.5 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl text-[11px] text-zinc-600 dark:text-zinc-300 font-bold border border-zinc-200 dark:border-zinc-700 transition-all">
                         <ArrowUpRight className="w-3.5 h-3.5" />
                         <span className="hidden md:inline">Ver original</span>
                       </a>
                     )}
-                    <button onClick={() => setSelectedAd(null)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
-                      <X className="w-5 h-5" />
-                    </button>
+                    <button onClick={() => setSelectedAd(null)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"><X className="w-5 h-5" /></button>
                   </div>
                 </div>
 
                 {/* Mobile tab bar */}
                 <div className="md:hidden flex border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
-                  <button onClick={() => setMobileTab('post')} className={`flex-1 py-2.5 text-[12px] font-black transition-colors ${mobileTab === 'post' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                    Anuncio
-                  </button>
+                  <button onClick={() => setMobileTab('post')} className={`flex-1 py-2.5 text-[12px] font-black transition-colors ${mobileTab === 'post' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>Anuncio</button>
                   <button onClick={() => setMobileTab('comments')} className={`flex-1 py-2.5 text-[12px] font-black transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'comments' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
                     Comentarios
-                    {!loadingComments && comments.length > 0 && (
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>
-                    )}
+                    {!loadingComments && comments.length > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>}
                   </button>
                 </div>
 
                 {/* Body */}
                 <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
 
-                  {/* Left: Ad creative + insights */}
+                  {/* Left: creative + info */}
                   <div className={`${mobileTab === 'comments' ? 'hidden md:flex' : 'flex'} md:w-[300px] flex-shrink-0 flex-col border-r border-zinc-100 dark:border-zinc-800 p-5 overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10`}>
 
-                    {/* Creative preview */}
+                    {/* Creative */}
                     <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-zinc-100 dark:bg-zinc-900">
                       {!mediaData || resolvingIds[selectedAd.adId] ? (
                         <div className="h-48 flex flex-col items-center justify-center gap-2">
@@ -803,21 +787,14 @@ export default function MetaAdsPage() {
                         const card = mediaData.cards[panelCarouselIndex];
                         return (
                           <div>
-                            {/* Fixed-height image area — arrows use top-1/2 relative to this */}
                             <div className="relative h-56 bg-zinc-50 dark:bg-zinc-950">
                               {card.isVideo && card.videoSrc ? (
                                 panelPlayingVideo ? (
                                   <video src={card.videoSrc} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full h-full object-contain bg-black" />
                                 ) : (
                                   <div className="relative h-full cursor-pointer" onClick={() => setPanelPlayingVideo(true)}>
-                                    {card.url ? (
-                                      <img src={card.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800"><Film className="w-8 h-8 text-zinc-400" /></div>
-                                    )}
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                      <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div>
-                                    </div>
+                                    {card.url ? <img src={card.url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800"><Film className="w-8 h-8 text-zinc-400" /></div>}
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30"><div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div></div>
                                   </div>
                                 )
                               ) : card.url ? (
@@ -825,7 +802,6 @@ export default function MetaAdsPage() {
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
                               )}
-                              {/* Arrows — correctly centered on the image area only */}
                               {mediaData.cards.length > 1 && (
                                 <>
                                   <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex - 1 + mediaData.cards.length) % mediaData.cards.length); setPanelPlayingVideo(false); }} className="absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-all z-10"><ChevronLeft className="w-4 h-4" /></button>
@@ -833,7 +809,6 @@ export default function MetaAdsPage() {
                                 </>
                               )}
                             </div>
-                            {/* Dots + caption outside the relative container */}
                             {mediaData.cards.length > 1 && (
                               <div className="flex justify-center gap-1 py-2 bg-zinc-50 dark:bg-zinc-950">
                                 {mediaData.cards.map((_: any, idx: number) => (
@@ -841,9 +816,7 @@ export default function MetaAdsPage() {
                                 ))}
                               </div>
                             )}
-                            {card.name && (
-                              <p className="px-3 pb-2.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 text-center truncate bg-zinc-50 dark:bg-zinc-950">{card.name}</p>
-                            )}
+                            {card.name && <p className="px-3 pb-2.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 text-center truncate bg-zinc-50 dark:bg-zinc-950">{card.name}</p>}
                           </div>
                         );
                       })() : mediaData.type === 'video_source' ? (
@@ -851,14 +824,8 @@ export default function MetaAdsPage() {
                           <video src={mediaData.source || undefined} controls autoPlay playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full max-h-64 object-contain bg-black" />
                         ) : (
                           <div className="relative h-56 cursor-pointer bg-zinc-950" onClick={() => setPanelPlayingVideo(true)}>
-                            {(mediaData.picture || thumbUrl) ? (
-                              <img src={mediaData.picture || thumbUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center"><Film className="w-8 h-8 text-zinc-400" /></div>
-                            )}
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div>
-                            </div>
+                            {(mediaData.picture || thumbUrl) ? <img src={mediaData.picture || thumbUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center"><Film className="w-8 h-8 text-zinc-400" /></div>}
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30"><div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg"><Play className="w-5 h-5 fill-zinc-900 text-zinc-900 ml-0.5" /></div></div>
                           </div>
                         )
                       ) : mediaData.type === 'image' ? (
@@ -871,8 +838,7 @@ export default function MetaAdsPage() {
                           .replace(/height="\d+"/g, 'height="280"')
                           .replace(/<iframe/g, `<iframe style="width:100%;height:280px;border:none;"`);
                         const cleanHtml = DOMPurify.sanitize(resizedHtml, {
-                          ADD_TAGS: ['iframe'],
-                          ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style', 'src', 'width', 'height'],
+                          ADD_TAGS: ['iframe'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style', 'src', 'width', 'height'],
                         });
                         return <div className="w-full overflow-hidden" style={{ height: 280 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
                       })() : thumbUrl ? (
@@ -885,17 +851,23 @@ export default function MetaAdsPage() {
                     </div>
 
                     {/* Ad name */}
-                    {selectedAd.name && (
+                    <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
+                      <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Nombre</p>
+                      <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.name}</p>
+                    </div>
+
+                    {/* Description/body */}
+                    {selectedAd.body && (
                       <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
-                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Nombre del anuncio</p>
-                        <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.name}</p>
+                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Descripción</p>
+                        <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium line-clamp-5">{selectedAd.body}</p>
                       </div>
                     )}
 
-                    {/* Insights */}
+                    {/* Performance */}
                     {insights && (
                       <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
+                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Rendimiento</p>
                         {[
                           { label: 'Gasto', val: `$${adSpend.toFixed(0)}` },
                           { label: purchases > 0 ? 'Ventas' : leads > 0 ? 'Leads' : 'Resultados', val: adResults > 0 ? String(adResults) : '—', highlight: adResults > 0 },
@@ -910,37 +882,75 @@ export default function MetaAdsPage() {
                       </div>
                     )}
 
-                    {/* Comment stats */}
+                    {/* Comment counts per platform */}
                     <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                      <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Comentarios</p>
-                      <div className="flex items-center justify-between text-[12px] font-bold">
-                        <span className="text-zinc-600 dark:text-zinc-400">Total</span>
-                        <span className="text-zinc-900 dark:text-white">{comments.length}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[12px] font-bold">
-                        <span className="text-amber-600 dark:text-amber-400">Sin responder</span>
-                        <span className="text-amber-600 dark:text-amber-400">{pendingCount.length}</span>
-                      </div>
+                      <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Comentarios</p>
+                      {selectedAd.igStoryId && (
+                        <button onClick={() => switchCommentPlatform('instagram')} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
+                          <span className="flex items-center gap-1.5 text-pink-500"><Instagram className="w-3 h-3" /> Instagram</span>
+                          <span className="flex items-center gap-1.5">
+                            {loadingByPlatform.instagram ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : (
+                              <span className="text-zinc-900 dark:text-white">{igTotal}</span>
+                            )}
+                            {igPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{igPending} pend.</span>}
+                          </span>
+                        </button>
+                      )}
+                      {selectedAd.fbStoryId && (
+                        <button onClick={() => switchCommentPlatform('facebook')} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
+                          <span className="flex items-center gap-1.5 text-blue-500"><Facebook className="w-3 h-3" /> Facebook</span>
+                          <span className="flex items-center gap-1.5">
+                            {loadingByPlatform.facebook ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : (
+                              <span className="text-zinc-900 dark:text-white">{fbTotal}</span>
+                            )}
+                            {fbPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{fbPending} pend.</span>}
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Right: Comments */}
                   <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} flex-1 overflow-y-auto flex-col`}>
 
-                    {/* Filter toggle */}
+                    {/* Platform switcher (right panel header) — only when both platforms */}
+                    {hasBothPlatforms && (
+                      <div className="flex items-center gap-1.5 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
+                        <button
+                          onClick={() => switchCommentPlatform('instagram')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400 border-pink-200/60 dark:border-pink-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                        >
+                          <Instagram className="w-3.5 h-3.5" />
+                          Instagram
+                          {loadingByPlatform.instagram
+                            ? <Loader2 className="w-3 h-3 animate-spin opacity-50" />
+                            : <span className={`text-[9px] font-black px-1 py-0.5 rounded-full ${igPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{igTotal}</span>
+                          }
+                        </button>
+                        <button
+                          onClick={() => switchCommentPlatform('facebook')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-200/60 dark:border-blue-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                        >
+                          <Facebook className="w-3.5 h-3.5" />
+                          Facebook
+                          {loadingByPlatform.facebook
+                            ? <Loader2 className="w-3 h-3 animate-spin opacity-50" />
+                            : <span className={`text-[9px] font-black px-1 py-0.5 rounded-full ${fbPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{fbTotal}</span>
+                          }
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Pending / all filter */}
                     {!loadingComments && comments.length > 0 && (
                       <div className="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
                         <button onClick={() => setCommentFilter('pending')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all ${commentFilter === 'pending' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                           Sin responder
-                          <span className={`text-[9px] min-w-[18px] h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'pending' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>
-                            {pendingCount.length}
-                          </span>
+                          <span className={`text-[9px] min-w-[18px] h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'pending' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{pendingCount}</span>
                         </button>
                         <button onClick={() => setCommentFilter('all')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all ${commentFilter === 'all' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                           Todos
-                          <span className={`text-[9px] min-w-[18px] h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>
-                            {comments.length}
-                          </span>
+                          <span className={`text-[9px] min-w-[18px] h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{comments.length}</span>
                         </button>
                       </div>
                     )}
@@ -952,20 +962,22 @@ export default function MetaAdsPage() {
                         <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                           <MessageCircle className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />
                           <p className="text-[13px] font-bold text-zinc-500">Sin comentarios de usuarios</p>
+                          {!selectedAd.igStoryId && !selectedAd.fbStoryId && (
+                            <p className="text-[11px] text-zinc-400">Este anuncio no tiene story ID disponible para cargar comentarios.</p>
+                          )}
                         </div>
                       ) : (
                         [...comments]
-                          .filter(c => commentFilter === 'all' || isCommentPending(c, selectedAd.platform))
+                          .filter(c => commentFilter === 'all' || isCommentPending(c, activeCommentPlatform))
                           .sort((a, b) => new Date(b.timestamp || b.created_time || 0).getTime() - new Date(a.timestamp || a.created_time || 0).getTime())
                           .map(comment => {
-                            const isPending = isCommentPending(comment, selectedAd.platform);
+                            const isPending = isCommentPending(comment, activeCommentPlatform);
                             const liked = !!likedIds[comment.id];
                             const replyOpen = !!openReplies[comment.id];
                             const replies = comment.replies?.data || [];
                             return (
                               <div key={comment.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl overflow-hidden transition-all ${isPending ? 'border-amber-200 dark:border-amber-800/40 shadow-sm' : 'border-zinc-200/60 dark:border-zinc-800/60'}`}>
                                 <div className="p-4">
-                                  {/* Comment header */}
                                   <div className="flex items-start justify-between gap-2 mb-2">
                                     <div className="flex items-center gap-2">
                                       <div className="w-7 h-7 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[11px] font-black text-zinc-500 dark:text-zinc-400 flex-shrink-0">
@@ -989,7 +1001,6 @@ export default function MetaAdsPage() {
                                     </div>
                                   </div>
 
-                                  {/* Comment text */}
                                   {comment.attachment?.media?.image?.src ? (
                                     <div className="ml-9 mt-1">
                                       <img src={comment.attachment.media.image.src} alt={comment.attachment.type || 'sticker'} referrerPolicy="no-referrer" className="max-w-[100px] max-h-[100px] rounded-lg object-contain" />
@@ -999,7 +1010,6 @@ export default function MetaAdsPage() {
                                     <p className="text-[13px] text-zinc-800 dark:text-zinc-100 leading-relaxed font-medium ml-9">{comment.text || comment.message}</p>
                                   )}
 
-                                  {/* Existing replies */}
                                   {replies.length > 0 && (
                                     <div className="ml-9 mt-3 space-y-2 pl-3 border-l-2 border-zinc-100 dark:border-zinc-800">
                                       {replies.map((r: any) => {
@@ -1022,22 +1032,12 @@ export default function MetaAdsPage() {
                                     </div>
                                   )}
 
-                                  {/* Action buttons */}
                                   <div className="mt-3 ml-9 flex items-center gap-2">
-                                    <button
-                                      onClick={() => {
-                                        const nextOpen = !replyOpen;
-                                        setOpenReplies(prev => ({ ...prev, [comment.id]: nextOpen }));
-                                        setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null }));
-                                        setReplyTexts(prev => ({ ...prev, [comment.id]: '' }));
-                                      }}
-                                      className="text-[11px] font-black text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition-colors"
-                                    >
+                                    <button onClick={() => { const nextOpen = !replyOpen; setOpenReplies(prev => ({ ...prev, [comment.id]: nextOpen })); setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null })); setReplyTexts(prev => ({ ...prev, [comment.id]: '' })); }} className="text-[11px] font-black text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition-colors">
                                       {replyOpen ? 'Cancelar' : 'Responder'}
                                     </button>
                                   </div>
 
-                                  {/* Reply box */}
                                   {replyOpen && (
                                     <div className="mt-3 ml-9 space-y-2 animate-in fade-in duration-200">
                                       {replyErrors[comment.id] && <p className="text-[10px] text-red-500 font-bold">{replyErrors[comment.id]}</p>}
