@@ -11,6 +11,7 @@ import { supabase } from '../services/supabase';
 import {
   Layers, Film, X, Loader2, ImageIcon, ChevronLeft, ChevronRight, Calendar, ChevronDown,
   Instagram, MessageCircle, Heart, Send, Sparkles, ArrowUpRight, Play, Facebook,
+  Share2, Eye, MousePointerClick, Users,
 } from 'lucide-react';
 
 // ── AutoResizeTextarea ────────────────────────────────────────────────────────
@@ -254,7 +255,7 @@ export default function MetaAdsPage() {
     setLoading(true);
     setResolvedThumbnails({}); setResolvedDetails({}); setResolvingIds({});
     const tr = { since: since || activeSince, until: until || activeUntil };
-    const adFields = 'ad_id,spend,impressions,reach,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas';
+    const adFields = 'ad_id,spend,impressions,reach,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas,video_30_sec_watched_actions,video_p100_watched_actions';
     Promise.all([
       metaAds.getAccountAds(accountId),
       metaAds.getAdInsightsForAccount(accountId, adFields, tr).catch(() => []),
@@ -617,14 +618,20 @@ export default function MetaAdsPage() {
                       const insights = adInsightsMap[ad.id];
                       const adSpend = parseFloat(insights?.spend || 0);
                       const adActions = insights?.actions || [];
-                      const getR = (type: string) => { const a = adActions.find((x: any) => x.action_type === type || x.action_type === `offsite_conversion.fb_pixel_${type}`); return a ? parseInt(a.value) : 0; };
-                      const purchases = getR('purchase'); const leads = getR('lead'); const messages = getR('onsite_conversion.messaging_conversation_started_7d');
+                      const getA = (type: string) => { const a = adActions.find((x: any) => x.action_type === type || x.action_type === `offsite_conversion.fb_pixel_${type}`); return a ? parseInt(a.value) : 0; };
+                      const purchases = getA('purchase'); const leads = getA('lead'); const messages = getA('onsite_conversion.messaging_conversation_started_7d');
                       const adResults = purchases || leads || messages;
                       const adCpa = adResults > 0 ? adSpend / adResults : 0;
                       const adImpr = parseInt(insights?.impressions || 0);
                       const adCtr = parseFloat(insights?.inline_link_click_ctr || 0);
                       const adRoas = parseFloat(insights?.purchase_roas?.[0]?.value || 0);
                       const resultLabel = purchases > 0 ? 'Ventas' : leads > 0 ? 'Leads' : messages > 0 ? 'Msgs' : 'Result.';
+                      const adReactions = getA('post_reaction');
+                      const adComments = getA('comment');
+                      const adShares = getA('post');
+                      const adClicks = parseInt(insights?.inline_link_clicks || 0);
+                      const adVideoViews = parseInt(insights?.video_30_sec_watched_actions?.[0]?.value || 0) || getA('video_view');
+                      const adReach = parseInt(insights?.reach || 0);
                       const isVideo = ad.creative?.object_type === 'VIDEO' || !!ad.creative?.video_id;
                       const isCarousel = resolvedDetails[ad.id]?.type === 'carousel' || ad.creative?.object_type === 'CAROUSEL';
                       const thumbUrl = resolvedThumbnails[ad.id] || ad.creative?.image_url || ad.creative?.thumbnail_url;
@@ -661,13 +668,14 @@ export default function MetaAdsPage() {
                               <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2">{ad.name || 'Sin nombre'}</p>
                               {ad.creative?.object_type && (<p className="text-[10px] text-zinc-400 mt-0.5 font-semibold uppercase tracking-wider">{ad.creative.object_type}</p>)}
                             </div>
-                            {insights && (
+                            {insights && (<>
                               <div className="grid grid-cols-4 gap-2">
                                 {[
                                   { label: 'Gasto', val: `$${adSpend.toFixed(0)}`, highlight: false },
                                   { label: resultLabel, val: adResults > 0 ? String(adResults) : '—', highlight: adResults > 0 },
                                   { label: 'CPA', val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—', highlight: false },
                                   { label: adRoas > 0 ? 'ROAS' : 'CTR', val: adRoas > 0 ? `${adRoas.toFixed(2)}x` : adCtr > 0 ? `${adCtr.toFixed(1)}%` : '—', highlight: adRoas > 1 },
+                                  { label: 'Alcance', val: fmtN(adReach), highlight: false },
                                   { label: 'Impr.', val: fmtN(adImpr), highlight: false },
                                 ].map(({ label, val, highlight }) => (
                                   <div key={label} className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-2.5 border border-zinc-100 dark:border-white/[0.04]">
@@ -676,7 +684,16 @@ export default function MetaAdsPage() {
                                   </div>
                                 ))}
                               </div>
-                            )}
+                              {(adReactions > 0 || adComments > 0 || adShares > 0 || adClicks > 0 || adVideoViews > 0) && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {adReactions > 0 && <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 text-[10px] font-black"><Heart className="w-2.5 h-2.5 fill-pink-500" />{fmtN(adReactions)}</span>}
+                                  {adComments > 0 && <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] font-black"><MessageCircle className="w-2.5 h-2.5" />{fmtN(adComments)}</span>}
+                                  {adShares > 0 && <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black"><Share2 className="w-2.5 h-2.5" />{fmtN(adShares)}</span>}
+                                  {adClicks > 0 && <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 text-[10px] font-black"><MousePointerClick className="w-2.5 h-2.5" />{fmtN(adClicks)}</span>}
+                                  {adVideoViews > 0 && <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black"><Eye className="w-2.5 h-2.5" />{fmtN(adVideoViews)}</span>}
+                                </div>
+                              )}
+                            </>)}
                             <div className="flex items-center gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-auto" onClick={e => e.stopPropagation()}>
                               <a href={ad.creative?.effective_object_story_id ? (ad.creative.effective_object_story_id.includes('_') ? (() => { const [pId, ptId] = ad.creative.effective_object_story_id.split('_'); return `https://www.facebook.com/permalink.php?story_fbid=${ptId}&id=${pId}`; })() : `https://facebook.com/${ad.creative.effective_object_story_id}`) : `https://www.facebook.com/ads/library/?id=${ad.creative?.id || ad.id}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-[#1877F2] bg-[#1877F2]/8 dark:bg-[#1877F2]/10 hover:bg-[#1877F2]/15">
                                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>FB
@@ -708,6 +725,14 @@ export default function MetaAdsPage() {
           const adCpa = adResults > 0 ? adSpend / adResults : 0;
           const adRoas = parseFloat(insights?.purchase_roas?.[0]?.value || 0);
           const adCtr = parseFloat(insights?.inline_link_click_ctr || 0);
+          const adReactions = getR('post_reaction');
+          const adComments = getR('comment');
+          const adShares = getR('post');
+          const adClicks = parseInt(insights?.inline_link_clicks || 0);
+          const adVideoViews = parseInt(insights?.video_30_sec_watched_actions?.[0]?.value || 0) || getR('video_view');
+          const adVideoCompletions = parseInt(insights?.video_p100_watched_actions?.[0]?.value || 0);
+          const adReach = parseInt(insights?.reach || 0);
+          const adImpr = parseInt(insights?.impressions || 0);
           const thumbUrl = resolvedThumbnails[selectedAd.adId] || selectedAd.ad.creative?.image_url || selectedAd.ad.creative?.thumbnail_url;
 
           const pendingCount = comments.filter(c => isCommentPending(c, activeCommentPlatform)).length;
@@ -867,18 +892,65 @@ export default function MetaAdsPage() {
                     {/* Performance */}
                     {insights && (
                       <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Rendimiento</p>
+                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
                         {[
                           { label: 'Gasto', val: `$${adSpend.toFixed(0)}` },
                           { label: purchases > 0 ? 'Ventas' : leads > 0 ? 'Leads' : 'Resultados', val: adResults > 0 ? String(adResults) : '—', highlight: adResults > 0 },
                           { label: 'CPA', val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—' },
                           { label: adRoas > 0 ? 'ROAS' : 'CTR', val: adRoas > 0 ? `${adRoas.toFixed(2)}x` : adCtr > 0 ? `${adCtr.toFixed(1)}%` : '—', highlight: adRoas > 1 },
+                          { label: 'Alcance', val: fmtN(adReach) },
+                          { label: 'Impresiones', val: fmtN(adImpr) },
                         ].map(({ label, val, highlight }: any) => (
                           <div key={label} className="flex items-center justify-between text-[12px] font-bold">
                             <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
                             <span className={highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}>{val}</span>
                           </div>
                         ))}
+                        {(adReactions > 0 || adComments > 0 || adShares > 0 || adClicks > 0 || adVideoViews > 0) && (
+                          <>
+                            <div className="border-t border-zinc-100 dark:border-zinc-800 pt-2 mt-2">
+                              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Engagement</p>
+                              <div className="space-y-1">
+                                {adReactions > 0 && (
+                                  <div className="flex items-center justify-between text-[12px] font-bold">
+                                    <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"><Heart className="w-3 h-3 text-pink-500 fill-pink-500" /> Me gustas</span>
+                                    <span className="text-zinc-900 dark:text-white">{fmtN(adReactions)}</span>
+                                  </div>
+                                )}
+                                {adComments > 0 && (
+                                  <div className="flex items-center justify-between text-[12px] font-bold">
+                                    <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"><MessageCircle className="w-3 h-3 text-blue-500" /> Comentarios</span>
+                                    <span className="text-zinc-900 dark:text-white">{fmtN(adComments)}</span>
+                                  </div>
+                                )}
+                                {adShares > 0 && (
+                                  <div className="flex items-center justify-between text-[12px] font-bold">
+                                    <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"><Share2 className="w-3 h-3 text-emerald-500" /> Compartidos</span>
+                                    <span className="text-zinc-900 dark:text-white">{fmtN(adShares)}</span>
+                                  </div>
+                                )}
+                                {adClicks > 0 && (
+                                  <div className="flex items-center justify-between text-[12px] font-bold">
+                                    <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"><MousePointerClick className="w-3 h-3 text-violet-500" /> Clics</span>
+                                    <span className="text-zinc-900 dark:text-white">{fmtN(adClicks)}</span>
+                                  </div>
+                                )}
+                                {adVideoViews > 0 && (
+                                  <div className="flex items-center justify-between text-[12px] font-bold">
+                                    <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"><Eye className="w-3 h-3 text-amber-500" /> Vistas (30s)</span>
+                                    <span className="text-zinc-900 dark:text-white">{fmtN(adVideoViews)}</span>
+                                  </div>
+                                )}
+                                {adVideoCompletions > 0 && (
+                                  <div className="flex items-center justify-between text-[12px] font-bold">
+                                    <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400"><Play className="w-3 h-3 text-amber-500" /> Vistas completas</span>
+                                    <span className="text-zinc-900 dark:text-white">{fmtN(adVideoCompletions)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
 
