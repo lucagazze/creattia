@@ -2795,10 +2795,14 @@ export default function DashboardPage() {
                       </p>
                     )}
                   </div>
-                  {selectedOrder.customer && (
+                  {selectedOrder.customer && (selectedOrder.customer.orders_count != null || selectedOrder.customer.total_spent != null) && (
                     <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px] font-medium text-zinc-450 dark:text-zinc-550">
-                      <span>Historial: <strong className="text-zinc-750 dark:text-zinc-300">{selectedOrder.customer.orders_count} pedidos</strong></span>
-                      <span>Total: <strong className="text-zinc-750 dark:text-zinc-300">${selectedOrder.customer.total_spent?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</strong></span>
+                      <span>Historial: <strong className="text-zinc-750 dark:text-zinc-300">{selectedOrder.customer.orders_count ?? '—'} pedidos</strong></span>
+                      <span>Total: <strong className="text-zinc-750 dark:text-zinc-300">
+                        {selectedOrder.customer.total_spent != null
+                          ? `$${Number(selectedOrder.customer.total_spent).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+                          : '—'}
+                      </strong></span>
                     </div>
                   )}
                 </div>
