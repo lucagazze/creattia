@@ -131,7 +131,7 @@ const renderMessageContent = (msg: any, contactName = 'Cliente', onImageClick?: 
             if (fType.includes('audio') || url.match(/\.(mp3|wav|ogg|oga|opus|m4a)/i)) {
               return (
                 <div key={idx} className="mt-1">
-                  <CustomAudioPlayer src={url} />
+                  <CustomAudioPlayer src={url} mimeType={fType} />
                 </div>
               );
             }

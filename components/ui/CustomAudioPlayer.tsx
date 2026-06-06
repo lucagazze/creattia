@@ -1,82 +1,100 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Download, AlertCircle } from 'lucide-react';
+import { Play, Pause, Loader2 } from 'lucide-react';
 
 interface Props {
   src: string;
+  mimeType?: string;
 }
 
-export const CustomAudioPlayer: React.FC<Props> = ({ src }) => {
+// Cached once per session — result never changes
+let _canPlayOgg: boolean | null = null;
+const browserCanPlayOgg = () => {
+  if (_canPlayOgg === null) {
+    const a = new Audio();
+    _canPlayOgg = a.canPlayType('audio/ogg; codecs=opus') !== '' || a.canPlayType('audio/ogg') !== '';
+  }
+  return _canPlayOgg;
+};
+
+const isOggLike = (src: string, mimeType?: string) =>
+  /\.(ogg|oga|opus)(\?|$)/i.test(src) ||
+  !!(mimeType && (mimeType.includes('ogg') || mimeType.includes('opus')));
+
+const toProxyUrl = (src: string) => `/api/audio-proxy?url=${encodeURIComponent(src)}`;
+
+export const CustomAudioPlayer: React.FC<Props> = ({ src, mimeType }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [loadError, setLoadError] = useState(false);
+  const [converting, setConverting] = useState(false);
+
+  const needsProxy = isOggLike(src, mimeType) && !browserCanPlayOgg();
+  const [activeSrc, setActiveSrc] = useState(() => needsProxy ? toProxyUrl(src) : src);
+
+  useEffect(() => {
+    const np = isOggLike(src, mimeType) && !browserCanPlayOgg();
+    setActiveSrc(np ? toProxyUrl(src) : src);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setLoadError(false);
+    setConverting(np);
+  }, [src, mimeType]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Reset state on source change
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
-    setLoadError(false);
-
-    const onTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
-
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
     const onLoadedMetadata = () => {
-      if (audio.duration && !isNaN(audio.duration)) {
-        setDuration(audio.duration);
+      setConverting(false);
+      if (audio.duration && !isNaN(audio.duration)) setDuration(audio.duration);
+    };
+    const onCanPlay = () => setConverting(false);
+    const onEnded = () => setIsPlaying(false);
+    const onError = () => {
+      // If we haven't tried the proxy yet, fall back to it
+      if (activeSrc !== toProxyUrl(src)) {
+        setActiveSrc(toProxyUrl(src));
+        setConverting(true);
+        setLoadError(false);
+      } else {
+        setConverting(false);
+        setLoadError(true);
       }
-    };
-
-    const onEnded = () => {
-      setIsPlaying(false);
-    };
-
-    const onError = (e: any) => {
-      console.warn("Audio element failed to load source:", src, e);
-      setLoadError(true);
     };
 
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('canplay', onCanPlay);
     audio.addEventListener('ended', onEnded);
     audio.addEventListener('error', onError);
 
-    // Some browsers don't fire loadedmetadata reliably for streaming sources (like rails blobs),
-    // we can check if it already has duration
     if (audio.readyState >= 1 && audio.duration && !isNaN(audio.duration)) {
       setDuration(audio.duration);
+      setConverting(false);
     }
 
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('canplay', onCanPlay);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
     };
-  }, [src]);
+  }, [src, activeSrc]);
 
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
     const audio = audioRef.current;
     if (!audio) return;
-
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
     } else {
-      audio.play()
-        .then(() => {
-          setIsPlaying(true);
-        })
-        .catch(err => {
-          console.warn("Playback error:", err);
-          setLoadError(true);
-        });
+      audio.play().then(() => setIsPlaying(true)).catch(() => setLoadError(true));
     }
   };
 
@@ -98,56 +116,44 @@ export const CustomAudioPlayer: React.FC<Props> = ({ src }) => {
 
   if (loadError) {
     return (
-      <div className="flex flex-col gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl max-w-xs sm:max-w-sm animate-in fade-in duration-200">
-        <div className="flex items-start gap-2 text-[11px] text-amber-700 dark:text-amber-400 font-semibold leading-relaxed">
-          <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold">Formato de audio no compatible</p>
-            <p className="opacity-90 mt-0.5">Safari y iOS no reproducen audios .ogg nativos. Podés descargarlo con el botón de abajo.</p>
-          </div>
-        </div>
-        <a 
-          href={src} 
-          download 
-          target="_blank" 
-          rel="noreferrer"
-          className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-black transition-all shadow-sm shadow-amber-600/10 active:scale-[0.98] w-fit self-end"
-          onClick={e => e.stopPropagation()}
-        >
-          <Download className="w-3.5 h-3.5" /> Descargar audio
-        </a>
+      <div className="flex items-center gap-2 p-3 bg-zinc-100 dark:bg-zinc-900/80 border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl max-w-xs sm:max-w-sm text-[11px] text-zinc-500 dark:text-zinc-400">
+        Audio no disponible
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       className="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200/60 dark:border-zinc-800/80 rounded-2xl w-full max-w-xs sm:max-w-sm shadow-sm hover:shadow-md transition-shadow duration-200 animate-in fade-in duration-200"
       onClick={e => e.stopPropagation()}
     >
-      <audio ref={audioRef} src={src} preload="metadata" />
-      
-      {/* Play/Pause Button */}
-      <button 
-        type="button" 
-        onClick={togglePlay}
-        className="w-9 h-9 rounded-full bg-violet-600 hover:bg-violet-750 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-violet-500/10 active:scale-95 transition-all"
+      <audio ref={audioRef} src={activeSrc} preload="metadata" />
+
+      <button
+        type="button"
+        onClick={converting ? undefined : togglePlay}
+        disabled={converting}
+        className="w-9 h-9 rounded-full bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-violet-500/10 active:scale-95 transition-all"
       >
-        {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+        {converting
+          ? <Loader2 className="w-4 h-4 animate-spin" />
+          : isPlaying
+            ? <Pause className="w-4 h-4 fill-current" />
+            : <Play className="w-4 h-4 fill-current ml-0.5" />}
       </button>
 
-      {/* Progress & Time */}
       <div className="flex-1 flex flex-col gap-1 min-w-0">
-        <input 
+        <input
           type="range"
           min="0"
           max={duration || 100}
           value={currentTime}
           onChange={handleSeek}
-          className="w-full accent-violet-600 cursor-pointer h-1 rounded-full bg-zinc-200 dark:bg-zinc-800"
+          disabled={converting || duration === 0}
+          className="w-full accent-violet-600 cursor-pointer h-1 rounded-full bg-zinc-200 dark:bg-zinc-800 disabled:opacity-50"
         />
         <div className="flex items-center justify-between text-[9px] font-bold text-zinc-400">
-          <span>{formatTime(currentTime)}</span>
+          <span>{converting ? 'Convirtiendo…' : formatTime(currentTime)}</span>
           <span>{duration > 0 ? formatTime(duration) : '—:—'}</span>
         </div>
       </div>
