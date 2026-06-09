@@ -426,13 +426,29 @@ export default function CaptacionPage() {
             }
           }
 
+          const purchases = matchedInsight ? extractActions(matchedInsight.actions, 'purchases') : 0;
+          const leads = matchedInsight ? extractActions(matchedInsight.actions, 'leads') : 0;
+          const messages = matchedInsight ? extractActions(matchedInsight.actions, 'messages') : 0;
+          const results = purchases || leads || messages;
+          const resultLabel = purchases > 0 ? 'Ventas' : leads > 0 ? 'Leads' : messages > 0 ? 'Mensajes' : 'Resultados';
+          const roas = matchedInsight ? parseFloat(matchedInsight.purchase_roas?.[0]?.value || 0) : 0;
+          const purchaseValue = matchedInsight
+            ? parseFloat(matchedInsight.action_values?.find((v: any) => v.action_type === 'purchase' || v.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || 0)
+            : 0;
+          const cpa = results > 0 ? spendInPeriod / results : 0;
+
           return {
             id: c.id,
             name: c.name,
             status: c.status,
             budgetStr,
             spendInPeriod,
-            reachInPeriod
+            reachInPeriod,
+            results,
+            resultLabel,
+            roas,
+            purchaseValue,
+            cpa,
           };
         })
         .sort((a, b) => b.spendInPeriod - a.spendInPeriod);
@@ -818,31 +834,56 @@ export default function CaptacionPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {activeCampaigns.map((camp) => (
               <div
                 key={camp.id}
-                className="p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col justify-between gap-3 hover:border-blue-500/20 dark:hover:border-blue-500/20 transition-all duration-200"
+                className="p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col gap-3 hover:border-blue-500/20 dark:hover:border-blue-500/20 transition-all duration-200"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-snug">
-                      {camp.name}
-                    </p>
-                    <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 uppercase tracking-wider shrink-0">
-                      Activa
-                    </span>
-                  </div>
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-snug">{camp.name}</p>
+                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 uppercase tracking-wider shrink-0">
+                    Activa
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-dashed border-zinc-150 dark:border-zinc-800/60">
-                  <div className="bg-zinc-100/50 dark:bg-white/[0.02] p-2 rounded-xl border border-zinc-200/10">
-                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Presupuesto</span>
-                    <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100">{camp.budgetStr}</span>
+                {/* Metrics grid */}
+                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800/60">
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Gasto</span>
+                    <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">{fmt(camp.spendInPeriod, true)}</span>
                   </div>
-                  <div className="bg-zinc-100/50 dark:bg-white/[0.02] p-2 rounded-xl border border-zinc-200/10">
-                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Invertido (Período)</span>
-                    <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100">{fmt(camp.spendInPeriod, true)}</span>
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">{camp.resultLabel}</span>
+                    <span className={`text-[11px] font-black ${camp.results > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>
+                      {camp.results > 0 ? camp.results : '—'}
+                    </span>
+                  </div>
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Costo/{camp.resultLabel === 'Ventas' ? 'venta' : camp.resultLabel === 'Leads' ? 'lead' : 'result.'}</span>
+                    <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">{camp.cpa > 0 ? fmt(camp.cpa, true) : '—'}</span>
+                  </div>
+                  {camp.roas > 0 ? (
+                    <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                      <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">ROAS</span>
+                      <span className={`text-[11px] font-black ${camp.roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{camp.roas.toFixed(2)}x</span>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                      <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Presupuesto</span>
+                      <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">{camp.budgetStr}</span>
+                    </div>
+                  )}
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Valor generado</span>
+                    <span className={`text-[11px] font-black ${camp.purchaseValue > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400'}`}>
+                      {camp.purchaseValue > 0 ? fmt(camp.purchaseValue, true) : '—'}
+                    </span>
+                  </div>
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Presupuesto</span>
+                    <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">{camp.budgetStr}</span>
                   </div>
                 </div>
               </div>
