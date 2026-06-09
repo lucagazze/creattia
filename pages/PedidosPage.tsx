@@ -135,11 +135,15 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
         <td className="px-3 sm:px-4 py-3 max-w-[120px] sm:max-w-none">
           <div className="flex items-center gap-1.5 flex-wrap">
             <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{customerName}</p>
-            {order.customer?.orders_count === 1 && (
-              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                1er pedido
+            {order.customer?.orders_count === 1 ? (
+              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                ✦ Nuevo
               </span>
-            )}
+            ) : order.customer?.orders_count > 1 ? (
+              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                #{order.customer.orders_count} pedido
+              </span>
+            ) : null}
           </div>
           {order.customer?.email && (
             <p className="text-[10px] text-zinc-400 truncate hidden sm:block mt-0.5">{order.customer.email}</p>
@@ -263,13 +267,24 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
                   <User className="w-3 h-3" /> Cliente
                 </p>
                 {order.customer ? (
-                  <div className="space-y-1">
-                    <p className="text-[13px] font-black text-zinc-800 dark:text-zinc-100">{customerName}</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[13px] font-black text-zinc-800 dark:text-zinc-100">{customerName}</p>
+                      {order.customer.orders_count === 1 ? (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-[3px] rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                          ✦ Nuevo cliente
+                        </span>
+                      ) : order.customer.orders_count > 1 ? (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-[3px] rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          Recurrente · {order.customer.orders_count} pedidos
+                        </span>
+                      ) : null}
+                    </div>
                     {order.customer.email && <p className="text-[11px] text-zinc-500">{order.customer.email}</p>}
                     {order.customer.phone && <p className="text-[11px] text-zinc-500">{order.customer.phone}</p>}
                     {order.customer.orders_count > 0 && (
-                      <p className="text-[10px] text-zinc-400 mt-1.5">
-                        {order.customer.orders_count} pedidos · {fmtCurr(parseFloat(order.customer.total_spent || 0))} total
+                      <p className="text-[10px] text-zinc-400 mt-0.5">
+                        {fmtCurr(parseFloat(order.customer.total_spent || 0))} gastado en total
                       </p>
                     )}
                   </div>
