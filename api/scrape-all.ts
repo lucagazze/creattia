@@ -859,6 +859,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const orders = rawOrders.map(o => normalizeOrder(o, active_platform));
       const recentOrders = rawRecent.map(o => normalizeOrder(o, active_platform));
 
+      // For WC/TN, normalizeOrder hardcodes orders_count:1. Override with batch-computed counts.
+      if (active_platform !== 'shopify') {
+        const emailCounts: Record<string, number> = {};
+        for (const o of orders) {
+          const email = (o.customer?.email || '').toLowerCase().trim();
+          if (email) emailCounts[email] = (emailCounts[email] || 0) + 1;
+        }
+        const applyEmailCounts = (arr: any[]) => {
+          for (const o of arr) {
+            if (o.customer && o.customer.email) {
+              const email = o.customer.email.toLowerCase().trim();
+              o.customer = { ...o.customer, orders_count: emailCounts[email] || 1 };
+            }
+          }
+        };
+        applyEmailCounts(orders);
+        applyEmailCounts(recentOrders);
+      }
+
       const validOrders = orders.filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided');
 
       const totalRevenue = validOrders.reduce((sum: number, o: any) => sum + parseFloat(o.total_price || 0), 0);

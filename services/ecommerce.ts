@@ -139,6 +139,19 @@ export const ecommerce = {
         nextUrl = nextLink;
       }
 
+      // Compute orders_count per customer email from loaded batch (same as WC/TN)
+      const shopifyEmailCounts: Record<string, number> = {};
+      for (const o of allOrders) {
+        const email = (o.customer?.email || '').toLowerCase().trim();
+        if (email) shopifyEmailCounts[email] = (shopifyEmailCounts[email] || 0) + 1;
+      }
+      for (const o of allOrders) {
+        if (o.customer && o.customer.email) {
+          const email = o.customer.email.toLowerCase().trim();
+          o.customer = { ...o.customer, orders_count: shopifyEmailCounts[email] || 1 };
+        }
+      }
+
       ecSetCache(cacheKey, allOrders);
       return allOrders;
     } catch (e) {
