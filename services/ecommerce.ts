@@ -488,6 +488,13 @@ export const ecommerce = {
       page++;
     }
 
+    // Compute orders_count per customer email from loaded batch
+    const tnEmailCounts: Record<string, number> = {};
+    for (const o of allOrders) {
+      const email = (o.customer?.email || '').toLowerCase().trim();
+      if (email) tnEmailCounts[email] = (tnEmailCounts[email] || 0) + 1;
+    }
+
     const normalized = allOrders.map((o: any) => {
       const isCancelled = o.status === 'cancelled';
       const payStatus = o.payment_status;
@@ -511,7 +518,7 @@ export const ecommerce = {
           last_name: (o.customer.name || '').split(' ').slice(1).join(' ') || '',
           email: o.customer.email || '',
           phone: o.customer.phone || '',
-          orders_count: 0,
+          orders_count: tnEmailCounts[(o.customer?.email || '').toLowerCase().trim()] || 0,
           total_spent: '0',
         } : null,
         shipping_address: o.shipping_address ? {
@@ -576,6 +583,13 @@ export const ecommerce = {
       page++;
     }
 
+    // Compute orders_count per customer email from loaded batch
+    const wcEmailCounts: Record<string, number> = {};
+    for (const o of allOrders) {
+      const email = (o.billing?.email || '').toLowerCase().trim();
+      if (email) wcEmailCounts[email] = (wcEmailCounts[email] || 0) + 1;
+    }
+
     // Normalize to Shopify-like shape
     const normalized = allOrders.map((o: any) => ({
       id: o.id,
@@ -596,7 +610,7 @@ export const ecommerce = {
         last_name: o.billing?.last_name || '',
         email: o.billing?.email || '',
         phone: o.billing?.phone || '',
-        orders_count: 0,
+        orders_count: wcEmailCounts[(o.billing?.email || '').toLowerCase().trim()] || 0,
         total_spent: '0',
       },
       shipping_address: o.shipping?.address_1 ? {

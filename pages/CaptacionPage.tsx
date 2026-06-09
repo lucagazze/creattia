@@ -834,21 +834,70 @@ export default function CaptacionPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {activeCampaigns.map((camp) => (
-              <div
-                key={camp.id}
-                className="p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col gap-3 hover:border-blue-500/20 dark:hover:border-blue-500/20 transition-all duration-200"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-snug">{camp.name}</p>
-                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 uppercase tracking-wider shrink-0">
-                    Activa
-                  </span>
-                </div>
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto -mx-1">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-100 dark:border-zinc-800/60">
+                  <th className="pb-2 pr-4 text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider whitespace-nowrap">Campaña</th>
+                  <th className="pb-2 px-4 text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider whitespace-nowrap text-right">Gasto</th>
+                  <th className="pb-2 px-4 text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider whitespace-nowrap text-right">Resultados</th>
+                  <th className="pb-2 px-4 text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider whitespace-nowrap text-right">Costo/result.</th>
+                  <th className="pb-2 px-4 text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider whitespace-nowrap text-right">ROAS</th>
+                  <th className="pb-2 px-4 text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider whitespace-nowrap text-right">Valor gen.</th>
+                  <th className="pb-2 pl-4 text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider whitespace-nowrap text-right">Presupuesto</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/40">
+                {activeCampaigns.map((camp) => (
+                  <tr key={camp.id} className="group hover:bg-zinc-50/60 dark:hover:bg-white/[0.02] transition-colors duration-150">
+                    <td className="py-3 pr-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-extrabold px-1.5 py-[2px] rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 uppercase tracking-wider shrink-0">●</span>
+                        <p className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 leading-snug max-w-[260px]">{camp.name}</p>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 tabular-nums">{fmt(camp.spendInPeriod, true)}</span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={`text-[12px] font-black tabular-nums ${camp.results > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>
+                          {camp.results > 0 ? camp.results : '—'}
+                        </span>
+                        {camp.results > 0 && <span className="text-[9px] text-zinc-400 font-medium">{camp.resultLabel}</span>}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 tabular-nums">{camp.cpa > 0 ? fmt(camp.cpa, true) : '—'}</span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className={`text-[12px] font-black tabular-nums ${camp.roas > 0 ? (camp.roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500') : 'text-zinc-400'}`}>
+                        {camp.roas > 0 ? `${camp.roas.toFixed(2)}x` : '—'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className={`text-[12px] font-black tabular-nums ${camp.purchaseValue > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400'}`}>
+                        {camp.purchaseValue > 0 ? fmt(camp.purchaseValue, true) : '—'}
+                      </span>
+                    </td>
+                    <td className="py-3 pl-4 text-right">
+                      <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 tabular-nums">{camp.budgetStr}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-                {/* Metrics grid */}
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {activeCampaigns.map((camp) => (
+              <div key={camp.id} className="p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 leading-snug">{camp.name}</p>
+                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 uppercase tracking-wider shrink-0">Activa</span>
+                </div>
                 <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800/60">
                   <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
                     <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Gasto</span>
@@ -856,33 +905,22 @@ export default function CaptacionPage() {
                   </div>
                   <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
                     <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">{camp.resultLabel}</span>
-                    <span className={`text-[11px] font-black ${camp.results > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>
-                      {camp.results > 0 ? camp.results : '—'}
-                    </span>
+                    <span className={`text-[11px] font-black ${camp.results > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>{camp.results > 0 ? camp.results : '—'}</span>
                   </div>
                   <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
-                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Costo/{camp.resultLabel === 'Ventas' ? 'venta' : camp.resultLabel === 'Leads' ? 'lead' : 'result.'}</span>
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">CPA</span>
                     <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">{camp.cpa > 0 ? fmt(camp.cpa, true) : '—'}</span>
                   </div>
-                  {camp.roas > 0 ? (
-                    <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
-                      <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">ROAS</span>
-                      <span className={`text-[11px] font-black ${camp.roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{camp.roas.toFixed(2)}x</span>
-                    </div>
-                  ) : (
-                    <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
-                      <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Presupuesto</span>
-                      <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">{camp.budgetStr}</span>
-                    </div>
-                  )}
                   <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
-                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Valor generado</span>
-                    <span className={`text-[11px] font-black ${camp.purchaseValue > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400'}`}>
-                      {camp.purchaseValue > 0 ? fmt(camp.purchaseValue, true) : '—'}
-                    </span>
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">ROAS</span>
+                    <span className={`text-[11px] font-black ${camp.roas > 0 ? (camp.roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500') : 'text-zinc-400'}`}>{camp.roas > 0 ? `${camp.roas.toFixed(2)}x` : '—'}</span>
                   </div>
                   <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
-                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Presupuesto</span>
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Valor gen.</span>
+                    <span className={`text-[11px] font-black ${camp.purchaseValue > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400'}`}>{camp.purchaseValue > 0 ? fmt(camp.purchaseValue, true) : '—'}</span>
+                  </div>
+                  <div className="bg-white dark:bg-white/[0.03] p-2 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                    <span className="block text-[8px] font-bold text-zinc-400 uppercase tracking-wide mb-0.5">Presup.</span>
                     <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">{camp.budgetStr}</span>
                   </div>
                 </div>
