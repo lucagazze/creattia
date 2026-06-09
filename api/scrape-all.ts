@@ -46,7 +46,26 @@ const SKIP_PRODUCT_PAGES = /\/(product|producto|shop\/|tienda\/|categoria-produc
 
 function normalizeOrder(o: any, platform: string) {
   if (platform === 'shopify') {
-    return o;
+    // Parse string numeric fields so .toLocaleString() and arithmetic work correctly
+    return {
+      ...o,
+      total_price: parseFloat(o.total_price || 0),
+      subtotal_price: parseFloat(o.subtotal_price || 0),
+      total_tax: parseFloat(o.total_tax || 0),
+      total_discounts: parseFloat(o.total_discounts || 0),
+      line_items: (o.line_items || []).map((it: any) => ({
+        ...it,
+        price: parseFloat(it.price || 0),
+      })),
+      shipping_lines: (o.shipping_lines || []).map((sl: any) => ({
+        ...sl,
+        price: parseFloat(sl.price || 0),
+      })),
+      discount_codes: (o.discount_codes || []).map((dc: any) => ({
+        ...dc,
+        amount: parseFloat(dc.amount || 0),
+      })),
+    };
   }
   if (platform === 'tiendanube') {
     const isCancelled = o.status === 'cancelled';
