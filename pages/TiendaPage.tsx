@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
@@ -116,6 +116,21 @@ export default function TiendaPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
+  
+  const detectedPlatform = useMemo(() => {
+    let platform = (profile as any)?.ecommerce_platform;
+    if (profile && !platform) {
+      if ((profile as any).shopify_domain && (profile as any).shopify_access_token) {
+        platform = 'shopify';
+      } else if ((profile as any).wordpress_url && (profile as any).woo_consumer_key && (profile as any).woo_consumer_secret) {
+        platform = 'wordpress';
+      } else if ((profile as any).tiendanube_store_id && (profile as any).tiendanube_access_token) {
+        platform = 'tiendanube';
+      }
+    }
+    return platform || null;
+  }, [profile]);
+
   const [data, setData] = useState<any>(null);
   const [prevData, setPrevData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -160,10 +175,10 @@ export default function TiendaPage() {
     let cancelled = false;
     const fetchData = async () => {
       const p: any = profile;
-      const hasStoreConfig = p?.ecommerce_platform && (
-        (p.ecommerce_platform === 'shopify' && p.shopify_domain && p.shopify_access_token) ||
-        (p.ecommerce_platform === 'wordpress' && p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) ||
-        (p.ecommerce_platform === 'tiendanube' && p.tiendanube_store_id && p.tiendanube_access_token)
+      const hasStoreConfig = detectedPlatform && (
+        (detectedPlatform === 'shopify' && p.shopify_domain && p.shopify_access_token) ||
+        (detectedPlatform === 'wordpress' && p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) ||
+        (detectedPlatform === 'tiendanube' && p.tiendanube_store_id && p.tiendanube_access_token)
       );
       if (!hasStoreConfig) {
         if (!cancelled) setLoading(false);
@@ -175,8 +190,8 @@ export default function TiendaPage() {
       const prevRange = getPrevPeriod(range.since, range.until);
       try {
         const [res, prevRes] = await Promise.all([
-          ecommerce.getDashboardData(p.ecommerce_platform, p.shopify_domain, p.shopify_access_token, range.since, range.until, p.id),
-          ecommerce.getDashboardData(p.ecommerce_platform, p.shopify_domain, p.shopify_access_token, prevRange.since, prevRange.until, p.id)
+          ecommerce.getDashboardData(detectedPlatform, p.shopify_domain, p.shopify_access_token, range.since, range.until, p.id),
+          ecommerce.getDashboardData(detectedPlatform, p.shopify_domain, p.shopify_access_token, prevRange.since, prevRange.until, p.id)
         ]);
         if (cancelled) return;
         setData(res);
@@ -225,10 +240,10 @@ export default function TiendaPage() {
   };
 
   const p: any = profile;
-  const hasStoreConfig = p?.ecommerce_platform && (
-    (p.ecommerce_platform === 'shopify' && p.shopify_domain && p.shopify_access_token) ||
-    (p.ecommerce_platform === 'wordpress' && p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) ||
-    (p.ecommerce_platform === 'tiendanube' && p.tiendanube_store_id && p.tiendanube_access_token)
+  const hasStoreConfig = detectedPlatform && (
+    (detectedPlatform === 'shopify' && p.shopify_domain && p.shopify_access_token) ||
+    (detectedPlatform === 'wordpress' && p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) ||
+    (detectedPlatform === 'tiendanube' && p.tiendanube_store_id && p.tiendanube_access_token)
   );
 
   if (!hasStoreConfig) {
@@ -258,7 +273,7 @@ export default function TiendaPage() {
             </div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Rendimiento de Tienda</h1>
           </div>
-          <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Métricas principales de tu e-commerce ({(profile as any).ecommerce_platform}).</p>
+          <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Métricas principales de tu e-commerce ({detectedPlatform}).</p>
         </div>
 
         <div className="flex items-center gap-3 print:hidden">
@@ -325,7 +340,7 @@ export default function TiendaPage() {
           <span className="text-[22px] font-black text-zinc-900 tracking-tight">ALGORITMIA</span>
           <span className="text-[11px] text-zinc-400">{new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
         </div>
-        <p className="text-[13px] text-zinc-500 font-medium">Tienda Online — {(profile as any)?.ecommerce_platform}</p>
+        <p className="text-[13px] text-zinc-500 font-medium">Tienda Online — {detectedPlatform}</p>
         <p className="text-[15px] font-bold text-zinc-900">Período: {fmtDateRange(activeSince, true)} — {fmtDateRange(activeUntil, true)}</p>
       </div>
 

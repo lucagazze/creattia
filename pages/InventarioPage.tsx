@@ -42,7 +42,19 @@ export default function InventarioPage() {
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = (isViewingAs ? viewAsProfile : authProfile) as any;
 
-  const platform = profile?.ecommerce_platform;
+  const platform = useMemo(() => {
+    let plat = profile?.ecommerce_platform;
+    if (profile && !plat) {
+      if (profile.shopify_domain && profile.shopify_access_token) {
+        plat = 'shopify';
+      } else if (profile.wordpress_url && profile.woo_consumer_key && profile.woo_consumer_secret) {
+        plat = 'wordpress';
+      } else if (profile.tiendanube_store_id && profile.tiendanube_access_token) {
+        plat = 'tiendanube';
+      }
+    }
+    return plat || null;
+  }, [profile]);
   const shopifyDomain = (profile?.shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const shopifyToken = profile?.shopify_access_token;
   const wordpressUrl = (profile?.wordpress_url || '').replace(/\/$/, '');

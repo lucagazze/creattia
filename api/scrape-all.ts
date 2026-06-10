@@ -950,12 +950,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await Promise.all(
             uniqueEmails.map(async (email) => {
               try {
-                const res = await fetch(`${base}/wp-json/wc/v3/orders?email=${encodeURIComponent(email)}&per_page=100`, { headers: wcHeaders });
+                const res = await fetch(`${base}/wp-json/wc/v3/orders?search=${encodeURIComponent(email)}&per_page=100`, { headers: wcHeaders });
                 if (res.ok) {
                   const totalCountHeader = res.headers.get('X-WP-Total');
                   const ordersData: any[] = await res.json();
-                  const count = totalCountHeader ? parseInt(totalCountHeader, 10) : ordersData.length;
-                  const spent = ordersData.reduce((sum, ord) => sum + parseFloat(ord.total || 0), 0);
+                  const filtered = ordersData.filter((o: any) => (o.billing?.email || '').toLowerCase().trim() === email.toLowerCase().trim());
+                  const count = totalCountHeader ? parseInt(totalCountHeader, 10) : filtered.length;
+                  const spent = filtered.reduce((sum, ord) => sum + parseFloat(ord.total || 0), 0);
                   nonShopifyLifetime[email] = count;
                   nonShopifySpent[email] = spent;
                 }
@@ -974,8 +975,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const res = await fetch(`${tnBase}?email=${encodeURIComponent(email)}&per_page=200`, { headers: tnHeaders });
                 if (res.ok) {
                   const ordersData: any[] = await res.json();
-                  const count = ordersData.length;
-                  const spent = ordersData.reduce((sum, ord) => sum + parseFloat(ord.total || 0), 0);
+                  const filtered = ordersData.filter((o: any) => (o.customer?.email || '').toLowerCase().trim() === email.toLowerCase().trim());
+                  const count = filtered.length;
+                  const spent = filtered.reduce((sum, ord) => sum + parseFloat(ord.total || 0), 0);
                   nonShopifyLifetime[email] = count;
                   nonShopifySpent[email] = spent;
                 }

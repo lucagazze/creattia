@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { db } from '../services/db';
@@ -32,6 +32,21 @@ export default function CerebroPage() {
   const { profile: authProfile, loading: authLoading, session } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
+  
+  const detectedPlatform = useMemo(() => {
+    let platform = (profile as any)?.ecommerce_platform;
+    if (profile && !platform) {
+      if ((profile as any).shopify_domain && (profile as any).shopify_access_token) {
+        platform = 'shopify';
+      } else if ((profile as any).wordpress_url && (profile as any).woo_consumer_key && (profile as any).woo_consumer_secret) {
+        platform = 'wordpress';
+      } else if ((profile as any).tiendanube_store_id && (profile as any).tiendanube_access_token) {
+        platform = 'tiendanube';
+      }
+    }
+    return platform || null;
+  }, [profile]);
+
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'identidad' | 'memoria' | 'catalogo'>('identidad');
@@ -101,7 +116,7 @@ export default function CerebroPage() {
     }
     setLoading(false);
 
-    const plt = (profile as any).ecommerce_platform;
+    const plt = detectedPlatform;
     if (plt) {
       const ck = `products_${profile.id}`;
       try {
@@ -113,7 +128,7 @@ export default function CerebroPage() {
       } catch { }
       loadProducts(profile);
     }
-  }, [profile?.id, authLoading]);
+  }, [profile?.id, authLoading, detectedPlatform]);
 
   const handleSaveSettings = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -140,7 +155,18 @@ export default function CerebroPage() {
   const loadProducts = async (prof?: any) => {
     const p = prof || profile;
     if (!p) return;
-    const plt = (p as any).ecommerce_platform;
+    let plt = (p as any).ecommerce_platform;
+    if (p === profile) {
+      plt = detectedPlatform;
+    } else if (p && !plt) {
+      if (p.shopify_domain && p.shopify_access_token) {
+        plt = 'shopify';
+      } else if (p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) {
+        plt = 'wordpress';
+      } else if (p.tiendanube_store_id && p.tiendanube_access_token) {
+        plt = 'tiendanube';
+      }
+    }
     if (!plt) return;
     setProductsLoading(true); setProductsError(null);
     try {
@@ -294,7 +320,7 @@ export default function CerebroPage() {
     try { return new Date(d).toLocaleString('es-AR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' hs'; } catch { return d; }
   };
 
-  const ecommercePlatform: string = (profile as any)?.ecommerce_platform || '';
+  const ecommercePlatform: string = detectedPlatform || '';
   const cleanPreview = (v: string) => v.replace(/#{1,6} ?/g, '').replace(/\*\*/g, '').trim();
 
   const sections = [
@@ -507,7 +533,7 @@ export default function CerebroPage() {
       {/* ═══ TAB: CATÁLOGO ═══ */}
       {activeTab === 'catalogo' && (
         <div>
-          {!(profile as any)?.ecommerce_platform ? (
+          {!detectedPlatform ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
               <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"><ShoppingBag className="w-6 h-6 text-zinc-400" /></div>
               <p className="text-[14px] font-semibold text-zinc-600 dark:text-zinc-400">Sin tienda conectada</p>
@@ -523,7 +549,7 @@ export default function CerebroPage() {
                       <h2 className="text-[14px] font-black text-zinc-900 dark:text-white">Catálogo de Productos</h2>
                       {products.length > 0 && <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 uppercase">{products.length} activos</span>}
                     </div>
-                    <p className="text-[10px] text-zinc-400 capitalize mt-0.5">{(profile as any).ecommerce_platform} · La IA conoce todos estos productos</p>
+                    <p className="text-[10px] text-zinc-400 capitalize mt-0.5">{detectedPlatform} · La IA conoce todos estos productos</p>
                   </div>
                 </div>
                 <button onClick={() => { try { localStorage.removeItem(`products_${profile!.id}`); } catch {} loadProducts(); }} disabled={productsLoading}

@@ -186,7 +186,17 @@ export default function ClientePage() {
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = (isViewingAs ? viewAsProfile : authProfile) as any;
 
-  const activePlatform = profile?.ecommerce_platform;
+  let activePlatform = profile?.ecommerce_platform;
+  if (profile && !activePlatform) {
+    if (profile.shopify_domain && profile.shopify_access_token) {
+      activePlatform = 'shopify';
+    } else if (profile.wordpress_url && profile.woo_consumer_key && profile.woo_consumer_secret) {
+      activePlatform = 'wordpress';
+    } else if (profile.tiendanube_store_id && profile.tiendanube_access_token) {
+      activePlatform = 'tiendanube';
+    }
+  }
+
   const shopifyDomain = (profile?.shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const shopifyToken = profile?.shopify_access_token || '';
   const wordpressUrl = (profile?.wordpress_url || '').replace(/\/$/, '');
@@ -274,11 +284,16 @@ export default function ClientePage() {
         };
 
         // Fetch WooCommerce orders for this email
-        const oUrl = `/api/shopify/wc/orders?email=${encodeURIComponent(email)}&per_page=100`;
+        const oUrl = `/api/shopify/wc/orders?search=${encodeURIComponent(email)}&per_page=100`;
         const oRes = await fetch(oUrl, { headers: wcHeaders });
         if (oRes.ok) {
           const oData = await oRes.json();
-          ordersList = (Array.isArray(oData) ? oData : []).map((o: any) => {
+          const rawOrders = Array.isArray(oData) ? oData : [];
+          // Double safeguard: filter by exact email match in the frontend
+          const filteredOrders = rawOrders.filter((o: any) =>
+            (o.billing?.email || '').toLowerCase().trim() === email.toLowerCase().trim()
+          );
+          ordersList = filteredOrders.map((o: any) => {
             const isCancelled = ['cancelled', 'failed'].includes(o.status);
             const financial_status = o.status === 'completed' || o.status === 'processing' ? 'paid' : o.status === 'refunded' ? 'refunded' : 'pending';
             const fulfillment_status = o.status === 'completed' ? 'fulfilled' : 'unfulfilled';
@@ -351,7 +366,11 @@ export default function ClientePage() {
         const oRes = await fetch(oUrl, { headers: tnHeaders });
         if (oRes.ok) {
           const oData = await oRes.json();
-          ordersList = (Array.isArray(oData) ? oData : []).map((o: any) => {
+          const rawOrders = Array.isArray(oData) ? oData : [];
+          const filteredOrders = rawOrders.filter((o: any) =>
+            (o.customer?.email || '').toLowerCase().trim() === email.toLowerCase().trim()
+          );
+          ordersList = filteredOrders.map((o: any) => {
             const isCancelled = o.status === 'cancelled';
             const payStatus = o.payment_status;
             const financial_status = payStatus === 'paid' ? 'paid' : payStatus === 'refunded' ? 'refunded' : payStatus === 'voided' ? 'voided' : 'pending';

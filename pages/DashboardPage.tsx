@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useViewAs } from "../contexts/ViewAsContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -828,6 +828,21 @@ export default function DashboardPage() {
   const { darkMode } = useTheme();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
+
+  const detectedPlatform = useMemo(() => {
+    let platform = (profile as any)?.ecommerce_platform;
+    if (profile && !platform) {
+      if ((profile as any).shopify_domain && (profile as any).shopify_access_token) {
+        platform = 'shopify';
+      } else if ((profile as any).wordpress_url && (profile as any).woo_consumer_key && (profile as any).woo_consumer_secret) {
+        platform = 'wordpress';
+      } else if ((profile as any).tiendanube_store_id && (profile as any).tiendanube_access_token) {
+        platform = 'tiendanube';
+      }
+    }
+    return platform || null;
+  }, [profile]);
+
   const [links, setLinks] = useState<any[]>([]);
   const [metaDaily, setMetaDaily] = useState<any[]>([]);
   const [prevMetaDaily, setPrevMetaDaily] = useState<any[]>([]);
@@ -940,7 +955,7 @@ export default function DashboardPage() {
     if (!tags || tags.length === 0) return tag === 'tienda_online';
     return tags.includes(tag);
   };
-  const isEcommerce = !!(profile as any)?.ecommerce_platform || hasTag('tienda_online');
+  const isEcommerce = !!detectedPlatform || hasTag('tienda_online');
 
   useEffect(() => {
     const primaryTag = profile?.client_tags?.[0];
@@ -1053,10 +1068,10 @@ export default function DashboardPage() {
 
       const prof: any = profile;
       const fetchShopify = async () => {
-        const hasStoreConfig = prof?.ecommerce_platform && (
-          (prof.ecommerce_platform === 'shopify' && prof.shopify_domain && prof.shopify_access_token) ||
-          (prof.ecommerce_platform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
-          (prof.ecommerce_platform === 'tiendanube' && prof.tiendanube_store_id && prof.tiendanube_access_token)
+        const hasStoreConfig = detectedPlatform && (
+          (detectedPlatform === 'shopify' && prof.shopify_domain && prof.shopify_access_token) ||
+          (detectedPlatform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
+          (detectedPlatform === 'tiendanube' && prof.tiendanube_store_id && prof.tiendanube_access_token)
         );
         if (!hasStoreConfig) {
           setFetchingStore(false);
@@ -1067,7 +1082,7 @@ export default function DashboardPage() {
         try {
           const [currStore, prevStoreData] = await Promise.all([
             ecommerce.getDashboardData(
-              prof.ecommerce_platform,
+              detectedPlatform!,
               prof.shopify_domain,
               prof.shopify_access_token,
               range.since,
@@ -1075,7 +1090,7 @@ export default function DashboardPage() {
               prof.id,
             ),
             ecommerce.getDashboardData(
-              prof.ecommerce_platform,
+              detectedPlatform!,
               prof.shopify_domain,
               prof.shopify_access_token,
               prevRange.since,
@@ -1296,17 +1311,17 @@ export default function DashboardPage() {
     let mounted = true;
     const fetch90d = async () => {
       const prof: any = profile;
-      const hasStoreConfig = prof?.ecommerce_platform && (
-        (prof.ecommerce_platform === 'shopify' && prof.shopify_domain && prof.shopify_access_token) ||
-        (prof.ecommerce_platform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
-        (prof.ecommerce_platform === 'tiendanube' && prof.tiendanube_store_id && prof.tiendanube_access_token)
+      const hasStoreConfig = detectedPlatform && (
+        (detectedPlatform === 'shopify' && prof.shopify_domain && prof.shopify_access_token) ||
+        (detectedPlatform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
+        (detectedPlatform === 'tiendanube' && prof.tiendanube_store_id && prof.tiendanube_access_token)
       );
       if (!hasStoreConfig) return;
       setFetching90d(true);
       try {
         const range90 = presetToRange("last_90d");
         const store90 = await ecommerce.getDashboardData(
-          prof.ecommerce_platform,
+          detectedPlatform!,
           prof.shopify_domain,
           prof.shopify_access_token,
           range90.since,
@@ -1812,13 +1827,13 @@ export default function DashboardPage() {
 
       <div className="space-y-6">
         {/* Shopify Section */}
-        {(profile as any)?.ecommerce_platform && (
+        {detectedPlatform && (
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-pink-500" />
                 <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
-                  Tienda Online ({(profile as any).ecommerce_platform})
+                  Tienda Online ({detectedPlatform})
                 </h2>
               </div>
               {shopifyError && (
@@ -2543,7 +2558,7 @@ export default function DashboardPage() {
 
         {!profile?.meta_account_id &&
           !profile?.klaviyo_api_key &&
-          !(profile as any)?.ecommerce_platform && (
+          !detectedPlatform && (
             <div className="flex flex-col items-center justify-center py-20 px-4 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
               <h3 className="text-zinc-500 font-medium mb-2">
                 Aún no tienes módulos conectados
