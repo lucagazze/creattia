@@ -6,10 +6,14 @@ import { chatwoot } from '../services/chatwoot';
 import {
   Search, User, Mail, Phone, MapPin, Building, Instagram, 
   Loader2, ArrowLeft, ArrowRight, Bot, MessageSquare, 
-  ExternalLink, Save, Check, FileText, AlertCircle
+  ExternalLink, Save, Check, FileText, AlertCircle, ShoppingBag, CreditCard, ShoppingCart
 } from 'lucide-react';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 
+const fmtCurr = (n: number) => {
+  if (typeof n !== 'number' || isNaN(n)) return '—';
+  return `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
 export default function ContactosPage() {
   const navigate = useNavigate();
   const { profile: authProfile } = useAuth();
@@ -19,8 +23,21 @@ export default function ContactosPage() {
   const cwUrl = (profile as any)?.chatwoot_url;
   const cwToken = (profile as any)?.chatwoot_token;
 
-  // Contacts list states
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'messaging' | 'store'>('messaging');
+
+  // Contacts list states (Chatwoot)
   const [contacts, setContacts] = useState<any[]>([]);
+
+  // Store customers states
+  const [storeCustomers, setStoreCustomers] = useState<any[]>([]);
+  const [selectedStoreCust, setSelectedStoreCust] = useState<any>(null);
+  const [storeCustStats, setStoreCustStats] = useState<{ ordersCount: number; totalSpent: number } | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [chatwootContactId, setChatwootContactId] = useState<number | null>(null);
+  const [checkingChatwoot, setCheckingChatwoot] = useState(false);
+
+  // Common list states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -28,12 +45,12 @@ export default function ContactosPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [sortBy, setSortBy] = useState<'name' | 'id'>('name');
 
-  // Contact details states
+  // Contact details states (Chatwoot specific)
   const [selected, setSelected] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Detail Form states
+  // Detail Form states (Chatwoot specific)
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPhone, setFormPhone] = useState('');
@@ -42,7 +59,7 @@ export default function ContactosPage() {
   const [formCompany, setFormCompany] = useState('');
   const [formNotes, setFormNotes] = useState('');
 
-  // AI complete states
+  // AI complete states (Chatwoot specific)
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
@@ -57,34 +74,204 @@ export default function ContactosPage() {
     notes: true
   });
 
-  // Load Contacts
-  const loadContacts = useCallback(async () => {
-    if (!cwUrl || !cwToken) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      let data;
-      if (search.trim()) {
-        data = await chatwoot.searchContacts(cwUrl, cwToken, search, currentPage);
-      } else {
-        data = await chatwoot.getContacts(cwUrl, cwToken, currentPage);
+  // Load Contacts or Store Customers
+  const loadData = useCallback(async () => {
+    if (activeTab === 'messaging') {
+      if (!cwUrl || !cwToken) {
+        setLoading(false);
+        return;
       }
-      const list = data?.payload || data?.data || [];
-      setContacts(list);
-      setTotalCount(data?.meta?.count || list.length);
-    } catch (e: any) {
-      setError(e.message || 'Error al obtener los contactos.');
-    } finally {
-      setLoading(false);
+      setLoading(true);
+      setError(null);
+      try {
+        let data;
+        if (search.trim()) {
+          data = await chatwoot.searchContacts(cwUrl, cwToken, search, currentPage);
+        } else {
+          data = await chatwoot.getContacts(cwUrl, cwToken, currentPage);
+        }
+        const list = data?.payload || data?.data || [];
+        setContacts(list);
+        setTotalCount(data?.meta?.count || list.length);
+      } catch (e: any) {
+        setError(e.message || 'Error al obtener los contactos.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // E-commerce store customers loading
+      if (!profile) {
+        setLoading(false);
+        return;
+      }
+      const platform = (profile as any).ecommerce_platform;
+      if (!platform) {
+        setStoreCustomers([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (platform === 'shopify') {
+          const domain = ((profile as any).shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+          const token = (profile as any).shopify_access_token || '';
+          if (!domain || !token) {
+            throw new Error('Shopify no está configurado.');
+          }
+
+          let url = `/api/shopify/customers.json?limit=50`;
+          if (search.trim()) {
+            url = `/api/shopify/customers/search.json?query=${encodeURIComponent(search)}&limit=50`;
+          }
+
+          const res = await fetch(url, {
+            headers: {
+              'X-Shopify-Access-Token': token,
+              'X-Shop-Domain': domain,
+            }
+          });
+
+          if (!res.ok) throw new Error(`Error de Shopify: ${res.status}`);
+          const data = await res.json();
+          const rawList = data.customers || [];
+          
+          const normalized = rawList.map((c: any) => {
+            return {
+              id: c.id,
+              first_name: c.first_name || '',
+              last_name: c.last_name || '',
+              name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Cliente sin nombre',
+              email: c.email || '',
+              phone: c.phone || '',
+              orders_count: c.orders_count || 0,
+              total_spent: parseFloat(c.total_spent || 0),
+              address: c.default_address
+                ? `${c.default_address.address1 || ''}, ${c.default_address.city || ''}, ${c.default_address.province || ''}, ${c.default_address.country || ''}`.replace(/^,\s*/, '')
+                : null,
+              platform: 'shopify'
+            };
+          });
+
+          setStoreCustomers(normalized);
+          setTotalCount(normalized.length);
+        }
+        else if (platform === 'wordpress') {
+          const url = ((profile as any).wordpress_url || '').replace(/\/$/, '');
+          const ck = (profile as any).woo_consumer_key || '';
+          const cs = (profile as any).woo_consumer_secret || '';
+          if (!url || !ck || !cs) {
+            throw new Error('WooCommerce no está configurado.');
+          }
+
+          const params = new URLSearchParams({
+            per_page: '15',
+            page: String(currentPage),
+          });
+          if (search.trim()) {
+            params.set('search', search.trim());
+          }
+
+          const res = await fetch(`/api/shopify/wc/customers?${params.toString()}`, {
+            headers: {
+              'x-wc-base-url': url,
+              'x-wc-consumer-key': ck,
+              'x-wc-consumer-secret': cs
+            }
+          });
+
+          if (!res.ok) throw new Error(`Error de WooCommerce: ${res.status}`);
+          
+          const totalCountHeader = res.headers.get('X-WP-Total');
+          if (totalCountHeader) {
+            setTotalCount(parseInt(totalCountHeader, 10));
+          }
+
+          const rawList = await res.json();
+          const normalized = (Array.isArray(rawList) ? rawList : []).map((c: any) => {
+            return {
+              id: c.id,
+              first_name: c.first_name || '',
+              last_name: c.last_name || '',
+              name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Cliente sin nombre',
+              email: c.email || '',
+              phone: c.billing?.phone || c.shipping?.phone || '',
+              orders_count: c.orders_count || 0,
+              total_spent: parseFloat(c.total_spent || 0),
+              address: c.billing?.address_1
+                ? `${c.billing.address_1 || ''}, ${c.billing.city || ''}, ${c.billing.state || ''}, ${c.billing.country || ''}`.replace(/^,\s*/, '')
+                : null,
+              platform: 'wordpress'
+            };
+          });
+
+          setStoreCustomers(normalized);
+          if (!totalCountHeader) {
+            setTotalCount(normalized.length);
+          }
+        }
+        else if (platform === 'tiendanube') {
+          const storeId = (profile as any).tiendanube_store_id || '';
+          const token = (profile as any).tiendanube_access_token || '';
+          if (!storeId || !token) {
+            throw new Error('Tiendanube no está configurada.');
+          }
+
+          const params = new URLSearchParams({
+            per_page: '15',
+            page: String(currentPage),
+          });
+          if (search.trim()) {
+            params.set('q', search.trim());
+          }
+
+          const res = await fetch(`/api/shopify/tn/customers?${params.toString()}`, {
+            headers: {
+              'x-tn-store-id': storeId,
+              'x-tn-token': token
+            }
+          });
+
+          if (!res.ok) throw new Error(`Error de Tiendanube: ${res.status}`);
+          
+          const rawList = await res.json();
+          const normalized = (Array.isArray(rawList) ? rawList : []).map((c: any) => {
+            const defaultAddr = c.addresses?.find((a: any) => a.default) || c.addresses?.[0] || null;
+            const addressStr = defaultAddr
+              ? `${defaultAddr.address || ''}, ${defaultAddr.city || ''}, ${defaultAddr.province || ''}, ${defaultAddr.country || ''}`.replace(/^,\s*/, '')
+              : null;
+
+            return {
+              id: c.id,
+              first_name: (c.name || '').split(' ')[0] || '',
+              last_name: (c.name || '').split(' ').slice(1).join(' ') || '',
+              name: c.name || 'Cliente sin nombre',
+              email: c.email || '',
+              phone: c.phone || '',
+              orders_count: null,
+              total_spent: null,
+              address: addressStr,
+              platform: 'tiendanube'
+            };
+          });
+
+          setStoreCustomers(normalized);
+          setTotalCount(150); // Pagination helper
+        }
+      } catch (e: any) {
+        setError(e.message || 'Error al obtener clientes de la tienda.');
+      } finally {
+        setLoading(false);
+      }
     }
-  }, [cwUrl, cwToken, currentPage, search]);
+  }, [activeTab, cwUrl, cwToken, search, currentPage, profile]);
 
   useEffect(() => {
-    loadContacts();
-  }, [loadContacts]);
+    loadData();
+  }, [loadData]);
 
   // Handle Search Input Change (reset page to 1)
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,6 +290,69 @@ export default function ContactosPage() {
     setFormLocation(contact.custom_attributes?.location || '');
     setFormCompany(contact.custom_attributes?.company || '');
     setFormNotes(contact.custom_attributes?.notes || '');
+  };
+
+  const handleSelectStoreCustomer = async (c: any) => {
+    setSelectedStoreCust(c);
+    setStoreCustStats(null);
+    setChatwootContactId(null);
+    
+    if (!c) return;
+
+    // Search Chatwoot contact by email in the background
+    if (cwUrl && cwToken && c.email) {
+      setCheckingChatwoot(true);
+      try {
+        const cwData = await chatwoot.searchContacts(cwUrl, cwToken, c.email, 1);
+        const contact = (cwData?.payload || cwData?.data || [])[0];
+        if (contact) {
+          setChatwootContactId(contact.id);
+        }
+      } catch (err) {
+        console.warn('Error fetching Chatwoot contact:', err);
+      } finally {
+        setCheckingChatwoot(false);
+      }
+    }
+
+    // Load stats if they are not present (Tiendanube or in general)
+    if (c.platform === 'tiendanube') {
+      setLoadingStats(true);
+      try {
+        const storeId = (profile as any)?.tiendanube_store_id || '';
+        const token = (profile as any)?.tiendanube_access_token || '';
+        const oUrl = `/api/shopify/tn/orders?email=${encodeURIComponent(c.email)}&per_page=200`;
+        const oRes = await fetch(oUrl, { headers: { 'x-tn-store-id': storeId, 'x-tn-token': token } });
+        if (oRes.ok) {
+          const oData = await oRes.json();
+          const ordersList = Array.isArray(oData) ? oData : [];
+          const totalSpent = ordersList.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+          setStoreCustStats({
+            ordersCount: ordersList.length,
+            totalSpent
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching Tiendanube customer stats:', err);
+      } finally {
+        setLoadingStats(false);
+      }
+    } else {
+      setStoreCustStats({
+        ordersCount: c.orders_count,
+        totalSpent: c.total_spent
+      });
+    }
+  };
+
+  const handleTabChange = (tab: 'messaging' | 'store') => {
+    setActiveTab(tab);
+    setSearch('');
+    setCurrentPage(1);
+    setSelected(null);
+    setSelectedStoreCust(null);
+    setStoreCustStats(null);
+    setChatwootContactId(null);
   };
 
   // Update Contact (Save manual edits)
@@ -300,25 +550,56 @@ export default function ContactosPage() {
     return (a.name || '').localeCompare(b.name || '');
   });
 
+  const sortedStoreCustomers = [...storeCustomers].sort((a, b) => {
+    if (sortBy === 'id') return b.id - a.id;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
   return (
     <CenteredPageLoader isLoading={loading}>
       <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         
-        {/* LEFT COLUMN: Contacts list */}
+        {/* LEFT COLUMN: Contacts/Store Customers list */}
         <div className="w-full md:w-[320px] flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-all duration-300">
           
           {/* Header & Search */}
           <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 space-y-3">
             <h1 className="text-[18px] font-black tracking-tight text-zinc-900 dark:text-white">Contactos</h1>
+
+            {/* Segmented Control Switcher */}
+            <div className="grid grid-cols-2 p-1 bg-zinc-100 dark:bg-zinc-900 rounded-xl">
+              <button
+                type="button"
+                onClick={() => handleTabChange('messaging')}
+                className={`py-1.5 text-[11px] font-bold rounded-lg transition-all ${
+                  activeTab === 'messaging'
+                    ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+              >
+                Mensajería
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('store')}
+                className={`py-1.5 text-[11px] font-bold rounded-lg transition-all ${
+                  activeTab === 'store'
+                    ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+              >
+                Clientes Tienda
+              </button>
+            </div>
             
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
                 <input
                   type="text"
-                  placeholder="Buscar contactos..."
+                  placeholder={activeTab === 'messaging' ? "Buscar contactos..." : "Buscar clientes..."}
                   value={search}
                   onChange={handleSearchChange}
                   className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-700 dark:text-zinc-300"
@@ -327,6 +608,7 @@ export default function ContactosPage() {
 
               {/* Sorting Button */}
               <button
+                type="button"
                 onClick={() => setSortBy(prev => prev === 'name' ? 'id' : 'name')}
                 title={sortBy === 'name' ? "Ordenar por Más Recientes" : "Ordenar por Nombre"}
                 className="p-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 transition-colors"
@@ -343,16 +625,18 @@ export default function ContactosPage() {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-16 gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-                <p className="text-[11px] text-zinc-400">Obteniendo contactos...</p>
+                <p className="text-[11px] text-zinc-400">
+                  {activeTab === 'messaging' ? 'Obteniendo contactos...' : 'Obteniendo clientes...'}
+                </p>
               </div>
             ) : error ? (
               <div className="p-4 text-[11px] text-red-500 font-semibold">{error}</div>
-            ) : sortedContacts.length === 0 ? (
+            ) : (activeTab === 'messaging' ? sortedContacts : sortedStoreCustomers).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-zinc-400 gap-2">
                 <User className="w-8 h-8 opacity-40" />
-                <p className="text-[12px] font-bold">Sin contactos</p>
+                <p className="text-[12px] font-bold">Sin {activeTab === 'messaging' ? 'contactos' : 'clientes'}</p>
               </div>
-            ) : (
+            ) : activeTab === 'messaging' ? (
               sortedContacts.map(c => {
                 const isSelected = selected?.id === c.id;
                 const gradient = getAvatarGradient(c.name || String(c.id));
@@ -382,6 +666,36 @@ export default function ContactosPage() {
                   </div>
                 );
               })
+            ) : (
+              sortedStoreCustomers.map(c => {
+                const isSelected = selectedStoreCust?.id === c.id;
+                const gradient = getAvatarGradient(c.name || String(c.id));
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => handleSelectStoreCustomer(c)}
+                    className={`mx-2.5 my-0.5 px-3 py-2.5 flex items-center gap-3 transition-all duration-200 cursor-pointer rounded-xl group ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/10'
+                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/35 border border-transparent'
+                    }`}
+                  >
+                    {/* Initials Avatar */}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black bg-gradient-to-br shadow-inner flex-shrink-0 ${gradient}`}>
+                      {getInitials(c.name || '')}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[12.5px] truncate font-bold ${isSelected ? 'text-white' : 'text-zinc-800 dark:text-zinc-100'}`}>
+                        {c.name || 'Cliente sin nombre'}
+                      </p>
+                      <p className={`text-[10px] font-mono mt-0.5 truncate ${isSelected ? 'text-blue-200' : 'text-zinc-550 dark:text-zinc-400'}`}>
+                        {c.phone || c.email || 'Sin teléfono/email'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -389,222 +703,401 @@ export default function ContactosPage() {
           {totalCount > 0 && (
             <div className="p-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 select-none">
               <span>{startItem}-{endItem} de {totalCount}</span>
-              <div className="flex items-center gap-1">
-                <button
-                  disabled={currentPage <= 1 || loading}
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                </button>
-                <span className="px-2 font-mono">{currentPage}/{totalPages}</span>
-                <button
-                  disabled={currentPage >= totalPages || loading}
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-                >
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              {!(activeTab === 'store' && profile?.ecommerce_platform === 'shopify') && (
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={currentPage <= 1 || loading}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="px-2 font-mono">{currentPage}/{totalPages}</span>
+                  <button
+                    disabled={currentPage >= totalPages || loading}
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* RIGHT COLUMN: Contact details */}
+        {/* RIGHT COLUMN: Details */}
         <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-900/30 overflow-hidden relative">
-          {!selected ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
-              <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">👤</div>
-              <p className="text-[13.5px] font-medium">Seleccioná un contacto para ver detalles</p>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 max-w-3xl w-full">
-              
-              {/* Header profile block */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">
-                <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-[18px] font-black bg-gradient-to-br shadow-inner ${getAvatarGradient(selected.name || '')}`}>
-                    {getInitials(selected.name || '')}
-                  </div>
-                  <div>
-                    <h2 className="text-[20px] font-black tracking-tight text-zinc-900 dark:text-white">{selected.name || `Contacto #${selected.id}`}</h2>
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
-                      <span>ID: {selected.id}</span>
-                      {selected.created_at && (
-                        <>
-                          <span>•</span>
-                          <span>Conectado: {new Date(selected.created_at * 1000).toLocaleDateString('es-AR')}</span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* Start Chat Button */}
-                  <button
-                    onClick={handleStartChat}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[12px] font-black shadow-sm shadow-blue-500/10 transition-all active:scale-[0.98]"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    Iniciar Chat
-                  </button>
-
-                  {/* AI Complete Button */}
-                  <button
-                    onClick={handleAiComplete}
-                    disabled={aiLoading}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 dark:hover:bg-violet-900/35 text-violet-750 dark:text-violet-400 rounded-xl text-[12px] font-black border border-violet-200 dark:border-violet-800/40 transition-all active:scale-[0.98] siri-glow"
-                  >
-                    {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-                    Completar con IA
-                  </button>
-                </div>
+          {activeTab === 'messaging' ? (
+            !selected ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
+                <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">👤</div>
+                <p className="text-[13.5px] font-medium">Seleccioná un contacto para ver detalles</p>
               </div>
-
-              {/* Form container */}
-              <form onSubmit={handleSaveContact} className="space-y-6">
+            ) : (
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 max-w-3xl w-full">
                 
-                {/* Core Attributes */}
-                <div className="bg-white dark:bg-[#161618] border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-5 shadow-sm space-y-4">
-                  <h3 className="text-[13px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800/60 pb-2">Información Básica</h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Nombre Completo</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                        <input
-                          type="text"
-                          required
-                          value={formName}
-                          onChange={e => setFormName(e.target.value)}
-                          className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
-                        />
-                      </div>
+                {/* Header profile block */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-[18px] font-black bg-gradient-to-br shadow-inner ${getAvatarGradient(selected.name || '')}`}>
+                      {getInitials(selected.name || '')}
                     </div>
+                    <div>
+                      <h2 className="text-[20px] font-black tracking-tight text-zinc-900 dark:text-white">{selected.name || `Contacto #${selected.id}`}</h2>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
+                        <span>ID: {selected.id}</span>
+                        {selected.created_at && (
+                          <>
+                            <span>•</span>
+                            <span>Conectado: {new Date(selected.created_at * 1000).toLocaleDateString('es-AR')}</span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Teléfono</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                        <input
-                          type="text"
-                          value={formPhone}
-                          onChange={e => setFormPhone(e.target.value)}
-                          placeholder="+54 9..."
-                          className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
-                        />
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    {/* Start Chat Button */}
+                    <button
+                      type="button"
+                      onClick={handleStartChat}
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[12px] font-black shadow-sm shadow-blue-500/10 transition-all active:scale-[0.98]"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Iniciar Chat
+                    </button>
 
-                    <div className="space-y-1 sm:col-span-2">
-                      <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Correo Electrónico</label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                        <input
-                          type="email"
-                          value={formEmail}
-                          onChange={e => setFormEmail(e.target.value)}
-                          placeholder="nombre@ejemplo.com"
-                          className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
-                        />
-                      </div>
-                    </div>
+                    {/* AI Complete Button */}
+                    <button
+                      type="button"
+                      onClick={handleAiComplete}
+                      disabled={aiLoading}
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 dark:hover:bg-violet-900/35 text-violet-750 dark:text-violet-400 rounded-xl text-[12px] font-black border border-violet-200 dark:border-violet-800/40 transition-all active:scale-[0.98] siri-glow"
+                    >
+                      {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                      Completar con IA
+                    </button>
                   </div>
                 </div>
 
-                {/* Custom Attributes */}
-                <div className="bg-white dark:bg-[#161618] border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-5 shadow-sm space-y-4">
-                  <h3 className="text-[13px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800/60 pb-2">Atributos Personalizados</h3>
+                {/* Form container */}
+                <form onSubmit={handleSaveContact} className="space-y-6">
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Instagram</label>
-                      <div className="relative">
-                        <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                        <input
-                          type="text"
-                          value={formInstagram}
-                          onChange={e => setFormInstagram(e.target.value)}
-                          placeholder="@usuario"
-                          className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
-                        />
+                  {/* Core Attributes */}
+                  <div className="bg-white dark:bg-[#161618] border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-5 shadow-sm space-y-4">
+                    <h3 className="text-[13px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800/60 pb-2">Información Básica</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">Nombre Completo</label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                          <input
+                            type="text"
+                            required
+                            value={formName}
+                            onChange={e => setFormName(e.target.value)}
+                            className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Ubicación / Ciudad</label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                        <input
-                          type="text"
-                          value={formLocation}
-                          onChange={e => setFormLocation(e.target.value)}
-                          placeholder="Ciudad, Provincia"
-                          className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
-                        />
+                      <div className="space-y-1">
+                        <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">Teléfono</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                          <input
+                            type="text"
+                            value={formPhone}
+                            onChange={e => setFormPhone(e.target.value)}
+                            placeholder="+54 9..."
+                            className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-1 sm:col-span-2">
-                      <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Empresa / Negocio</label>
-                      <div className="relative">
-                        <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                        <input
-                          type="text"
-                          value={formCompany}
-                          onChange={e => setFormCompany(e.target.value)}
-                          placeholder="Nombre de la empresa"
-                          className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 sm:col-span-2">
-                      <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Notas / Resumen del cliente</label>
-                      <div className="relative">
-                        <FileText className="absolute left-3 top-3.5 w-4 h-4 text-zinc-400" />
-                        <textarea
-                          rows={3}
-                          value={formNotes}
-                          onChange={e => setFormNotes(e.target.value)}
-                          placeholder="Ingresa notas comerciales sobre este cliente..."
-                          className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-[12.5px] resize-none"
-                        />
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-555 uppercase tracking-wider">Correo Electrónico</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                          <input
+                            type="email"
+                            value={formEmail}
+                            onChange={e => setFormEmail(e.target.value)}
+                            placeholder="nombre@ejemplo.com"
+                            className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Custom Attributes */}
+                  <div className="bg-white dark:bg-[#161618] border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-5 shadow-sm space-y-4">
+                    <h3 className="text-[13px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800/60 pb-2">Atributos Personalizados</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">Instagram</label>
+                        <div className="relative">
+                          <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                          <input
+                            type="text"
+                            value={formInstagram}
+                            onChange={e => setFormInstagram(e.target.value)}
+                            placeholder="@usuario"
+                            className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">Ubicación / Ciudad</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                          <input
+                            type="text"
+                            value={formLocation}
+                            onChange={e => setFormLocation(e.target.value)}
+                            placeholder="Ciudad, Provincia"
+                            className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-555 uppercase tracking-wider">Empresa / Negocio</label>
+                        <div className="relative">
+                          <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                          <input
+                            type="text"
+                            value={formCompany}
+                            onChange={e => setFormCompany(e.target.value)}
+                            placeholder="Nombre de la empresa"
+                            className="w-full pl-9 pr-3 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 px-3 text-[12.5px]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="block text-[10.5px] font-bold text-zinc-400 dark:text-zinc-555 uppercase tracking-wider">Notas / Resumen del cliente</label>
+                        <div className="relative">
+                          <FileText className="absolute left-3 top-3.5 w-4 h-4 text-zinc-400" />
+                          <textarea
+                            rows={3}
+                            value={formNotes}
+                            onChange={e => setFormNotes(e.target.value)}
+                            placeholder="Ingresa notas comerciales sobre este cliente..."
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950 text-[12.5px] resize-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI Error display */}
+                  {aiError && (
+                    <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/35 rounded-xl flex items-start gap-2 text-[12px] text-red-700 dark:text-red-400 font-semibold select-none">
+                      <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <span>{aiError}</span>
+                    </div>
+                  )}
+
+                  {/* Footer Save Button */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="flex items-center justify-center gap-1.5 px-5 py-2.5 bg-zinc-900 hover:bg-zinc-850 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 rounded-xl text-[12.5px] font-black shadow-sm disabled:opacity-50 transition-all active:scale-[0.98]"
+                    >
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Guardar Cambios
+                    </button>
+
+                    {saveSuccess && (
+                      <div className="flex items-center gap-1 text-[12px] text-emerald-500 font-bold animate-in fade-in duration-200">
+                        <Check className="w-4 h-4" />
+                        Guardado con éxito
+                      </div>
+                    )}
+                  </div>
+                </form>
+              </div>
+            )
+          ) : (
+            // STORE CUSTOMERS DETAILS PANEL
+            !selectedStoreCust ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
+                <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">🛍️</div>
+                <p className="text-[13.5px] font-medium">Seleccioná un cliente para ver estadísticas y pedidos</p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 max-w-3xl w-full">
+                
+                {/* Header block */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-[18px] font-black bg-gradient-to-br shadow-inner ${getAvatarGradient(selectedStoreCust.name || '')}`}>
+                      {getInitials(selectedStoreCust.name || '')}
+                    </div>
+                    <div>
+                      <h2 className="text-[20px] font-black tracking-tight text-zinc-900 dark:text-white">{selectedStoreCust.name}</h2>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                          Plataforma:
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+                          {selectedStoreCust.platform === 'wordpress' ? 'WooCommerce' : selectedStoreCust.platform}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    {/* Ver Pedidos Button */}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/cliente/${selectedStoreCust.email}`)}
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-[12px] font-black shadow-sm shadow-pink-500/10 transition-all active:scale-[0.98]"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      Ver Pedidos
+                    </button>
+
+                    {/* Start Chat Button */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!chatwootContactId || !cwUrl || !cwToken) return;
+                        try {
+                          const conversationsList = await chatwoot.getContactConversations(cwUrl, cwToken, chatwootContactId);
+                          if (conversationsList && conversationsList.length > 0) {
+                            navigate(`/atencion?convId=${conversationsList[0].id}`);
+                          } else {
+                            navigate('/atencion');
+                          }
+                        } catch {
+                          navigate('/atencion');
+                        }
+                      }}
+                      disabled={checkingChatwoot || !chatwootContactId}
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[12px] font-black shadow-sm shadow-blue-500/10 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      {checkingChatwoot ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <MessageSquare className="w-4 h-4" />
+                      )}
+                      {chatwootContactId ? 'Iniciar Chat' : 'Sin chat activo'}
+                    </button>
+                  </div>
                 </div>
 
-                {/* AI Error display */}
-                {aiError && (
-                  <div className="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/35 rounded-xl flex items-start gap-2 text-[12px] text-red-700 dark:text-red-400 font-semibold select-none">
-                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                    <span>{aiError}</span>
+                {/* E-commerce stats grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[
+                    {
+                      label: 'Gasto Total',
+                      value: loadingStats
+                        ? 'Cargando...'
+                        : storeCustStats?.totalSpent !== null && storeCustStats?.totalSpent !== undefined
+                          ? fmtCurr(storeCustStats.totalSpent)
+                          : '—',
+                      icon: CreditCard,
+                      color: 'text-emerald-500',
+                      bg: 'bg-emerald-500/10'
+                    },
+                    {
+                      label: 'Total Pedidos',
+                      value: loadingStats
+                        ? 'Cargando...'
+                        : storeCustStats?.ordersCount !== null && storeCustStats?.ordersCount !== undefined
+                          ? `${storeCustStats.ordersCount} pedidos`
+                          : '—',
+                      icon: ShoppingBag,
+                      color: 'text-pink-500',
+                      bg: 'bg-pink-500/10'
+                    },
+                    {
+                      label: 'Ticket Promedio',
+                      value: loadingStats
+                        ? 'Cargando...'
+                        : storeCustStats?.totalSpent && storeCustStats?.ordersCount
+                          ? fmtCurr(storeCustStats.totalSpent / storeCustStats.ordersCount)
+                          : '—',
+                      icon: ShoppingCart,
+                      color: 'text-violet-500',
+                      bg: 'bg-violet-500/10'
+                    }
+                  ].map(({ label, value, icon: Icon, color, bg }) => (
+                    <div key={label} className="bg-white dark:bg-[#161618] border border-zinc-150 dark:border-zinc-800/60 rounded-[16px] p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center`}>
+                          <Icon className={`w-4 h-4 ${color}`} />
+                        </div>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{label}</p>
+                      </div>
+                      <p className="text-[18px] font-black text-zinc-900 dark:text-white tracking-tight">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Store customer details block */}
+                <div className="bg-white dark:bg-[#161618] border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-5 shadow-sm space-y-4">
+                  <h3 className="text-[13px] font-black text-zinc-800 dark:text-zinc-100 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800/60 pb-2">
+                    Información de Contacto
+                  </h3>
+
+                  <div className="space-y-3.5 text-[12.5px]">
+                    {selectedStoreCust.email && (
+                      <div className="flex items-start gap-3 text-zinc-600 dark:text-zinc-300">
+                        <Mail className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Correo Electrónico</p>
+                          <a href={`mailto:${selectedStoreCust.email}`} className="font-bold hover:underline hover:text-pink-500">
+                            {selectedStoreCust.email}
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedStoreCust.phone && (
+                      <div className="flex items-start gap-3 text-zinc-600 dark:text-zinc-300">
+                        <Phone className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Teléfono</p>
+                          <p className="font-bold">{selectedStoreCust.phone}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedStoreCust.address && (
+                      <div className="flex items-start gap-3 text-zinc-600 dark:text-zinc-300">
+                        <MapPin className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-555 uppercase tracking-wider">Dirección de Envío</p>
+                          <p className="font-bold">{selectedStoreCust.address}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {!chatwootContactId && !checkingChatwoot && (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-250 dark:border-amber-900/30 rounded-xl flex items-start gap-3 text-[11.5px] text-amber-700 dark:text-amber-400">
+                    <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Sin vinculación directa de mensajería</p>
+                      <p className="text-[10.5px] opacity-90 mt-0.5">
+                        No se encontró un contacto en Chatwoot con el correo <strong>{selectedStoreCust.email}</strong>. Para chatear, buscalo por su nombre o teléfono directamente en la sección de atención.
+                      </p>
+                    </div>
                   </div>
                 )}
 
-                {/* Footer Save Button */}
-                <div className="flex items-center gap-3">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex items-center justify-center gap-1.5 px-5 py-2.5 bg-zinc-900 hover:bg-zinc-850 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 rounded-xl text-[12.5px] font-black shadow-sm disabled:opacity-50 transition-all active:scale-[0.98]"
-                  >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    Guardar Cambios
-                  </button>
-
-                  {saveSuccess && (
-                    <div className="flex items-center gap-1 text-[12px] text-emerald-500 font-bold animate-in fade-in duration-200">
-                      <Check className="w-4 h-4" />
-                      Guardado con éxito
-                    </div>
-                  )}
-                </div>
-              </form>
-            </div>
+              </div>
+            )
           )}
         </div>
       </div>
