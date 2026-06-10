@@ -34,6 +34,7 @@ export default function AnalisisProductosPage() {
 
   const [productAnalysis, setProductAnalysis] = useState<any[]>([]);
   const [productLoading, setProductLoading] = useState(false);
+  const [productRefreshing, setProductRefreshing] = useState(false);
   const [productError, setProductError] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [modalProduct, setModalProduct] = useState<any>(null);
@@ -56,70 +57,34 @@ export default function AnalisisProductosPage() {
     } catch { }
   };
 
-  const loadProductAnalysis = async (forceRefresh = false) => {
+  const loadProductAnalysis = async (silent = false) => {
     if (!p?.ecommerce_platform) return;
     const cacheKey = `pa:${p.id}`;
 
-    if (!forceRefresh) {
-      try {
-        const raw = localStorage.getItem(cacheKey);
-        if (raw) {
-          const { data, ts } = JSON.parse(raw) as { data: any[]; ts: number };
-          setProductAnalysis(data);
-          setProductCacheDate(new Date(ts));
-          return;
-        }
-      } catch { }
-      
+    if (silent) {
+      setProductRefreshing(true);
+    } else {
       setProductLoading(true);
-      setProductError(null);
-      try {
-        const { data: { session: freshSession } } = await supabase.auth.getSession();
-        const token = freshSession?.access_token || '';
-        const dbRes = await fetch('/api/scrape-all', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ type: 'load-analysis', clientId: p.id }),
-        });
-        if (dbRes.ok) {
-          const dbData = await dbRes.json();
-          if (dbData.found && dbData.results?.length) {
-            setProductAnalysis(dbData.results);
-            const calcDate = new Date(dbData.calculated_at);
-            setProductCacheDate(calcDate);
-            try { localStorage.setItem(cacheKey, JSON.stringify({ data: dbData.results, ts: calcDate.getTime() })); } catch { }
-            setProductLoading(false);
-            return;
-          }
-        }
-      } catch (err) {
-        console.error('Error loading product analysis from DB:', err);
-      }
-      // If we got here, it means no cached analysis was found in the DB, so we auto-run it.
     }
-
-    setProductLoading(true);
     setProductError(null);
+
     try {
       const { data: { session: freshSession } } = await supabase.auth.getSession();
       const token = freshSession?.access_token || '';
       const runRes = await fetch('/api/scrape-all', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ type: 'run-analysis', clientId: p.id }),
       });
-      
+
       if (!runRes.ok) {
         const errData = await runRes.json().catch(() => ({}));
         throw new Error(errData.error || `HTTP ${runRes.status}`);
       }
-      
+
       const runData = await runRes.json();
       if (runData.results) {
         setProductAnalysis(runData.results);
@@ -130,13 +95,31 @@ export default function AnalisisProductosPage() {
         throw new Error('No se generaron resultados de análisis');
       }
     } catch (err: any) {
-      setProductError(err.message || 'Error al analizar productos');
+      if (!silent) setProductError(err.message || 'Error al analizar productos');
     } finally {
       setProductLoading(false);
+      setProductRefreshing(false);
     }
   };
 
-  useEffect(() => { loadProductAnalysis(false); }, [p?.id]);
+  useEffect(() => {
+    if (!p?.id || !p?.ecommerce_platform) return;
+    // Show any locally-cached data instantly while refreshing in background
+    const cacheKey = `pa:${p.id}`;
+    let hasCached = false;
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw) as { data: any[]; ts: number };
+        if (data?.length) {
+          setProductAnalysis(data);
+          setProductCacheDate(new Date(ts));
+          hasCached = true;
+        }
+      }
+    } catch {}
+    loadProductAnalysis(hasCached);
+  }, [p?.id]);
 
   const badgeCls = (s: Score | string) =>
     s === 'pass' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
@@ -153,9 +136,16 @@ export default function AnalisisProductosPage() {
           </div>
           <div>
             <h1 className="text-[20px] font-black text-zinc-900 dark:text-white tracking-tight">Análisis de Productos</h1>
-            <p className="text-[11px] text-zinc-400 font-medium">
+            <p className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5 flex-wrap">
               Entry point, tasa de 2ª compra, velocidad de recompra y cross-sell — basado en pedidos reales
-              {productCacheDate && ` · calculado el ${productCacheDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}`}
+              {productRefreshing && (
+                <span className="inline-flex items-center gap-1 text-pink-500">
+                  <Loader2 className="w-3 h-3 animate-spin" /> actualizando...
+                </span>
+              )}
+              {!productRefreshing && productCacheDate && (
+                <span>· calculado el {productCacheDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</span>
+              )}
             </p>
           </div>
         </div>
@@ -166,9 +156,6 @@ export default function AnalisisProductosPage() {
               <input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Buscar producto..." className="pl-8 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] text-zinc-700 dark:text-zinc-300 outline-none focus:border-pink-400 w-48 transition-all" />
             </div>
           )}
-          <button onClick={() => loadProductAnalysis(true)} disabled={productLoading} title="Recalcular todo" className="p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${productLoading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
@@ -185,7 +172,7 @@ export default function AnalisisProductosPage() {
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <XCircle className="w-8 h-8 text-red-400" />
           <p className="text-[13px] text-zinc-600 dark:text-zinc-400">{productError}</p>
-          <button onClick={() => loadProductAnalysis(true)} className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 text-white rounded-lg text-[12px] font-bold"><RefreshCw className="w-3 h-3" />Reintentar</button>
+          <button onClick={() => loadProductAnalysis(false)} className="flex items-center gap-1.5 px-4 py-2 bg-pink-600 text-white rounded-lg text-[12px] font-bold"><RefreshCw className="w-3 h-3" />Reintentar</button>
         </div>
       ) : productAnalysis.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
@@ -194,7 +181,7 @@ export default function AnalisisProductosPage() {
           </div>
           <p className="text-[14px] font-semibold text-zinc-600 dark:text-zinc-400">Análisis de productos</p>
           <p className="text-[12px] text-zinc-400 max-w-xs">Analiza todos los pedidos de la tienda para encontrar qué productos traen más clientes nuevos y cuáles generan recompra.</p>
-          <button onClick={() => loadProductAnalysis(true)} className="flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-[13px] font-bold shadow-md shadow-pink-200 dark:shadow-none transition-all">
+          <button onClick={() => loadProductAnalysis(false)} className="flex items-center gap-2 px-5 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-[13px] font-bold shadow-md shadow-pink-200 dark:shadow-none transition-all">
             <TrendingUp className="w-4 h-4" />Analizar Productos
           </button>
         </div>
