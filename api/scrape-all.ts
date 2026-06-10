@@ -878,15 +878,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const orders = rawOrders.map(o => normalizeOrder(o, active_platform));
       const recentOrders = rawRecent.map(o => normalizeOrder(o, active_platform));
 
+      // For Shopify: count how many orders each email has in the combined set.
+      // This gives us a floor for orders_count in case the API returns 0/null.
+      const shopifyBatchCount: Record<string, number> = {};
+      if (active_platform === 'shopify') {
+        const seenIds = new Set<any>();
+        for (const o of [...orders, ...recentOrders]) {
+          if (seenIds.has(o.id)) continue;
+          seenIds.add(o.id);
+          const email = (o.customer?.email || '').toLowerCase().trim();
+          if (email) shopifyBatchCount[email] = (shopifyBatchCount[email] || 0) + 1;
+        }
+      }
+
       // Assign sequential "Nth purchase" numbers to each order per customer.
       //
-      // Shopify: the API returns the customer's current lifetime orders_count on
-      // every order. Walk newest→oldest and anchor each customer's most-recent
-      // order at that lifetime count, decrementing for older ones. This correctly
-      // labels each order (e.g. 3rd-ever purchase shows orders_count=3).
+      // Shopify: walk newest→oldest, anchoring each customer's most-recent order at
+      // max(API lifetime orders_count, appearances in loaded batch). This handles
+      // cases where the API returns 0/null by falling back to the batch count.
       //
-      // WC/TN: normalizeOrder hardcodes orders_count=1, so we have no lifetime
-      // count from the API. Walk oldest→newest and assign 1,2,3… within the batch.
+      // WC/TN: no lifetime count available — walk oldest→newest and assign 1,2,3…
       const assignSequential = (arr: any[], platform: string) => {
         if (platform === 'shopify') {
           const sorted = [...arr].sort((a: any, b: any) =>
@@ -897,7 +908,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const email = (o.customer?.email || '').toLowerCase().trim();
             if (!email || !o.customer) continue;
             if (!(email in seq)) {
-              seq[email] = o.customer.orders_count || 1;
+              const apiCount = o.customer.orders_count || 0;
+              seq[email] = Math.max(apiCount, shopifyBatchCount[email] || 1);
             }
             o.customer = { ...o.customer, orders_count: seq[email] };
             seq[email] = Math.max(1, seq[email] - 1);

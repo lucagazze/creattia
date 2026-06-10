@@ -91,7 +91,7 @@ const getArgentinaDateStr = (date: Date): string => {
 
 export const ecommerce = {
   getShopifyOrders: async (domain: string, token: string, since: string, until: string) => {
-    const cacheKey = `orders:${domain}:${since}:${until}`;
+    const cacheKey = `orders_v2:${domain}:${since}:${until}`;
     const cached = ecGetCached(cacheKey);
     if (cached) return cached;
 
@@ -139,12 +139,16 @@ export const ecommerce = {
         nextUrl = nextLink;
       }
 
-      // Assign sequential "Nth purchase" numbers to each order.
-      // Shopify returns the customer's current lifetime orders_count on every order.
-      // Walk orders newest→oldest: anchor the most-recent order for each customer
-      // at the API lifetime count, then decrement for each older order.
-      // This correctly labels old orders too (e.g. a customer's 3rd purchase still
-      // shows "#3" even if they now have 7 lifetime orders).
+      // Count appearances per email in the loaded batch (floor for orders_count).
+      const batchCount: Record<string, number> = {};
+      for (const o of allOrders) {
+        const email = (o.customer?.email || '').toLowerCase().trim();
+        if (email) batchCount[email] = (batchCount[email] || 0) + 1;
+      }
+
+      // Assign sequential "Nth purchase" numbers. Walk newest→oldest.
+      // Anchor each customer's most-recent order at max(API lifetime count, batch appearances),
+      // then decrement for older orders. The max() handles cases where the API returns 0/null.
       const sortedDesc = [...allOrders].sort((a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
@@ -153,8 +157,8 @@ export const ecommerce = {
         const email = (o.customer?.email || '').toLowerCase().trim();
         if (!email || !o.customer) continue;
         if (!(email in emailSeq)) {
-          // First occurrence = most recent order → API lifetime count is accurate here
-          emailSeq[email] = o.customer.orders_count || 1;
+          const apiCount = o.customer.orders_count || 0;
+          emailSeq[email] = Math.max(apiCount, batchCount[email] || 1);
         }
         o.customer = { ...o.customer, orders_count: emailSeq[email] };
         emailSeq[email] = Math.max(1, emailSeq[email] - 1);
