@@ -948,14 +948,14 @@ export default function ContactosPage() {
                     placeholder="Buscar clientes..."
                     value={search}
                     onChange={handleSearchChange}
-                    className="w-full pl-9 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[12px] outline-none transition-all duration-200 text-zinc-750 dark:text-zinc-350 focus:border-blue-500/80 focus:bg-white dark:focus:bg-zinc-950 focus:ring-4 focus:ring-blue-500/10 placeholder:text-zinc-405"
+                    className="w-full pl-9 pr-3 h-8 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[11.5px] outline-none transition-all duration-200 text-zinc-750 dark:text-zinc-350 focus:border-blue-500/80 focus:bg-white dark:focus:bg-zinc-950 focus:ring-4 focus:ring-blue-500/10 placeholder:text-zinc-405"
                   />
                 </div>
 
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-zinc-650 dark:text-zinc-450 outline-none transition-all duration-200 cursor-pointer focus:border-blue-500/80 focus:bg-white dark:focus:bg-zinc-950 focus:ring-4 focus:ring-blue-500/10"
+                  className="h-8 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 text-[11px] font-bold text-zinc-650 dark:text-zinc-450 outline-none transition-all duration-200 cursor-pointer focus:border-blue-500/80 focus:bg-white dark:focus:bg-zinc-950 focus:ring-4 focus:ring-blue-500/10"
                 >
                   <option value="recent">Recientes</option>
                   <option value="name">Nombre</option>
@@ -1041,7 +1041,7 @@ export default function ContactosPage() {
           </div>
 
           <PortalWrapper active={isMobile && !!selectedStoreCust}>
-            <div className={`flex-1 min-w-0 flex flex-col overflow-hidden relative ${selectedStoreCust ? 'fixed inset-0 z-[250] bg-[#f5f5f7] dark:bg-[#0a0a0a] md:relative md:inset-auto md:z-auto md:bg-zinc-50 md:dark:bg-zinc-900/30 md:flex' : 'hidden md:flex'}`}>
+            <div className={`flex-1 min-w-0 flex flex-col overflow-hidden ${selectedStoreCust ? 'fixed inset-0 z-[250] bg-white dark:bg-zinc-950 md:relative md:inset-auto md:z-auto md:bg-zinc-50 md:dark:bg-zinc-900/30 md:flex' : 'relative hidden md:flex'}`}>
             {!selectedStoreCust ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
                 <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">🛍️</div>

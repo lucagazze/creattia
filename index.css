@@ -76,6 +76,34 @@ button:not(:disabled):active {
   transform: scale(0.97);
 }
 
+/* Global button scaling (makes buttons across all pages smaller and more professional) */
+button:not(.group):not([class*="w-1.5"]):not([class*="w-7"]):not([class*="w-6"]),
+select,
+input[type="button"],
+input[type="submit"] {
+  font-size: 0.88rem !important; /* shrink text slightly */
+}
+
+/* Scale down h-11 buttons */
+button[class*="h-11"]:not(.group),
+a[class*="bg-"][class*="h-11"]:not(.group) {
+  height: 2.25rem !important; /* 36px instead of 44px */
+}
+
+/* Scale down padding of py-2.5 buttons */
+button[class*="py-2.5"]:not(.group),
+a[class*="bg-"][class*="py-2.5"]:not(.group) {
+  padding-top: 0.45rem !important; /* 7px instead of 10px */
+  padding-bottom: 0.45rem !important;
+}
+
+/* Scale down padding of py-3 buttons */
+button[class*="py-3"]:not(.group),
+a[class*="bg-"][class*="py-3"]:not(.group) {
+  padding-top: 0.5rem !important; /* 8px instead of 12px */
+  padding-bottom: 0.5rem !important;
+}
+
 /* All links: smooth */
 a {
   transition: color 0.15s ease, opacity 0.15s ease;

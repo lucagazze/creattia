@@ -237,14 +237,14 @@ export default function RetencionPage() {
         </div>
         
         <div className="flex items-center gap-3 print:hidden">
-          <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1.5 py-1 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] h-11 relative" ref={datePickerRef}>
-            <button onClick={() => setShowDatePicker(!showDatePicker)} className="flex items-center gap-2 px-4 h-8 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group">
+          <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1 py-0.5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_4px_rgba(0,0,0,0.06)] h-9 relative" ref={datePickerRef}>
+            <button onClick={() => setShowDatePicker(!showDatePicker)} className="flex items-center gap-1.5 px-3 h-7 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group text-[11px]">
               {fetchingKlaviyo && currentKlaviyo ? (
                 <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
               ) : (
                 <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-emerald-500 transition-colors" />
               )}
-              <span className="text-[13px] font-bold text-zinc-700 dark:text-zinc-200">
+              <span className="text-[11px] font-bold text-zinc-700 dark:text-zinc-200">
                 {activePreset === 'custom' ? (activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}`) : PRESETS.find(p => p.id === activePreset)?.label || activePreset}
               </span>
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
