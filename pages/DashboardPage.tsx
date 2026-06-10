@@ -1715,7 +1715,7 @@ export default function DashboardPage() {
                         setPendingSince(r.since);
                         setPendingUntil(r.until);
                       }}
-                      className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-sm" : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
+                      className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? "bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none" : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
                     >
                       {p.label}
                     </button>
@@ -1803,7 +1803,7 @@ export default function DashboardPage() {
                     </button>
                      <button
                       onClick={handleApply}
-                      className="px-5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-bold hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
+                      className="px-5 py-1.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-md shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-colors"
                     >
                       Aplicar
                     </button>
@@ -2661,27 +2661,27 @@ export default function DashboardPage() {
 
                 // Payment Status
                 let paymentText = 'Pendiente';
-                let paymentColor = 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700';
+                let paymentColor = 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/10';
                 if (order.financial_status === 'paid') {
                   paymentText = 'Pagado';
-                  paymentColor = 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700';
+                  paymentColor = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10';
                 } else if (order.financial_status === 'authorized') {
                   paymentText = 'Autorizado';
-                  paymentColor = 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700';
+                  paymentColor = 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/10';
                 } else if (order.financial_status === 'refunded') {
                   paymentText = 'Reembolsado';
-                  paymentColor = 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700';
+                  paymentColor = 'bg-zinc-500/10 text-zinc-550 dark:text-zinc-400 border border-zinc-500/10';
                 }
 
                 // Fulfillment Status
                 let fulfillmentText = 'No enviado';
-                let fulfillmentColor = 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700';
+                let fulfillmentColor = 'bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200/10';
                 if (order.fulfillment_status === 'fulfilled') {
                   fulfillmentText = 'Enviado';
-                  fulfillmentColor = 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700';
+                  fulfillmentColor = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10';
                 } else if (order.fulfillment_status === 'partial') {
                   fulfillmentText = 'Parcial';
-                  fulfillmentColor = 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700';
+                  fulfillmentColor = 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/10';
                 }
 
                 return (
@@ -2691,7 +2691,7 @@ export default function DashboardPage() {
                     className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-pink-500/20 dark:hover:border-pink-500/20 hover:bg-white dark:hover:bg-zinc-900 transition-all duration-200 group hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-pink-500/5 dark:bg-pink-500/10 flex items-center justify-center text-pink-500/70 group-hover:bg-pink-500/10 group-hover:text-pink-500 transition-colors shrink-0">
                         <ShoppingBag className="w-3.5 h-3.5" />
                       </div>
                       <div className="min-w-0">
@@ -2711,7 +2711,7 @@ export default function DashboardPage() {
                           </span>
                           <div className="flex items-center gap-1 shrink-0 flex-wrap">
                             {(order.customer?.orders_count ?? 0) === 1 && (
-                              <span className="text-[7px] font-bold px-1 py-0.5 rounded uppercase tracking-wider border bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700">
+                              <span className="text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-wider border bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/20">
                                 Nuevo
                               </span>
                             )}
@@ -2725,12 +2725,12 @@ export default function DashboardPage() {
                         </div>
                         <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium truncate mt-0.5 flex items-center gap-1.5">
                           {isOrderToday && (
-                            <span className="text-[7.5px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 px-1.5 py-[1px] rounded shrink-0">
+                            <span className="text-[7.5px] font-black text-pink-500 dark:text-pink-400 uppercase tracking-wider bg-pink-500/10 dark:bg-pink-500/20 px-1.5 py-[1px] rounded shrink-0">
                               Hoy
                             </span>
                           )}
                           {isOrderYesterday && (
-                            <span className="text-[7.5px] font-bold text-zinc-500 dark:text-zinc-500 uppercase tracking-wider bg-zinc-100/80 dark:bg-zinc-800/60 px-1.5 py-[1px] rounded shrink-0">
+                            <span className="text-[7.5px] font-black text-violet-500 dark:text-violet-400 uppercase tracking-wider bg-violet-500/10 dark:bg-violet-500/20 px-1.5 py-[1px] rounded shrink-0">
                               Ayer
                             </span>
                           )}
@@ -2739,7 +2739,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="text-right shrink-0 ml-3">
-                      <span className="text-[12px] font-bold text-zinc-900 dark:text-zinc-100">
+                      <span className="text-[12px] font-bold text-pink-600 dark:text-pink-400">
                         $ {order.total_price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
                       </span>
                     </div>
@@ -2760,8 +2760,8 @@ export default function DashboardPage() {
             {/* Header */}
             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                  <ShoppingBag className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+                <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5 text-pink-500" />
                 </div>
                 <div>
                   <h3 className="text-[16px] font-bold text-zinc-900 dark:text-white leading-tight">
@@ -2803,7 +2803,7 @@ export default function DashboardPage() {
                 
                 {/* Customer profile */}
                 <div className="bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-150/40 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
-                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-black text-pink-650 dark:text-pink-400 uppercase tracking-wider block">
                     Datos del Cliente
                   </span>
                   <div>
@@ -2843,7 +2843,7 @@ export default function DashboardPage() {
                   {(selectedOrder.email || selectedOrder.customer?.email) && (
                     <a
                       href={`#/cliente/${selectedOrder.email || selectedOrder.customer.email}`}
-                      className="flex items-center justify-center gap-2 mt-3 w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-[12px] font-bold transition-all active:scale-[0.98]"
+                      className="flex items-center justify-center gap-2 mt-3 w-full py-2.5 bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white rounded-xl text-[12px] font-black shadow-lg shadow-pink-500/20 transition-all hover:scale-[1.02]"
                     >
                       <User className="w-4 h-4" />
                       Ver Perfil y Pedidos
@@ -2853,7 +2853,7 @@ export default function DashboardPage() {
 
                 {/* Address */}
                 <div className="bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-150/40 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
-                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-black text-pink-650 dark:text-pink-400 uppercase tracking-wider block">
                     Dirección de Envío
                   </span>
                   {selectedOrder.shipping_address ? (
@@ -2881,7 +2881,15 @@ export default function DashboardPage() {
               <div className="flex gap-4">
                 <div className="flex-1 p-3 rounded-xl border border-zinc-150/60 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-900/10 flex items-center justify-between">
                   <span className="text-[11px] font-bold text-zinc-450 dark:text-zinc-550">Estado de Pago</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700`}>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    selectedOrder.financial_status === 'paid'
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/15"
+                      : selectedOrder.financial_status === 'authorized'
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-500/15"
+                        : selectedOrder.financial_status === 'refunded'
+                          ? "bg-zinc-150 text-zinc-600 dark:bg-zinc-850 dark:text-zinc-550 border border-zinc-600/15"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-500/15"
+                  }`}>
                     {selectedOrder.financial_status === 'paid' 
                       ? 'Pagado' 
                       : selectedOrder.financial_status === 'authorized'
@@ -2893,7 +2901,13 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex-1 p-3 rounded-xl border border-zinc-150/60 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-900/10 flex items-center justify-between gap-2">
                   <span className="text-[11px] font-bold text-zinc-450 dark:text-zinc-550">Estado de Envío</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700`}>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    selectedOrder.fulfillment_status === 'fulfilled'
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/15"
+                      : selectedOrder.fulfillment_status === 'partial'
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-500/15"
+                        : "bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-450 border border-zinc-200/10"
+                  }`}>
                     {selectedOrder.fulfillment_status === 'fulfilled'
                       ? 'Enviado'
                       : selectedOrder.fulfillment_status === 'partial'

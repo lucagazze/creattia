@@ -78,8 +78,8 @@ const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, 
               onClick={() => !isFuture && onDay(d)} 
               disabled={isFuture} 
               className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${
-                isSelected ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full z-10 shadow-md' : 
-                (isInRange || isHovering) ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300' : 
+                isSelected ? 'bg-pink-600 text-white rounded-full z-10 shadow-md shadow-pink-200 dark:shadow-none' : 
+                (isInRange || isHovering) ? 'bg-pink-50 dark:bg-pink-500/10 text-pink-600' : 
                 isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 
                 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'
               } ${isToday && !isSelected ? 'text-pink-600 dark:text-pink-500 ring-1 ring-pink-100 dark:ring-pink-900/30' : ''}`}
@@ -103,9 +103,9 @@ const ScoreBadge: React.FC<{ score: Score | string; label: string }> = ({ score,
 
 const TotalBadge: React.FC<{ score: number }> = ({ score }) => {
   const map: Record<number, { label: string; cls: string }> = {
-    3: { label: 'Héroe',     cls: 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900' },
-    2: { label: 'Candidato', cls: 'bg-zinc-700 dark:bg-zinc-300 text-white dark:text-zinc-900' },
-    1: { label: 'Potencial', cls: 'bg-zinc-500 text-white' },
+    3: { label: 'Héroe',     cls: 'bg-emerald-500 text-white' },
+    2: { label: 'Candidato', cls: 'bg-blue-500 text-white' },
+    1: { label: 'Potencial', cls: 'bg-amber-500 text-white' },
     0: { label: 'Débil',     cls: 'bg-zinc-400 dark:bg-zinc-600 text-white' },
   };
   const { label, cls } = map[score] ?? map[0];
@@ -313,7 +313,7 @@ export default function TiendaPage() {
                 <div className="absolute left-0 md:left-auto md:right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-30 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[290px] sm:w-[320px] md:w-auto origin-top-left md:origin-top-right">
                   <div className="w-full md:w-[160px] border-b md:border-b-0 md:border-r border-zinc-50 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-hide">
                     {[{ id: 'today', label: 'Hoy' }, { id: 'yesterday', label: 'Ayer' }, { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_14d', label: 'Últimos 14 días' }, { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_30d', label: 'Últimos 30 días' }, { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' }, { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' }, { id: 'last_year', label: 'Año pasado' }, { id: 'max', label: 'Máximo' }].map(p => (
-                      <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                      <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-3 md:px-4 py-1.5 rounded-[10px] text-[11px] md:text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-pink-600 text-white shadow-md shadow-pink-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                     ))}
                   </div>
                   <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
@@ -325,7 +325,7 @@ export default function TiendaPage() {
                     </div>
                     <div className="w-full flex justify-end gap-2 mt-4 pt-4 border-t border-zinc-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                       <button onClick={() => setShowDatePicker(false)} className="px-4 py-1.5 rounded-lg text-[12px] font-bold text-zinc-500">Cancelar</button>
-                      <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-bold hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors">Aplicar</button>
+                      <button onClick={handleApply} className="px-5 py-1.5 rounded-lg bg-pink-600 text-white text-[12px] font-bold shadow-md shadow-pink-200 dark:shadow-none hover:bg-pink-700 transition-colors">Aplicar</button>
                     </div>
                   </div>
                 </div>
@@ -526,8 +526,8 @@ export default function TiendaPage() {
                   <span className="text-[11px] font-bold text-zinc-450 dark:text-zinc-550">Estado de Pago</span>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     selectedOrder.financial_status === 'paid'
-                      ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/15"
+                      : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-500/15"
                   }`}>
                     {selectedOrder.financial_status === 'paid' ? 'Pagado' : 'Pendiente'}
                   </span>
@@ -536,8 +536,8 @@ export default function TiendaPage() {
                   <span className="text-[11px] font-bold text-zinc-450 dark:text-zinc-550">Estado de Envío</span>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                     selectedOrder.fulfillment_status === 'fulfilled'
-                      ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/15"
+                      : "bg-zinc-100 text-zinc-650 dark:bg-zinc-800 dark:text-zinc-450 border border-zinc-200/10"
                   }`}>
                     {selectedOrder.fulfillment_status === 'fulfilled' ? 'Enviado' : 'No enviado'}
                   </span>

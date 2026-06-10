@@ -54,28 +54,28 @@ const fmtDateTime = (iso: string) => {
 
 function PaymentBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    paid:               { label: 'Pagado',         cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700' },
-    pending:            { label: 'Pendiente',      cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' },
-    refunded:           { label: 'Reembolsado',    cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' },
-    partially_refunded: { label: 'Reemb. parcial', cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' },
-    voided:             { label: 'Anulado',        cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700' },
-    authorized:         { label: 'Autorizado',     cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' },
+    paid:               { label: 'Pagado',         cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+    pending:            { label: 'Pendiente',      cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+    refunded:           { label: 'Reembolsado',    cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+    partially_refunded: { label: 'Reemb. parcial', cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+    voided:             { label: 'Anulado',        cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400' },
+    authorized:         { label: 'Autorizado',     cls: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' },
   };
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700' };
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${cls}`}>{label}</span>;
+  const { label, cls } = map[status] ?? { label: status, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500' };
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${cls}`}>{label}</span>;
 }
 
 function FulfillmentBadge({ status }: { status: string | null }) {
   const s = status || 'unfulfilled';
   const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
-    fulfilled:   { label: 'Enviado',    cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700', icon: <Truck className="w-2.5 h-2.5" /> },
-    unfulfilled: { label: 'Sin enviar', cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700', icon: <Package className="w-2.5 h-2.5" /> },
-    partial:     { label: 'Parcial',    cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700', icon: <Package className="w-2.5 h-2.5" /> },
-    restocked:   { label: 'Devuelto',   cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700', icon: <RefreshCw className="w-2.5 h-2.5" /> },
+    fulfilled:   { label: 'Enviado',    cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', icon: <Truck className="w-2.5 h-2.5" /> },
+    unfulfilled: { label: 'Sin enviar', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',   icon: <Package className="w-2.5 h-2.5" /> },
+    partial:     { label: 'Parcial',    cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',        icon: <Package className="w-2.5 h-2.5" /> },
+    restocked:   { label: 'Devuelto',   cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500',                                   icon: <RefreshCw className="w-2.5 h-2.5" /> },
   };
-  const { label, cls, icon } = map[s] ?? { label: s, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700', icon: null };
+  const { label, cls, icon } = map[s] ?? { label: s, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500', icon: null };
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${cls}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${cls}`}>
       {icon}{label}
     </span>
   );
@@ -84,12 +84,12 @@ function FulfillmentBadge({ status }: { status: string | null }) {
 // ─── Attribution badge ────────────────────────────────────────────────────────
 
 const ATTR_STYLE: Record<string, { dot: string; bg: string; text: string; border: string }> = {
-  meta_ads:   { dot: 'bg-zinc-500',    bg: 'bg-zinc-50 dark:bg-zinc-800/50',   text: 'text-zinc-600 dark:text-zinc-400',   border: 'border-zinc-200 dark:border-zinc-700' },
-  google_ads: { dot: 'bg-zinc-500',   bg: 'bg-zinc-50 dark:bg-zinc-800/50',   text: 'text-zinc-600 dark:text-zinc-400',   border: 'border-zinc-200 dark:border-zinc-700' },
-  email:      { dot: 'bg-zinc-500',  bg: 'bg-zinc-50 dark:bg-zinc-800/50', text: 'text-zinc-600 dark:text-zinc-400', border: 'border-zinc-200 dark:border-zinc-700' },
-  organic:    { dot: 'bg-zinc-500', bg: 'bg-zinc-50 dark:bg-zinc-800/50', text: 'text-zinc-600 dark:text-zinc-400', border: 'border-zinc-200 dark:border-zinc-700' },
-  direct:     { dot: 'bg-zinc-400',    bg: 'bg-zinc-50 dark:bg-zinc-800/50',       text: 'text-zinc-500 dark:text-zinc-400',     border: 'border-zinc-200 dark:border-zinc-700' },
-  other:      { dot: 'bg-zinc-400',    bg: 'bg-zinc-50 dark:bg-zinc-800/50',       text: 'text-zinc-500 dark:text-zinc-400',     border: 'border-zinc-200 dark:border-zinc-700' },
+  meta_ads:   { dot: 'bg-blue-500',    bg: 'bg-blue-50 dark:bg-blue-500/10',     text: 'text-blue-700 dark:text-blue-400',     border: 'border-blue-200 dark:border-blue-500/20' },
+  google_ads: { dot: 'bg-amber-500',   bg: 'bg-amber-50 dark:bg-amber-500/10',   text: 'text-amber-700 dark:text-amber-400',   border: 'border-amber-200 dark:border-amber-500/20' },
+  email:      { dot: 'bg-violet-500',  bg: 'bg-violet-50 dark:bg-violet-500/10', text: 'text-violet-700 dark:text-violet-400', border: 'border-violet-200 dark:border-violet-500/20' },
+  organic:    { dot: 'bg-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-500/20' },
+  direct:     { dot: 'bg-zinc-400',    bg: 'bg-zinc-100 dark:bg-zinc-800',       text: 'text-zinc-500 dark:text-zinc-400',     border: 'border-zinc-200 dark:border-zinc-700' },
+  other:      { dot: 'bg-zinc-400',    bg: 'bg-zinc-100 dark:bg-zinc-800',       text: 'text-zinc-500 dark:text-zinc-400',     border: 'border-zinc-200 dark:border-zinc-700' },
 };
 
 const AttributionBadge = ({ attribution }: { attribution: OrderAttribution | null }) => {
@@ -200,7 +200,7 @@ function OrderDetail({ order, productImages }: { order: any; productImages: Reco
             {order.customer.email && (
               <a
                 href={`#/cliente/${order.customer.email}`}
-                className="flex items-center justify-center gap-2 mt-3 w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-[12px] font-bold transition-all active:scale-[0.98]"
+                className="flex items-center justify-center gap-2 mt-3 w-full py-2.5 bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white rounded-xl text-[12px] font-black shadow-lg shadow-pink-500/20 transition-all hover:scale-[1.02]"
               >
                 <User className="w-4 h-4" />
                 Ver Perfil y Pedidos
@@ -308,8 +308,8 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
               {dateTag && (
                 <span className={`text-[9px] font-black uppercase tracking-wider px-1 py-[0.5px] rounded shrink-0 ${
                   dateTag === 'Hoy'
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                    : 'bg-zinc-100/50 dark:bg-zinc-800/30 text-zinc-400 dark:text-zinc-500'
+                    ? 'bg-pink-500/10 dark:bg-pink-500/20 text-pink-500 dark:text-pink-400'
+                    : 'bg-violet-500/10 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400'
                 }`}>
                   {dateTag}
                 </span>
@@ -335,7 +335,7 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
               <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{customerName}</p>
             )}
             {order.customer?.orders_count === 1 && (
-              <span className="shrink-0 text-[8px] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25">
                 ✦ Nuevo
               </span>
             )}
@@ -438,7 +438,7 @@ const OrderCard = memo(function OrderCard({ order, productImages }: { order: any
             <FulfillmentBadge status={order.fulfillment_status} />
             {attribution && <AttributionBadge attribution={attribution} />}
             {order.customer?.orders_count === 1 && (
-              <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+              <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25">
                 ✦ Nuevo
               </span>
             )}
@@ -684,10 +684,10 @@ export default function PedidosPage() {
         {/* ── Stats ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {([
-            { label: 'Pedidos',    value: stats.total.toString(),    icon: ShoppingCart, color: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800' },
-            { label: 'Ingresos',   value: fmtCurr(stats.revenue),    icon: CreditCard,   color: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800' },
-            { label: 'Pagados',    value: stats.paid.toString(),      icon: CheckCircle,  color: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800' },
-            { label: 'Sin enviar', value: stats.unshipped.toString(), icon: Package,      color: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800' },
+            { label: 'Pedidos',     value: stats.total.toString(),    icon: ShoppingCart, color: 'text-pink-500',    bg: 'bg-pink-500/10' },
+            { label: 'Ingresos',    value: fmtCurr(stats.revenue),    icon: CreditCard,   color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+            { label: 'Pagados',     value: stats.paid.toString(),      icon: CheckCircle,  color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+            { label: 'Sin enviar',  value: stats.unshipped.toString(), icon: Package,      color: 'text-orange-500',  bg: 'bg-orange-500/10' },
           ] as const).map(({ label, value, icon: Icon, color, bg }) => (
             <div key={label} className="bg-white dark:bg-[#111] rounded-[14px] border border-black/[0.06] dark:border-white/[0.05] p-4 shadow-[0_1px_8px_rgba(0,0,0,0.04)] dark:shadow-none">
               <div className="flex items-center gap-2 mb-2">

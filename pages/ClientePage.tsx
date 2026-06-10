@@ -34,28 +34,28 @@ const fmtDateTime = (iso: string) => {
 // Badges
 function PaymentBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    paid:               { label: 'Pagado',         cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700' },
-    pending:            { label: 'Pendiente',      cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' },
-    refunded:           { label: 'Reembolsado',    cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' },
-    partially_refunded: { label: 'Reemb. parcial', cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' },
-    voided:             { label: 'Anulado',        cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700' },
-    authorized:         { label: 'Autorizado',     cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700' },
+    paid:               { label: 'Pagado',         cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' },
+    pending:            { label: 'Pendiente',      cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' },
+    refunded:           { label: 'Reembolsado',    cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+    partially_refunded: { label: 'Reemb. parcial', cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' },
+    voided:             { label: 'Anulado',        cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400' },
+    authorized:         { label: 'Autorizado',     cls: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' },
   };
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700' };
-  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${cls}`}>{label}</span>;
+  const { label, cls } = map[status] ?? { label: status, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500' };
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${cls}`}>{label}</span>;
 }
 
 function FulfillmentBadge({ status }: { status: string | null }) {
   const s = status || 'unfulfilled';
   const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
-    fulfilled:   { label: 'Enviado',    cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700', icon: <Truck className="w-2.5 h-2.5" /> },
-    unfulfilled: { label: 'Sin enviar', cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700', icon: <Package className="w-2.5 h-2.5" /> },
-    partial:     { label: 'Parcial',    cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700', icon: <Package className="w-2.5 h-2.5" /> },
-    restocked:   { label: 'Devuelto',   cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700', icon: <RefreshCw className="w-2.5 h-2.5" /> },
+    fulfilled:   { label: 'Enviado',    cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', icon: <Truck className="w-2.5 h-2.5" /> },
+    unfulfilled: { label: 'Sin enviar', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',   icon: <Package className="w-2.5 h-2.5" /> },
+    partial:     { label: 'Parcial',    cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',        icon: <Package className="w-2.5 h-2.5" /> },
+    restocked:   { label: 'Devuelto',   cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500',                                   icon: <RefreshCw className="w-2.5 h-2.5" /> },
   };
-  const { label, cls, icon } = map[s] ?? { label: s, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700', icon: null };
+  const { label, cls, icon } = map[s] ?? { label: s, cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500', icon: null };
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${cls}`}>
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${cls}`}>
       {icon}{label}
     </span>
   );
@@ -546,8 +546,20 @@ export default function ClientePage() {
     }
   };
 
-  const getAvatarGradient = (_name: string) => {
-    return 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900';
+  const getAvatarGradient = (name: string) => {
+    const gradients = [
+      'from-pink-500 to-rose-500 text-white',
+      'from-violet-500 to-purple-500 text-white',
+      'from-blue-500 to-indigo-500 text-white',
+      'from-emerald-500 to-teal-500 text-white',
+      'from-amber-500 to-orange-500 text-white',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % gradients.length;
+    return gradients[index];
   };
 
   const getInitials = (name: string) => {
@@ -603,7 +615,7 @@ export default function ClientePage() {
       {/* Header Card */}
       <div className="bg-white dark:bg-[#111] rounded-2xl border border-black/[0.06] dark:border-white/[0.05] p-6 shadow-sm dark:shadow-none flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-[18px] font-black bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shrink-0">
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-[20px] font-black bg-gradient-to-br shadow-inner ${getAvatarGradient(customer.name)}`}>
             {getInitials(customer.name)}
           </div>
           <div>
@@ -623,10 +635,10 @@ export default function ClientePage() {
         {chatwootContactId && (
           <button
             onClick={handleStartChat}
-            className="flex items-center justify-center gap-2 px-4 h-10 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 rounded-xl text-[12.5px] font-bold transition-all active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 px-4 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[12.5px] font-black shadow-md shadow-blue-500/10 transition-all active:scale-[0.98]"
           >
             <MessageSquare className="w-4 h-4" />
-            Ver Chat
+            Ver Chat en Atención
           </button>
         )}
       </div>
@@ -634,9 +646,9 @@ export default function ClientePage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: 'Gasto Total',     value: fmtCurr(customer.total_spent), icon: CreditCard,   color: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800' },
-          { label: 'Total Pedidos',   value: `${orders.length} pedidos`,      icon: ShoppingBag,  color: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800' },
-          { label: 'Ticket Promedio', value: fmtCurr(avgTicket),               icon: ShoppingCart, color: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800' },
+          { label: 'Gasto Total', value: fmtCurr(customer.total_spent), icon: CreditCard, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+          { label: 'Total Pedidos', value: `${orders.length} pedidos`, icon: ShoppingBag, color: 'text-pink-500', bg: 'bg-pink-500/10' },
+          { label: 'Ticket Promedio', value: fmtCurr(avgTicket), icon: ShoppingCart, color: 'text-violet-500', bg: 'bg-violet-500/10' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white dark:bg-[#111] rounded-[16px] border border-black/[0.06] dark:border-white/[0.05] p-5 shadow-sm dark:shadow-none">
             <div className="flex items-center gap-2 mb-2">
