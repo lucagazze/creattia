@@ -996,9 +996,6 @@ export default function ContactosPage() {
                         <p className={`text-[12px] truncate font-bold ${isSelected ? 'text-white' : 'text-zinc-800 dark:text-zinc-100'}`}>
                           {c.name || 'Cliente sin nombre'}
                         </p>
-                        <p className={`text-[9.5px] font-mono mt-0.5 truncate ${isSelected ? 'text-blue-250' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                          {c.phone || c.email || 'Sin teléfono/email'}
-                        </p>
                       </div>
 
                       {/* Gasto Total Badge */}
@@ -1041,7 +1038,12 @@ export default function ContactosPage() {
           </div>
 
           <PortalWrapper active={isMobile && !!selectedStoreCust}>
-            <div className={`flex-1 min-w-0 flex flex-col overflow-hidden ${selectedStoreCust ? 'fixed inset-0 z-[250] bg-white dark:bg-zinc-950 md:relative md:inset-auto md:z-auto md:bg-zinc-50 md:dark:bg-zinc-900/30 md:flex' : 'relative hidden md:flex'}`}>
+            <>
+            {/* Backdrop — mobile only, closes on tap */}
+            {selectedStoreCust && (
+              <div className="fixed inset-0 z-[500] bg-black/70 md:hidden" onClick={() => setSelectedStoreCust(null)} />
+            )}
+            <div className={`flex-1 min-w-0 flex flex-col overflow-hidden ${selectedStoreCust ? 'fixed inset-0 z-[501] bg-white dark:bg-zinc-950 md:relative md:inset-auto md:z-auto md:bg-zinc-50 md:dark:bg-zinc-900/30 md:flex' : 'relative hidden md:flex'}`}>
             {!selectedStoreCust ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
                 <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">🛍️</div>
@@ -1049,17 +1051,22 @@ export default function ContactosPage() {
               </div>
             ) : (
               <>
-                {/* Floating close button on mobile, positioned always top-left and above the navbar */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedStoreCust(null)}
-                  className="md:hidden fixed top-3.5 left-3.5 z-[260] w-10 h-10 rounded-xl bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 shadow-md flex items-center justify-center text-zinc-600 dark:text-zinc-350 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                  title="Cerrar vista de cliente"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                {/* Sticky mobile header with close button */}
+                <div className="md:hidden flex-shrink-0 flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-950 border-b border-zinc-100 dark:border-zinc-800">
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-black text-zinc-900 dark:text-white truncate">{selectedStoreCust.name}</p>
+                    <p className="text-[10px] text-zinc-400 font-medium">Perfil del cliente</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStoreCust(null)}
+                    className="ml-3 flex-shrink-0 p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-                <div className="flex-1 min-w-0 overflow-y-auto p-6 pt-16 md:p-8 space-y-6 w-full">
+                <div className="flex-1 min-w-0 overflow-y-auto p-6 md:p-8 space-y-6 w-full">
 
                 {/* Header block */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">
@@ -1265,6 +1272,7 @@ export default function ContactosPage() {
             </>
           )}
           </div>
+            </>
         </PortalWrapper>
         </div>
       </div>
