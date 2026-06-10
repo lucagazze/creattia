@@ -1056,7 +1056,7 @@ export default function ContactosPage() {
                 <p className="text-[13.5px] font-medium">Seleccioná un cliente para ver estadísticas y pedidos</p>
               </div>
             ) : (
-              <div className="flex-1 min-w-0 overflow-y-auto p-6 md:p-8 space-y-6 max-w-3xl w-full">
+              <div className="flex-1 min-w-0 overflow-y-auto p-6 md:p-8 space-y-6 w-full">
                 
                 {/* Back button for mobile */}
                 <button
@@ -1245,7 +1245,7 @@ export default function ContactosPage() {
                         ))}
                       </div>
                       {/* Desktop: table */}
-                      <div className="hidden md:block overflow-x-auto">
+                      <div className="hidden md:block">
                         <table className="w-full text-left">
                           <thead>
                             <tr className="border-b border-zinc-100 dark:border-white/[0.04] bg-zinc-50/50 dark:bg-white/[0.015]">
