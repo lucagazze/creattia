@@ -156,7 +156,7 @@ export default function PerfilPage() {
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden bg-zinc-900 dark:bg-zinc-200 flex items-center justify-center shadow-lg">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
@@ -167,7 +167,7 @@ export default function PerfilPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-violet-600 hover:bg-violet-700 text-white flex items-center justify-center shadow-lg shadow-violet-500/30 transition-all hover:scale-110 active:scale-95 disabled:opacity-60"
+              className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-zinc-900 hover:bg-zinc-700 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center shadow-lg transition-all hover:scale-110 active:scale-95 disabled:opacity-60"
               title="Cambiar foto"
             >
               {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
@@ -196,7 +196,7 @@ export default function PerfilPage() {
                 <button
                   onClick={handleSaveName}
                   disabled={savingName || !displayName.trim()}
-                  className="h-9 w-9 rounded-xl bg-violet-600 hover:bg-violet-700 text-white flex items-center justify-center transition-all disabled:opacity-50"
+                  className="h-9 w-9 rounded-xl bg-zinc-900 hover:bg-zinc-700 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center transition-all disabled:opacity-50"
                 >
                   {savingName ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 </button>
@@ -252,14 +252,14 @@ export default function PerfilPage() {
             onClick={() => { setShowPwdSection(v => !v); setPwdError(''); setNewPwd(''); setConfirmPwd(''); }}
             className="w-full flex items-center gap-3 px-5 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
           >
-            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0">
               <KeyRound className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="flex-1 text-left">
               <p className="text-[13px] font-bold text-zinc-900 dark:text-white">Cambiar contraseña</p>
               <p className="text-[11px] text-zinc-400 mt-0.5">Actualizá tu contraseña de acceso</p>
             </div>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${showPwdSection ? 'border-amber-500 bg-amber-500' : 'border-zinc-300 dark:border-zinc-600'}`}>
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${showPwdSection ? 'border-zinc-900 dark:border-white bg-zinc-900 dark:bg-white' : 'border-zinc-300 dark:border-zinc-600'}`}>
               {showPwdSection && <X className="w-3 h-3 text-white" />}
             </div>
           </button>
@@ -300,7 +300,7 @@ export default function PerfilPage() {
               <button
                 onClick={handleChangePassword}
                 disabled={savingPwd || !newPwd || !confirmPwd || newPwd !== confirmPwd}
-                className="w-full h-10 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-amber-500/20"
+                className="w-full h-10 rounded-xl bg-zinc-900 hover:bg-zinc-700 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-[13px] font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-sm"
               >
                 {savingPwd ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
                 Cambiar contraseña
