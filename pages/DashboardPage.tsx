@@ -2755,13 +2755,13 @@ export default function DashboardPage() {
       {/* Order Detail Modal */}
       {selectedOrder && createPortal(
         <>
-          {/* Backdrop - independent fixed element */}
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm" onClick={() => setSelectedOrder(null)} />
-          {/* Modal: fixed inset-0 on mobile (true full screen), centered card on desktop */}
-          <div className="fixed inset-0 z-[101] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-[650px] sm:w-full bg-white dark:bg-zinc-900 sm:border sm:border-zinc-200 sm:dark:border-zinc-800 shadow-2xl sm:rounded-3xl flex flex-col sm:max-h-[90vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-[500] bg-black/60 backdrop-blur-sm" onClick={() => setSelectedOrder(null)} />
+          {/* Modal: full-screen on mobile, centered card on desktop */}
+          <div className="fixed inset-0 z-[501] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-[650px] sm:w-full sm:mx-4 bg-white dark:bg-zinc-900 sm:border sm:border-zinc-200 sm:dark:border-zinc-800 shadow-2xl sm:rounded-3xl flex flex-col sm:max-h-[90vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             
             {/* Header */}
-            <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+            <div className="px-4 py-3 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center shrink-0">
                   <ShoppingBag className="w-5 h-5 text-pink-500" />
@@ -2791,7 +2791,7 @@ export default function DashboardPage() {
                 )}
                 <button
                   onClick={() => setSelectedOrder(null)}
-                  className="p-1.5 text-zinc-450 hover:text-zinc-700 dark:hover:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  className="p-2 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2799,7 +2799,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:p-6 space-y-4 sm:space-y-6 scrollbar-hide">
               
               {/* Customer & Billing section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
