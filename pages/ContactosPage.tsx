@@ -7,7 +7,7 @@ import {
   Search, User, Mail, Phone, MapPin, 
   Loader2, ArrowLeft, ArrowRight, MessageSquare, 
   ShoppingBag, CreditCard, ShoppingCart, AlertCircle,
-  Package, Truck, RefreshCw, ChevronDown, ChevronUp, Tag, AlertTriangle
+  Package, Truck, RefreshCw, ChevronDown, ChevronUp, Tag, AlertTriangle, X
 } from 'lucide-react';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 
@@ -1025,25 +1025,25 @@ export default function ContactosPage() {
             )}
           </div>
 
-          {/* RIGHT COLUMN: Details */}
-          <div className={`flex-1 min-w-0 flex flex-col bg-zinc-50 dark:bg-zinc-900/30 overflow-hidden relative ${selectedStoreCust ? 'flex' : 'hidden md:flex'}`}>
+          <div className={`flex-1 min-w-0 flex flex-col overflow-hidden relative ${selectedStoreCust ? 'fixed inset-0 z-[250] bg-[#f5f5f7] dark:bg-[#0a0a0a] md:relative md:inset-auto md:z-auto md:bg-zinc-50 md:dark:bg-zinc-900/30 md:flex' : 'hidden md:flex'}`}>
             {!selectedStoreCust ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
                 <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">🛍️</div>
                 <p className="text-[13.5px] font-medium">Seleccioná un cliente para ver estadísticas y pedidos</p>
               </div>
             ) : (
-              <div className="flex-1 min-w-0 overflow-y-auto p-6 md:p-8 space-y-6 w-full">
-                
-                {/* Back button for mobile */}
+              <>
+                {/* Floating close button on mobile, positioned always top-left and above the navbar */}
                 <button
                   type="button"
                   onClick={() => setSelectedStoreCust(null)}
-                  className="md:hidden flex items-center gap-1.5 text-[12px] font-black text-zinc-550 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-colors mb-4"
+                  className="md:hidden fixed top-3.5 left-3.5 z-[260] w-10 h-10 rounded-xl bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 shadow-md flex items-center justify-center text-zinc-600 dark:text-zinc-350 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                  title="Cerrar vista de cliente"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  Volver a la lista
+                  <X className="w-5 h-5" />
                 </button>
+
+                <div className="flex-1 min-w-0 overflow-y-auto p-6 pt-16 md:p-8 space-y-6 w-full">
 
                 {/* Header block */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">
@@ -1246,7 +1246,8 @@ export default function ContactosPage() {
                 </div>
 
               </div>
-            )}
+            </>
+          )}
           </div>
         </div>
       </div>
