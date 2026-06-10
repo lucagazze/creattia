@@ -87,7 +87,6 @@ export default function LoginPage() {
       {/* Main */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pb-12 overflow-hidden">
         <div className="w-full max-w-[360px] animate-in fade-in slide-in-from-bottom-5 duration-700 my-auto py-4">
- 
           {/* Logo + title */}
           <div className="flex flex-col items-center mb-6 text-center">
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-500 ${
@@ -99,12 +98,9 @@ export default function LoginPage() {
                 className="w-9 h-9 object-contain"
               />
             </div>
-            <h1 className={`text-[20px] font-black tracking-tight mb-1 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              Iniciar Sesión
+            <h1 className={`text-[15px] font-black tracking-tight ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+              Ingresar al ecosistema de Algoritmia
             </h1>
-            <p className={`text-[12px] font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>
-              Ingresá al ecosistema de Algoritmia
-            </p>
           </div>
  
           {/* Form card */}
@@ -126,9 +122,9 @@ export default function LoginPage() {
                     placeholder="ejemplo@algoritmia.team o usuario"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={`w-full h-10.5 px-3.5 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
+                    className={`w-full h-11 px-3.5 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
                       darkMode
-                        ? 'bg-white/5 border-white/8 text-white placeholder:text-zinc-600 focus:border-violet-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-violet-500/10'
+                        ? 'bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-violet-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-violet-500/10'
                         : 'bg-zinc-50 border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/80 focus:bg-white focus:ring-4 focus:ring-violet-500/10 shadow-[inset_0_1px_2px_rgba(0,0,0,0.01)]'
                     }`}
                   />
@@ -145,9 +141,9 @@ export default function LoginPage() {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className={`w-full h-10.5 pl-3.5 pr-11 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
+                      className={`w-full h-11 pl-3.5 pr-11 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
                         darkMode
-                          ? 'bg-white/5 border-white/8 text-white placeholder:text-zinc-600 focus:border-violet-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-violet-500/10'
+                          ? 'bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-violet-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-violet-500/10'
                           : 'bg-zinc-50 border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/80 focus:bg-white focus:ring-4 focus:ring-violet-500/10 shadow-[inset_0_1px_2px_rgba(0,0,0,0.01)]'
                       }`}
                     />
@@ -167,7 +163,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`w-full h-10.5 rounded-xl text-[13px] font-black uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`w-full h-11 rounded-xl text-[13px] font-black uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed ${
                     darkMode
                       ? 'bg-white text-zinc-950 hover:bg-zinc-100 shadow-[0_4px_20px_rgba(255,255,255,0.12)] border border-transparent'
                       : 'bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 shadow-[0_2px_8px_rgba(0,0,0,0.06)] hover:border-zinc-300'
