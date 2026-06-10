@@ -176,7 +176,7 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
           <div className="flex items-center gap-1.5 flex-wrap">
             <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{customerName}</p>
             {order.customer?.orders_count === 1 && (
-              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25">
                 ✦ Nuevo
               </span>
             )}
@@ -312,7 +312,7 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[13px] font-black text-zinc-800 dark:text-zinc-100">{customerName}</p>
                       {order.customer.orders_count === 1 && (
-                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-[3px] rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-[3px] rounded-full bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25">
                           ✦ Nuevo cliente
                         </span>
                       )}

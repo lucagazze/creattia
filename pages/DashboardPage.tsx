@@ -2685,7 +2685,7 @@ export default function DashboardPage() {
                           </span>
                           <div className="flex items-center gap-1 shrink-0 flex-wrap">
                             {(order.customer?.orders_count ?? 0) === 1 && (
-                              <span className="text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-wider border bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                              <span className="text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-wider border bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/20">
                                 Nuevo
                               </span>
                             )}
