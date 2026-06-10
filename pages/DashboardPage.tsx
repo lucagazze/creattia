@@ -2684,16 +2684,9 @@ export default function DashboardPage() {
                             {order.customer_name}
                           </span>
                           <div className="flex items-center gap-1 shrink-0 flex-wrap">
-                            {(order.customer?.orders_count ?? 0) >= 1 && (
-                              <span className={`text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-wider border ${
-                                order.customer.orders_count === 1
-                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-                              }`}>
-                                {order.customer.orders_count === 1 ? '1er' :
-                                 order.customer.orders_count === 2 ? '2do' :
-                                 order.customer.orders_count === 3 ? '3er' :
-                                 `#${order.customer.orders_count}`} pedido
+                            {(order.customer?.orders_count ?? 0) === 1 && (
+                              <span className="text-[7px] font-black px-1 py-0.5 rounded uppercase tracking-wider border bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                                Nuevo
                               </span>
                             )}
                             <span className={`text-[7px] font-bold px-1 py-0.5 rounded uppercase tracking-wider ${paymentColor}`}>
