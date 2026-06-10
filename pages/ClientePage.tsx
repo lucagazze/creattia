@@ -297,6 +297,15 @@ export default function ClientePage() {
             const isCancelled = ['cancelled', 'failed'].includes(o.status);
             const financial_status = o.status === 'completed' || o.status === 'processing' ? 'paid' : o.status === 'refunded' ? 'refunded' : 'pending';
             const fulfillment_status = o.status === 'completed' ? 'fulfilled' : 'unfulfilled';
+            
+            const customerName = (() => {
+              const billName = o.billing ? `${o.billing.first_name || ''} ${o.billing.last_name || ''}`.trim() : '';
+              if (billName) return billName;
+              const shipName = o.shipping ? `${o.shipping.first_name || ''} ${o.shipping.last_name || ''}`.trim() : '';
+              if (shipName) return shipName;
+              return 'Cliente WooCommerce';
+            })();
+
             return {
               id: o.id,
               order_number: o.number,
@@ -308,7 +317,7 @@ export default function ClientePage() {
               subtotal_price: o.subtotal || String(parseFloat(o.total || '0') - parseFloat(o.total_tax || '0') - parseFloat(o.shipping_total || '0')),
               total_tax: o.total_tax,
               total_discounts: o.discount_total,
-              customer_name: o.billing ? `${o.billing.first_name || ''} ${o.billing.last_name || ''}`.trim() : 'Cliente WooCommerce',
+              customer_name: customerName,
               phone: o.billing?.phone || o.shipping?.phone || null,
               shipping_address: o.shipping?.address_1 ? {
                 address1: o.shipping.address_1,
@@ -349,13 +358,17 @@ export default function ClientePage() {
               total_spent: parseFloat(realWooCust.total_spent || 0)
             };
           } else {
-            // Guest customer fallback
+            // Guest customer fallback - search for first order with a non-generic name, phone, or address
+            const orderWithName = ordersList.find(o => o.customer_name && o.customer_name !== 'Cliente WooCommerce' && o.customer_name.trim() !== '') || lastOrder;
+            const orderWithPhone = ordersList.find(o => o.phone && o.phone.trim() !== '') || lastOrder;
+            const orderWithAddress = ordersList.find(o => o.shipping_address) || lastOrder;
+
             customerInfo = {
-              name: lastOrder.customer_name || 'Cliente WooCommerce',
+              name: orderWithName.customer_name || 'Cliente WooCommerce',
               email: email,
-              phone: lastOrder.phone || null,
-              address: lastOrder.shipping_address
-                ? `${lastOrder.shipping_address.address1 || ''}, ${lastOrder.shipping_address.city || ''}, ${lastOrder.shipping_address.province || ''}, ${lastOrder.shipping_address.country || ''}`.replace(/^,\s*/, '')
+              phone: orderWithPhone.phone || null,
+              address: orderWithAddress.shipping_address
+                ? `${orderWithAddress.shipping_address.address1 || ''}, ${orderWithAddress.shipping_address.city || ''}, ${orderWithAddress.shipping_address.province || ''}, ${orderWithAddress.shipping_address.country || ''}`.replace(/^,\s*/, '')
                 : null,
               orders_count: ordersList.length,
               total_spent: ordersList.reduce((sum, o) => sum + parseFloat(o.total_price || 0), 0)
@@ -383,6 +396,9 @@ export default function ClientePage() {
             const payStatus = o.payment_status;
             const financial_status = payStatus === 'paid' ? 'paid' : payStatus === 'refunded' ? 'refunded' : payStatus === 'voided' ? 'voided' : 'pending';
             const fulfillment_status = (o.shipping_status === 'shipped' || o.shipping_status === 'delivered') ? 'fulfilled' : 'unfulfilled';
+            
+            const customerName = o.customer?.name || o.shipping_address?.name || 'Cliente Tiendanube';
+
             return {
               id: o.id,
               order_number: o.number,
@@ -394,6 +410,14 @@ export default function ClientePage() {
               subtotal_price: o.subtotal,
               total_tax: o.tax,
               total_discounts: o.discount,
+              customer_name: customerName,
+              phone: o.customer?.phone || o.shipping_address?.phone || null,
+              shipping_address: o.shipping_address ? {
+                address1: o.shipping_address.address,
+                city: o.shipping_address.city,
+                province: o.shipping_address.province,
+                country: o.shipping_address.country,
+              } : null,
               line_items: (o.products || []).map((it: any) => ({
                 title: it.name,
                 quantity: it.quantity,
@@ -406,12 +430,16 @@ export default function ClientePage() {
 
         if (ordersList.length > 0) {
           const lastOrder = ordersList[0];
+          const orderWithName = ordersList.find(o => o.customer_name && o.customer_name !== 'Cliente Tiendanube' && o.customer_name.trim() !== '') || lastOrder;
+          const orderWithPhone = ordersList.find(o => o.phone && o.phone.trim() !== '') || lastOrder;
+          const orderWithAddress = ordersList.find(o => o.shipping_address) || lastOrder;
+
           customerInfo = {
-            name: lastOrder.customer_name || 'Cliente Tiendanube',
+            name: orderWithName.customer_name || 'Cliente Tiendanube',
             email: email,
-            phone: lastOrder.phone || null,
-            address: lastOrder.shipping_address
-              ? `${lastOrder.shipping_address.address1 || ''}, ${lastOrder.shipping_address.city || ''}, ${lastOrder.shipping_address.province || ''}, ${lastOrder.shipping_address.country || ''}`.replace(/^,\s*/, '')
+            phone: orderWithPhone.phone || null,
+            address: orderWithAddress.shipping_address
+              ? `${orderWithAddress.shipping_address.address1 || ''}, ${orderWithAddress.shipping_address.city || ''}, ${orderWithAddress.shipping_address.province || ''}, ${orderWithAddress.shipping_address.country || ''}`.replace(/^,\s*/, '')
               : null,
             orders_count: ordersList.length,
             total_spent: ordersList.reduce((sum, o) => sum + parseFloat(o.total_price || 0), 0)
