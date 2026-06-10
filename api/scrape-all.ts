@@ -878,24 +878,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const orders = rawOrders.map(o => normalizeOrder(o, active_platform));
       const recentOrders = rawRecent.map(o => normalizeOrder(o, active_platform));
 
-      // For WC/TN, normalizeOrder hardcodes orders_count:1. Override with batch-computed counts.
-      if (active_platform !== 'shopify') {
-        const emailCounts: Record<string, number> = {};
-        for (const o of orders) {
-          const email = (o.customer?.email || '').toLowerCase().trim();
-          if (email) emailCounts[email] = (emailCounts[email] || 0) + 1;
-        }
-        const applyEmailCounts = (arr: any[]) => {
-          for (const o of arr) {
-            if (o.customer && o.customer.email) {
-              const email = o.customer.email.toLowerCase().trim();
-              o.customer = { ...o.customer, orders_count: emailCounts[email] || 1 };
-            }
-          }
-        };
-        applyEmailCounts(orders);
-        applyEmailCounts(recentOrders);
+      // Compute orders_count from the date-range batch for all platforms.
+      // Shopify's raw API returns the customer's current lifetime total which
+      // means a returning customer always has orders_count > 1 for ALL their
+      // orders, so "1er pedido" would never show. Using the batch count (how
+      // many times the email appears in the loaded date range) is consistent
+      // with how ecommerce.ts handles WC and TN.
+      const emailCounts: Record<string, number> = {};
+      for (const o of orders) {
+        const email = (o.customer?.email || '').toLowerCase().trim();
+        if (email) emailCounts[email] = (emailCounts[email] || 0) + 1;
       }
+      const applyEmailCounts = (arr: any[]) => {
+        for (const o of arr) {
+          if (o.customer && o.customer.email) {
+            const email = o.customer.email.toLowerCase().trim();
+            o.customer = { ...o.customer, orders_count: emailCounts[email] || 1 };
+          }
+        }
+      };
+      applyEmailCounts(orders);
+      applyEmailCounts(recentOrders);
 
       const validOrders = orders.filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided');
 
