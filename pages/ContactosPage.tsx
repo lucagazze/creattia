@@ -298,11 +298,8 @@ export default function ContactosPage() {
         };
 
         let currentList = rawList.map(normalizeShopify);
-        setStoreCustomers(currentList);
-        setTotalCount(currentList.length);
-        setLoading(false);
 
-        // Fetch subsequent pages in the background
+        // Fetch subsequent pages sequentially (due to Shopify cursor restriction)
         let linkHeader = res.headers.get('Link');
         let nextUrl = getNextPageUrl(linkHeader);
         let pagesFetched = 1;
@@ -324,8 +321,6 @@ export default function ContactosPage() {
               
               const normalizedB = bRaw.map(normalizeShopify);
               currentList = [...currentList, ...normalizedB];
-              setStoreCustomers(currentList);
-              setTotalCount(currentList.length);
               
               linkHeader = bRes.headers.get('Link');
               nextUrl = getNextPageUrl(linkHeader);
@@ -337,6 +332,9 @@ export default function ContactosPage() {
           }
           setLoadingBackground(false);
         }
+
+        setStoreCustomers(currentList);
+        setTotalCount(currentList.length);
       }
       else if (platform === 'wordpress') {
         const url = ((profile as any).wordpress_url || '').replace(/\/$/, '');
@@ -369,38 +367,6 @@ export default function ContactosPage() {
           };
         };
 
-        // 1. Fetch first page of registered customers
-        const params = new URLSearchParams({
-          per_page: '100',
-          page: '1',
-        });
-        if (search.trim()) {
-          params.set('search', search.trim());
-        }
-
-        const res = await fetch(`/api/shopify/wc/customers?${params.toString()}`, {
-          headers: wcHeaders
-        });
-
-        if (!res.ok) throw new Error(`Error de WooCommerce: ${res.status}`);
-        const rawList = await res.json();
-        let registeredList = (Array.isArray(rawList) ? rawList : []).map(normalizeWoo);
-
-        // 2. Fetch first page of orders to get guest checkouts
-        const oParams = new URLSearchParams({
-          per_page: '100',
-          page: '1',
-        });
-        if (search.trim()) {
-          oParams.set('search', search.trim());
-        }
-        const oRes = await fetch(`/api/shopify/wc/orders?${oParams.toString()}`, {
-          headers: wcHeaders
-        });
-        const rawOrders = oRes.ok ? await oRes.json() : [];
-        const ordersArray = Array.isArray(rawOrders) ? rawOrders : [];
-
-        // Merge helper
         const mergeWooCustomers = (registered: any[], orders: any[]) => {
           const map = new Map<string, any>();
           
@@ -446,65 +412,96 @@ export default function ContactosPage() {
           return Array.from(map.values());
         };
 
-        let currentList = mergeWooCustomers(registeredList, ordersArray);
-        setStoreCustomers(currentList);
-        setTotalCount(currentList.length);
-        setLoading(false);
+        // 1. Fetch first page of registered customers
+        const params = new URLSearchParams({
+          per_page: '100',
+          page: '1',
+        });
+        if (search.trim()) {
+          params.set('search', search.trim());
+        }
 
-        // Fetch subsequent pages in the background
+        const res = await fetch(`/api/shopify/wc/customers?${params.toString()}`, {
+          headers: wcHeaders
+        });
+
+        if (!res.ok) throw new Error(`Error de WooCommerce: ${res.status}`);
+        const rawList = await res.json();
+
+        // 2. Fetch first page of orders to get guest checkouts
+        const oParams = new URLSearchParams({
+          per_page: '100',
+          page: '1',
+        });
+        if (search.trim()) {
+          oParams.set('search', search.trim());
+        }
+        const oRes = await fetch(`/api/shopify/wc/orders?${oParams.toString()}`, {
+          headers: wcHeaders
+        });
+        const rawOrders = oRes.ok ? await oRes.json() : [];
+
+        // Check total pages to fetch in parallel
         const totalPagesHeader = res.headers.get('X-WP-TotalPages');
         const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
         const totalOrderPagesHeader = oRes.headers.get('X-WP-TotalPages');
         const totalOrderPages = totalOrderPagesHeader ? parseInt(totalOrderPagesHeader, 10) : 1;
 
-        let maxPagesToFetch = Math.max(totalPages, totalOrderPages);
+        let maxPagesToFetch = Math.min(Math.max(totalPages, totalOrderPages), 10);
+        
+        let allCustPagesData = [rawList];
+        let allOrderPagesData = [rawOrders];
+
         if (maxPagesToFetch > 1) {
           setLoadingBackground(true);
-          let currentPage = 2;
-          while (currentPage <= Math.min(maxPagesToFetch, 10)) {
-            try {
-              const promises = [];
-              if (currentPage <= totalPages) {
-                const cParams = new URLSearchParams({ per_page: '100', page: String(currentPage) });
-                if (search.trim()) cParams.set('search', search.trim());
-                promises.push(
-                  fetch(`/api/shopify/wc/customers?${cParams.toString()}`, { headers: wcHeaders })
-                    .then(r => r.ok ? r.json() : [])
-                    .catch(() => [])
-                );
-              } else {
-                promises.push(Promise.resolve([]));
-              }
-
-              if (currentPage <= totalOrderPages) {
-                const ordParams = new URLSearchParams({ per_page: '100', page: String(currentPage) });
-                if (search.trim()) ordParams.set('search', search.trim());
-                promises.push(
-                  fetch(`/api/shopify/wc/orders?${ordParams.toString()}`, { headers: wcHeaders })
-                    .then(r => r.ok ? r.json() : [])
-                    .catch(() => [])
-                );
-              } else {
-                promises.push(Promise.resolve([]));
-              }
-
-              const [bCusts, bOrders] = await Promise.all(promises);
-              if (bCusts.length === 0 && bOrders.length === 0) break;
-              
-              const normalizedCusts = bCusts.map(normalizeWoo);
-              registeredList = [...registeredList, ...normalizedCusts];
-              
-              currentList = mergeWooCustomers(registeredList, [...ordersArray, ...bOrders]);
-              setStoreCustomers(currentList);
-              setTotalCount(currentList.length);
-              currentPage++;
-            } catch (err) {
-              console.error('Error fetching WooCommerce background page:', err);
-              break;
+          const pagePromises = [];
+          for (let p = 2; p <= maxPagesToFetch; p++) {
+            if (p <= totalPages) {
+              const cParams = new URLSearchParams({ per_page: '100', page: String(p) });
+              if (search.trim()) cParams.set('search', search.trim());
+              pagePromises.push(
+                fetch(`/api/shopify/wc/customers?${cParams.toString()}`, { headers: wcHeaders })
+                  .then(r => r.ok ? r.json() : [])
+                  .catch(() => [])
+              );
+            } else {
+              pagePromises.push(Promise.resolve([]));
             }
+
+            if (p <= totalOrderPages) {
+              const ordParams = new URLSearchParams({ per_page: '100', page: String(p) });
+              if (search.trim()) ordParams.set('search', search.trim());
+              pagePromises.push(
+                fetch(`/api/shopify/wc/orders?${ordParams.toString()}`, { headers: wcHeaders })
+                  .then(r => r.ok ? r.json() : [])
+                  .catch(() => [])
+              );
+            } else {
+              pagePromises.push(Promise.resolve([]));
+            }
+          }
+
+          const results = await Promise.all(pagePromises);
+          for (let i = 0; i < results.length; i += 2) {
+            allCustPagesData.push(results[i] || []);
+            allOrderPagesData.push(results[i + 1] || []);
           }
           setLoadingBackground(false);
         }
+
+        let fullRegisteredList = [];
+        for (const pageCusts of allCustPagesData) {
+          fullRegisteredList.push(...(Array.isArray(pageCusts) ? pageCusts : []).map(normalizeWoo));
+        }
+
+        let fullOrdersList = [];
+        for (const pageOrders of allOrderPagesData) {
+          fullOrdersList.push(...(Array.isArray(pageOrders) ? pageOrders : []));
+        }
+
+        const finalMergedList = mergeWooCustomers(fullRegisteredList, fullOrdersList);
+        setStoreCustomers(finalMergedList);
+        setTotalCount(finalMergedList.length);
       }
       else if (platform === 'tiendanube') {
         const storeId = (profile as any).tiendanube_store_id || '';
@@ -553,43 +550,31 @@ export default function ContactosPage() {
         if (!res.ok) throw new Error(`Error de Tiendanube: ${res.status}`);
         
         const rawList = await res.json();
-        let currentList = (Array.isArray(rawList) ? rawList : []).map(normalizeTn);
+        let finalTnList = (Array.isArray(rawList) ? rawList : []).map(normalizeTn);
 
-        setStoreCustomers(currentList);
-        setTotalCount(currentList.length);
-        setLoading(false);
-
-        if (currentList.length === 100) {
+        if (rawList.length === 100) {
           setLoadingBackground(true);
-          let currentPage = 2;
-          let hasMore = true;
-          while (hasMore && currentPage <= 10) {
-            try {
-              const cParams = new URLSearchParams({ per_page: '100', page: String(currentPage) });
-              if (search.trim()) cParams.set('q', search.trim());
-              const bRes = await fetch(`/api/shopify/tn/customers?${cParams.toString()}`, { headers: tnHeaders });
-              if (!bRes.ok) break;
-              const bData = await bRes.json();
-              const bRaw = Array.isArray(bData) ? bData : [];
-              if (bRaw.length === 0) break;
-              
-              const normalizedB = bRaw.map(normalizeTn);
-              currentList = [...currentList, ...normalizedB];
-              setStoreCustomers(currentList);
-              setTotalCount(currentList.length);
-              
-              if (bRaw.length < 100) {
-                hasMore = false;
-              } else {
-                currentPage++;
-              }
-            } catch (err) {
-              console.error('Error fetching Tiendanube background page:', err);
-              break;
-            }
+          const tnPromises = [];
+          for (let p = 2; p <= 10; p++) {
+            const cParams = new URLSearchParams({ per_page: '100', page: String(p) });
+            if (search.trim()) cParams.set('q', search.trim());
+            tnPromises.push(
+              fetch(`/api/shopify/tn/customers?${cParams.toString()}`, { headers: tnHeaders })
+                .then(r => r.ok ? r.json() : [])
+                .catch(() => [])
+            );
+          }
+
+          const results = await Promise.all(tnPromises);
+          for (const bRaw of results) {
+            const normalizedB = (Array.isArray(bRaw) ? bRaw : []).map(normalizeTn);
+            finalTnList.push(...normalizedB);
           }
           setLoadingBackground(false);
         }
+
+        setStoreCustomers(finalTnList);
+        setTotalCount(finalTnList.length);
       }
     } catch (e: any) {
       setError(e.message || 'Error al obtener clientes de la tienda.');
