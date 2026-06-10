@@ -241,6 +241,47 @@ export const ecommerce = {
         nextUrl = nextLink;
       }
 
+      // Fetch customer details in bulk to get real orders_count and total_spent
+      const customerIds = [...new Set(
+        allOrders
+          .map((o: any) => o.customer?.id)
+          .filter(Boolean)
+      )];
+      const customersMap = new Map<number, any>();
+      if (customerIds.length > 0) {
+        const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        for (let i = 0; i < customerIds.length; i += 50) {
+          const batch = customerIds.slice(i, i + 50);
+          try {
+            const cRes = await fetch(`https://${cleanDomain}/admin/api/2024-01/customers.json?ids=${batch.join(',')}`, {
+              headers: { 'X-Shopify-Access-Token': token }
+            });
+            if (cRes.ok) {
+              const cData = await cRes.json();
+              for (const cust of (cData.customers || [])) {
+                customersMap.set(cust.id, cust);
+              }
+            }
+          } catch (err) {
+            console.error('[Shopify] Error fetching customers info:', err);
+          }
+        }
+      }
+
+      // Inject real customer stats
+      for (const o of allOrders) {
+        if (o.customer?.id) {
+          const realCust = customersMap.get(o.customer.id);
+          if (realCust) {
+            o.customer = {
+              ...o.customer,
+              orders_count: realCust.orders_count,
+              total_spent: realCust.total_spent,
+            };
+          }
+        }
+      }
+
       // Count appearances per email in the loaded batch (floor for orders_count).
       const batchCount: Record<string, number> = {};
       for (const o of allOrders) {
@@ -298,6 +339,42 @@ export const ecommerce = {
 
       const data = await res.json();
       const orders = data.orders ?? [];
+
+      // Fetch customer details in bulk
+      const customerIds = [...new Set(orders.map((o: any) => o.customer?.id).filter(Boolean))];
+      const customersMap = new Map<number, any>();
+      if (customerIds.length > 0) {
+        for (let i = 0; i < customerIds.length; i += 50) {
+          const batch = customerIds.slice(i, i + 50);
+          try {
+            const cRes = await fetch(`https://${cleanDomain}/admin/api/2024-01/customers.json?ids=${batch.join(',')}`, {
+              headers: { 'X-Shopify-Access-Token': token }
+            });
+            if (cRes.ok) {
+              const cData = await cRes.json();
+              for (const cust of (cData.customers || [])) {
+                customersMap.set(cust.id, cust);
+              }
+            }
+          } catch (err) {
+            console.error('[Shopify] Error fetching customers info:', err);
+          }
+        }
+      }
+
+      for (const o of orders) {
+        if (o.customer?.id) {
+          const realCust = customersMap.get(o.customer.id);
+          if (realCust) {
+            o.customer = {
+              ...o.customer,
+              orders_count: realCust.orders_count,
+              total_spent: realCust.total_spent,
+            };
+          }
+        }
+      }
+
       ecSetCache(cacheKey, orders);
       return orders;
     } catch (e) {

@@ -834,6 +834,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const rData = await rRes.json();
           rawRecent = rData.orders || [];
         }
+
+        // Fetch customer details in bulk to get real orders_count and total_spent
+        const customerIds = [...new Set(
+          [...rawOrders, ...rawRecent]
+            .map((o: any) => o.customer?.id)
+            .filter(Boolean)
+        )];
+        const customersMap = new Map<number, any>();
+        if (customerIds.length > 0) {
+          for (let i = 0; i < customerIds.length; i += 50) {
+            const batch = customerIds.slice(i, i + 50);
+            try {
+              const cRes = await fetch(`https://${domain}/admin/api/2024-01/customers.json?ids=${batch.join(',')}`, {
+                headers: { 'X-Shopify-Access-Token': active_shopify_access_token }
+              });
+              if (cRes.ok) {
+                const cData = await cRes.json();
+                for (const cust of (cData.customers || [])) {
+                  customersMap.set(cust.id, cust);
+                }
+              }
+            } catch (err) {
+              console.error('[Shopify Scraper] Error fetching customers info:', err);
+            }
+          }
+        }
+
+        // Inject customer details
+        for (const o of [...rawOrders, ...rawRecent]) {
+          if (o.customer?.id) {
+            const realCust = customersMap.get(o.customer.id);
+            if (realCust) {
+              o.customer = {
+                ...o.customer,
+                orders_count: realCust.orders_count,
+                total_spent: realCust.total_spent,
+              };
+            }
+          }
+        }
       }
       else if (active_platform === 'tiendanube') {
         if (!active_tiendanube_store_id || !active_tiendanube_access_token) return res.status(400).json({ error: 'Tiendanube no configurado' });
@@ -891,18 +931,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      // Build lifetime counts for TN/WC from the combined deduplicated set
-      // (date-range + recent + 200-order history page). For Shopify, we use the
-      // API's customer.orders_count which is already the accurate lifetime total.
+      // Build lifetime counts for TN/WC from the combined deduplicated set.
+      // We fetch all-time count & spent per unique email in parallel from their APIs.
       const nonShopifyLifetime: Record<string, number> = {};
+      const nonShopifySpent: Record<string, number> = {};
       if (active_platform !== 'shopify') {
-        const historyNorm = rawHistory.map(o => normalizeOrder(o, active_platform));
-        const seenIds2 = new Set<any>();
-        for (const o of [...orders, ...recentOrders, ...historyNorm]) {
-          if (seenIds2.has(o.id)) continue;
-          seenIds2.add(o.id);
-          const email = (o.customer?.email || '').toLowerCase().trim();
-          if (email) nonShopifyLifetime[email] = (nonShopifyLifetime[email] || 0) + 1;
+        const uniqueEmails = [...new Set(
+          [...orders, ...recentOrders]
+            .map((o: any) => (o.customer?.email || '').toLowerCase().trim())
+            .filter(Boolean)
+        )];
+
+        if (active_platform === 'wordpress') {
+          const base = (active_wordpress_url || '').replace(/\/$/, '');
+          const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
+          const wcHeaders = { Authorization: `Basic ${creds}` };
+
+          await Promise.all(
+            uniqueEmails.map(async (email) => {
+              try {
+                const res = await fetch(`${base}/wp-json/wc/v3/orders?email=${encodeURIComponent(email)}&per_page=100`, { headers: wcHeaders });
+                if (res.ok) {
+                  const totalCountHeader = res.headers.get('X-WP-Total');
+                  const ordersData: any[] = await res.json();
+                  const count = totalCountHeader ? parseInt(totalCountHeader, 10) : ordersData.length;
+                  const spent = ordersData.reduce((sum, ord) => sum + parseFloat(ord.total || 0), 0);
+                  nonShopifyLifetime[email] = count;
+                  nonShopifySpent[email] = spent;
+                }
+              } catch (err) {
+                console.error('[WooCommerce Scraper] Error fetching customer orders:', err);
+              }
+            })
+          );
+        } else if (active_platform === 'tiendanube') {
+          const tnHeaders = { Authentication: `bearer ${active_tiendanube_access_token}`, 'User-Agent': 'AlgorBot/1.0' };
+          const tnBase = `https://api.tiendanube.com/v1/${active_tiendanube_store_id}/orders`;
+
+          await Promise.all(
+            uniqueEmails.map(async (email) => {
+              try {
+                const res = await fetch(`${tnBase}?email=${encodeURIComponent(email)}&per_page=200`, { headers: tnHeaders });
+                if (res.ok) {
+                  const ordersData: any[] = await res.json();
+                  const count = ordersData.length;
+                  const spent = ordersData.reduce((sum, ord) => sum + parseFloat(ord.total || 0), 0);
+                  nonShopifyLifetime[email] = count;
+                  nonShopifySpent[email] = spent;
+                }
+              } catch (err) {
+                console.error('[Tiendanube Scraper] Error fetching customer orders:', err);
+              }
+            })
+          );
         }
       }
 
@@ -943,7 +1024,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               const lifetime = Math.max(nonShopifyLifetime[email] || 0, rangeCount[email]);
               startSeq[email] = Math.max(1, lifetime - rangeCount[email] + 1);
             }
-            o.customer = { ...o.customer, orders_count: startSeq[email]++ };
+            o.customer = {
+              ...o.customer,
+              orders_count: startSeq[email]++,
+              total_spent: nonShopifySpent[email] ?? parseFloat(o.total_price || 0)
+            };
           }
         }
       };
