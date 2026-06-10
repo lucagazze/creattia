@@ -147,15 +147,8 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
           open ? 'bg-zinc-50 dark:bg-white/[0.025]' : 'hover:bg-zinc-50/70 dark:hover:bg-white/[0.015]'
         }`}
       >
-        {/* # */}
-        <td className="px-3 sm:px-5 py-1.5">
-          <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 whitespace-nowrap">
-            #{order.order_number || order.name}
-          </span>
-        </td>
-
-        {/* Fecha — hidden on mobile */}
-        <td className="hidden sm:table-cell px-4 py-1.5">
+        {/* Fecha */}
+        <td className="px-3 sm:px-4 py-1.5">
           <div className="flex flex-col leading-tight">
             <div className="flex items-center gap-1">
               {dateTag && (
@@ -196,64 +189,26 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
           {order.customer?.email && (
             <p className="text-[10px] text-zinc-400 truncate hidden sm:block mt-0.5">{order.customer.email}</p>
           )}
-          {attribution && (
-            <div className="hidden sm:block mt-1">
-              <AttributionBadge attribution={attribution} />
-            </div>
-          )}
-          {/* On mobile: show date tag + time inline */}
-          <div className="flex items-center gap-1.5 mt-1 sm:hidden">
-            {dateTag && (
-              <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-[2px] rounded ${
-                dateTag === 'Hoy'
-                  ? 'bg-pink-500/10 text-pink-500'
-                  : 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
-              }`}>{dateTag}</span>
-            )}
-            {!dateTag && <span className="text-[10px] text-zinc-400">{dateLabel}</span>}
-            <span className="text-[10px] text-zinc-400">{dateTime}</span>
-          </div>
         </td>
 
-        {/* Productos — hidden on mobile */}
-        <td className="hidden sm:table-cell px-4 py-1.5">
-          {firstItem ? (
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center border border-zinc-200/60 dark:border-white/[0.06]">
-                {firstImage
-                  ? <img src={firstImage} alt={firstItem.title} className="w-full h-full object-cover" loading="lazy" decoding="async" />
-                  : <Package className="w-3.5 h-3.5 text-zinc-400" />
-                }
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="shrink-0 text-[10px] font-black px-1.5 py-[2px] rounded bg-zinc-900 dark:bg-white text-white dark:text-zinc-900">
-                    ×{firstItem.quantity}
-                  </span>
-                  <p className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-100 truncate max-w-[160px] leading-snug">
-                    {firstItem.title}
-                  </p>
-                </div>
-                <p className="text-[10px] text-zinc-400 mt-0.5">
-                  {firstItem.variant_title && firstItem.variant_title !== 'Default Title' && (
-                    <span>{firstItem.variant_title}</span>
-                  )}
-                  {extraCount > 0 && (
-                    <span className={`${firstItem.variant_title && firstItem.variant_title !== 'Default Title' ? 'ml-1' : ''} text-pink-500 dark:text-pink-400 font-bold`}>+{extraCount} más</span>
-                  )}
-                </p>
-              </div>
-            </div>
+        {/* Origen */}
+        <td className="hidden sm:table-cell px-3 sm:px-4 py-1.5">
+          {attribution ? (
+            <AttributionBadge attribution={attribution} />
           ) : (
-            <span className="text-[11px] text-zinc-400">—</span>
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-555">—</span>
           )}
         </td>
 
-        {/* Pago — hidden on mobile+tablet */}
-        <td className="hidden md:table-cell px-4 py-1.5"><PaymentBadge status={order.financial_status} /></td>
+        {/* Pago */}
+        <td className="hidden md:table-cell px-3 sm:px-4 py-1.5">
+          <PaymentBadge status={order.financial_status} />
+        </td>
 
         {/* Envío */}
-        <td className="px-2 sm:px-4 py-1.5"><FulfillmentBadge status={order.fulfillment_status} /></td>
+        <td className="px-2 sm:px-4 py-1.5">
+          <FulfillmentBadge status={order.fulfillment_status} />
+        </td>
 
         {/* Total */}
         <td className="px-2 sm:px-4 py-1.5 text-right">
@@ -275,7 +230,7 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
       {/* ── Detail ── */}
       {open && (
         <tr className="border-b border-zinc-100/80 dark:border-white/[0.04] bg-zinc-50/70 dark:bg-white/[0.02]">
-          <td colSpan={8} className="px-5 py-5">
+          <td colSpan={7} className="px-5 py-5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
               {/* Products */}
@@ -776,11 +731,10 @@ export default function PedidosPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-zinc-100 dark:border-white/[0.04] bg-zinc-50/50 dark:bg-white/[0.015]">
-                      <th className="px-3 sm:px-5 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Pedido</th>
-                      <th className="hidden sm:table-cell px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Fecha</th>
+                      <th className="px-3 sm:px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Fecha</th>
                       <th className="px-3 sm:px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Cliente</th>
-                      <th className="hidden sm:table-cell px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Productos</th>
-                      <th className="hidden md:table-cell px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Pago</th>
+                      <th className="hidden sm:table-cell px-3 sm:px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Origen</th>
+                      <th className="hidden md:table-cell px-3 sm:px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Pago</th>
                       <th className="px-2 sm:px-4 py-2.5 text-left text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Envío</th>
                       <th className="px-2 sm:px-4 py-2.5 text-right text-[10px] font-black text-zinc-400 uppercase tracking-[0.1em]">Total</th>
                       <th className="px-2 sm:px-4 py-2.5"></th>

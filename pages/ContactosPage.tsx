@@ -873,11 +873,11 @@ export default function ContactosPage() {
 
   return (
     <CenteredPageLoader isLoading={loading && storeCustomers.length === 0}>
-      <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
+      <div className="flex flex-col flex-1 min-h-0 w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
         <div className="flex flex-1 overflow-hidden">
           
           {/* LEFT COLUMN: Customers list */}
-          <div className="w-full md:w-[320px] flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-all duration-300">
+          <div className={`w-full md:w-[320px] flex-shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-all duration-300 ${selectedStoreCust ? 'hidden md:flex' : 'flex'}`}>
             
             {/* Header, Search & Filters */}
             <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 space-y-3">
@@ -893,20 +893,20 @@ export default function ContactosPage() {
               
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-455 dark:text-zinc-400" />
                   <input
                     type="text"
                     placeholder="Buscar clientes..."
                     value={search}
                     onChange={handleSearchChange}
-                    className="w-full pl-8 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-400 text-zinc-700 dark:text-zinc-300"
+                    className="w-full pl-9 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-[12px] outline-none transition-all duration-200 text-zinc-750 dark:text-zinc-350 focus:border-blue-500/80 focus:bg-white dark:focus:bg-zinc-950 focus:ring-4 focus:ring-blue-500/10 placeholder:text-zinc-405"
                   />
                 </div>
 
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-2 py-1.5 text-[11px] font-bold text-zinc-600 dark:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
+                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-1.5 text-[11px] font-bold text-zinc-650 dark:text-zinc-450 outline-none transition-all duration-200 cursor-pointer focus:border-blue-500/80 focus:bg-white dark:focus:bg-zinc-950 focus:ring-4 focus:ring-blue-500/10"
                 >
                   <option value="recent">Recientes</option>
                   <option value="name">Nombre</option>
@@ -998,7 +998,7 @@ export default function ContactosPage() {
           </div>
 
           {/* RIGHT COLUMN: Details */}
-          <div className="flex-1 min-w-0 flex flex-col bg-zinc-50 dark:bg-zinc-900/30 overflow-hidden relative">
+          <div className={`flex-1 min-w-0 flex flex-col bg-zinc-50 dark:bg-zinc-900/30 overflow-hidden relative ${selectedStoreCust ? 'flex' : 'hidden md:flex'}`}>
             {!selectedStoreCust ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
                 <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">🛍️</div>
@@ -1007,6 +1007,16 @@ export default function ContactosPage() {
             ) : (
               <div className="flex-1 min-w-0 overflow-y-auto p-6 md:p-8 space-y-6 max-w-3xl w-full">
                 
+                {/* Back button for mobile */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedStoreCust(null)}
+                  className="md:hidden flex items-center gap-1.5 text-[12px] font-black text-zinc-550 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-colors mb-4"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Volver a la lista
+                </button>
+
                 {/* Header block */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">
                   <div className="flex items-center gap-4">

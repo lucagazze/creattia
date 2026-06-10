@@ -1743,7 +1743,7 @@ export default function MensajeriaPage() {
 
   return (
     <CenteredPageLoader isLoading={!isFirstLoadDone}>
-      <div className="flex flex-col h-full w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
+      <div className="flex flex-col flex-1 min-h-0 w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
 
       {/* Top Header Bar */}
       <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex-shrink-0 w-full animate-in fade-in duration-200">

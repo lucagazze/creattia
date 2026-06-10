@@ -98,9 +98,12 @@ export default function LoginPage() {
                 className="w-9 h-9 object-contain"
               />
             </div>
-            <h1 className={`text-[15px] font-black tracking-tight ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              Ingresar al ecosistema de Algoritmia
+            <h1 className={`text-[22px] font-black tracking-tight ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+              Iniciar sesión
             </h1>
+            <p className="text-[12.5px] text-zinc-550 dark:text-zinc-400 mt-1.5 font-semibold">
+              Ingresar al ecosistema de Algoritmia
+            </p>
           </div>
  
           {/* Form card */}
