@@ -139,17 +139,25 @@ export const ecommerce = {
         nextUrl = nextLink;
       }
 
-      // Compute orders_count per customer email from loaded batch (same as WC/TN)
-      const shopifyEmailCounts: Record<string, number> = {};
-      for (const o of allOrders) {
+      // Assign sequential "Nth purchase" numbers to each order.
+      // Shopify returns the customer's current lifetime orders_count on every order.
+      // Walk orders newest→oldest: anchor the most-recent order for each customer
+      // at the API lifetime count, then decrement for each older order.
+      // This correctly labels old orders too (e.g. a customer's 3rd purchase still
+      // shows "#3" even if they now have 7 lifetime orders).
+      const sortedDesc = [...allOrders].sort((a: any, b: any) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const emailSeq: Record<string, number> = {};
+      for (const o of sortedDesc) {
         const email = (o.customer?.email || '').toLowerCase().trim();
-        if (email) shopifyEmailCounts[email] = (shopifyEmailCounts[email] || 0) + 1;
-      }
-      for (const o of allOrders) {
-        if (o.customer && o.customer.email) {
-          const email = o.customer.email.toLowerCase().trim();
-          o.customer = { ...o.customer, orders_count: shopifyEmailCounts[email] || 1 };
+        if (!email || !o.customer) continue;
+        if (!(email in emailSeq)) {
+          // First occurrence = most recent order → API lifetime count is accurate here
+          emailSeq[email] = o.customer.orders_count || 1;
         }
+        o.customer = { ...o.customer, orders_count: emailSeq[email] };
+        emailSeq[email] = Math.max(1, emailSeq[email] - 1);
       }
 
       ecSetCache(cacheKey, allOrders);
@@ -566,11 +574,18 @@ export const ecommerce = {
       page++;
     }
 
-    // Compute orders_count per customer email from loaded batch
-    const tnEmailCounts: Record<string, number> = {};
-    for (const o of allOrders) {
+    // Sequential "Nth purchase" assignment: sort by date ASC and assign
+    // incrementing counts per customer email (1st order = 1, 2nd = 2, etc.)
+    const tnEmailSeq: Record<string, number> = {};
+    const tnOrderSeq = new Map<any, number>();
+    for (const o of [...allOrders].sort((a: any, b: any) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )) {
       const email = (o.customer?.email || '').toLowerCase().trim();
-      if (email) tnEmailCounts[email] = (tnEmailCounts[email] || 0) + 1;
+      if (email) {
+        tnEmailSeq[email] = (tnEmailSeq[email] || 0) + 1;
+        tnOrderSeq.set(o.id, tnEmailSeq[email]);
+      }
     }
 
     const normalized = allOrders.map((o: any) => {
@@ -596,7 +611,7 @@ export const ecommerce = {
           last_name: (o.customer.name || '').split(' ').slice(1).join(' ') || '',
           email: o.customer.email || '',
           phone: o.customer.phone || '',
-          orders_count: tnEmailCounts[(o.customer?.email || '').toLowerCase().trim()] || 0,
+          orders_count: tnOrderSeq.get(o.id) || 1,
           total_spent: '0',
         } : null,
         shipping_address: o.shipping_address ? {
@@ -668,11 +683,20 @@ export const ecommerce = {
       page++;
     }
 
-    // Compute orders_count per customer email from loaded batch
-    const wcEmailCounts: Record<string, number> = {};
-    for (const o of allOrders) {
+    // Sequential "Nth purchase" assignment: sort by date ASC and assign
+    // incrementing counts per customer email (1st order = 1, 2nd = 2, etc.)
+    const wcEmailSeq: Record<string, number> = {};
+    const wcOrderSeq = new Map<any, number>();
+    for (const o of [...allOrders].sort((a: any, b: any) => {
+      const tA = a.date_created_gmt ? new Date(`${a.date_created_gmt}Z`).getTime() : new Date(a.date_created).getTime();
+      const tB = b.date_created_gmt ? new Date(`${b.date_created_gmt}Z`).getTime() : new Date(b.date_created).getTime();
+      return tA - tB;
+    })) {
       const email = (o.billing?.email || '').toLowerCase().trim();
-      if (email) wcEmailCounts[email] = (wcEmailCounts[email] || 0) + 1;
+      if (email) {
+        wcEmailSeq[email] = (wcEmailSeq[email] || 0) + 1;
+        wcOrderSeq.set(o.id, wcEmailSeq[email]);
+      }
     }
 
     // Normalize to Shopify-like shape
@@ -695,7 +719,7 @@ export const ecommerce = {
         last_name: o.billing?.last_name || '',
         email: o.billing?.email || '',
         phone: o.billing?.phone || '',
-        orders_count: wcEmailCounts[(o.billing?.email || '').toLowerCase().trim()] || 0,
+        orders_count: wcOrderSeq.get(o.id) || 1,
         total_spent: '0',
       },
       shipping_address: o.shipping?.address_1 ? {

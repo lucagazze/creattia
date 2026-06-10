@@ -878,27 +878,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const orders = rawOrders.map(o => normalizeOrder(o, active_platform));
       const recentOrders = rawRecent.map(o => normalizeOrder(o, active_platform));
 
-      // Compute orders_count from the date-range batch for all platforms.
-      // Shopify's raw API returns the customer's current lifetime total which
-      // means a returning customer always has orders_count > 1 for ALL their
-      // orders, so "1er pedido" would never show. Using the batch count (how
-      // many times the email appears in the loaded date range) is consistent
-      // with how ecommerce.ts handles WC and TN.
-      const emailCounts: Record<string, number> = {};
-      for (const o of orders) {
-        const email = (o.customer?.email || '').toLowerCase().trim();
-        if (email) emailCounts[email] = (emailCounts[email] || 0) + 1;
-      }
-      const applyEmailCounts = (arr: any[]) => {
-        for (const o of arr) {
-          if (o.customer && o.customer.email) {
-            const email = o.customer.email.toLowerCase().trim();
-            o.customer = { ...o.customer, orders_count: emailCounts[email] || 1 };
+      // Assign sequential "Nth purchase" numbers to each order per customer.
+      //
+      // Shopify: the API returns the customer's current lifetime orders_count on
+      // every order. Walk newest→oldest and anchor each customer's most-recent
+      // order at that lifetime count, decrementing for older ones. This correctly
+      // labels each order (e.g. 3rd-ever purchase shows orders_count=3).
+      //
+      // WC/TN: normalizeOrder hardcodes orders_count=1, so we have no lifetime
+      // count from the API. Walk oldest→newest and assign 1,2,3… within the batch.
+      const assignSequential = (arr: any[], platform: string) => {
+        if (platform === 'shopify') {
+          const sorted = [...arr].sort((a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          const seq: Record<string, number> = {};
+          for (const o of sorted) {
+            const email = (o.customer?.email || '').toLowerCase().trim();
+            if (!email || !o.customer) continue;
+            if (!(email in seq)) {
+              seq[email] = o.customer.orders_count || 1;
+            }
+            o.customer = { ...o.customer, orders_count: seq[email] };
+            seq[email] = Math.max(1, seq[email] - 1);
+          }
+        } else {
+          const sorted = [...arr].sort((a: any, b: any) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          const seq: Record<string, number> = {};
+          for (const o of sorted) {
+            const email = (o.customer?.email || '').toLowerCase().trim();
+            if (!email || !o.customer) continue;
+            seq[email] = (seq[email] || 0) + 1;
+            o.customer = { ...o.customer, orders_count: seq[email] };
           }
         }
       };
-      applyEmailCounts(orders);
-      applyEmailCounts(recentOrders);
+      assignSequential(orders, active_platform);
+      assignSequential(recentOrders, active_platform);
 
       const validOrders = orders.filter((o: any) => !o.cancelled_at && o.financial_status !== 'voided');
 
