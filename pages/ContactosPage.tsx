@@ -15,6 +15,25 @@ const fmtCurr = (n: number) => {
   return `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
+const getNextPageUrl = (linkHeader: string | null) => {
+  if (!linkHeader) return null;
+  const nextPart = linkHeader.split(',').find(s => s.includes('rel="next"'));
+  if (!nextPart) return null;
+  const match = nextPart.match(/<([^>]+)>/);
+  if (!match) return null;
+  const fullUrl = match[1];
+  try {
+    const urlObj = new URL(fullUrl);
+    return `/api/shopify/customers.json${urlObj.search}`;
+  } catch (e) {
+    const qIndex = fullUrl.indexOf('?');
+    if (qIndex !== -1) {
+      return `/api/shopify/customers.json${fullUrl.substring(qIndex)}`;
+    }
+    return null;
+  }
+};
+
 export default function ContactosPage() {
   const navigate = useNavigate();
   const { profile: authProfile } = useAuth();
@@ -49,6 +68,7 @@ export default function ContactosPage() {
 
   // Common list states
   const [loading, setLoading] = useState(true);
+  const [loadingBackground, setLoadingBackground] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -78,9 +98,9 @@ export default function ContactosPage() {
           throw new Error('Shopify no está configurado.');
         }
 
-        let url = `/api/shopify/customers.json?limit=50`;
+        let url = `/api/shopify/customers.json?limit=250`;
         if (search.trim()) {
-          url = `/api/shopify/customers/search.json?query=${encodeURIComponent(search)}&limit=50`;
+          url = `/api/shopify/customers/search.json?query=${encodeURIComponent(search)}&limit=250`;
         }
 
         const res = await fetch(url, {
@@ -94,7 +114,7 @@ export default function ContactosPage() {
         const data = await res.json();
         const rawList = data.customers || [];
         
-        const normalized = rawList.map((c: any) => {
+        const normalizeShopify = (c: any) => {
           return {
             id: c.id,
             first_name: c.first_name || '',
@@ -109,10 +129,48 @@ export default function ContactosPage() {
               : null,
             platform: 'shopify'
           };
-        });
+        };
 
-        setStoreCustomers(normalized);
-        setTotalCount(normalized.length);
+        let currentList = rawList.map(normalizeShopify);
+        setStoreCustomers(currentList);
+        setTotalCount(currentList.length);
+        setLoading(false);
+
+        // Fetch subsequent pages in the background
+        let linkHeader = res.headers.get('Link');
+        let nextUrl = getNextPageUrl(linkHeader);
+        let pagesFetched = 1;
+
+        if (nextUrl && pagesFetched < 10) {
+          setLoadingBackground(true);
+          while (nextUrl && pagesFetched < 10) {
+            try {
+              const bRes = await fetch(nextUrl, {
+                headers: {
+                  'X-Shopify-Access-Token': token,
+                  'X-Shop-Domain': domain,
+                }
+              });
+              if (!bRes.ok) break;
+              const bData = await bRes.json();
+              const bRaw = bData.customers || [];
+              if (bRaw.length === 0) break;
+              
+              const normalizedB = bRaw.map(normalizeShopify);
+              currentList = [...currentList, ...normalizedB];
+              setStoreCustomers(currentList);
+              setTotalCount(currentList.length);
+              
+              linkHeader = bRes.headers.get('Link');
+              nextUrl = getNextPageUrl(linkHeader);
+              pagesFetched++;
+            } catch (err) {
+              console.error('Error fetching background Shopify page:', err);
+              break;
+            }
+          }
+          setLoadingBackground(false);
+        }
       }
       else if (platform === 'wordpress') {
         const url = ((profile as any).wordpress_url || '').replace(/\/$/, '');
@@ -122,31 +180,13 @@ export default function ContactosPage() {
           throw new Error('WooCommerce no está configurado.');
         }
 
-        const params = new URLSearchParams({
-          per_page: '100',
-          page: String(currentPage),
-        });
-        if (search.trim()) {
-          params.set('search', search.trim());
-        }
+        const wcHeaders = {
+          'x-wc-base-url': url,
+          'x-wc-consumer-key': ck,
+          'x-wc-consumer-secret': cs
+        };
 
-        const res = await fetch(`/api/shopify/wc/customers?${params.toString()}`, {
-          headers: {
-            'x-wc-base-url': url,
-            'x-wc-consumer-key': ck,
-            'x-wc-consumer-secret': cs
-          }
-        });
-
-        if (!res.ok) throw new Error(`Error de WooCommerce: ${res.status}`);
-        
-        const totalCountHeader = res.headers.get('X-WP-Total');
-        if (totalCountHeader) {
-          setTotalCount(parseInt(totalCountHeader, 10));
-        }
-
-        const rawList = await res.json();
-        const normalized = (Array.isArray(rawList) ? rawList : []).map((c: any) => {
+        const normalizeWoo = (c: any) => {
           return {
             id: c.id,
             first_name: c.first_name || '',
@@ -161,11 +201,143 @@ export default function ContactosPage() {
               : null,
             platform: 'wordpress'
           };
+        };
+
+        // 1. Fetch first page of registered customers
+        const params = new URLSearchParams({
+          per_page: '100',
+          page: '1',
+        });
+        if (search.trim()) {
+          params.set('search', search.trim());
+        }
+
+        const res = await fetch(`/api/shopify/wc/customers?${params.toString()}`, {
+          headers: wcHeaders
         });
 
-        setStoreCustomers(normalized);
-        if (!totalCountHeader) {
-          setTotalCount(normalized.length);
+        if (!res.ok) throw new Error(`Error de WooCommerce: ${res.status}`);
+        const rawList = await res.json();
+        let registeredList = (Array.isArray(rawList) ? rawList : []).map(normalizeWoo);
+
+        // 2. Fetch first page of orders to get guest checkouts
+        const oParams = new URLSearchParams({
+          per_page: '100',
+          page: '1',
+        });
+        if (search.trim()) {
+          oParams.set('search', search.trim());
+        }
+        const oRes = await fetch(`/api/shopify/wc/orders?${oParams.toString()}`, {
+          headers: wcHeaders
+        });
+        const rawOrders = oRes.ok ? await oRes.json() : [];
+        const ordersArray = Array.isArray(rawOrders) ? rawOrders : [];
+
+        // Merge helper
+        const mergeWooCustomers = (registered: any[], orders: any[]) => {
+          const map = new Map<string, any>();
+          
+          for (const c of registered) {
+            if (c.email) map.set(c.email.toLowerCase().trim(), c);
+          }
+
+          for (const o of orders) {
+            const email = (o.billing?.email || o.shipping?.email || '').toLowerCase().trim();
+            if (!email) continue;
+            
+            if (map.has(email)) {
+              const existing = map.get(email);
+              if (existing.orders_count === 0 && o.customer_id === 0) {
+                existing.orders_count = 1;
+                existing.total_spent = parseFloat(o.total || 0);
+              }
+            } else {
+              const first_name = o.billing?.first_name || o.shipping?.first_name || '';
+              const last_name = o.billing?.last_name || o.shipping?.last_name || '';
+              const phone = o.billing?.phone || o.shipping?.phone || '';
+              const address = o.shipping?.address_1
+                ? `${o.shipping.address_1 || ''}, ${o.shipping.city || ''}, ${o.shipping.state || ''}, ${o.shipping.country || ''}`.replace(/^,\s*/, '')
+                : o.billing?.address_1
+                ? `${o.billing.address_1 || ''}, ${o.billing.city || ''}, ${o.billing.state || ''}, ${o.billing.country || ''}`.replace(/^,\s*/, '')
+                : null;
+              
+              map.set(email, {
+                id: `guest_${o.id}`,
+                first_name,
+                last_name,
+                name: `${first_name} ${last_name}`.trim() || 'Cliente WooCommerce (Invitado)',
+                email,
+                phone,
+                orders_count: 1,
+                total_spent: parseFloat(o.total || 0),
+                address,
+                platform: 'wordpress',
+                is_guest: true
+              });
+            }
+          }
+          return Array.from(map.values());
+        };
+
+        let currentList = mergeWooCustomers(registeredList, ordersArray);
+        setStoreCustomers(currentList);
+        setTotalCount(currentList.length);
+        setLoading(false);
+
+        // Fetch subsequent pages in the background
+        const totalPagesHeader = res.headers.get('X-WP-TotalPages');
+        const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
+        const totalOrderPagesHeader = oRes.headers.get('X-WP-TotalPages');
+        const totalOrderPages = totalOrderPagesHeader ? parseInt(totalOrderPagesHeader, 10) : 1;
+
+        let maxPagesToFetch = Math.max(totalPages, totalOrderPages);
+        if (maxPagesToFetch > 1) {
+          setLoadingBackground(true);
+          let currentPage = 2;
+          while (currentPage <= Math.min(maxPagesToFetch, 10)) {
+            try {
+              const promises = [];
+              if (currentPage <= totalPages) {
+                const cParams = new URLSearchParams({ per_page: '100', page: String(currentPage) });
+                if (search.trim()) cParams.set('search', search.trim());
+                promises.push(
+                  fetch(`/api/shopify/wc/customers?${cParams.toString()}`, { headers: wcHeaders })
+                    .then(r => r.ok ? r.json() : [])
+                    .catch(() => [])
+                );
+              } else {
+                promises.push(Promise.resolve([]));
+              }
+
+              if (currentPage <= totalOrderPages) {
+                const ordParams = new URLSearchParams({ per_page: '100', page: String(currentPage) });
+                if (search.trim()) ordParams.set('search', search.trim());
+                promises.push(
+                  fetch(`/api/shopify/wc/orders?${ordParams.toString()}`, { headers: wcHeaders })
+                    .then(r => r.ok ? r.json() : [])
+                    .catch(() => [])
+                );
+              } else {
+                promises.push(Promise.resolve([]));
+              }
+
+              const [bCusts, bOrders] = await Promise.all(promises);
+              if (bCusts.length === 0 && bOrders.length === 0) break;
+              
+              const normalizedCusts = bCusts.map(normalizeWoo);
+              registeredList = [...registeredList, ...normalizedCusts];
+              
+              currentList = mergeWooCustomers(registeredList, [...ordersArray, ...bOrders]);
+              setStoreCustomers(currentList);
+              setTotalCount(currentList.length);
+              currentPage++;
+            } catch (err) {
+              console.error('Error fetching WooCommerce background page:', err);
+              break;
+            }
+          }
+          setLoadingBackground(false);
         }
       }
       else if (platform === 'tiendanube') {
@@ -175,25 +347,12 @@ export default function ContactosPage() {
           throw new Error('Tiendanube no está configurada.');
         }
 
-        const params = new URLSearchParams({
-          per_page: '100',
-          page: String(currentPage),
-        });
-        if (search.trim()) {
-          params.set('q', search.trim());
-        }
+        const tnHeaders = {
+          'x-tn-store-id': storeId,
+          'x-tn-token': token
+        };
 
-        const res = await fetch(`/api/shopify/tn/customers?${params.toString()}`, {
-          headers: {
-            'x-tn-store-id': storeId,
-            'x-tn-token': token
-          }
-        });
-
-        if (!res.ok) throw new Error(`Error de Tiendanube: ${res.status}`);
-        
-        const rawList = await res.json();
-        const normalized = (Array.isArray(rawList) ? rawList : []).map((c: any) => {
+        const normalizeTn = (c: any) => {
           const defaultAddr = c.addresses?.find((a: any) => a.default) || c.addresses?.[0] || null;
           const addressStr = defaultAddr
             ? `${defaultAddr.address || ''}, ${defaultAddr.city || ''}, ${defaultAddr.province || ''}, ${defaultAddr.country || ''}`.replace(/^,\s*/, '')
@@ -211,17 +370,67 @@ export default function ContactosPage() {
             address: addressStr,
             platform: 'tiendanube'
           };
+        };
+
+        const params = new URLSearchParams({
+          per_page: '100',
+          page: '1',
+        });
+        if (search.trim()) {
+          params.set('q', search.trim());
+        }
+
+        const res = await fetch(`/api/shopify/tn/customers?${params.toString()}`, {
+          headers: tnHeaders
         });
 
-        setStoreCustomers(normalized);
-        setTotalCount(150); // Pagination helper
+        if (!res.ok) throw new Error(`Error de Tiendanube: ${res.status}`);
+        
+        const rawList = await res.json();
+        let currentList = (Array.isArray(rawList) ? rawList : []).map(normalizeTn);
+
+        setStoreCustomers(currentList);
+        setTotalCount(currentList.length);
+        setLoading(false);
+
+        if (currentList.length === 100) {
+          setLoadingBackground(true);
+          let currentPage = 2;
+          let hasMore = true;
+          while (hasMore && currentPage <= 10) {
+            try {
+              const cParams = new URLSearchParams({ per_page: '100', page: String(currentPage) });
+              if (search.trim()) cParams.set('q', search.trim());
+              const bRes = await fetch(`/api/shopify/tn/customers?${cParams.toString()}`, { headers: tnHeaders });
+              if (!bRes.ok) break;
+              const bData = await bRes.json();
+              const bRaw = Array.isArray(bData) ? bData : [];
+              if (bRaw.length === 0) break;
+              
+              const normalizedB = bRaw.map(normalizeTn);
+              currentList = [...currentList, ...normalizedB];
+              setStoreCustomers(currentList);
+              setTotalCount(currentList.length);
+              
+              if (bRaw.length < 100) {
+                hasMore = false;
+              } else {
+                currentPage++;
+              }
+            } catch (err) {
+              console.error('Error fetching Tiendanube background page:', err);
+              break;
+            }
+          }
+          setLoadingBackground(false);
+        }
       }
     } catch (e: any) {
       setError(e.message || 'Error al obtener clientes de la tienda.');
     } finally {
       setLoading(false);
     }
-  }, [search, currentPage, profile, platform]);
+  }, [search, profile, platform]);
 
   useEffect(() => {
     loadData();
@@ -351,9 +560,12 @@ export default function ContactosPage() {
   }, [filteredCustomers, sortBy]);
 
   // Pagination bounds
-  const startItem = (currentPage - 1) * 100 + 1;
-  const endItem = Math.min(currentPage * 100, totalCount);
-  const totalPages = Math.ceil(totalCount / 100) || 1;
+  const paginatedCustomers = useMemo(() => {
+    const startIndex = (currentPage - 1) * 100;
+    return sortedCustomers.slice(startIndex, startIndex + 100);
+  }, [sortedCustomers, currentPage]);
+
+  const totalPages = Math.ceil(sortedCustomers.length / 100) || 1;
 
   if (!hasStore) {
     return (
@@ -392,9 +604,15 @@ export default function ContactosPage() {
             
             {/* Header, Search & Filters */}
             <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 space-y-3">
-              <h1 className="text-[18px] font-black tracking-tight text-zinc-900 dark:text-white">Clientes</h1>
-
-
+              <div className="flex items-center justify-between">
+                <h1 className="text-[18px] font-black tracking-tight text-zinc-900 dark:text-white">Clientes</h1>
+                {loadingBackground && (
+                  <span className="flex items-center gap-1 text-[10.5px] text-zinc-400 dark:text-zinc-500 font-black">
+                    <Loader2 className="w-3 h-3 animate-spin text-pink-500" />
+                    Cargando...
+                  </span>
+                )}
+              </div>
               
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -436,7 +654,7 @@ export default function ContactosPage() {
                   <p className="text-[12px] font-bold">Sin clientes</p>
                 </div>
               ) : (
-                sortedCustomers.map(c => {
+                paginatedCustomers.map(c => {
                   const isSelected = selectedStoreCust?.id === c.id;
                   const gradient = getAvatarGradient(c.name || String(c.id));
                   return (
@@ -476,12 +694,14 @@ export default function ContactosPage() {
             </div>
 
             {/* Pagination Footer */}
-            {totalCount > 0 && !(platform === 'shopify') && (
-              <div className="p-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 select-none">
-                <span>{startItem}-{endItem} de {totalCount}</span>
+            {sortedCustomers.length > 100 && (
+              <div className="p-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-550 select-none">
+                <span>
+                  {(currentPage - 1) * 100 + 1}-{Math.min(currentPage * 100, sortedCustomers.length)} de {sortedCustomers.length}
+                </span>
                 <div className="flex items-center gap-1">
                   <button
-                    disabled={currentPage <= 1 || loading}
+                    disabled={currentPage <= 1}
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
                   >
@@ -489,7 +709,7 @@ export default function ContactosPage() {
                   </button>
                   <span className="px-2 font-mono">{currentPage}/{totalPages}</span>
                   <button
-                    disabled={currentPage >= totalPages || loading}
+                    disabled={currentPage >= totalPages}
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
                   >
