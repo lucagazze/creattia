@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,7 +6,7 @@ import { useViewAs } from '../contexts/ViewAsContext';
 import { chatwoot } from '../services/chatwoot';
 import {
   Search, User, Mail, Phone, MapPin, 
-  Loader2, ArrowLeft, ArrowRight, MessageSquare, 
+  Loader2, MessageSquare,
   ShoppingBag, CreditCard, ShoppingCart, AlertCircle,
   Package, Truck, RefreshCw, ChevronDown, ChevronUp, Tag, AlertTriangle, X
 } from 'lucide-react';
@@ -286,7 +286,8 @@ export default function ContactosPage() {
   const [loadingBackground, setLoadingBackground] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(100);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const [totalCount, setTotalCount] = useState(0);
 
   // Filters and Sorting
@@ -639,7 +640,7 @@ export default function ContactosPage() {
   // Handle Search Input Change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
-    setCurrentPage(1);
+    setVisibleCount(100);
   };
 
   // Select Store Customer
@@ -885,13 +886,26 @@ export default function ContactosPage() {
     });
   }, [filteredCustomers, sortBy]);
 
-  // Pagination bounds
-  const paginatedCustomers = useMemo(() => {
-    const startIndex = (currentPage - 1) * 100;
-    return sortedCustomers.slice(startIndex, startIndex + 100);
-  }, [sortedCustomers, currentPage]);
+  // Infinite scroll: visible slice
+  const visibleCustomers = useMemo(() => {
+    return sortedCustomers.slice(0, visibleCount);
+  }, [sortedCustomers, visibleCount]);
 
-  const totalPages = Math.ceil(sortedCustomers.length / 100) || 1;
+  // Reset visible window when filter/sort changes
+  useEffect(() => { setVisibleCount(100); }, [search, sortBy]);
+
+  // IntersectionObserver sentinel to load more
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && visibleCount < sortedCustomers.length) {
+        setVisibleCount(c => Math.min(c + 100, sortedCustomers.length));
+      }
+    }, { threshold: 0.1 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [visibleCount, sortedCustomers.length]);
 
   if (!hasStore) {
     return (
@@ -980,7 +994,7 @@ export default function ContactosPage() {
                   <p className="text-[12px] font-bold">Sin clientes</p>
                 </div>
               ) : (
-                paginatedCustomers.map(c => {
+                visibleCustomers.map(c => {
                   const isSelected = selectedStoreCust?.id === c.id;
                   return (
                     <div
@@ -1010,31 +1024,14 @@ export default function ContactosPage() {
               )}
             </div>
 
-            {/* Pagination Footer */}
-            {sortedCustomers.length > 100 && (
-              <div className="p-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-550 select-none">
-                <span>
-                  {(currentPage - 1) * 100 + 1}-{Math.min(currentPage * 100, sortedCustomers.length)} de {sortedCustomers.length}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="px-2 font-mono">{currentPage}/{totalPages}</span>
-                  <button
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 transition-colors"
-                  >
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="py-1">
+              {visibleCount < sortedCustomers.length && (
+                <div className="flex justify-center py-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <PortalWrapper active={isMobile && !!selectedStoreCust}>

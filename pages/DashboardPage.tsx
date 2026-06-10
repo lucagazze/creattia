@@ -2761,18 +2761,12 @@ export default function DashboardPage() {
           <div className="fixed inset-0 z-[501] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-[650px] sm:w-full sm:mx-4 bg-white dark:bg-zinc-900 sm:border sm:border-zinc-200 sm:dark:border-zinc-800 shadow-2xl sm:rounded-3xl flex flex-col sm:max-h-[90vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             
             {/* Header */}
-            <div className="px-4 py-3 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3 flex-shrink-0">
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="p-2 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="px-4 py-3 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center shrink-0">
                   <ShoppingBag className="w-5 h-5 text-pink-500" />
                 </div>
-                <div className="min-w-0">
+                <div>
                   <h3 className="text-[16px] font-bold text-zinc-900 dark:text-white leading-tight">
                     Pedido {selectedOrder.order_number}
                   </h3>
@@ -2783,17 +2777,25 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
-              {(profile as any)?.shopify_domain && (
-                <a
-                  href={`https://${(profile as any).shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}/admin/orders/${selectedOrder.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors border border-zinc-200 dark:border-zinc-700"
+              <div className="flex items-center gap-2">
+                {(profile as any)?.shopify_domain && (
+                  <a
+                    href={`https://${(profile as any).shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}/admin/orders/${selectedOrder.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors border border-zinc-200 dark:border-zinc-700"
+                  >
+                    Ver en Shopify
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="p-2 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
-                  Ver en Shopify
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Content */}
