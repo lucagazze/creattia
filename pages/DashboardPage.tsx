@@ -2755,7 +2755,7 @@ export default function DashboardPage() {
       {selectedOrder && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedOrder(null)} />
-          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-t-3xl sm:rounded-3xl max-w-[650px] w-full flex flex-col max-h-[75vh] sm:max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-none sm:rounded-3xl max-w-[650px] w-full flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             
             {/* Header */}
             <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
