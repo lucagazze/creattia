@@ -2843,9 +2843,9 @@ export default function DashboardPage() {
                   {(selectedOrder.email || selectedOrder.customer?.email) && (
                     <a
                       href={`#/cliente/${selectedOrder.email || selectedOrder.customer.email}`}
-                      className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-600 dark:text-pink-400 rounded-lg text-[11px] font-bold border border-pink-500/20 transition-all w-full justify-center"
+                      className="flex items-center justify-center gap-2 mt-3 w-full py-2.5 bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white rounded-xl text-[12px] font-black shadow-lg shadow-pink-500/20 transition-all hover:scale-[1.02]"
                     >
-                      <User className="w-3.5 h-3.5" />
+                      <User className="w-4 h-4" />
                       Ver Perfil y Pedidos
                     </a>
                   )}

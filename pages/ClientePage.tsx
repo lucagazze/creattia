@@ -308,6 +308,14 @@ export default function ClientePage() {
               subtotal_price: o.subtotal || String(parseFloat(o.total || '0') - parseFloat(o.total_tax || '0') - parseFloat(o.shipping_total || '0')),
               total_tax: o.total_tax,
               total_discounts: o.discount_total,
+              customer_name: o.billing ? `${o.billing.first_name || ''} ${o.billing.last_name || ''}`.trim() : 'Cliente WooCommerce',
+              phone: o.billing?.phone || o.shipping?.phone || null,
+              shipping_address: o.shipping?.address_1 ? {
+                address1: o.shipping.address_1,
+                city: o.shipping.city,
+                province: o.shipping.state,
+                country: o.shipping.country,
+              } : null,
               line_items: (o.line_items || []).map((it: any) => ({
                 title: it.name,
                 quantity: it.quantity,

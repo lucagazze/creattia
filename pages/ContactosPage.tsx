@@ -56,7 +56,7 @@ export default function ContactosPage() {
 
   // Filters and Sorting
   const [filterType, setFilterType] = useState<'all' | 'new' | 'frequent'>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'name' | 'spent' | 'orders'>('recent');
+  const [sortBy, setSortBy] = useState<'recent' | 'name' | 'spent' | 'orders'>('name');
 
   // Load Store Customers
   const loadData = useCallback(async () => {
@@ -153,7 +153,7 @@ export default function ContactosPage() {
             last_name: c.last_name || '',
             name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Cliente sin nombre',
             email: c.email || '',
-            phone: c.billing?.phone || c.shipping?.phone || '',
+            phone: c.billing?.phone || c.shipping?.phone || c.phone || '',
             orders_count: c.orders_count || 0,
             total_spent: parseFloat(c.total_spent || 0),
             address: c.billing?.address_1
@@ -205,7 +205,7 @@ export default function ContactosPage() {
             last_name: (c.name || '').split(' ').slice(1).join(' ') || '',
             name: c.name || 'Cliente sin nombre',
             email: c.email || '',
-            phone: c.phone || '',
+            phone: c.phone || c.addresses?.find((a: any) => a.phone)?.phone || '',
             orders_count: null,
             total_spent: null,
             address: addressStr,
@@ -394,30 +394,7 @@ export default function ContactosPage() {
             <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 space-y-3">
               <h1 className="text-[18px] font-black tracking-tight text-zinc-900 dark:text-white">Clientes</h1>
 
-              {/* Filter Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {[
-                  { id: 'all', label: 'Todos' },
-                  { id: 'new', label: 'Nuevos' },
-                  { id: 'frequent', label: 'Frecuentes' }
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => {
-                      setFilterType(f.id as any);
-                      setCurrentPage(1);
-                    }}
-                    className={`px-3 py-1 rounded-full text-[10px] font-black transition-all ${
-                      filterType === f.id
-                        ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-sm'
-                        : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+
               
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -466,25 +443,32 @@ export default function ContactosPage() {
                     <div
                       key={c.id}
                       onClick={() => handleSelectStoreCustomer(c)}
-                      className={`mx-2.5 my-0.5 px-3 py-2.5 flex items-center gap-3 transition-all duration-200 cursor-pointer rounded-xl group ${
+                      className={`mx-2.5 my-0.5 px-2.5 py-1.5 flex items-center gap-2.5 transition-all duration-200 cursor-pointer rounded-xl group ${
                         isSelected
                           ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/10'
                           : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/35 border border-transparent'
                       }`}
                     >
                       {/* Initials Avatar */}
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black bg-gradient-to-br shadow-inner flex-shrink-0 ${gradient}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black bg-gradient-to-br shadow-inner flex-shrink-0 ${gradient}`}>
                         {getInitials(c.name || '')}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className={`text-[12.5px] truncate font-bold ${isSelected ? 'text-white' : 'text-zinc-800 dark:text-zinc-100'}`}>
+                        <p className={`text-[12px] truncate font-bold ${isSelected ? 'text-white' : 'text-zinc-800 dark:text-zinc-100'}`}>
                           {c.name || 'Cliente sin nombre'}
                         </p>
-                        <p className={`text-[10px] font-mono mt-0.5 truncate ${isSelected ? 'text-blue-200' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                        <p className={`text-[9.5px] font-mono mt-0.5 truncate ${isSelected ? 'text-blue-250' : 'text-zinc-500 dark:text-zinc-400'}`}>
                           {c.phone || c.email || 'Sin teléfono/email'}
                         </p>
                       </div>
+
+                      {/* Gasto Total Badge */}
+                      {c.total_spent !== null && c.total_spent !== undefined && c.total_spent > 0 && (
+                        <span className={`text-[10.5px] font-extrabold whitespace-nowrap shrink-0 ${isSelected ? 'text-white' : 'text-zinc-700 dark:text-zinc-300'}`}>
+                          {fmtCurr(c.total_spent)}
+                        </span>
+                      )}
                     </div>
                   );
                 })

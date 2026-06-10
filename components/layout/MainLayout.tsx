@@ -335,7 +335,7 @@ export const MainLayout = () => {
                   onClick={() => signOut()}
                   className="text-[11px] font-bold text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors uppercase tracking-wider"
                 >
-                  Salir / Cambiar cuenta de Google
+                  Salir / Cerrar sesión
                 </button>
               </div>
             </div>

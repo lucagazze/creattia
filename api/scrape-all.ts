@@ -936,56 +936,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const nonShopifyLifetime: Record<string, number> = {};
       const nonShopifySpent: Record<string, number> = {};
       if (active_platform !== 'shopify') {
-        const uniqueEmails = [...new Set(
-          [...orders, ...recentOrders]
-            .map((o: any) => (o.customer?.email || '').toLowerCase().trim())
-            .filter(Boolean)
-        )];
+        const allFetchedOrders = [];
+        const seenOrderIds = new Set<any>();
+        
+        for (const o of [...rawHistory, ...rawOrders, ...rawRecent]) {
+          if (!o || !o.id) continue;
+          if (seenOrderIds.has(o.id)) continue;
+          seenOrderIds.add(o.id);
+          allFetchedOrders.push(o);
+        }
 
         if (active_platform === 'wordpress') {
-          const base = (active_wordpress_url || '').replace(/\/$/, '');
-          const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
-          const wcHeaders = { Authorization: `Basic ${creds}` };
-
-          await Promise.all(
-            uniqueEmails.map(async (email) => {
-              try {
-                const res = await fetch(`${base}/wp-json/wc/v3/orders?search=${encodeURIComponent(email)}&per_page=100`, { headers: wcHeaders });
-                if (res.ok) {
-                  const totalCountHeader = res.headers.get('X-WP-Total');
-                  const ordersData: any[] = await res.json();
-                  const filtered = ordersData.filter((o: any) => (o.billing?.email || '').toLowerCase().trim() === email.toLowerCase().trim());
-                  const count = totalCountHeader ? parseInt(totalCountHeader, 10) : filtered.length;
-                  const spent = filtered.reduce((sum, ord) => sum + parseFloat(ord.total || 0), 0);
-                  nonShopifyLifetime[email] = count;
-                  nonShopifySpent[email] = spent;
-                }
-              } catch (err) {
-                console.error('[WooCommerce Scraper] Error fetching customer orders:', err);
-              }
-            })
-          );
+          for (const o of allFetchedOrders) {
+            const email = (o.billing?.email || '').toLowerCase().trim();
+            if (!email) continue;
+            nonShopifyLifetime[email] = (nonShopifyLifetime[email] || 0) + 1;
+            nonShopifySpent[email] = (nonShopifySpent[email] || 0) + parseFloat(o.total || 0);
+          }
         } else if (active_platform === 'tiendanube') {
-          const tnHeaders = { Authentication: `bearer ${active_tiendanube_access_token}`, 'User-Agent': 'AlgorBot/1.0' };
-          const tnBase = `https://api.tiendanube.com/v1/${active_tiendanube_store_id}/orders`;
-
-          await Promise.all(
-            uniqueEmails.map(async (email) => {
-              try {
-                const res = await fetch(`${tnBase}?email=${encodeURIComponent(email)}&per_page=200`, { headers: tnHeaders });
-                if (res.ok) {
-                  const ordersData: any[] = await res.json();
-                  const filtered = ordersData.filter((o: any) => (o.customer?.email || '').toLowerCase().trim() === email.toLowerCase().trim());
-                  const count = filtered.length;
-                  const spent = filtered.reduce((sum, ord) => sum + parseFloat(ord.total || 0), 0);
-                  nonShopifyLifetime[email] = count;
-                  nonShopifySpent[email] = spent;
-                }
-              } catch (err) {
-                console.error('[Tiendanube Scraper] Error fetching customer orders:', err);
-              }
-            })
-          );
+          for (const o of allFetchedOrders) {
+            const email = (o.customer?.email || '').toLowerCase().trim();
+            if (!email) continue;
+            nonShopifyLifetime[email] = (nonShopifyLifetime[email] || 0) + 1;
+            nonShopifySpent[email] = (nonShopifySpent[email] || 0) + parseFloat(o.total || 0);
+          }
         }
       }
 

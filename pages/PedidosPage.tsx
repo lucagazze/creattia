@@ -148,18 +148,18 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
         }`}
       >
         {/* # */}
-        <td className="px-3 sm:px-5 py-2">
+        <td className="px-3 sm:px-5 py-1.5">
           <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 whitespace-nowrap">
             #{order.order_number || order.name}
           </span>
         </td>
 
         {/* Fecha — hidden on mobile */}
-        <td className="hidden sm:table-cell px-4 py-2">
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-1.5">
+        <td className="hidden sm:table-cell px-4 py-1.5">
+          <div className="flex flex-col leading-tight">
+            <div className="flex items-center gap-1">
               {dateTag && (
-                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-[1px] rounded shrink-0 ${
+                <span className={`text-[9px] font-black uppercase tracking-wider px-1 py-[0.5px] rounded shrink-0 ${
                   dateTag === 'Hoy'
                     ? 'bg-pink-500/10 dark:bg-pink-500/20 text-pink-500 dark:text-pink-400'
                     : 'bg-violet-500/10 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400'
@@ -167,14 +167,14 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
                   {dateTag}
                 </span>
               )}
-              <span className="text-[11px] text-zinc-600 dark:text-zinc-300 whitespace-nowrap font-semibold">{dateLabel}</span>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 whitespace-nowrap font-medium">{dateLabel}</span>
             </div>
-            <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">{dateTime}</span>
+            <span className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 mt-0.5">{dateTime} hs</span>
           </div>
         </td>
 
         {/* Cliente */}
-        <td className="px-3 sm:px-4 py-2 max-w-[120px] sm:max-w-none">
+        <td className="px-3 sm:px-4 py-1.5 max-w-[120px] sm:max-w-none">
           <div className="flex items-center gap-1.5 flex-wrap">
             {order.customer?.email ? (
               <a 
@@ -216,7 +216,7 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
         </td>
 
         {/* Productos — hidden on mobile */}
-        <td className="hidden sm:table-cell px-4 py-2">
+        <td className="hidden sm:table-cell px-4 py-1.5">
           {firstItem ? (
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center border border-zinc-200/60 dark:border-white/[0.06]">
@@ -250,20 +250,20 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
         </td>
 
         {/* Pago — hidden on mobile+tablet */}
-        <td className="hidden md:table-cell px-4 py-2"><PaymentBadge status={order.financial_status} /></td>
+        <td className="hidden md:table-cell px-4 py-1.5"><PaymentBadge status={order.financial_status} /></td>
 
         {/* Envío */}
-        <td className="px-2 sm:px-4 py-2"><FulfillmentBadge status={order.fulfillment_status} /></td>
+        <td className="px-2 sm:px-4 py-1.5"><FulfillmentBadge status={order.fulfillment_status} /></td>
 
         {/* Total */}
-        <td className="px-2 sm:px-4 py-2 text-right">
+        <td className="px-2 sm:px-4 py-1.5 text-right">
           <span className="text-[12px] sm:text-[13px] font-black text-zinc-900 dark:text-white whitespace-nowrap">
             {fmtCurr(parseFloat(order.total_price || 0))}
           </span>
         </td>
 
         {/* Expand */}
-        <td className="px-2 sm:px-4 py-2">
+        <td className="px-2 sm:px-4 py-1.5">
           <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
             open ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200' : 'text-zinc-400'
           }`}>
@@ -348,9 +348,9 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
                     {order.customer.email && (
                       <a
                         href={`#/cliente/${order.customer.email}`}
-                        className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-600 dark:text-pink-400 rounded-lg text-[11px] font-bold border border-pink-500/20 transition-all"
+                        className="flex items-center justify-center gap-2 mt-3 w-full py-2.5 bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white rounded-xl text-[12px] font-black shadow-lg shadow-pink-500/20 transition-all hover:scale-[1.02]"
                       >
-                        <User className="w-3.5 h-3.5" />
+                        <User className="w-4 h-4" />
                         Ver Perfil y Pedidos
                       </a>
                     )}
