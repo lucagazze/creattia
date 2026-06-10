@@ -98,7 +98,7 @@ export default function MetaAdsPage() {
   const [openReplies, setOpenReplies] = useState<Record<string, boolean>>({});
   const [likedIds, setLikedIds] = useState<Record<string, boolean>>({});
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('all');
+  const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('pending');
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
   const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
   const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
@@ -172,7 +172,7 @@ export default function MetaAdsPage() {
     setReplyTexts({});
     setReplyErrors({});
     setLikedIds({});
-    setCommentFilter('all');
+    setCommentFilter('pending');
   }, []);
 
   // ── Date picker helpers ──────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ export default function MetaAdsPage() {
     setActiveCommentPlatform(initialPlatform);
     setLoadingByPlatform({ instagram: !!igStoryId, facebook: !!fbStoryId });
     setOpenReplies({}); setReplyTexts({}); setReplyErrors({}); setLikedIds({});
-    setCommentFilter('all'); setMobileTab('comments');
+    setCommentFilter('pending'); setMobileTab('comments');
     setPanelCarouselIndex(0); setPanelPlayingVideo(false);
     setLifetimeInsights(null); setLoadingLifetime(true);
     metaAds.getAdLifetimeInsights(ad.id)
