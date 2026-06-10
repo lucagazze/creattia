@@ -89,18 +89,20 @@ const getArgentinaDateStr = (date: Date): string => {
   }).format(date);
 };
 
-// Load lifetime order counts per email for TiendaNube. Cached in localStorage for 1 hour.
-// Fetches up to 10 pages (2000 orders) to cover typical store histories.
-async function loadTNLifetimeCounts(storeId: string, token: string): Promise<Record<string, number>> {
-  const lsKey = `tn_lifetime:${storeId}`;
+type LifetimeData = { counts: Record<string, number>; spent: Record<string, number> };
+
+// Load lifetime order counts + total spent per email for TiendaNube. Cached 1 hour.
+async function loadTNLifetimeCounts(storeId: string, token: string): Promise<LifetimeData> {
+  const lsKey = `tn_lifetime_v2:${storeId}`;
   try {
     const raw = localStorage.getItem(lsKey);
     if (raw) {
-      const { data, ts } = JSON.parse(raw) as { data: Record<string, number>; ts: number };
+      const { data, ts } = JSON.parse(raw) as { data: LifetimeData; ts: number };
       if (Date.now() - ts < 60 * 60 * 1000) return data;
     }
   } catch {}
   const counts: Record<string, number> = {};
+  const spent: Record<string, number> = {};
   for (let page = 1; page <= 10; page++) {
     try {
       const params = new URLSearchParams({ per_page: '200', page: String(page) });
@@ -112,27 +114,32 @@ async function loadTNLifetimeCounts(storeId: string, token: string): Promise<Rec
       if (!Array.isArray(data) || data.length === 0) break;
       for (const o of data) {
         const email = (o.customer?.email || '').toLowerCase().trim();
-        if (email) counts[email] = (counts[email] || 0) + 1;
+        if (email) {
+          counts[email] = (counts[email] || 0) + 1;
+          spent[email] = (spent[email] || 0) + parseFloat(o.total || '0');
+        }
       }
       if (data.length < 200) break;
     } catch { break; }
   }
-  try { localStorage.setItem(lsKey, JSON.stringify({ data: counts, ts: Date.now() })); } catch {}
-  return counts;
+  const result: LifetimeData = { counts, spent };
+  try { localStorage.setItem(lsKey, JSON.stringify({ data: result, ts: Date.now() })); } catch {}
+  return result;
 }
 
-// Load lifetime order counts per email for WooCommerce. Cached in localStorage for 1 hour.
-async function loadWCLifetimeCounts(baseUrl: string, ck: string, cs: string): Promise<Record<string, number>> {
+// Load lifetime order counts + total spent per email for WooCommerce. Cached 1 hour.
+async function loadWCLifetimeCounts(baseUrl: string, ck: string, cs: string): Promise<LifetimeData> {
   const cleanBase = baseUrl.replace(/\/$/, '');
-  const lsKey = `wc_lifetime:${cleanBase}`;
+  const lsKey = `wc_lifetime_v2:${cleanBase}`;
   try {
     const raw = localStorage.getItem(lsKey);
     if (raw) {
-      const { data, ts } = JSON.parse(raw) as { data: Record<string, number>; ts: number };
+      const { data, ts } = JSON.parse(raw) as { data: LifetimeData; ts: number };
       if (Date.now() - ts < 60 * 60 * 1000) return data;
     }
   } catch {}
   const counts: Record<string, number> = {};
+  const spent: Record<string, number> = {};
   for (let page = 1; page <= 10; page++) {
     try {
       const params = new URLSearchParams({ per_page: '100', page: String(page) });
@@ -144,13 +151,17 @@ async function loadWCLifetimeCounts(baseUrl: string, ck: string, cs: string): Pr
       if (!Array.isArray(data) || data.length === 0) break;
       for (const o of data) {
         const email = (o.billing?.email || '').toLowerCase().trim();
-        if (email) counts[email] = (counts[email] || 0) + 1;
+        if (email) {
+          counts[email] = (counts[email] || 0) + 1;
+          spent[email] = (spent[email] || 0) + parseFloat(o.total || '0');
+        }
       }
       if (data.length < 100) break;
     } catch { break; }
   }
-  try { localStorage.setItem(lsKey, JSON.stringify({ data: counts, ts: Date.now() })); } catch {}
-  return counts;
+  const result: LifetimeData = { counts, spent };
+  try { localStorage.setItem(lsKey, JSON.stringify({ data: result, ts: Date.now() })); } catch {}
+  return result;
 }
 
 // Assign sequential nth-purchase numbers to orders using lifetime counts as anchor.
@@ -671,7 +682,7 @@ export const ecommerce = {
       page++;
     }
 
-    const lifetimeCounts = await lifetimeCountsPromise;
+    const { counts: lifetimeCounts, spent: lifetimeSpent } = await lifetimeCountsPromise;
     const tnOrderSeq = applySequentialWithLifetime(
       allOrders,
       lifetimeCounts,
@@ -683,6 +694,7 @@ export const ecommerce = {
       const isCancelled = o.status === 'cancelled';
       const payStatus = o.payment_status;
       const financial_status = payStatus === 'paid' ? 'paid' : payStatus === 'refunded' ? 'refunded' : payStatus === 'voided' ? 'voided' : 'pending';
+      const email = (o.customer?.email || '').toLowerCase().trim();
       return {
         id: o.id,
         order_number: o.number,
@@ -703,7 +715,7 @@ export const ecommerce = {
           email: o.customer.email || '',
           phone: o.customer.phone || '',
           orders_count: tnOrderSeq.get(o.id) || 1,
-          total_spent: '0',
+          total_spent: String((lifetimeSpent[email] || 0).toFixed(2)),
         } : null,
         shipping_address: o.shipping_address ? {
           address1: o.shipping_address.address,
@@ -776,7 +788,7 @@ export const ecommerce = {
       page++;
     }
 
-    const wcLifetimeCounts = await wcLifetimePromise;
+    const { counts: wcLifetimeCounts, spent: wcLifetimeSpent } = await wcLifetimePromise;
     const wcOrderSeq = applySequentialWithLifetime(
       allOrders,
       wcLifetimeCounts,
@@ -785,7 +797,9 @@ export const ecommerce = {
     );
 
     // Normalize to Shopify-like shape
-    const normalized = allOrders.map((o: any) => ({
+    const normalized = allOrders.map((o: any) => {
+      const email = (o.billing?.email || '').toLowerCase().trim();
+      return {
       id: o.id,
       order_number: o.number,
       name: `#${o.number}`,
@@ -805,7 +819,7 @@ export const ecommerce = {
         email: o.billing?.email || '',
         phone: o.billing?.phone || '',
         orders_count: wcOrderSeq.get(o.id) || 1,
-        total_spent: '0',
+        total_spent: String((wcLifetimeSpent[email] || 0).toFixed(2)),
       },
       shipping_address: o.shipping?.address_1 ? {
         address1: o.shipping.address_1,
@@ -831,7 +845,7 @@ export const ecommerce = {
         if (srcType === 'typein') return { source: 'direct', label: 'Sin publicidad' } as OrderAttribution;
         return classifyAttrib(src, med, campaign, '');
       })(),
-    }));
+    }; });
 
     ecSetCache(cacheKey, normalized);
     return normalized;
