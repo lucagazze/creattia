@@ -51,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/mensajeria',     icon: MessageSquare, label: 'Mensajería',      configured: hasChatwoot, badge: unreadCount },
     { path: '/comentarios',    icon: MessageCircle, label: 'Comentarios',     configured: hasRedes, badge: pendingCommentsCount },
     { path: '/redes-sociales', icon: Instagram,     label: 'Redes Sociales',  configured: hasRedes },
-    { path: '/contactos',      icon: Users,         label: 'Contactos',       configured: hasChatwoot },
+    { path: '/contactos',      icon: Users,         label: 'Contactos',       configured: hasChatwoot || hasEcommerce },
     { path: '/pedidos',         icon: ShoppingCart,  label: 'Pedidos',         configured: hasEcommerce, badge: pendingOrdersCount, badgeLoading: ordersLoading },
     { path: '/inventario',     icon: Package,       label: 'Inventario',      configured: hasEcommerce },
   ].filter(i => isAdmin || i.configured);

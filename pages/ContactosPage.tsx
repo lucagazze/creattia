@@ -23,8 +23,20 @@ export default function ContactosPage() {
   const cwUrl = (profile as any)?.chatwoot_url;
   const cwToken = (profile as any)?.chatwoot_token;
 
+  const hasChatwoot = !!(cwUrl && cwToken);
+  const hasStore = !!(
+    (profile as any)?.shopify_domain ||
+    (profile as any)?.tiendanube_store_id ||
+    (profile as any)?.wordpress_url ||
+    (profile as any)?.ecommerce_platform
+  );
+
   // Tab state
-  const [activeTab, setActiveTab] = useState<'messaging' | 'store'>('messaging');
+  const [activeTab, setActiveTab] = useState<'messaging' | 'store'>(() => {
+    if (hasChatwoot) return 'messaging';
+    if (hasStore) return 'store';
+    return 'messaging';
+  });
 
   // Contacts list states (Chatwoot)
   const [contacts, setContacts] = useState<any[]>([]);
@@ -530,14 +542,62 @@ export default function ContactosPage() {
   const endItem = Math.min(currentPage * 15, totalCount);
   const totalPages = Math.ceil(totalCount / 15) || 1;
 
-  if (!cwUrl || !cwToken) {
+  if (!hasChatwoot && !hasStore) {
     return (
-      <div className="flex items-center justify-center h-full py-24">
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 max-w-md flex items-start gap-4">
-          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-amber-800 dark:text-amber-400 text-[14px]">Chatwoot no configurado</h3>
-            <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1">Completá la URL y el token en Administración → Gestión de Clientes.</p>
+      <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 py-16 text-center bg-[#f5f5f7] dark:bg-[#0a0a0a]">
+        <div className="max-w-2xl w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-[32px] p-8 md:p-12 shadow-xl animate-in fade-in zoom-in-95 duration-300">
+          {/* Top Icon Badge */}
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-6">
+            <User className="w-8 h-8" />
+          </div>
+
+          <h2 className="text-[28px] font-black tracking-tight text-zinc-900 dark:text-white mb-3">
+            Gestioná tus Clientes y Contactos
+          </h2>
+          <p className="text-[14px] text-zinc-500 dark:text-zinc-400 max-w-md mx-auto mb-10 leading-relaxed">
+            Para comenzar, vinculá tu tienda online o tu cuenta de mensajería. Esto te permitirá centralizar conversaciones y analizar el historial de compras.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            {/* Store Card */}
+            <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-6 flex flex-col justify-between hover:border-zinc-250 dark:hover:border-zinc-700 transition-all duration-200">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-pink-50 dark:bg-pink-950/25 text-pink-600 dark:text-pink-400 flex items-center justify-center mb-4">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-[15px] text-zinc-850 dark:text-white mb-2">Tienda Online</h3>
+                <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-6">
+                  Sincronizá clientes de Shopify, Tiendanube o WooCommerce para ver su historial de compras y estadísticas de gasto.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/links')}
+                className="w-full py-2.5 bg-pink-600 hover:bg-pink-700 text-white text-[12px] font-black rounded-xl transition-all shadow-sm shadow-pink-500/10 active:scale-[0.98]"
+              >
+                Conectar Tienda
+              </button>
+            </div>
+
+            {/* Messaging Card */}
+            <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-6 flex flex-col justify-between hover:border-zinc-250 dark:hover:border-zinc-700 transition-all duration-200">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/25 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-4">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-[15px] text-zinc-850 dark:text-white mb-2">Canal de Mensajería</h3>
+                <p className="text-[12px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-6">
+                  Vinculá Chatwoot para ver tus hilos de chat, utilizar completado de perfiles por IA y gestionar notas de clientes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/links')}
+                className="w-full py-2.5 bg-violet-600 hover:bg-violet-750 text-white text-[12px] font-black rounded-xl transition-all shadow-sm shadow-violet-600/10 active:scale-[0.98]"
+              >
+                Conectar Mensajería
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -622,7 +682,41 @@ export default function ContactosPage() {
 
           {/* List scroll container */}
           <div className="flex-1 overflow-y-auto py-2 space-y-1">
-            {loading ? (
+            {activeTab === 'messaging' && !hasChatwoot ? (
+              <div className="px-4 py-8 text-center flex flex-col items-center justify-center h-full">
+                <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/20 text-violet-500 flex items-center justify-center mb-3">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <h4 className="text-[12.5px] font-black text-zinc-800 dark:text-zinc-200">Mensajería Desconectada</h4>
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-[200px] leading-relaxed mx-auto">
+                  Vinculá Chatwoot para ver contactos de tus chats de mensajería.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/links')}
+                  className="mt-4 px-3 py-1.5 bg-violet-600 hover:bg-violet-750 text-white text-[10.5px] font-bold rounded-lg transition-all"
+                >
+                  Configurar
+                </button>
+              </div>
+            ) : activeTab === 'store' && !hasStore ? (
+              <div className="px-4 py-8 text-center flex flex-col items-center justify-center h-full">
+                <div className="w-10 h-10 rounded-xl bg-pink-50 dark:bg-pink-950/20 text-pink-500 flex items-center justify-center mb-3">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <h4 className="text-[12.5px] font-black text-zinc-800 dark:text-zinc-205">Tienda Desconectada</h4>
+                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 max-w-[200px] leading-relaxed mx-auto">
+                  Vinculá Shopify, WooCommerce o Tiendanube para importar tus clientes.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/links')}
+                  className="mt-4 px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white text-[10.5px] font-bold rounded-lg transition-all"
+                >
+                  Configurar
+                </button>
+              </div>
+            ) : loading ? (
               <div className="flex flex-col items-center justify-center py-16 gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                 <p className="text-[11px] text-zinc-400">
@@ -700,7 +794,7 @@ export default function ContactosPage() {
           </div>
 
           {/* Pagination Footer */}
-          {totalCount > 0 && (
+          {totalCount > 0 && !(activeTab === 'messaging' && !hasChatwoot) && !(activeTab === 'store' && !hasStore) && (
             <div className="p-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 select-none">
               <span>{startItem}-{endItem} de {totalCount}</span>
               {!(activeTab === 'store' && profile?.ecommerce_platform === 'shopify') && (
@@ -728,7 +822,91 @@ export default function ContactosPage() {
 
         {/* RIGHT COLUMN: Details */}
         <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-900/30 overflow-hidden relative">
-          {activeTab === 'messaging' ? (
+          {activeTab === 'messaging' && !hasChatwoot ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-xl mx-auto h-full">
+              <div className="w-16 h-16 rounded-2xl bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-5 animate-pulse">
+                <MessageSquare className="w-8 h-8" />
+              </div>
+              <h3 className="text-[20px] font-black tracking-tight text-zinc-900 dark:text-white mb-2">
+                Conectá tus Canales de Mensajería
+              </h3>
+              <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-6">
+                Al integrar Chatwoot, podrás centralizar los chats de WhatsApp, Instagram, Facebook y Webchat.
+              </p>
+              <div className="w-full space-y-3.5 text-left bg-white dark:bg-[#161618] border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-5 shadow-sm text-[12.5px] mb-6">
+                <div className="flex items-start gap-3">
+                  <span className="text-[16px] mt-0.5">💬</span>
+                  <div>
+                    <h4 className="font-bold text-zinc-800 dark:text-zinc-205">Historial unificado de chats</h4>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">Accedé a toda la comunicación de tus clientes desde una sola pantalla.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-[16px] mt-0.5">🧠</span>
+                  <div>
+                    <h4 className="font-bold text-zinc-800 dark:text-zinc-205">Completado de perfil con IA</h4>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">Extraé automáticamente datos clave del cliente a partir de sus conversaciones.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-[16px] mt-0.5">🏷️</span>
+                  <div>
+                    <h4 className="font-bold text-zinc-800 dark:text-zinc-205">Notas y segmentación comercial</h4>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">Agregá observaciones privadas, etiquetas y organiza tu flujo comercial.</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/links')}
+                className="px-6 py-2.5 bg-violet-600 hover:bg-violet-750 text-white text-[12.5px] font-black rounded-xl transition-all shadow-sm shadow-violet-600/10 active:scale-[0.98]"
+              >
+                Vincular Mensajería en Mis Accesos
+              </button>
+            </div>
+          ) : activeTab === 'store' && !hasStore ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-xl mx-auto h-full">
+              <div className="w-16 h-16 rounded-2xl bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400 flex items-center justify-center mb-5 animate-pulse">
+                <ShoppingBag className="w-8 h-8" />
+              </div>
+              <h3 className="text-[20px] font-black tracking-tight text-zinc-900 dark:text-white mb-2">
+                Conectá tu Tienda Online
+              </h3>
+              <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-6">
+                Visualizá a los compradores de tu e-commerce y obtén una vista de 360 grados de su comportamiento comercial.
+              </p>
+              <div className="w-full space-y-3.5 text-left bg-white dark:bg-[#161618] border border-zinc-150 dark:border-zinc-800/60 rounded-2xl p-5 shadow-sm text-[12.5px] mb-6">
+                <div className="flex items-start gap-3">
+                  <span className="text-[16px] mt-0.5">📊</span>
+                  <div>
+                    <h4 className="font-bold text-zinc-800 dark:text-zinc-205">Estadísticas de facturación</h4>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">Visualizá el total gastado, cantidad de pedidos y ticket promedio por cliente.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-[16px] mt-0.5">🛒</span>
+                  <div>
+                    <h4 className="font-bold text-zinc-800 dark:text-zinc-205">Detalle de pedidos realizados</h4>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">Accedé al historial completo de compras de cada cliente con un solo click.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="text-[16px] mt-0.5">🔗</span>
+                  <div>
+                    <h4 className="font-bold text-zinc-855 dark:text-zinc-205">Conexión directa a chats</h4>
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5">Iniciá chats de soporte directamente vinculando el correo con hilos existentes.</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/links')}
+                className="px-6 py-2.5 bg-pink-600 hover:bg-pink-700 text-white text-[12.5px] font-black rounded-xl transition-all shadow-sm shadow-pink-500/10 active:scale-[0.98]"
+              >
+                Vincular Tienda en Mis Accesos
+              </button>
+            </div>
+          ) : activeTab === 'messaging' ? (
             !selected ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-zinc-400">
                 <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-3xl">👤</div>
