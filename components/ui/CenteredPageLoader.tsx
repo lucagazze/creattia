@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface Props {
   isLoading: boolean;
@@ -43,6 +44,7 @@ const getProgressForTime = (startTime: number) => {
 };
 
 export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => {
+  const { darkMode } = useTheme();
   const [phase, setPhase] = useState<'loading' | 'fading' | 'done'>(() => isLoading ? 'loading' : 'done');
   
   const [progress, setProgress] = useState(0);
@@ -160,7 +162,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
           {/* Logo con bounce */}
           <div className="mb-10 flex flex-col items-center gap-5">
             <img
-              src="/assets/logoSinFondo.png"
+              src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"}
               alt="Algoritmia"
               className="w-14 h-14 object-contain"
               style={{
