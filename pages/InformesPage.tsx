@@ -864,9 +864,33 @@ export default function InformesPage() {
             </button>
             {showDatePicker && (
               <div className="absolute left-0 md:left-auto md:right-0 top-full mt-2.5 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-850 shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[280px] sm:w-[310px] md:w-auto origin-top-left md:origin-top-right">
-                <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-150 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-hide">
-                  {PRESETS.map(p => (
-                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-2 py-0.5 md:px-2.5 md:py-1 rounded-[6px] md:rounded-[10px] text-[9.5px] md:text-[10px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-150 dark:border-zinc-800 p-1.5 md:p-3 grid grid-cols-3 md:flex md:flex-col gap-1">
+                  {[
+                    { id: 'today', label: 'Hoy' },
+                    { id: 'yesterday', label: 'Ayer' },
+                    { id: 'last_7d', label: '7 días' },
+                    { id: 'last_14d', label: '14 días' },
+                    { id: 'last_28d', label: '28 días' },
+                    { id: 'last_30d', label: '30 días' },
+                    { id: 'last_90d', label: '90 días' },
+                    { id: 'this_month', label: 'Este mes' },
+                    { id: 'last_month', label: 'Mes pas.' },
+                    { id: 'this_year', label: 'Este año' },
+                    { id: 'last_year', label: 'Año pas.' },
+                    { id: 'max', label: 'Máximo' }
+                  ].map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        const r = presetToRange(p.id as any);
+                        setPendingPreset(p.id as any);
+                        setPendingSince(r.since);
+                        setPendingUntil(r.until);
+                      }}
+                      className={`flex-shrink-0 text-center md:text-left px-1 py-1 md:px-2.5 md:py-1 rounded-[4px] md:rounded-[10px] text-[8.5px] sm:text-[9px] md:text-[10px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      {p.label}
+                    </button>
                   ))}
                 </div>
                 <div className="p-4 flex flex-col items-center md:items-stretch">
