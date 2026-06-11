@@ -2407,9 +2407,9 @@ export default function MensajeriaPage() {
         >
           <button 
             onClick={() => setActiveImagePreview(null)} 
-            className="absolute top-4 right-4 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-105 active:scale-95 z-50"
+            className="absolute top-4 right-4 flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-400 hover:text-white transition-all active:scale-95 border border-white/5 shadow-sm z-50"
           >
-            <X className="w-6 h-6" />
+            <X className="w-4 h-4" />
           </button>
           
           {imagePreviewLoading && (
@@ -2445,9 +2445,9 @@ export default function MensajeriaPage() {
         >
           <button 
             onClick={() => setActiveVideoPreview(null)} 
-            className="absolute top-4 right-4 p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all hover:scale-105 active:scale-95 z-50"
+            className="absolute top-4 right-4 flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-400 hover:text-white transition-all active:scale-95 border border-white/5 shadow-sm z-50"
           >
-            <X className="w-6 h-6" />
+            <X className="w-4 h-4" />
           </button>
           <video 
             src={activeVideoPreview} 

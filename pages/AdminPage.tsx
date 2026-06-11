@@ -2185,7 +2185,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                   <button
                     type="button"
                     onClick={() => closeEdit()}
-                    className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 bg-white dark:bg-zinc-900"
+                    className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 active:scale-95 transition-all shadow-sm"
                   >
                     <X className="w-4 h-4" />
                   </button>

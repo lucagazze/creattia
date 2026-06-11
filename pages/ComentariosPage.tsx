@@ -1150,8 +1150,8 @@ export default function ComentariosPage() {
                     <span className="hidden md:inline">Ver original</span>
                   </a>
                 )}
-                <button onClick={() => setSelectedPost(null)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
-                  <X className="w-5 h-5" />
+                <button onClick={() => setSelectedPost(null)} className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 active:scale-95 transition-all shadow-sm">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>

@@ -330,8 +330,8 @@ function PreviewModal({
               <Smartphone className="w-3 h-3" />Móvil
             </div>
           )}
-          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
-            <X className="w-3.5 h-3.5" />
+          <button onClick={onClose} className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-400 hover:text-white transition-all active:scale-95 border border-white/5 shadow-sm">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -972,8 +972,8 @@ function PreviewOverlay({ entry, onClose }: { entry: EmailEntry; onClose: () => 
             <Smartphone className="w-3 h-3" />Celular
           </div>
         )}
-        <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
-          <X className="w-3.5 h-3.5" />
+        <button onClick={onClose} className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-zinc-400 hover:text-white transition-all active:scale-95 border border-white/5 shadow-sm">
+          <X className="w-4 h-4" />
         </button>
       </div>
 

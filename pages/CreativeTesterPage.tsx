@@ -365,8 +365,15 @@ export default function CreativeTesterPage() {
                           onClick={() => handleAnalyzeAd(ad)}
                           className={`rounded-xl overflow-hidden border-2 transition-all text-left ${isSelected ? 'border-violet-500 ring-2 ring-violet-300 dark:ring-violet-700' : 'border-zinc-200 dark:border-zinc-700 hover:border-violet-400'}`}
                         >
-                          <div className="aspect-square bg-zinc-100 dark:bg-zinc-800">
-                            {thumb ? <img src={thumb} alt={ad.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Film className="w-6 h-6 text-zinc-400" /></div>}
+                          <div className="aspect-square bg-zinc-100 dark:bg-zinc-800 relative flex items-center justify-center overflow-hidden">
+                            {thumb ? (
+                              <>
+                                <img src={thumb} alt="" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-40" aria-hidden />
+                                <img src={thumb} alt={ad.name} referrerPolicy="no-referrer" className="relative z-10 w-full h-full object-contain" />
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center"><Film className="w-6 h-6 text-zinc-400" /></div>
+                            )}
                           </div>
                           <div className="p-2">
                             <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 truncate">{ad.name || `Anuncio ${ad.id}`}</p>

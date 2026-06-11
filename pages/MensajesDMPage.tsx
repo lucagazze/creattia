@@ -649,7 +649,7 @@ export default function MensajesDMPage() {
               <Facebook className="w-5 h-5 text-blue-600" />
               Seleccioná tu página
             </h3>
-            <button onClick={() => setShowConnectModal(false)} className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <button onClick={() => setShowConnectModal(false)} className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 active:scale-95 transition-all shadow-sm">
               <X className="w-4 h-4" />
             </button>
           </div>

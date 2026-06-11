@@ -808,7 +808,7 @@ export default function MetaAdsPage() {
                         <span className="hidden md:inline">Ver original</span>
                       </a>
                     )}
-                    <button onClick={() => setSelectedAd(null)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"><X className="w-5 h-5" /></button>
+                    <button onClick={() => setSelectedAd(null)} className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-750 dark:text-zinc-400 dark:hover:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 active:scale-95 transition-all shadow-sm"><X className="w-4 h-4" /></button>
                   </div>
                 </div>
 
@@ -899,7 +899,7 @@ export default function MetaAdsPage() {
                             {card.isVideo && card.videoSrc ? (
                               <video src={card.videoSrc} poster={card.url || undefined} controls preload="none" playsInline {...{ referrerPolicy: 'no-referrer' }} className="absolute inset-0 w-full h-full object-contain bg-black" />
                             ) : card.url ? (
-                              <SmoothImage src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} containerClassName="absolute inset-0 w-full h-full" className="object-cover" />
+                              <SmoothImage src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} containerClassName="absolute inset-0 w-full h-full bg-zinc-950" className="object-contain" />
                             ) : (
                               <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
                             )}
