@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { useToast } from '../components/Toast';
-import { Loader2, Moon, Sun, Info, HelpCircle, UserCheck, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Moon, Sun, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -11,28 +11,29 @@ const toAuthEmail = (input: string) => {
   return clean.includes('@') ? clean : `${clean}@algoritmia.team`;
 };
 
+type Mode = 'login' | 'register';
+
 export default function LoginPage() {
+  const [mode, setMode] = useState<Mode>('login');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [registered, setRegistered] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { darkMode, toggleDarkMode } = useTheme();
   const { session } = useAuth();
 
   useEffect(() => {
-    if (session) {
-      navigate('/');
-    }
+    if (session) navigate('/');
   }, [session, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      showToast('Por favor completa todos los campos', 'error');
-      return;
-    }
+    if (!email || !password) { showToast('Completá todos los campos', 'error'); return; }
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -46,16 +47,54 @@ export default function LoginPage() {
     }
   };
 
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password || !confirmPassword) { showToast('Completá todos los campos', 'error'); return; }
+    if (password !== confirmPassword) { showToast('Las contraseñas no coinciden', 'error'); return; }
+    if (password.length < 6) { showToast('La contraseña debe tener al menos 6 caracteres', 'error'); return; }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: toAuthEmail(email),
+        password,
+      });
+      if (error) throw error;
+      setRegistered(true);
+    } catch (error: any) {
+      showToast(error.message || 'Error al registrarse', 'error');
+      setLoading(false);
+    }
+  };
 
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      showToast(error.message || 'Error al iniciar sesión con Google', 'error');
+      setGoogleLoading(false);
+    }
+  };
+
+  const inputClass = `w-full h-11 px-3.5 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
+    darkMode
+      ? 'bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-violet-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-violet-500/10'
+      : 'bg-zinc-50 border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/80 focus:bg-white focus:ring-4 focus:ring-violet-500/10'
+  }`;
+
+  const labelClass = `text-[9.5px] font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`;
 
   return (
-    <div 
+    <div
       className={`relative flex flex-col font-sans overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-[#060606]' : 'bg-[#f8f9fa]'}`}
       style={{ height: '100dvh', minHeight: '100dvh' }}
     >
-      {/* Decorative Glow Elements */}
-      {/* Removed to keep the page super clean and professional */}
-
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-4 w-full">
         <div className="flex items-center gap-3">
@@ -82,10 +121,11 @@ export default function LoginPage() {
           {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-600" />}
         </button>
       </header>
- 
+
       {/* Main */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pb-12 overflow-hidden">
         <div className="w-full max-w-[360px] animate-in fade-in slide-in-from-bottom-5 duration-700 my-auto py-4">
+
           {/* Logo + title */}
           <div className="flex flex-col items-center mb-6 text-center">
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-500 ${
@@ -98,90 +138,184 @@ export default function LoginPage() {
               />
             </div>
             <h1 className={`text-[22px] font-black tracking-tight ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              Iniciar sesión
+              {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
             </h1>
-            <p className="text-[12.5px] text-zinc-550 dark:text-zinc-400 mt-1.5 font-semibold">
-              Ingresar al ecosistema de Algoritmia
+            <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1.5 font-semibold">
+              Ecosistema de Algoritmia
             </p>
           </div>
- 
-          {/* Form card */}
+
+          {/* Toggle */}
+          <div className={`flex rounded-2xl p-1 mb-4 ${darkMode ? 'bg-white/5 border border-white/[0.06]' : 'bg-zinc-100 border border-zinc-200/60'}`}>
+            {(['login', 'register'] as Mode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setRegistered(false); }}
+                className={`flex-1 h-8 rounded-xl text-[11px] font-bold transition-all duration-200 ${
+                  mode === m
+                    ? darkMode
+                      ? 'bg-white text-zinc-900 shadow-sm'
+                      : 'bg-white text-zinc-900 shadow-sm'
+                    : darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'
+                }`}
+              >
+                {m === 'login' ? 'Iniciar sesión' : 'Registrarse'}
+              </button>
+            ))}
+          </div>
+
+          {/* Card */}
           <div className={`rounded-3xl p-6 backdrop-blur-md transition-all duration-500 ${
             darkMode
               ? 'bg-[#0f0f0f]/80 border border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.6)]'
               : 'bg-white/90 border border-zinc-200/60 shadow-[0_20px_40px_rgba(0,0,0,0.03)]'
           }`}>
-            <div className="space-y-4">
+
+            {/* Google button */}
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={googleLoading || loading}
+              className={`w-full h-10 rounded-xl border text-[12px] font-bold flex items-center justify-center gap-2.5 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 mb-4 ${
+                darkMode
+                  ? 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+                  : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 shadow-sm'
+              }`}
+            >
+              {googleLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  Continuar con Google
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`flex-1 h-px ${darkMode ? 'bg-white/10' : 'bg-zinc-200'}`} />
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>o</span>
+              <div className={`flex-1 h-px ${darkMode ? 'bg-white/10' : 'bg-zinc-200'}`} />
+            </div>
+
+            {/* Register success */}
+            {registered ? (
+              <div className="text-center space-y-3 py-2">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto">
+                  <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className={`text-[13px] font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>¡Cuenta creada!</p>
+                <p className="text-[12px] text-zinc-500">Revisá tu email para confirmar tu cuenta, luego iniciá sesión.</p>
+                <button
+                  onClick={() => { setMode('login'); setRegistered(false); }}
+                  className="text-[12px] font-bold text-violet-500 hover:text-violet-400 transition-colors"
+                >
+                  Ir al inicio de sesión →
+                </button>
+              </div>
+            ) : mode === 'login' ? (
               <form onSubmit={handleLogin} className="space-y-4">
-                
-                {/* Username Input */}
                 <div className="space-y-1.5">
-                  <label className={`text-[9.5px] font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                    Email o Usuario
-                  </label>
+                  <label className={labelClass}>Email o Usuario</label>
                   <input
                     type="text"
-                    placeholder="ejemplo@algoritmia.team o usuario"
+                    placeholder="tu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={`w-full h-11 px-3.5 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
-                      darkMode
-                        ? 'bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-violet-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-violet-500/10'
-                        : 'bg-zinc-50 border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/80 focus:bg-white focus:ring-4 focus:ring-violet-500/10 shadow-[inset_0_1px_2px_rgba(0,0,0,0.01)]'
-                    }`}
+                    className={inputClass}
                   />
                 </div>
- 
-                {/* Password Input */}
                 <div className="space-y-1.5">
-                  <label className={`text-[9.5px] font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                    Contraseña
-                  </label>
+                  <label className={labelClass}>Contraseña</label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className={`w-full h-11 pl-3.5 pr-11 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
-                        darkMode
-                          ? 'bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-violet-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-violet-500/10'
-                          : 'bg-zinc-50 border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/80 focus:bg-white focus:ring-4 focus:ring-violet-500/10 shadow-[inset_0_1px_2px_rgba(0,0,0,0.01)]'
-                      }`}
+                      className={`${inputClass} pr-11`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 hover:scale-110 active:scale-95 transition-all ${
-                        darkMode ? 'text-zinc-500 hover:text-zinc-350' : 'text-zinc-400 hover:text-zinc-600'
-                      }`}
+                      className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 transition-all ${darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
- 
-                {/* White Login Button */}
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`w-full h-9 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed ${
-                    darkMode
-                      ? 'bg-white text-zinc-950 hover:bg-zinc-100 border border-transparent shadow-sm'
-                      : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm'
+                  className={`w-full h-9 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 ${
+                    darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800'
                   }`}
                 >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />
-                  ) : (
-                    <span>Ingresar</span>
-                  )}
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Ingresar</span>}
                 </button>
               </form>
-            </div>
+            ) : (
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Email</label>
+                  <input
+                    type="email"
+                    placeholder="tu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Contraseña</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Mínimo 6 caracteres"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={`${inputClass} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 transition-all ${darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Confirmar contraseña</label>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full h-9 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 ${
+                    darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800'
+                  }`}
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Crear cuenta</span>}
+                </button>
+              </form>
+            )}
           </div>
- 
-          {/* Help Link */}
+
+          {/* Help */}
           <div className="flex justify-center mt-6">
             <a
               href="https://wa.me/5493476245523?text=Hola,%20necesito%20ayuda%20para%20ingresar%20al%20sistema%20de%20clientes%20de%20Algoritmia."
