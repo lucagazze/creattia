@@ -114,7 +114,7 @@ function OrderExpandedDetail({ order }: { order: any }) {
 
         <div className="border-t border-dashed border-zinc-200 dark:border-zinc-800 pt-3 mt-3 flex justify-between items-baseline">
           <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-150">Total Facturado</span>
-          <span className="text-[16px] font-black text-zinc-900 dark:text-white">{fmtCurr(parseFloat(order.total_price || 0))}</span>
+          <span className="text-[16px] font-black text-emerald-600 dark:text-emerald-400">{fmtCurr(parseFloat(order.total_price || 0))}</span>
         </div>
       </div>
     </div>
@@ -149,7 +149,7 @@ function OrderItemRow({ order }: { order: any }) {
         </td>
         <td className="px-4 py-3"><PaymentBadge status={order.financial_status} /></td>
         <td className="px-4 py-3"><FulfillmentBadge status={order.fulfillment_status} /></td>
-        <td className="px-4 py-3 text-right font-black text-zinc-900 dark:text-white">
+        <td className="px-4 py-3 text-right font-black text-emerald-600 dark:text-emerald-400">
           {fmtCurr(parseFloat(order.total_price || 0))}
         </td>
         <td className="px-4 py-3">
@@ -192,7 +192,7 @@ function OrderMobileCard({ order }: { order: any }) {
           </div>
         </div>
         <div className="flex items-center gap-2.5 shrink-0 self-center">
-          <span className="text-[14px] font-black text-zinc-900 dark:text-white whitespace-nowrap">
+          <span className="text-[14px] font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
             {fmtCurr(parseFloat(order.total_price || 0))}
           </span>
           <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
@@ -633,7 +633,7 @@ export default function ClientePage() {
               </div>
               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{label}</p>
             </div>
-            <p className="text-[20px] font-black text-zinc-900 dark:text-white tracking-tight">{value}</p>
+            <p className={`text-[20px] font-black tracking-tight ${label === 'Gasto Total' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}`}>{value}</p>
           </div>
         ))}
       </div>

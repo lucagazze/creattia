@@ -1677,13 +1677,13 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div
-          className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1 py-0.5 shadow-sm h-9 relative z-20"
+          className="flex items-center justify-between md:justify-start w-full md:w-auto bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1 py-0.5 shadow-sm h-9 relative z-20"
           ref={datePickerRef}
         >
-          <div className="relative">
+          <div className="relative flex-1 md:flex-none">
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
-              className="flex items-center gap-1.5 px-3 h-7 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group text-[11px]"
+              className="w-full flex items-center justify-center md:justify-start gap-1.5 px-3 h-7 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group text-[11px]"
             >
               {(fetchingStore || fetchingMeta || fetchingKlaviyo) && (currentStore || currentMeta || currentKlaviyo) ? (
                 <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
@@ -1835,7 +1835,7 @@ export default function DashboardPage() {
             )}
           </div>
           <div className="hidden xs:block w-[1px] h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
-          <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-50/80 dark:bg-blue-500/10 rounded-full transition-all">
+          <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-blue-50/80 dark:bg-blue-500/10 rounded-full transition-all flex-1 md:flex-none">
             <TrendingUp className="w-3.5 h-3.5 text-blue-500" />
             <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
               vs {fmtDateRange(activePrevRange.since)} -{" "}
