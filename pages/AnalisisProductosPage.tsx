@@ -137,14 +137,11 @@ export default function AnalisisProductosPage() {
           <div>
             <h1 className="text-[20px] font-black text-zinc-900 dark:text-white tracking-tight">Análisis de Productos</h1>
             <p className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5 flex-wrap">
-              Entry point, tasa de 2ª compra, velocidad de recompra y cross-sell — basado en pedidos reales
+              Entry point, recompra y cross-sell
               {productRefreshing && (
                 <span className="inline-flex items-center gap-1 text-pink-500">
                   <Loader2 className="w-3 h-3 animate-spin" /> actualizando...
                 </span>
-              )}
-              {!productRefreshing && productCacheDate && (
-                <span>· calculado el {productCacheDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</span>
               )}
             </p>
           </div>
