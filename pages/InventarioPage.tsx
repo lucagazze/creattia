@@ -286,34 +286,34 @@ export default function InventarioPage() {
 
           {/* Filter chips */}
           {!loading && allVariants.length > 0 && (
-            <div className="flex gap-1 flex-wrap">
-              <button onClick={() => setFilter('all')} className={`px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold transition-all ${filter === 'all' ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>
+            <div className="flex gap-1.5 flex-wrap">
+              <button onClick={() => setFilter('all')} className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-[7.5px] sm:text-[8px] font-bold transition-all ${filter === 'all' ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>
                 Todos {allVariants.length}
               </button>
               {outCount > 0 && (
-                <button onClick={() => setFilter('out')} className={`px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold transition-all ${filter === 'out' ? 'bg-red-600 text-white' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
+                <button onClick={() => setFilter('out')} className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-[7.5px] sm:text-[8px] font-bold transition-all ${filter === 'out' ? 'bg-red-600 text-white' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
                   Sin stock {outCount}
                 </button>
               )}
               {lowCount > 0 && (
-                <button onClick={() => setFilter('low')} className={`px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold transition-all ${filter === 'low' ? 'bg-amber-500 text-white' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
+                <button onClick={() => setFilter('low')} className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-[7.5px] sm:text-[8px] font-bold transition-all ${filter === 'low' ? 'bg-amber-500 text-white' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
                   Stock bajo {lowCount}
                 </button>
               )}
-              {okCount > 0 && <button onClick={() => setFilter('ok')} className={`px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded-lg text-[9px] sm:text-[10px] font-bold transition-all ${filter === 'ok' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>OK {okCount}</button>}
+              {okCount > 0 && <button onClick={() => setFilter('ok')} className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-[7.5px] sm:text-[8px] font-bold transition-all ${filter === 'ok' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>OK {okCount}</button>}
             </div>
           )}
 
           {/* Search */}
           {!loading && allVariants.length > 0 && (
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               <input
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar producto..."
-                className="w-full pl-8 pr-3 py-1.5 text-[9.5px] sm:text-[11.5px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:border-emerald-500"
+                className="w-full pl-9 pr-4 py-2.5 text-[8px] sm:text-[9px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:border-emerald-500"
               />
             </div>
           )}

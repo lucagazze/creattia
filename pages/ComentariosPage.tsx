@@ -966,7 +966,7 @@ export default function ComentariosPage() {
               <button
                 key={p}
                 onClick={() => setPlatformFilter(p)}
-                className={`px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[8.5px] sm:text-[10px] font-black transition-all border flex items-center gap-1 whitespace-nowrap flex-shrink-0 ${
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[7.5px] sm:text-[8.5px] font-black transition-all border flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                   isActive
                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-sm'
                     : 'bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -986,7 +986,7 @@ export default function ComentariosPage() {
         {/* Sort toggle */}
         <button
           onClick={() => setSortOrder(o => o === 'newest' ? 'oldest' : 'newest')}
-          className="flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[8.5px] sm:text-[10px] font-black border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[7.5px] sm:text-[8.5px] font-black border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-all"
         >
           {sortOrder === 'newest' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />}
           {sortOrder === 'newest' ? 'Más reciente' : 'Más antiguo'}
@@ -1243,7 +1243,7 @@ export default function ComentariosPage() {
                   <div className="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
                     <button
                       onClick={() => setCommentFilter('pending')}
-                      className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[8.5px] sm:text-[10px] font-black transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[7.5px] sm:text-[8.5px] font-black transition-all ${
                         commentFilter === 'pending'
                           ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm'
                           : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -1260,7 +1260,7 @@ export default function ComentariosPage() {
                     </button>
                     <button
                       onClick={() => setCommentFilter('all')}
-                      className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[8.5px] sm:text-[10px] font-black transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[7.5px] sm:text-[8.5px] font-black transition-all ${
                         commentFilter === 'all'
                           ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm'
                           : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
