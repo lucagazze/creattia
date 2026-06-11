@@ -114,7 +114,7 @@ const ML_COUNTRIES = [
 ];
 
 export default function IntegracionesPage() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const { showToast } = useToast();
 
@@ -187,6 +187,7 @@ export default function IntegracionesPage() {
       setOauthResult({ platform: 'meta', status: 'success' });
       showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
       window.history.replaceState({}, '', '/integraciones');
+      refreshProfile().then(() => loadClientData());
     } else if (meta === 'error') {
       setOauthResult({ platform: 'meta', status: 'error', reason: reason || '' });
       showToast('Error al conectar Meta Ads: ' + (reason || 'desconocido'), 'error');
@@ -376,8 +377,7 @@ export default function IntegracionesPage() {
         if (popup.closed) {
           clearInterval(timer);
           setOauthLoading(false);
-          // Reload client data to reflect any changes
-          loadClientData();
+          refreshProfile().then(() => loadClientData());
         }
       }, 500);
     } catch (err: any) {

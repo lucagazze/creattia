@@ -12,6 +12,7 @@ export interface ClientProfile {
   chatwoot_url?: string;
   meta_account_id?: string;
   meta_pixel_id?: string;
+  facebook_access_token?: string;
   klaviyo_api_key?: string;
   klaviyo_list_id?: string;
   ecommerce_platform?: string;

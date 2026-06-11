@@ -9,6 +9,7 @@ interface AuthContextType {
   profile: ClientProfile | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,13 +91,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  const refreshProfile = async () => {
+    const currentUser = user;
+    if (!currentUser) return;
+    loadProfilePromiseRef.current = null;
+    await loadProfile(currentUser.id, currentUser.email ?? undefined);
+  };
+
   const signOut = async () => {
     localStorage.removeItem('view_as_client_id');
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

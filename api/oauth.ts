@@ -33,10 +33,11 @@ async function updateClientStatuses(
     .eq('id', clientId)
     .maybeSingle();
   const updatedStatuses = { ...(data?.connection_statuses || {}), [statusKey]: statusValue };
-  await supabase
+  const { error: updateErr } = await supabase
     .from('car_clients')
     .update({ ...fields, connection_statuses: updatedStatuses })
     .eq('id', clientId);
+  if (updateErr) console.error(`[updateClientStatuses] clientId=${clientId} statusKey=${statusKey}`, updateErr);
 }
 
 // ── SHOPIFY OAuth ─────────────────────────────────────────────────────────────
