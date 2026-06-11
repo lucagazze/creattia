@@ -189,13 +189,17 @@ export default function IntegracionesPage() {
       window.history.replaceState({}, '', '/integraciones');
     } else if (meta === 'select') {
       const cid = params.get('clientId') || '';
-      window.history.replaceState({}, '', '/integraciones');
-      if (window.opener) {
-        // Running inside popup — notify parent and close
-        window.opener.postMessage({ type: 'meta-select', clientId: cid }, window.location.origin);
+      // Broadcast to parent window (works even after cross-origin navigation nulled window.opener)
+      try {
+        const bc = new BroadcastChannel('meta_oauth');
+        bc.postMessage({ type: 'meta-select', clientId: cid });
+        bc.close();
+      } catch {}
+      // If this is the popup, close it; if main window (popup blocked), show modal directly
+      if (window.history.length <= 2) {
         window.close();
       } else {
-        // Main window redirect (popup was blocked) — fetch and show modal directly
+        window.history.replaceState({}, '', '/integraciones');
         fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
           .then(r => r.json())
           .then(json => {
@@ -394,11 +398,11 @@ export default function IntegracionesPage() {
         return;
       }
 
-      // Listen for meta-select message from popup
-      const onMessage = (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return;
+      // Listen for meta-select via BroadcastChannel (survives cross-origin popup navigation)
+      const bc = new BroadcastChannel('meta_oauth');
+      bc.onmessage = (event) => {
         if (event.data?.type === 'meta-select') {
-          window.removeEventListener('message', onMessage);
+          bc.close();
           clearInterval(timer);
           setOauthLoading(false);
           const cid = event.data.clientId as string;
@@ -411,13 +415,12 @@ export default function IntegracionesPage() {
             .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
         }
       };
-      window.addEventListener('message', onMessage);
 
-      // Poll for popup close (fallback cleanup)
+      // Poll for popup close (fallback cleanup if something goes wrong)
       const timer = setInterval(() => {
         if (popup.closed) {
           clearInterval(timer);
-          window.removeEventListener('message', onMessage);
+          bc.close();
           setOauthLoading(false);
           refreshProfile().then(() => loadClientData());
         }
