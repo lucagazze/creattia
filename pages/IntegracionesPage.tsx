@@ -195,8 +195,8 @@ export default function IntegracionesPage() {
         bc.postMessage({ type: 'meta-select', clientId: cid });
         bc.close();
       } catch {}
-      // If this is the popup, close it; if main window (popup blocked), show modal directly
-      if (window.history.length <= 2) {
+      // window.name === 'meta_oauth' persists through cross-origin redirects — reliable popup detection
+      if (window.name === 'meta_oauth' || window.history.length <= 2) {
         window.close();
       } else {
         window.history.replaceState({}, '', '/integraciones');
