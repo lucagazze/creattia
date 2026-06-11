@@ -321,7 +321,7 @@ export default function IntegracionesPage() {
     setOauthLoading(true);
     try {
       const cleanDomain = shopifyDomain.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const res = await fetch(`/api/shopify-oauth?action=authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
+      const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Error al iniciar OAuth');
@@ -340,7 +340,7 @@ export default function IntegracionesPage() {
     if (!activeProfileId) return;
     setOauthLoading(true);
     try {
-      const res = await fetch(`/api/tiendanube-oauth?action=authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+      const res = await fetch(`/api/oauth?action=tiendanube-authorize&clientId=${encodeURIComponent(activeProfileId)}`);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Error al iniciar OAuth');
@@ -358,7 +358,7 @@ export default function IntegracionesPage() {
     if (!activeProfileId) return;
     setOauthLoading(true);
     try {
-      const res = await fetch(`/api/meta-oauth?action=authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+      const res = await fetch(`/api/oauth?action=meta-authorize&clientId=${encodeURIComponent(activeProfileId)}`);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Error al iniciar OAuth con Meta');
