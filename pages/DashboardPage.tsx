@@ -845,6 +845,36 @@ const MiniCal = ({
   );
 };
 
+const MetaLogo = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <path d="M16.92 7.76c-1.34 0-2.6.58-3.48 1.62-.88-1.04-2.14-1.62-3.48-1.62-2.58 0-4.66 2.08-4.66 4.66s2.08 4.66 4.66 4.66c1.34 0 2.6-.58 3.48-1.62.88 1.04 2.14 1.62 3.48 1.62 2.58 0 4.66-2.08 4.66-4.66s-2.08-4.66-4.66-4.66zm0 7.32c-1.46 0-2.65-1.19-2.65-2.65s1.19-2.65 2.65-2.65 2.65 1.19 2.65 2.65-1.19 2.65-2.65 2.65zm-7.04 0C8.42 15.08 7.23 13.89 7.23 12.43s1.19-2.65 2.65-2.65 2.65 1.19 2.65 2.65-1.19 2.65-2.65 2.65z" />
+  </svg>
+);
+
+const KlaviyoLogo = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <path d="M5.04 3h3.6v18h-3.6zM10.8 11.28h3.6V21h-3.6zM16.56 3h3.6v8.28h-3.6zM10.8 3h3.6v6.12h-3.6z" />
+  </svg>
+);
+
+const ShopifyLogo = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <path d="M18.7 6.1L12.3.4C12.1.2 11.9.2 11.7.4L5.3 6.1c-.2.2-.3.4-.2.7l2.1 14.8c0 .2.2.4.4.4h8.8c.2 0 .4-.2.4-.4l2.1-14.8c0-.3-.1-.5-.2-.7zM12 2.6l4.2 3.8H7.8L12 2.6z" />
+  </svg>
+);
+
+const TiendanubeLogo = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <path d="M19.36 10.04a6 6 0 0 0-11.32-1.58 4.5 4.5 0 0 0-2.54 8.24h14.16a4.5 4.5 0 0 0-.3-6.66z" />
+  </svg>
+);
+
+const WordpressLogo = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm.11 17.65c-2.48 0-4.63-1.28-5.86-3.21l3.35-9.15.02.01c.78 2.36 1.34 4.09 1.68 5.16.51 1.61.98 2.65 1.41 3.59l-.6 3.6zm1.19-.07l.86-3.29c.35-1.12.65-2.28 1-3.6.46-1.57.85-2.61 1.18-3.6l.08.31c.4 1.49.7 2.63 1 3.79l-4.12 6.39zm-9.08-3.79C3.12 14.54 2.5 13.34 2.5 12c0-2.4 1-4.57 2.6-6.14l4.24 11.66-5.12-1.73zm8.38-11.89c.35 0 .66.21.66.56 0 .3-.17.52-.39.78-.34.39-.73.86-.73 1.61 0 .6.3 1.07.6 1.63.34.6.73 1.25.73 2.15 0 .82-.3 1.46-.6 2.06l-3.24-9.35a7.35 7.35 0 0 1 5.98.56zm4.84.44a7.43 7.43 0 0 1 1.78 4.7c0 1.94-.75 3.7-1.98 5.02l-4.22-12.16c2.02.51 3.52 1.43 4.42 2.44z" />
+  </svg>
+);
+
 export default function DashboardPage() {
   const { profile: authProfile } = useAuth();
   const { darkMode } = useTheme();
@@ -1866,9 +1896,17 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-pink-500" />
+                {detectedPlatform === 'shopify' ? (
+                  <ShopifyLogo className="w-3.5 h-3.5 text-[#95BF47] shrink-0" />
+                ) : detectedPlatform === 'tiendanube' ? (
+                  <TiendanubeLogo className="w-3.5 h-3.5 text-[#4c53c0] shrink-0" />
+                ) : detectedPlatform === 'wordpress' ? (
+                  <WordpressLogo className="w-3.5 h-3.5 text-[#21759b] shrink-0" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-pink-500 shrink-0" />
+                )}
                 <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
-                  Tienda Online ({detectedPlatform})
+                  Tienda Online ({detectedPlatform === 'wordpress' ? 'WooCommerce' : detectedPlatform === 'shopify' ? 'Shopify' : 'Tiendanube'})
                 </h2>
               </div>
               {shopifyError && (
@@ -2071,7 +2109,7 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <MetaLogo className="w-3.5 h-3.5 text-[#0081fb] shrink-0" />
                 <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
                   Captación (Meta Ads)
                 </h2>
@@ -2303,7 +2341,7 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <KlaviyoLogo className="w-3.5 h-3.5 text-[#15B374] shrink-0" />
                 <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
                   Retención (Email Marketing)
                 </h2>
@@ -2527,7 +2565,7 @@ export default function DashboardPage() {
         {(profile as any)?.chatwoot_token && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-violet-500" />
+              <MessageSquare className="w-3.5 h-3.5 text-violet-500 shrink-0" />
               <h2 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Atención al Cliente</h2>
             </div>
             <EmailLoader
