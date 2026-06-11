@@ -27,7 +27,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const retries = 3;
       for (let i = 0; i < retries; i++) {
         try {
-          const p = await db.profile.getByUserId(userId, email);
+          let p = await db.profile.getByUserId(userId, email);
+
+          // SaaS: auto-create car_clients record if first login
+          if (!p) {
+            await fetch('/api/ensure-profile', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, email }),
+            });
+            p = await db.profile.getByUserId(userId, email);
+          }
+
           setProfile(p);
           if (p) {
             db.activity.log(userId, p.id, 'session_start', {
