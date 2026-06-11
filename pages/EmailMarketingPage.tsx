@@ -1211,7 +1211,7 @@ export default function EmailMarketingPage() {
                       <button
                         key={s}
                         onClick={() => setStatusFilter(s)}
-                        className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[9.5px] sm:text-[10.5px] font-black transition-all ${
+                        className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[11px] sm:text-[12px] font-black transition-all ${
                           statusFilter === s
                             ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow'
                             : 'bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
