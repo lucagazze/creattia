@@ -189,24 +189,48 @@ export default function IntegracionesPage() {
       window.history.replaceState({}, '', '/integraciones');
     } else if (meta === 'select') {
       const cid = params.get('clientId') || '';
-      // Always notify parent via BroadcastChannel first
+      const payload = { type: 'meta-select', clientId: cid };
+
+      // Method 1: BroadcastChannel
       try {
         const bc = new BroadcastChannel('meta_oauth');
-        bc.postMessage({ type: 'meta-select', clientId: cid });
+        bc.postMessage(payload);
         bc.close();
       } catch {}
-      // Try to close — if setTimeout fires we're still alive (main window fallback)
+
+      // Method 2: localStorage storage event (fires on other windows reliably)
+      try {
+        localStorage.setItem('meta_oauth_complete', JSON.stringify({ clientId: cid, ts: Date.now() }));
+      } catch {}
+
+      // Method 3: postMessage directly to opener if this is a popup
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(payload, window.location.origin);
+        }
+      } catch {}
+
+      // Close popup (only works if this is a popup opened by script)
       window.close();
+
+      // Fallback: if still alive after 400ms, window.close() failed
       setTimeout(() => {
-        window.history.replaceState({}, '', '/integraciones');
-        fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
-          .then(r => r.json())
-          .then(json => {
-            if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
-            setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
-          })
-          .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
-      }, 300);
+        // Only proceed if we're the main window (no opener) OR opener is gone
+        if (!window.opener || window.opener.closed) {
+          window.history.replaceState({}, '', '/integraciones');
+          fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
+            .then(r => r.json())
+            .then(json => {
+              if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
+              setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
+            })
+            .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
+        } else {
+          // Still a popup and window.close() failed — retry postMessage + close
+          try { window.opener.postMessage(payload, window.location.origin); } catch {}
+          window.close();
+        }
+      }, 400);
     } else if (meta === 'success') {
       setOauthResult({ platform: 'meta', status: 'success' });
       showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
@@ -398,39 +422,78 @@ export default function IntegracionesPage() {
         return;
       }
 
-      // Listen for meta-select via BroadcastChannel (survives cross-origin popup navigation)
-      const bc = new BroadcastChannel('meta_oauth');
-      bc.onmessage = (event) => {
-        if (event.data?.type === 'meta-select') {
-          bc.close();
-          clearInterval(timer);
-          setOauthLoading(false);
-          const cid = event.data.clientId as string;
-          fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
-            .then(r => r.json())
-            .then(json => {
-              if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
-              setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
-            })
-            .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
-        }
+      let handled = false;
+      const handleMetaSelect = (cid: string) => {
+        if (handled) return;
+        handled = true;
+        clearInterval(timer);
+        try { bc.close(); } catch {}
+        window.removeEventListener('message', messageHandler);
+        window.removeEventListener('storage', storageHandler);
+        localStorage.removeItem('meta_oauth_complete');
+        setOauthLoading(false);
+        fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
+          .then(r => r.json())
+          .then(json => {
+            if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
+            setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
+          })
+          .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
       };
 
-      // Poll for popup close (fallback cleanup if something goes wrong)
+      // Method 1: BroadcastChannel
+      const bc = new BroadcastChannel('meta_oauth');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'meta-select') handleMetaSelect(event.data.clientId as string);
+      };
+
+      // Method 2: postMessage from popup
+      const messageHandler = (e: MessageEvent) => {
+        if (e.origin === window.location.origin && e.data?.type === 'meta-select') {
+          handleMetaSelect(e.data.clientId as string);
+        }
+      };
+      window.addEventListener('message', messageHandler);
+
+      // Method 3: localStorage storage event
+      const storageHandler = (e: StorageEvent) => {
+        if (e.key === 'meta_oauth_complete' && e.newValue) {
+          try {
+            const data = JSON.parse(e.newValue);
+            handleMetaSelect(data.clientId as string);
+          } catch {}
+        }
+      };
+      window.addEventListener('storage', storageHandler);
+
+      // Poll for popup close — only cleanup, don't kill listeners immediately
       const timer = setInterval(() => {
         if (popup.closed) {
           clearInterval(timer);
-          bc.close();
-          setOauthLoading(false);
-          refreshProfile().then(() => loadClientData());
+          // Give 1.5s for any pending messages to arrive, then cleanup
+          setTimeout(() => {
+            if (!handled) {
+              handled = true;
+              try { bc.close(); } catch {}
+              window.removeEventListener('message', messageHandler);
+              window.removeEventListener('storage', storageHandler);
+              setOauthLoading(false);
+              refreshProfile().then(() => loadClientData());
+            }
+          }, 1500);
         }
       }, 500);
 
-      // Safety timeout — cancel after 3 min if nothing happened
+      // Safety timeout — cancel after 3 min
       setTimeout(() => {
-        clearInterval(timer);
-        bc.close();
-        setOauthLoading(false);
+        if (!handled) {
+          handled = true;
+          clearInterval(timer);
+          try { bc.close(); } catch {}
+          window.removeEventListener('message', messageHandler);
+          window.removeEventListener('storage', storageHandler);
+          setOauthLoading(false);
+        }
       }, 180000);
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Meta Ads', 'error');
