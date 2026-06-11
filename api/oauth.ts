@@ -51,7 +51,7 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
     if (!SHOPIFY_CLIENT_ID) return res.status(503).json({ error: 'Shopify OAuth no configurado (falta SHOPIFY_CLIENT_ID).' });
 
     const scopes = 'read_orders,read_customers,read_products,read_inventory,read_analytics';
-    const redirectUri = `${base}/api/oauth?action=shopify-callback`;
+    const redirectUri = `${base}/api/shopify-callback`;
     const state = Buffer.from(JSON.stringify({ clientId, shop })).toString('base64');
 
     const authorizeUrl =
@@ -64,7 +64,7 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ authorizeUrl });
   }
 
-  if (action === 'shopify-callback') {
+  if (action === 'shopify-callback' || req.url?.includes('/api/shopify-callback')) {
     const code = req.query.code as string;
     const shop = req.query.shop as string;
     const stateRaw = req.query.state as string;
@@ -78,7 +78,7 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
       return res.redirect('/integraciones?shopify=error&reason=not_configured');
 
     try {
-      const redirectUri = `${base}/api/oauth?action=shopify-callback`;
+      const redirectUri = `${base}/api/shopify-callback`;
       const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
