@@ -281,5 +281,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
   if (action.startsWith('meta')) return handleMeta(req, res);
 
+  if (action === 'ensure-profile') {
+    const { userId, email } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Server not configured' });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: existing } = await supabase.from('car_clients').select('id').eq('user_id', userId).maybeSingle();
+    if (existing) return res.status(200).json({ created: false, id: existing.id });
+    const businessName = email ? email.split('@')[0] : 'Mi negocio';
+    const { data: created, error } = await supabase.from('car_clients').insert({ user_id: userId, business_name: businessName }).select('id').single();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ created: true, id: created.id });
+  }
+
   return res.status(400).json({ error: 'action required: shopify-authorize | shopify-callback | tiendanube-authorize | tiendanube-callback | meta-authorize | meta-callback' });
 }

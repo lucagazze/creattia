@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           // SaaS: auto-create car_clients record if first login
           if (!p) {
-            await fetch('/api/ensure-profile', {
+            await fetch('/api/oauth?action=ensure-profile', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userId, email }),
