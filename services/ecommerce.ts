@@ -965,5 +965,68 @@ export const ecommerce = {
 
     ecSetCache(cacheKey, allProducts);
     return allProducts;
+  },
+
+  getWooCommerceProducts: async (baseUrl: string, ck: string, cs: string): Promise<any[]> => {
+    const cacheKey = `wc_products:${baseUrl}`;
+    const cached = ecGetCached(cacheKey);
+    if (cached) return cached;
+
+    let allProducts: any[] = [];
+    let page = 1;
+    let totalPages = 1;
+    
+    try {
+      while (page <= totalPages && page <= 5) {
+        const params = new URLSearchParams({ per_page: '100', page: String(page), status: 'publish' });
+        const res = await fetch(`/api/shopify/wc/products?${params.toString()}`, {
+          headers: {
+            'x-wc-base-url': baseUrl,
+            'x-wc-consumer-key': ck,
+            'x-wc-consumer-secret': cs,
+          },
+        });
+        if (!res.ok) throw new Error(`WooCommerce Products API Error: ${res.status}`);
+        if (page === 1) {
+          totalPages = parseInt(res.headers.get('X-WP-TotalPages') || '1', 10);
+        }
+        const data: any[] = await res.json();
+        if (!Array.isArray(data) || data.length === 0) break;
+        allProducts = allProducts.concat(data);
+        page++;
+      }
+    } catch (e) {
+      console.error("Error fetching WooCommerce products:", e);
+    }
+
+    ecSetCache(cacheKey, allProducts);
+    return allProducts;
+  },
+
+  getTiendaNubeProducts: async (storeId: string, token: string): Promise<any[]> => {
+    const cacheKey = `tn_products:${storeId}`;
+    const cached = ecGetCached(cacheKey);
+    if (cached) return cached;
+
+    let allProducts: any[] = [];
+    try {
+      for (let page = 1; page <= 5; page++) {
+        const res = await fetch(`/api/shopify/tn/products?per_page=200&page=${page}`, {
+          headers: {
+            'x-tn-store-id': storeId,
+            'x-tn-token': token,
+          },
+        });
+        if (!res.ok) break;
+        const data: any[] = await res.json();
+        if (!Array.isArray(data) || data.length === 0) break;
+        allProducts = allProducts.concat(data);
+      }
+    } catch (e) {
+      console.error("Error fetching Tiendanube products:", e);
+    }
+
+    ecSetCache(cacheKey, allProducts);
+    return allProducts;
   }
 };

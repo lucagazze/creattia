@@ -1096,6 +1096,28 @@ export default function DashboardPage() {
           setProductImages(map);
         })
         .catch(e => console.error("Error loading products for images:", e));
+    } else if (detectedPlatform === 'wordpress' && (profile as any)?.wordpress_url && (profile as any)?.woo_consumer_key && (profile as any)?.woo_consumer_secret) {
+      ecommerce.getWooCommerceProducts((profile as any).wordpress_url, (profile as any).woo_consumer_key, (profile as any).woo_consumer_secret)
+        .then(prods => {
+          const map: Record<string, string> = {};
+          for (const p of prods) {
+            const src = typeof p.image === 'string' ? p.image : p.image?.src;
+            if (src) map[String(p.id)] = src;
+          }
+          setProductImages(map);
+        })
+        .catch(e => console.error("Error loading WooCommerce products for images:", e));
+    } else if (detectedPlatform === 'tiendanube' && (profile as any)?.tiendanube_store_id && (profile as any)?.tiendanube_access_token) {
+      ecommerce.getTiendaNubeProducts((profile as any).tiendanube_store_id, (profile as any).tiendanube_access_token)
+        .then(prods => {
+          const map: Record<string, string> = {};
+          for (const p of prods) {
+            const src = typeof p.image === 'string' ? p.image : p.image?.src;
+            if (src) map[String(p.id)] = src;
+          }
+          setProductImages(map);
+        })
+        .catch(e => console.error("Error loading Tiendanube products for images:", e));
     }
   }, [profile?.id, detectedPlatform]);
 

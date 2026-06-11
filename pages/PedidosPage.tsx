@@ -290,9 +290,6 @@ const OrderRow = memo(function OrderRow({ order, productImages }: { order: any; 
               </span>
             )}
           </div>
-          {order.customer?.email && (
-            <p className="text-[10px] text-zinc-400 truncate hidden sm:block mt-0.5">{order.customer.email}</p>
-          )}
         </td>
 
         {/* Pago */}
@@ -369,9 +366,6 @@ const OrderCard = memo(function OrderCard({ order, productImages }: { order: any
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{dateLabel} · {dateTime}hs</span>
           </div>
           <p className="text-[13px] font-bold text-zinc-900 dark:text-white truncate">{customerName}</p>
-          {order.customer?.email && (
-            <p className="text-[10px] text-zinc-400 truncate mt-0.5">{order.customer.email}</p>
-          )}
           {/* Badges row */}
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             <PaymentBadge status={order.financial_status} />
@@ -528,9 +522,37 @@ export default function PedidosPage() {
         if (products !== null) setProductImages(products);
         raw = orders;
       } else if (isWoo) {
-        raw = await ecommerce.getWooCommerceOrders(wordpressUrl, wooConsumerKey, wooConsumerSecret, s, u);
+        const [orders, products] = await Promise.all([
+          ecommerce.getWooCommerceOrders(wordpressUrl, wooConsumerKey, wooConsumerSecret, s, u),
+          isInitial
+            ? ecommerce.getWooCommerceProducts(wordpressUrl, wooConsumerKey, wooConsumerSecret).then(prods => {
+                const map: Record<string, string> = {};
+                for (const p of prods) {
+                  const src = typeof p.image === 'string' ? p.image : p.image?.src;
+                  if (src) map[String(p.id)] = src;
+                }
+                return map;
+              }).catch(() => ({} as Record<string, string>))
+            : Promise.resolve(null),
+        ]);
+        if (products !== null) setProductImages(products);
+        raw = orders;
       } else if (isTiendaNube) {
-        raw = await ecommerce.getTiendaNubeOrders(tiendanubeStoreId, tiendanubeToken, s, u);
+        const [orders, products] = await Promise.all([
+          ecommerce.getTiendaNubeOrders(tiendanubeStoreId, tiendanubeToken, s, u),
+          isInitial
+            ? ecommerce.getTiendaNubeProducts(tiendanubeStoreId, tiendanubeToken).then(prods => {
+                const map: Record<string, string> = {};
+                for (const p of prods) {
+                  const src = typeof p.image === 'string' ? p.image : p.image?.src;
+                  if (src) map[String(p.id)] = src;
+                }
+                return map;
+              }).catch(() => ({} as Record<string, string>))
+            : Promise.resolve(null),
+        ]);
+        if (products !== null) setProductImages(products);
+        raw = orders;
       }
       setOrders([...raw].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     } catch (e: any) {

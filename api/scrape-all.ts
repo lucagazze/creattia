@@ -91,7 +91,8 @@ function normalizeOrder(o: any, platform: string) {
         title: it.name,
         quantity: it.quantity,
         price: parseFloat(it.price || 0),
-        variant_title: it.variant_values ? it.variant_values.map((vv: any) => vv.es || vv.en || Object.values(vv || {})[0] || '').filter(Boolean).join(' / ') : null
+        variant_title: it.variant_values ? it.variant_values.map((vv: any) => vv.es || vv.en || Object.values(vv || {})[0] || '').filter(Boolean).join(' / ') : null,
+        _wc_image: it.image?.src || null
       })),
       shipping_address: o.shipping_address ? {
         name: o.shipping_address.name,
@@ -143,7 +144,8 @@ function normalizeOrder(o: any, platform: string) {
           product_name: cleanName, // parent product name (no variation suffix)
           quantity: it.quantity,
           price: parseFloat(it.price || 0),
-          variant_title: it.meta_data?.filter((m: any) => m.display_key && !m.display_key.startsWith('_')).map((m: any) => m.display_value).join(' / ') || null
+          variant_title: it.meta_data?.filter((m: any) => m.display_key && !m.display_key.startsWith('_')).map((m: any) => m.display_value).join(' / ') || null,
+          _wc_image: it.image?.src || null
         };
       }),
       shipping_address: o.shipping ? {
