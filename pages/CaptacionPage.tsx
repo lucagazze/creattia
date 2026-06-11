@@ -31,7 +31,6 @@ const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
   { id: 'last_month', label: 'Mes pasado' },
   { id: 'this_year', label: 'Este año' },
   { id: 'last_year', label: 'Año pasado' },
-  { id: 'max', label: 'Máximo' },
 ];
 
 const fmt = (n: number, isCurrency = false) => {

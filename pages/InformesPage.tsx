@@ -190,7 +190,6 @@ const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
   { id: 'last_90d', label: 'Últimos 90 días' },
   { id: 'this_month', label: 'Este mes' },
   { id: 'last_month', label: 'Mes anterior' },
-  { id: 'max', label: 'Máximo' },
 ];
 
 const IG_METRICS_CONFIG = [

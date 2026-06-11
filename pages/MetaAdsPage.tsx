@@ -187,7 +187,6 @@ export default function MetaAdsPage() {
     { id: 'this_month', label: 'Este mes' },
     { id: 'last_month', label: 'Mes pasado' },
     { id: 'this_year', label: 'Este año' },
-    { id: 'max', label: 'Máximo' },
   ];
 
   const MiniCal = ({ year, month, since, until, hovering: hov, onDay, onHover, onPrev, onNext }: any) => {
