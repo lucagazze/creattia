@@ -649,7 +649,7 @@ export default function PedidosPage() {
               <button
                 key={p.label}
                 onClick={() => setPresetRange(i)}
-                className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9.5px] sm:text-[10px] font-bold ${
+                className={`px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded-md text-[8.5px] sm:text-[9.5px] font-bold ${
                   preset === i
                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-sm'
                     : 'bg-zinc-100 dark:bg-zinc-800/70 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -669,14 +669,14 @@ export default function PedidosPage() {
                 placeholder="Buscar por cliente o email..."
                 value={search}
                 onChange={e => handleFilterChange(() => setSearch(e.target.value))}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/70 border border-zinc-200 dark:border-white/[0.06] text-[10.5px] sm:text-[12px] text-zinc-700 dark:text-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/70 border border-zinc-200 dark:border-white/[0.06] text-[9.5px] sm:text-[11px] text-zinc-700 dark:text-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
               />
             </div>
             <div className="flex gap-1.5">
               <select
                 value={filterPayment}
                 onChange={e => handleFilterChange(() => setFilterPayment(e.target.value))}
-                className="flex-1 sm:flex-none px-2 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/70 border border-zinc-200 dark:border-white/[0.06] text-[10px] sm:text-[11px] font-bold text-zinc-600 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                className="flex-1 sm:flex-none px-2 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/70 border border-zinc-200 dark:border-white/[0.06] text-[9px] sm:text-[10px] font-bold text-zinc-600 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
               >
                 <option value="all">Todos los pagos</option>
                 <option value="paid">Pagado</option>
@@ -688,7 +688,7 @@ export default function PedidosPage() {
               <select
                 value={filterFulfillment}
                 onChange={e => handleFilterChange(() => setFilterFulfillment(e.target.value))}
-                className="flex-1 sm:flex-none px-2 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/70 border border-zinc-200 dark:border-white/[0.06] text-[10px] sm:text-[11px] font-bold text-zinc-600 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                className="flex-1 sm:flex-none px-2 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/70 border border-zinc-200 dark:border-white/[0.06] text-[9px] sm:text-[10px] font-bold text-zinc-600 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-violet-500/40"
               >
                 <option value="all">Todos los envíos</option>
                 <option value="unfulfilled">Sin enviar</option>

@@ -235,7 +235,7 @@ const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, 
   useEffect(() => { prevDate.current = current; }, [current]);
 
   return (
-    <div className="w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div className="w-[220px] sm:w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="flex items-center mb-4 px-1">
         <div className="w-8 flex justify-start">
           {onPrev && (
@@ -307,7 +307,7 @@ const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, 
                 onMouseEnter={() => !isFuture && onHover && onHover(d)}
                 onClick={() => !isFuture && onDay(d)}
                 disabled={isFuture}
-                className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center rounded-full ${
+                className={`h-7 w-7 sm:h-8 sm:w-8 text-[10px] sm:text-[11px] font-bold transition-all relative flex items-center justify-center rounded-full ${
                   isSelected || (since && !until && hovering && (d === since || d === hovering))
                     ? 'bg-violet-600 text-white z-10 shadow-md shadow-violet-200 dark:shadow-none'
                     : isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' :
@@ -863,7 +863,7 @@ export default function InformesPage() {
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
             </button>
             {showDatePicker && (
-              <div className="absolute left-0 md:left-auto md:right-0 top-full mt-2.5 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-850 shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[280px] sm:w-[310px] md:w-auto origin-top-left md:origin-top-right">
+              <div className="absolute left-0 md:left-auto md:right-0 top-full mt-2.5 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-850 shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[244px] sm:w-[264px] md:w-auto origin-top-left md:origin-top-right">
                 <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-150 dark:border-zinc-800 p-1.5 md:p-3 grid grid-cols-3 md:flex md:flex-col gap-1">
                   {[
                     { id: 'today', label: 'Hoy' },
@@ -893,7 +893,7 @@ export default function InformesPage() {
                     </button>
                   ))}
                 </div>
-                <div className="p-4 flex flex-col items-center md:items-stretch">
+                <div className="p-3 flex flex-col items-center md:items-stretch">
                   <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                     <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
                     <div className="hidden md:block">

@@ -213,7 +213,7 @@ export default function MetaAdsPage() {
     else if (current < prevDate.current) animClass = 'animate-in fade-in slide-in-from-left-16 duration-300';
     useEffect(() => { prevDate.current = current; }, [current]);
     return (
-      <div className="w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <div className="w-[220px] sm:w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="flex items-center mb-4 px-1">
           <div className="w-8 flex justify-start">
             {onPrev && (
@@ -285,7 +285,7 @@ export default function MetaAdsPage() {
                   onMouseEnter={() => !isFuture && onHover && onHover(d)}
                   onClick={() => !isFuture && onDay(d)}
                   disabled={isFuture}
-                  className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center rounded-full ${
+                  className={`h-7 w-7 sm:h-8 sm:w-8 text-[10px] sm:text-[11px] font-bold transition-all relative flex items-center justify-center rounded-full ${
                     isSelected || (since && !until && hov && (d === since || d === hov))
                       ? 'bg-blue-600 text-white z-10 shadow-md shadow-blue-200 dark:shadow-none'
                       : isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' :
@@ -622,7 +622,7 @@ export default function MetaAdsPage() {
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
             </button>
             {showDatePicker && (
-              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[290px] sm:w-[320px] md:w-auto origin-top-right">
+              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[244px] sm:w-[264px] md:w-auto origin-top-right">
                 <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-1.5 md:p-3 grid grid-cols-3 md:flex md:flex-col gap-1">
                   {[
                     { id: 'today', label: 'Hoy' },
@@ -651,7 +651,7 @@ export default function MetaAdsPage() {
                     </button>
                   ))}
                 </div>
-                <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
+                <div className="p-3 md:p-5 flex flex-col items-center md:items-stretch">
                   <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                     <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering}
                       onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }}

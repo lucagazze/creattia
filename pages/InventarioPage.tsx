@@ -313,7 +313,7 @@ export default function InventarioPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar producto..."
-                className="w-full pl-8 pr-3 py-1.5 text-[11px] sm:text-[12px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:border-emerald-500"
+                className="w-full pl-8 pr-3 py-1.5 text-[9.5px] sm:text-[11.5px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:border-emerald-500"
               />
             </div>
           )}
