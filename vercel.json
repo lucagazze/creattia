@@ -5,6 +5,10 @@
       "destination": "/api/complete-contact"
     },
     {
+      "source": "/api/preview",
+      "destination": "/api/oauth"
+    },
+    {
       "source": "/api/klaviyo/:path*",
       "destination": "/api/klaviyo/[...path]"
     },

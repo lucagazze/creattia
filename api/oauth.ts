@@ -224,6 +224,47 @@ async function handleMeta(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+// ── EMAIL PREVIEW (Open Graph redirect) ─────────────────────────────────────
+function handlePreview(req: VercelRequest, res: VercelResponse) {
+  const base = getHost(req);
+  const file    = (req.query.email as string)   || '';
+  const subject = (req.query.subject as string) || '';
+  const client  = (req.query.client as string)  || '';
+  const angle   = (req.query.angle as string)   || '';
+
+  const title       = subject || file.replace('.html', '').replace(/_/g, ' ');
+  const description = [client, angle].filter(Boolean).join(' · ') || 'Vista previa del email';
+  const previewUrl  = `${base}/#/preview?email=${encodeURIComponent(file)}&subject=${encodeURIComponent(subject)}`;
+  const screenshotName = file ? file.replace('.html', '.webp') : '';
+  const imageUrl = screenshotName
+    ? `${base}/email-library/screenshots/${encodeURIComponent(screenshotName)}`
+    : `${base}/email-images/tsf_bite_logo.png`;
+
+  const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
+<title>${esc(title)}</title>
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="${esc(title)}"/>
+<meta property="og:description" content="${esc(description)}"/>
+<meta property="og:url" content="${esc(previewUrl)}"/>
+<meta property="og:image" content="${esc(imageUrl)}"/>
+<meta property="og:site_name" content="Algoritmia — Email Preview"/>
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="${esc(title)}"/>
+<meta name="twitter:description" content="${esc(description)}"/>
+<meta name="twitter:image" content="${esc(imageUrl)}"/>
+<meta http-equiv="refresh" content="0; url=${esc(previewUrl)}"/>
+<script>window.location.replace(${JSON.stringify(previewUrl)});</script>
+</head><body style="margin:0;background:#0a0a0a;display:flex;align-items:center;justify-content:center;height:100vh;">
+<p style="font-family:Arial,sans-serif;color:#888;font-size:13px;">Redirigiendo…</p>
+</body></html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).send(html);
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -232,6 +273,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   const action = req.query.action as string || '';
+
+  // Email preview (routed from /api/preview via vercel.json rewrite)
+  if (action === 'preview' || req.query.email) return handlePreview(req, res);
 
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
