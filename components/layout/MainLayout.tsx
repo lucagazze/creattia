@@ -55,10 +55,9 @@ class RouteErrorBoundary extends React.Component<{ children: React.ReactNode }, 
     return this.props.children;
   }
 }
-import { Menu, Sun, Moon, AlertCircle, Globe, Check, Loader2, Building2, Clock, ArrowRight } from 'lucide-react';
+import { Menu, Sun, Moon, AlertCircle, Globe, Check, Loader2 } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../services/supabase';
 import { AIChatFloat } from '../AIChatFloat';
 import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
@@ -144,7 +143,7 @@ const PageSkeleton = () => (
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { darkMode, toggleDarkMode } = useTheme();
-  const { profile, signOut, user } = useAuth();
+  const { profile, signOut, user, loading, refreshProfile } = useAuth();
   const { isViewingAs, viewAsProfile } = useViewAs();
   const activeProfile = isViewingAs ? viewAsProfile : profile;
   const { unreadCount } = useUnread();
@@ -173,27 +172,16 @@ export const MainLayout = () => {
     }
   }, [location.pathname, showToast]);
 
-  const [fullName, setFullName] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [savingBusinessName, setSavingBusinessName] = useState(false);
-  const [businessNameSaved, setBusinessNameSaved] = useState(false);
-
-  // Sync existing metadata business name / website url on mount
+  // Auto-create profile for new users (Google OAuth or email signup)
   useEffect(() => {
-    if (user?.user_metadata?.full_name) {
-      setFullName(user.user_metadata.full_name);
-    } else if (user?.user_metadata?.name) {
-      setFullName(user.user_metadata.name);
+    if (!profile && user && !loading) {
+      fetch('/api/oauth?action=ensure-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, email: user.email }),
+      }).then(() => refreshProfile()).catch(console.error);
     }
-
-    if (user?.user_metadata?.business_name_request) {
-      setBusinessName(user.user_metadata.business_name_request);
-      setBusinessNameSaved(true);
-    } else if (user?.user_metadata?.website_url) {
-      setBusinessName(user.user_metadata.website_url);
-      setBusinessNameSaved(true);
-    }
-  }, [user]);
+  }, [profile, user, loading]);
 
   // Load client-specific token into metaAds cache
   useEffect(() => {
@@ -212,159 +200,13 @@ export const MainLayout = () => {
 
   }, [activeProfile]);
 
-  const handleSaveBusinessName = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!businessName.trim() || !fullName.trim()) return;
-    setSavingBusinessName(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          full_name: fullName.trim(),
-          business_name_request: businessName.trim(),
-          website_url: businessName.trim() // store in both for backward compatibility in table columns
-        }
-      });
-      if (error) throw error;
-      setBusinessNameSaved(true);
-    } catch (err: any) {
-      console.error("Error updating business name:", err);
-    } finally {
-      setSavingBusinessName(false);
-    }
-  };
-
-  // Guard: if profile is null (and loading is false, which is guaranteed here), show onboarding / pending screen
+  // Guard: if profile is null, show loading while auto-creating via ensure-profile
   if (!profile) {
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center p-4 text-center ${
-        darkMode ? 'bg-[#080808]' : 'bg-[#f2f2f7]'
-      }`}>
-        <div className={`max-w-md w-full rounded-[24px] p-8 border shadow-xl text-zinc-900 dark:text-white transition-all ${
-          darkMode
-            ? 'bg-white/[0.04] border-white/[0.07] shadow-2xl'
-            : 'bg-white border-zinc-200/60 shadow-zinc-200/40'
-        }`}>
-          {!businessNameSaved ? (
-            // Phase 1: Guided step-by-step registration requesting name and business url
-            <form onSubmit={handleSaveBusinessName} className="space-y-6">
-              <div className="w-12 h-12 rounded-[16px] bg-violet-100 dark:bg-violet-500/10 flex items-center justify-center mx-auto">
-                <Building2 className="w-6 h-6 text-violet-600 dark:text-violet-400" />
-              </div>
-              <div>
-                <h2 className="text-[18px] font-bold mb-1.5">Registro de Acceso</h2>
-                <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Para ingresar al ecosistema de Algoritmia, por favor completá tus datos <strong className="text-violet-500 dark:text-violet-400 font-bold">por única vez</strong> para enviar la solicitud de acceso.
-                </p>
-              </div>
-
-              <div className="text-left space-y-1.5">
-                <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                  Nombre completo
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    placeholder="ej. Juan Pérez"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    disabled={savingBusinessName}
-                    className={`w-full h-11 px-4 rounded-xl border text-[13px] outline-none transition-all font-medium ${
-                      darkMode
-                        ? 'bg-white/5 border-white/8 text-white focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/60'
-                        : 'bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-violet-500 focus:ring-1 focus:ring-violet-500'
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div className="text-left space-y-1.5">
-                <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                  Nombre del negocio
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    placeholder="ej. Mi Negocio"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    disabled={savingBusinessName}
-                    className={`w-full h-11 px-4 rounded-xl border text-[13px] outline-none transition-all font-medium ${
-                      darkMode
-                        ? 'bg-white/5 border-white/8 text-white focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/60'
-                        : 'bg-zinc-50 border-zinc-200 text-zinc-900 focus:border-violet-500 focus:ring-1 focus:ring-violet-500'
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 space-y-3">
-                <button
-                  type="submit"
-                  disabled={savingBusinessName || !businessName.trim() || !fullName.trim()}
-                  className={`w-full h-11 flex items-center justify-center gap-2 rounded-xl text-[13px] font-bold transition-all disabled:opacity-50 ${
-                    darkMode
-                      ? 'bg-white text-black hover:bg-zinc-100 shadow-md'
-                      : 'bg-zinc-900 text-white hover:bg-black shadow-md shadow-zinc-900/10'
-                  }`}
-                >
-                  {savingBusinessName ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <span>Enviar Solicitud</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => signOut()}
-                  className={`w-full h-11 rounded-xl text-[13px] font-bold border transition-all ${
-                    darkMode
-                      ? 'border-white/8 hover:bg-white/5 text-zinc-400'
-                      : 'border-zinc-200 hover:bg-zinc-50 text-zinc-500'
-                  }`}
-                >
-                  Cerrar sesión
-                </button>
-              </div>
-            </form>
-          ) : (
-            // Phase 2: Pending Approval indicator screen
-            <div className="space-y-6">
-              <div className="w-12 h-12 rounded-[16px] bg-amber-100 dark:bg-amber-500/10 flex items-center justify-center mx-auto">
-                <Clock className="w-6 h-6 text-amber-500" />
-              </div>
-              <div>
-                <h2 className="text-[18px] font-bold mb-1.5 text-center">Solicitud de Acceso Enviada</h2>
-                <div className="text-[13px] text-zinc-500 dark:text-zinc-400 space-y-4 leading-relaxed text-center">
-                  <p>
-                    Tu solicitud para vincular el negocio <strong className="text-zinc-800 dark:text-zinc-200">"{businessName}"</strong> ha sido registrada con éxito.
-                  </p>
-                  <div className="bg-zinc-50 dark:bg-zinc-800/40 p-3.5 rounded-2xl border border-zinc-100/50 dark:border-zinc-800/60 text-left text-[12px] text-zinc-600 dark:text-zinc-300">
-                    <span className="font-bold text-amber-600 dark:text-amber-400 block mb-1">💬 ¿Qué pasa ahora?</span>
-                    Te enviaremos una notificación por <strong>WhatsApp</strong> en cuanto el administrador apruebe tu acceso. Una vez que la recibas, ya podrás ingresar al ecosistema.
-                  </div>
-                  <p className="font-bold text-violet-500 dark:text-violet-400 text-[13.5px]">
-                    Ya podés cerrar esta pestaña o salir del sitio.
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/60 text-center">
-                <button
-                  type="button"
-                  onClick={() => signOut()}
-                  className="text-[11px] font-bold text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors uppercase tracking-wider"
-                >
-                  Salir / Cerrar sesión
-                </button>
-              </div>
-            </div>
-          )}
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#080808]' : 'bg-[#f2f2f7]'}`}>
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+          <p className="text-[13px] text-zinc-500 font-medium">Preparando tu cuenta...</p>
         </div>
       </div>
     );
