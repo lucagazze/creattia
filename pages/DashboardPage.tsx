@@ -1836,10 +1836,8 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-
-          <div className="hidden sm:block w-[1px] h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
-
-          <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-blue-50/80 dark:bg-blue-500/10 rounded-full transition-all">
+          <div className="hidden xs:block w-[1px] h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-50/80 dark:bg-blue-500/10 rounded-full transition-all">
             <TrendingUp className="w-3.5 h-3.5 text-blue-500" />
             <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
               vs {fmtDateRange(activePrevRange.since)} -{" "}
