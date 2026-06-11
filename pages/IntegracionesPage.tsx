@@ -24,7 +24,8 @@ import {
   ChevronRight,
   Info,
   Lock,
-  Key
+  Key,
+  Instagram
 } from "lucide-react";
 
 interface IntegrationPlatform {
@@ -157,6 +158,9 @@ export default function IntegracionesPage() {
   // Meta account selection modal
   const [metaAccountModal, setMetaAccountModal] = useState<{ clientId: string; accounts: { id: string; name: string; account_status: number; currency?: string }[] } | null>(null);
   const [savingMetaAccount, setSavingMetaAccount] = useState(false);
+  const [metaPageModal, setMetaPageModal] = useState<{ clientId: string; pages: any[] } | null>(null);
+  const [savingMetaPage, setSavingMetaPage] = useState(false);
+  const [tempAdAccountId, setTempAdAccountId] = useState("");
 
   // Loading indicator for tests & saves
   const [testingConnection, setTestingConnection] = useState(false);
@@ -355,8 +359,9 @@ export default function IntegracionesPage() {
     }
   };
 
-  const closeConfigModal = (force = false) => {
-    if (!force && (testingConnection || savingSettings)) return;
+  const closeConfigModal = (force?: any) => {
+    const isForced = force === true;
+    if (!isForced && (testingConnection || savingSettings)) return;
     setOauthLoading(false);
     setSelectedPlatform(null);
   };
@@ -813,21 +818,66 @@ export default function IntegracionesPage() {
 
   const selectMetaAccount = async (accountId: string) => {
     if (!metaAccountModal) return;
+    setTempAdAccountId(accountId);
     setSavingMetaAccount(true);
     try {
-      const { error } = await supabase
-        .from('car_clients')
-        .update({ meta_account_id: accountId, connection_statuses: { meta: 'ok' } })
-        .eq('id', metaAccountModal.clientId);
-      if (error) throw error;
+      const res = await fetch(`/api/oauth?action=meta-pages&clientId=${encodeURIComponent(metaAccountModal.clientId)}`);
+      const json = await res.json();
       setMetaAccountModal(null);
-      setOauthResult({ platform: 'meta', status: 'success' });
-      showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
-      refreshProfile().then(() => loadClientData());
+      if (json.error) {
+        showToast('Error al obtener páginas de Facebook: ' + json.error, 'error');
+        return;
+      }
+      setMetaPageModal({ clientId: metaAccountModal.clientId, pages: json.pages || [] });
     } catch (err: any) {
-      showToast('Error al guardar cuenta: ' + err.message, 'error');
+      showToast('Error al obtener páginas de Facebook', 'error');
     } finally {
       setSavingMetaAccount(false);
+    }
+  };
+
+  const selectMetaPage = async (page: any) => {
+    if (!metaPageModal) return;
+    setSavingMetaPage(true);
+    try {
+      const igId = page.instagram_business_account?.id || null;
+      const igUsername = page.instagram_business_account?.username || null;
+      
+      const fieldsToUpdate = {
+        meta_account_id: tempAdAccountId,
+        fb_page_id: page.id,
+        fb_page_name: page.name,
+        fb_page_access_token: page.access_token,
+        ig_business_id: igId,
+        ig_username: igUsername,
+      };
+
+      const currentStatuses = clientData?.connection_statuses || {};
+      const updatedStatuses = { ...currentStatuses, meta: 'ok' };
+
+      const { error } = await supabase
+        .from('car_clients')
+        .update({
+          ...fieldsToUpdate,
+          connection_statuses: updatedStatuses
+        })
+        .eq('id', metaPageModal.clientId);
+
+      if (error) throw error;
+
+      if (page.id && page.access_token) {
+        localStorage.setItem(`fb_pat_${page.id}`, page.access_token);
+        localStorage.setItem('active_fb_page_id', page.id);
+      }
+
+      setMetaPageModal(null);
+      setOauthResult({ platform: 'meta', status: 'success' });
+      showToast('¡Meta Ads y Redes Sociales conectados exitosamente! ✓', 'success');
+      refreshProfile().then(() => loadClientData());
+    } catch (err: any) {
+      showToast('Error al guardar página: ' + err.message, 'error');
+    } finally {
+      setSavingMetaPage(false);
     }
   };
 
@@ -871,6 +921,62 @@ export default function IntegracionesPage() {
             {savingMetaAccount && (
               <div className="p-4 border-t border-zinc-800 flex items-center justify-center gap-2 text-zinc-400 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" /> Guardando...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Meta Page & Instagram Selection Modal */}
+      {metaPageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-lg">Vincular Página & Instagram</h2>
+                <p className="text-zinc-400 text-sm mt-0.5">Elegí la página de Facebook para tu negocio</p>
+              </div>
+              <button onClick={() => setMetaPageModal(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 max-h-80 overflow-y-auto space-y-2">
+              {metaPageModal.pages.length === 0 && (
+                <div className="text-center py-6 space-y-2">
+                  <p className="text-zinc-500 text-sm">No se encontraron páginas de Facebook activas</p>
+                  <p className="text-zinc-600 text-xs">Asegúrate de que el usuario de Facebook tenga roles de administrador sobre alguna página.</p>
+                </div>
+              )}
+              {metaPageModal.pages.map(page => (
+                <button
+                  key={page.id}
+                  onClick={() => selectMetaPage(page)}
+                  disabled={savingMetaPage}
+                  className="w-full text-left p-4 rounded-xl border border-zinc-700 hover:border-blue-500 hover:bg-blue-500/10 transition-all group disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-medium text-sm group-hover:text-blue-450 transition-colors">{page.name}</p>
+                      <p className="text-zinc-550 text-xs mt-0.5">ID: {page.id}</p>
+                      {page.instagram_business_account ? (
+                        <div className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-pink-500 bg-pink-500/10 px-2 py-0.5 rounded-full">
+                          <Instagram className="w-3 h-3" />
+                          <span>@{page.instagram_business_account.username}</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-zinc-500 bg-zinc-550/10 px-2 py-0.5 rounded-full">
+                          <span>Sin Instagram vinculado</span>
+                        </div>
+                      )}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </button>
+              ))}
+            </div>
+            {savingMetaPage && (
+              <div className="p-4 border-t border-zinc-800 flex items-center justify-center gap-2 text-zinc-400 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-500" /> Guardando configuración...
               </div>
             )}
           </div>

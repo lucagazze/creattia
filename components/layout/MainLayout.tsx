@@ -198,6 +198,13 @@ export const MainLayout = () => {
       }
     }
 
+    const userToken = (activeProfile as any)?.facebook_access_token;
+    if (userToken) {
+      localStorage.setItem('current_facebook_access_token', userToken);
+    } else {
+      localStorage.removeItem('current_facebook_access_token');
+    }
+
   }, [activeProfile]);
 
   // Guard: if profile is null, show loading while auto-creating via ensure-profile

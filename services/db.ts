@@ -26,6 +26,8 @@ export interface ClientProfile {
   fb_page_id?: string;
   fb_page_name?: string;
   fb_page_access_token?: string;
+  ig_business_id?: string;
+  ig_username?: string;
   business_description?: string;
   custom_instructions?: string;
   website_url?: string;

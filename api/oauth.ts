@@ -247,6 +247,34 @@ async function handleMetaAccounts(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+// ── META: list facebook pages for a clientId ──────────────────────────────────
+async function handleMetaPages(req: VercelRequest, res: VercelResponse) {
+  const clientId = req.query.clientId as string;
+  if (!clientId) return res.status(400).json({ error: 'clientId required' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Server not configured' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await supabase
+    .from('car_clients')
+    .select('facebook_access_token')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (error || !data?.facebook_access_token)
+    return res.status(404).json({ error: 'Token not found. Reconnect Meta.' });
+
+  try {
+    const pagesRes = await fetch(
+      `https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username,name}&limit=100&access_token=${data.facebook_access_token}`
+    );
+    const json = await pagesRes.json() as { data?: any[]; error?: any };
+    if (json.error) return res.status(400).json({ error: json.error.message });
+    return res.status(200).json({ pages: json.data || [] });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 // ── EMAIL PREVIEW (Open Graph redirect) ─────────────────────────────────────
 function handlePreview(req: VercelRequest, res: VercelResponse) {
   const base = getHost(req);
@@ -303,6 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
   if (action === 'meta-accounts') return handleMetaAccounts(req, res);
+  if (action === 'meta-pages') return handleMetaPages(req, res);
 
   if (action === 'meta-status') {
     const clientId = req.query.clientId as string;

@@ -100,6 +100,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     localStorage.removeItem('view_as_client_id');
+    localStorage.removeItem('current_facebook_access_token');
+    localStorage.removeItem('active_fb_page_id');
     await supabase.auth.signOut();
   };
 

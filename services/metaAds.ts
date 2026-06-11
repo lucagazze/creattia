@@ -12,7 +12,11 @@ export const initMetaToken = async (): Promise<void> => {
   } catch { /* silently ignore */ }
 };
 
-const getToken = () => (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
+const getToken = () =>
+  localStorage.getItem('current_facebook_access_token') ||
+  (import.meta as any).env.VITE_META_ADS_TOKEN ||
+  localStorage.getItem('meta_ads_token') ||
+  '';
 
 // ─── sessionStorage result cache — survives page refreshes, cleared on tab close ───
 const META_PREFIX = 'meta:';
@@ -168,12 +172,16 @@ const pageTokensCache: Record<string, string> = {};
 
 const getPageAccessToken = async (pageId: string): Promise<string> => {
   try {
-    // 1. In-memory cache (fastest — set by setClientPageToken or previous lookup)
+    // 1. In-memory or localStorage cache (fastest)
     if (pageTokensCache[pageId]) return pageTokensCache[pageId];
+    const localSaved = localStorage.getItem(`fb_pat_${pageId}`);
+    if (localSaved) {
+      pageTokensCache[pageId] = localSaved;
+      return localSaved;
+    }
 
-    // 2. Fallback: try /me/accounts with the agency token
-    //    This only works for pages the agency token has direct admin access to (i.e. Algoritmia's own pages)
-    const userToken = (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
+    // 2. Fallback: try /me/accounts with the active user token
+    const userToken = getToken();
     if (!userToken) return '';
 
     const cacheKey = `${pageId}_${userToken.slice(-10)}`;
@@ -192,7 +200,7 @@ const getPageAccessToken = async (pageId: string): Promise<string> => {
   } catch (e) {
     console.error('Error getting page access token:', e);
   }
-  return (import.meta as any).env.VITE_META_ADS_TOKEN || localStorage.getItem('meta_ads_token') || '';
+  return getToken();
 };
 
 
