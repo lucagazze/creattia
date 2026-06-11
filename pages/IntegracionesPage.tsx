@@ -189,16 +189,15 @@ export default function IntegracionesPage() {
       window.history.replaceState({}, '', '/integraciones');
     } else if (meta === 'select') {
       const cid = params.get('clientId') || '';
-      // Broadcast to parent window (works even after cross-origin navigation nulled window.opener)
+      // Always notify parent via BroadcastChannel first
       try {
         const bc = new BroadcastChannel('meta_oauth');
         bc.postMessage({ type: 'meta-select', clientId: cid });
         bc.close();
       } catch {}
-      // window.name === 'meta_oauth' persists through cross-origin redirects — reliable popup detection
-      if (window.name === 'meta_oauth' || window.history.length <= 2) {
-        window.close();
-      } else {
+      // Try to close — if setTimeout fires we're still alive (main window fallback)
+      window.close();
+      setTimeout(() => {
         window.history.replaceState({}, '', '/integraciones');
         fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
           .then(r => r.json())
@@ -207,7 +206,7 @@ export default function IntegracionesPage() {
             setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
           })
           .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
-      }
+      }, 300);
     } else if (meta === 'success') {
       setOauthResult({ platform: 'meta', status: 'success' });
       showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
