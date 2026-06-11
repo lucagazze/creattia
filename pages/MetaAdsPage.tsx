@@ -213,88 +213,21 @@ export default function MetaAdsPage() {
     else if (current < prevDate.current) animClass = 'animate-in fade-in slide-in-from-left-16 duration-300';
     useEffect(() => { prevDate.current = current; }, [current]);
     return (
-      <div className="w-[235px] sm:w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      <div className="w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="flex items-center mb-4 px-1">
-          <div className="w-8 flex justify-start">
-            {onPrev && (
-              <button
-                onClick={onPrev}
-                className="p-1 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-750 rounded-lg transition-all group"
-              >
-                <ChevronDown className="w-3.5 h-3.5 rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-              </button>
-            )}
-          </div>
-          <span className="text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-100 flex-1 text-center tracking-tight">
-            {MONTHS_ES[month]} {year}
-          </span>
-          <div className="w-8 flex justify-end">
-            {onNext && (
-              <button
-                onClick={onNext}
-                className="p-1 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-750 rounded-lg transition-all group"
-              >
-                <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-              </button>
-            )}
-          </div>
+          <div className="w-8 flex justify-start">{onPrev && <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group"><ChevronDown className="w-4 h-4 rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" /></button>}</div>
+          <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">{MONTHS_ES[month]} {year}</span>
+          <div className="w-8 flex justify-end">{onNext && <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors group"><ChevronDown className="w-4 h-4 -rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" /></button>}</div>
         </div>
         <div key={`${year}-${month}`} className={`grid grid-cols-7 gap-y-1 ${animClass}`}>
-          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
-            <div
-              key={i}
-              className="text-[9.5px] font-semibold text-zinc-400 dark:text-zinc-500 text-center pb-2 uppercase tracking-wider"
-            >
-              {d}
-            </div>
-          ))}
+          {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
           {days.map((d, i) => {
             if (!d) return <div key={`empty-${i}`} />;
-            const isToday = d === todayStr;
-            const isFuture = d > todayStr;
-            const isSelected = d === since || d === until;
+            const isToday = d === todayStr; const isFuture = d > todayStr; const isSelected = d === since || d === until;
             const isInRange = since && until && d > since && d < until;
-            const isHovering = since && !until && hov && (
-              (hov > since && d > since && d <= hov) ||
-              (hov < since && d >= hov && d < since)
-            );
-
-            // Range limits for seamless background drawing
-            const displayStart = since && until ? since : (since && hov ? (hov < since ? hov : since) : since);
-            const displayEnd = since && until ? until : (since && hov ? (hov > since ? hov : since) : null);
-            
-            const isStart = d === displayStart;
-            const isEnd = d === displayEnd;
-            const hasRange = displayStart && displayEnd && displayStart !== displayEnd;
-
+            const isHovering = since && !until && hov && ((d > since && d <= hov) || (d < since && d >= hov));
             return (
-              <div key={d} className="relative py-0.5 flex items-center justify-center w-full">
-                {/* Range connector background */}
-                {hasRange && (isInRange || (isHovering && d !== displayStart && d !== displayEnd)) && (
-                  <div className="absolute inset-y-0.5 left-0 right-0 bg-blue-50 dark:bg-blue-500/10" />
-                )}
-                {hasRange && isStart && (
-                  <div className="absolute inset-y-0.5 right-0 left-1/2 bg-blue-50 dark:bg-blue-500/10" />
-                )}
-                {hasRange && isEnd && (
-                  <div className="absolute inset-y-0.5 left-0 right-1/2 bg-blue-50 dark:bg-blue-500/10" />
-                )}
-
-                <button
-                  key={d}
-                  onMouseEnter={() => !isFuture && onHover && onHover(d)}
-                  onClick={() => !isFuture && onDay(d)}
-                  disabled={isFuture}
-                  className={`h-[30px] w-[30px] sm:h-8 sm:w-8 text-[10px] sm:text-[11px] font-bold transition-all relative flex items-center justify-center rounded-full ${
-                    isSelected || (since && !until && hov && (d === since || d === hov))
-                      ? 'bg-blue-600 text-white z-10 shadow-md shadow-blue-200 dark:shadow-none'
-                      : isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' :
-                      'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                  } ${isToday && !isSelected && !(since && !until && hov && (d === since || d === hov)) ? 'text-blue-600 dark:text-blue-500 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''}`}
-                >
-                  {d.split('-')[2]}
-                </button>
-              </div>
+              <button key={d} onMouseEnter={() => !isFuture && onHover(d)} onClick={() => !isFuture && onDay(d)} disabled={isFuture} className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${isSelected ? 'bg-blue-600 text-white rounded-full z-10 shadow-md shadow-blue-200 dark:shadow-none' : (isInRange || isHovering) ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600' : isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'} ${isToday && !isSelected ? 'text-blue-600 dark:text-blue-500 ring-1 ring-blue-100 dark:ring-blue-900/30' : ''}`}>{d.split('-')[2]}</button>
             );
           })}
         </div>
@@ -612,46 +545,23 @@ export default function MetaAdsPage() {
           </div>
 
           {/* Date picker */}
-          <div className="relative self-start w-fit" ref={datePickerRef}>
+          <div className="relative" ref={datePickerRef}>
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
-              className="flex items-center gap-2 px-4 h-9 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full text-[9.5px] sm:text-[10.5px] font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 h-9 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full text-[12px] font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm"
             >
               {loading && activeAds.length > 0 ? <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" /> : <Calendar className="w-3.5 h-3.5 text-blue-500" />}
               {presetLabel}
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
             </button>
             {showDatePicker && (
-              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[259px] sm:w-[264px] md:w-auto origin-top-right">
-                <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-1.5 md:p-3 grid grid-cols-3 md:flex md:flex-col gap-1">
-                  {[
-                    { id: 'today', label: 'Hoy' },
-                    { id: 'yesterday', label: 'Ayer' },
-                    { id: 'last_7d', label: '7 días' },
-                    { id: 'last_14d', label: '14 días' },
-                    { id: 'last_28d', label: '28 días' },
-                    { id: 'last_90d', label: '90 días' },
-                    { id: 'this_month', label: 'Este mes' },
-                    { id: 'last_month', label: 'Mes pas.' },
-                    { id: 'this_year', label: 'Este año' },
-                    { id: 'last_year', label: 'Año pas.' },
-                    { id: 'max', label: 'Máximo' }
-                  ].map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        const r = presetToRange(p.id as any);
-                        setPendingPreset(p.id as any);
-                        setPendingSince(r.since);
-                        setPendingUntil(r.until);
-                      }}
-                      className={`flex-shrink-0 text-center md:text-left px-1 py-1 md:px-2.5 md:py-1 rounded-[4px] md:rounded-[10px] text-[8px] md:text-[9px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200/40 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
-                    >
-                      {p.label}
-                    </button>
+              <div className="absolute right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[290px] sm:w-[320px] md:w-auto origin-top-right">
+                <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible no-scrollbar">
+                  {PRESETS.map(p => (
+                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-center md:text-left px-2.5 py-1 rounded-[10px] text-[11px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
-                <div className="p-3 md:p-5 flex flex-col items-center md:items-stretch">
+                <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
                   <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                     <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering}
                       onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }}
@@ -1105,24 +1015,24 @@ export default function MetaAdsPage() {
                       <div className="flex items-center gap-1.5 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
                         <button
                           onClick={() => switchCommentPlatform('instagram')}
-                          className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[8.5px] sm:text-[10px] font-black transition-all border ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400 border-pink-200/60 dark:border-pink-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                          className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9.5px] sm:text-[11px] font-black transition-all border ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400 border-pink-200/60 dark:border-pink-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                         >
                           <Instagram className="w-3.5 h-3.5" />
                           Instagram
                           {loadingByPlatform.instagram
                             ? <Loader2 className="w-3 h-3 animate-spin opacity-50" />
-                            : <span className={`text-[7.5px] sm:text-[8.5px] font-black px-1 py-0.5 rounded-full ${igPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{igTotal}</span>
+                            : <span className={`text-[8px] sm:text-[9px] font-black px-1 py-0.5 rounded-full ${igPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{igTotal}</span>
                           }
                         </button>
                         <button
                           onClick={() => switchCommentPlatform('facebook')}
-                          className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[8.5px] sm:text-[10px] font-black transition-all border ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-200/60 dark:border-blue-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                          className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9.5px] sm:text-[11px] font-black transition-all border ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-200/60 dark:border-blue-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                         >
                           <Facebook className="w-3.5 h-3.5" />
                           Facebook
                           {loadingByPlatform.facebook
                             ? <Loader2 className="w-3 h-3 animate-spin opacity-50" />
-                            : <span className={`text-[7.5px] sm:text-[8.5px] font-black px-1 py-0.5 rounded-full ${fbPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{fbTotal}</span>
+                            : <span className={`text-[8px] sm:text-[9px] font-black px-1 py-0.5 rounded-full ${fbPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{fbTotal}</span>
                           }
                         </button>
                       </div>
@@ -1131,13 +1041,13 @@ export default function MetaAdsPage() {
                     {/* Pending / all filter */}
                     {!loadingComments && comments.length > 0 && (
                       <div className="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
-                        <button onClick={() => setCommentFilter('pending')} className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[8.5px] sm:text-[10px] font-black transition-all ${commentFilter === 'pending' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+                        <button onClick={() => setCommentFilter('pending')} className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9.5px] sm:text-[11px] font-black transition-all ${commentFilter === 'pending' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                           Sin responder
-                          <span className={`text-[7.5px] sm:text-[8.5px] min-w-[12px] h-[12px] sm:min-w-[15px] sm:h-[15px] px-0.5 rounded-full font-black flex items-center justify-center ${commentFilter === 'pending' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{pendingCount}</span>
+                          <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'pending' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{pendingCount}</span>
                         </button>
-                        <button onClick={() => setCommentFilter('all')} className={`flex items-center gap-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[8.5px] sm:text-[10px] font-black transition-all ${commentFilter === 'all' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+                        <button onClick={() => setCommentFilter('all')} className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9.5px] sm:text-[11px] font-black transition-all ${commentFilter === 'all' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                           Todos
-                          <span className={`text-[7.5px] sm:text-[8.5px] min-w-[12px] h-[12px] sm:min-w-[15px] sm:h-[15px] px-0.5 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{comments.length}</span>
+                          <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{comments.length}</span>
                         </button>
                       </div>
                     )}

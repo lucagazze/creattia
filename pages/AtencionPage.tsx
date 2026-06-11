@@ -32,14 +32,6 @@ const METRICS_CONFIG: MetricKeyData[] = [
 ];
 
 const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, onNext }: any) => {
-  const touchStart = React.useRef<number>(0);
-  const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStart.current - e.changedTouches[0].clientX;
-    if (diff > 40 && onNext) onNext();
-    if (diff < -40 && onPrev) onPrev();
-  };
-
   const days: any[] = [];
   const first = new Date(year, month, 1).getDay();
   const startOffset = first === 0 ? 6 : first - 1;
@@ -52,102 +44,44 @@ const MiniCal = ({ year, month, since, until, hovering, onDay, onHover, onPrev, 
   const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const todayStr = today();
 
-  const prevDate = React.useRef(new Date(year, month, 1).getTime());
-  const current = new Date(year, month, 1).getTime();
-  let animClass = 'animate-in fade-in zoom-in-95 duration-200';
-  if (current > prevDate.current) {
-     animClass = 'animate-in fade-in slide-in-from-right-16 duration-300';
-  } else if (current < prevDate.current) {
-     animClass = 'animate-in fade-in slide-in-from-left-16 duration-300';
-  }
-  
-  React.useEffect(() => {
-    prevDate.current = current;
-  }, [current]);
-
   return (
-    <div className="w-[235px] sm:w-[240px] overflow-hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div className="w-[240px]">
       <div className="flex items-center mb-4 px-1">
-        <div className="w-8 flex justify-start">
-          {onPrev && (
-            <button
-              onClick={onPrev}
-              className="p-1 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-750 rounded-lg transition-all group"
-            >
-              <ChevronDown className="w-3.5 h-3.5 rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-            </button>
-          )}
-        </div>
-        <span className="text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-100 flex-1 text-center tracking-tight">
+        <button onClick={onPrev} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
+          <ChevronDown className="w-4 h-4 rotate-90" />
+        </button>
+        <span className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 flex-1 text-center">
           {MONTHS_ES[month]} {year}
         </span>
-        <div className="w-8 flex justify-end">
-          {onNext && (
-            <button
-              onClick={onNext}
-              className="p-1 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-transparent hover:border-zinc-200/50 dark:hover:border-zinc-750 rounded-lg transition-all group"
-            >
-              <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200" />
-            </button>
-          )}
-        </div>
+        <button onClick={onNext} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
+          <ChevronDown className="w-4 h-4 -rotate-90" />
+        </button>
       </div>
-      <div key={`${year}-${month}`} className={`grid grid-cols-7 gap-y-1 ${animClass}`}>
-        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => (
-          <div
-            key={i}
-            className="text-[9.5px] font-semibold text-zinc-400 dark:text-zinc-500 text-center pb-2 uppercase tracking-wider"
-          >
-            {d}
-          </div>
-        ))}
+      <div className="grid grid-cols-7 gap-y-1">
+        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d, i) => <div key={i} className="text-[10px] font-bold text-zinc-300 text-center pb-2 uppercase tracking-tighter">{d}</div>)}
         {days.map((d, i) => {
           if (!d) return <div key={`empty-${i}`} />;
           const isToday = d === todayStr;
           const isFuture = d > todayStr;
           const isSelected = d === since || d === until;
           const isInRange = since && until && d > since && d < until;
-          const isHovering = since && !until && hovering && (
-            (hovering > since && d > since && d <= hovering) ||
-            (hovering < since && d >= hovering && d < since)
-          );
-
-          // Range limits for seamless background drawing
-          const displayStart = since && until ? since : (since && hovering ? (hovering < since ? hovering : since) : since);
-          const displayEnd = since && until ? until : (since && hovering ? (hovering > since ? hovering : since) : null);
-          
-          const isStart = d === displayStart;
-          const isEnd = d === displayEnd;
-          const hasRange = displayStart && displayEnd && displayStart !== displayEnd;
+          const isHovering = since && !until && hovering && ((d > since && d <= hovering) || (d < since && d >= hovering));
 
           return (
-            <div key={d} className="relative py-0.5 flex items-center justify-center w-full">
-              {/* Range connector background */}
-              {hasRange && (isInRange || (isHovering && d !== displayStart && d !== displayEnd)) && (
-                <div className="absolute inset-y-0.5 left-0 right-0 bg-violet-50 dark:bg-violet-500/10" />
-              )}
-              {hasRange && isStart && (
-                <div className="absolute inset-y-0.5 right-0 left-1/2 bg-violet-50 dark:bg-violet-500/10" />
-              )}
-              {hasRange && isEnd && (
-                <div className="absolute inset-y-0.5 left-0 right-1/2 bg-violet-50 dark:bg-violet-500/10" />
-              )}
-
-              <button
-                key={d}
-                onMouseEnter={() => !isFuture && onHover && onHover(d)}
-                onClick={() => !isFuture && onDay(d)}
-                disabled={isFuture}
-                className={`h-[30px] w-[30px] sm:h-8 sm:w-8 text-[10px] sm:text-[11px] font-bold transition-all relative flex items-center justify-center rounded-full ${
-                  isSelected || (since && !until && hovering && (d === since || d === hovering))
-                    ? 'bg-violet-600 text-white z-10 shadow-md shadow-violet-200 dark:shadow-none'
-                    : isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' :
-                    'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                } ${isToday && !isSelected && !(since && !until && hovering && (d === since || d === hovering)) ? 'text-violet-600 dark:text-violet-500 ring-1 ring-violet-100 dark:ring-violet-900/30' : ''}`}
-              >
-                {d.split('-')[2]}
-              </button>
-            </div>
+            <button
+              key={d}
+              onMouseEnter={() => !isFuture && onHover(d)}
+              onClick={() => !isFuture && onDay(d)}
+              disabled={isFuture}
+              className={`h-8 w-8 text-[11px] font-bold transition-all relative flex items-center justify-center ${
+                isSelected ? 'bg-violet-600 text-white rounded-full z-10 shadow-md shadow-violet-200 dark:shadow-none' :
+                (isInRange || isHovering) ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600' :
+                isFuture ? 'text-zinc-200 dark:text-zinc-800 cursor-default' :
+                'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full'
+              } ${isToday && !isSelected ? 'text-violet-600 dark:text-violet-500 ring-1 ring-violet-100 dark:ring-violet-900/30' : ''}`}
+            >
+              {d.split('-')[2]}
+            </button>
           );
         })}
       </div>
@@ -622,7 +556,7 @@ export default function AtencionPage() {
         <div className="flex flex-wrap items-center gap-3">
 
           {/* Datepicker trigger */}
-          <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1 py-0.5 shadow-sm h-9 relative self-start w-fit" ref={datePickerRef}>
+          <div className="flex items-center bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1 py-0.5 shadow-sm h-9 relative" ref={datePickerRef}>
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
               className="flex items-center gap-1.5 px-3 h-7 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-full transition-all group text-[11px]"
@@ -632,7 +566,7 @@ export default function AtencionPage() {
               ) : (
                 <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-violet-500 transition-colors" />
               )}
-              <span className="text-[9.5px] sm:text-[10.5px] font-bold text-zinc-700 dark:text-zinc-200">
+              <span className="text-[11px] font-bold text-zinc-700 dark:text-zinc-200">
                 {activePreset === 'custom'
                   ? (activeSince === activeUntil ? fmtDateRange(activeSince) : `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}`)
                   : ({
@@ -655,7 +589,7 @@ export default function AtencionPage() {
             </button>
 
             {showDatePicker && (
-              <div className="absolute left-0 md:left-auto md:right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-30 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[259px] sm:w-[264px] md:w-auto origin-top-left md:origin-top-right">
+              <div className="absolute left-0 md:left-auto md:right-0 top-full mt-3 bg-white dark:bg-zinc-900 rounded-[20px] border border-black/[0.08] dark:border-white/[0.08] shadow-2xl z-30 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[290px] sm:w-[320px] md:w-auto origin-top-left md:origin-top-right">
                 <div className="w-full md:w-[160px] border-b md:border-b-0 md:border-r border-zinc-50 dark:border-zinc-800 p-2 md:p-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-hide">
                   {[{ id: 'today', label: 'Hoy' }, { id: 'yesterday', label: 'Ayer' }, { id: 'last_7d', label: 'Últimos 7 días' }, { id: 'last_14d', label: 'Últimos 14 días' }, { id: 'last_28d', label: 'Últimos 28 días' }, { id: 'last_30d', label: 'Últimos 30 días' }, { id: 'last_90d', label: 'Últimos 90 días' }, { id: 'this_month', label: 'Este mes' }, { id: 'last_month', label: 'Mes pasado' }, { id: 'this_year', label: 'Este año' }, { id: 'last_year', label: 'Año pasado' }, { id: 'max', label: 'Máximo' }].map(p => (
                     <button
@@ -666,13 +600,13 @@ export default function AtencionPage() {
                         setPendingSince(r.since);
                         setPendingUntil(r.until);
                       }}
-                      className={`flex-shrink-0 text-center md:text-left px-2 py-0.5 md:px-2.5 md:py-1 rounded-[6px] md:rounded-[10px] text-[8px] md:text-[9px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-violet-600 text-white shadow-md shadow-violet-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
+                      className={`flex-shrink-0 text-center md:text-left px-2.5 py-1 rounded-[10px] text-[10px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-violet-600 text-white shadow-md shadow-violet-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
                     >
                       {p.label}
                     </button>
                   ))}
                 </div>
-                <div className="p-3 md:p-5 flex flex-col items-center md:items-stretch">
+                <div className="p-4 md:p-5 flex flex-col items-center md:items-stretch">
                   <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                     <MiniCal
                       year={calYear}

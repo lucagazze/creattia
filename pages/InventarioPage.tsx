@@ -287,20 +287,20 @@ export default function InventarioPage() {
           {/* Filter chips */}
           {!loading && allVariants.length > 0 && (
             <div className="flex gap-1.5 flex-wrap">
-              <button onClick={() => setFilter('all')} className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-[11px] sm:text-[12px] font-bold transition-all ${filter === 'all' ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>
+              <button onClick={() => setFilter('all')} className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold transition-all ${filter === 'all' ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'}`}>
                 Todos {allVariants.length}
               </button>
               {outCount > 0 && (
-                <button onClick={() => setFilter('out')} className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-[11px] sm:text-[12px] font-bold transition-all ${filter === 'out' ? 'bg-red-600 text-white' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
+                <button onClick={() => setFilter('out')} className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold transition-all ${filter === 'out' ? 'bg-red-600 text-white' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
                   Sin stock {outCount}
                 </button>
               )}
               {lowCount > 0 && (
-                <button onClick={() => setFilter('low')} className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-[11px] sm:text-[12px] font-bold transition-all ${filter === 'low' ? 'bg-amber-500 text-white' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
+                <button onClick={() => setFilter('low')} className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold transition-all ${filter === 'low' ? 'bg-amber-500 text-white' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'}`}>
                   Stock bajo {lowCount}
                 </button>
               )}
-              {okCount > 0 && <button onClick={() => setFilter('ok')} className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-[11px] sm:text-[12px] font-bold transition-all ${filter === 'ok' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>OK {okCount}</button>}
+              {okCount > 0 && <button onClick={() => setFilter('ok')} className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold transition-all ${filter === 'ok' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>OK {okCount}</button>}
             </div>
           )}
 
@@ -313,7 +313,7 @@ export default function InventarioPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar producto..."
-                className="w-full pl-9 pr-4 py-2.5 text-[11px] sm:text-[12px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:border-emerald-500"
+                className="w-full pl-9 pr-4 py-2.5 text-[13px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:border-emerald-500"
               />
             </div>
           )}

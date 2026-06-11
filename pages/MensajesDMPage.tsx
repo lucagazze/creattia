@@ -810,7 +810,7 @@ export default function MensajesDMPage() {
                   <button
                     key={p}
                     onClick={() => setPlatformFilter(p)}
-                    className={`px-2 py-0.5 sm:px-2.5 sm:py-0.5 rounded-full text-[11px] sm:text-[12px] font-black transition-all border ${
+                    className={`px-2 py-0.5 sm:px-2.5 sm:py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-black transition-all border ${
                       platformFilter === p
                         ? p === 'instagram' ? 'bg-pink-500 text-white border-pink-500'
                           : p === 'facebook' ? 'bg-blue-500 text-white border-blue-500'
