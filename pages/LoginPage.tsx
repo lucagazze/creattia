@@ -47,6 +47,17 @@ export default function LoginPage() {
     }
   };
 
+  const mapRegisterError = (msg: string): string => {
+    const m = msg.toLowerCase();
+    if (m.includes('already registered') || m.includes('already been registered')) return 'Este email ya tiene una cuenta. Iniciá sesión.';
+    if (m.includes('confirmation email') || m.includes('sending')) return 'Este email ya está registrado. Probá iniciar sesión.';
+    if (m.includes('invalid') && m.includes('email')) return 'El email ingresado no es válido.';
+    if (m.includes('password') && m.includes('6')) return 'La contraseña debe tener al menos 6 caracteres.';
+    if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Esperá unos minutos y volvé a intentar.';
+    if (m.includes('network') || m.includes('fetch')) return 'Error de conexión. Verificá tu internet e intentá de nuevo.';
+    return msg;
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || !confirmPassword) { showToast('Completá todos los campos', 'error'); return; }
@@ -61,7 +72,7 @@ export default function LoginPage() {
       if (error) throw error;
       setRegistered(true);
     } catch (error: any) {
-      showToast(error.message || 'Error al registrarse', 'error');
+      showToast(mapRegisterError(error.message || ''), 'error');
       setLoading(false);
     }
   };
