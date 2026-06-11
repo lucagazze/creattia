@@ -161,6 +161,7 @@ export default function IntegracionesPage() {
   const [metaPageModal, setMetaPageModal] = useState<{ clientId: string; pages: any[] } | null>(null);
   const [savingMetaPage, setSavingMetaPage] = useState(false);
   const [tempAdAccountId, setTempAdAccountId] = useState("");
+  const [metaLoadingText, setMetaLoadingText] = useState("");
 
   // Loading indicator for tests & saves
   const [testingConnection, setTestingConnection] = useState(false);
@@ -222,13 +223,15 @@ export default function IntegracionesPage() {
         // Only proceed if we're the main window (no opener) OR opener is gone
         if (!window.opener || window.opener.closed) {
           window.history.replaceState({}, '', '/integraciones');
+          setMetaLoadingText("Obteniendo cuentas publicitarias de Meta...");
           fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
             .then(r => r.json())
             .then(json => {
               if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
               setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
             })
-            .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
+            .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
+            .finally(() => setMetaLoadingText(""));
         } else {
           // Still a popup and window.close() failed — retry postMessage + close
           try { window.opener.postMessage(payload, window.location.origin); } catch {}
@@ -438,13 +441,15 @@ export default function IntegracionesPage() {
         window.removeEventListener('storage', storageHandler);
         localStorage.removeItem('meta_oauth_complete');
         setOauthLoading(false);
+        setMetaLoadingText("Obteniendo cuentas publicitarias de Meta...");
         fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
           .then(r => r.json())
           .then(json => {
             if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
             setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
           })
-          .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
+          .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
+          .finally(() => setMetaLoadingText(""));
       };
 
       // Method 4: Server polling — check every 3s if the token was saved in DB
@@ -820,6 +825,7 @@ export default function IntegracionesPage() {
     if (!metaAccountModal) return;
     setTempAdAccountId(accountId);
     setSavingMetaAccount(true);
+    setMetaLoadingText("Obteniendo páginas de Facebook e Instagram...");
     try {
       const res = await fetch(`/api/oauth?action=meta-pages&clientId=${encodeURIComponent(metaAccountModal.clientId)}`);
       const json = await res.json();
@@ -833,6 +839,7 @@ export default function IntegracionesPage() {
       showToast('Error al obtener páginas de Facebook', 'error');
     } finally {
       setSavingMetaAccount(false);
+      setMetaLoadingText("");
     }
   };
 
@@ -881,8 +888,42 @@ export default function IntegracionesPage() {
     }
   };
 
+  // If we are in the OAuth popup showing select, render a minimal clean success page
+  const params = new URLSearchParams(window.location.search);
+  const isMetaSelectPopup = params.get('meta') === 'select' && window.opener && !window.opener.closed;
+
+  if (isMetaSelectPopup) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
+          <Check className="w-8 h-8 text-emerald-400" />
+        </div>
+        <h2 className="text-white font-extrabold text-xl">¡Conexión Exitosa!</h2>
+        <p className="text-zinc-400 text-sm mt-2 max-w-xs">
+          Meta se ha vinculado correctamente. Ya puedes cerrar esta pestaña.
+        </p>
+        <button
+          onClick={() => window.close()}
+          className="mt-6 px-6 h-11 bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-bold transition-all"
+        >
+          Cerrar ventana
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 max-w-[1400px] mx-auto animate-in fade-in duration-300">
+
+      {/* Loading Overlay */}
+      {metaLoadingText && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 max-w-xs text-center">
+            <Loader2 className="w-9 h-9 text-blue-500 animate-spin" />
+            <p className="text-white font-bold text-[13px]">{metaLoadingText}</p>
+          </div>
+        </div>
+      )}
 
       {/* Meta Account Selection Modal */}
       {metaAccountModal && (
