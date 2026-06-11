@@ -206,22 +206,44 @@ async function handleMeta(req: VercelRequest, res: VercelResponse) {
       );
       const { access_token: longToken } = await longTokenRes.json() as { access_token: string };
 
-      // 3. Fetch Ad Accounts
-      const adRes = await fetch(
-        `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&access_token=${longToken || shortToken}`
-      );
-      const { data: adAccounts = [] } = await adRes.json() as { data: { id: string; account_status: number }[] };
-      const activeAccount = adAccounts.find(a => a.account_status === 1) || adAccounts[0];
-
+      // 3. Save token only — account selection happens in the frontend
+      const token = longToken || shortToken;
       await updateClientStatuses(clientId!, {
-        meta_account_id: activeAccount?.id || '',
-        facebook_access_token: longToken || shortToken
+        facebook_access_token: token
       }, 'meta', 'ok');
-      return res.redirect('/integraciones?meta=success');
+      return res.redirect('/integraciones?meta=select&clientId=' + encodeURIComponent(clientId!));
     } catch (err: any) {
       console.error('[Meta OAuth]', err);
       return res.redirect('/integraciones?meta=error&reason=server_error');
     }
+  }
+}
+
+// ── META: list ad accounts for a clientId ────────────────────────────────────
+async function handleMetaAccounts(req: VercelRequest, res: VercelResponse) {
+  const clientId = req.query.clientId as string;
+  if (!clientId) return res.status(400).json({ error: 'clientId required' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Server not configured' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await supabase
+    .from('car_clients')
+    .select('facebook_access_token')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (error || !data?.facebook_access_token)
+    return res.status(404).json({ error: 'Token not found. Reconnect Meta.' });
+
+  try {
+    const adRes = await fetch(
+      `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status,currency&limit=50&access_token=${data.facebook_access_token}`
+    );
+    const json = await adRes.json() as { data?: any[]; error?: any };
+    if (json.error) return res.status(400).json({ error: json.error.message });
+    return res.status(200).json({ accounts: json.data || [] });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 }
 
@@ -280,6 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
+  if (action === 'meta-accounts') return handleMetaAccounts(req, res);
   if (action.startsWith('meta')) return handleMeta(req, res);
 
   if (action === 'ensure-profile') {

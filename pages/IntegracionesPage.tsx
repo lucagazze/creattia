@@ -154,6 +154,10 @@ export default function IntegracionesPage() {
   // URL param success/error detection after OAuth callback redirect
   const [oauthResult, setOauthResult] = useState<{ platform: string; status: 'success' | 'error'; reason?: string } | null>(null);
 
+  // Meta account selection modal
+  const [metaAccountModal, setMetaAccountModal] = useState<{ clientId: string; accounts: { id: string; name: string; account_status: number; currency?: string }[] } | null>(null);
+  const [savingMetaAccount, setSavingMetaAccount] = useState(false);
+
   // Loading indicator for tests & saves
   const [testingConnection, setTestingConnection] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -183,6 +187,17 @@ export default function IntegracionesPage() {
       setOauthResult({ platform: 'tiendanube', status: 'error', reason: reason || '' });
       showToast('Error al conectar Tiendanube: ' + (reason || 'desconocido'), 'error');
       window.history.replaceState({}, '', '/integraciones');
+    } else if (meta === 'select') {
+      const cid = params.get('clientId') || '';
+      window.history.replaceState({}, '', '/integraciones');
+      // Fetch ad accounts and show selection modal
+      fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
+        .then(r => r.json())
+        .then(json => {
+          if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
+          setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
+        })
+        .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
     } else if (meta === 'success') {
       setOauthResult({ platform: 'meta', status: 'success' });
       showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
@@ -684,9 +699,72 @@ export default function IntegracionesPage() {
     );
   }
 
+  const selectMetaAccount = async (accountId: string) => {
+    if (!metaAccountModal) return;
+    setSavingMetaAccount(true);
+    try {
+      const { error } = await supabase
+        .from('car_clients')
+        .update({ meta_account_id: accountId, connection_statuses: { meta: 'ok' } })
+        .eq('id', metaAccountModal.clientId);
+      if (error) throw error;
+      setMetaAccountModal(null);
+      setOauthResult({ platform: 'meta', status: 'success' });
+      showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
+      refreshProfile().then(() => loadClientData());
+    } catch (err: any) {
+      showToast('Error al guardar cuenta: ' + err.message, 'error');
+    } finally {
+      setSavingMetaAccount(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-[1400px] mx-auto animate-in fade-in duration-300">
-      
+
+      {/* Meta Account Selection Modal */}
+      {metaAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-lg">Seleccionar cuenta publicitaria</h2>
+                <p className="text-zinc-400 text-sm mt-0.5">Elegí la cuenta de Meta Ads que querés conectar</p>
+              </div>
+              <button onClick={() => setMetaAccountModal(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 max-h-80 overflow-y-auto space-y-2">
+              {metaAccountModal.accounts.length === 0 && (
+                <p className="text-zinc-500 text-sm text-center py-6">No se encontraron cuentas publicitarias activas</p>
+              )}
+              {metaAccountModal.accounts.map(acc => (
+                <button
+                  key={acc.id}
+                  onClick={() => selectMetaAccount(acc.id)}
+                  disabled={savingMetaAccount}
+                  className="w-full text-left p-4 rounded-xl border border-zinc-700 hover:border-[#1877f2] hover:bg-[#1877f2]/10 transition-all group disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-medium text-sm">{acc.name}</p>
+                      <p className="text-zinc-500 text-xs mt-0.5">{acc.id}{acc.currency ? ` · ${acc.currency}` : ''}</p>
+                    </div>
+                    <div className={`w-2 h-2 rounded-full ${acc.account_status === 1 ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                  </div>
+                </button>
+              ))}
+            </div>
+            {savingMetaAccount && (
+              <div className="p-4 border-t border-zinc-800 flex items-center justify-center gap-2 text-zinc-400 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" /> Guardando...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="page-header">
         <div>
