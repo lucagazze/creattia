@@ -1015,24 +1015,24 @@ export default function MetaAdsPage() {
                       <div className="flex items-center gap-1.5 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
                         <button
                           onClick={() => switchCommentPlatform('instagram')}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400 border-pink-200/60 dark:border-pink-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                          className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9.5px] sm:text-[11px] font-black transition-all border ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400 border-pink-200/60 dark:border-pink-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                         >
                           <Instagram className="w-3.5 h-3.5" />
                           Instagram
                           {loadingByPlatform.instagram
                             ? <Loader2 className="w-3 h-3 animate-spin opacity-50" />
-                            : <span className={`text-[9px] font-black px-1 py-0.5 rounded-full ${igPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{igTotal}</span>
+                            : <span className={`text-[8px] sm:text-[9px] font-black px-1 py-0.5 rounded-full ${igPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{igTotal}</span>
                           }
                         </button>
                         <button
                           onClick={() => switchCommentPlatform('facebook')}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all border ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-200/60 dark:border-blue-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                          className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9.5px] sm:text-[11px] font-black transition-all border ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-200/60 dark:border-blue-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
                         >
                           <Facebook className="w-3.5 h-3.5" />
                           Facebook
                           {loadingByPlatform.facebook
                             ? <Loader2 className="w-3 h-3 animate-spin opacity-50" />
-                            : <span className={`text-[9px] font-black px-1 py-0.5 rounded-full ${fbPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{fbTotal}</span>
+                            : <span className={`text-[8px] sm:text-[9px] font-black px-1 py-0.5 rounded-full ${fbPending > 0 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'}`}>{fbTotal}</span>
                           }
                         </button>
                       </div>
@@ -1041,13 +1041,13 @@ export default function MetaAdsPage() {
                     {/* Pending / all filter */}
                     {!loadingComments && comments.length > 0 && (
                       <div className="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
-                        <button onClick={() => setCommentFilter('pending')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all ${commentFilter === 'pending' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+                        <button onClick={() => setCommentFilter('pending')} className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9.5px] sm:text-[11px] font-black transition-all ${commentFilter === 'pending' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                           Sin responder
-                          <span className={`text-[9px] min-w-[18px] h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'pending' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{pendingCount}</span>
+                          <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'pending' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{pendingCount}</span>
                         </button>
-                        <button onClick={() => setCommentFilter('all')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all ${commentFilter === 'all' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
+                        <button onClick={() => setCommentFilter('all')} className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9.5px] sm:text-[11px] font-black transition-all ${commentFilter === 'all' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                           Todos
-                          <span className={`text-[9px] min-w-[18px] h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{comments.length}</span>
+                          <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{comments.length}</span>
                         </button>
                       </div>
                     )}

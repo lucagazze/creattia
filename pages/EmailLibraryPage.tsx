@@ -751,10 +751,10 @@ export default function EmailLibraryPage() {
       <div className="w-full md:w-44 flex-shrink-0">
         <p className="text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] mb-3 hidden md:block">Clientes</p>
         {/* Mobile: horizontal scrollable pills */}
-        <div className="flex md:hidden gap-2 flex-wrap pb-1">
+        <div className="flex md:hidden gap-1.5 flex-wrap pb-1">
           {[{ id: 'ALL', business_name: 'Todos' }, ...sidebarClients].map(c => (
             <button key={c.id} onClick={() => setActiveClient(c.id)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[12px] font-bold transition-all ${
+              className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
                 activeClient === c.id
                   ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow'
                   : 'bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400'

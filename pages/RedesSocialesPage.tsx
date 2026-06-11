@@ -1027,7 +1027,7 @@ export default function RedesSocialesPage() {
           <div className="flex items-center gap-1 bg-zinc-100/80 dark:bg-zinc-800/60 p-1 rounded-2xl border border-zinc-200/20 dark:border-zinc-700/60">
             <button
               onClick={() => setActiveTab('instagram')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-black transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[10.5px] sm:text-[12px] font-black transition-all ${
                 activeTab === 'instagram'
                   ? 'bg-pink-500 text-white shadow-md shadow-pink-500/20'
                   : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40'
@@ -1039,7 +1039,7 @@ export default function RedesSocialesPage() {
             </button>
             <button
               onClick={() => setActiveTab('facebook')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-black transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[10.5px] sm:text-[12px] font-black transition-all ${
                 activeTab === 'facebook'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
                   : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40'
@@ -1152,7 +1152,7 @@ export default function RedesSocialesPage() {
                           <button
                             key={f.id}
                             onClick={() => setMediaFilter(f.id as any)}
-                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all whitespace-nowrap ${
+                            className={`flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[9.5px] sm:text-[11px] font-black transition-all whitespace-nowrap ${
                               mediaFilter === f.id
                                 ? 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-white shadow-sm'
                                 : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -1435,7 +1435,7 @@ export default function RedesSocialesPage() {
                           <button
                             key={f.id}
                             onClick={() => setFbMediaFilter(f.id as any)}
-                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all whitespace-nowrap ${
+                            className={`flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[9.5px] sm:text-[11px] font-black transition-all whitespace-nowrap ${
                               fbMediaFilter === f.id
                                 ? 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-white shadow-sm'
                                 : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -2097,7 +2097,7 @@ export default function RedesSocialesPage() {
                 <button
                   key={f}
                   onClick={() => setPendingNetworkFilter(f)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${
+                  className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9.5px] sm:text-[10px] font-black transition-all ${
                     pendingNetworkFilter === f
                       ? f === 'instagram' ? 'bg-pink-500 text-white' : f === 'facebook' ? 'bg-blue-600 text-white' : 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900'
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'

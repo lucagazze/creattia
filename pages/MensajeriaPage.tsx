@@ -1750,9 +1750,10 @@ export default function MensajeriaPage() {
         {/* Left Section: Status filter + Channel Filter Pills (Desktop only) */}
         <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
           {/* Pendientes Filter (Desktop only) */}
+          {/* Pendientes Filter (Desktop only) */}
           <button
             onClick={() => setShowPendingOnly(prev => !prev)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10px] font-black transition-all active:scale-[0.98] h-[30px] shrink-0 ${
+            className={`flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl border text-[9px] sm:text-[10px] font-black transition-all active:scale-[0.98] h-[26px] sm:h-[30px] shrink-0 ${
               showPendingOnly
                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-sm'
                 : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-650 dark:text-zinc-300 hover:border-zinc-350 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800'
@@ -1781,7 +1782,7 @@ export default function MensajeriaPage() {
               <button
                 key={ch.key}
                 onClick={() => setChannelFilter(ch.key as any)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black transition-all duration-200 whitespace-nowrap border ${
+                className={`flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl text-[9px] sm:text-[10px] font-black transition-all duration-200 whitespace-nowrap border ${
                   isActive
                     ? `${ch.activeClass} shadow-sm`
                     : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-650 dark:text-zinc-300 hover:border-zinc-350 dark:hover:border-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
@@ -1790,7 +1791,7 @@ export default function MensajeriaPage() {
                 <Icon className={`w-3.5 h-3.5 ${isActive ? '' : ch.iconColor}`} />
                 <span>{ch.label}</span>
                 {isFirstLoadDone && count > 0 && (
-                  <span className={`text-[9px] px-1.5 py-0.25 rounded-full font-black ${
+                  <span className={`text-[8px] sm:text-[9px] px-1.5 py-0.25 rounded-full font-black ${
                     isActive ? 'bg-white/20 text-white dark:bg-black/10 dark:text-inherit' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
                   }`}>
                     {count}
