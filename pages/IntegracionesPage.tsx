@@ -332,8 +332,9 @@ export default function IntegracionesPage() {
     }
   };
 
-  const closeConfigModal = () => {
-    if (oauthLoading || testingConnection || savingSettings) return; // Prevent closing mid-process
+  const closeConfigModal = (force = false) => {
+    if (!force && (testingConnection || savingSettings)) return;
+    setOauthLoading(false);
     setSelectedPlatform(null);
   };
 
@@ -425,6 +426,13 @@ export default function IntegracionesPage() {
           refreshProfile().then(() => loadClientData());
         }
       }, 500);
+
+      // Safety timeout — cancel after 3 min if nothing happened
+      setTimeout(() => {
+        clearInterval(timer);
+        bc.close();
+        setOauthLoading(false);
+      }, 180000);
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Meta Ads', 'error');
       setOauthLoading(false);
@@ -963,6 +971,13 @@ export default function IntegracionesPage() {
                 <div className="w-full max-w-[240px] h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                   <div className="h-full bg-violet-500 rounded-full animate-pulse" style={{ width: '60%' }} />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => closeConfigModal(true)}
+                  className="text-[11px] font-bold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mt-2"
+                >
+                  Cancelar
+                </button>
               </div>
             ) : (
               /* REAL/MANUAL CONFIGURATION FORM */
