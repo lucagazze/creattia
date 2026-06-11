@@ -190,14 +190,20 @@ export default function IntegracionesPage() {
     } else if (meta === 'select') {
       const cid = params.get('clientId') || '';
       window.history.replaceState({}, '', '/integraciones');
-      // Fetch ad accounts and show selection modal
-      fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
-        .then(r => r.json())
-        .then(json => {
-          if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
-          setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
-        })
-        .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
+      if (window.opener) {
+        // Running inside popup — notify parent and close
+        window.opener.postMessage({ type: 'meta-select', clientId: cid }, window.location.origin);
+        window.close();
+      } else {
+        // Main window redirect (popup was blocked) — fetch and show modal directly
+        fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
+          .then(r => r.json())
+          .then(json => {
+            if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
+            setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
+          })
+          .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
+      }
     } else if (meta === 'success') {
       setOauthResult({ platform: 'meta', status: 'success' });
       showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
@@ -387,10 +393,31 @@ export default function IntegracionesPage() {
         window.location.href = authorizeUrl;
         return;
       }
-      // Poll for popup close (callback will redirect to /integraciones?meta=success)
+
+      // Listen for meta-select message from popup
+      const onMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type === 'meta-select') {
+          window.removeEventListener('message', onMessage);
+          clearInterval(timer);
+          setOauthLoading(false);
+          const cid = event.data.clientId as string;
+          fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
+            .then(r => r.json())
+            .then(json => {
+              if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
+              setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
+            })
+            .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
+        }
+      };
+      window.addEventListener('message', onMessage);
+
+      // Poll for popup close (fallback cleanup)
       const timer = setInterval(() => {
         if (popup.closed) {
           clearInterval(timer);
+          window.removeEventListener('message', onMessage);
           setOauthLoading(false);
           refreshProfile().then(() => loadClientData());
         }
