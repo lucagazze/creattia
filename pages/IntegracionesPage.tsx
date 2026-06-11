@@ -154,6 +154,7 @@ export default function IntegracionesPage() {
   const [mlCountry, setMlCountry] = useState("AR");
   const [simulatingOAuth, setSimulatingOAuth] = useState(false);
   const [oauthStep, setOauthStep] = useState(0); // 0: Idle, 1: Redirecting, 2: Permissions, 3: Success
+  const [isManualMode, setIsManualMode] = useState(false);
 
   // Loading indicator for tests & saves
   const [testingConnection, setTestingConnection] = useState(false);
@@ -246,6 +247,7 @@ export default function IntegracionesPage() {
     setSelectedPlatform(platform);
     setOauthStep(0);
     setSimulatingOAuth(false);
+    setIsManualMode(false);
     // Refresh modal form values from clientData
     if (clientData) {
       if (platform.id === "shopify") {
@@ -538,21 +540,87 @@ export default function IntegracionesPage() {
     // Step 3: Success and save to Supabase
     try {
       const extraData = platformId === "mercadolibre" ? { mercadolibre_country: mlCountry } : {};
-      
-      // If Meta simulation, we can also auto-fill mock credentials if they are empty
+      let mockFields: any = {};
+
       if (platformId === "meta") {
-        const mockFields = {
+        mockFields = {
           meta_account_id: "act_1092837482937",
           meta_pixel_id: "2837492837482"
         };
-        await supabase
+      } else if (platformId === "shopify") {
+        mockFields = {
+          shopify_domain: shopifyDomain.trim() || "mi-tienda.myshopify.com",
+          shopify_access_token: "shpat_mock_shopify_access_token_8237482",
+          ecommerce_platform: "shopify",
+          // Clear others
+          tiendanube_store_id: null,
+          tiendanube_access_token: null,
+          wordpress_url: null,
+          woo_consumer_key: null,
+          woo_consumer_secret: null
+        };
+      } else if (platformId === "tiendanube") {
+        mockFields = {
+          tiendanube_store_id: "123456",
+          tiendanube_access_token: "tn_mock_access_token_8273423",
+          ecommerce_platform: "tiendanube",
+          // Clear others
+          shopify_domain: null,
+          shopify_access_token: null,
+          wordpress_url: null,
+          woo_consumer_key: null,
+          woo_consumer_secret: null
+        };
+      } else if (platformId === "wordpress") {
+        mockFields = {
+          wordpress_url: wooUrl.trim() || "https://mi-tienda-woocommerce.com",
+          woo_consumer_key: "ck_mock_consumer_key_2837498",
+          woo_consumer_secret: "cs_mock_consumer_secret_1928374",
+          ecommerce_platform: "wordpress",
+          // Clear others
+          shopify_domain: null,
+          shopify_access_token: null,
+          tiendanube_store_id: null,
+          tiendanube_access_token: null
+        };
+      } else if (platformId === "klaviyo") {
+        mockFields = {
+          klaviyo_api_key: "pk_mock_klaviyo_key_98234892348234",
+          klaviyo_list_id: "XyZ123"
+        };
+      }
+
+      if (Object.keys(mockFields).length > 0) {
+        const { error } = await supabase
           .from("car_clients")
           .update(mockFields)
           .eq("id", activeProfileId);
+        
+        if (error) throw error;
         setClientData((prev: any) => ({ ...prev, ...mockFields }));
+
+        // Update local React state variables too so the forms show the loaded values
+        if (platformId === "shopify") {
+          setShopifyDomain(mockFields.shopify_domain);
+          setShopifyToken(mockFields.shopify_access_token);
+        } else if (platformId === "tiendanube") {
+          setTiendanubeStoreId(mockFields.tiendanube_store_id);
+          setTiendanubeToken(mockFields.tiendanube_access_token);
+        } else if (platformId === "wordpress") {
+          setWooUrl(mockFields.wordpress_url);
+          setWooConsumerKey(mockFields.woo_consumer_key);
+          setWooConsumerSecret(mockFields.woo_consumer_secret);
+        } else if (platformId === "klaviyo") {
+          setKlaviyoApiKey(mockFields.klaviyo_api_key);
+          setKlaviyoListId(mockFields.klaviyo_list_id);
+        } else if (platformId === "meta") {
+          setMetaAccountId(mockFields.meta_account_id);
+          setMetaPixelId(mockFields.meta_pixel_id);
+        }
       }
 
-      await updateConnectionStatus(platformId, "ok", extraData);
+      const statusKey = (platformId === "wordpress" || platformId === "tiendanube") ? "shopify" : platformId;
+      await updateConnectionStatus(statusKey, "ok", extraData);
       showToast(`¡Conexión con ${PLATFORMS.find(p => p.id === platformId)?.name} exitosa! ✓`, "success");
       
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -802,152 +870,351 @@ export default function IntegracionesPage() {
                 
                 {/* SHOPIFY FORM */}
                 {selectedPlatform.id === "shopify" && (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Dominio de tu tienda (.myshopify.com)
-                      </label>
-                      <input
-                        type="text"
-                        className="apple-input"
-                        placeholder="ej. mi-tienda.myshopify.com"
-                        value={shopifyDomain}
-                        onChange={e => setShopifyDomain(e.target.value)}
-                        required
-                        disabled={savingSettings}
-                      />
-                    </div>
+                  <>
+                    {/* AUTO VIEW */}
+                    {!isManualMode && (
+                      <div className="space-y-5">
+                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                          <div className="flex gap-3">
+                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Vinculación en un solo clic</span>
+                              <p className="text-zinc-500 dark:text-zinc-400">
+                                Instalá la App Oficial de <strong>C.A.R / Algoritmia</strong> en tu tienda Shopify. Sincronizaremos automáticamente tus productos, pedidos y catálogo sin necesidad de configurar claves.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Admin Access Token de Shopify
-                      </label>
-                      <input
-                        type="password"
-                        className="apple-input"
-                        placeholder="shpat_..."
-                        value={shopifyToken}
-                        onChange={e => setShopifyToken(e.target.value)}
-                        required
-                        disabled={savingSettings}
-                      />
-                    </div>
-                    
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                      <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
-                        <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
-                      </span>
-                      <p>
-                        Creá una App Personalizada en tu panel de Shopify (<strong>Configuración &gt; Apps y canales de venta &gt; Desarrollar apps</strong>).
-                        Concedé permisos de lectura para pedidos (<code>read_orders</code>), clientes (<code>read_customers</code>) y productos (<code>read_products</code>), e instalá la app para obtener el token.
-                      </p>
-                    </div>
-                  </div>
+                        <div className="space-y-2">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Dominio de tu tienda (.myshopify.com)
+                          </label>
+                          <input
+                            type="text"
+                            className="apple-input"
+                            placeholder="ej. mi-tienda.myshopify.com"
+                            value={shopifyDomain}
+                            onChange={e => setShopifyDomain(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => runSimulatedOAuth("shopify")}
+                          disabled={savingSettings}
+                          className="w-full h-12 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                        >
+                          <Zap className="w-4 h-4 fill-current" />
+                          <span>Instalar App Oficial Shopify</span>
+                        </button>
+
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
+                          >
+                            Configuración avanzada con claves manuales
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MANUAL VIEW */}
+                    {isManualMode && (
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Dominio de tu tienda (.myshopify.com)
+                          </label>
+                          <input
+                            type="text"
+                            className="apple-input"
+                            placeholder="ej. mi-tienda.myshopify.com"
+                            value={shopifyDomain}
+                            onChange={e => setShopifyDomain(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Admin Access Token de Shopify
+                          </label>
+                          <input
+                            type="password"
+                            className="apple-input"
+                            placeholder="shpat_..."
+                            value={shopifyToken}
+                            onChange={e => setShopifyToken(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+                        
+                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
+                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
+                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
+                          </span>
+                          <p>
+                            Creá una App Personalizada en tu panel de Shopify (<strong>Configuración &gt; Apps y canales de venta &gt; Desarrollar apps</strong>).
+                            Concedé permisos de lectura para pedidos (<code>read_orders</code>), clientes (<code>read_customers</code>) y productos (<code>read_products</code>), e instalá la app para obtener el token.
+                          </p>
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(false)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
+                          >
+                            ← Volver a Conexión Automática
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* TIENDANUBE FORM */}
                 {selectedPlatform.id === "tiendanube" && (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Store ID de Tiendanube
-                      </label>
-                      <input
-                        type="text"
-                        className="apple-input"
-                        placeholder="ej. 1298402"
-                        value={tiendanubeStoreId}
-                        onChange={e => setTiendanubeStoreId(e.target.value)}
-                        required
-                        disabled={savingSettings}
-                      />
-                    </div>
+                  <>
+                    {/* AUTO VIEW */}
+                    {!isManualMode && (
+                      <div className="space-y-5">
+                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                          <div className="flex gap-3">
+                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Instalación automática</span>
+                              <p className="text-zinc-500 dark:text-zinc-400">
+                                Hacé clic en el botón de abajo para instalar nuestra App Oficial en tu panel de Tiendanube. Se configurará todo de manera instantánea y segura.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Access Token API
-                      </label>
-                      <input
-                        type="password"
-                        className="apple-input"
-                        placeholder="ej. 9a7b5..."
-                        value={tiendanubeToken}
-                        onChange={e => setTiendanubeToken(e.target.value)}
-                        required
-                        disabled={savingSettings}
-                      />
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => runSimulatedOAuth("tiendanube")}
+                          disabled={savingSettings}
+                          className="w-full h-12 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                        >
+                          <Zap className="w-4 h-4 fill-current" />
+                          <span>Instalar App en Tiendanube</span>
+                        </button>
 
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                      <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
-                        <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
-                      </span>
-                      <p>
-                        Ingresá a tu consola de Tiendanube y copiá tu Store ID numérico.
-                        Generá un token de desarrollador o asocia la aplicación para interactuar con la API REST de Tiendanube.
-                      </p>
-                    </div>
-                  </div>
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
+                          >
+                            Configuración avanzada con claves manuales
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MANUAL VIEW */}
+                    {isManualMode && (
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Store ID de Tiendanube
+                          </label>
+                          <input
+                            type="text"
+                            className="apple-input"
+                            placeholder="ej. 1298402"
+                            value={tiendanubeStoreId}
+                            onChange={e => setTiendanubeStoreId(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Access Token API
+                          </label>
+                          <input
+                            type="password"
+                            className="apple-input"
+                            placeholder="ej. 9a7b5..."
+                            value={tiendanubeToken}
+                            onChange={e => setTiendanubeToken(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
+                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
+                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
+                          </span>
+                          <p>
+                            Ingresá a tu consola de Tiendanube y copiá tu Store ID numérico.
+                            Generá un token de desarrollador o asocia la aplicación para interactuar con la API REST de Tiendanube.
+                          </p>
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(false)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
+                          >
+                            ← Volver a Conexión Automática
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* WOOCOMMERCE FORM */}
                 {selectedPlatform.id === "wordpress" && (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        URL de tu sitio WordPress / WooCommerce
-                      </label>
-                      <input
-                        type="url"
-                        className="apple-input"
-                        placeholder="https://mi-tienda.com"
-                        value={wooUrl}
-                        onChange={e => setWooUrl(e.target.value)}
-                        required
-                        disabled={savingSettings}
-                      />
-                    </div>
+                  <>
+                    {/* AUTO VIEW */}
+                    {!isManualMode && (
+                      <div className="space-y-5">
+                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                          <div className="flex gap-3">
+                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Plugin Autoconectado</span>
+                              <p className="text-zinc-500 dark:text-zinc-400">
+                                Descargá nuestro plugin e instalalo en tu WordPress, o simplemente ingresá la URL de tu sitio web para vincularlo de forma automática.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Consumer Key de WooCommerce
-                      </label>
-                      <input
-                        type="text"
-                        className="apple-input"
-                        placeholder="ck_..."
-                        value={wooConsumerKey}
-                        onChange={e => setWooConsumerKey(e.target.value)}
-                        required
-                        disabled={savingSettings}
-                      />
-                    </div>
+                        <div className="space-y-2">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            URL de tu sitio WordPress / WooCommerce
+                          </label>
+                          <input
+                            type="url"
+                            className="apple-input"
+                            placeholder="https://mi-tienda.com"
+                            value={wooUrl}
+                            onChange={e => setWooUrl(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Consumer Secret de WooCommerce
-                      </label>
-                      <input
-                        type="password"
-                        className="apple-input"
-                        placeholder="cs_..."
-                        value={wooConsumerSecret}
-                        onChange={e => setWooConsumerSecret(e.target.value)}
-                        required
-                        disabled={savingSettings}
-                      />
-                    </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              showToast("Descargando car-woocommerce-sync.zip...", "success");
+                            }}
+                            disabled={savingSettings}
+                            className="h-12 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 transition-all active:scale-[0.98]"
+                          >
+                            <span>Descargar Plugin ZIP</span>
+                          </button>
 
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                      <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
-                        <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
-                      </span>
-                      <p>
-                        En el panel de WordPress ve a <strong>WooCommerce &gt; Ajustes &gt; Avanzado &gt; API REST</strong>.
-                        Hacé clic en "Añadir clave", asigná un nombre descriptivo y permisos de <strong>Lectura/Escritura</strong>, y copiá las claves generadas.
-                      </p>
-                    </div>
-                  </div>
+                          <button
+                            type="button"
+                            onClick={() => runSimulatedOAuth("wordpress")}
+                            disabled={savingSettings}
+                            className="h-12 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                          >
+                            <Zap className="w-4 h-4 fill-current" />
+                            <span>Autoconectar</span>
+                          </button>
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
+                          >
+                            Configuración avanzada con claves manuales
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MANUAL VIEW */}
+                    {isManualMode && (
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            URL de tu sitio WordPress / WooCommerce
+                          </label>
+                          <input
+                            type="url"
+                            className="apple-input"
+                            placeholder="https://mi-tienda.com"
+                            value={wooUrl}
+                            onChange={e => setWooUrl(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Consumer Key de WooCommerce
+                          </label>
+                          <input
+                            type="text"
+                            className="apple-input"
+                            placeholder="ck_..."
+                            value={wooConsumerKey}
+                            onChange={e => setWooConsumerKey(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Consumer Secret de WooCommerce
+                          </label>
+                          <input
+                            type="password"
+                            className="apple-input"
+                            placeholder="cs_..."
+                            value={wooConsumerSecret}
+                            onChange={e => setWooConsumerSecret(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
+                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
+                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
+                          </span>
+                          <p>
+                            En el panel de WordPress ve a <strong>WooCommerce &gt; Ajustes &gt; Avanzado &gt; API REST</strong>.
+                            Hacé clic en "Añadir clave", asigná un nombre descriptivo y permisos de <strong>Lectura/Escritura</strong>, y copiá las claves generadas.
+                          </p>
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(false)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
+                          >
+                            ← Volver a Conexión Automática
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* MERCADO LIBRE (SIMULATED OAUTH WITH COUNTRY SELECTOR) */}
@@ -990,54 +1257,89 @@ export default function IntegracionesPage() {
 
                 {/* META ADS (MANUAL + SIMULATION FAST VINCULATION) */}
                 {selectedPlatform.id === "meta" && (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Meta Ad Account ID
-                      </label>
-                      <input
-                        type="text"
-                        className="apple-input"
-                        placeholder="ej. act_1029384758"
-                        value={metaAccountId}
-                        onChange={e => setMetaAccountId(e.target.value)}
-                        disabled={savingSettings}
-                      />
-                    </div>
+                  <>
+                    {/* AUTO VIEW */}
+                    {!isManualMode && (
+                      <div className="space-y-5">
+                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                          <div className="flex gap-3">
+                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Vinculación Directa con Facebook</span>
+                              <p className="text-zinc-500 dark:text-zinc-400">
+                                Conectá tu cuenta publicitaria de Meta Ads y tus píxeles iniciando sesión directamente con tu perfil de Facebook.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Meta Pixel ID (Opcional)
-                      </label>
-                      <input
-                        type="text"
-                        className="apple-input"
-                        placeholder="ej. 9283749283"
-                        value={metaPixelId}
-                        onChange={e => setMetaPixelId(e.target.value)}
-                        disabled={savingSettings}
-                      />
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => runSimulatedOAuth("meta")}
+                          disabled={savingSettings}
+                          className="w-full h-12 bg-[#1877f2] hover:bg-[#166fe5] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                        >
+                          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                          </svg>
+                          <span>Vincular con Facebook</span>
+                        </button>
 
-                    {/* Simulation OAuth flow option */}
-                    <div className="relative flex py-2 items-center">
-                      <div className="flex-grow border-t border-zinc-100 dark:border-zinc-800"></div>
-                      <span className="flex-shrink mx-4 text-zinc-400 dark:text-zinc-500 text-[10px] font-bold uppercase tracking-wider">O vinculá automáticamente</span>
-                      <div className="flex-grow border-t border-zinc-100 dark:border-zinc-800"></div>
-                    </div>
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
+                          >
+                            Configuración avanzada manual
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={() => runSimulatedOAuth("meta")}
-                      disabled={savingSettings}
-                      className="w-full h-11 bg-[#1877f2] hover:bg-[#166fe5] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
-                    >
-                      <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0">
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                      </svg>
-                      <span>Vincular con Facebook OAuth</span>
-                    </button>
-                  </div>
+                    {/* MANUAL VIEW */}
+                    {isManualMode && (
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Meta Ad Account ID
+                          </label>
+                          <input
+                            type="text"
+                            className="apple-input"
+                            placeholder="ej. act_1029384758"
+                            value={metaAccountId}
+                            onChange={e => setMetaAccountId(e.target.value)}
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Meta Pixel ID (Opcional)
+                          </label>
+                          <input
+                            type="text"
+                            className="apple-input"
+                            placeholder="ej. 9283749283"
+                            value={metaPixelId}
+                            onChange={e => setMetaPixelId(e.target.value)}
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(false)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
+                          >
+                            ← Volver a Conexión Automática
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* GOOGLE ADS (SIMULATED OAUTH) */}
@@ -1083,50 +1385,102 @@ export default function IntegracionesPage() {
 
                 {/* KLAVIYO FORM */}
                 {selectedPlatform.id === "klaviyo" && (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Klaviyo Private API Key
-                      </label>
-                      <input
-                        type="password"
-                        className="apple-input"
-                        placeholder="pk_..."
-                        value={klaviyoApiKey}
-                        onChange={e => setKlaviyoApiKey(e.target.value)}
-                        required
-                        disabled={savingSettings}
-                      />
-                    </div>
+                  <>
+                    {/* AUTO VIEW */}
+                    {!isManualMode && (
+                      <div className="space-y-5">
+                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                          <div className="flex gap-3">
+                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">OAuth de Klaviyo</span>
+                              <p className="text-zinc-500 dark:text-zinc-400">
+                                Autorizá el acceso de C.A.R / Algoritmia a tus campañas y flujos de Klaviyo directamente mediante inicio de sesión rápido.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Klaviyo Main List ID (Opcional)
-                      </label>
-                      <input
-                        type="text"
-                        className="apple-input"
-                        placeholder="ej. XyZ123"
-                        value={klaviyoListId}
-                        onChange={e => setKlaviyoListId(e.target.value)}
-                        disabled={savingSettings}
-                      />
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => runSimulatedOAuth("klaviyo")}
+                          disabled={savingSettings}
+                          className="w-full h-12 bg-black hover:bg-zinc-900 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                        >
+                          <Zap className="w-4 h-4 fill-current" />
+                          <span>Conectar cuenta de Klaviyo</span>
+                        </button>
 
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                      <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
-                        <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
-                      </span>
-                      <p>
-                        Ingresá a tu cuenta de Klaviyo y ve a <strong>Settings &gt; API Keys</strong>.
-                        Creá una <strong>Private API Key</strong> con permisos de lectura (o Full Access) para metricas, listas y campañas.
-                      </p>
-                    </div>
-                  </div>
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
+                          >
+                            Configuración avanzada con claves manuales
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MANUAL VIEW */}
+                    {isManualMode && (
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Klaviyo Private API Key
+                          </label>
+                          <input
+                            type="password"
+                            className="apple-input"
+                            placeholder="pk_..."
+                            value={klaviyoApiKey}
+                            onChange={e => setKlaviyoApiKey(e.target.value)}
+                            required
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Klaviyo Main List ID (Opcional)
+                          </label>
+                          <input
+                            type="text"
+                            className="apple-input"
+                            placeholder="ej. XyZ123"
+                            value={klaviyoListId}
+                            onChange={e => setKlaviyoListId(e.target.value)}
+                            disabled={savingSettings}
+                          />
+                        </div>
+
+                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
+                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
+                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
+                          </span>
+                          <p>
+                            Ingresá a tu cuenta de Klaviyo y ve a <strong>Settings &gt; API Keys</strong>.
+                            Creá una <strong>Private API Key</strong> con permisos de lectura (o Full Access) para metricas, listas y campañas.
+                          </p>
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsManualMode(false)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
+                          >
+                            ← Volver a Conexión Automática
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* FOOTER ACTIONS - Save / Disconnect / Close */}
-                {!selectedPlatform.isSimulated && (
+                {!selectedPlatform.isSimulated && isManualMode && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3">
                     
                     {/* Disconnect button if already connected */}
@@ -1167,6 +1521,32 @@ export default function IntegracionesPage() {
                           <span>Guardar y Probar</span>
                         </>
                       )}
+                    </button>
+                  </div>
+                )}
+
+                {!selectedPlatform.isSimulated && !isManualMode && (
+                  <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3 justify-end">
+                    {/* Disconnect button if already connected */}
+                    {getPlatformStatus(selectedPlatform.id) === "ok" && (
+                      <button
+                        type="button"
+                        onClick={() => handleDisconnect(selectedPlatform.id)}
+                        disabled={savingSettings || testingConnection}
+                        className="mr-auto text-[12.5px] font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1.5"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Desconectar</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={closeConfigModal}
+                      disabled={savingSettings || testingConnection}
+                      className="px-5 h-10 rounded-xl text-[12.5px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-450 hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all"
+                    >
+                      Cerrar
                     </button>
                   </div>
                 )}
