@@ -789,7 +789,7 @@ export default function InformesPage() {
               ) : (
                 <Calendar className="w-4 h-4 text-zinc-400 group-hover:text-violet-500 transition-colors" />
               )}
-              <span className="text-[12px] font-black text-zinc-700 dark:text-zinc-200">
+              <span className="text-[13.5px] md:text-[12px] font-black text-zinc-700 dark:text-zinc-200">
                 {activePreset === 'custom' ? `${fmtDateRange(activeSince)} - ${fmtDateRange(activeUntil)}` : PRESETS.find(p => p.id === activePreset)?.label || activePreset}
               </span>
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
@@ -798,7 +798,7 @@ export default function InformesPage() {
               <div className="absolute left-0 md:left-auto md:right-0 top-full mt-2.5 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-850 shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[280px] sm:w-[310px] md:w-auto origin-top-left md:origin-top-right">
                 <div className="w-full md:w-[150px] border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible">
                   {PRESETS.map(p => (
-                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-left px-2.5 py-1 rounded-xl text-[10px] font-black transition-all ${pendingPreset === p.id ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
+                    <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-left px-2.5 py-1 rounded-xl text-[12px] md:text-[10px] font-black transition-all ${pendingPreset === p.id ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
                 <div className="p-4 flex flex-col items-center md:items-stretch">
