@@ -272,7 +272,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
           {/* Principal */}
           <div className="space-y-1.5">
             <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
               Principal
             </p>
             {principalItems.map(item => renderItem(item))}
@@ -282,7 +281,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
           {metricasItems.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Metricas
               </p>
               {metricasItems.map(item => renderItem(item))}
@@ -293,7 +291,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
           {activosItems.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                 Activos
               </p>
               {activosItems.map(item => renderItem(item))}
@@ -303,7 +300,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
           {/* Configuración */}
           <div className="space-y-1.5">
             <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
               Configuración
             </p>
             {configuracionItems.map(item => renderItem(item))}
@@ -313,7 +309,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
           {profile?.is_admin && !isViewingAs && (
             <div className="space-y-1.5">
               <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                 Administración
               </p>
               {adminItems.map(item => renderItem(item))}

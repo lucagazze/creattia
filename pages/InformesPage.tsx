@@ -801,7 +801,7 @@ export default function InformesPage() {
                     <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-left px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl text-[12px] md:text-[12px] font-black transition-all ${pendingPreset === p.id ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
                   ))}
                 </div>
-                <div className="p-4 flex flex-col items-center md:items-stretch">
+                <div className="px-1.5 py-4 md:p-5 flex flex-col items-center md:items-stretch">
                   <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                     <MiniCal year={calYear} month={calMonth} since={pendingSince} until={pendingUntil} hovering={hovering} onDay={(iso: string) => { setPendingPreset('custom'); if (!pendingSince || (pendingSince && pendingUntil)) { setPendingSince(iso); setPendingUntil(''); } else { if (iso < pendingSince) { setPendingUntil(pendingSince); setPendingSince(iso); } else { setPendingUntil(iso); } } }} onHover={setHovering} onPrev={() => { if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); } else { setCalMonth(calMonth - 1); } }} onNext={() => { if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); } else { setCalMonth(calMonth + 1); } }} />
                     <div className="hidden md:block">

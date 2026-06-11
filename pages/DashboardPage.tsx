@@ -1758,7 +1758,7 @@ export default function DashboardPage() {
                     </button>
                   ))}
                 </div>
-                <div className="p-3 md:p-5 flex flex-col items-center md:items-stretch">
+                <div className="px-1.5 py-3 md:p-5 flex flex-col items-center md:items-stretch">
                   <div className="flex flex-col md:flex-row gap-4 md:gap-8">
                     <MiniCal
                       year={calYear}
