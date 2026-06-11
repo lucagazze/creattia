@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../services/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useViewAs } from "../contexts/ViewAsContext";
@@ -22,15 +22,10 @@ import {
   Trash2,
   CheckCircle2,
   ChevronRight,
-  Info
+  Info,
+  Lock,
+  Key
 } from "lucide-react";
-
-// Klaviyo SVG logo since it's not in public/assets/
-const KlaviyoLogo = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <path d="M5.04 3h3.6v18h-3.6zM10.8 11.28h3.6V21h-3.6zM16.56 3h3.6v8.28h-3.6zM10.8 3h3.6v6.12h-3.6z" />
-  </svg>
-);
 
 interface IntegrationPlatform {
   id: string;
@@ -149,16 +144,56 @@ export default function IntegracionesPage() {
 
   const [metaAccountId, setMetaAccountId] = useState("");
   const [metaPixelId, setMetaPixelId] = useState("");
+  const [metaToken, setMetaToken] = useState("");
 
-  // Simulated OAuth state
+  // OAuth state
   const [mlCountry, setMlCountry] = useState("AR");
-  const [simulatingOAuth, setSimulatingOAuth] = useState(false);
-  const [oauthStep, setOauthStep] = useState(0); // 0: Idle, 1: Redirecting, 2: Permissions, 3: Success
+  const [oauthLoading, setOauthLoading] = useState(false); // loading when initiating real OAuth
   const [isManualMode, setIsManualMode] = useState(false);
+
+  // URL param success/error detection after OAuth callback redirect
+  const [oauthResult, setOauthResult] = useState<{ platform: string; status: 'success' | 'error'; reason?: string } | null>(null);
 
   // Loading indicator for tests & saves
   const [testingConnection, setTestingConnection] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Detect OAuth callback result from URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shopify = params.get('shopify');
+    const tiendanube = params.get('tiendanube');
+    const meta = params.get('meta');
+    const reason = params.get('reason');
+
+    if (shopify === 'success') {
+      setOauthResult({ platform: 'shopify', status: 'success' });
+      showToast('¡Shopify conectado exitosamente! ✓', 'success');
+      // Clean URL
+      window.history.replaceState({}, '', '/integraciones');
+    } else if (shopify === 'error') {
+      setOauthResult({ platform: 'shopify', status: 'error', reason: reason || '' });
+      showToast('Error al conectar Shopify: ' + (reason || 'desconocido'), 'error');
+      window.history.replaceState({}, '', '/integraciones');
+    } else if (tiendanube === 'success') {
+      setOauthResult({ platform: 'tiendanube', status: 'success' });
+      showToast('¡Tiendanube conectado exitosamente! ✓', 'success');
+      window.history.replaceState({}, '', '/integraciones');
+    } else if (tiendanube === 'error') {
+      setOauthResult({ platform: 'tiendanube', status: 'error', reason: reason || '' });
+      showToast('Error al conectar Tiendanube: ' + (reason || 'desconocido'), 'error');
+      window.history.replaceState({}, '', '/integraciones');
+    } else if (meta === 'success') {
+      setOauthResult({ platform: 'meta', status: 'success' });
+      showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
+      window.history.replaceState({}, '', '/integraciones');
+    } else if (meta === 'error') {
+      setOauthResult({ platform: 'meta', status: 'error', reason: reason || '' });
+      showToast('Error al conectar Meta Ads: ' + (reason || 'desconocido'), 'error');
+      window.history.replaceState({}, '', '/integraciones');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (activeProfileId) {
@@ -190,6 +225,7 @@ export default function IntegracionesPage() {
         setKlaviyoListId(data.klaviyo_list_id || "");
         setMetaAccountId(data.meta_account_id || "");
         setMetaPixelId(data.meta_pixel_id || "");
+        setMetaToken(data.facebook_access_token || "");
         
         // ML Country fallback
         if (data.connection_statuses?.mercadolibre_country) {
@@ -245,8 +281,7 @@ export default function IntegracionesPage() {
 
   const openConfigModal = (platform: IntegrationPlatform) => {
     setSelectedPlatform(platform);
-    setOauthStep(0);
-    setSimulatingOAuth(false);
+    setOauthLoading(false);
     setIsManualMode(false);
     // Refresh modal form values from clientData
     if (clientData) {
@@ -266,13 +301,89 @@ export default function IntegracionesPage() {
       } else if (platform.id === "meta") {
         setMetaAccountId(clientData.meta_account_id || "");
         setMetaPixelId(clientData.meta_pixel_id || "");
+        setMetaToken(clientData.facebook_access_token || "");
       }
     }
   };
 
   const closeConfigModal = () => {
-    if (simulatingOAuth || testingConnection || savingSettings) return; // Prevent closing mid-process
+    if (oauthLoading || testingConnection || savingSettings) return; // Prevent closing mid-process
     setSelectedPlatform(null);
+  };
+
+  // ── REAL OAUTH: Shopify ───────────────────────────────────────────────────────
+  const startShopifyOAuth = async () => {
+    if (!shopifyDomain.trim()) {
+      showToast('Ingresá el dominio de tu tienda Shopify primero', 'warning');
+      return;
+    }
+    if (!activeProfileId) return;
+    setOauthLoading(true);
+    try {
+      const cleanDomain = shopifyDomain.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const res = await fetch(`/api/shopify-oauth?action=authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al iniciar OAuth');
+      }
+      const { authorizeUrl } = await res.json();
+      // Redirect to Shopify authorization page
+      window.location.href = authorizeUrl;
+    } catch (err: any) {
+      showToast(err.message || 'Error al conectar con Shopify', 'error');
+      setOauthLoading(false);
+    }
+  };
+
+  // ── REAL OAUTH: TiendaNube ────────────────────────────────────────────────────
+  const startTiendanubeOAuth = async () => {
+    if (!activeProfileId) return;
+    setOauthLoading(true);
+    try {
+      const res = await fetch(`/api/tiendanube-oauth?action=authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al iniciar OAuth');
+      }
+      const { authorizeUrl } = await res.json();
+      window.location.href = authorizeUrl;
+    } catch (err: any) {
+      showToast(err.message || 'Error al conectar con Tiendanube', 'error');
+      setOauthLoading(false);
+    }
+  };
+
+  // ── REAL OAUTH: Meta (popup) ──────────────────────────────────────────────────
+  const startMetaOAuth = async () => {
+    if (!activeProfileId) return;
+    setOauthLoading(true);
+    try {
+      const res = await fetch(`/api/meta-oauth?action=authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al iniciar OAuth con Meta');
+      }
+      const { authorizeUrl } = await res.json();
+      // Open popup for Facebook Login
+      const popup = window.open(authorizeUrl, 'meta_oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+      if (!popup) {
+        // Fallback: redirect if popup blocked
+        window.location.href = authorizeUrl;
+        return;
+      }
+      // Poll for popup close (callback will redirect to /integraciones?meta=success)
+      const timer = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(timer);
+          setOauthLoading(false);
+          // Reload client data to reflect any changes
+          loadClientData();
+        }
+      }, 500);
+    } catch (err: any) {
+      showToast(err.message || 'Error al conectar con Meta Ads', 'error');
+      setOauthLoading(false);
+    }
   };
 
   // Real connection testing functions
@@ -420,7 +531,9 @@ export default function IntegracionesPage() {
           meta_account_id: metaAccountId.trim() || null,
           meta_pixel_id: metaPixelId.trim() || null
         };
-        // Meta doesn't have an instant api fetch test unless token is configured. Assume ok if configured, or manual ok.
+        // If we have a facebook_access_token saved from OAuth, keep it
+        if (metaToken) fieldsToUpdate.facebook_access_token = metaToken;
+        // Meta: connection ok if account ID is filled
         isConnected = !!metaAccountId.trim();
       }
 
@@ -524,112 +637,20 @@ export default function IntegracionesPage() {
     }
   };
 
-  // Simulated OAuth Connection Trigger
+  // Simulated OAuth for Mercado Libre, Google Ads, TikTok (still no real integration)
   const runSimulatedOAuth = async (platformId: string) => {
-    setSimulatingOAuth(true);
-    setOauthStep(1);
-
-    // Step 1: Redirecting
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setOauthStep(2);
-
-    // Step 2: Granting Permissions
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setOauthStep(3);
-
-    // Step 3: Success and save to Supabase
+    setOauthLoading(true);
     try {
+      await new Promise(resolve => setTimeout(resolve, 2500));
       const extraData = platformId === "mercadolibre" ? { mercadolibre_country: mlCountry } : {};
-      let mockFields: any = {};
-
-      if (platformId === "meta") {
-        mockFields = {
-          meta_account_id: "act_1092837482937",
-          meta_pixel_id: "2837492837482"
-        };
-      } else if (platformId === "shopify") {
-        mockFields = {
-          shopify_domain: shopifyDomain.trim() || "mi-tienda.myshopify.com",
-          shopify_access_token: "shpat_mock_shopify_access_token_8237482",
-          ecommerce_platform: "shopify",
-          // Clear others
-          tiendanube_store_id: null,
-          tiendanube_access_token: null,
-          wordpress_url: null,
-          woo_consumer_key: null,
-          woo_consumer_secret: null
-        };
-      } else if (platformId === "tiendanube") {
-        mockFields = {
-          tiendanube_store_id: "123456",
-          tiendanube_access_token: "tn_mock_access_token_8273423",
-          ecommerce_platform: "tiendanube",
-          // Clear others
-          shopify_domain: null,
-          shopify_access_token: null,
-          wordpress_url: null,
-          woo_consumer_key: null,
-          woo_consumer_secret: null
-        };
-      } else if (platformId === "wordpress") {
-        mockFields = {
-          wordpress_url: wooUrl.trim() || "https://mi-tienda-woocommerce.com",
-          woo_consumer_key: "ck_mock_consumer_key_2837498",
-          woo_consumer_secret: "cs_mock_consumer_secret_1928374",
-          ecommerce_platform: "wordpress",
-          // Clear others
-          shopify_domain: null,
-          shopify_access_token: null,
-          tiendanube_store_id: null,
-          tiendanube_access_token: null
-        };
-      } else if (platformId === "klaviyo") {
-        mockFields = {
-          klaviyo_api_key: "pk_mock_klaviyo_key_98234892348234",
-          klaviyo_list_id: "XyZ123"
-        };
-      }
-
-      if (Object.keys(mockFields).length > 0) {
-        const { error } = await supabase
-          .from("car_clients")
-          .update(mockFields)
-          .eq("id", activeProfileId);
-        
-        if (error) throw error;
-        setClientData((prev: any) => ({ ...prev, ...mockFields }));
-
-        // Update local React state variables too so the forms show the loaded values
-        if (platformId === "shopify") {
-          setShopifyDomain(mockFields.shopify_domain);
-          setShopifyToken(mockFields.shopify_access_token);
-        } else if (platformId === "tiendanube") {
-          setTiendanubeStoreId(mockFields.tiendanube_store_id);
-          setTiendanubeToken(mockFields.tiendanube_access_token);
-        } else if (platformId === "wordpress") {
-          setWooUrl(mockFields.wordpress_url);
-          setWooConsumerKey(mockFields.woo_consumer_key);
-          setWooConsumerSecret(mockFields.woo_consumer_secret);
-        } else if (platformId === "klaviyo") {
-          setKlaviyoApiKey(mockFields.klaviyo_api_key);
-          setKlaviyoListId(mockFields.klaviyo_list_id);
-        } else if (platformId === "meta") {
-          setMetaAccountId(mockFields.meta_account_id);
-          setMetaPixelId(mockFields.meta_pixel_id);
-        }
-      }
-
-      const statusKey = (platformId === "wordpress" || platformId === "tiendanube") ? "shopify" : platformId;
+      const statusKey = platformId;
       await updateConnectionStatus(statusKey, "ok", extraData);
-      showToast(`¡Conexión con ${PLATFORMS.find(p => p.id === platformId)?.name} exitosa! ✓`, "success");
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      showToast(`¡Conexión con ${PLATFORMS.find(p => p.id === platformId)?.name} registrada! ✓`, "success");
       closeConfigModal();
     } catch (err: any) {
       showToast("Error al conectar: " + err.message, "error");
     } finally {
-      setSimulatingOAuth(false);
-      setOauthStep(0);
+      setOauthLoading(false);
     }
   };
 
@@ -818,50 +839,21 @@ export default function IntegracionesPage() {
               </button>
             </div>
 
-            {/* OAUTH SIMULATOR OVERLAY SCREEN */}
-            {simulatingOAuth ? (
-              <div className="py-10 text-center space-y-6 flex flex-col items-center">
-                {oauthStep === 1 && (
-                  <>
-                    <Loader2 className="w-10 h-10 text-violet-500 animate-spin" />
-                    <div>
-                      <p className="text-[15px] font-bold text-zinc-800 dark:text-white">Redirigiendo a {selectedPlatform.name}...</p>
-                      <p className="text-[12px] text-zinc-400 mt-1">Estableciendo canal seguro con el proveedor oauth...</p>
-                    </div>
-                  </>
-                )}
-                {oauthStep === 2 && (
-                  <>
-                    <div className="relative">
-                      <div className="w-12 h-12 bg-violet-100 dark:bg-violet-900/40 rounded-full flex items-center justify-center animate-ping absolute inset-0 opacity-50" />
-                      <div className="w-12 h-12 bg-violet-500 text-white rounded-full flex items-center justify-center relative shadow-md">
-                        <Zap className="w-5 h-5" />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[15px] font-bold text-zinc-800 dark:text-white">Autorizando acceso de Algoritmia...</p>
-                      <p className="text-[12px] text-zinc-400 mt-1">Vinculando perfiles y otorgando permisos de lectura...</p>
-                    </div>
-                  </>
-                )}
-                {oauthStep === 3 && (
-                  <>
-                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-950 text-emerald-500 dark:text-emerald-400 rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
-                      <Check className="w-6 h-6 stroke-[3]" />
-                    </div>
-                    <div>
-                      <p className="text-[16px] font-black text-emerald-600 dark:text-emerald-400">¡Conexión Completada!</p>
-                      <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1">La plataforma se vinculó con tu perfil de negocio.</p>
-                    </div>
-                  </>
-                )}
-
-                {/* Progress Visual Bar */}
-                <div className="w-full max-w-[280px] h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mt-4">
-                  <div
-                    className="h-full bg-violet-500 transition-all duration-1000"
-                    style={{ width: oauthStep === 1 ? "33%" : oauthStep === 2 ? "66%" : "100%" }}
-                  />
+            {/* OAUTH LOADING OVERLAY (while waiting for redirect or popup) */}
+            {oauthLoading ? (
+              <div className="py-12 text-center space-y-5 flex flex-col items-center">
+                <div className="relative">
+                  <div className="w-14 h-14 bg-violet-100 dark:bg-violet-900/40 rounded-full flex items-center justify-center animate-ping absolute inset-0 opacity-40" />
+                  <div className="w-14 h-14 bg-violet-500 text-white rounded-full flex items-center justify-center relative shadow-lg">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[15px] font-bold text-zinc-800 dark:text-white">Conectando con {selectedPlatform.name}...</p>
+                  <p className="text-[12px] text-zinc-400">Estableciendo canal seguro OAuth. No cerrés esta ventana.</p>
+                </div>
+                <div className="w-full max-w-[240px] h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-violet-500 rounded-full animate-pulse" style={{ width: '60%' }} />
                 </div>
               </div>
             ) : (
@@ -871,24 +863,31 @@ export default function IntegracionesPage() {
                 {/* SHOPIFY FORM */}
                 {selectedPlatform.id === "shopify" && (
                   <>
-                    {/* AUTO VIEW */}
+                    {/* OAUTH VIEW (default) */}
                     {!isManualMode && (
                       <div className="space-y-5">
-                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                        <div className="p-5 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/5 dark:to-teal-500/5 rounded-2xl border border-emerald-500/20 dark:border-emerald-500/10 text-[13px] leading-relaxed space-y-3">
                           <div className="flex gap-3">
-                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <Lock className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Vinculación en un solo clic</span>
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Conexión OAuth Segura</span>
                               <p className="text-zinc-500 dark:text-zinc-400">
-                                Instalá la App Oficial de <strong>C.A.R / Algoritmia</strong> en tu tienda Shopify. Sincronizaremos automáticamente tus productos, pedidos y catálogo sin necesidad de configurar claves.
+                                Vas a ser redirigido a Shopify para autorizar el acceso. Se conectarán automáticamente tus pedidos, inventario y clientes.
                               </p>
                             </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {['Pedidos', 'Productos', 'Clientes', 'Inventario'].map(s => (
+                              <span key={s} className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />{s}
+                              </span>
+                            ))}
                           </div>
                         </div>
 
                         <div className="space-y-2">
                           <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Dominio de tu tienda (.myshopify.com)
+                            Dominio de tu tienda Shopify *
                           </label>
                           <input
                             type="text"
@@ -896,83 +895,60 @@ export default function IntegracionesPage() {
                             placeholder="ej. mi-tienda.myshopify.com"
                             value={shopifyDomain}
                             onChange={e => setShopifyDomain(e.target.value)}
-                            required
-                            disabled={savingSettings}
+                            disabled={oauthLoading}
                           />
                         </div>
 
                         <button
                           type="button"
-                          onClick={() => runSimulatedOAuth("shopify")}
-                          disabled={savingSettings}
-                          className="w-full h-12 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                          onClick={startShopifyOAuth}
+                          disabled={oauthLoading || !shopifyDomain.trim()}
+                          className="w-full h-12 bg-[#96BF48] hover:bg-[#85ab3f] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
                         >
-                          <Zap className="w-4 h-4 fill-current" />
-                          <span>Instalar App Oficial Shopify</span>
+                          {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/shopify-bag.webp" alt="" className="w-4 h-4 object-contain" />}
+                          <span>{oauthLoading ? 'Conectando...' : 'Autorizar con Shopify'}</span>
                         </button>
 
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(true)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
-                          >
-                            Configuración avanzada con claves manuales
+                        <div className="text-center pt-1">
+                          <button type="button" onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4">
+                            Tengo un Admin API Token (manual)
                           </button>
                         </div>
                       </div>
                     )}
 
-                    {/* MANUAL VIEW */}
+                    {/* MANUAL VIEW (Admin API Token) */}
                     {isManualMode && (
                       <div className="space-y-4">
+                        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl text-[12px] text-amber-700 dark:text-amber-400 flex gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span>Usá esta opción solo si ya tenés un <strong>Admin API Token</strong> de una app personalizada de Shopify.</span>
+                        </div>
                         <div className="space-y-1.5">
                           <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Dominio de tu tienda (.myshopify.com)
+                            Dominio de tu tienda
                           </label>
-                          <input
-                            type="text"
-                            className="apple-input"
-                            placeholder="ej. mi-tienda.myshopify.com"
-                            value={shopifyDomain}
-                            onChange={e => setShopifyDomain(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
+                          <input type="text" className="apple-input" placeholder="ej. mi-tienda.myshopify.com"
+                            value={shopifyDomain} onChange={e => setShopifyDomain(e.target.value)} required disabled={savingSettings} />
                         </div>
-
                         <div className="space-y-1.5">
                           <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Admin Access Token de Shopify
+                            Admin Access Token
                           </label>
-                          <input
-                            type="password"
-                            className="apple-input"
-                            placeholder="shpat_..."
-                            value={shopifyToken}
-                            onChange={e => setShopifyToken(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
+                          <input type="password" className="apple-input" placeholder="shpat_..."
+                            value={shopifyToken} onChange={e => setShopifyToken(e.target.value)} required disabled={savingSettings} />
                         </div>
-                        
                         <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
-                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
+                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 flex items-center gap-1">
+                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener el token?
                           </span>
-                          <p>
-                            Creá una App Personalizada en tu panel de Shopify (<strong>Configuración &gt; Apps y canales de venta &gt; Desarrollar apps</strong>).
-                            Concedé permisos de lectura para pedidos (<code>read_orders</code>), clientes (<code>read_customers</code>) y productos (<code>read_products</code>), e instalá la app para obtener el token.
-                          </p>
+                          <p>En Shopify: <strong>Configuración → Apps → Desarrollar apps → Crear app</strong>. Permisos necesarios: <code>read_orders</code>, <code>read_customers</code>, <code>read_products</code>.</p>
                         </div>
-
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(false)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
-                          >
-                            ← Volver a Conexión Automática
+                        <div className="text-center">
+                          <button type="button" onClick={() => setIsManualMode(false)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors">
+                            ← Usar OAuth (recomendado)
                           </button>
                         </div>
                       </div>
@@ -983,38 +959,42 @@ export default function IntegracionesPage() {
                 {/* TIENDANUBE FORM */}
                 {selectedPlatform.id === "tiendanube" && (
                   <>
-                    {/* AUTO VIEW */}
+                    {/* OAUTH VIEW (default) */}
                     {!isManualMode && (
                       <div className="space-y-5">
-                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                        <div className="p-5 bg-gradient-to-br from-cyan-500/10 to-sky-500/10 dark:from-cyan-500/5 dark:to-sky-500/5 rounded-2xl border border-cyan-500/20 dark:border-cyan-500/10 text-[13px] leading-relaxed space-y-3">
                           <div className="flex gap-3">
-                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <Lock className="w-5 h-5 text-cyan-500 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Instalación automática</span>
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Conexión OAuth con Tiendanube</span>
                               <p className="text-zinc-500 dark:text-zinc-400">
-                                Hacé clic en el botón de abajo para instalar nuestra App Oficial en tu panel de Tiendanube. Se configurará todo de manera instantánea y segura.
+                                Vas a ser redirigido al portal de Tiendanube para autorizar el acceso. Tus órdenes, productos y datos de clientes se sincronizarán de forma automática.
                               </p>
                             </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {['Órdenes', 'Productos', 'Clientes', 'Estadísticas'].map(s => (
+                              <span key={s} className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 px-2 py-0.5 rounded-full">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />{s}
+                              </span>
+                            ))}
                           </div>
                         </div>
 
                         <button
                           type="button"
-                          onClick={() => runSimulatedOAuth("tiendanube")}
-                          disabled={savingSettings}
-                          className="w-full h-12 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                          onClick={startTiendanubeOAuth}
+                          disabled={oauthLoading}
+                          className="w-full h-12 bg-[#07B3C2] hover:bg-[#069aaa] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
                         >
-                          <Zap className="w-4 h-4 fill-current" />
-                          <span>Instalar App en Tiendanube</span>
+                          {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/tiendanube.webp" alt="" className="w-4 h-4 object-contain" />}
+                          <span>{oauthLoading ? 'Conectando...' : 'Autorizar con Tiendanube'}</span>
                         </button>
 
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(true)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
-                          >
-                            Configuración avanzada con claves manuales
+                        <div className="text-center pt-1">
+                          <button type="button" onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4">
+                            Tengo Store ID + Access Token (manual)
                           </button>
                         </div>
                       </div>
@@ -1023,53 +1003,24 @@ export default function IntegracionesPage() {
                     {/* MANUAL VIEW */}
                     {isManualMode && (
                       <div className="space-y-4">
+                        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl text-[12px] text-amber-700 dark:text-amber-400 flex gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span>Usá esta opción solo si ya tenés las credenciales de la API de Tiendanube.</span>
+                        </div>
                         <div className="space-y-1.5">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Store ID de Tiendanube
-                          </label>
-                          <input
-                            type="text"
-                            className="apple-input"
-                            placeholder="ej. 1298402"
-                            value={tiendanubeStoreId}
-                            onChange={e => setTiendanubeStoreId(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Store ID</label>
+                          <input type="text" className="apple-input" placeholder="ej. 1298402"
+                            value={tiendanubeStoreId} onChange={e => setTiendanubeStoreId(e.target.value)} required disabled={savingSettings} />
                         </div>
-
                         <div className="space-y-1.5">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Access Token API
-                          </label>
-                          <input
-                            type="password"
-                            className="apple-input"
-                            placeholder="ej. 9a7b5..."
-                            value={tiendanubeToken}
-                            onChange={e => setTiendanubeToken(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Access Token</label>
+                          <input type="password" className="apple-input" placeholder="ej. 9a7b5..."
+                            value={tiendanubeToken} onChange={e => setTiendanubeToken(e.target.value)} required disabled={savingSettings} />
                         </div>
-
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
-                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
-                          </span>
-                          <p>
-                            Ingresá a tu consola de Tiendanube y copiá tu Store ID numérico.
-                            Generá un token de desarrollador o asocia la aplicación para interactuar con la API REST de Tiendanube.
-                          </p>
-                        </div>
-
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(false)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
-                          >
-                            ← Volver a Conexión Automática
+                        <div className="text-center">
+                          <button type="button" onClick={() => setIsManualMode(false)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors">
+                            ← Usar OAuth (recomendado)
                           </button>
                         </div>
                       </div>
@@ -1077,141 +1028,61 @@ export default function IntegracionesPage() {
                   </>
                 )}
 
-                {/* WOOCOMMERCE FORM */}
+                {/* WOOCOMMERCE FORM - direct real credentials (no simulated OAuth) */}
                 {selectedPlatform.id === "wordpress" && (
                   <>
-                    {/* AUTO VIEW */}
                     {!isManualMode && (
+
                       <div className="space-y-5">
-                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                        <div className="p-5 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/5 dark:to-indigo-500/5 rounded-2xl border border-blue-500/20 dark:border-blue-500/10 text-[13px] leading-relaxed space-y-3">
                           <div className="flex gap-3">
-                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <Key className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Plugin Autoconectado</span>
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Conexión via REST API</span>
                               <p className="text-zinc-500 dark:text-zinc-400">
-                                Descargá nuestro plugin e instalalo en tu WordPress, o simplemente ingresá la URL de tu sitio web para vincularlo de forma automática.
+                                WooCommerce usa autenticación por clave de API. Generá tus claves en el panel de WordPress en menos de 1 minuto.
                               </p>
                             </div>
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            URL de tu sitio WordPress / WooCommerce
-                          </label>
-                          <input
-                            type="url"
-                            className="apple-input"
-                            placeholder="https://mi-tienda.com"
-                            value={wooUrl}
-                            onChange={e => setWooUrl(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
+                        {/* Step-by-step guide */}
+                        <div className="space-y-2.5">
+                          {[
+                            { n: 1, text: 'En WordPress ve a WooCommerce → Ajustes → Avanzado → API REST' },
+                            { n: 2, text: 'Hacé clic en "Añadir clave", ponele un nombre (ej. "Algoritmia") y permisos Lectura' },
+                            { n: 3, text: 'Copiá el Consumer Key y Consumer Secret generados, y pegálos aquí' }
+                          ].map(step => (
+                            <div key={step.n} className="flex gap-3 items-start">
+                              <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[11px] font-black shrink-0 mt-0.5">{step.n}</div>
+                              <p className="text-[12px] text-zinc-600 dark:text-zinc-400">{step.text}</p>
+                            </div>
+                          ))}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              showToast("Descargando car-woocommerce-sync.zip...", "success");
-                            }}
-                            disabled={savingSettings}
-                            className="h-12 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 transition-all active:scale-[0.98]"
-                          >
-                            <span>Descargar Plugin ZIP</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => runSimulatedOAuth("wordpress")}
-                            disabled={savingSettings}
-                            className="h-12 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
-                          >
-                            <Zap className="w-4 h-4 fill-current" />
-                            <span>Autoconectar</span>
-                          </button>
-                        </div>
-
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(true)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
-                          >
-                            Configuración avanzada con claves manuales
-                          </button>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">URL del sitio</label>
+                            <input type="url" className="apple-input" placeholder="https://mi-tienda.com"
+                              value={wooUrl} onChange={e => setWooUrl(e.target.value)} required disabled={savingSettings} />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Consumer Key</label>
+                            <input type="text" className="apple-input" placeholder="ck_..."
+                              value={wooConsumerKey} onChange={e => setWooConsumerKey(e.target.value)} required disabled={savingSettings} />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Consumer Secret</label>
+                            <input type="password" className="apple-input" placeholder="cs_..."
+                              value={wooConsumerSecret} onChange={e => setWooConsumerSecret(e.target.value)} required disabled={savingSettings} />
+                          </div>
                         </div>
                       </div>
                     )}
-
-                    {/* MANUAL VIEW */}
                     {isManualMode && (
-                      <div className="space-y-4">
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            URL de tu sitio WordPress / WooCommerce
-                          </label>
-                          <input
-                            type="url"
-                            className="apple-input"
-                            placeholder="https://mi-tienda.com"
-                            value={wooUrl}
-                            onChange={e => setWooUrl(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Consumer Key de WooCommerce
-                          </label>
-                          <input
-                            type="text"
-                            className="apple-input"
-                            placeholder="ck_..."
-                            value={wooConsumerKey}
-                            onChange={e => setWooConsumerKey(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Consumer Secret de WooCommerce
-                          </label>
-                          <input
-                            type="password"
-                            className="apple-input"
-                            placeholder="cs_..."
-                            value={wooConsumerSecret}
-                            onChange={e => setWooConsumerSecret(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
-                        </div>
-
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
-                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
-                          </span>
-                          <p>
-                            En el panel de WordPress ve a <strong>WooCommerce &gt; Ajustes &gt; Avanzado &gt; API REST</strong>.
-                            Hacé clic en "Añadir clave", asigná un nombre descriptivo y permisos de <strong>Lectura/Escritura</strong>, y copiá las claves generadas.
-                          </p>
-                        </div>
-
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(false)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
-                          >
-                            ← Volver a Conexión Automática
-                          </button>
-                        </div>
+                      <div className="text-center py-4">
+                        <button type="button" onClick={() => setIsManualMode(false)}
+                          className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors">← Ocultar guía</button>
                       </div>
                     )}
                   </>
@@ -1255,43 +1126,51 @@ export default function IntegracionesPage() {
                   </div>
                 )}
 
-                {/* META ADS (MANUAL + SIMULATION FAST VINCULATION) */}
+                {/* META ADS - Real Facebook OAuth popup */}
                 {selectedPlatform.id === "meta" && (
                   <>
-                    {/* AUTO VIEW */}
+                    {/* OAUTH VIEW (default) */}
                     {!isManualMode && (
                       <div className="space-y-5">
-                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
+                        <div className="p-5 bg-gradient-to-br from-blue-600/10 to-indigo-600/10 dark:from-blue-600/5 dark:to-indigo-600/5 rounded-2xl border border-blue-600/20 dark:border-blue-600/10 text-[13px] leading-relaxed space-y-3">
                           <div className="flex gap-3">
-                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#1877f2] shrink-0 mt-0.5">
+                              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                            </svg>
                             <div className="space-y-1">
-                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Vinculación Directa con Facebook</span>
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Vinculación con Facebook Login</span>
                               <p className="text-zinc-500 dark:text-zinc-400">
-                                Conectá tu cuenta publicitaria de Meta Ads y tus píxeles iniciando sesión directamente con tu perfil de Facebook.
+                                Iniciás sesión con tu cuenta de Facebook. Algoritmia accede de forma segura a tus cuentas publicitarias para importar métricas reales.
                               </p>
                             </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {['Cuentas publicitarias', 'Campañas', 'Métricas ROAS', 'Insights'].map(s => (
+                              <span key={s} className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />{s}
+                              </span>
+                            ))}
                           </div>
                         </div>
 
                         <button
                           type="button"
-                          onClick={() => runSimulatedOAuth("meta")}
-                          disabled={savingSettings}
-                          className="w-full h-12 bg-[#1877f2] hover:bg-[#166fe5] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                          onClick={startMetaOAuth}
+                          disabled={oauthLoading}
+                          className="w-full h-12 bg-[#1877f2] hover:bg-[#166fe5] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
                         >
-                          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0">
-                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                          </svg>
-                          <span>Vincular con Facebook</span>
+                          {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0">
+                              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                            </svg>
+                          )}
+                          <span>{oauthLoading ? 'Abriendo Facebook...' : 'Vincular con Facebook'}</span>
                         </button>
 
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(true)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
-                          >
-                            Configuración avanzada manual
+                        <div className="text-center pt-1">
+                          <button type="button" onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4">
+                            Ingresar Ad Account ID manualmente
                           </button>
                         </div>
                       </div>
@@ -1383,104 +1262,68 @@ export default function IntegracionesPage() {
                   </div>
                 )}
 
-                {/* KLAVIYO FORM */}
+                {/* KLAVIYO FORM - direct API Key (Klaviyo has no real OAuth for private API) */}
                 {selectedPlatform.id === "klaviyo" && (
-                  <>
-                    {/* AUTO VIEW */}
-                    {!isManualMode && (
-                      <div className="space-y-5">
-                        <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 dark:from-violet-500/5 dark:to-indigo-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-4">
-                          <div className="flex gap-3">
-                            <Zap className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
-                            <div className="space-y-1">
-                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">OAuth de Klaviyo</span>
-                              <p className="text-zinc-500 dark:text-zinc-400">
-                                Autorizá el acceso de C.A.R / Algoritmia a tus campañas y flujos de Klaviyo directamente mediante inicio de sesión rápido.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => runSimulatedOAuth("klaviyo")}
-                          disabled={savingSettings}
-                          className="w-full h-12 bg-black hover:bg-zinc-900 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
-                        >
-                          <Zap className="w-4 h-4 fill-current" />
-                          <span>Conectar cuenta de Klaviyo</span>
-                        </button>
-
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(true)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4"
-                          >
-                            Configuración avanzada con claves manuales
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* MANUAL VIEW */}
-                    {isManualMode && (
-                      <div className="space-y-4">
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Klaviyo Private API Key
-                          </label>
-                          <input
-                            type="password"
-                            className="apple-input"
-                            placeholder="pk_..."
-                            value={klaviyoApiKey}
-                            onChange={e => setKlaviyoApiKey(e.target.value)}
-                            required
-                            disabled={savingSettings}
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Klaviyo Main List ID (Opcional)
-                          </label>
-                          <input
-                            type="text"
-                            className="apple-input"
-                            placeholder="ej. XyZ123"
-                            value={klaviyoListId}
-                            onChange={e => setKlaviyoListId(e.target.value)}
-                            disabled={savingSettings}
-                          />
-                        </div>
-
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                          <span className="font-extrabold text-zinc-700 dark:text-zinc-350 block flex items-center gap-1">
-                            <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener estas claves?
-                          </span>
-                          <p>
-                            Ingresá a tu cuenta de Klaviyo y ve a <strong>Settings &gt; API Keys</strong>.
-                            Creá una <strong>Private API Key</strong> con permisos de lectura (o Full Access) para metricas, listas y campañas.
+                  <div className="space-y-5">
+                    <div className="p-5 bg-gradient-to-br from-green-500/10 to-emerald-500/10 dark:from-green-500/5 dark:to-emerald-500/5 rounded-2xl border border-green-500/20 dark:border-green-500/10 text-[13px] leading-relaxed space-y-3">
+                      <div className="flex gap-3">
+                        <Key className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Private API Key de Klaviyo</span>
+                          <p className="text-zinc-500 dark:text-zinc-400">
+                            Klaviyo usa autenticación por API Key privada. Se genera en segundos desde tu cuenta y da acceso a todas tus métricas y listas.
                           </p>
                         </div>
-
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setIsManualMode(false)}
-                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors"
-                          >
-                            ← Volver a Conexión Automática
-                          </button>
-                        </div>
                       </div>
-                    )}
-                  </>
+                    </div>
+
+                    {/* Step guide */}
+                    <div className="space-y-2.5">
+                      {[
+                        { n: 1, text: 'Ingresá a Klaviyo → Settings → API Keys' },
+                        { n: 2, text: 'Hacé clic en "Create Private API Key" con acceso Full o de lectura' },
+                        { n: 3, text: 'Copiá la clave generada (empieza con pk_) y pegála aquí' }
+                      ].map(step => (
+                        <div key={step.n} className="flex gap-3 items-start">
+                          <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 flex items-center justify-center text-[11px] font-black shrink-0 mt-0.5">{step.n}</div>
+                          <p className="text-[12px] text-zinc-600 dark:text-zinc-400">{step.text}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <a
+                      href="https://www.klaviyo.com/settings/api-keys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 text-[12px] font-bold text-green-600 dark:text-green-400 hover:underline"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Ir a Klaviyo API Keys →
+                    </a>
+
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Private API Key *</label>
+                        <input type="password" className="apple-input" placeholder="pk_..."
+                          value={klaviyoApiKey} onChange={e => setKlaviyoApiKey(e.target.value)} required disabled={savingSettings} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">List ID principal (opcional)</label>
+                        <input type="text" className="apple-input" placeholder="ej. XyZ123"
+                          value={klaviyoListId} onChange={e => setKlaviyoListId(e.target.value)} disabled={savingSettings} />
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* FOOTER ACTIONS - Save / Disconnect / Close */}
-                {!selectedPlatform.isSimulated && isManualMode && (
+                {/* Show save button for all real platforms (manual or not) */}
+                {!selectedPlatform.isSimulated && (
+                  ['shopify', 'tiendanube', 'wordpress', 'klaviyo', 'meta'].includes(selectedPlatform.id)
+                ) && (
+                  // Show save/connect button only when there are real credentials to save (manual mode or woo/klaviyo)
+                  (isManualMode || selectedPlatform.id === 'wordpress' || selectedPlatform.id === 'klaviyo' || (selectedPlatform.id === 'meta' && isManualMode))
+                ) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3">
                     
                     {/* Disconnect button if already connected */}
@@ -1513,62 +1356,47 @@ export default function IntegracionesPage() {
                       {(savingSettings || testingConnection) ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Guardando y Probando...</span>
+                          <span>Probando conexión...</span>
                         </>
                       ) : (
                         <>
                           <Check className="w-4 h-4" />
-                          <span>Guardar y Probar</span>
+                          <span>Guardar y Probar Conexión</span>
                         </>
                       )}
                     </button>
                   </div>
                 )}
 
-                {!selectedPlatform.isSimulated && !isManualMode && (
+                {/* Footer for OAuth-based platforms (shopify/tiendanube/meta in auto mode): just disconnect + close */}
+                {!selectedPlatform.isSimulated && !isManualMode &&
+                  ['shopify', 'tiendanube', 'meta'].includes(selectedPlatform.id) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3 justify-end">
-                    {/* Disconnect button if already connected */}
                     {getPlatformStatus(selectedPlatform.id) === "ok" && (
-                      <button
-                        type="button"
-                        onClick={() => handleDisconnect(selectedPlatform.id)}
+                      <button type="button" onClick={() => handleDisconnect(selectedPlatform.id)}
                         disabled={savingSettings || testingConnection}
-                        className="mr-auto text-[12.5px] font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1.5"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span>Desconectar</span>
+                        className="mr-auto text-[12.5px] font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1.5">
+                        <Trash2 className="w-4 h-4" /><span>Desconectar</span>
                       </button>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={closeConfigModal}
-                      disabled={savingSettings || testingConnection}
-                      className="px-5 h-10 rounded-xl text-[12.5px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-450 hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all"
-                    >
+                    <button type="button" onClick={closeConfigModal}
+                      disabled={oauthLoading || savingSettings}
+                      className="px-5 h-10 rounded-xl text-[12.5px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-550 hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all">
                       Cerrar
                     </button>
                   </div>
                 )}
-                
-                {/* Simulated oauth action bar (close or disconnect) */}
+
+                {/* Footer for simulated OAuth platforms (mercadolibre, google_ads, tiktok_ads) */}
                 {selectedPlatform.isSimulated && getPlatformStatus(selectedPlatform.id) === "ok" && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex justify-between">
-                    <button
-                      type="button"
-                      onClick={() => handleDisconnect(selectedPlatform.id)}
+                    <button type="button" onClick={() => handleDisconnect(selectedPlatform.id)}
                       disabled={savingSettings}
-                      className="text-[12.5px] font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1.5"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Desconectar</span>
+                      className="text-[12.5px] font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1.5">
+                      <Trash2 className="w-4 h-4" /><span>Desconectar</span>
                     </button>
-                    
-                    <button
-                      type="button"
-                      onClick={closeConfigModal}
-                      className="px-4 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-250 transition-all"
-                    >
+                    <button type="button" onClick={closeConfigModal}
+                      className="px-4 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-[12.5px] font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-250 transition-all">
                       Cerrar
                     </button>
                   </div>
