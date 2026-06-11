@@ -994,7 +994,7 @@ export default function CostosPage() {
                 {/* Shopify */}
                 <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-white/[0.04]">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-[10px] font-black">SF</div>
+                    <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-6 h-6 object-contain shrink-0" />
                     <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">Shopify Fee</span>
                   </div>
                   <div className="flex gap-2">
@@ -1013,7 +1013,7 @@ export default function CostosPage() {
                 {/* Tiendanube */}
                 <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-white/[0.04]">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded bg-blue-500/10 flex items-center justify-center text-blue-500 text-[10px] font-black">TN</div>
+                    <img src="/assets/tiendanube.webp" alt="Tiendanube" className="w-6 h-6 object-contain shrink-0" />
                     <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">Tiendanube Fee</span>
                   </div>
                   <div className="flex gap-2">
@@ -1032,7 +1032,7 @@ export default function CostosPage() {
                 {/* Mercado Libre */}
                 <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-white/[0.04]">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded bg-yellow-500/10 flex items-center justify-center text-yellow-500 text-[10px] font-black">ML</div>
+                    <img src="/assets/mercadolibre.webp" alt="Mercado Libre" className="w-6 h-6 object-contain shrink-0" />
                     <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">MercadoLibre Fee</span>
                   </div>
                   <div className="flex gap-2">
@@ -1209,7 +1209,7 @@ export default function CostosPage() {
                   {/* Mercado Pago */}
                   <div className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-100 dark:border-white/[0.04] bg-white dark:bg-zinc-900/30">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-500 text-[10px] font-black">MP</div>
+                      <img src="/assets/mercadolibre.webp" alt="Mercado Pago" className="w-8 h-8 object-contain shrink-0" />
                       <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">mercado pago</span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1604,7 +1604,26 @@ export default function CostosPage() {
                             <td className="p-3 text-center">
                               <span className={`inline-block w-2 h-2 rounded-full ${item.adSpend ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'}`} />
                             </td>
-                            <td className="p-3 text-zinc-400">{item.platform}</td>
+                            <td className="p-3 text-zinc-400">
+                              {item.platform === 'Meta' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <img src="/assets/meta (1).webp" alt="Meta" className="w-4 h-4 object-contain shrink-0" />
+                                  <span className="text-zinc-650 dark:text-zinc-350">Meta</span>
+                                </div>
+                              ) : item.platform === 'Google' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <img src="/assets/GADS.webp" alt="Google" className="w-4 h-4 object-contain shrink-0" />
+                                  <span className="text-zinc-650 dark:text-zinc-350">Google</span>
+                                </div>
+                              ) : item.platform === 'TikTok' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-4 h-4 object-contain shrink-0" />
+                                  <span className="text-zinc-650 dark:text-zinc-350">TikTok</span>
+                                </div>
+                              ) : (
+                                item.platform
+                              )}
+                            </td>
                             <td className="p-3 text-right shrink-0">
                               <div className="flex justify-end gap-1">
                                 <button onClick={() => handleOpenEditModal(item, 'otros')} className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><Edit3 className="w-3.5 h-3.5" /></button>
@@ -1712,7 +1731,26 @@ export default function CostosPage() {
                             <td className="p-3 text-center">
                               <span className={`inline-block w-2.5 h-2.5 rounded-full ${item.adSpend ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'}`} />
                             </td>
-                            <td className="p-3 text-zinc-400">{item.platform}</td>
+                            <td className="p-3 text-zinc-400">
+                              {item.platform === 'Meta' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <img src="/assets/meta (1).webp" alt="Meta" className="w-4 h-4 object-contain shrink-0" />
+                                  <span className="text-zinc-650 dark:text-zinc-350">Meta</span>
+                                </div>
+                              ) : item.platform === 'Google' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <img src="/assets/GADS.webp" alt="Google" className="w-4 h-4 object-contain shrink-0" />
+                                  <span className="text-zinc-650 dark:text-zinc-350">Google</span>
+                                </div>
+                              ) : item.platform === 'TikTok' ? (
+                                <div className="flex items-center gap-1.5">
+                                  <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-4 h-4 object-contain shrink-0" />
+                                  <span className="text-zinc-650 dark:text-zinc-350">TikTok</span>
+                                </div>
+                              ) : (
+                                item.platform
+                              )}
+                            </td>
                             <td className="p-3 text-right shrink-0">
                               <div className="flex justify-end gap-1">
                                 <button onClick={() => handleOpenEditModal(item, 'campanas')} className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"><Edit3 className="w-3.5 h-3.5" /></button>

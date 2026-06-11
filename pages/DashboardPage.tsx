@@ -1919,11 +1919,11 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 {detectedPlatform === 'shopify' ? (
-                  <ShopifyLogo className="w-3.5 h-3.5 text-[#95BF47] shrink-0" />
+                  <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-4.5 h-4.5 object-contain shrink-0" />
                 ) : detectedPlatform === 'tiendanube' ? (
-                  <TiendanubeLogo className="w-3.5 h-3.5 text-[#4c53c0] shrink-0" />
+                  <img src="/assets/tiendanube.webp" alt="Tiendanube" className="w-4.5 h-4.5 object-contain shrink-0" />
                 ) : detectedPlatform === 'wordpress' ? (
-                  <WordpressLogo className="w-3.5 h-3.5 text-[#21759b] shrink-0" />
+                  <img src="/assets/logowordpress.webp" alt="WooCommerce" className="w-4.5 h-4.5 object-contain shrink-0" />
                 ) : (
                   <div className="w-2 h-2 rounded-full bg-pink-500 shrink-0" />
                 )}
@@ -2131,7 +2131,7 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
-                <MetaLogo className="w-3.5 h-3.5 text-[#0081fb] shrink-0" />
+                <img src="/assets/meta (1).webp" alt="Meta" className="w-4 h-4 object-contain shrink-0" />
                 <h2 className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
                   Captación (Meta Ads)
                 </h2>

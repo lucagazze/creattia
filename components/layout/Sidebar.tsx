@@ -196,15 +196,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       }`;
 
       if (isMetaAds) {
-        return <MetaLogo className={className} />;
+        return <img src="/assets/meta (1).webp" alt="Meta" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
       }
       if (isEmailMarketing) {
         return <KlaviyoLogo className={className} />;
       }
       if (isTiendaOnline) {
-        if (detectedPlatform === 'shopify') return <ShopifyLogo className={className} />;
-        if (detectedPlatform === 'tiendanube') return <TiendanubeLogo className={className} />;
-        if (detectedPlatform === 'wordpress') return <WordpressLogo className={className} />;
+        if (detectedPlatform === 'shopify') return <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
+        if (detectedPlatform === 'tiendanube') return <img src="/assets/tiendanube.webp" alt="Tiendanube" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
+        if (detectedPlatform === 'wordpress') return <img src="/assets/logowordpress.webp" alt="WooCommerce" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
         return <ShoppingBag className={className} />;
       }
 
