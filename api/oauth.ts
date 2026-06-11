@@ -303,6 +303,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
   if (action === 'meta-accounts') return handleMetaAccounts(req, res);
+
+  if (action === 'meta-status') {
+    const clientId = req.query.clientId as string;
+    if (!clientId || !SUPABASE_SERVICE_ROLE_KEY) return res.status(200).json({ ready: false });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data } = await supabase.from('car_clients').select('facebook_access_token').eq('id', clientId).maybeSingle();
+    return res.status(200).json({ ready: !!(data?.facebook_access_token) });
+  }
+
   if (action.startsWith('meta')) return handleMeta(req, res);
 
   if (action === 'ensure-profile') {

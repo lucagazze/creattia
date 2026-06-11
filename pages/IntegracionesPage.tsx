@@ -427,6 +427,7 @@ export default function IntegracionesPage() {
         if (handled) return;
         handled = true;
         clearInterval(timer);
+        clearInterval(pollTimer);
         try { bc.close(); } catch {}
         window.removeEventListener('message', messageHandler);
         window.removeEventListener('storage', storageHandler);
@@ -440,6 +441,16 @@ export default function IntegracionesPage() {
           })
           .catch(() => showToast('Error al obtener cuentas de Meta', 'error'));
       };
+
+      // Method 4: Server polling — check every 3s if the token was saved in DB
+      // This is the most reliable fallback: bypasses all cross-window messaging issues
+      const pollTimer = setInterval(async () => {
+        try {
+          const r = await fetch(`/api/oauth?action=meta-status&clientId=${encodeURIComponent(activeProfileId)}`);
+          const { ready } = await r.json();
+          if (ready) handleMetaSelect(activeProfileId);
+        } catch {}
+      }, 3000);
 
       // Method 1: BroadcastChannel
       const bc = new BroadcastChannel('meta_oauth');
@@ -489,6 +500,7 @@ export default function IntegracionesPage() {
         if (!handled) {
           handled = true;
           clearInterval(timer);
+          clearInterval(pollTimer);
           try { bc.close(); } catch {}
           window.removeEventListener('message', messageHandler);
           window.removeEventListener('storage', storageHandler);
