@@ -220,8 +220,8 @@ export default function IntegracionesPage() {
 
       // Fallback: if still alive after 400ms, window.close() failed
       setTimeout(() => {
-        // Only proceed if we're the main window (no opener) OR opener is gone
-        if (!window.opener || window.opener.closed) {
+        // Only proceed if we're the main window (meaning window.name is not 'meta_oauth') AND (no opener OR opener is gone)
+        if (window.name !== 'meta_oauth' && (!window.opener || window.opener.closed)) {
           window.history.replaceState({}, '', '/integraciones');
           setMetaLoadingText("Obteniendo cuentas publicitarias de Meta...");
           fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
@@ -890,7 +890,7 @@ export default function IntegracionesPage() {
 
   // If we are in the OAuth popup showing select, render a minimal clean success page
   const params = new URLSearchParams(window.location.search);
-  const isMetaSelectPopup = params.get('meta') === 'select' && window.opener && !window.opener.closed;
+  const isMetaSelectPopup = params.get('meta') === 'select' && (window.name === 'meta_oauth' || (window.opener && !window.opener.closed));
 
   if (isMetaSelectPopup) {
     return (
