@@ -157,6 +157,7 @@ export default function MensajesDMPage() {
           ig_business_id: igId,
           ig_username: igUsername,
           fb_page_access_token: page.access_token,
+          facebook_access_token: connectingUserToken,
           connection_statuses: newStatuses
         })
         .eq('id', clientId);
@@ -311,12 +312,12 @@ export default function MensajesDMPage() {
     const load = async () => {
       const [igRes, fbRes] = await Promise.all([
         igId
-          ? metaAds.getInstagramConversations(fbPageId, igId, undefined, 15).catch(err => {
+          ? metaAds.getInstagramConversations(fbPageId, igId, undefined, 10).catch(err => {
               if (active) setIgError(err.message);
               return null;
             })
           : Promise.resolve(null),
-        metaAds.getPageConversations(fbPageId, 'messenger', undefined, 15).catch(err => {
+        metaAds.getPageConversations(fbPageId, 'messenger', undefined, 10).catch(err => {
           if (active) setFbError(err.message);
           return null;
         }),
@@ -353,10 +354,10 @@ export default function MensajesDMPage() {
     try {
       const [igRes, fbRes] = await Promise.all([
         igHasMore && igId && igNextCursor
-          ? metaAds.getInstagramConversations(fbPageId, igId, igNextCursor, 15).catch(() => null)
+          ? metaAds.getInstagramConversations(fbPageId, igId, igNextCursor, 10).catch(() => null)
           : Promise.resolve(null),
         fbHasMore && fbNextCursor
-          ? metaAds.getPageConversations(fbPageId, 'messenger', fbNextCursor, 15).catch(() => null)
+          ? metaAds.getPageConversations(fbPageId, 'messenger', fbNextCursor, 10).catch(() => null)
           : Promise.resolve(null),
       ]);
 

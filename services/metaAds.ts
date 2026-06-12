@@ -728,26 +728,58 @@ export const metaAds = {
 
   // Facebook Messenger conversations — full fields including last message preview.
   // cursor: paging.cursors.after from a previous response (for pagination)
-  getPageConversations: (pageId: string, platform: 'messenger' | 'instagram' = 'messenger', cursor?: string, limit = 15) => {
-    const params: Record<string, string> = {
-      fields: 'id,participants,unread_count,updated_time,messages.limit(1){id,message,from,created_time}',
-      platform,
-      limit: String(limit),
+  getPageConversations: async (pageId: string, platform: 'messenger' | 'instagram' = 'messenger', cursor?: string, limit = 10): Promise<any> => {
+    const fetchWithLimit = async (currentLimit: number): Promise<any> => {
+      const params: Record<string, string> = {
+        fields: 'id,participants,unread_count,updated_time,messages.limit(1){id,message,from,created_time}',
+        platform,
+        limit: String(currentLimit),
+      };
+      if (cursor) params.after = cursor;
+      try {
+        return await apiGetPage(pageId, `${pageId}/conversations`, params);
+      } catch (err: any) {
+        const msg = String(err.message || '').toLowerCase();
+        if (
+          (msg.includes('reduce the amount of data') || msg.includes('timeout') || msg.includes('unexpected error') || msg.includes('500')) &&
+          currentLimit > 1
+        ) {
+          const nextLimit = Math.max(1, Math.floor(currentLimit / 2));
+          console.warn(`getPageConversations failed with limit ${currentLimit}. Retrying with limit ${nextLimit}...`);
+          return await fetchWithLimit(nextLimit);
+        }
+        throw err;
+      }
     };
-    if (cursor) params.after = cursor;
-    return apiGetPage(pageId, `${pageId}/conversations`, params);
+    return fetchWithLimit(limit);
   },
 
   // Instagram Direct conversations — minimal fields only (IG rejects nested message fields).
   // cursor: paging.cursors.after from a previous response (for pagination)
-  getInstagramConversations: (fbPageId: string, igUserId: string, cursor?: string, limit = 15) => {
-    const params: Record<string, string> = {
-      fields: 'id,participants,unread_count,updated_time',
-      platform: 'instagram',
-      limit: String(limit),
+  getInstagramConversations: async (fbPageId: string, igUserId: string, cursor?: string, limit = 10): Promise<any> => {
+    const fetchWithLimit = async (currentLimit: number): Promise<any> => {
+      const params: Record<string, string> = {
+        fields: 'id,participants,unread_count,updated_time',
+        platform: 'instagram',
+        limit: String(currentLimit),
+      };
+      if (cursor) params.after = cursor;
+      try {
+        return await apiGetPage(fbPageId, `${fbPageId}/conversations`, params);
+      } catch (err: any) {
+        const msg = String(err.message || '').toLowerCase();
+        if (
+          (msg.includes('reduce the amount of data') || msg.includes('timeout') || msg.includes('unexpected error') || msg.includes('500')) &&
+          currentLimit > 1
+        ) {
+          const nextLimit = Math.max(1, Math.floor(currentLimit / 2));
+          console.warn(`getInstagramConversations failed with limit ${currentLimit}. Retrying with limit ${nextLimit}...`);
+          return await fetchWithLimit(nextLimit);
+        }
+        throw err;
+      }
     };
-    if (cursor) params.after = cursor;
-    return apiGetPage(fbPageId, `${fbPageId}/conversations`, params);
+    return fetchWithLimit(limit);
   },
 
   // Fetch up to 15 messages for AI draft context (accepts optional pageId to avoid localStorage lookup)

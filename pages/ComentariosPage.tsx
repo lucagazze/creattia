@@ -186,6 +186,7 @@ export default function ComentariosPage() {
           ig_business_id: igId,
           ig_username: igUsername,
           fb_page_access_token: page.access_token,
+          facebook_access_token: connectingUserToken,
           connection_statuses: newStatuses
         })
         .eq('id', clientId);
