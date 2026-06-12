@@ -82,6 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
   // Admins always see all pages (including unconfigured ones, shown dimmed)
   const isAdmin = !!(profile?.is_admin);
+  const hasMercadoLibre = (activeProfile as any)?.connection_statuses?.mercadolibre === 'ok';
 
   // Sidebar Menu Items
   const principalItems = [
@@ -93,19 +94,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/clientes',       icon: Users,         label: 'Clientes',        configured: hasEcommerce },
     { path: '/pedidos',         icon: ShoppingCart,  label: 'Pedidos',         configured: hasEcommerce, badge: pendingOrdersCount, badgeLoading: ordersLoading },
     { path: '/inventario',     icon: Package,       label: 'Inventario',      configured: hasEcommerce },
-  ].filter(i => isAdmin || i.configured);
+  ].filter(i => i.configured);
 
   const metricasItems = [
-    { path: '/tienda',    icon: ShoppingBag,   label: 'Tienda Online', configured: hasEcommerce },
-    { path: '/captacion', icon: BarChart2,     label: 'Meta Ads',     configured: hasMeta },
-    { path: '/atencion',  icon: MessageCircle, label: 'Atención',      configured: hasChatwoot },
-    { path: '/retencion', icon: Mail,          label: 'Email Marketing',     configured: hasKlaviyo },
-  ].filter(i => isAdmin || i.configured);
+    { path: '/tienda',       icon: ShoppingBag,   label: 'Tienda Online', configured: hasEcommerce },
+    { path: '/mercadolibre', icon: ShoppingBag,   label: 'Mercado Libre', configured: hasMercadoLibre },
+    { path: '/captacion',    icon: BarChart2,     label: 'Meta Ads',     configured: hasMeta },
+    { path: '/atencion',     icon: MessageCircle, label: 'Atención',      configured: hasChatwoot },
+    { path: '/retencion',    icon: Mail,          label: 'Email Marketing',     configured: hasKlaviyo },
+  ].filter(i => i.configured);
 
   const activosItems = [
     { path: '/admin/meta',      icon: Target, label: 'Creativos Ads',    configured: hasMeta },
     { path: '/email-marketing', icon: Send,   label: 'Campañas y Flujos',  configured: hasKlaviyo },
-  ].filter(i => isAdmin || i.configured);
+  ].filter(i => i.configured);
 
   const configuracionItems = [
     { path: '/perfil',           icon: User,   label: 'Mi Perfil',      configured: true },
@@ -163,6 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     const isMetaAds = item.label === 'Meta Ads';
     const isTiendaOnline = item.label === 'Tienda Online';
     const isEmailMarketing = item.label === 'Email Marketing';
+    const isMercadoLibre = item.label === 'Mercado Libre';
 
     const renderIcon = () => {
       const className = `w-4 h-4 flex-shrink-0 transition-all duration-150 ${
@@ -202,6 +205,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       }
       if (isEmailMarketing) {
         return <img src="/assets/Klaviyo-Logo-Photoroom.webp" alt="Klaviyo" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
+      }
+      if (isMercadoLibre) {
+        return <img src="/assets/mercadolibre.webp" alt="Mercado Libre" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
       }
       if (isTiendaOnline) {
         if (detectedPlatform === 'shopify') return <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
