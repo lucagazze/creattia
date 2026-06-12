@@ -177,15 +177,17 @@ async function handleMeta(req: VercelRequest, res: VercelResponse) {
     const code = req.query.code as string;
     const stateRaw = req.query.state as string;
     const error = req.query.error as string;
-    if (error) return res.redirect('/integraciones?meta=error&reason=user_denied');
-    if (!code) return res.redirect('/integraciones?meta=error&reason=missing_code');
+    // All redirects go through /meta-callback.html (lightweight static page)
+    // which handles popup close + main window fallback with correct hash routing
+    if (error) return res.redirect('/meta-callback.html?meta=error&reason=user_denied');
+    if (!code) return res.redirect('/meta-callback.html?meta=error&reason=missing_code');
 
     let clientId: string | undefined;
     try { clientId = JSON.parse(Buffer.from(stateRaw, 'base64').toString()).clientId; }
-    catch { return res.redirect('/integraciones?meta=error&reason=invalid_state'); }
+    catch { return res.redirect('/meta-callback.html?meta=error&reason=invalid_state'); }
 
     if (!META_APP_ID || !META_APP_SECRET)
-      return res.redirect('/integraciones?meta=error&reason=not_configured');
+      return res.redirect('/meta-callback.html?meta=error&reason=not_configured');
 
     try {
       const redirectUri = `${base}/api/oauth?action=meta-callback`;
@@ -195,7 +197,7 @@ async function handleMeta(req: VercelRequest, res: VercelResponse) {
         `?client_id=${META_APP_ID}&client_secret=${META_APP_SECRET}` +
         `&code=${code}&redirect_uri=${encodeURIComponent(redirectUri)}`
       );
-      if (!tokenRes.ok) return res.redirect('/integraciones?meta=error&reason=token_exchange');
+      if (!tokenRes.ok) return res.redirect('/meta-callback.html?meta=error&reason=token_exchange');
       const { access_token: shortToken } = await tokenRes.json() as { access_token: string };
 
       // 2. Long-lived token (60 days)
@@ -211,10 +213,11 @@ async function handleMeta(req: VercelRequest, res: VercelResponse) {
       await updateClientStatuses(clientId!, {
         facebook_access_token: token
       }, 'meta', 'ok');
-      return res.redirect('/integraciones?meta=select&clientId=' + encodeURIComponent(clientId!));
+      // Redirect to lightweight static callback page (not the React SPA)
+      return res.redirect('/meta-callback.html?meta=select&clientId=' + encodeURIComponent(clientId!));
     } catch (err: any) {
       console.error('[Meta OAuth]', err);
-      return res.redirect('/integraciones?meta=error&reason=server_error');
+      return res.redirect('/meta-callback.html?meta=error&reason=server_error');
     }
   }
 }

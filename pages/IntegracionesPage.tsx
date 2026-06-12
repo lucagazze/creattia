@@ -167,87 +167,80 @@ export default function IntegracionesPage() {
   const [testingConnection, setTestingConnection] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
-  // Detect OAuth callback result from URL params
+  // ── Detect OAuth callback result from URL params ──────────────────────────────
+  // This fires when the user lands back on /#/integraciones after:
+  //   a) popup was blocked → meta-callback.html redirected here with ?meta=select#/integraciones
+  //   b) any other OAuth platform redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const shopify = params.get('shopify');
+    const shopify    = params.get('shopify');
     const tiendanube = params.get('tiendanube');
-    const meta = params.get('meta');
-    const reason = params.get('reason');
+    const meta       = params.get('meta');
+    const reason     = params.get('reason');
 
     if (shopify === 'success') {
       setOauthResult({ platform: 'shopify', status: 'success' });
       showToast('¡Shopify conectado exitosamente! ✓', 'success');
-      // Clean URL
-      window.history.replaceState({}, '', '/integraciones');
+      window.history.replaceState({}, '', '/#/integraciones');
     } else if (shopify === 'error') {
       setOauthResult({ platform: 'shopify', status: 'error', reason: reason || '' });
       showToast('Error al conectar Shopify: ' + (reason || 'desconocido'), 'error');
-      window.history.replaceState({}, '', '/integraciones');
+      window.history.replaceState({}, '', '/#/integraciones');
     } else if (tiendanube === 'success') {
       setOauthResult({ platform: 'tiendanube', status: 'success' });
       showToast('¡Tiendanube conectado exitosamente! ✓', 'success');
-      window.history.replaceState({}, '', '/integraciones');
+      window.history.replaceState({}, '', '/#/integraciones');
     } else if (tiendanube === 'error') {
       setOauthResult({ platform: 'tiendanube', status: 'error', reason: reason || '' });
       showToast('Error al conectar Tiendanube: ' + (reason || 'desconocido'), 'error');
-      window.history.replaceState({}, '', '/integraciones');
+      window.history.replaceState({}, '', '/#/integraciones');
     } else if (meta === 'select') {
+      // Main-window fallback: popup was blocked, meta-callback.html redirected here.
+      // Just process the account selection directly — no popup detection needed.
       const cid = params.get('clientId') || '';
-      const payload = { type: 'meta-select', clientId: cid };
-
-      // Method 1: BroadcastChannel
-      try {
-        const bc = new BroadcastChannel('meta_oauth');
-        bc.postMessage(payload);
-        bc.close();
-      } catch {}
-
-      // Method 2: localStorage storage event (fires on other windows reliably)
-      try {
-        localStorage.setItem('meta_oauth_complete', JSON.stringify({ clientId: cid, ts: Date.now() }));
-      } catch {}
-
-      // Method 3: postMessage directly to opener if this is a popup
-      try {
-        if (window.opener && !window.opener.closed) {
-          window.opener.postMessage(payload, window.location.origin);
-        }
-      } catch {}
-
-      // Close popup (only works if this is a popup opened by script)
-      window.close();
-
-      // Fallback: if still alive after 400ms, window.close() failed
-      setTimeout(() => {
-        // Only proceed if we're the main window (meaning window.name is not 'meta_oauth') AND (no opener OR opener is gone)
-        if (window.name !== 'meta_oauth' && (!window.opener || window.opener.closed)) {
-          window.history.replaceState({}, '', '/integraciones');
-          setMetaLoadingText("Obteniendo cuentas publicitarias de Meta...");
-          fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
-            .then(r => r.json())
-            .then(json => {
-              if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
-              setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
-            })
-            .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
-            .finally(() => setMetaLoadingText(""));
-        } else {
-          // Still a popup and window.close() failed — retry postMessage + close
-          try { window.opener.postMessage(payload, window.location.origin); } catch {}
-          window.close();
-        }
-      }, 400);
-    } else if (meta === 'success') {
-      setOauthResult({ platform: 'meta', status: 'success' });
-      showToast('¡Meta Ads conectado exitosamente! ✓', 'success');
-      window.history.replaceState({}, '', '/integraciones');
-      refreshProfile().then(() => loadClientData());
+      window.history.replaceState({}, '', '/#/integraciones');
+      setMetaLoadingText('Obteniendo cuentas publicitarias de Meta...');
+      fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
+        .then(r => r.json())
+        .then(json => {
+          if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
+          setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
+        })
+        .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
+        .finally(() => setMetaLoadingText(''));
     } else if (meta === 'error') {
       setOauthResult({ platform: 'meta', status: 'error', reason: reason || '' });
       showToast('Error al conectar Meta Ads: ' + (reason || 'desconocido'), 'error');
-      window.history.replaceState({}, '', '/integraciones');
+      window.history.replaceState({}, '', '/#/integraciones');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Listen for messages from meta-callback.html popup ─────────────────────────
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === 'meta-select') {
+        const cid = e.data.clientId as string;
+        if (!cid) return;
+        setOauthLoading(false);
+        setMetaLoadingText('Obteniendo cuentas publicitarias de Meta...');
+        fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
+          .then(r => r.json())
+          .then(json => {
+            if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
+            setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
+          })
+          .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
+          .finally(() => setMetaLoadingText(''));
+      } else if (e.data?.type === 'meta-error') {
+        setOauthLoading(false);
+        const r = (e.data.reason as string) || 'unknown';
+        showToast('Error al conectar Meta Ads: ' + r.replace(/_/g, ' '), 'error');
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -412,6 +405,13 @@ export default function IntegracionesPage() {
   };
 
   // ── REAL OAUTH: Meta (popup) ──────────────────────────────────────────────────
+  // The OAuth flow:
+  //   1. Open popup → Facebook → /api/oauth?action=meta-callback → /meta-callback.html
+  //   2. meta-callback.html posts message (postMessage + BroadcastChannel + localStorage)
+  //      and calls window.close() to close the popup
+  //   3. Main window listeners receive the message and show the account selection modal
+  //   4. If popup was blocked → main window navigated to Facebook → came back to
+  //      /?meta=select&clientId=...#/integraciones → IntegracionesPage useEffect handles it
   const startMetaOAuth = async () => {
     if (!activeProfileId) return;
     setOauthLoading(true);
@@ -422,26 +422,32 @@ export default function IntegracionesPage() {
         throw new Error(err.error || 'Error al iniciar OAuth con Meta');
       }
       const { authorizeUrl } = await res.json();
-      // Open popup for Facebook Login
+
+      // Try to open a popup
       const popup = window.open(authorizeUrl, 'meta_oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+
       if (!popup) {
-        // Fallback: redirect if popup blocked
+        // Popup blocked — redirect the main window. meta-callback.html will redirect
+        // back to /?meta=select&clientId=...#/integraciones so our useEffect handles it.
         window.location.href = authorizeUrl;
         return;
       }
 
+      // ─ Popup opened successfully ─────────────────────────────────────────────
+      // meta-callback.html will send messages via postMessage, BroadcastChannel,
+      // and localStorage. We listen on all three + poll as ultimate fallback.
       let handled = false;
+
       const handleMetaSelect = (cid: string) => {
         if (handled) return;
         handled = true;
-        clearInterval(timer);
         clearInterval(pollTimer);
+        clearInterval(closeTimer);
         try { bc.close(); } catch {}
-        window.removeEventListener('message', messageHandler);
         window.removeEventListener('storage', storageHandler);
         localStorage.removeItem('meta_oauth_complete');
         setOauthLoading(false);
-        setMetaLoadingText("Obteniendo cuentas publicitarias de Meta...");
+        setMetaLoadingText('Obteniendo cuentas publicitarias de Meta...');
         fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
           .then(r => r.json())
           .then(json => {
@@ -449,12 +455,35 @@ export default function IntegracionesPage() {
             setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
           })
           .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
-          .finally(() => setMetaLoadingText(""));
+          .finally(() => setMetaLoadingText(''));
       };
 
-      // Method 4: Server polling — check every 3s if the token was saved in DB
-      // This is the most reliable fallback: bypasses all cross-window messaging issues
+      // Method 1: BroadcastChannel (meta-callback.html → main window)
+      const bc = new BroadcastChannel('meta_oauth');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'meta-select') handleMetaSelect(event.data.clientId as string);
+        if (event.data?.type === 'meta-error') {
+          if (handled) return;
+          handled = true;
+          clearInterval(pollTimer); clearInterval(closeTimer);
+          try { bc.close(); } catch {}
+          window.removeEventListener('storage', storageHandler);
+          setOauthLoading(false);
+          showToast('Error al conectar Meta Ads: ' + String(event.data.reason || '').replace(/_/g, ' '), 'error');
+        }
+      };
+
+      // Method 2: localStorage storage event (for browsers that block BroadcastChannel cross-tab)
+      const storageHandler = (e: StorageEvent) => {
+        if (e.key === 'meta_oauth_complete' && e.newValue) {
+          try { handleMetaSelect(JSON.parse(e.newValue).clientId as string); } catch {}
+        }
+      };
+      window.addEventListener('storage', storageHandler);
+
+      // Method 3: Server polling every 3s — ultimate fallback
       const pollTimer = setInterval(async () => {
+        if (handled) { clearInterval(pollTimer); return; }
         try {
           const r = await fetch(`/api/oauth?action=meta-status&clientId=${encodeURIComponent(activeProfileId)}`);
           const { ready } = await r.json();
@@ -462,41 +491,15 @@ export default function IntegracionesPage() {
         } catch {}
       }, 3000);
 
-      // Method 1: BroadcastChannel
-      const bc = new BroadcastChannel('meta_oauth');
-      bc.onmessage = (event) => {
-        if (event.data?.type === 'meta-select') handleMetaSelect(event.data.clientId as string);
-      };
-
-      // Method 2: postMessage from popup
-      const messageHandler = (e: MessageEvent) => {
-        if (e.origin === window.location.origin && e.data?.type === 'meta-select') {
-          handleMetaSelect(e.data.clientId as string);
-        }
-      };
-      window.addEventListener('message', messageHandler);
-
-      // Method 3: localStorage storage event
-      const storageHandler = (e: StorageEvent) => {
-        if (e.key === 'meta_oauth_complete' && e.newValue) {
-          try {
-            const data = JSON.parse(e.newValue);
-            handleMetaSelect(data.clientId as string);
-          } catch {}
-        }
-      };
-      window.addEventListener('storage', storageHandler);
-
-      // Poll for popup close — only cleanup, don't kill listeners immediately
-      const timer = setInterval(() => {
+      // Detect popup close — wait 1.5s for any in-flight messages, then cleanup
+      const closeTimer = setInterval(() => {
         if (popup.closed) {
-          clearInterval(timer);
-          // Give 1.5s for any pending messages to arrive, then cleanup
+          clearInterval(closeTimer);
           setTimeout(() => {
             if (!handled) {
               handled = true;
+              clearInterval(pollTimer);
               try { bc.close(); } catch {}
-              window.removeEventListener('message', messageHandler);
               window.removeEventListener('storage', storageHandler);
               setOauthLoading(false);
               refreshProfile().then(() => loadClientData());
@@ -505,18 +508,18 @@ export default function IntegracionesPage() {
         }
       }, 500);
 
-      // Safety timeout — cancel after 3 min
+      // Safety timeout: 3 minutes
       setTimeout(() => {
         if (!handled) {
           handled = true;
-          clearInterval(timer);
           clearInterval(pollTimer);
+          clearInterval(closeTimer);
           try { bc.close(); } catch {}
-          window.removeEventListener('message', messageHandler);
           window.removeEventListener('storage', storageHandler);
           setOauthLoading(false);
         }
       }, 180000);
+
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Meta Ads', 'error');
       setOauthLoading(false);
@@ -887,30 +890,6 @@ export default function IntegracionesPage() {
       setSavingMetaPage(false);
     }
   };
-
-  // If we are in the OAuth popup showing select, render a minimal clean success page
-  const params = new URLSearchParams(window.location.search);
-  const isMetaSelectPopup = params.get('meta') === 'select' && (window.name === 'meta_oauth' || (window.opener && !window.opener.closed));
-
-  if (isMetaSelectPopup) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-4 border border-emerald-500/20">
-          <Check className="w-8 h-8 text-emerald-400" />
-        </div>
-        <h2 className="text-white font-extrabold text-xl">¡Conexión Exitosa!</h2>
-        <p className="text-zinc-400 text-sm mt-2 max-w-xs">
-          Meta se ha vinculado correctamente. Ya puedes cerrar esta pestaña.
-        </p>
-        <button
-          onClick={() => window.close()}
-          className="mt-6 px-6 h-11 bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-bold transition-all"
-        >
-          Cerrar ventana
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8 max-w-[1400px] mx-auto animate-in fade-in duration-300">

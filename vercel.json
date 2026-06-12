@@ -21,7 +21,7 @@
       "destination": "/api/shopify/[...path]"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|meta-callback\\.html).*)",
       "destination": "/index.html"
     }
   ],
