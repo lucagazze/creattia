@@ -484,11 +484,8 @@ export default function IntegracionesPage() {
       }
       const { installUrl } = await res.json();
       if (window.top && window.top !== window.self) {
-        try {
-          window.top.location.href = installUrl;
-        } catch {
-          window.open(installUrl, '_blank');
-        }
+        window.open(installUrl, '_blank');
+        setOauthLoading(false);
       } else {
         window.location.href = installUrl;
       }
