@@ -17,6 +17,18 @@
       "destination": "/api/oauth"
     },
     {
+      "source": "/api/webhook/store-redact",
+      "destination": "/api/tiendanube-webhook?topic=store-redact"
+    },
+    {
+      "source": "/api/webhook/customers-redact",
+      "destination": "/api/tiendanube-webhook?topic=customers-redact"
+    },
+    {
+      "source": "/api/webhook/customers-data",
+      "destination": "/api/tiendanube-webhook?topic=customers-data"
+    },
+    {
       "source": "/api/klaviyo/:path*",
       "destination": "/api/klaviyo/[...path]"
     },
