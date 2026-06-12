@@ -131,6 +131,8 @@ const PedidosPage        = lazyWithRetry(() => import('../../pages/PedidosPage')
 const PerfilPage         = lazyWithRetry(() => import('../../pages/PerfilPage'));
 const ClientePage        = lazyWithRetry(() => import('../../pages/ClientePage'));
 const IntegracionesPage  = lazyWithRetry(() => import('../../pages/IntegracionesPage'));
+const PrivacidadPage     = lazyWithRetry(() => import('../../pages/PrivacidadPage'));
+const SoportePage        = lazyWithRetry(() => import('../../pages/SoportePage'));
 
 
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -306,6 +308,8 @@ export const MainLayout = () => {
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/cliente/:email" element={<ClientePage />} />
               <Route path="/integraciones" element={<IntegracionesPage />} />
+              <Route path="/privacidad" element={<PrivacidadPage />} />
+              <Route path="/soporte" element={<SoportePage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
