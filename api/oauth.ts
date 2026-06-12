@@ -650,6 +650,88 @@ async function handleChatwootRegister(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+async function handleChatwootLogin(req: VercelRequest, res: VercelResponse) {
+  const clientId = (req.query.clientId || req.body?.clientId) as string;
+  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+
+  const platformToken = process.env.CHATWOOT_PLATFORM_TOKEN;
+  if (!platformToken) {
+    return res.status(503).json({ error: 'El servidor de Chatwoot no está configurado (falta CHATWOOT_PLATFORM_TOKEN).' });
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  try {
+    // 1. Obtener la URL y token de Chatwoot del cliente
+    const { data: client, error: selectErr } = await supabase
+      .from('car_clients')
+      .select('chatwoot_url, chatwoot_token')
+      .eq('id', clientId)
+      .maybeSingle();
+
+    if (selectErr) {
+      return res.status(500).json({ error: 'Error al consultar el cliente en Supabase: ' + selectErr.message });
+    }
+
+    if (!client?.chatwoot_url || !client?.chatwoot_token) {
+      return res.status(404).json({ error: 'El cliente no tiene activada la mensajería de Chatwoot.' });
+    }
+
+    const cleanUrl = client.chatwoot_url.replace(/\/$/, '');
+
+    // 2. Obtener el perfil del usuario de Chatwoot (para sacar el userId y accountId)
+    const profileRes = await fetch(`${cleanUrl}/api/v1/profile`, {
+      method: 'GET',
+      headers: {
+        'api_access_token': client.chatwoot_token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!profileRes.ok) {
+      const errText = await profileRes.text();
+      console.error('[Chatwoot Login] Profile fetch failed', errText);
+      return res.status(profileRes.status).json({ error: 'Error al obtener perfil del usuario en Chatwoot: ' + errText });
+    }
+
+    const profileData = await profileRes.json() as any;
+    const userId = profileData.id;
+    const accountId = profileData.account_id || (profileData.accounts && profileData.accounts[0]?.id);
+
+    if (!userId || !accountId) {
+      return res.status(400).json({ error: 'No se pudo obtener el ID de usuario o cuenta de Chatwoot.' });
+    }
+
+    // 3. Generar el SSO login link usando la API de Plataforma de Chatwoot
+    const platformUrl = process.env.CHATWOOT_PLATFORM_URL || cleanUrl;
+    const cleanPlatformUrl = platformUrl.replace(/\/$/, '');
+
+    const ssoRes = await fetch(`${cleanPlatformUrl}/platform/api/v1/users/${userId}/login`, {
+      method: 'GET',
+      headers: {
+        'api_access_token': platformToken,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!ssoRes.ok) {
+      const errText = await ssoRes.text();
+      console.error('[Chatwoot Login] Platform SSO login failed', errText);
+      return res.status(ssoRes.status).json({ error: 'Error al generar SSO link: ' + errText });
+    }
+
+    const ssoData = await ssoRes.json() as { url: string };
+
+    return res.status(200).json({
+      sso_url: ssoData.url,
+      accountId
+    });
+  } catch (err: any) {
+    console.error('[Chatwoot Login Server Error]', err);
+    return res.status(500).json({ error: 'Error interno del servidor: ' + err.message });
+  }
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -676,6 +758,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'tiendanube-webhook') return handleTiendanubeWebhook(req, res);
   if (action === 'shopify-webhook') return handleShopifyWebhook(req, res);
   if (action === 'chatwoot-register') return handleChatwootRegister(req, res);
+  if (action === 'chatwoot-login') return handleChatwootLogin(req, res);
 
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
