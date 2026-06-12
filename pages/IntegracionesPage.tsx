@@ -201,6 +201,7 @@ export default function IntegracionesPage() {
   } | null>(null);
   const [savingMetaCombined, setSavingMetaCombined] = useState(false);
   const [metaLoadingText, setMetaLoadingText] = useState("");
+  const [metaStep, setMetaStep] = useState<1 | 2>(1);
 
   // Loading indicator for tests & saves
   const [testingConnection, setTestingConnection] = useState(false);
@@ -729,6 +730,7 @@ export default function IntegracionesPage() {
         approveAds: metaApproveAds,
         approveMessaging: metaApproveMessaging,
       });
+      setMetaStep(metaApproveAds ? 1 : 2);
     } catch {
       showToast('Error al obtener datos de Meta', 'error');
     } finally {
@@ -1337,8 +1339,6 @@ export default function IntegracionesPage() {
     );
   }
 
-
-
   return (
     <div className="space-y-8 max-w-[1400px] mx-auto animate-in fade-in duration-300">
 
@@ -1350,15 +1350,13 @@ export default function IntegracionesPage() {
             <p className="text-white font-bold text-[13px]">{metaLoadingText}</p>
           </div>
         </div>
-      )}
-
-      {/* Meta Combined Connection Modal — Ad Account + Page/Instagram in one step */}
+      )}      {/* Meta Combined Connection Modal — Ad Account + Page/Instagram step-by-step wizard */}
       {metaCombinedModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[88vh]">
 
             {/* Header */}
-            <div className="p-5 border-b border-zinc-800 flex items-center gap-3 shrink-0">
+            <div className="p-5 border-b border-zinc-800/80 flex items-center gap-3 shrink-0">
               <div className="w-9 h-9 rounded-xl bg-[#1877f2]/15 border border-[#1877f2]/20 flex items-center justify-center shrink-0">
                 <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 fill-[#1877f2]">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -1366,7 +1364,15 @@ export default function IntegracionesPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-white font-bold text-[15px] leading-tight">Configurar Meta Ads</h2>
-                <p className="text-zinc-500 text-xs mt-0.5">Seleccioná tu cuenta publicitaria y página de Facebook</p>
+                <p className="text-zinc-500 text-xs mt-0.5">
+                  {!metaCombinedModal.approveAds 
+                    ? 'Seleccioná tu página de Facebook e Instagram' 
+                    : !metaCombinedModal.approveMessaging
+                    ? 'Seleccioná tu cuenta publicitaria'
+                    : metaStep === 1
+                    ? 'Paso 1: Seleccioná tu cuenta publicitaria'
+                    : 'Paso 2: Seleccioná tu página de Facebook e Instagram'}
+                </p>
               </div>
               <button
                 onClick={() => setMetaCombinedModal(null)}
@@ -1376,43 +1382,42 @@ export default function IntegracionesPage() {
               </button>
             </div>
 
+            {/* Step Progress Indicator (Only if both steps are active) */}
+            {metaCombinedModal.approveAds && metaCombinedModal.approveMessaging && (
+              <div className="flex items-center justify-center gap-3 px-5 py-3 bg-zinc-950/45 border-b border-zinc-800/80 text-[11px] font-bold tracking-wider text-zinc-500 shrink-0 select-none">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] transition-all duration-200 ${
+                    metaStep === 1 
+                      ? 'bg-[#1877f2] text-white shadow-md shadow-[#1877f2]/20' 
+                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  }`}>
+                    {metaStep > 1 ? <Check className="w-3 h-3 stroke-[3]" /> : '1'}
+                  </span>
+                  <span className={`transition-colors duration-200 ${metaStep === 1 ? 'text-[#1877f2] font-extrabold' : 'text-zinc-400'}`}>
+                    Cuenta publicitaria
+                  </span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-700" />
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] transition-all duration-200 ${
+                    metaStep === 2 
+                      ? 'bg-pink-500 text-white shadow-md shadow-pink-500/20' 
+                      : 'bg-zinc-800 text-zinc-500 border border-zinc-700/50'
+                  }`}>
+                    2
+                  </span>
+                  <span className={`transition-colors duration-200 ${metaStep === 2 ? 'text-pink-500 font-extrabold' : 'text-zinc-500'}`}>
+                    Facebook & Instagram
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
 
-              {/* Aprobación de Servicios */}
-              <div className="p-4 bg-zinc-800/30 rounded-xl border border-zinc-800 space-y-3">
-                <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest block">Servicios a Vincular</span>
-                <div className="space-y-3">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={metaCombinedModal.approveAds}
-                      onChange={e => setMetaCombinedModal(prev => prev ? { ...prev, approveAds: e.target.checked } : null)}
-                      className="mt-0.5 rounded border-zinc-700 bg-zinc-800 text-[#1877f2] focus:ring-offset-0 focus:ring-[#1877f2] w-4 h-4 shrink-0"
-                    />
-                    <div>
-                      <p className="text-white text-xs font-bold">Meta Ads & Píxel (Anuncios)</p>
-                      <p className="text-zinc-500 text-[11px] mt-0.5">Permite seguir la inversión y el retorno ROAS de campañas.</p>
-                    </div>
-                  </label>
-                  
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={metaCombinedModal.approveMessaging}
-                      onChange={e => setMetaCombinedModal(prev => prev ? { ...prev, approveMessaging: e.target.checked } : null)}
-                      className="mt-0.5 rounded border-zinc-700 bg-zinc-800 text-pink-500 focus:ring-offset-0 focus:ring-pink-500 w-4 h-4 shrink-0"
-                    />
-                    <div>
-                      <p className="text-white text-xs font-bold">Mensajería de Redes Sociales (Facebook/Instagram)</p>
-                      <p className="text-zinc-500 text-[11px] mt-0.5">Sincroniza comentarios y mensajes de clientes a tu portal.</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
               {/* ─ Step 1: Ad Account ─ */}
-              {metaCombinedModal.approveAds && (
+              {metaStep === 1 && metaCombinedModal.approveAds && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-5 h-5 rounded-full bg-[#1877f2] flex items-center justify-center text-[10px] font-black text-white shrink-0">1</div>
@@ -1435,7 +1440,7 @@ export default function IntegracionesPage() {
                             className={`w-full text-left p-3.5 rounded-xl border transition-all ${
                               isSelected
                                 ? 'border-[#1877f2] bg-[#1877f2]/10 ring-1 ring-[#1877f2]/20'
-                                : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                                : 'border-zinc-700 hover:border-zinc-650 hover:bg-zinc-800/50'
                             } disabled:opacity-50`}
                           >
                             <div className="flex items-center justify-between gap-3">
@@ -1461,7 +1466,7 @@ export default function IntegracionesPage() {
               )}
 
               {/* ─ Step 2: Facebook Page + Instagram ─ */}
-              {metaCombinedModal.approveMessaging && (
+              {metaStep === 2 && metaCombinedModal.approveMessaging && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-[10px] font-black text-white shrink-0">2</div>
@@ -1485,7 +1490,7 @@ export default function IntegracionesPage() {
                             className={`w-full text-left p-3.5 rounded-xl border transition-all ${
                               isSelected
                                 ? 'border-pink-500 bg-pink-500/10 ring-1 ring-pink-500/20'
-                                : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                                : 'border-zinc-700 hover:border-zinc-650 hover:bg-zinc-800/50'
                             } disabled:opacity-50`}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -1497,7 +1502,7 @@ export default function IntegracionesPage() {
                                     <span>@{ig.username}</span>
                                   </div>
                                 ) : (
-                                  <p className="text-zinc-600 text-xs mt-1">Sin Instagram vinculado</p>
+                                  <p className="text-zinc-650 text-xs mt-1">Sin Instagram vinculado</p>
                                 )}
                               </div>
                               {isSelected && (
@@ -1516,31 +1521,62 @@ export default function IntegracionesPage() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-zinc-800 shrink-0 space-y-2">
-              {((metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId) || (metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage)) && (
-                <p className="text-center text-zinc-600 text-xs">
-                  {metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId && 'Seleccioná una cuenta publicitaria'}
-                  {metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId && metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage && ' y '}
-                  {metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage && 'una página de Facebook'}
-                  {' '}para continuar
+            <div className="p-5 border-t border-zinc-800/80 bg-zinc-950/20 shrink-0">
+              {/* Validation helper text */}
+              {metaStep === 1 && metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId && (
+                <p className="text-center text-zinc-500 text-xs mb-3">
+                  Seleccioná una cuenta publicitaria para continuar
                 </p>
               )}
-              <button
-                onClick={saveCombinedMetaSelection}
-                disabled={
-                  savingMetaCombined ||
-                  (!metaCombinedModal.approveAds && !metaCombinedModal.approveMessaging) ||
-                  (metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId) ||
-                  (metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage)
-                }
-                className="w-full h-11 bg-[#1877f2] hover:bg-[#166fe5] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#1877f2]/20"
-              >
-                {savingMetaCombined ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>  
-                ) : (
-                  <><Check className="w-4 h-4 stroke-[2.5]" /> Conectar Meta Ads</>  
-                )}
-              </button>
+              {metaStep === 2 && metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage && (
+                <p className="text-center text-zinc-500 text-xs mb-3">
+                  Seleccioná una página de Facebook con Instagram para continuar
+                </p>
+              )}
+
+              {metaStep === 1 && metaCombinedModal.approveAds && metaCombinedModal.approveMessaging ? (
+                // Step 1: Siguiente
+                <button
+                  type="button"
+                  onClick={() => setMetaStep(2)}
+                  disabled={!metaCombinedModal.selectedAccountId}
+                  className="w-full h-11 bg-[#1877f2] hover:bg-[#166fe5] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#1877f2]/20 active:scale-[0.98]"
+                >
+                  <span>Siguiente</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                // Step 2, or single step: final connection
+                <div className="flex flex-col gap-2">
+                  {metaStep === 2 && metaCombinedModal.approveAds && (
+                    <button
+                      type="button"
+                      onClick={() => setMetaStep(1)}
+                      disabled={savingMetaCombined}
+                      className="w-full h-10 border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 text-zinc-400 hover:text-white font-bold rounded-xl text-[12px] flex items-center justify-center gap-2 transition-all"
+                    >
+                      Atrás
+                    </button>
+                  )}
+                  
+                  <button
+                    onClick={saveCombinedMetaSelection}
+                    disabled={
+                      savingMetaCombined ||
+                      (!metaCombinedModal.approveAds && !metaCombinedModal.approveMessaging) ||
+                      (metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId) ||
+                      (metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage)
+                    }
+                    className="w-full h-11 bg-[#1877f2] hover:bg-[#166fe5] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#1877f2]/20 active:scale-[0.98]"
+                  >
+                    {savingMetaCombined ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>  
+                    ) : (
+                      <><Check className="w-4 h-4 stroke-[2.5]" /> Conectar Meta Ads</>  
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
