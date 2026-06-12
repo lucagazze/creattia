@@ -119,7 +119,6 @@ const EmailLibraryPage   = lazyWithRetry(() => import('../../pages/EmailLibraryP
 const EmailMarketingPage = lazyWithRetry(() => import('../../pages/EmailMarketingPage'));
 const EmailMonitorPage   = lazyWithRetry(() => import('../../pages/EmailMonitorPage'));
 const RedesSocialesPage  = lazyWithRetry(() => import('../../pages/RedesSocialesPage'));
-const MensajesDMPage     = lazyWithRetry(() => import('../../pages/MensajesDMPage'));
 const ComentariosPage    = lazyWithRetry(() => import('../../pages/ComentariosPage'));
 const CerebroPage        = lazyWithRetry(() => import('../../pages/CerebroPage'));
 const EntradasPage       = lazyWithRetry(() => import('../../pages/EntradasPage'));
@@ -267,7 +266,7 @@ export const MainLayout = () => {
         </div>
 
         <div ref={scrollContainerRef} className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
-          location.pathname === '/mensajeria' || location.pathname === '/mensajeria-dms' || location.pathname === '/clientes'
+          location.pathname === '/mensajeria' || location.pathname === '/clientes'
             ? 'overflow-hidden p-0 h-[calc(100dvh-56px)] md:h-screen flex flex-col'
             : isFixedPage 
               ? 'overflow-hidden p-4 md:p-6 h-[calc(100dvh-56px)] md:h-screen flex flex-col' 
@@ -310,7 +309,6 @@ export const MainLayout = () => {
               <Route path="/cliente/:email" element={<ClientePage />} />
               <Route path="/integraciones" element={<IntegracionesPage />} />
               <Route path="/mercadolibre" element={<MercadoLibrePage />} />
-              <Route path="/mensajeria-dms" element={<MensajesDMPage />} />
               <Route path="/privacidad" element={<PrivacidadPage />} />
               <Route path="/soporte" element={<SoportePage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
@@ -318,7 +316,7 @@ export const MainLayout = () => {
           </Suspense>
           </RouteErrorBoundary>
         </div>
-        {location.pathname !== '/mensajeria' && location.pathname !== '/mensajeria-dms' && location.pathname !== '/clientes' && <AIChatFloat />}
+        {location.pathname !== '/mensajeria' && location.pathname !== '/clientes' && <AIChatFloat />}
       </main>
     </div>
   );
