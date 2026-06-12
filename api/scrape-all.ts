@@ -445,7 +445,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const domain = (active_shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
         if (!domain || !active_shopify_access_token) return res.status(400).json({ error: 'Shopify no configurado' });
         
-        let nextUrl: string | null = `https://${domain}/admin/api/2024-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
+        let nextUrl: string | null = `https://${domain}/admin/api/2026-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
         let pagesCount = 0;
         while (nextUrl && pagesCount++ < 15) {
           const sRes: Response = await fetch(nextUrl, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
@@ -614,7 +614,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (active_platform === 'shopify') {
         const domain = (active_shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
         if (!domain || !active_shopify_access_token) return res.status(400).json({ error: 'Shopify no configurado' });
-        const r = await fetch(`https://${domain}/admin/api/2024-01/products.json?limit=250&fields=id,title,body_html,handle,status,variants,images,product_type,tags`, {
+        const r = await fetch(`https://${domain}/admin/api/2026-01/products.json?limit=250&fields=id,title,body_html,handle,status,variants,images,product_type,tags`, {
           headers: { 'X-Shopify-Access-Token': active_shopify_access_token, 'Accept': 'application/json' },
         });
         if (!r.ok) return res.status(r.status).json({ error: `Shopify error ${r.status}` });
@@ -820,7 +820,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const domain = (active_shopify_domain || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
         if (!domain || !active_shopify_access_token) return res.status(400).json({ error: 'Shopify no configurado' });
 
-        let nextUrl: string | null = `https://${domain}/admin/api/2024-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
+        let nextUrl: string | null = `https://${domain}/admin/api/2026-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
         while (nextUrl) {
           const sRes: Response = await fetch(nextUrl, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
           if (!sRes.ok) break;
@@ -831,7 +831,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           nextUrl = nm ? nm[1] : null;
         }
 
-        const rRes = await fetch(`https://${domain}/admin/api/2024-01/orders.json?status=any&limit=40`, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
+        const rRes = await fetch(`https://${domain}/admin/api/2026-01/orders.json?status=any&limit=40`, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
         if (rRes.ok) {
           const rData = await rRes.json();
           rawRecent = rData.orders || [];
@@ -848,7 +848,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           for (let i = 0; i < customerIds.length; i += 50) {
             const batch = customerIds.slice(i, i + 50);
             try {
-              const cRes = await fetch(`https://${domain}/admin/api/2024-01/customers.json?ids=${batch.join(',')}`, {
+              const cRes = await fetch(`https://${domain}/admin/api/2026-01/customers.json?ids=${batch.join(',')}`, {
                 headers: { 'X-Shopify-Access-Token': active_shopify_access_token }
               });
               if (cRes.ok) {
@@ -1302,7 +1302,7 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
       try {
         const domain = cl.shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
         let allP: any[] = [];
-        let pageUrl: string | null = `https://${domain}/admin/api/2024-01/products.json?limit=250&fields=id,title,handle,status,variants,product_type,tags`;
+        let pageUrl: string | null = `https://${domain}/admin/api/2026-01/products.json?limit=250&fields=id,title,handle,status,variants,product_type,tags`;
         while (pageUrl) {
           const sRes: Response = await fetch(pageUrl, { headers: { 'X-Shopify-Access-Token': cl.shopify_access_token, 'Accept': 'application/json' } });
           if (!sRes.ok) break;

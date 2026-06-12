@@ -10,11 +10,11 @@
     },
     {
       "source": "/api/shopify-callback",
-      "destination": "/api/oauth"
+      "destination": "/api/oauth?action=shopify-callback"
     },
     {
       "source": "/api/tiendanube-callback",
-      "destination": "/api/oauth"
+      "destination": "/api/oauth?action=tiendanube-callback"
     },
     {
       "source": "/api/webhook/store-redact",

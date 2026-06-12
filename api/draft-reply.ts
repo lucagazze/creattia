@@ -237,7 +237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (shopify_domain && shopify_access_token) {
         try {
           const sRes = await fetch(
-            `https://${cleanDomain}/admin/api/2024-01/products.json?limit=250&fields=title,handle,variants,status,product_type`,
+            `https://${cleanDomain}/admin/api/2026-01/products.json?limit=250&fields=title,handle,variants,status,product_type`,
             { headers: { 'X-Shopify-Access-Token': shopify_access_token, 'Accept': 'application/json' } }
           );
           if (sRes.ok) {

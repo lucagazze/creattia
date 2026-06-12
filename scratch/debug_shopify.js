@@ -28,7 +28,7 @@ async function run() {
   }
 
   console.log("Testing connection to Shopify Admin API...");
-  const url = `https://${shopify_domain}/admin/api/2024-01/shop.json`;
+  const url = `https://${shopify_domain}/admin/api/2026-01/shop.json`;
   
   try {
     const res = await fetch(url, {

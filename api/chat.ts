@@ -759,7 +759,7 @@ CRITICAL RULES FOR FOLLOWUPS AND OPTIONS:
               if (client.ecommerce_platform === 'shopify') {
                 try {
                   const domain = client.shopify_domain?.replace(/^https?:\/\//, '').replace(/\/$/, '');
-                  const r = await fetch(`https://${domain}/admin/api/2024-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`, {
+                  const r = await fetch(`https://${domain}/admin/api/2026-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`, {
                     headers: { 'X-Shopify-Access-Token': client.shopify_access_token }
                   });
                   if (!r.ok) throw new Error(`Shopify ${r.status}`);

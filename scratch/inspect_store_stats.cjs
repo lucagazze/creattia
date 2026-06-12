@@ -16,13 +16,13 @@ async function main() {
       const domain = c.shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
       const token = c.shopify_access_token;
       try {
-        const res = await fetch(`https://${domain}/admin/api/2024-01/orders/count.json`, {
+        const res = await fetch(`https://${domain}/admin/api/2026-01/orders/count.json`, {
           headers: { 'X-Shopify-Access-Token': token }
         });
         const data = await res.json();
         console.log(`Shopify: ${c.business_name} - Total Orders Count:`, data.count);
 
-        const resCust = await fetch(`https://${domain}/admin/api/2024-01/customers/count.json`, {
+        const resCust = await fetch(`https://${domain}/admin/api/2026-01/customers/count.json`, {
           headers: { 'X-Shopify-Access-Token': token }
         });
         const dataCust = await resCust.json();

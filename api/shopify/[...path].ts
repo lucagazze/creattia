@@ -87,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
   
   // Choose correct endpoint (Admin API vs OAuth)
-  let targetUrl = `https://${cleanDomain}/admin/api/2024-01/${pathAndQuery}`;
+  let targetUrl = `https://${cleanDomain}/admin/api/2026-01/${pathAndQuery}`;
   if (pathAndQuery.includes('oauth/access_token')) {
     targetUrl = `https://${cleanDomain}/admin/${pathAndQuery}`;
   }

@@ -60,7 +60,7 @@ export default defineConfig({
         },
         rewrite: (path) => {
           const stripped = path.replace(/^\/api\/shopify/, '');
-          return `/admin/api/2024-01${stripped}`;
+          return `/admin/api/2026-01${stripped}`;
         },
         autoRewrite: true,
         configure: (proxy) => {
