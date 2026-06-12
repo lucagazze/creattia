@@ -11,7 +11,7 @@ import {
   RefreshCw, AlertCircle, Loader2, Send, Sparkles,
   Search, CheckCircle, Clock, Inbox, ExternalLink, Bot,
   Globe, Facebook, Instagram, MessageCircle, Mail,
-  BookOpen, ShoppingBag, Plus, Trash2, Link, Mic, ChevronLeft, X, Play
+  BookOpen, ShoppingBag, Plus, Trash2, Link, Mic, ChevronLeft, X, Play, Settings
 } from 'lucide-react';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CustomAudioPlayer } from '../components/ui/CustomAudioPlayer';
@@ -1821,6 +1821,15 @@ export default function MensajeriaPage() {
             <span>Pendientes</span>
           </button>
 
+          {/* Configurar Canales button */}
+          <button 
+            onClick={() => navigate('/entradas')}
+            className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-center shrink-0" 
+            title="Configurar Canales (Bandejas de Entrada)"
+          >
+            <Settings className="w-4 h-4 text-zinc-550 dark:text-zinc-400" />
+          </button>
+
           {/* Expand button (Desktop only) */}
           <button 
             onClick={() => setExpanded(e => !e)}
@@ -1889,9 +1898,20 @@ export default function MensajeriaPage() {
             ) : error ? (
               <div className="p-4 text-[11px] text-red-500">{error}</div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-400">
-                <Inbox className="w-6 h-6" />
-                <p className="text-[12px] font-medium">Sin conversaciones</p>
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-zinc-400">
+                <Inbox className="w-6 h-6 animate-pulse" />
+                <div className="text-center">
+                  <p className="text-[12px] font-bold text-zinc-700 dark:text-zinc-350">Sin conversaciones</p>
+                  <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mt-1 max-w-[160px] mx-auto leading-normal">
+                    Conectá tus canales de comunicación para empezar a recibir chats.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/entradas')}
+                  className="mt-1 px-4 py-2 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[11px] font-black shadow-md shadow-violet-600/10 transition-all active:scale-[0.98]"
+                >
+                  Configurar Canales
+                </button>
               </div>
             ) : filtered.slice(0, currentPage * 25).map(conv => {
               const c = contact(conv);
