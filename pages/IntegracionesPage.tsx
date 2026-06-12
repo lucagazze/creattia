@@ -975,7 +975,13 @@ export default function IntegracionesPage() {
     } else if (platformId === "meta") {
       fieldsToUpdate = {
         meta_account_id: null,
-        meta_pixel_id: null
+        meta_pixel_id: null,
+        facebook_access_token: null,
+        fb_page_id: null,
+        fb_page_name: null,
+        fb_page_access_token: null,
+        ig_business_id: null,
+        ig_username: null
       };
     } else if (platformId === "chatwoot") {
       fieldsToUpdate = {
@@ -985,6 +991,14 @@ export default function IntegracionesPage() {
     }
 
     try {
+      if (platformId === "meta") {
+        localStorage.removeItem('active_fb_page_id');
+        localStorage.removeItem('current_facebook_access_token');
+        if (clientData?.fb_page_id) {
+          localStorage.removeItem(`fb_pat_${clientData.fb_page_id}`);
+        }
+      }
+
       // 1. Update database
       if (Object.keys(fieldsToUpdate).length > 0) {
         const { error } = await supabase
@@ -1000,6 +1014,8 @@ export default function IntegracionesPage() {
       let extraData: Record<string, any> = {};
       if (platformId === "mercadolibre") {
         extraData = { mercadolibre_country: null };
+      } else if (platformId === "meta") {
+        extraData = { facebook: null, instagram: null };
       }
       await updateConnectionStatus(statusKey, null, extraData);
 

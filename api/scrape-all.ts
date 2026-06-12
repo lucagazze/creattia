@@ -1257,28 +1257,29 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
   if (action === 'sync-catalog') {
     const { data: cl } = await supabase
       .from('car_clients')
-      .select('meta_account_id, shopify_domain, shopify_access_token, website_url, wordpress_url, woo_consumer_key, woo_consumer_secret, tiendanube_store_id, tiendanube_access_token')
+      .select('meta_account_id, shopify_domain, shopify_access_token, website_url, wordpress_url, woo_consumer_key, woo_consumer_secret, tiendanube_store_id, tiendanube_access_token, facebook_access_token')
       .eq('id', clientId)
       .maybeSingle();
     if (!cl) return res.status(404).json({ error: 'Client not found' });
 
     const { data: tokenRow } = await supabase.from('AgencySettings').select('value').eq('key', 'meta_ads_token').maybeSingle();
-    const metaToken: string = tokenRow?.value || '';
+    const globalMetaToken: string = tokenRow?.value || '';
+    const tokenToUse = cl.facebook_access_token || globalMetaToken;
     const META_BASE = 'https://graph.facebook.com/v21.0';
 
     let catalog: any[] = [];
     let source = '';
 
-    if (cl.meta_account_id && metaToken) {
+    if (cl.meta_account_id && tokenToUse) {
       try {
         const accountId = cl.meta_account_id.startsWith('act_') ? cl.meta_account_id : `act_${cl.meta_account_id}`;
-        const cRes = await fetch(`${META_BASE}/${accountId}/product_catalogs?fields=id,name,product_count&access_token=${metaToken}`);
+        const cRes = await fetch(`${META_BASE}/${accountId}/product_catalogs?fields=id,name,product_count&access_token=${tokenToUse}`);
         const cData: any = await cRes.json();
         const catalogs: any[] = cData.data || [];
         if (catalogs.length > 0) {
           const best = catalogs.sort((a: any, b: any) => (b.product_count || 0) - (a.product_count || 0))[0];
           let allProducts: any[] = [];
-          let nextUrl: string | null = `${META_BASE}/${best.id}/products?fields=id,name,price,currency,url,product_type,availability,image_url,retailer_id&limit=200&access_token=${metaToken}`;
+          let nextUrl: string | null = `${META_BASE}/${best.id}/products?fields=id,name,price,currency,url,product_type,availability,image_url,retailer_id&limit=200&access_token=${tokenToUse}`;
           while (nextUrl) {
             const pRes: Response = await fetch(nextUrl);
             const pData: any = await pRes.json();
@@ -1395,10 +1396,10 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
   }
 
   try {
-    // 1. Retrieve the client profile details (IG Business ID, FB Page ID, Business Name)
+    // 1. Retrieve the client profile details (IG Business ID, FB Page ID, Business Name, and custom tokens)
     const { data: client, error: clientErr } = await supabase
       .from('car_clients')
-      .select('ig_business_id, fb_page_id, business_name')
+      .select('ig_business_id, fb_page_id, business_name, facebook_access_token, fb_page_access_token')
       .eq('id', clientId)
       .maybeSingle();
 
@@ -1406,14 +1407,14 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
       return res.status(404).json({ error: 'No se encontró el cliente en la base de datos.' });
     }
 
-    const { business_name, ig_business_id: igId, fb_page_id: fbPageId } = client;
+    const { business_name, ig_business_id: igId, fb_page_id: fbPageId, facebook_access_token: userMetaToken, fb_page_access_token: pageMetaToken } = client;
 
     // ─────────────────────────────────────────────────────────────────────────
     // BRANCH: sync-instagram (Social Media Only)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === 'sync-instagram') {
-      let metaToken = '';
-      if (igId || fbPageId) {
+      let metaToken = userMetaToken || '';
+      if (!metaToken && (igId || fbPageId)) {
         try {
           const { data: tokenData } = await supabase
             .from('AgencySettings')
@@ -1451,11 +1452,12 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
       }
 
       let facebookRawContent = '';
-      if (fbPageId && metaToken) {
+      const fbTokenToUse = pageMetaToken || userMetaToken || metaToken;
+      if (fbPageId && fbTokenToUse) {
         console.log(`[Unified Scraper] Fetching Facebook posts for ID: ${fbPageId}`);
         try {
           const fbRes = await fetch(
-            `https://graph.facebook.com/v21.0/${fbPageId}/feed?fields=id,message,created_time&limit=15&access_token=${metaToken}`,
+            `https://graph.facebook.com/v21.0/${fbPageId}/feed?fields=id,message,created_time&limit=15&access_token=${fbTokenToUse}`,
             { signal: AbortSignal.timeout(8000) }
           );
           if (fbRes.ok) {
@@ -1727,8 +1729,8 @@ Sé exhaustivo. Si el sitio tiene precios, incluilos. Si tiene horarios, incluil
       console.error('[Unified Scraper] Web scrape failed:', e);
     }
 
-    let metaToken = '';
-    if (igId || fbPageId) {
+    let metaToken = userMetaToken || '';
+    if (!metaToken && (igId || fbPageId)) {
       try {
         const { data: tokenData } = await supabase
           .from('AgencySettings')
@@ -1766,11 +1768,12 @@ Sé exhaustivo. Si el sitio tiene precios, incluilos. Si tiene horarios, incluil
     }
 
     let facebookRawContent = '';
-    if (fbPageId && metaToken) {
+    const generalFbTokenToUse = pageMetaToken || userMetaToken || metaToken;
+    if (fbPageId && generalFbTokenToUse) {
       console.log(`[Unified Scraper] Fetching Facebook posts for ID: ${fbPageId}`);
       try {
         const fbRes = await fetch(
-          `https://graph.facebook.com/v21.0/${fbPageId}/feed?fields=id,message,created_time&limit=15&access_token=${metaToken}`,
+          `https://graph.facebook.com/v21.0/${fbPageId}/feed?fields=id,message,created_time&limit=15&access_token=${generalFbTokenToUse}`,
           { signal: AbortSignal.timeout(8000) }
         );
         if (fbRes.ok) {
