@@ -515,27 +515,46 @@ export default function EntradasPage() {
                     <h4 className="text-[13.5px] font-black text-zinc-800 dark:text-zinc-200">
                       Vincular Canal con Chatwoot
                     </h4>
-                    <p className="text-[11.5px] text-zinc-400 leading-relaxed">
-                      Por motivos de seguridad y flujos de autenticación de Meta y Servidores de correo, la conexión inicial del canal de {selectedChannel?.toUpperCase()} debe realizarse ingresando a la consola oficial de Chatwoot.
+                    <p className="text-[11.5px] text-zinc-450 leading-relaxed">
+                      Por motivos de seguridad de Meta y de tus servidores de correo, la autenticación y vinculación se realiza abriendo tu ventana de conexión segura.
                     </p>
                   </div>
 
                   <div className="space-y-2 text-[11.5px] text-zinc-650 dark:text-zinc-400 font-semibold leading-relaxed">
-                    <p>1. Hacé click en el botón de abajo **"Abrir Configuración de Chatwoot"**.</p>
-                    <p>2. En la consola de Chatwoot, seleccioná **"Agregar bandeja de entrada"**.</p>
-                    <p>3. Elegí el canal de **{selectedChannel === 'facebook' ? 'Facebook' : selectedChannel === 'instagram' ? 'Instagram' : selectedChannel === 'whatsapp' ? 'WhatsApp' : 'Email'}** y completá la autenticación.</p>
-                    <p>4. Una vez guardado en Chatwoot, **recargá esta página** y verás el canal ya listado e integrado automáticamente con tu CRM.</p>
+                    <p>1. Hacé click en **"Vincular Canal en Ventana Segura"**.</p>
+                    <p>2. Iniciá sesión (si te lo solicita) y completá la autenticación oficial de tu canal.</p>
+                    <p>3. Una vez terminado, hacé click en **"Listo, ya lo conecté"** aquí abajo.</p>
                   </div>
 
-                  <a
-                    href={`${cwUrl.replace(/\/$/, '')}/app/accounts/${inboxes[0]?.account_id || 'me'}/settings/inboxes/new`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    onClick={() => {
+                      const url = `${cwUrl.replace(/\/$/, '')}/app/accounts/${inboxes[0]?.account_id || 'me'}/settings/inboxes/new`;
+                      const w = 900;
+                      const h = 750;
+                      const left = window.screen.width / 2 - w / 2;
+                      const top = window.screen.height / 2 - h / 2;
+                      window.open(
+                        url,
+                        'Vincular Canal',
+                        `width=${w},height=${h},top=${top},left=${left},resizable=yes,scrollbars=yes`
+                      );
+                    }}
                     className="w-full h-10 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12.5px] font-black shadow-md shadow-violet-600/10 flex items-center justify-center gap-1.5 transition-all"
                   >
-                    Abrir Configuración de Chatwoot
+                    Vincular Canal en Ventana Segura
                     <ExternalLink className="w-4 h-4" />
-                  </a>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      setLoading(true);
+                      await loadInboxes();
+                      setShowWizard(false);
+                    }}
+                    className="w-full h-10 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-800 dark:text-white rounded-xl text-[12.5px] font-black transition-all flex items-center justify-center"
+                  >
+                    Listo, ya lo conecté
+                  </button>
                 </div>
               )}
             </div>
