@@ -222,6 +222,35 @@ export default function IntegracionesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Auto-start Shopify OAuth if redirected from Shopify Partners/Store with ?shop= ──
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shopParam = params.get("shop");
+    if (shopParam && activeProfileId) {
+      window.history.replaceState({}, "", "/#/integraciones");
+      setShopifyDomain(shopParam);
+      (async () => {
+        try {
+          setOauthLoading(true);
+          const shopifyPlatform = platforms.find(p => p.id === "shopify");
+          if (shopifyPlatform) setSelectedPlatform(shopifyPlatform);
+
+          const cleanDomain = shopParam.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+          const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
+          if (res.ok) {
+            const { authorizeUrl } = await res.json();
+            window.location.href = authorizeUrl;
+          } else {
+            setOauthLoading(false);
+          }
+        } catch (e) {
+          console.error("[Shopify Auto-Auth Error]", e);
+          setOauthLoading(false);
+        }
+      })();
+    }
+  }, [activeProfileId, platforms]);
+
   // ── Listen for messages from meta-callback.html popup ─────────────────────────
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
@@ -334,7 +363,20 @@ export default function IntegracionesPage() {
     // Refresh modal form values from clientData
     if (clientData) {
       if (platform.id === "shopify") {
-        setShopifyDomain(clientData.shopify_domain || "");
+        let defaultDomain = clientData.shopify_domain || "";
+        if (!defaultDomain) {
+          if (clientData.ig_username) {
+            defaultDomain = `${clientData.ig_username.toLowerCase().trim().replace(/[^a-z0-9-]/g, "")}.myshopify.com`;
+          } else if (clientData.business_name) {
+            const cleanName = clientData.business_name.toLowerCase().trim()
+              .replace(/\s+/g, "")
+              .replace(/[^a-z0-9-]/g, "");
+            if (cleanName && cleanName !== "minegocio" && cleanName !== "mi-negocio") {
+              defaultDomain = `${cleanName}.myshopify.com`;
+            }
+          }
+        }
+        setShopifyDomain(defaultDomain);
         setShopifyToken(clientData.shopify_access_token || "");
       } else if (platform.id === "tiendanube") {
         setTiendanubeStoreId(clientData.tiendanube_store_id || "");
@@ -969,6 +1011,45 @@ export default function IntegracionesPage() {
     }, 500);
   };
 
+  const handleShopifyConnectClick = async (platform: IntegrationPlatform) => {
+    let shopToUse = clientData?.shopify_domain || "";
+    if (!shopToUse) {
+      if (clientData?.ig_username) {
+        shopToUse = `${clientData.ig_username.toLowerCase().trim().replace(/[^a-z0-9-]/g, "")}.myshopify.com`;
+      } else if (clientData?.business_name) {
+        const cleanName = clientData.business_name.toLowerCase().trim()
+          .replace(/\s+/g, "")
+          .replace(/[^a-z0-9-]/g, "");
+        if (cleanName && cleanName !== "minegocio" && cleanName !== "mi-negocio") {
+          shopToUse = `${cleanName}.myshopify.com`;
+        }
+      }
+    }
+
+    if (shopToUse) {
+      // Direct redirect
+      setSelectedPlatform(platform);
+      setIsManualMode(false);
+      setOauthLoading(true);
+      setShopifyDomain(shopToUse);
+      try {
+        const cleanDomain = shopToUse.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+        const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Error al iniciar OAuth");
+        }
+        const { authorizeUrl } = await res.json();
+        window.location.href = authorizeUrl;
+      } catch (err: any) {
+        showToast(err.message || "Error al conectar con Shopify", "error");
+        setOauthLoading(false);
+      }
+    } else {
+      openConfigModal(platform);
+    }
+  };
+
   const handleConnectClick = (platform: IntegrationPlatform) => {
     const status = getPlatformStatus(platform.id);
     if (status === "ok") {
@@ -983,6 +1064,8 @@ export default function IntegracionesPage() {
     } else if (platform.id === "wordpress") {
       // Open modal so user can enter the URL first, then connect automatically
       openConfigModal(platform);
+    } else if (platform.id === "shopify") {
+      handleShopifyConnectClick(platform);
     } else if (["mercadolibre", "google_ads", "tiktok_ads"].includes(platform.id)) {
       startSimulatedOAuth(platform.id);
     } else {
