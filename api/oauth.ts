@@ -732,6 +732,44 @@ async function handleChatwootLogin(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+async function handleChatwootMigrateUrls(req: VercelRequest, res: VercelResponse) {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    const { data: clients, error: fetchError } = await supabase
+      .from('car_clients')
+      .select('id, business_name, chatwoot_url');
+
+    if (fetchError) {
+      return res.status(500).json({ error: 'Error al consultar clientes: ' + fetchError.message });
+    }
+
+    const oldUrl = 'https://chatwoot-production-933a.up.railway.app';
+    const newUrl = 'https://chat.algoritmiadesarrollos.com.ar';
+    let updatedCount = 0;
+    const details = [];
+
+    for (const client of clients) {
+      if (client.chatwoot_url && (client.chatwoot_url.includes('railway') || client.chatwoot_url === oldUrl)) {
+        const { error: updateError } = await supabase
+          .from('car_clients')
+          .update({ chatwoot_url: newUrl })
+          .eq('id', client.id);
+
+        if (updateError) {
+          details.push({ id: client.id, name: client.business_name, success: false, error: updateError.message });
+        } else {
+          details.push({ id: client.id, name: client.business_name, success: true });
+          updatedCount++;
+        }
+      }
+    }
+
+    return res.status(200).json({ success: true, updatedCount, details });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -759,6 +797,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'shopify-webhook') return handleShopifyWebhook(req, res);
   if (action === 'chatwoot-register') return handleChatwootRegister(req, res);
   if (action === 'chatwoot-login') return handleChatwootLogin(req, res);
+  if (action === 'chatwoot-migrate-urls') return handleChatwootMigrateUrls(req, res);
 
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
