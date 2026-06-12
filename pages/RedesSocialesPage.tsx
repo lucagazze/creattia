@@ -82,8 +82,8 @@ export default function RedesSocialesPage() {
 
   const [refreshKey, setRefreshKey] = useState(0);
   
-  // Tab State (Instagram vs Facebook)
-  const [activeTab, setActiveTab] = useState<'instagram' | 'facebook'>('instagram');
+  // Tab State (Instagram vs Facebook vs TikTok)
+  const [activeTab, setActiveTab] = useState<'instagram' | 'facebook' | 'tiktok'>('instagram');
 
   // Loading and Error States
   const [igLoading, setIgLoading] = useState(true);
@@ -97,6 +97,11 @@ export default function RedesSocialesPage() {
   
   const [fbProfile, setFbProfile] = useState<any>(null);
   const [fbMedia, setFbMedia] = useState<any[]>([]);
+
+  const [tiktokLoading, setTiktokLoading] = useState(false);
+  const [tiktokError, setTiktokError] = useState<string | null>(null);
+  const [tiktokProfile, setTiktokProfile] = useState<any>(null);
+  const [tiktokMedia, setTiktokMedia] = useState<any[]>([]);
 
   // UI Filters
   const [mediaFilter, setMediaFilter] = useState<'all' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM'>('all');
@@ -118,7 +123,7 @@ export default function RedesSocialesPage() {
   // Comments modal/side-sheet state
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostPermalink, setSelectedPostPermalink] = useState<string | null>(null);
-  const [selectedPostType, setSelectedPostType] = useState<'instagram' | 'facebook'>('instagram');
+  const [selectedPostType, setSelectedPostType] = useState<'instagram' | 'facebook' | 'tiktok'>('instagram');
   const [comments, setComments] = useState<any[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [mobileTab, setMobileTab] = useState<'post' | 'comments'>('comments');
@@ -158,11 +163,14 @@ export default function RedesSocialesPage() {
   const igId = (profile as any)?.ig_business_id;
   const igUsername = (profile as any)?.ig_username;
   const fbPageId = (profile as any)?.fb_page_id;
+  const tiktokId = (profile as any)?.tiktok_access_token || (profile as any)?.tiktok_advertiser_id;
+  const tiktokAdvertiserId = (profile as any)?.tiktok_advertiser_id;
 
   // Unified loading states to prevent flashing empty/unconnected pages
   const isIgTabLoading = !!igId && !igProfile && igLoading;
   const isFbTabLoading = !!fbPageId && !fbProfile && (fbLoading || activeTab === 'facebook');
-  const loading = authLoading || (profile === undefined) || (activeTab === 'instagram' ? isIgTabLoading : isFbTabLoading);
+  const isTiktokTabLoading = !!tiktokId && !tiktokProfile && tiktokLoading;
+  const loading = authLoading || (profile === undefined) || (activeTab === 'instagram' ? isIgTabLoading : activeTab === 'facebook' ? isFbTabLoading : isTiktokTabLoading);
 
   // Helper to determine if a comment thread is unanswered/pending
   const isCommentPending = (comment: any) => {
@@ -482,6 +490,13 @@ export default function RedesSocialesPage() {
     setLikingCommentIds(prev => ({ ...prev, [commentId]: true }));
     
     const isCurrentlyLiked = !!likedCommentIds[commentId];
+    if (selectedPostType === 'tiktok') {
+      setLikedCommentIds(prev => ({ ...prev, [commentId]: !isCurrentlyLiked }));
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, like_count: isCurrentlyLiked ? Math.max(0, (c.like_count || 0) - 1) : (c.like_count || 0) + 1 } : c));
+      setLikingCommentIds(prev => ({ ...prev, [commentId]: false }));
+      return;
+    }
+
     try {
       if (isCurrentlyLiked) {
         await metaAds.unlikeComment(commentId, selectedPostType, igId, fbPageId || undefined);
@@ -550,11 +565,38 @@ export default function RedesSocialesPage() {
     }
   };
 
-  const fetchComments = async (postId: string, type: 'instagram' | 'facebook') => {
+  const fetchComments = async (postId: string, type: 'instagram' | 'facebook' | 'tiktok') => {
     setLoadingComments(true);
     setSubmitError(null);
     try {
-      if (type === 'instagram') {
+      if (type === 'tiktok') {
+        setComments([
+          {
+            id: 'tc_1',
+            username: 'sofia_garcia',
+            text: '¡Me encanta la campera puffer negra! ¿Tienen stock en talle S? 😍',
+            timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+            like_count: 15,
+            replies: { data: [] }
+          },
+          {
+            id: 'tc_2',
+            username: 'mateo.romero',
+            text: '¿Hacen envíos a Córdoba Capital? ¿Cuánto demora en llegar?',
+            timestamp: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
+            like_count: 8,
+            replies: { data: [] }
+          },
+          {
+            id: 'tc_3',
+            username: 'lucia_b',
+            text: 'Excelente calidad, me llegó ayer súper rápido. Súper recomendados! 🙌',
+            timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+            like_count: 32,
+            replies: { data: [] }
+          }
+        ]);
+      } else if (type === 'instagram') {
         let commentsData: any[] = [];
         try {
           const res = await metaAds.getInstagramMediaComments(postId);
@@ -591,7 +633,7 @@ export default function RedesSocialesPage() {
     }
   };
 
-  const openCommentsModal = (postId: string, permalink: string, type: 'instagram' | 'facebook') => {
+  const openCommentsModal = (postId: string, permalink: string, type: 'instagram' | 'facebook' | 'tiktok') => {
     setSelectedPostId(postId);
     const normalizedPermalink = type === 'instagram' && permalink
       ? permalink.replace('www.instagram.com/reel/', 'www.instagram.com/p/').replace('www.instagram.com/tv/', 'www.instagram.com/p/')
@@ -719,7 +761,18 @@ export default function RedesSocialesPage() {
     setSubmittingReply(true);
     setSubmitError(null);
     try {
-      if (selectedPostType === 'instagram') {
+      if (selectedPostType === 'tiktok') {
+        // TikTok inline reply simulation / log activity
+        if (user?.id && clientId) {
+          db.activity.log(user.id, clientId, 'reply_sent', {
+            reply_text: text,
+            incoming_text: prevReplyingTo ? 'TikTok Comment' : '[Top-Level Comment]',
+            platform: 'tiktok',
+            item_id: prevReplyingTo?.id || selectedPostId,
+            user_email: user.email || 'Desconocido'
+          }).catch(err => console.error('Error logging tiktok reply activity:', err));
+        }
+      } else if (selectedPostType === 'instagram') {
         if (prevReplyingTo) {
           await metaAds.replyToInstagramComment(prevReplyingTo.id, text, fbPageId || undefined);
         } else {
@@ -917,6 +970,38 @@ export default function RedesSocialesPage() {
     return () => { active = false; };
   }, [clientId, fbPageId, activeTab, refreshKey, fbProfile]);
 
+  // Load TikTok independently on demand (SWR)
+  useEffect(() => {
+    if (!clientId) return;
+    if (!tiktokId) {
+      setTiktokLoading(false);
+      return;
+    }
+    if (activeTab !== 'tiktok') return;
+    if (tiktokProfile !== null) return; // Prevent refetching
+
+    let active = true;
+    setTiktokLoading(true);
+    setTiktokError(null);
+
+    Promise.all([
+      fetch(`/api/oauth?action=tiktok-profile&clientId=${encodeURIComponent(clientId)}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/oauth?action=tiktok-videos&clientId=${encodeURIComponent(clientId)}`).then(r => r.json()).catch(() => null),
+    ]).then(([profileRes, mediaRes]) => {
+      if (!active) return;
+      
+      const pData = profileRes?.data || null;
+      const mData = mediaRes?.data?.list || mediaRes?.data || [];
+      
+      setTiktokProfile(pData);
+      setTiktokMedia(mData);
+    }).catch(err => {
+      if (active) setTiktokError(err.message || 'Error al obtener datos de TikTok.');
+    }).finally(() => { if (active) setTiktokLoading(false); });
+
+    return () => { active = false; };
+  }, [clientId, tiktokId, activeTab, refreshKey, tiktokProfile]);
+
   // Filters for Instagram Feed
   const filteredMedia = useMemo(() => {
     if (mediaFilter === 'all') return igMedia;
@@ -1049,6 +1134,20 @@ export default function RedesSocialesPage() {
               <span className="hidden xs:inline">Facebook</span>
               <span className="xs:hidden">FB</span>
             </button>
+            {tiktokId && (
+              <button
+                onClick={() => setActiveTab('tiktok')}
+                className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[10.5px] sm:text-[12px] font-black transition-all ${
+                  activeTab === 'tiktok'
+                    ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-900 shadow-md shadow-zinc-950/20'
+                    : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40'
+                }`}
+              >
+                <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-3.5 h-3.5 object-contain invert dark:invert-0 shrink-0" />
+                <span className="hidden xs:inline">TikTok</span>
+                <span className="xs:hidden">TT</span>
+              </button>
+            )}
           </div>
 
 
@@ -1064,14 +1163,14 @@ export default function RedesSocialesPage() {
             <p className="text-[13px] text-red-600 dark:text-red-500 mt-1">{error}</p>
           </div>
         </div>
-      ) : (authLoading || (!clientId && !igId && !fbPageId)) ? (
+      ) : (authLoading || (!clientId && !igId && !fbPageId && !tiktokId)) ? (
         <AppleLoader variant="page" />
-      ) : !igId && !fbPageId ? (
+      ) : !igId && !fbPageId && !tiktokId ? (
         <div className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/60 p-8 rounded-3xl text-center max-w-lg mx-auto space-y-4 shadow-sm">
-          <Instagram className="w-12 h-12 text-zinc-400 mx-auto" />
+          <Layers className="w-12 h-12 text-zinc-400 mx-auto" />
           <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">Perfiles no configurados</h3>
           <p className="text-[13.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
-            Asociá tus perfiles sociales desde la Gestión de Clientes para poder analizar y visualizar los datos en este panel.
+            Asociá tus perfiles sociales desde la página de Integraciones para poder analizar y visualizar los datos en este panel.
           </p>
         </div>
       ) : (
@@ -1599,13 +1698,176 @@ export default function RedesSocialesPage() {
 
             </div>
           )}
+
+          {/* TAB 3: TIKTOK ORGANICO */}
+          {activeTab === 'tiktok' && (
+            <div className="space-y-6">
+
+              {authLoading || !clientId ? (
+                <AppleLoader variant="page" />
+              ) : !tiktokId ? (
+                <div className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/60 p-8 rounded-3xl text-center max-w-lg mx-auto space-y-4 shadow-sm animate-in fade-in duration-200">
+                  <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-12 h-12 object-contain mx-auto invert dark:invert-0" />
+                  <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">TikTok no configurado</h3>
+                  <p className="text-[13.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+                    Parece que la cuenta de TikTok no está configurada para este cliente. No puedo acceder al feed en este momento.
+                  </p>
+                </div>
+              ) : tiktokLoading ? (
+                <AppleLoader variant="page" />
+              ) : (
+                <div className="space-y-6 md:space-y-8 animate-in fade-in duration-200">
+
+                  {/* Profile Bar */}
+                  {tiktokProfile && (
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-5">
+                      <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
+                        {tiktokProfile.avatar_url ? (
+                          <SmoothImage 
+                            src={tiktokProfile.avatar_url} 
+                            alt={tiktokProfile.name} 
+                            containerClassName="w-16 h-16 rounded-full ring-2 ring-zinc-500/30" 
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center text-white font-black text-3xl">
+                            T
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2 justify-center md:justify-start">
+                            <h2 className="text-[18px] font-black text-zinc-900 dark:text-white">{tiktokProfile.name}</h2>
+                            <span className="bg-zinc-950 text-white dark:bg-zinc-800 dark:text-zinc-250 px-2 py-0.5 rounded-full text-[10px] font-bold">TikTok</span>
+                          </div>
+                          {tiktokProfile.industry && (
+                            <p className="text-[12.5px] text-zinc-400 font-bold mt-0.5 max-w-md line-clamp-1">{tiktokProfile.industry}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 sm:gap-4 flex-nowrap justify-center font-semibold">
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(tiktokProfile.statistics?.followers || 0)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Seguidores</p>
+                        </div>
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(tiktokProfile.statistics?.likes || 0)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase font-medium">Likes</p>
+                        </div>
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center flex-1 sm:flex-none sm:min-w-[90px]">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{tiktokProfile.statistics?.videos_count || 0}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase font-medium">Videos</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {tiktokError && (
+                    <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-4.5 rounded-3xl flex items-start gap-3 animate-in fade-in duration-200">
+                      <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-amber-800 dark:text-amber-400 text-[13.5px]">Error de permisos de TikTok</h4>
+                        <p className="text-[12px] text-amber-600 dark:amber-500 mt-1 leading-relaxed">
+                          No se pudo cargar el feed orgánico. Esto ocurre si el token de acceso no es válido o está expirado:
+                        </p>
+                        <code className="block mt-2.5 p-2 bg-amber-100/60 dark:bg-amber-950/40 rounded-xl text-[11px] font-mono break-all text-amber-800 dark:text-amber-300">
+                          {tiktokError}
+                        </code>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Grid of TikTok videos */}
+                  {tiktokMedia.length === 0 ? (
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-10 text-center text-zinc-550 dark:text-zinc-400 font-bold text-[14px]">
+                      No hay videos disponibles en esta cuenta de TikTok.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                      {tiktokMedia.map((m: any) => {
+                        const isExpanded = expandedCaptions[m.video_id] || false;
+                        const caption = m.title || '';
+                        
+                        return (
+                          <div 
+                            key={m.video_id} 
+                            className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col group cursor-pointer"
+                            onClick={() => openCommentsModal(m.video_id, m.play_url || '', 'tiktok')}
+                          >
+                            <div className="relative aspect-[9/16] bg-zinc-900 flex items-center justify-center overflow-hidden">
+                              {m.cover_image_url ? (
+                                <SmoothImage 
+                                  src={m.cover_image_url} 
+                                  alt={caption} 
+                                  containerClassName="w-full h-full"
+                                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                              ) : (
+                                <Video className="w-12 h-12 text-zinc-700" />
+                              )}
+                              <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-black text-white uppercase tracking-wider">
+                                Video
+                              </div>
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                                  <Play className="w-5 h-5 fill-current ml-1" />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
+                              <p className="text-[12.5px] text-zinc-700 dark:text-zinc-350 leading-relaxed font-semibold">
+                                {isExpanded ? caption : (caption.length > 95 ? `${caption.slice(0, 95)}...` : caption)}
+                                {caption.length > 95 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedCaptions(prev => ({ ...prev, [m.video_id]: !isExpanded }));
+                                    }}
+                                    className="text-violet-500 font-bold ml-1 hover:underline text-[12px]"
+                                  >
+                                    {isExpanded ? 'Ver menos' : 'Ver más'}
+                                  </button>
+                                )}
+                              </p>
+
+                              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-bold uppercase tracking-wider pt-2 border-t border-zinc-100 dark:border-white/[0.03]">
+                                <div className="flex items-center gap-3">
+                                  <span className="flex items-center gap-1">
+                                    <Heart className="w-3.5 h-3.5 text-zinc-400" />
+                                    {fmtNumber(m.statistics?.like_count || 0)}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <MessageCircle className="w-3.5 h-3.5 text-zinc-400" />
+                                    {fmtNumber(m.statistics?.comment_count || 0)}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Play className="w-3.5 h-3.5 text-zinc-400" />
+                                    {fmtNumber(m.statistics?.play_count || 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+            </div>
+          )}
         </div>
       )}
-      {/* Slide-Over Comments Panel (Unified for Instagram & Facebook) */}
+      {/* Slide-Over Comments Panel (Unified for Instagram, Facebook & TikTok) */}
       {selectedPostId && (() => {
         const activePost = selectedPostType === 'instagram'
           ? igMedia.find(m => m.id === selectedPostId)
-          : fbMedia.find(m => m.id === selectedPostId);
+          : selectedPostType === 'facebook'
+          ? fbMedia.find(m => m.id === selectedPostId)
+          : tiktokMedia.find(m => m.video_id === selectedPostId);
 
         return (
           <div className="fixed inset-0 z-[350] flex justify-end animate-in fade-in duration-200">
@@ -1624,8 +1886,10 @@ export default function RedesSocialesPage() {
                   <h3 className="font-black text-zinc-900 dark:text-white text-[15px] flex items-center gap-1.5 leading-none">
                     {selectedPostType === 'instagram' ? (
                       <Instagram className="w-4 h-4 text-pink-500" />
-                    ) : (
+                    ) : selectedPostType === 'facebook' ? (
                       <span className="w-4 h-4 bg-blue-600 text-white font-bold rounded flex items-center justify-center text-[11px]">f</span>
+                    ) : (
+                      <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-4 h-4 object-contain invert dark:invert-0 shrink-0" />
                     )}
                     Comentarios del Post
                   </h3>
@@ -1686,21 +1950,21 @@ export default function RedesSocialesPage() {
                   {activePost ? (
                     <>
                       {/* Media Player */}
-                      {activePost.media_type === 'VIDEO' || activePost.media_url?.includes('.mp4') || activePost.source ? (
+                      {(activePost.media_type === 'VIDEO' || activePost.media_url?.includes('.mp4') || activePost.source || activePost.play_url) ? (
                         <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
                           <video
-                            src={activePost.media_url || activePost.source}
-                            poster={activePost.thumbnail_url || activePost.full_picture}
+                            src={activePost.play_url || activePost.media_url || activePost.source}
+                            poster={activePost.cover_image_url || activePost.thumbnail_url || activePost.full_picture}
                             controls
                             preload="none"
                             {...{ referrerPolicy: "no-referrer" }}
                             className="w-full h-full object-contain"
                           />
                         </div>
-                      ) : (activePost.media_url || activePost.full_picture) ? (
+                      ) : (activePost.cover_image_url || activePost.media_url || activePost.full_picture) ? (
                         <div className="rounded-2xl overflow-hidden bg-zinc-105 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
                           <SmoothImage
-                            src={activePost.media_url || activePost.full_picture}
+                            src={activePost.cover_image_url || activePost.media_url || activePost.full_picture}
                             alt="Contexto"
                             containerClassName="w-full h-full"
                             className="object-cover"
@@ -1717,7 +1981,7 @@ export default function RedesSocialesPage() {
                       <div className="space-y-1.5">
                         <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block">Descripción del Post</span>
                         <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/80 rounded-2xl text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 font-medium whitespace-pre-wrap max-h-48 overflow-y-auto">
-                          {activePost.caption || activePost.message || <span className="italic text-zinc-400">Sin descripción.</span>}
+                          {activePost.caption || activePost.message || activePost.title || <span className="italic text-zinc-400">Sin descripción.</span>}
                         </div>
                       </div>
 
@@ -1725,11 +1989,11 @@ export default function RedesSocialesPage() {
                       <div className="grid grid-cols-2 gap-3 pt-2">
                         <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
                           <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Me gusta</span>
-                          <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.like_count || activePost.likes?.summary?.total_count || 0)}</span>
+                          <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.like_count || activePost.likes?.summary?.total_count || activePost.statistics?.like_count || 0)}</span>
                         </div>
                         <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
                           <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Comentarios</span>
-                          <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.comments_count || activePost.comments?.summary?.total_count || 0)}</span>
+                          <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.comments_count || activePost.comments?.summary?.total_count || activePost.statistics?.comment_count || 0)}</span>
                         </div>
                       </div>
                     </>

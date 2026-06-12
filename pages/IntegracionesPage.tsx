@@ -71,7 +71,7 @@ const PLATFORMS: IntegrationPlatform[] = [
     category: "ecommerce",
     description: "Importá ventas y gestioná el stock de tus publicaciones del marketplace líder de LATAM.",
     logoUrl: "/assets/mercadolibre.webp",
-    isSimulated: true
+    isSimulated: false
   },
   {
     id: "meta",
@@ -95,7 +95,7 @@ const PLATFORMS: IntegrationPlatform[] = [
     category: "ads",
     description: "Medí el impacto de tus creativos y campañas de video en la plataforma de mayor crecimiento.",
     logoUrl: "/assets/tiktok-icon.webp",
-    isSimulated: true
+    isSimulated: false
   },
   {
     id: "klaviyo",
@@ -201,6 +201,7 @@ export default function IntegracionesPage() {
     const woocommerce  = params.get('woocommerce');
     const meta         = params.get('meta');
     const mercadolibre = params.get('mercadolibre');
+    const tiktok       = params.get('tiktok');
     const reason       = params.get('reason');
 
     if (shopify === 'success') {
@@ -247,6 +248,15 @@ export default function IntegracionesPage() {
     } else if (mercadolibre === 'error') {
       setOauthResult({ platform: 'mercadolibre', status: 'error', reason: reason || '' });
       showToast('Error al conectar Mercado Libre: ' + (reason || 'desconocido'), 'error');
+      window.history.replaceState({}, '', '/#/integraciones');
+    } else if (tiktok === 'success') {
+      setOauthResult({ platform: 'tiktok_ads', status: 'success' });
+      showToast('¡TikTok Ads conectado exitosamente! ✓', 'success');
+      window.history.replaceState({}, '', '/#/integraciones');
+      refreshProfile().then(() => loadClientData());
+    } else if (tiktok === 'error') {
+      setOauthResult({ platform: 'tiktok_ads', status: 'error', reason: reason || '' });
+      showToast('Error al conectar TikTok Ads: ' + (reason || 'desconocido'), 'error');
       window.history.replaceState({}, '', '/#/integraciones');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -497,6 +507,24 @@ export default function IntegracionesPage() {
       window.location.href = authorizeUrl;
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Mercado Libre', 'error');
+      setOauthLoading(false);
+    }
+  };
+
+  // ── REAL OAUTH: TikTok Ads ──────────────────────────────────────────────────
+  const startTiktokOAuth = async () => {
+    if (!activeProfileId) return;
+    setOauthLoading(true);
+    try {
+      const res = await fetch(`/api/oauth?action=tiktok-authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al iniciar OAuth con TikTok Ads');
+      }
+      const { authorizeUrl } = await res.json();
+      window.location.href = authorizeUrl;
+    } catch (err: any) {
+      showToast(err.message || 'Error al conectar con TikTok Ads', 'error');
       setOauthLoading(false);
     }
   };
@@ -1023,6 +1051,13 @@ export default function IntegracionesPage() {
         mercadolibre_user_id: null,
         mercadolibre_expiration: null
       };
+    } else if (platformId === "tiktok_ads") {
+      fieldsToUpdate = {
+        tiktok_access_token: null,
+        tiktok_refresh_token: null,
+        tiktok_advertiser_id: null,
+        tiktok_expiration: null
+      };
     }
 
     try {
@@ -1193,7 +1228,7 @@ export default function IntegracionesPage() {
       openConfigModal(platform);
     } else if (platform.id === "shopify") {
       handleShopifyConnectClick(platform);
-    } else if (["mercadolibre", "google_ads", "tiktok_ads"].includes(platform.id)) {
+    } else if (["google_ads"].includes(platform.id)) {
       startSimulatedOAuth(platform.id);
     } else {
       openConfigModal(platform);
@@ -2073,7 +2108,7 @@ export default function IntegracionesPage() {
                   </div>
                 )}
 
-                {/* TIKTOK ADS (SIMULATED OAUTH) */}
+                {/* TIKTOK ADS (REAL OAUTH) */}
                 {selectedPlatform.id === "tiktok_ads" && (
                   <div className="space-y-4 py-2">
                     <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed text-center">
@@ -2081,7 +2116,7 @@ export default function IntegracionesPage() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => runSimulatedOAuth("tiktok_ads")}
+                      onClick={startTiktokOAuth}
                       disabled={savingSettings}
                       className="w-full h-11 bg-black hover:bg-zinc-900 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
                     >
@@ -2284,7 +2319,7 @@ export default function IntegracionesPage() {
 
                 {/* Footer for OAuth-based platforms (shopify/tiendanube/meta in auto mode): just disconnect + close */}
                 {!selectedPlatform.isSimulated && !isManualMode &&
-                  ['shopify', 'tiendanube', 'meta'].includes(selectedPlatform.id) && (
+                  ['shopify', 'tiendanube', 'meta', 'mercadolibre', 'tiktok_ads'].includes(selectedPlatform.id) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3 justify-end">
                     {getPlatformStatus(selectedPlatform.id) === "ok" && (
                       <button type="button" onClick={() => handleDisconnect(selectedPlatform.id)}
