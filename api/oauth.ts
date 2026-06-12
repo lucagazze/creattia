@@ -7,6 +7,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID || '';
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET || '';
+const SHOPIFY_ORGANIZATION_ID = process.env.SHOPIFY_ORGANIZATION_ID || '222188391';
 
 const TN_CLIENT_ID = process.env.TIENDANUBE_CLIENT_ID || '';
 const TN_CLIENT_SECRET = process.env.TIENDANUBE_CLIENT_SECRET || '';
@@ -48,7 +49,7 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
 
   if (action === 'shopify-install-link') {
     if (!SHOPIFY_CLIENT_ID) return res.status(503).json({ error: 'Shopify OAuth no configurado (falta SHOPIFY_CLIENT_ID).' });
-    const installUrl = `https://admin.shopify.com/store-directory/extensions/oauth/install-link?client_id=${SHOPIFY_CLIENT_ID}`;
+    const installUrl = `https://admin.shopify.com/?organization_id=${SHOPIFY_ORGANIZATION_ID}&no_redirect=true&redirect=/oauth/redirect_from_developer_dashboard?client_id%3D${SHOPIFY_CLIENT_ID}`;
     return res.status(200).json({ installUrl });
   }
 
