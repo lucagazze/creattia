@@ -903,30 +903,32 @@ export default function MetaAdsPage() {
                     ) : mediaData.type === 'carousel' && mediaData.cards?.length > 0 ? (() => {
                       const card = mediaData.cards[panelCarouselIndex];
                       return (
-                        <div className="rounded-2xl overflow-hidden border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm w-full">
-                          <div className="relative aspect-[4/5] bg-zinc-50 dark:bg-zinc-950">
-                            {card.isVideo && card.videoSrc ? (
-                              <video src={card.videoSrc} poster={card.url || undefined} controls preload="none" playsInline {...{ referrerPolicy: 'no-referrer' }} className="absolute inset-0 w-full h-full object-contain bg-black" />
-                            ) : card.url ? (
-                              <SmoothImage src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} containerClassName="absolute inset-0 w-full h-full bg-zinc-950" className="object-contain" />
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
-                            )}
-                            {mediaData.cards.length > 1 && (
-                              <>
-                                <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex - 1 + mediaData.cards.length) % mediaData.cards.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronLeft className="w-4 h-4" /></button>
-                                <button onClick={() => { setPanelCarouselIndex((panelCarouselIndex + 1) % mediaData.cards.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronRight className="w-4 h-4" /></button>
-                              </>
-                            )}
-                          </div>
+                        <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm w-full aspect-[4/5] flex-shrink-0 relative flex items-center justify-center">
+                          {card.isVideo && card.videoSrc ? (
+                            <video src={card.videoSrc} poster={card.url || undefined} controls preload="none" playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full h-full object-contain bg-black" />
+                          ) : card.url ? (
+                            <SmoothImage src={card.url} alt={card.name || `Slide ${panelCarouselIndex + 1}`} containerClassName="w-full h-full bg-zinc-950" className="object-contain" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-900"><ImageIcon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" /></div>
+                          )}
                           {mediaData.cards.length > 1 && (
-                            <div className="flex justify-center gap-1.5 py-2.5 bg-zinc-50 dark:bg-zinc-950">
+                            <>
+                              <button onClick={(e) => { e.stopPropagation(); setPanelCarouselIndex((panelCarouselIndex - 1 + mediaData.cards.length) % mediaData.cards.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronLeft className="w-4 h-4" /></button>
+                              <button onClick={(e) => { e.stopPropagation(); setPanelCarouselIndex((panelCarouselIndex + 1) % mediaData.cards.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronRight className="w-4 h-4" /></button>
+                            </>
+                          )}
+                          {mediaData.cards.length > 1 && (
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full flex gap-1.5">
                               {mediaData.cards.map((_: any, idx: number) => (
-                                <button key={idx} onClick={() => setPanelCarouselIndex(idx)} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === panelCarouselIndex ? 'bg-violet-500 scale-125' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
+                                <button key={idx} onClick={(e) => { e.stopPropagation(); setPanelCarouselIndex(idx); }} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === panelCarouselIndex ? 'bg-white scale-125' : 'bg-white/40'}`} />
                               ))}
                             </div>
                           )}
-                          {card.name && <p className="px-3 pb-2.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 text-center truncate bg-zinc-50 dark:bg-zinc-950">{card.name}</p>}
+                          {card.name && (
+                            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full max-w-[80%]">
+                              <p className="text-[10px] font-black text-white truncate text-center">{card.name}</p>
+                            </div>
+                          )}
                         </div>
                       );
                     })() : mediaData.type === 'ad_preview' && mediaData.embed_html ? (() => {
@@ -939,7 +941,7 @@ export default function MetaAdsPage() {
                       });
                       return <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 w-full" style={{ height: 400 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
                     })() : mediaData.type === 'image' || thumbUrl ? (
-                      <div className="rounded-2xl overflow-hidden bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm w-full aspect-[4/5] flex-shrink-0 relative flex items-center justify-center">
+                      <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200 dark:border-zinc-800 shadow-sm w-full aspect-[4/5] flex-shrink-0 relative flex items-center justify-center">
                         <SmoothImage
                           src={(mediaData.type === 'image' ? mediaData.url : thumbUrl) || ''}
                           alt={selectedAd.name}
