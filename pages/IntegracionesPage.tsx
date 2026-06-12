@@ -112,14 +112,6 @@ const PLATFORMS: IntegrationPlatform[] = [
     description: "Unificá tus canales de WhatsApp, Instagram, Facebook y Chat Web en una sola bandeja de entrada inteligente.",
     logoComponent: MessageSquare,
     isSimulated: false
-  },
-  {
-    id: "whatsapp",
-    name: "WhatsApp Cloud API",
-    category: "marketing",
-    description: "Enviá alertas automáticas, carritos abandonados y notificaciones de pedidos directo por WhatsApp.",
-    logoComponent: MessageSquare,
-    isSimulated: false
   }
 ];
 
