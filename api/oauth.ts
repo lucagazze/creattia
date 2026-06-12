@@ -392,6 +392,60 @@ function handlePreview(req: VercelRequest, res: VercelResponse) {
   return res.status(200).send(html);
 }
 
+// ── TIENDANUBE Webhooks (GDPR/LGPD) ──────────────────────────────────────────
+async function handleTiendanubeWebhook(req: VercelRequest, res: VercelResponse) {
+  const topic = req.query.topic as string || '';
+  const body = req.body || {};
+  const storeId = body.store_id || body.user_id;
+
+  if (storeId && (topic === 'store-redact' || req.url?.includes('store-redact') || topic === 'redact')) {
+    const storeIdStr = String(storeId);
+    console.log(`[Tiendanube Webhook] Store redact request received for storeId: ${storeIdStr}`);
+
+    if (SUPABASE_SERVICE_ROLE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: client, error: selectError } = await supabase
+        .from('car_clients')
+        .select('id, connection_statuses')
+        .eq('tiendanube_store_id', storeIdStr)
+        .maybeSingle();
+
+      if (selectError) {
+        console.error(`[Tiendanube Webhook] Error selecting client for storeId ${storeIdStr}:`, selectError);
+      }
+
+      if (client) {
+        console.log(`[Tiendanube Webhook] Disconnecting and clearing tokens for client ID: ${client.id}`);
+        const updatedStatuses = { ...(client.connection_statuses || {}), shopify: 'error' };
+        
+        const { error: updateError } = await supabase
+          .from('car_clients')
+          .update({
+            tiendanube_store_id: null,
+            tiendanube_access_token: null,
+            ecommerce_platform: null,
+            connection_statuses: updatedStatuses
+          })
+          .eq('id', client.id);
+
+        if (updateError) {
+          console.error(`[Tiendanube Webhook] Error updating client statuses for storeId ${storeIdStr}:`, updateError);
+        } else {
+          console.log(`[Tiendanube Webhook] Client ID ${client.id} successfully disconnected from Tiendanube.`);
+        }
+      } else {
+        console.log(`[Tiendanube Webhook] No client found in database matching storeId: ${storeIdStr}`);
+      }
+    } else {
+      console.error('[Tiendanube Webhook] SUPABASE_SERVICE_ROLE_KEY is not configured.');
+    }
+  } else {
+    console.log(`[Tiendanube Webhook] Non-redact or informational privacy webhook received. Topic: ${topic}`);
+  }
+
+  return res.status(200).json({ ok: true });
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -414,6 +468,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     (req.query as any).action = 'shopify-callback';
     return handleShopify(req, res);
   }
+
+  if (action === 'tiendanube-webhook') return handleTiendanubeWebhook(req, res);
 
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);

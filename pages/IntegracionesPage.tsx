@@ -232,11 +232,11 @@ export default function IntegracionesPage() {
       (async () => {
         try {
           setOauthLoading(true);
-          const shopifyPlatform = platforms.find(p => p.id === "shopify");
+          const shopifyPlatform = PLATFORMS.find((p: any) => p.id === "shopify");
           if (shopifyPlatform) setSelectedPlatform(shopifyPlatform);
 
           const cleanDomain = shopParam.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
-          const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
+          const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId || "")}`);
           if (res.ok) {
             const { authorizeUrl } = await res.json();
             window.location.href = authorizeUrl;
@@ -249,7 +249,7 @@ export default function IntegracionesPage() {
         }
       })();
     }
-  }, [activeProfileId, platforms]);
+  }, [activeProfileId]);
 
   // ── Listen for messages from meta-callback.html popup ─────────────────────────
   useEffect(() => {
@@ -363,20 +363,7 @@ export default function IntegracionesPage() {
     // Refresh modal form values from clientData
     if (clientData) {
       if (platform.id === "shopify") {
-        let defaultDomain = clientData.shopify_domain || "";
-        if (!defaultDomain) {
-          if (clientData.ig_username) {
-            defaultDomain = `${clientData.ig_username.toLowerCase().trim().replace(/[^a-z0-9-]/g, "")}.myshopify.com`;
-          } else if (clientData.business_name) {
-            const cleanName = clientData.business_name.toLowerCase().trim()
-              .replace(/\s+/g, "")
-              .replace(/[^a-z0-9-]/g, "");
-            if (cleanName && cleanName !== "minegocio" && cleanName !== "mi-negocio") {
-              defaultDomain = `${cleanName}.myshopify.com`;
-            }
-          }
-        }
-        setShopifyDomain(defaultDomain);
+        setShopifyDomain(clientData.shopify_domain || "");
         setShopifyToken(clientData.shopify_access_token || "");
       } else if (platform.id === "tiendanube") {
         setTiendanubeStoreId(clientData.tiendanube_store_id || "");
@@ -1012,19 +999,7 @@ export default function IntegracionesPage() {
   };
 
   const handleShopifyConnectClick = async (platform: IntegrationPlatform) => {
-    let shopToUse = clientData?.shopify_domain || "";
-    if (!shopToUse) {
-      if (clientData?.ig_username) {
-        shopToUse = `${clientData.ig_username.toLowerCase().trim().replace(/[^a-z0-9-]/g, "")}.myshopify.com`;
-      } else if (clientData?.business_name) {
-        const cleanName = clientData.business_name.toLowerCase().trim()
-          .replace(/\s+/g, "")
-          .replace(/[^a-z0-9-]/g, "");
-        if (cleanName && cleanName !== "minegocio" && cleanName !== "mi-negocio") {
-          shopToUse = `${cleanName}.myshopify.com`;
-        }
-      }
-    }
+    const shopToUse = clientData?.shopify_domain || "";
 
     if (shopToUse) {
       // Direct redirect
@@ -1034,7 +1009,7 @@ export default function IntegracionesPage() {
       setShopifyDomain(shopToUse);
       try {
         const cleanDomain = shopToUse.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
-        const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
+        const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId || "")}`);
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error || "Error al iniciar OAuth");

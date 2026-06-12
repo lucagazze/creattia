@@ -18,15 +18,15 @@
     },
     {
       "source": "/api/webhook/store-redact",
-      "destination": "/api/tiendanube-webhook?topic=store-redact"
+      "destination": "/api/oauth?action=tiendanube-webhook&topic=store-redact"
     },
     {
       "source": "/api/webhook/customers-redact",
-      "destination": "/api/tiendanube-webhook?topic=customers-redact"
+      "destination": "/api/oauth?action=tiendanube-webhook&topic=customers-redact"
     },
     {
       "source": "/api/webhook/customers-data",
-      "destination": "/api/tiendanube-webhook?topic=customers-data"
+      "destination": "/api/oauth?action=tiendanube-webhook&topic=customers-data"
     },
     {
       "source": "/api/klaviyo/:path*",
