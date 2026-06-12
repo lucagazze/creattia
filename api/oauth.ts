@@ -153,6 +153,79 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+// ── WOOCOMMERCE OAuth ─────────────────────────────────────────────────────────
+// WooCommerce has a built-in Authentication Endpoint that allows apps to generate
+// API keys automatically — no Partners registration or app approval needed.
+// Flow: frontend sends shop URL → backend builds the /wc-auth/v1/authorize URL →
+// user approves on their WP site → WC POSTs consumer_key+secret to callback_url →
+// backend saves creds to Supabase → returns redirect back to /#/integraciones
+async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
+  const action = req.query.action as string;
+  const base = getHost(req);
+
+  // ── STEP 1: Generate the WC authorize URL ────────────────────────────────
+  if (action === 'woocommerce-authorize') {
+    let shop = (req.query.shop as string || '').trim();
+    const clientId = req.query.clientId as string;
+    if (!shop) return res.status(400).json({ error: 'shop (URL de la tienda) requerido' });
+    if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+
+    // Ensure https:// and strip trailing slash
+    if (!shop.startsWith('http')) shop = 'https://' + shop;
+    shop = shop.replace(/\/$/, '');
+
+    const callbackUrl = `${base}/api/oauth?action=woocommerce-callback`;
+    const returnUrl   = `${base}/integraciones?woocommerce=success`;
+
+    const authorizeUrl =
+      `${shop}/wc-auth/v1/authorize` +
+      `?app_name=${encodeURIComponent('Algoritmia')}` +
+      `&scope=read_write` +
+      `&user_id=${encodeURIComponent(clientId)}` +
+      `&return_url=${encodeURIComponent(returnUrl)}` +
+      `&callback_url=${encodeURIComponent(callbackUrl)}`;
+
+    return res.status(200).json({ authorizeUrl });
+  }
+
+  // ── STEP 2: Receive the WC POST callback with the generated keys ──────────
+  if (action === 'woocommerce-callback') {
+    // WC sends JSON body — not URL-encoded, so access req.body directly
+    const body = req.body || {};
+    const clientId       = (body.user_id || req.query.user_id) as string;
+    const consumerKey    = body.consumer_key    as string;
+    const consumerSecret = body.consumer_secret as string;
+
+    if (!clientId || !consumerKey || !consumerSecret) {
+      console.error('[WooCommerce Callback] missing fields', { clientId: !!clientId, consumerKey: !!consumerKey, consumerSecret: !!consumerSecret });
+      // Still return 200 so WC doesn't retry endlessly
+      return res.status(200).json({ ok: false, error: 'missing_fields' });
+    }
+
+    // Retrieve the wordpress_url that was saved earlier (during authorize step)
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: clientRow } = await supabase
+      .from('car_clients')
+      .select('wordpress_url')
+      .eq('id', clientId)
+      .maybeSingle();
+
+    await updateClientStatuses(clientId, {
+      woo_consumer_key:    consumerKey,
+      woo_consumer_secret: consumerSecret,
+      ecommerce_platform:  'wordpress',
+      // Preserve whatever wordpress_url was already stored
+      wordpress_url: clientRow?.wordpress_url || null,
+      // Clear competing platforms
+      shopify_domain: null, shopify_access_token: null,
+      tiendanube_store_id: null, tiendanube_access_token: null,
+    }, 'shopify', 'ok');
+
+    // WC ignores our response body — just needs a 200
+    return res.status(200).json({ ok: true });
+  }
+}
+
 // ── META OAuth ────────────────────────────────────────────────────────────────
 async function handleMeta(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
@@ -331,8 +404,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Email preview (routed from /api/preview via vercel.json rewrite)
   if (action === 'preview' || req.query.email) return handlePreview(req, res);
 
+  // URL-path fallbacks for OAuth callbacks that arrive without an action param
+  // (happens when vercel.json rewrites /api/tiendanube-callback → /api/oauth)
+  if (!action && req.url?.includes('/api/tiendanube-callback')) {
+    (req.query as any).action = 'tiendanube-callback';
+    return handleTiendanube(req, res);
+  }
+  if (!action && req.url?.includes('/api/shopify-callback')) {
+    (req.query as any).action = 'shopify-callback';
+    return handleShopify(req, res);
+  }
+
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
+  if (action.startsWith('woocommerce')) return handleWooCommerce(req, res);
   if (action === 'meta-accounts') return handleMetaAccounts(req, res);
   if (action === 'meta-pages') return handleMetaPages(req, res);
 

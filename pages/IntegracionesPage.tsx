@@ -176,15 +176,17 @@ export default function IntegracionesPage() {
   //   b) any other OAuth platform redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const shopify    = params.get('shopify');
-    const tiendanube = params.get('tiendanube');
-    const meta       = params.get('meta');
-    const reason     = params.get('reason');
+    const shopify      = params.get('shopify');
+    const tiendanube   = params.get('tiendanube');
+    const woocommerce  = params.get('woocommerce');
+    const meta         = params.get('meta');
+    const reason       = params.get('reason');
 
     if (shopify === 'success') {
       setOauthResult({ platform: 'shopify', status: 'success' });
       showToast('¡Shopify conectado exitosamente! ✓', 'success');
       window.history.replaceState({}, '', '/#/integraciones');
+      refreshProfile().then(() => loadClientData());
     } else if (shopify === 'error') {
       setOauthResult({ platform: 'shopify', status: 'error', reason: reason || '' });
       showToast('Error al conectar Shopify: ' + (reason || 'desconocido'), 'error');
@@ -193,9 +195,19 @@ export default function IntegracionesPage() {
       setOauthResult({ platform: 'tiendanube', status: 'success' });
       showToast('¡Tiendanube conectado exitosamente! ✓', 'success');
       window.history.replaceState({}, '', '/#/integraciones');
+      refreshProfile().then(() => loadClientData());
     } else if (tiendanube === 'error') {
       setOauthResult({ platform: 'tiendanube', status: 'error', reason: reason || '' });
       showToast('Error al conectar Tiendanube: ' + (reason || 'desconocido'), 'error');
+      window.history.replaceState({}, '', '/#/integraciones');
+    } else if (woocommerce === 'success') {
+      setOauthResult({ platform: 'wordpress', status: 'success' });
+      showToast('¡WooCommerce conectado exitosamente! ✓', 'success');
+      window.history.replaceState({}, '', '/#/integraciones');
+      refreshProfile().then(() => loadClientData());
+    } else if (woocommerce === 'error') {
+      setOauthResult({ platform: 'wordpress', status: 'error', reason: reason || '' });
+      showToast('Error al conectar WooCommerce: ' + (reason || 'desconocido'), 'error');
       window.history.replaceState({}, '', '/#/integraciones');
     } else if (meta === 'select') {
       // Main-window fallback: popup was blocked, meta-callback.html redirected here.
@@ -387,6 +399,37 @@ export default function IntegracionesPage() {
       window.location.href = authorizeUrl;
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Tiendanube', 'error');
+      setOauthLoading(false);
+    }
+  };
+
+  // ── REAL OAUTH: WooCommerce ───────────────────────────────────────────────────
+  // WooCommerce has a built-in auth endpoint — no Partner App registration needed.
+  // The backend builds the authorize URL; WC POSTs the keys to the callback automatically.
+  const startWooCommerceOAuth = async () => {
+    if (!activeProfileId) return;
+    if (!wooUrl.trim()) {
+      showToast('Ingresá la URL de tu tienda WooCommerce primero', 'warning');
+      return;
+    }
+    setOauthLoading(true);
+    try {
+      const cleanUrl = wooUrl.trim().replace(/\/$/, '');
+      // Save the URL first so the callback can read it from Supabase
+      const { supabase: sb } = await import('../services/supabase');
+      await sb.from('car_clients').update({ wordpress_url: cleanUrl }).eq('id', activeProfileId);
+
+      const res = await fetch(
+        `/api/oauth?action=woocommerce-authorize&shop=${encodeURIComponent(cleanUrl)}&clientId=${encodeURIComponent(activeProfileId)}`
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al iniciar conexión con WooCommerce');
+      }
+      const { authorizeUrl } = await res.json();
+      window.location.href = authorizeUrl;
+    } catch (err: any) {
+      showToast(err.message || 'Error al conectar con WooCommerce', 'error');
       setOauthLoading(false);
     }
   };
@@ -937,6 +980,9 @@ export default function IntegracionesPage() {
       startMetaOAuth();
     } else if (platform.id === "tiendanube") {
       startTiendanubeOAuth();
+    } else if (platform.id === "wordpress") {
+      // Open modal so user can enter the URL first, then connect automatically
+      openConfigModal(platform);
     } else if (["mercadolibre", "google_ads", "tiktok_ads"].includes(platform.id)) {
       startSimulatedOAuth(platform.id);
     } else {
@@ -1490,38 +1536,72 @@ export default function IntegracionesPage() {
                   </>
                 )}
 
-                {/* WOOCOMMERCE FORM - direct real credentials (no simulated OAuth) */}
+                {/* WOOCOMMERCE FORM - OAuth via WC built-in auth endpoint (automatic) */}
                 {selectedPlatform.id === "wordpress" && (
                   <>
+                    {/* DEFAULT: OAuth automatic mode */}
                     {!isManualMode && (
-
                       <div className="space-y-5">
                         <div className="p-5 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/5 dark:to-indigo-500/5 rounded-2xl border border-blue-500/20 dark:border-blue-500/10 text-[13px] leading-relaxed space-y-3">
                           <div className="flex gap-3">
-                            <Key className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                            <Lock className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Conexión via REST API</span>
+                              <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Conexión OAuth Segura con WooCommerce</span>
                               <p className="text-zinc-500 dark:text-zinc-400">
-                                WooCommerce usa autenticación por clave de API. Generá tus claves en el panel de WordPress en menos de 1 minuto.
+                                Ingresá la URL de tu tienda y te redirigimos a tu panel de WordPress donde solo tenés que hacer clic en "Aprobar". No es necesario copiar ninguna clave.
                               </p>
                             </div>
                           </div>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {['Pedidos', 'Productos', 'Clientes', 'Estadísticas'].map(s => (
+                              <span key={s} className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />{s}
+                              </span>
+                            ))}
+                          </div>
                         </div>
 
-                        {/* Step-by-step guide */}
-                        <div className="space-y-2.5">
-                          {[
-                            { n: 1, text: 'En WordPress ve a WooCommerce → Ajustes → Avanzado → API REST' },
-                            { n: 2, text: 'Hacé clic en "Añadir clave", ponele un nombre (ej. "Algoritmia") y permisos Lectura' },
-                            { n: 3, text: 'Copiá el Consumer Key y Consumer Secret generados, y pegálos aquí' }
-                          ].map(step => (
-                            <div key={step.n} className="flex gap-3 items-start">
-                              <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[11px] font-black shrink-0 mt-0.5">{step.n}</div>
-                              <p className="text-[12px] text-zinc-600 dark:text-zinc-400">{step.text}</p>
-                            </div>
-                          ))}
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            URL de tu tienda WooCommerce *
+                          </label>
+                          <input
+                            type="url"
+                            className="apple-input"
+                            placeholder="https://mi-tienda.com"
+                            value={wooUrl}
+                            onChange={e => setWooUrl(e.target.value)}
+                            disabled={oauthLoading}
+                          />
+                          <p className="text-[11px] text-zinc-400">Debe ser la URL raíz de tu sitio WordPress con WooCommerce instalado.</p>
                         </div>
 
+                        <button
+                          type="button"
+                          onClick={startWooCommerceOAuth}
+                          disabled={oauthLoading || !wooUrl.trim()}
+                          className="w-full h-12 bg-[#7b51a1] hover:bg-[#6a4490] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
+                        >
+                          {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/logowordpress.webp" alt="" className="w-4 h-4 object-contain" />}
+                          <span>{oauthLoading ? 'Conectando...' : 'Conectar con WooCommerce'}</span>
+                        </button>
+
+                        <div className="text-center pt-1">
+                          <button type="button" onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4">
+                            Tengo Consumer Key + Secret (manual)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* MANUAL FALLBACK (in case WC auth endpoint is blocked) */}
+                    {isManualMode && (
+                      <div className="space-y-4">
+                        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl text-[12px] text-amber-700 dark:text-amber-400 flex gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span>Usá esta opción solo si la autorización automática no funcionó (algunos hostings bloquean el endpoint de WooCommerce).</span>
+                        </div>
                         <div className="space-y-3">
                           <div className="space-y-1.5">
                             <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">URL del sitio</label>
@@ -1539,12 +1619,12 @@ export default function IntegracionesPage() {
                               value={wooConsumerSecret} onChange={e => setWooConsumerSecret(e.target.value)} required disabled={savingSettings} />
                           </div>
                         </div>
-                      </div>
-                    )}
-                    {isManualMode && (
-                      <div className="text-center py-4">
-                        <button type="button" onClick={() => setIsManualMode(false)}
-                          className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors">← Ocultar guía</button>
+                        <div className="text-center">
+                          <button type="button" onClick={() => setIsManualMode(false)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors">
+                            ← Usar OAuth (recomendado)
+                          </button>
+                        </div>
                       </div>
                     )}
                   </>

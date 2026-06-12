@@ -13,6 +13,10 @@
       "destination": "/api/oauth"
     },
     {
+      "source": "/api/tiendanube-callback",
+      "destination": "/api/oauth"
+    },
+    {
       "source": "/api/klaviyo/:path*",
       "destination": "/api/klaviyo/[...path]"
     },
