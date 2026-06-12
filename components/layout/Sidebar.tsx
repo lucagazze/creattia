@@ -88,6 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const principalItems = [
     { path: '/',               icon: Home,          label: 'Inicio',          configured: true },
     { path: '/mensajeria',     icon: MessageSquare, label: 'Mensajería',      configured: hasChatwoot, badge: unreadCount },
+    { path: '/mensajeria-dms', icon: MessageSquare, label: 'Mensajes Redes',  configured: hasRedes },
     { path: '/entradas',       icon: Inbox,         label: 'Bandejas de Entrada', configured: hasChatwoot },
     { path: '/comentarios',    icon: MessageCircle, label: 'Comentarios',     configured: hasRedes, badge: pendingCommentsCount },
     { path: '/redes-sociales', icon: Instagram,     label: 'Redes Sociales',  configured: hasRedes },

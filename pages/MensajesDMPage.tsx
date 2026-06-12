@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Instagram, Loader2, RefreshCw, AlertCircle, Inbox, Sparkles, Send,
   Search, MessageSquare, Clock, CheckCheck, ChevronsUp, Facebook, Check, X
@@ -39,6 +40,7 @@ type ConvItem = {
 };
 
 export default function MensajesDMPage() {
+  const navigate = useNavigate();
   const { isViewingAs, viewAsProfile } = useViewAs();
   const { profile: authProfile, user, session } = useAuth();
   const profile      = isViewingAs ? viewAsProfile : authProfile;
@@ -129,25 +131,7 @@ export default function MensajesDMPage() {
   };
 
   const handleStartConnection = () => {
-    const appId = '1248660836711922'; // Meta App ID
-    const redirectUri = window.location.origin + window.location.pathname + '#/mensajeria';
-    const scopes = [
-      'pages_show_list',
-      'pages_messaging',
-      'instagram_basic',
-      'instagram_manage_comments',
-      'instagram_manage_insights',
-      'instagram_manage_messages',
-      'pages_read_engagement',
-      'pages_manage_metadata',
-      'pages_read_user_content',
-      'pages_manage_ads',
-      'pages_manage_posts',
-      'pages_manage_engagement'
-    ].join(',');
-
-    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=token`;
-    window.location.href = oauthUrl;
+    navigate('/integraciones?platform=meta');
   };
 
   const handleLinkPage = async (page: any) => {
