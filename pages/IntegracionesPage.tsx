@@ -207,19 +207,32 @@ export default function IntegracionesPage() {
   const [testingConnection, setTestingConnection] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // Helper to extract query parameters from both standard search query and hash router query
+  const getQueryParam = (key: string): string | null => {
+    const searchParams = new URLSearchParams(window.location.search);
+    let val = searchParams.get(key);
+    if (val) return val;
+    const hash = window.location.hash;
+    if (hash.includes("?")) {
+      const hashParams = new URLSearchParams(hash.split("?")[1]);
+      val = hashParams.get(key);
+      if (val) return val;
+    }
+    return null;
+  };
+
   // ── Detect OAuth callback result from URL params ──────────────────────────────
   // This fires when the user lands back on /#/integraciones after:
   //   a) popup was blocked → meta-callback.html redirected here with ?meta=select#/integraciones
   //   b) any other OAuth platform redirect
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shopify      = params.get('shopify');
-    const tiendanube   = params.get('tiendanube');
-    const woocommerce  = params.get('woocommerce');
-    const meta         = params.get('meta');
-    const mercadolibre = params.get('mercadolibre');
-    const tiktok       = params.get('tiktok');
-    const reason       = params.get('reason');
+    const shopify      = getQueryParam('shopify');
+    const tiendanube   = getQueryParam('tiendanube');
+    const woocommerce  = getQueryParam('woocommerce');
+    const meta         = getQueryParam('meta');
+    const mercadolibre = getQueryParam('mercadolibre');
+    const tiktok       = getQueryParam('tiktok');
+    const reason       = getQueryParam('reason');
 
     if (shopify === 'success') {
       setOauthResult({ platform: 'shopify', status: 'success' });
@@ -250,7 +263,7 @@ export default function IntegracionesPage() {
       window.history.replaceState({}, '', '/#/integraciones');
     } else if (meta === 'select') {
       // Main-window fallback: popup was blocked, meta-callback.html redirected here.
-      const cid = params.get('clientId') || '';
+      const cid = getQueryParam('clientId') || '';
       window.history.replaceState({}, '', '/#/integraciones');
       fetchMetaDataAndShowCombined(cid);
     } else if (meta === 'error') {
@@ -281,9 +294,13 @@ export default function IntegracionesPage() {
 
   // ── Auto-start Shopify OAuth if redirected from Shopify Partners/Store with ?shop= ──
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shopParam = params.get("shop");
-    if (shopParam && activeProfileId) {
+    // Wait until client data is loaded so we know if they are already connected
+    if (loading) return;
+
+    const shopParam = getQueryParam("shop");
+    const isConnected = clientData?.connection_statuses?.shopify === 'connected';
+
+    if (shopParam && activeProfileId && !isConnected) {
       window.history.replaceState({}, "", "/#/integraciones");
       setShopifyDomain(shopParam);
       (async () => {
@@ -296,7 +313,11 @@ export default function IntegracionesPage() {
           const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId || "")}`);
           if (res.ok) {
             const { authorizeUrl } = await res.json();
-            window.location.href = authorizeUrl;
+            if (window.top && window.top !== window.self) {
+              window.open(authorizeUrl, '_top');
+            } else {
+              window.location.href = authorizeUrl;
+            }
           } else {
             setOauthLoading(false);
           }
@@ -305,8 +326,12 @@ export default function IntegracionesPage() {
           setOauthLoading(false);
         }
       })();
+    } else if (shopParam) {
+      // If already connected, just clear URL and save the domain in state
+      window.history.replaceState({}, "", "/#/integraciones");
+      setShopifyDomain(shopParam);
     }
-  }, [activeProfileId]);
+  }, [activeProfileId, loading, clientData]);
 
   // ── Listen for messages from meta-callback.html popup ─────────────────────────
   useEffect(() => {
@@ -477,6 +502,24 @@ export default function IntegracionesPage() {
     if (!activeProfileId) return;
     setOauthLoading(true);
     try {
+      const activeShop = shopifyDomain || getQueryParam("shop");
+      if (activeShop) {
+        const cleanDomain = activeShop.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+        const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Error al iniciar la autorización');
+        }
+        const { authorizeUrl } = await res.json();
+        if (window.top && window.top !== window.self) {
+          window.open(authorizeUrl, '_top');
+        } else {
+          window.location.href = authorizeUrl;
+        }
+        return;
+      }
+
+      // Fallback
       const res = await fetch('/api/oauth?action=shopify-install-link');
       if (!res.ok) {
         const err = await res.json();
