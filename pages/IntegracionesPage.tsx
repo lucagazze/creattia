@@ -155,12 +155,15 @@ export default function IntegracionesPage() {
   // URL param success/error detection after OAuth callback redirect
   const [oauthResult, setOauthResult] = useState<{ platform: string; status: 'success' | 'error'; reason?: string } | null>(null);
 
-  // Meta account selection modal
-  const [metaAccountModal, setMetaAccountModal] = useState<{ clientId: string; accounts: { id: string; name: string; account_status: number; currency?: string }[] } | null>(null);
-  const [savingMetaAccount, setSavingMetaAccount] = useState(false);
-  const [metaPageModal, setMetaPageModal] = useState<{ clientId: string; pages: any[] } | null>(null);
-  const [savingMetaPage, setSavingMetaPage] = useState(false);
-  const [tempAdAccountId, setTempAdAccountId] = useState("");
+  // Meta combined connection modal (accounts + pages in one step)
+  const [metaCombinedModal, setMetaCombinedModal] = useState<{
+    clientId: string;
+    accounts: { id: string; name: string; account_status: number; currency?: string }[];
+    pages: any[];
+    selectedAccountId: string;
+    selectedPage: any | null;
+  } | null>(null);
+  const [savingMetaCombined, setSavingMetaCombined] = useState(false);
   const [metaLoadingText, setMetaLoadingText] = useState("");
 
   // Loading indicator for tests & saves
@@ -196,18 +199,9 @@ export default function IntegracionesPage() {
       window.history.replaceState({}, '', '/#/integraciones');
     } else if (meta === 'select') {
       // Main-window fallback: popup was blocked, meta-callback.html redirected here.
-      // Just process the account selection directly — no popup detection needed.
       const cid = params.get('clientId') || '';
       window.history.replaceState({}, '', '/#/integraciones');
-      setMetaLoadingText('Obteniendo cuentas publicitarias de Meta...');
-      fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
-        .then(r => r.json())
-        .then(json => {
-          if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
-          setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
-        })
-        .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
-        .finally(() => setMetaLoadingText(''));
+      fetchMetaDataAndShowCombined(cid);
     } else if (meta === 'error') {
       setOauthResult({ platform: 'meta', status: 'error', reason: reason || '' });
       showToast('Error al conectar Meta Ads: ' + (reason || 'desconocido'), 'error');
@@ -224,15 +218,8 @@ export default function IntegracionesPage() {
         const cid = e.data.clientId as string;
         if (!cid) return;
         setOauthLoading(false);
-        setMetaLoadingText('Obteniendo cuentas publicitarias de Meta...');
-        fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
-          .then(r => r.json())
-          .then(json => {
-            if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
-            setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
-          })
-          .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
-          .finally(() => setMetaLoadingText(''));
+        setSelectedPlatform(null);
+        fetchMetaDataAndShowCombined(cid);
       } else if (e.data?.type === 'meta-error') {
         setOauthLoading(false);
         const r = (e.data.reason as string) || 'unknown';
@@ -423,19 +410,25 @@ export default function IntegracionesPage() {
       }
       const { authorizeUrl } = await res.json();
 
+      // Close config modal immediately for clean UX — the combined modal will appear after OAuth
+      setSelectedPlatform(null);
+      setOauthLoading(false);
+      setMetaLoadingText('Abriendo Facebook Login...');
+
       // Try to open a popup
       const popup = window.open(authorizeUrl, 'meta_oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
 
       if (!popup) {
         // Popup blocked — redirect the main window. meta-callback.html will redirect
         // back to /?meta=select&clientId=...#/integraciones so our useEffect handles it.
+        setMetaLoadingText('');
         window.location.href = authorizeUrl;
         return;
       }
 
-      // ─ Popup opened successfully ─────────────────────────────────────────────
-      // meta-callback.html will send messages via postMessage, BroadcastChannel,
-      // and localStorage. We listen on all three + poll as ultimate fallback.
+      setMetaLoadingText('Esperando que completes el login en Facebook...');
+
+      // ─ Popup opened — listen for the callback from meta-callback.html ──────────
       let handled = false;
 
       const handleMetaSelect = (cid: string) => {
@@ -446,19 +439,10 @@ export default function IntegracionesPage() {
         try { bc.close(); } catch {}
         window.removeEventListener('storage', storageHandler);
         localStorage.removeItem('meta_oauth_complete');
-        setOauthLoading(false);
-        setMetaLoadingText('Obteniendo cuentas publicitarias de Meta...');
-        fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(cid)}`)
-          .then(r => r.json())
-          .then(json => {
-            if (json.error) { showToast('Error al obtener cuentas: ' + json.error, 'error'); return; }
-            setMetaAccountModal({ clientId: cid, accounts: json.accounts || [] });
-          })
-          .catch(() => showToast('Error al obtener cuentas de Meta', 'error'))
-          .finally(() => setMetaLoadingText(''));
+        fetchMetaDataAndShowCombined(cid);
       };
 
-      // Method 1: BroadcastChannel (meta-callback.html → main window)
+      // Method 1: BroadcastChannel
       const bc = new BroadcastChannel('meta_oauth');
       bc.onmessage = (event) => {
         if (event.data?.type === 'meta-select') handleMetaSelect(event.data.clientId as string);
@@ -468,12 +452,12 @@ export default function IntegracionesPage() {
           clearInterval(pollTimer); clearInterval(closeTimer);
           try { bc.close(); } catch {}
           window.removeEventListener('storage', storageHandler);
-          setOauthLoading(false);
+          setMetaLoadingText('');
           showToast('Error al conectar Meta Ads: ' + String(event.data.reason || '').replace(/_/g, ' '), 'error');
         }
       };
 
-      // Method 2: localStorage storage event (for browsers that block BroadcastChannel cross-tab)
+      // Method 2: localStorage storage event
       const storageHandler = (e: StorageEvent) => {
         if (e.key === 'meta_oauth_complete' && e.newValue) {
           try { handleMetaSelect(JSON.parse(e.newValue).clientId as string); } catch {}
@@ -491,7 +475,7 @@ export default function IntegracionesPage() {
         } catch {}
       }, 3000);
 
-      // Detect popup close — wait 1.5s for any in-flight messages, then cleanup
+      // Detect popup close — give 1.5s for in-flight messages, then cleanup
       const closeTimer = setInterval(() => {
         if (popup.closed) {
           clearInterval(closeTimer);
@@ -501,7 +485,7 @@ export default function IntegracionesPage() {
               clearInterval(pollTimer);
               try { bc.close(); } catch {}
               window.removeEventListener('storage', storageHandler);
-              setOauthLoading(false);
+              setMetaLoadingText('');
               refreshProfile().then(() => loadClientData());
             }
           }, 1500);
@@ -516,13 +500,87 @@ export default function IntegracionesPage() {
           clearInterval(closeTimer);
           try { bc.close(); } catch {}
           window.removeEventListener('storage', storageHandler);
-          setOauthLoading(false);
+          setMetaLoadingText('');
         }
       }, 180000);
 
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Meta Ads', 'error');
       setOauthLoading(false);
+      setMetaLoadingText('');
+    }
+  };
+
+  // ── Fetch accounts + pages in parallel, then show combined modal ──────────────
+  const fetchMetaDataAndShowCombined = async (clientId: string) => {
+    setMetaLoadingText('Obteniendo cuentas y páginas de Meta...');
+    try {
+      const [accountsRes, pagesRes] = await Promise.all([
+        fetch(`/api/oauth?action=meta-accounts&clientId=${encodeURIComponent(clientId)}`),
+        fetch(`/api/oauth?action=meta-pages&clientId=${encodeURIComponent(clientId)}`)
+      ]);
+      const [accountsJson, pagesJson] = await Promise.all([
+        accountsRes.json(),
+        pagesRes.json()
+      ]);
+      if (accountsJson.error) {
+        showToast('Error al obtener cuentas: ' + accountsJson.error, 'error');
+        return;
+      }
+      const accounts: { id: string; name: string; account_status: number; currency?: string }[] = accountsJson.accounts || [];
+      const pages: any[] = pagesJson.pages || [];
+      // Auto-select the first account if only one exists
+      const autoAccountId = accounts.length === 1 ? accounts[0].id : '';
+      // Auto-select the first page if only one exists
+      const autoPage = pages.length === 1 ? pages[0] : null;
+      setMetaCombinedModal({
+        clientId,
+        accounts,
+        pages,
+        selectedAccountId: autoAccountId,
+        selectedPage: autoPage,
+      });
+    } catch {
+      showToast('Error al obtener datos de Meta', 'error');
+    } finally {
+      setMetaLoadingText('');
+    }
+  };
+
+  // ── Save combined selection (account + page) to DB ───────────────────────────
+  const saveCombinedMetaSelection = async () => {
+    if (!metaCombinedModal?.selectedAccountId || !metaCombinedModal?.selectedPage) return;
+    setSavingMetaCombined(true);
+    try {
+      const { selectedAccountId, selectedPage, clientId } = metaCombinedModal;
+      const igId = selectedPage.instagram_business_account?.id || null;
+      const igUsername = selectedPage.instagram_business_account?.username || null;
+      const fieldsToUpdate = {
+        meta_account_id: selectedAccountId,
+        fb_page_id: selectedPage.id,
+        fb_page_name: selectedPage.name,
+        fb_page_access_token: selectedPage.access_token,
+        ig_business_id: igId,
+        ig_username: igUsername,
+      };
+      const currentStatuses = clientData?.connection_statuses || {};
+      const { error } = await supabase
+        .from('car_clients')
+        .update({ ...fieldsToUpdate, connection_statuses: { ...currentStatuses, meta: 'ok' } })
+        .eq('id', clientId);
+      if (error) throw error;
+      if (selectedPage.id && selectedPage.access_token) {
+        localStorage.setItem(`fb_pat_${selectedPage.id}`, selectedPage.access_token);
+        localStorage.setItem('active_fb_page_id', selectedPage.id);
+      }
+      setMetaCombinedModal(null);
+      setOauthResult({ platform: 'meta', status: 'success' });
+      showToast('¡Meta Ads y Redes Sociales conectados exitosamente! ✓', 'success');
+      refreshProfile().then(() => loadClientData());
+    } catch (err: any) {
+      showToast('Error al guardar: ' + err.message, 'error');
+    } finally {
+      setSavingMetaCombined(false);
     }
   };
 
@@ -824,72 +882,7 @@ export default function IntegracionesPage() {
     );
   }
 
-  const selectMetaAccount = async (accountId: string) => {
-    if (!metaAccountModal) return;
-    setTempAdAccountId(accountId);
-    setSavingMetaAccount(true);
-    setMetaLoadingText("Obteniendo páginas de Facebook e Instagram...");
-    try {
-      const res = await fetch(`/api/oauth?action=meta-pages&clientId=${encodeURIComponent(metaAccountModal.clientId)}`);
-      const json = await res.json();
-      setMetaAccountModal(null);
-      if (json.error) {
-        showToast('Error al obtener páginas de Facebook: ' + json.error, 'error');
-        return;
-      }
-      setMetaPageModal({ clientId: metaAccountModal.clientId, pages: json.pages || [] });
-    } catch (err: any) {
-      showToast('Error al obtener páginas de Facebook', 'error');
-    } finally {
-      setSavingMetaAccount(false);
-      setMetaLoadingText("");
-    }
-  };
 
-  const selectMetaPage = async (page: any) => {
-    if (!metaPageModal) return;
-    setSavingMetaPage(true);
-    try {
-      const igId = page.instagram_business_account?.id || null;
-      const igUsername = page.instagram_business_account?.username || null;
-      
-      const fieldsToUpdate = {
-        meta_account_id: tempAdAccountId,
-        fb_page_id: page.id,
-        fb_page_name: page.name,
-        fb_page_access_token: page.access_token,
-        ig_business_id: igId,
-        ig_username: igUsername,
-      };
-
-      const currentStatuses = clientData?.connection_statuses || {};
-      const updatedStatuses = { ...currentStatuses, meta: 'ok' };
-
-      const { error } = await supabase
-        .from('car_clients')
-        .update({
-          ...fieldsToUpdate,
-          connection_statuses: updatedStatuses
-        })
-        .eq('id', metaPageModal.clientId);
-
-      if (error) throw error;
-
-      if (page.id && page.access_token) {
-        localStorage.setItem(`fb_pat_${page.id}`, page.access_token);
-        localStorage.setItem('active_fb_page_id', page.id);
-      }
-
-      setMetaPageModal(null);
-      setOauthResult({ platform: 'meta', status: 'success' });
-      showToast('¡Meta Ads y Redes Sociales conectados exitosamente! ✓', 'success');
-      refreshProfile().then(() => loadClientData());
-    } catch (err: any) {
-      showToast('Error al guardar página: ' + err.message, 'error');
-    } finally {
-      setSavingMetaPage(false);
-    }
-  };
 
   return (
     <div className="space-y-8 max-w-[1400px] mx-auto animate-in fade-in duration-300">
@@ -904,101 +897,155 @@ export default function IntegracionesPage() {
         </div>
       )}
 
-      {/* Meta Account Selection Modal */}
-      {metaAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <h2 className="text-white font-bold text-lg">Seleccionar cuenta publicitaria</h2>
-                <p className="text-zinc-400 text-sm mt-0.5">Elegí la cuenta de Meta Ads que querés conectar</p>
-              </div>
-              <button onClick={() => setMetaAccountModal(null)} className="text-zinc-500 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 max-h-80 overflow-y-auto space-y-2">
-              {metaAccountModal.accounts.length === 0 && (
-                <p className="text-zinc-500 text-sm text-center py-6">No se encontraron cuentas publicitarias activas</p>
-              )}
-              {metaAccountModal.accounts.map(acc => (
-                <button
-                  key={acc.id}
-                  onClick={() => selectMetaAccount(acc.id)}
-                  disabled={savingMetaAccount}
-                  className="w-full text-left p-4 rounded-xl border border-zinc-700 hover:border-[#1877f2] hover:bg-[#1877f2]/10 transition-all group disabled:opacity-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-white font-medium text-sm">{acc.name}</p>
-                      <p className="text-zinc-500 text-xs mt-0.5">{acc.id}{acc.currency ? ` · ${acc.currency}` : ''}</p>
-                    </div>
-                    <div className={`w-2 h-2 rounded-full ${acc.account_status === 1 ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
-                  </div>
-                </button>
-              ))}
-            </div>
-            {savingMetaAccount && (
-              <div className="p-4 border-t border-zinc-800 flex items-center justify-center gap-2 text-zinc-400 text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" /> Guardando...
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Meta Combined Connection Modal — Ad Account + Page/Instagram in one step */}
+      {metaCombinedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[88vh]">
 
-      {/* Meta Page & Instagram Selection Modal */}
-      {metaPageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
-              <div>
-                <h2 className="text-white font-bold text-lg">Vincular Página & Instagram</h2>
-                <p className="text-zinc-400 text-sm mt-0.5">Elegí la página de Facebook para tu negocio</p>
+            {/* Header */}
+            <div className="p-5 border-b border-zinc-800 flex items-center gap-3 shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-[#1877f2]/15 border border-[#1877f2]/20 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 fill-[#1877f2]">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
               </div>
-              <button onClick={() => setMetaPageModal(null)} className="text-zinc-500 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
+              <div className="flex-1 min-w-0">
+                <h2 className="text-white font-bold text-[15px] leading-tight">Configurar Meta Ads</h2>
+                <p className="text-zinc-500 text-xs mt-0.5">Seleccioná tu cuenta publicitaria y página de Facebook</p>
+              </div>
+              <button
+                onClick={() => setMetaCombinedModal(null)}
+                className="text-zinc-500 hover:text-white transition-colors p-1 rounded-lg hover:bg-zinc-800 shrink-0"
+              >
+                <X className="w-4.5 h-4.5" />
               </button>
             </div>
-            <div className="p-4 max-h-80 overflow-y-auto space-y-2">
-              {metaPageModal.pages.length === 0 && (
-                <div className="text-center py-6 space-y-2">
-                  <p className="text-zinc-500 text-sm">No se encontraron páginas de Facebook activas</p>
-                  <p className="text-zinc-600 text-xs">Asegúrate de que el usuario de Facebook tenga roles de administrador sobre alguna página.</p>
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-5">
+
+              {/* ─ Step 1: Ad Account ─ */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-5 h-5 rounded-full bg-[#1877f2] flex items-center justify-center text-[10px] font-black text-white shrink-0">1</div>
+                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Cuenta publicitaria</p>
                 </div>
-              )}
-              {metaPageModal.pages.map(page => (
-                <button
-                  key={page.id}
-                  onClick={() => selectMetaPage(page)}
-                  disabled={savingMetaPage}
-                  className="w-full text-left p-4 rounded-xl border border-zinc-700 hover:border-blue-500 hover:bg-blue-500/10 transition-all group disabled:opacity-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-white font-medium text-sm group-hover:text-blue-450 transition-colors">{page.name}</p>
-                      <p className="text-zinc-550 text-xs mt-0.5">ID: {page.id}</p>
-                      {page.instagram_business_account ? (
-                        <div className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-pink-500 bg-pink-500/10 px-2 py-0.5 rounded-full">
-                          <Instagram className="w-3 h-3" />
-                          <span>@{page.instagram_business_account.username}</span>
-                        </div>
-                      ) : (
-                        <div className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-zinc-500 bg-zinc-550/10 px-2 py-0.5 rounded-full">
-                          <span>Sin Instagram vinculado</span>
-                        </div>
-                      )}
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-blue-450 group-hover:translate-x-0.5 transition-all" />
+                {metaCombinedModal.accounts.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 text-center">
+                    <p className="text-zinc-500 text-sm">No se encontraron cuentas publicitarias</p>
+                    <p className="text-zinc-600 text-xs mt-1">Verificá que tu cuenta tenga acceso a Meta Business.</p>
                   </div>
-                </button>
-              ))}
-            </div>
-            {savingMetaPage && (
-              <div className="p-4 border-t border-zinc-800 flex items-center justify-center gap-2 text-zinc-400 text-sm">
-                <Loader2 className="w-4 h-4 animate-spin text-blue-500" /> Guardando configuración...
+                ) : (
+                  <div className="space-y-2">
+                    {metaCombinedModal.accounts.map(acc => {
+                      const isSelected = metaCombinedModal.selectedAccountId === acc.id;
+                      return (
+                        <button
+                          key={acc.id}
+                          onClick={() => setMetaCombinedModal(prev => prev ? { ...prev, selectedAccountId: acc.id } : null)}
+                          disabled={savingMetaCombined}
+                          className={`w-full text-left p-3.5 rounded-xl border transition-all ${
+                            isSelected
+                              ? 'border-[#1877f2] bg-[#1877f2]/10 ring-1 ring-[#1877f2]/20'
+                              : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                          } disabled:opacity-50`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-white font-semibold text-sm truncate">{acc.name}</p>
+                              <p className="text-zinc-500 text-xs mt-0.5">{acc.id}{acc.currency ? ` · ${acc.currency}` : ''}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className={`w-2 h-2 rounded-full ${acc.account_status === 1 ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                              {isSelected && (
+                                <div className="w-5 h-5 rounded-full bg-[#1877f2] flex items-center justify-center">
+                                  <Check className="w-3 h-3 text-white stroke-[3]" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
+
+              {/* ─ Step 2: Facebook Page + Instagram ─ */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-[10px] font-black text-white shrink-0">2</div>
+                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Página de Facebook & Instagram</p>
+                </div>
+                {metaCombinedModal.pages.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 text-center space-y-1">
+                    <p className="text-zinc-500 text-sm">No se encontraron páginas de Facebook</p>
+                    <p className="text-zinc-600 text-xs">Asegurate de ser administrador de al menos una página.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {metaCombinedModal.pages.map(page => {
+                      const isSelected = metaCombinedModal.selectedPage?.id === page.id;
+                      const ig = page.instagram_business_account;
+                      return (
+                        <button
+                          key={page.id}
+                          onClick={() => setMetaCombinedModal(prev => prev ? { ...prev, selectedPage: page } : null)}
+                          disabled={savingMetaCombined}
+                          className={`w-full text-left p-3.5 rounded-xl border transition-all ${
+                            isSelected
+                              ? 'border-pink-500 bg-pink-500/10 ring-1 ring-pink-500/20'
+                              : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                          } disabled:opacity-50`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-white font-semibold text-sm truncate">{page.name}</p>
+                              {ig ? (
+                                <div className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 px-2 py-0.5 rounded-full">
+                                  <Instagram className="w-3 h-3" />
+                                  <span>@{ig.username}</span>
+                                </div>
+                              ) : (
+                                <p className="text-zinc-600 text-xs mt-1">Sin Instagram vinculado</p>
+                              )}
+                            </div>
+                            {isSelected && (
+                              <div className="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-3 h-3 text-white stroke-[3]" />
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-zinc-800 shrink-0 space-y-2">
+              {(!metaCombinedModal.selectedAccountId || !metaCombinedModal.selectedPage) && (
+                <p className="text-center text-zinc-600 text-xs">
+                  {!metaCombinedModal.selectedAccountId && 'Seleccioná una cuenta publicitaria'}
+                  {!metaCombinedModal.selectedAccountId && !metaCombinedModal.selectedPage && ' y '}
+                  {!metaCombinedModal.selectedPage && 'una página de Facebook'}
+                  {' '}para continuar
+                </p>
+              )}
+              <button
+                onClick={saveCombinedMetaSelection}
+                disabled={!metaCombinedModal.selectedAccountId || !metaCombinedModal.selectedPage || savingMetaCombined}
+                className="w-full h-11 bg-[#1877f2] hover:bg-[#166fe5] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#1877f2]/20"
+              >
+                {savingMetaCombined ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>  
+                ) : (
+                  <><Check className="w-4 h-4 stroke-[2.5]" /> Conectar Meta Ads</>  
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
