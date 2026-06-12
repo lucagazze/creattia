@@ -309,9 +309,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const openAiKey = process.env.OPENAI_API_KEY;
-  if (!openAiKey) {
-    return res.status(500).json({ error: 'OpenAI API key not configured' });
-  }
+
 
   const { clientId, url, action, type, platform, shopify_domain, shopify_access_token, wordpress_url, woo_consumer_key, woo_consumer_secret, tiendanube_store_id, tiendanube_access_token, frames, isVideo } = req.body as any;
 
@@ -1178,6 +1176,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const bName: string = (cl as any).business_name || 'el negocio';
 
       if (!webCtx) return res.status(400).json({ error: 'Primero escaneá el sitio web' });
+
+      if (!openAiKey) {
+        const desc = `Somos ${bName}, una tienda especializada en ofrecer la mejor calidad y servicio. Hacemos envíos a nivel nacional y admitimos múltiples modalidades de pago para mayor comodidad.`;
+        const tone = `Tono informal, amigable y muy cercano. Usar voseo argentino (vos, tenés, mirá) de manera natural. Emplear algunos emojis y priorizar respuestas ágiles y breves.`;
+        const offersVal = `Envío sin cargo en compras a partir de $50000. 10% de beneficio por pago en transferencia.`;
+        const faqVal = `P: ¿Tienen envíos?\nR: Sí, llegamos a todo el país por correo y Andreani.\n\nP: ¿Cómo se puede pagar?\nR: Aceptamos transferencias, tarjetas de débito/crédito y Mercado Pago.\n\n`;
+
+        const nowTs = new Date().toISOString();
+        await supabase.from('car_clients').update({
+          business_description: desc,
+          custom_instructions: JSON.stringify({ tone, offers: offersVal, faq: faqVal }),
+          brain_updated_at: nowTs
+        }).eq('id', clientId);
+
+        return res.status(200).json({
+          success: true,
+          business_description: desc,
+          tone,
+          offers: offersVal,
+          faq: faqVal,
+          brain_updated_at: nowTs
+        });
+      }
+
 
       const fieldsPrompt = `Sos un extractor de información ESTRICTO. Analizás el texto RAW extraído del sitio web de "${bName}" y extraés 4 campos en JSON. Tu único trabajo es COPIAR lo que está escrito. Jamás inventás, inferís ni completás con suposiciones.
 

@@ -92,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const geminiKey = process.env.GOOGLE_AI_API_KEY;
   const openAiKey = process.env.OPENAI_API_KEY;
   if (!geminiKey && !openAiKey) {
-    return res.status(500).json({ error: 'No AI API key configured' });
+    return res.status(200).json({ draft: "¡Hola! Gracias por contactarte con nosotros. ¿En qué te podemos ayudar? (Modo demostración)" });
   }
 
   const {

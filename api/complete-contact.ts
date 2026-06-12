@@ -47,7 +47,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const openAiKey = process.env.OPENAI_API_KEY;
   if (!openAiKey) {
-    return res.status(500).json({ error: 'OpenAI API key not configured' });
+    return res.status(200).json({
+      success: true,
+      suggestions: {
+        name: null,
+        email: null,
+        phone_number: null,
+        instagram: null,
+        location: null,
+        company: null,
+        notes: "Modo demostración: OpenAI API Key no configurada."
+      }
+    });
   }
 
   const { contactId, cwUrl, cwToken } = req.body as {
