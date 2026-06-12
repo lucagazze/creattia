@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Use hardcoded production domain — never trust req.headers.host for redirects
     const host = req.headers.host || '';
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
-    const redirectBase = isLocal ? `http://${host}` : 'https://car.algoritmiadesarrollos.com.ar';
+    const redirectBase = isLocal ? `http://${host}` : 'https://app.algoritmiadesarrollos.com.ar';
 
     res.writeHead(302, {
       Location: `${redirectBase}/?id_token=${encodeURIComponent(credential)}`

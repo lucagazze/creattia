@@ -53,9 +53,9 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
     if (!SHOPIFY_CLIENT_ID) return res.status(503).json({ error: 'Shopify OAuth no configurado (falta SHOPIFY_CLIENT_ID).' });
 
     const scopes = 'read_orders,read_customers,read_products,read_inventory,read_analytics';
-    const redirectUri = base.includes('localhost') || base.includes('127.0.0.1')
+    const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
       ? `${base}/api/shopify-callback`
-      : 'https://car.algoritmiadesarrollos.com.ar/api/shopify-callback';
+      : 'https://app.algoritmiadesarrollos.com.ar/api/shopify-callback';
     const state = Buffer.from(JSON.stringify({ clientId, shop, host: base })).toString('base64');
 
     const authorizeUrl =
@@ -91,9 +91,9 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
       return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=not_configured`);
 
     try {
-      const redirectUri = base.includes('localhost') || base.includes('127.0.0.1')
+      const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
         ? `${base}/api/shopify-callback`
-        : 'https://car.algoritmiadesarrollos.com.ar/api/shopify-callback';
+        : 'https://app.algoritmiadesarrollos.com.ar/api/shopify-callback';
         
       const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
         method: 'POST',
