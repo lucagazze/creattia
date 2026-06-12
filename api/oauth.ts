@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://czocbnyoenjbpxmcqobn.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -446,6 +447,79 @@ async function handleTiendanubeWebhook(req: VercelRequest, res: VercelResponse) 
   return res.status(200).json({ ok: true });
 }
 
+// ── SHOPIFY Webhooks (GDPR) ──────────────────────────────────────────────────
+async function handleShopifyWebhook(req: VercelRequest, res: VercelResponse) {
+  if (!SHOPIFY_CLIENT_SECRET) {
+    console.error('[Shopify Webhook] Missing SHOPIFY_CLIENT_SECRET');
+    return res.status(200).json({ ok: true, warning: 'missing_secret' });
+  }
+
+  // 1. Verify HMAC
+  const hmacHeader = (req.headers['x-shopify-hmac-sha256'] || req.headers['X-Shopify-Hmac-Sha256']) as string;
+  if (!hmacHeader) {
+    console.warn('[Shopify Webhook] Missing HMAC header');
+    return res.status(401).json({ error: 'Missing HMAC signature' });
+  }
+
+  let rawBody: string | Buffer;
+  if (Buffer.isBuffer(req.body)) {
+    rawBody = req.body;
+  } else if (typeof req.body === 'string') {
+    rawBody = req.body;
+  } else {
+    // Reconstruct raw JSON body string
+    rawBody = JSON.stringify(req.body);
+  }
+
+  const generatedHash = crypto
+    .createHmac('sha256', SHOPIFY_CLIENT_SECRET)
+    .update(rawBody)
+    .digest('base64');
+
+  if (generatedHash !== hmacHeader) {
+    console.warn('[Shopify Webhook] HMAC verification failed', { generated: generatedHash, received: hmacHeader });
+    return res.status(401).json({ error: 'Invalid HMAC signature' });
+  }
+
+  // 2. Handle validated request
+  const topic = req.query.topic as string || '';
+  const body = req.body || {};
+  console.log(`[Shopify Webhook] HMAC verified. Topic: ${topic}`, body);
+
+  // If shop/redact (merchant uninstalled the app)
+  if (topic === 'shop-redact' || req.url?.includes('shop-redact')) {
+    const shopDomain = body.shop_domain || body.domain;
+    if (shopDomain) {
+      console.log(`[Shopify Webhook] Uninstall request for shop: ${shopDomain}`);
+      if (SUPABASE_SERVICE_ROLE_KEY) {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        // Find client row matching the shopify_domain
+        const { data: client } = await supabase
+          .from('car_clients')
+          .select('id, connection_statuses')
+          .eq('shopify_domain', shopDomain)
+          .maybeSingle();
+
+        if (client) {
+          console.log(`[Shopify Webhook] Disconnecting shop: ${shopDomain} (client: ${client.id})`);
+          const updatedStatuses = { ...(client.connection_statuses || {}), shopify: 'error' };
+          await supabase
+            .from('car_clients')
+            .update({
+              shopify_domain: null,
+              shopify_access_token: null,
+              ecommerce_platform: null,
+              connection_statuses: updatedStatuses
+            })
+            .eq('id', client.id);
+        }
+      }
+    }
+  }
+
+  return res.status(200).json({ ok: true });
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -470,6 +544,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (action === 'tiendanube-webhook') return handleTiendanubeWebhook(req, res);
+  if (action === 'shopify-webhook') return handleShopifyWebhook(req, res);
 
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);

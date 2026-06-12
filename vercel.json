@@ -29,6 +29,18 @@
       "destination": "/api/oauth?action=tiendanube-webhook&topic=customers-data"
     },
     {
+      "source": "/api/shopify-webhook/customers-data",
+      "destination": "/api/oauth?action=shopify-webhook&topic=customers-data"
+    },
+    {
+      "source": "/api/shopify-webhook/customers-redact",
+      "destination": "/api/oauth?action=shopify-webhook&topic=customers-redact"
+    },
+    {
+      "source": "/api/shopify-webhook/shop-redact",
+      "destination": "/api/oauth?action=shopify-webhook&topic=shop-redact"
+    },
+    {
       "source": "/api/klaviyo/:path*",
       "destination": "/api/klaviyo/[...path]"
     },
