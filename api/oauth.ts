@@ -53,8 +53,10 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
     if (!SHOPIFY_CLIENT_ID) return res.status(503).json({ error: 'Shopify OAuth no configurado (falta SHOPIFY_CLIENT_ID).' });
 
     const scopes = 'read_orders,read_customers,read_products,read_inventory,read_analytics';
-    const redirectUri = `${base}/api/shopify-callback`;
-    const state = Buffer.from(JSON.stringify({ clientId, shop })).toString('base64');
+    const redirectUri = base.includes('localhost') || base.includes('127.0.0.1')
+      ? `${base}/api/shopify-callback`
+      : 'https://car.algoritmiadesarrollos.com.ar/api/shopify-callback';
+    const state = Buffer.from(JSON.stringify({ clientId, shop, host: base })).toString('base64');
 
     const authorizeUrl =
       `https://${shop}/admin/oauth/authorize` +
@@ -70,23 +72,35 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
     const code = req.query.code as string;
     const shop = req.query.shop as string;
     const stateRaw = req.query.state as string;
-    if (!code || !shop) return res.redirect('/integraciones?shopify=error&reason=missing_params');
-
+    
     let clientId: string | undefined;
-    try { clientId = JSON.parse(Buffer.from(stateRaw, 'base64').toString()).clientId; }
-    catch { return res.redirect('/integraciones?shopify=error&reason=invalid_state'); }
+    let originalHost: string | undefined;
+    
+    try {
+      const parsedState = JSON.parse(Buffer.from(stateRaw || '', 'base64').toString());
+      clientId = parsedState.clientId;
+      originalHost = parsedState.host;
+    } catch {
+      return res.redirect('/integraciones?shopify=error&reason=invalid_state');
+    }
+
+    const redirectBase = originalHost || base;
+    if (!code || !shop) return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=missing_params`);
 
     if (!SHOPIFY_CLIENT_ID || !SHOPIFY_CLIENT_SECRET)
-      return res.redirect('/integraciones?shopify=error&reason=not_configured');
+      return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=not_configured`);
 
     try {
-      const redirectUri = `${base}/api/shopify-callback`;
+      const redirectUri = base.includes('localhost') || base.includes('127.0.0.1')
+        ? `${base}/api/shopify-callback`
+        : 'https://car.algoritmiadesarrollos.com.ar/api/shopify-callback';
+        
       const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ client_id: SHOPIFY_CLIENT_ID, client_secret: SHOPIFY_CLIENT_SECRET, code })
       });
-      if (!tokenRes.ok) return res.redirect('/integraciones?shopify=error&reason=token_exchange');
+      if (!tokenRes.ok) return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=token_exchange`);
       const { access_token } = await tokenRes.json() as { access_token: string };
       const cleanShop = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
       await updateClientStatuses(clientId!, {
@@ -96,10 +110,10 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
         tiendanube_store_id: null, tiendanube_access_token: null,
         wordpress_url: null, woo_consumer_key: null, woo_consumer_secret: null
       }, 'shopify', 'ok');
-      return res.redirect('/integraciones?shopify=success');
+      return res.redirect(`${redirectBase}/integraciones?shopify=success`);
     } catch (err: any) {
       console.error('[Shopify OAuth]', err);
-      return res.redirect('/integraciones?shopify=error&reason=server_error');
+      return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=server_error`);
     }
   }
 }
