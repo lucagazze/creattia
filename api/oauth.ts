@@ -1432,6 +1432,70 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+async function handleWhatsappTest(req: VercelRequest, res: VercelResponse) {
+  const clientId = req.query.clientId as string;
+  const testPhone = req.query.testPhone as string;
+
+  if (!clientId || !testPhone) {
+    return res.status(400).json({ error: 'Falta clientId o testPhone' });
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: client, error: dbErr } = await supabase
+    .from('car_clients')
+    .select('whatsapp_phone_number_id, whatsapp_access_token, whatsapp_verified_number')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (dbErr || !client) {
+    return res.status(500).json({ error: 'Error al consultar credenciales en la base de datos' });
+  }
+
+  const token = client.whatsapp_access_token;
+  const phoneId = client.whatsapp_phone_number_id;
+
+  if (!token || !phoneId) {
+    return res.status(400).json({ error: 'WhatsApp no configurado. Falta el Token o el Phone Number ID.' });
+  }
+
+  // Clean phone number (leave digits only)
+  const cleanPhone = testPhone.replace(/\D/g, '');
+
+  try {
+    const url = `https://graph.facebook.com/v22.0/${phoneId}/messages`;
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: cleanPhone,
+      type: 'text',
+      text: {
+        body: '¡Conexión exitosa con tu SaaS! ✓ Este es un mensaje de prueba de la integración de WhatsApp Cloud API.'
+      }
+    };
+
+    const waRes = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await waRes.json();
+
+    if (!waRes.ok) {
+      console.error('[WhatsApp Test Failed] Response:', data);
+      const errDetail = data?.error?.message || `HTTP Error ${waRes.status}`;
+      return res.status(400).json({ error: errDetail });
+    }
+
+    return res.status(200).json({ success: true, data });
+  } catch (err: any) {
+    console.error('[WhatsApp Test Exception]:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1440,6 +1504,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   const action = req.query.action as string || '';
+
+  if (action === 'whatsapp-test') return handleWhatsappTest(req, res);
 
   // Email preview (routed from /api/preview via vercel.json rewrite)
   if (action === 'preview' || req.query.email) return handlePreview(req, res);

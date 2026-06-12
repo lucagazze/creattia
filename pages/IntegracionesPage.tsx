@@ -112,6 +112,14 @@ const PLATFORMS: IntegrationPlatform[] = [
     description: "Unificá tus canales de WhatsApp, Instagram, Facebook y Chat Web en una sola bandeja de entrada inteligente.",
     logoComponent: MessageSquare,
     isSimulated: false
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp Cloud API",
+    category: "marketing",
+    description: "Enviá alertas automáticas, carritos abandonados y notificaciones de pedidos directo por WhatsApp.",
+    logoComponent: MessageSquare,
+    isSimulated: false
   }
 ];
 
@@ -172,6 +180,14 @@ export default function IntegracionesPage() {
 
   const [chatwootUrl, setChatwootUrl] = useState("https://app.chatwoot.com");
   const [chatwootToken, setChatwootToken] = useState("");
+
+  // WhatsApp states
+  const [whatsappPhoneId, setWhatsappPhoneId] = useState("");
+  const [whatsappToken, setWhatsappToken] = useState("");
+  const [whatsappAccountId, setWhatsappAccountId] = useState("");
+  const [whatsappVerifiedNumber, setWhatsappVerifiedNumber] = useState("");
+  const [whatsappTestNumber, setWhatsappTestNumber] = useState("");
+  const [sendingWhatsappTest, setSendingWhatsappTest] = useState(false);
 
   // Meta combined connection modal (accounts + pages in one step)
   const [metaCombinedModal, setMetaCombinedModal] = useState<{
@@ -359,6 +375,10 @@ export default function IntegracionesPage() {
         setMetaToken(data.facebook_access_token || "");
         setChatwootUrl(data.chatwoot_url || "https://app.chatwoot.com");
         setChatwootToken(data.chatwoot_token || "");
+        setWhatsappPhoneId(data.whatsapp_phone_number_id || "");
+        setWhatsappToken(data.whatsapp_access_token || "");
+        setWhatsappAccountId(data.whatsapp_business_account_id || "");
+        setWhatsappVerifiedNumber(data.whatsapp_verified_number || "");
         
         // ML Country fallback
         if (data.connection_statuses?.mercadolibre_country) {
@@ -874,6 +894,39 @@ export default function IntegracionesPage() {
     }
   };
 
+  const testWhatsappConnection = async (phoneId: string, token: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`https://graph.facebook.com/v22.0/${phoneId.trim()}`, {
+        headers: {
+          'Authorization': `Bearer ${token.trim()}`
+        }
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSendWhatsappTestMessage = async () => {
+    if (!whatsappTestNumber.trim()) {
+      showToast("Ingresá un número de teléfono de destino", "warning");
+      return;
+    }
+    setSendingWhatsappTest(true);
+    try {
+      const res = await fetch(`/api/oauth?action=whatsapp-test&clientId=${encodeURIComponent(activeProfileId || "")}&testPhone=${encodeURIComponent(whatsappTestNumber.trim())}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Error al enviar mensaje de prueba");
+      }
+      showToast("¡Mensaje de prueba enviado correctamente! Revisá tu WhatsApp. ✓", "success");
+    } catch (err: any) {
+      showToast("Error de WhatsApp: " + err.message, "error");
+    } finally {
+      setSendingWhatsappTest(false);
+    }
+  };
+
   const handleSaveRealPlatform = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlatform || !activeProfileId) return;
@@ -961,6 +1014,20 @@ export default function IntegracionesPage() {
           chatwoot_token: chatwootToken.trim()
         };
         isConnected = await testChatwootConnection(chatwootUrl.trim(), chatwootToken.trim());
+      } else if (selectedPlatform.id === "whatsapp") {
+        if (!whatsappPhoneId.trim() || !whatsappToken.trim() || !whatsappAccountId.trim() || !whatsappVerifiedNumber.trim()) {
+          showToast("Ingresá todos los campos para configurar WhatsApp Cloud API", "warning");
+          setSavingSettings(false);
+          setTestingConnection(false);
+          return;
+        }
+        fieldsToUpdate = {
+          whatsapp_phone_number_id: whatsappPhoneId.trim(),
+          whatsapp_access_token: whatsappToken.trim(),
+          whatsapp_business_account_id: whatsappAccountId.trim(),
+          whatsapp_verified_number: whatsappVerifiedNumber.trim()
+        };
+        isConnected = await testWhatsappConnection(whatsappPhoneId.trim(), whatsappToken.trim());
       }
 
       // 1. Update fields in car_clients
@@ -1057,6 +1124,13 @@ export default function IntegracionesPage() {
         tiktok_refresh_token: null,
         tiktok_advertiser_id: null,
         tiktok_expiration: null
+      };
+    } else if (platformId === "whatsapp") {
+      fieldsToUpdate = {
+        whatsapp_phone_number_id: null,
+        whatsapp_access_token: null,
+        whatsapp_business_account_id: null,
+        whatsapp_verified_number: null
       };
     }
 
@@ -2265,13 +2339,85 @@ export default function IntegracionesPage() {
                   </div>
                 )}
 
+                {/* WHATSAPP FORM - Phone ID, Access Token, Account ID, and verified phone number */}
+                {selectedPlatform.id === "whatsapp" && (
+                  <div className="space-y-5">
+                    <div className="p-5 bg-gradient-to-br from-green-500/10 to-emerald-500/10 dark:from-green-500/5 dark:to-emerald-500/5 rounded-2xl border border-green-500/20 dark:border-green-500/10 text-[13px] leading-relaxed space-y-3">
+                      <div className="flex gap-3">
+                        <MessageSquare className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Credenciales de WhatsApp Cloud API</span>
+                          <p className="text-zinc-500 dark:text-zinc-400 font-semibold">
+                            Ingresá las credenciales de tu aplicación de WhatsApp en Meta Developers para enviar alertas y notificaciones directas.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Identificador de Teléfono (Phone Number ID) *</label>
+                        <input type="text" className="apple-input" placeholder="ej. 10550000000"
+                          value={whatsappPhoneId} onChange={e => setWhatsappPhoneId(e.target.value)} required disabled={savingSettings} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Token de Acceso Permanente (System User Token) *</label>
+                        <input type="password" className="apple-input" placeholder="Pegá tu access token de Meta..."
+                          value={whatsappToken} onChange={e => setWhatsappToken(e.target.value)} required disabled={savingSettings} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">ID de Cuenta de WhatsApp Business *</label>
+                        <input type="text" className="apple-input" placeholder="ej. 101234567890"
+                          value={whatsappAccountId} onChange={e => setWhatsappAccountId(e.target.value)} required disabled={savingSettings} />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Número de Teléfono Vinculado *</label>
+                        <input type="text" className="apple-input" placeholder="ej. 5491112345678"
+                          value={whatsappVerifiedNumber} onChange={e => setWhatsappVerifiedNumber(e.target.value)} required disabled={savingSettings} />
+                      </div>
+                    </div>
+
+                    {/* Test send section (only if connected) */}
+                    {getPlatformStatus("whatsapp") === "ok" && (
+                      <div className="mt-6 pt-6 border-t border-zinc-100 dark:border-white/[0.04] space-y-3">
+                        <h4 className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                          Probar Envío en Tiempo Real
+                        </h4>
+                        <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
+                          Escribí un número de celular al que quieras enviar un mensaje de prueba para comprobar la entrega de WhatsApp.
+                        </p>
+                        <div className="flex gap-3">
+                          <input type="tel" className="apple-input flex-1 h-10" placeholder="ej. 5491112345678"
+                            value={whatsappTestNumber} onChange={e => setWhatsappTestNumber(e.target.value)} disabled={sendingWhatsappTest} />
+                          <button
+                            type="button"
+                            onClick={handleSendWhatsappTestMessage}
+                            disabled={sendingWhatsappTest || !whatsappTestNumber.trim()}
+                            className="px-4 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[12.5px] transition-all flex items-center gap-1.5 shadow-md shadow-emerald-500/10"
+                          >
+                            {sendingWhatsappTest ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <span>Enviar Prueba</span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* FOOTER ACTIONS - Save / Disconnect / Close */}
                 {/* Show save button for all real platforms (manual or not) */}
                 {!selectedPlatform.isSimulated && (
-                  ['shopify', 'tiendanube', 'wordpress', 'klaviyo', 'meta', 'chatwoot'].includes(selectedPlatform.id)
+                  ['shopify', 'tiendanube', 'wordpress', 'klaviyo', 'meta', 'chatwoot', 'whatsapp'].includes(selectedPlatform.id)
                 ) && (
-                  // Show save/connect button only when there are real credentials to save (manual mode or woo/klaviyo/chatwoot)
-                  (isManualMode || selectedPlatform.id === 'wordpress' || selectedPlatform.id === 'klaviyo' || selectedPlatform.id === 'chatwoot' || (selectedPlatform.id === 'meta' && isManualMode))
+                  // Show save/connect button only when there are real credentials to save (manual mode or woo/klaviyo/chatwoot/whatsapp)
+                  (isManualMode || selectedPlatform.id === 'wordpress' || selectedPlatform.id === 'klaviyo' || selectedPlatform.id === 'chatwoot' || selectedPlatform.id === 'whatsapp' || (selectedPlatform.id === 'meta' && isManualMode))
                 ) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3">
                     
