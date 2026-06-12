@@ -6,6 +6,7 @@ import {
   Inbox, Plus, Trash2, Globe, Facebook, Instagram, MessageCircle, Mail,
   Code, Copy, Check, Loader2, AlertCircle, ArrowLeft, ExternalLink, Settings
 } from 'lucide-react';
+import ChatwootSetupCard from '../components/ChatwootSetupCard';
 
 export default function EntradasPage() {
   const { profile: authProfile } = useAuth();
@@ -142,19 +143,7 @@ export default function EntradasPage() {
   };
 
   if (!cwUrl || !cwToken) {
-    return (
-      <div className="flex items-center justify-center h-full py-24">
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 max-w-md flex items-start gap-4">
-          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-amber-800 dark:text-amber-400 text-[14px]">Chatwoot no configurado</h3>
-            <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1">
-              Completá la URL y el token en la pestaña de Administración → Gestión de Clientes para habilitar las bandejas.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <ChatwootSetupCard onSuccess={loadInboxes} />;
   }
 
   return (

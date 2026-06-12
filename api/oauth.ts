@@ -520,6 +520,136 @@ async function handleShopifyWebhook(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok: true });
 }
 
+// ── Chatwoot Register ──────────────────────────────────────────────────────────
+async function handleChatwootRegister(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+
+  const { clientId, businessName } = req.body || {};
+  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+  if (!businessName) return res.status(400).json({ error: 'businessName requerido' });
+
+  const platformUrl = process.env.CHATWOOT_PLATFORM_URL || 'https://chat.algoritmiadesarrollos.com.ar';
+  const platformToken = process.env.CHATWOOT_PLATFORM_TOKEN;
+
+  if (!platformToken) {
+    return res.status(503).json({ error: 'El servidor de Chatwoot no está configurado. Falta CHATWOOT_PLATFORM_TOKEN.' });
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // 1. Check if client already has Chatwoot config
+  const { data: existingClient, error: selectErr } = await supabase
+    .from('car_clients')
+    .select('chatwoot_url, chatwoot_token')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (selectErr) {
+    return res.status(500).json({ error: 'Error al consultar el cliente en la base de datos: ' + selectErr.message });
+  }
+
+  if (existingClient?.chatwoot_url && existingClient?.chatwoot_token) {
+    return res.status(200).json({
+      chatwoot_url: existingClient.chatwoot_url,
+      chatwoot_token: existingClient.chatwoot_token,
+      already_configured: true
+    });
+  }
+
+  try {
+    const cleanUrl = platformUrl.replace(/\/$/, '');
+
+    // 2. Create a new Account on Chatwoot
+    const accountRes = await fetch(`${cleanUrl}/platform/api/v1/accounts`, {
+      method: 'POST',
+      headers: {
+        'api_access_token': platformToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: businessName })
+    });
+
+    if (!accountRes.ok) {
+      const errText = await accountRes.text();
+      console.error('[Chatwoot Register] Account creation failed', errText);
+      return res.status(accountRes.status).json({ error: 'Error al crear la cuenta en Chatwoot: ' + errText });
+    }
+
+    const accountObj = await accountRes.json() as { id: number; name: string };
+    const accountId = accountObj.id;
+
+    // 3. Create a unique User for the client
+    // Generate a unique email and secure password
+    const uniqueEmail = `negocio-${clientId}@algoritmiadesarrollos.com.ar`;
+    const randomPassword = crypto.randomBytes(16).toString('hex');
+
+    const userRes = await fetch(`${cleanUrl}/platform/api/v1/users`, {
+      method: 'POST',
+      headers: {
+        'api_access_token': platformToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: `Admin ${businessName}`,
+        email: uniqueEmail,
+        password: randomPassword
+      })
+    });
+
+    if (!userRes.ok) {
+      const errText = await userRes.text();
+      console.error('[Chatwoot Register] User creation failed', errText);
+      return res.status(userRes.status).json({ error: 'Error al crear el usuario en Chatwoot: ' + errText });
+    }
+
+    const userObj = await userRes.json() as { id: number; email: string; access_token: string };
+    const userId = userObj.id;
+    const clientAccessToken = userObj.access_token;
+
+    // 4. Link User to Account as Administrator
+    const linkRes = await fetch(`${cleanUrl}/platform/api/v1/accounts/${accountId}/account_users`, {
+      method: 'POST',
+      headers: {
+        'api_access_token': platformToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        role: 'administrator'
+      })
+    });
+
+    if (!linkRes.ok) {
+      const errText = await linkRes.text();
+      console.error('[Chatwoot Register] Linking user failed', errText);
+      return res.status(linkRes.status).json({ error: 'Error al asociar el usuario a la cuenta: ' + errText });
+    }
+
+    // 5. Update car_clients table with chatwoot URL and user access_token
+    const { error: updateErr } = await supabase
+      .from('car_clients')
+      .update({
+        chatwoot_url: cleanUrl,
+        chatwoot_token: clientAccessToken
+      })
+      .eq('id', clientId);
+
+    if (updateErr) {
+      console.error('[Chatwoot Register] Supabase update failed', updateErr);
+      return res.status(500).json({ error: 'Error al actualizar credenciales en base de datos: ' + updateErr.message });
+    }
+
+    return res.status(200).json({
+      chatwoot_url: cleanUrl,
+      chatwoot_token: clientAccessToken,
+      created: true
+    });
+  } catch (err: any) {
+    console.error('[Chatwoot Register Server Error]', err);
+    return res.status(500).json({ error: 'Error interno del servidor: ' + err.message });
+  }
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -545,6 +675,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (action === 'tiendanube-webhook') return handleTiendanubeWebhook(req, res);
   if (action === 'shopify-webhook') return handleShopifyWebhook(req, res);
+  if (action === 'chatwoot-register') return handleChatwootRegister(req, res);
 
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);

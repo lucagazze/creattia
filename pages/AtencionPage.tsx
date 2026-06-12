@@ -11,6 +11,7 @@ import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMe
 import EmailLoader from '../components/ui/EmailLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import ChatwootSetupCard from '../components/ChatwootSetupCard';
 
 
 const VIOLET = '#8b5cf6';
@@ -524,15 +525,7 @@ export default function AtencionPage() {
 
   if (!profile || !profile.chatwoot_token) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-        <div className="w-16 h-16 bg-violet-100 dark:bg-violet-500/10 rounded-full flex items-center justify-center mb-6">
-          <Activity className="w-8 h-8 text-violet-600 dark:text-violet-400" />
-        </div>
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">Chatwoot no configurado</h2>
-        <p className="text-[15px] text-zinc-500 max-w-md text-center leading-relaxed">
-          Para ver las métricas y reportes de atención, necesitas conectar tu cuenta de Chatwoot desde el panel de administración.
-        </p>
-      </div>
+      <ChatwootSetupCard onSuccess={() => setRefreshKey(prev => prev + 1)} />
     );
   }
 
