@@ -483,7 +483,15 @@ export default function IntegracionesPage() {
         throw new Error(err.error || 'Error al obtener enlace de instalación');
       }
       const { installUrl } = await res.json();
-      window.location.href = installUrl;
+      if (window.top && window.top !== window.self) {
+        try {
+          window.top.location.href = installUrl;
+        } catch {
+          window.open(installUrl, '_blank');
+        }
+      } else {
+        window.location.href = installUrl;
+      }
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Shopify', 'error');
       setOauthLoading(false);
