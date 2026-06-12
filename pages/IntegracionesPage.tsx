@@ -401,18 +401,22 @@ export default function IntegracionesPage() {
   //      /?meta=select&clientId=...#/integraciones → IntegracionesPage useEffect handles it
   const startMetaOAuth = async () => {
     if (!activeProfileId) return;
+
+    // Close the config modal INSTANTLY — no waiting for the API call.
+    // The loading overlay will handle the visual feedback from here on.
+    setSelectedPlatform(null);
     setOauthLoading(true);
+    setMetaLoadingText('Iniciando conexión con Facebook...');
+
     try {
       const res = await fetch(`/api/oauth?action=meta-authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Error al iniciar OAuth con Meta');
       }
       const { authorizeUrl } = await res.json();
 
-      // Close config modal immediately for clean UX — the combined modal will appear after OAuth
-      setSelectedPlatform(null);
-      setOauthLoading(false);
       setMetaLoadingText('Abriendo Facebook Login...');
 
       // Try to open a popup
