@@ -113,98 +113,20 @@ export default function MercadoLibrePage() {
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const datePickerRef = useRef<HTMLDivElement>(null);
 
-  // Mock initial unanswered questions state
-  const [questions, setQuestions] = useState([
-    {
-      id: 'q1',
-      buyer: 'MARIANO_G',
-      date: 'Hace 10 min',
-      text: 'Hola, ¿tenés stock en color negro para envío inmediato?',
-      itemTitle: 'Smartphone Samsung Galaxy S23 Ultra 256GB',
-      itemId: 'MLA139284210',
-      itemImage: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&w=150&q=80',
-      answerText: ''
-    },
-    {
-      id: 'q2',
-      buyer: 'VALE_RODRIGUEZ',
-      date: 'Hace 45 min',
-      text: '¿Es compatible con carga inalámbrica rápida?',
-      itemTitle: 'Auriculares Inalámbricos Pro Noise Cancelling',
-      itemId: 'MLA140291931',
-      itemImage: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=150&q=80',
-      answerText: ''
-    },
-    {
-      id: 'q3',
-      buyer: 'KOF_GAMING',
-      date: 'Hace 2 horas',
-      text: 'Buenas, si compro hoy, ¿me llega antes del sábado a Lanús?',
-      itemTitle: 'Zapatillas Deportivas Running Speed Pro',
-      itemId: 'MLA132948210',
-      itemImage: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=150&q=80',
-      answerText: ''
-    }
-  ]);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [publications, setPublications] = useState<any[]>([]);
+  const [mlData, setMlData] = useState<any>({
+    current: { revenue: 0, orders: 0, aov: 0, daily: [] },
+    previous: { revenue: 0, orders: 0, aov: 0, daily: [] }
+  });
 
-  // Mock Publications data
-  const publications = [
-    {
-      id: 'MLA139284210',
-      title: 'Smartphone Samsung Galaxy S23 Ultra 256GB',
-      price: 1349000,
-      stock: 15,
-      sold: 148,
-      visits: 3420,
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&w=150&q=80'
-    },
-    {
-      id: 'MLA140291931',
-      title: 'Auriculares Inalámbricos Pro Noise Cancelling',
-      price: 189000,
-      stock: 45,
-      sold: 320,
-      visits: 5410,
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=150&q=80'
-    },
-    {
-      id: 'MLA132948210',
-      title: 'Zapatillas Deportivas Running Speed Pro',
-      price: 125000,
-      stock: 8,
-      sold: 84,
-      visits: 1240,
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=150&q=80'
-    },
-    {
-      id: 'MLA148201948',
-      title: 'Silla de Escritorio Ergonómica Regulable Premium',
-      price: 345000,
-      stock: 22,
-      sold: 62,
-      visits: 1840,
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1505797149-43b0069ec26b?auto=format&fit=crop&w=150&q=80'
-    },
-    {
-      id: 'MLA141029482',
-      title: 'Smartwatch Deportivo GPS Monitor Cardíaco Black',
-      price: 260000,
-      stock: 0,
-      sold: 195,
-      visits: 4230,
-      status: 'paused',
-      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=150&q=80'
-    }
-  ];
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [loadingPublications, setLoadingPublications] = useState(false);
+  const [submittingAnswer, setSubmittingAnswer] = useState<Record<string, boolean>>({});
 
-  // Filtered publications list
   const filteredPubs = useMemo(() => {
     return publications.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()) || p.id.includes(searchTerm));
-  }, [searchTerm]);
+  }, [publications, searchTerm]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -216,61 +138,185 @@ export default function MercadoLibrePage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Deterministic mock data based on dates
-  const mlData = useMemo(() => {
-    setLoading(true);
+  const isConnected = (profile as any)?.connection_statuses?.mercadolibre === 'ok';
+
+  // Load questions and publications
+  useEffect(() => {
+    if (!isConnected || !profile?.id) {
+      setQuestions([
+        {
+          id: 'q1',
+          buyer: 'MARIANO_G',
+          date: 'Hace 10 min',
+          text: 'Hola, ¿tenés stock en color negro para envío inmediato?',
+          itemTitle: 'Smartphone Samsung Galaxy S23 Ultra 256GB',
+          itemId: 'MLA139284210',
+          itemImage: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&w=150&q=80',
+          answerText: ''
+        },
+        {
+          id: 'q2',
+          buyer: 'VALE_RODRIGUEZ',
+          date: 'Hace 45 min',
+          text: '¿Es compatible con carga inalámbrica rápida?',
+          itemTitle: 'Auriculares Inalámbricos Pro Noise Cancelling',
+          itemId: 'MLA140291931',
+          itemImage: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=150&q=80',
+          answerText: ''
+        },
+        {
+          id: 'q3',
+          buyer: 'KOF_GAMING',
+          date: 'Hace 2 horas',
+          text: 'Buenas, si compro hoy, ¿me llega antes del sábado a Lanús?',
+          itemTitle: 'Zapatillas Deportivas Running Speed Pro',
+          itemId: 'MLA132948210',
+          itemImage: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=150&q=80',
+          answerText: ''
+        }
+      ]);
+      setPublications([
+        {
+          id: 'MLA139284210',
+          title: 'Smartphone Samsung Galaxy S23 Ultra 256GB',
+          price: 1349000,
+          stock: 15,
+          sold: 148,
+          visits: 3420,
+          status: 'active',
+          image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&w=150&q=80'
+        },
+        {
+          id: 'MLA140291931',
+          title: 'Auriculares Inalámbricos Pro Noise Cancelling',
+          price: 189000,
+          stock: 45,
+          sold: 320,
+          visits: 5410,
+          status: 'active',
+          image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=150&q=80'
+        },
+        {
+          id: 'MLA132948210',
+          title: 'Zapatillas Deportivas Running Speed Pro',
+          price: 125000,
+          stock: 8,
+          sold: 84,
+          visits: 1240,
+          status: 'active',
+          image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=150&q=80'
+        },
+        {
+          id: 'MLA148201948',
+          title: 'Silla de Escritorio Ergonómica Regulable Premium',
+          price: 345000,
+          stock: 22,
+          sold: 62,
+          visits: 1840,
+          status: 'active',
+          image: 'https://images.unsplash.com/photo-1505797149-43b0069ec26b?auto=format&fit=crop&w=150&q=80'
+        },
+        {
+          id: 'MLA141029482',
+          title: 'Smartwatch Deportivo GPS Monitor Cardíaco Black',
+          price: 260000,
+          stock: 0,
+          sold: 195,
+          visits: 4230,
+          status: 'paused',
+          image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=150&q=80'
+        }
+      ]);
+      return;
+    }
+
+    setLoadingQuestions(true);
+    fetch(`/api/oauth?action=mercadolibre-questions&clientId=${encodeURIComponent(profile.id)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.questions) setQuestions(data.questions);
+      })
+      .catch(err => console.error('Error fetching ML questions:', err))
+      .finally(() => setLoadingQuestions(false));
+
+    setLoadingPublications(true);
+    fetch(`/api/oauth?action=mercadolibre-publications&clientId=${encodeURIComponent(profile.id)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.publications) setPublications(data.publications);
+      })
+      .catch(err => console.error('Error fetching ML publications:', err))
+      .finally(() => setLoadingPublications(false));
+  }, [isConnected, profile?.id, refreshKey]);
+
+  // Load metrics
+  useEffect(() => {
     const range = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
     const prevRange = getPrevPeriod(range.since, range.until);
-    
-    // Generator function
-    const generateForRange = (since: string, until: string) => {
-      const start = new Date(since);
-      const end = new Date(until);
-      const days = [];
-      let current = new Date(start);
-      let totalRevenue = 0;
-      let totalOrders = 0;
 
-      while (current <= end) {
-        const dateStr = current.toISOString().split('T')[0];
-        let hash = 0;
-        for (let i = 0; i < dateStr.length; i++) {
-          hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+    if (!isConnected || !profile?.id) {
+      setLoading(true);
+      const generateForRange = (since: string, until: string) => {
+        const start = new Date(since);
+        const end = new Date(until);
+        const days = [];
+        let current = new Date(start);
+        let totalRevenue = 0;
+        let totalOrders = 0;
+
+        while (current <= end) {
+          const dateStr = current.toISOString().split('T')[0];
+          let hash = 0;
+          for (let i = 0; i < dateStr.length; i++) {
+            hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+          }
+          const seed = Math.abs(hash) % 100;
+          const orders = Math.floor(seed / 12) + 1;
+          const revenue = orders * (18000 + (seed % 8) * 1500);
+          
+          days.push({
+            date: dateStr,
+            orders,
+            revenue,
+            aov: revenue / orders
+          });
+
+          totalRevenue += revenue;
+          totalOrders += orders;
+          current.setDate(current.getDate() + 1);
         }
-        const seed = Math.abs(hash) % 100;
-        const orders = Math.floor(seed / 12) + 1; // 1 to 9 orders
-        const revenue = orders * (18000 + (seed % 8) * 1500); // around $18000 to $30000 per order
-        
-        days.push({
-          date: dateStr,
-          orders,
-          revenue,
-          aov: revenue / orders
-        });
 
-        totalRevenue += revenue;
-        totalOrders += orders;
-        current.setDate(current.getDate() + 1);
-      }
-
-      return {
-        revenue: totalRevenue,
-        orders: totalOrders,
-        aov: totalOrders > 0 ? totalRevenue / totalOrders : 0,
-        daily: days
+        return {
+          revenue: totalRevenue,
+          orders: totalOrders,
+          aov: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+          daily: days
+        };
       };
-    };
 
-    const current = generateForRange(range.since, range.until);
-    const previous = generateForRange(prevRange.since, prevRange.until);
-    
-    setTimeout(() => setLoading(false), 200);
+      const current = generateForRange(range.since, range.until);
+      const previous = generateForRange(prevRange.since, prevRange.until);
+      
+      setMlData({ current, previous });
+      setLoading(false);
+      return;
+    }
 
-    return {
-      current,
-      previous
-    };
-  }, [activePreset, activeSince, activeUntil, refreshKey]);
+    setLoading(true);
+    Promise.all([
+      fetch(`/api/oauth?action=mercadolibre-orders&clientId=${encodeURIComponent(profile.id)}&since=${range.since}&until=${range.until}`).then(res => res.json()),
+      fetch(`/api/oauth?action=mercadolibre-orders&clientId=${encodeURIComponent(profile.id)}&since=${prevRange.since}&until=${prevRange.until}`).then(res => res.json())
+    ])
+      .then(([curr, prev]) => {
+        setMlData({
+          current: curr.error ? { revenue: 0, orders: 0, aov: 0, daily: [] } : curr,
+          previous: prev.error ? { revenue: 0, orders: 0, aov: 0, daily: [] } : prev
+        });
+      })
+      .catch(err => console.error('Error fetching ML metrics:', err))
+      .finally(() => setLoading(false));
+
+  }, [isConnected, profile?.id, activePreset, activeSince, activeUntil, refreshKey]);
 
   const handleApply = () => {
     setActivePreset(pendingPreset); 
@@ -280,18 +326,43 @@ export default function MercadoLibrePage() {
     setShowDatePicker(false);
   };
 
-  const handleAnswerSubmit = (qId: string) => {
+  const handleAnswerSubmit = async (qId: string) => {
     const question = questions.find(q => q.id === qId);
     if (!question?.answerText.trim()) {
       showToast('Por favor, ingresá una respuesta antes de enviar.', 'warning');
       return;
     }
 
-    // Success response simulation
-    showToast('Respuesta enviada a Mercado Libre con éxito. ✓', 'success');
-    
-    // Remove the question from the list
-    setQuestions(prev => prev.filter(q => q.id !== qId));
+    if (!isConnected || !profile?.id) {
+      showToast('Respuesta enviada a Mercado Libre con éxito. ✓', 'success');
+      setQuestions(prev => prev.filter(q => q.id !== qId));
+      return;
+    }
+
+    setSubmittingAnswer(prev => ({ ...prev, [qId]: true }));
+    try {
+      const res = await fetch('/api/oauth?action=mercadolibre-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: profile.id,
+          questionId: qId,
+          text: question.answerText.trim()
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al enviar respuesta');
+      }
+
+      showToast('Respuesta enviada a Mercado Libre con éxito. ✓', 'success');
+      setQuestions(prev => prev.filter(q => q.id !== qId));
+    } catch (err: any) {
+      showToast(err.message || 'Error al enviar respuesta', 'error');
+    } finally {
+      setSubmittingAnswer(prev => ({ ...prev, [qId]: false }));
+    }
   };
 
   const handleAnswerTextChange = (qId: string, text: string) => {
@@ -309,7 +380,6 @@ export default function MercadoLibrePage() {
     return `${day} ${month} ${year}`;
   };
 
-  const isConnected = (profile as any)?.connection_statuses?.mercadolibre === 'ok';
 
   if (!isConnected) {
     return (
@@ -512,7 +582,11 @@ export default function MercadoLibrePage() {
                 </div>
 
                 <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1 scrollbar-hide">
-                  {filteredPubs.length === 0 ? (
+                  {loadingPublications ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 text-[#3483fa] animate-spin" />
+                    </div>
+                  ) : filteredPubs.length === 0 ? (
                     <div className="text-center py-10">
                       <p className="text-[12px] text-zinc-450 dark:text-zinc-550 font-medium">
                         No se encontraron publicaciones
@@ -576,7 +650,11 @@ export default function MercadoLibrePage() {
                 </div>
 
                 <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1 scrollbar-hide">
-                  {questions.length === 0 ? (
+                  {loadingQuestions ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-6 h-6 text-[#3483fa] animate-spin" />
+                    </div>
+                  ) : questions.length === 0 ? (
                     <div className="text-center py-16 space-y-3">
                       <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto text-emerald-500">
                         <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
@@ -627,10 +705,15 @@ export default function MercadoLibrePage() {
                           />
                           <button
                             onClick={() => handleAnswerSubmit(q.id)}
-                            className="absolute right-2.5 bottom-3.5 p-1.5 rounded-lg bg-[#3483fa] hover:bg-[#296ecc] text-white shadow-sm transition-all hover:scale-[1.03] active:scale-[0.97]"
+                            disabled={submittingAnswer[q.id]}
+                            className="absolute right-2.5 bottom-3.5 p-1.5 rounded-lg bg-[#3483fa] hover:bg-[#296ecc] disabled:opacity-50 text-white shadow-sm transition-all hover:scale-[1.03] active:scale-[0.97]"
                             title="Enviar respuesta"
                           >
-                            <Send className="w-3.5 h-3.5" />
+                            {submittingAnswer[q.id] ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5" />
+                            )}
                           </button>
                         </div>
                       </div>

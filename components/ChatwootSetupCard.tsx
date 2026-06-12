@@ -23,7 +23,7 @@ export default function ChatwootSetupCard({ onSuccess }: ChatwootSetupCardProps)
         Conectar Centro de Mensajería
       </h2>
       <p className="text-[13.5px] text-zinc-500 dark:text-zinc-400 max-w-lg mb-8 leading-relaxed">
-        Vinculá tu cuenta de Chatwoot (Cloud oficial o instancia autohospedada) para unificar tus canales de soporte (WhatsApp, Instagram, Facebook y Chat Web) en una sola bandeja de entrada inteligente.
+        Vinculá tu cuenta de mensajería (Cloud oficial o instancia autohospedada) para unificar tus canales de soporte (WhatsApp, Instagram, Facebook y Chat Web) en una sola bandeja de entrada inteligente.
       </p>
 
       {/* Grid of features */}

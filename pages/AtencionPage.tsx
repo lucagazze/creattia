@@ -542,7 +542,7 @@ export default function AtencionPage() {
             </div>
             <h1 className="page-title">Informes de Atención</h1>
           </div>
-          <p className="page-subtitle">Estadísticas detalladas del rendimiento y volumen de conversaciones en Chatwoot.</p>
+          <p className="page-subtitle">Estadísticas detalladas del rendimiento y volumen de conversaciones.</p>
         </div>
 
         {/* Date Selector */}

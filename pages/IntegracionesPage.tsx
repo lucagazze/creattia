@@ -107,7 +107,7 @@ const PLATFORMS: IntegrationPlatform[] = [
   },
   {
     id: "chatwoot",
-    name: "Mensajería (Chatwoot)",
+    name: "Mensajería",
     category: "marketing",
     description: "Unificá tus canales de WhatsApp, Instagram, Facebook y Chat Web en una sola bandeja de entrada inteligente.",
     logoComponent: MessageSquare,
@@ -200,6 +200,7 @@ export default function IntegracionesPage() {
     const tiendanube   = params.get('tiendanube');
     const woocommerce  = params.get('woocommerce');
     const meta         = params.get('meta');
+    const mercadolibre = params.get('mercadolibre');
     const reason       = params.get('reason');
 
     if (shopify === 'success') {
@@ -237,6 +238,15 @@ export default function IntegracionesPage() {
     } else if (meta === 'error') {
       setOauthResult({ platform: 'meta', status: 'error', reason: reason || '' });
       showToast('Error al conectar Meta Ads: ' + (reason || 'desconocido'), 'error');
+      window.history.replaceState({}, '', '/#/integraciones');
+    } else if (mercadolibre === 'success') {
+      setOauthResult({ platform: 'mercadolibre', status: 'success' });
+      showToast('¡Mercado Libre conectado exitosamente! ✓', 'success');
+      window.history.replaceState({}, '', '/#/integraciones');
+      refreshProfile().then(() => loadClientData());
+    } else if (mercadolibre === 'error') {
+      setOauthResult({ platform: 'mercadolibre', status: 'error', reason: reason || '' });
+      showToast('Error al conectar Mercado Libre: ' + (reason || 'desconocido'), 'error');
       window.history.replaceState({}, '', '/#/integraciones');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -469,6 +479,24 @@ export default function IntegracionesPage() {
       window.location.href = authorizeUrl;
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Tiendanube', 'error');
+      setOauthLoading(false);
+    }
+  };
+
+  // ── REAL OAUTH: Mercado Libre ──────────────────────────────────────────────────
+  const startMercadoLibreOAuth = async () => {
+    if (!activeProfileId) return;
+    setOauthLoading(true);
+    try {
+      const res = await fetch(`/api/oauth?action=mercadolibre-authorize&clientId=${encodeURIComponent(activeProfileId)}&country=${mlCountry}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al iniciar OAuth con Mercado Libre');
+      }
+      const { authorizeUrl } = await res.json();
+      window.location.href = authorizeUrl;
+    } catch (err: any) {
+      showToast(err.message || 'Error al conectar con Mercado Libre', 'error');
       setOauthLoading(false);
     }
   };
@@ -987,6 +1015,13 @@ export default function IntegracionesPage() {
       fieldsToUpdate = {
         chatwoot_url: null,
         chatwoot_token: null
+      };
+    } else if (platformId === "mercadolibre") {
+      fieldsToUpdate = {
+        mercadolibre_access_token: null,
+        mercadolibre_refresh_token: null,
+        mercadolibre_user_id: null,
+        mercadolibre_expiration: null
       };
     }
 
@@ -1878,7 +1913,7 @@ export default function IntegracionesPage() {
 
                     <button
                       type="button"
-                      onClick={() => runSimulatedOAuth("mercadolibre")}
+                      onClick={startMercadoLibreOAuth}
                       disabled={savingSettings}
                       className="w-full h-11 bg-[#ffe600] text-[#111] hover:bg-[#ffe000] font-black rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
                     >
@@ -2131,7 +2166,7 @@ export default function IntegracionesPage() {
                         {/* Step guide */}
                         <div className="space-y-2.5">
                           {[
-                            { n: 1, text: 'Iniciá sesión en Chatwoot Cloud haciendo clic abajo.' },
+                            { n: 1, text: 'Iniciá sesión en la plataforma de mensajería oficial haciendo clic abajo.' },
                             { n: 2, text: 'Ir a "Configuración del Perfil" (abajo a la izquierda).' },
                             { n: 3, text: 'Copia el "Token de acceso rápido" al final de la página y pegalo aquí.' }
                           ].map(step => (
@@ -2149,7 +2184,7 @@ export default function IntegracionesPage() {
                           className="w-full h-11 bg-[#1f93ff] hover:bg-[#1a7fdc] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
                         >
                           <ExternalLink className="w-4 h-4" />
-                          <span>Abrir Chatwoot Cloud (Oficial)</span>
+                          <span>Abrir Plataforma de Mensajería (Oficial)</span>
                         </a>
 
                         <div className="space-y-1.5">
@@ -2187,7 +2222,7 @@ export default function IntegracionesPage() {
                             setChatwootUrl("https://app.chatwoot.com");
                           }}
                             className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors">
-                            ← Usar Chatwoot Cloud (Recomendado)
+                            ← Usar Cloud Oficial (Recomendado)
                           </button>
                         </div>
                       </div>

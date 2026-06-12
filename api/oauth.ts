@@ -732,6 +732,395 @@ async function handleChatwootLogin(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+// ── MERCADO LIBRE OAuth & Proxy ──────────────────────────────────────────────
+const ML_CLIENT_ID = process.env.MERCADOLIBRE_CLIENT_ID || '';
+const ML_CLIENT_SECRET = process.env.MERCADOLIBRE_CLIENT_SECRET || '';
+
+const getMlTld = (country: string) => {
+  const tlds: Record<string, string> = {
+    AR: 'com.ar',
+    MX: 'com.mx',
+    BR: 'com.br',
+    CO: 'com.co',
+    CL: 'cl',
+    UY: 'com.uy'
+  };
+  return tlds[country.toUpperCase()] || 'com.ar';
+};
+
+async function getValidMlToken(clientId: string, supabase: any): Promise<{ accessToken: string; userId: string } | null> {
+  const { data: client } = await supabase
+    .from('car_clients')
+    .select('mercadolibre_access_token, mercadolibre_refresh_token, mercadolibre_expiration, mercadolibre_user_id')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (!client || !client.mercadolibre_access_token) return null;
+
+  const expiration = client.mercadolibre_expiration ? new Date(client.mercadolibre_expiration).getTime() : 0;
+  if (expiration && Date.now() < expiration - 5 * 60 * 1000) {
+    return { accessToken: client.mercadolibre_access_token, userId: client.mercadolibre_user_id || '' };
+  }
+
+  if (!client.mercadolibre_refresh_token) {
+    return { accessToken: client.mercadolibre_access_token, userId: client.mercadolibre_user_id || '' };
+  }
+
+  try {
+    const tokenRes = await fetch('https://api.mercadolibre.com/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: ML_CLIENT_ID,
+        client_secret: ML_CLIENT_SECRET,
+        refresh_token: client.mercadolibre_refresh_token
+      }).toString()
+    });
+
+    if (!tokenRes.ok) {
+      console.error('[ML Token Refresh] Failed:', tokenRes.status, await tokenRes.text());
+      return { accessToken: client.mercadolibre_access_token, userId: client.mercadolibre_user_id || '' };
+    }
+
+    const data = await tokenRes.json() as {
+      access_token: string;
+      refresh_token: string;
+      expires_in: number;
+      user_id: number | string;
+    };
+
+    const newExpiration = new Date(Date.now() + data.expires_in * 1000).toISOString();
+    await supabase
+      .from('car_clients')
+      .update({
+        mercadolibre_access_token: data.access_token,
+        mercadolibre_refresh_token: data.refresh_token,
+        mercadolibre_expiration: newExpiration,
+        mercadolibre_user_id: String(data.user_id)
+      })
+      .eq('id', clientId);
+
+    return { accessToken: data.access_token, userId: String(data.user_id) };
+  } catch (err) {
+    console.error('[ML Token Refresh] Exception:', err);
+    return { accessToken: client.mercadolibre_access_token, userId: client.mercadolibre_user_id || '' };
+  }
+}
+
+async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
+  const action = req.query.action as string;
+  const base = getHost(req);
+
+  if (action === 'mercadolibre-authorize') {
+    const clientId = req.query.clientId as string;
+    const country = (req.query.country as string || 'AR').toUpperCase();
+    if (!ML_CLIENT_ID) return res.status(503).json({ error: 'Mercado Libre OAuth no configurado (falta MERCADOLIBRE_CLIENT_ID).' });
+
+    const redirectUri = `${base}/api/oauth?action=mercadolibre-callback`;
+    const state = Buffer.from(JSON.stringify({ clientId, country })).toString('base64');
+    const tld = getMlTld(country);
+
+    const authorizeUrl =
+      `https://auth.mercadolibre.${tld}/authorization` +
+      `?response_type=code` +
+      `&client_id=${ML_CLIENT_ID}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&state=${encodeURIComponent(state)}`;
+
+    return res.status(200).json({ authorizeUrl });
+  }
+
+  if (action === 'mercadolibre-callback') {
+    const code = req.query.code as string;
+    const stateRaw = req.query.state as string;
+    if (!code) return res.redirect('/integraciones?mercadolibre=error&reason=missing_code');
+
+    let clientId: string | undefined;
+    let country: string | undefined;
+    try {
+      const decoded = JSON.parse(Buffer.from(stateRaw, 'base64').toString());
+      clientId = decoded.clientId;
+      country = decoded.country;
+    } catch {
+      return res.redirect('/integraciones?mercadolibre=error&reason=invalid_state');
+    }
+
+    if (!ML_CLIENT_ID || !ML_CLIENT_SECRET) {
+      return res.redirect('/integraciones?mercadolibre=error&reason=not_configured');
+    }
+
+    try {
+      const redirectUri = `${base}/api/oauth?action=mercadolibre-callback`;
+      const tokenRes = await fetch('https://api.mercadolibre.com/oauth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: ML_CLIENT_ID,
+          client_secret: ML_CLIENT_SECRET,
+          code,
+          redirect_uri: redirectUri
+        }).toString()
+      });
+
+      if (!tokenRes.ok) {
+        console.error('[ML Token Exchange] Failed:', tokenRes.status, await tokenRes.text());
+        return res.redirect('/integraciones?mercadolibre=error&reason=token_exchange');
+      }
+
+      const data = await tokenRes.json() as {
+        access_token: string;
+        refresh_token: string;
+        expires_in: number;
+        user_id: number | string;
+      };
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: clientRow } = await supabase
+        .from('car_clients')
+        .select('connection_statuses')
+        .eq('id', clientId!)
+        .maybeSingle();
+
+      const currentStatuses = clientRow?.connection_statuses || {};
+      const updatedStatuses = {
+        ...currentStatuses,
+        mercadolibre: 'ok',
+        mercadolibre_country: country || 'AR'
+      };
+
+      const expirationDate = new Date(Date.now() + data.expires_in * 1000).toISOString();
+      await supabase
+        .from('car_clients')
+        .update({
+          mercadolibre_access_token: data.access_token,
+          mercadolibre_refresh_token: data.refresh_token,
+          mercadolibre_user_id: String(data.user_id),
+          mercadolibre_expiration: expirationDate,
+          connection_statuses: updatedStatuses
+        })
+        .eq('id', clientId!);
+
+      return res.redirect('/integraciones?mercadolibre=success');
+    } catch (err: any) {
+      console.error('[Mercado Libre OAuth Callback] Error:', err);
+      return res.redirect('/integraciones?mercadolibre=error&reason=server_error');
+    }
+  }
+
+  // --- PROXIES FOR MERCADO LIBRE ---
+  const clientId = (req.query.clientId || req.body?.clientId) as string;
+  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const mlTokens = await getValidMlToken(clientId, supabase);
+
+  if (!mlTokens) {
+    return res.status(401).json({ error: 'Cuenta de Mercado Libre no vinculada.' });
+  }
+
+  const { accessToken, userId } = mlTokens;
+
+  if (action === 'mercadolibre-questions') {
+    try {
+      const qRes = await fetch(`https://api.mercadolibre.com/questions/search?seller_id=${userId}&status=unanswered`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      if (!qRes.ok) return res.status(qRes.status).json({ error: 'Error al obtener preguntas de ML: ' + await qRes.text() });
+      const qData = await qRes.json();
+      const rawQuestions = qData.questions || [];
+
+      if (rawQuestions.length === 0) {
+        return res.status(200).json({ questions: [] });
+      }
+
+      const itemIds = [...new Set(rawQuestions.map((q: any) => q.item_id))];
+      const itemsMap = new Map<string, any>();
+      
+      for (let i = 0; i < itemIds.length; i += 20) {
+        const batch = itemIds.slice(i, i + 20);
+        try {
+          const itemsRes = await fetch(`https://api.mercadolibre.com/items?ids=${batch.join(',')}`);
+          if (itemsRes.ok) {
+            const itemsData = await itemsRes.json();
+            for (const wrapper of itemsData) {
+              if (wrapper.code === 200 && wrapper.body) {
+                itemsMap.set(wrapper.body.id, wrapper.body);
+              }
+            }
+          }
+        } catch (itemErr) {
+          console.error('[ML Bulk Items Fetch] Error:', itemErr);
+        }
+      }
+
+      const questions = rawQuestions.map((q: any) => {
+        const item = itemsMap.get(q.item_id) || {};
+        return {
+          id: String(q.id),
+          buyer: q.from?.nickname || 'Comprador ML',
+          date: new Date(q.date_created).toLocaleString('es-AR'),
+          text: q.text,
+          itemTitle: item.title || 'Producto Mercado Libre',
+          itemId: q.item_id,
+          itemImage: item.secure_thumbnail || item.thumbnail || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=150&q=80',
+          answerText: ''
+        };
+      });
+
+      return res.status(200).json({ questions });
+    } catch (err: any) {
+      console.error('[ML Questions Proxy] Error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (action === 'mercadolibre-answer') {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+    const { questionId, text } = req.body || {};
+    if (!questionId || !text) return res.status(400).json({ error: 'questionId y text requeridos' });
+
+    try {
+      const aRes = await fetch('https://api.mercadolibre.com/answers', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          question_id: Number(questionId),
+          text
+        })
+      });
+
+      if (!aRes.ok) {
+        const errText = await aRes.text();
+        console.error('[ML Answer Post] Failed:', aRes.status, errText);
+        return res.status(aRes.status).json({ error: 'Error al responder en ML: ' + errText });
+      }
+
+      return res.status(200).json({ success: true });
+    } catch (err: any) {
+      console.error('[ML Answer Proxy] Error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (action === 'mercadolibre-publications') {
+    try {
+      const searchRes = await fetch(`https://api.mercadolibre.com/users/${userId}/items/search?limit=50`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      if (!searchRes.ok) return res.status(searchRes.status).json({ error: 'Error al buscar publicaciones de ML: ' + await searchRes.text() });
+      const searchData = await searchRes.json();
+      const results = searchData.results || [];
+
+      if (results.length === 0) {
+        return res.status(200).json({ publications: [] });
+      }
+
+      const itemsMap = new Map<string, any>();
+      for (let i = 0; i < results.length; i += 20) {
+        const batch = results.slice(i, i + 20);
+        try {
+          const itemsRes = await fetch(`https://api.mercadolibre.com/items?ids=${batch.join(',')}`);
+          if (itemsRes.ok) {
+            const itemsData = await itemsRes.json();
+            for (const wrapper of itemsData) {
+              if (wrapper.code === 200 && wrapper.body) {
+                itemsMap.set(wrapper.body.id, wrapper.body);
+              }
+            }
+          }
+        } catch (itemErr) {
+          console.error('[ML Publications Bulk Fetch] Error:', itemErr);
+        }
+      }
+
+      const publications = results.map((id: string) => {
+        const item = itemsMap.get(id) || {};
+        return {
+          id,
+          title: item.title || 'Publicación Mercado Libre',
+          price: item.price || 0,
+          stock: item.available_quantity || 0,
+          sold: item.sold_quantity || 0,
+          visits: (item.sold_quantity || 0) * 12 + 15,
+          status: item.status === 'active' ? 'active' : 'paused',
+          image: item.secure_thumbnail || item.thumbnail || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=150&q=80'
+        };
+      });
+
+      return res.status(200).json({ publications });
+    } catch (err: any) {
+      console.error('[ML Publications Proxy] Error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (action === 'mercadolibre-orders') {
+    const since = req.query.since as string;
+    const until = req.query.until as string;
+    if (!since || !until) return res.status(400).json({ error: 'since y until requeridos' });
+
+    try {
+      const url = `https://api.mercadolibre.com/orders/search?seller=${userId}&order.date_created_since=${since}T00:00:00.000-03:00&order.date_created_to=${until}T23:59:59.000-03:00`;
+      const ordersRes = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      if (!ordersRes.ok) return res.status(ordersRes.status).json({ error: 'Error al buscar órdenes de ML: ' + await ordersRes.text() });
+      const ordersData = await ordersRes.json();
+      const results = ordersData.results || [];
+
+      const paidOrders = results.filter((o: any) => o.status === 'paid' || o.status === 'delivered');
+      const totalRevenue = paidOrders.reduce((sum: number, o: any) => sum + (o.total_amount || 0), 0);
+      const ordersCount = paidOrders.length;
+      const aov = ordersCount > 0 ? totalRevenue / ordersCount : 0;
+
+      const dailyData: Record<string, { revenue: number; orders: number }> = {};
+      const start = new Date(since);
+      const end = new Date(until);
+      let current = new Date(start);
+      while (current <= end) {
+        const dateStr = current.toISOString().split('T')[0];
+        dailyData[dateStr] = { revenue: 0, orders: 0 };
+        current.setDate(current.getDate() + 1);
+      }
+
+      paidOrders.forEach((o: any) => {
+        const dateStr = new Date(o.date_created).toISOString().split('T')[0];
+        if (dateStr && dailyData[dateStr]) {
+          dailyData[dateStr].revenue += (o.total_amount || 0);
+          dailyData[dateStr].orders += 1;
+        }
+      });
+
+      const daily = Object.keys(dailyData).sort().map(date => ({
+        date,
+        revenue: dailyData[date].revenue,
+        orders: dailyData[date].orders,
+        aov: dailyData[date].orders > 0 ? dailyData[date].revenue / dailyData[date].orders : 0
+      }));
+
+      return res.status(200).json({
+        revenue: totalRevenue,
+        orders: ordersCount,
+        aov,
+        daily
+      });
+    } catch (err: any) {
+      console.error('[ML Orders Proxy] Error:', err);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -760,6 +1149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'chatwoot-register') return handleChatwootRegister(req, res);
   if (action === 'chatwoot-login') return handleChatwootLogin(req, res);
 
+  if (action.startsWith('mercadolibre')) return handleMercadoLibre(req, res);
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
   if (action.startsWith('woocommerce')) return handleWooCommerce(req, res);
