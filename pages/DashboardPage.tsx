@@ -2953,7 +2953,7 @@ export default function DashboardPage() {
                   </span>
                   {selectedOrder.shipping_address ? (
                     <div className="text-[12px] text-zinc-650 dark:text-zinc-400 leading-relaxed font-medium">
-                      <p className="font-bold text-zinc-850 dark:text-zinc-200">
+                      <p className="font-bold text-zinc-800 dark:text-zinc-200">
                         {selectedOrder.shipping_address.name || `${selectedOrder.shipping_address.first_name || ''} ${selectedOrder.shipping_address.last_name || ''}`}
                       </p>
                       <p>{selectedOrder.shipping_address.address1}</p>
@@ -2982,7 +2982,7 @@ export default function DashboardPage() {
                       : selectedOrder.financial_status === 'authorized'
                         ? "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-500/15"
                         : selectedOrder.financial_status === 'refunded'
-                          ? "bg-zinc-150 text-zinc-600 dark:bg-zinc-850 dark:text-zinc-550 border border-zinc-600/15"
+                          ? "bg-zinc-150 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-550 border border-zinc-600/15"
                           : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-500/15"
                   }`}>
                     {selectedOrder.financial_status === 'paid' 
@@ -3031,7 +3031,7 @@ export default function DashboardPage() {
                 <span className="text-[10px] font-black text-pink-650 dark:text-pink-400 uppercase tracking-wider block">
                   Productos Solicitados
                 </span>
-                <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-850">
+                <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800">
                   {selectedOrder.line_items?.map((item: any, idx: number) => {
                     const img = item._wc_image || productImages[String(item.product_id)];
                     return (
@@ -3098,7 +3098,7 @@ export default function DashboardPage() {
                     <span>${selectedOrder.total_tax?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between text-[15px] font-bold text-zinc-900 dark:text-white pt-2 border-t border-dashed border-zinc-100 dark:border-zinc-850">
+                <div className="flex items-center justify-between text-[15px] font-bold text-zinc-900 dark:text-white pt-2 border-t border-dashed border-zinc-100 dark:border-zinc-800">
                   <span>Total Facturado</span>
                   <span className="text-[18px] text-pink-600 dark:text-pink-400 font-black">
                     ${selectedOrder.total_price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}

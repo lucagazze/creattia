@@ -146,7 +146,7 @@ export default function PrivacidadPage() {
       </div>
 
       {/* Contact */}
-      <div className="rounded-2xl bg-gradient-to-r from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-zinc-850 border border-zinc-200 dark:border-zinc-800 p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <div className="rounded-2xl bg-gradient-to-r from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-zinc-800 border border-zinc-200 dark:border-zinc-800 p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <div className="w-10 h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0">
           <Mail className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
         </div>

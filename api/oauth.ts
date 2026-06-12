@@ -46,6 +46,12 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
   const base = getHost(req);
 
+  if (action === 'shopify-install-link') {
+    if (!SHOPIFY_CLIENT_ID) return res.status(503).json({ error: 'Shopify OAuth no configurado (falta SHOPIFY_CLIENT_ID).' });
+    const installUrl = `https://admin.shopify.com/store-directory/extensions/oauth/install-link?client_id=${SHOPIFY_CLIENT_ID}`;
+    return res.status(200).json({ installUrl });
+  }
+
   if (action === 'shopify-authorize') {
     const shop = (req.query.shop as string || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
     const clientId = req.query.clientId as string;

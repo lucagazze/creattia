@@ -992,7 +992,7 @@ export default function CaptacionPage() {
                     <div className="h-3.5 w-16 bg-zinc-100 dark:bg-zinc-800 rounded" />
                   </div>
                   <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full" />
-                  <div className="h-3 w-28 bg-zinc-50 dark:bg-zinc-850 rounded mt-1" />
+                  <div className="h-3 w-28 bg-zinc-50 dark:bg-zinc-800 rounded mt-1" />
                 </div>
               ))}
             </div>
@@ -1040,7 +1040,7 @@ export default function CaptacionPage() {
                     <div className="h-3.5 w-16 bg-zinc-100 dark:bg-zinc-800 rounded" />
                   </div>
                   <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full" />
-                  <div className="h-3 w-28 bg-zinc-50 dark:bg-zinc-850 rounded mt-1" />
+                  <div className="h-3 w-28 bg-zinc-50 dark:bg-zinc-800 rounded mt-1" />
                 </div>
               ))}
             </div>
@@ -1080,7 +1080,7 @@ export default function CaptacionPage() {
                     <div className="h-3.5 w-16 bg-zinc-100 dark:bg-zinc-800 rounded" />
                   </div>
                   <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full" />
-                  <div className="h-3 w-28 bg-zinc-50 dark:bg-zinc-850 rounded mt-1" />
+                  <div className="h-3 w-28 bg-zinc-50 dark:bg-zinc-800 rounded mt-1" />
                 </div>
               ))}
             </div>
@@ -1120,7 +1120,7 @@ export default function CaptacionPage() {
                     <div className="h-3.5 w-16 bg-zinc-100 dark:bg-zinc-800 rounded" />
                   </div>
                   <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full" />
-                  <div className="h-3 w-28 bg-zinc-50 dark:bg-zinc-850 rounded mt-1" />
+                  <div className="h-3 w-28 bg-zinc-50 dark:bg-zinc-800 rounded mt-1" />
                 </div>
               ))}
             </div>

@@ -762,7 +762,7 @@ export default function InformesPage() {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-black transition-all ${
                 activeTab === 'instagram'
                   ? 'bg-pink-500 text-white shadow-md shadow-pink-500/20'
-                  : 'text-zinc-550 hover:text-zinc-850 dark:hover:text-zinc-200'
+                  : 'text-zinc-550 hover:text-zinc-800 dark:hover:text-zinc-200'
               }`}
             >
               <Instagram className="w-3.5 h-3.5" />
@@ -773,7 +773,7 @@ export default function InformesPage() {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-black transition-all ${
                 activeTab === 'facebook'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'text-zinc-550 hover:text-zinc-850 dark:hover:text-zinc-200'
+                  : 'text-zinc-550 hover:text-zinc-800 dark:hover:text-zinc-200'
               }`}
             >
               <Facebook className="w-3.5 h-3.5" />
@@ -795,7 +795,7 @@ export default function InformesPage() {
               <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
             </button>
             {showDatePicker && (
-              <div className="absolute left-0 md:left-auto md:right-0 top-full mt-2.5 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-850 shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[280px] sm:w-[310px] md:w-auto origin-top-left md:origin-top-right">
+              <div className="absolute left-0 md:left-auto md:right-0 top-full mt-2.5 bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 flex flex-col md:flex-row overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 w-[280px] sm:w-[310px] md:w-auto origin-top-left md:origin-top-right">
                 <div className="w-full md:w-[170px] border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible">
                   {PRESETS.map(p => (
                     <button key={p.id} onClick={() => { const r = presetToRange(p.id as any); setPendingPreset(p.id as any); setPendingSince(r.since); setPendingUntil(r.until); }} className={`flex-shrink-0 text-left px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl text-[12px] md:text-[12px] font-black transition-all ${pendingPreset === p.id ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>{p.label}</button>
@@ -1004,7 +1004,7 @@ export default function InformesPage() {
                   return (
                     <div 
                       key={p.id}
-                      className="bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-150/60 dark:border-zinc-850/60 rounded-2xl p-4 flex flex-col justify-between space-y-4 hover:border-violet-500/30 transition-all group relative overflow-hidden"
+                      className="bg-zinc-50/50 dark:bg-zinc-900/40 border border-zinc-150/60 dark:border-zinc-800/60 rounded-2xl p-4 flex flex-col justify-between space-y-4 hover:border-violet-500/30 transition-all group relative overflow-hidden"
                     >
                       {/* Rank badge */}
                       <div className="absolute top-3 left-3 bg-zinc-950/80 backdrop-blur-md text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-md z-10">
@@ -1013,7 +1013,7 @@ export default function InformesPage() {
 
                       <div className="space-y-3">
                         {/* Media Box */}
-                        <div className="aspect-video w-full rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-850 border border-zinc-200/50 dark:border-zinc-800 relative flex items-center justify-center">
+                        <div className="aspect-video w-full rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/50 dark:border-zinc-800 relative flex items-center justify-center">
                           {p.thumbnail ? (
                             <SmoothImage src={p.thumbnail} alt="" containerClassName="w-full h-full" className="object-cover group-hover:scale-[1.02] transition-transform duration-500" />
                           ) : (

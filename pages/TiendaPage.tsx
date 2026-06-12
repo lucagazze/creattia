@@ -626,7 +626,7 @@ export default function TiendaPage() {
                   </span>
                   {selectedOrder.shipping_address ? (
                     <div className="text-[12px] text-zinc-650 dark:text-zinc-400 leading-relaxed font-medium">
-                      <p className="font-bold text-zinc-850 dark:text-zinc-200">
+                      <p className="font-bold text-zinc-800 dark:text-zinc-200">
                         {selectedOrder.shipping_address.name || `${selectedOrder.shipping_address.first_name || ''} ${selectedOrder.shipping_address.last_name || ''}`}
                       </p>
                       <p>{selectedOrder.shipping_address.address1}</p>
@@ -694,7 +694,7 @@ export default function TiendaPage() {
                 <span className="text-[10px] font-black text-pink-650 dark:text-pink-400 uppercase tracking-wider block">
                   Productos Solicitados
                 </span>
-                <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-850">
+                <div className="border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-100 dark:divide-zinc-800">
                   {selectedOrder.line_items?.map((item: any, idx: number) => (
                     <div key={idx} className="p-4 flex items-center justify-between text-[13px] font-medium text-zinc-700 dark:text-zinc-350">
                       <div className="min-w-0 pr-3">
@@ -751,7 +751,7 @@ export default function TiendaPage() {
                     <span>${selectedOrder.total_tax?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between text-[15px] font-bold text-zinc-900 dark:text-white pt-2 border-t border-dashed border-zinc-100 dark:border-zinc-850">
+                <div className="flex items-center justify-between text-[15px] font-bold text-zinc-900 dark:text-white pt-2 border-t border-dashed border-zinc-100 dark:border-zinc-800">
                   <span>Total Facturado</span>
                   <span className="text-[18px] text-pink-600 dark:text-pink-400 font-black">
                     ${selectedOrder.total_price?.toLocaleString('es-AR', { maximumFractionDigits: 0 })}

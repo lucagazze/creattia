@@ -28,7 +28,7 @@ export default function ChatwootSetupCard({ onSuccess }: ChatwootSetupCardProps)
 
       {/* Grid of features */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full text-left mb-8">
-        <div className="p-4 border border-zinc-100 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl flex gap-3">
+        <div className="p-4 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl flex gap-3">
           <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <MessageCircle className="w-5 h-5" />
           </div>
@@ -40,7 +40,7 @@ export default function ChatwootSetupCard({ onSuccess }: ChatwootSetupCardProps)
           </div>
         </div>
 
-        <div className="p-4 border border-zinc-100 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl flex gap-3">
+        <div className="p-4 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl flex gap-3">
           <div className="w-9 h-9 rounded-xl bg-pink-100 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400 flex items-center justify-center shrink-0">
             <Instagram className="w-5 h-5" />
           </div>
@@ -52,7 +52,7 @@ export default function ChatwootSetupCard({ onSuccess }: ChatwootSetupCardProps)
           </div>
         </div>
 
-        <div className="p-4 border border-zinc-100 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl flex gap-3">
+        <div className="p-4 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl flex gap-3">
           <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <Globe className="w-5 h-5" />
           </div>
@@ -64,7 +64,7 @@ export default function ChatwootSetupCard({ onSuccess }: ChatwootSetupCardProps)
           </div>
         </div>
 
-        <div className="p-4 border border-zinc-100 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl flex gap-3">
+        <div className="p-4 border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 rounded-2xl flex gap-3">
           <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
             <Zap className="w-5 h-5" />
           </div>

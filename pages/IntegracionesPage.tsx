@@ -473,22 +473,16 @@ export default function IntegracionesPage() {
 
   // ── REAL OAUTH: Shopify ───────────────────────────────────────────────────────
   const startShopifyOAuth = async () => {
-    if (!shopifyDomain.trim()) {
-      showToast('Ingresá el dominio de tu tienda Shopify primero', 'warning');
-      return;
-    }
     if (!activeProfileId) return;
     setOauthLoading(true);
     try {
-      const cleanDomain = shopifyDomain.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
+      const res = await fetch('/api/oauth?action=shopify-install-link');
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Error al iniciar OAuth');
+        throw new Error(err.error || 'Error al obtener enlace de instalación');
       }
-      const { authorizeUrl } = await res.json();
-      // Redirect to Shopify authorization page
-      window.location.href = authorizeUrl;
+      const { installUrl } = await res.json();
+      window.location.href = installUrl;
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con Shopify', 'error');
       setOauthLoading(false);
@@ -1646,7 +1640,7 @@ export default function IntegracionesPage() {
                   onClick={() => handleConnectClick(platform)}
                   className={`h-9 px-4 rounded-xl text-[12px] font-extrabold flex items-center gap-1.5 transition-all shadow-sm ${
                     status === "ok"
-                      ? "bg-zinc-100 dark:bg-zinc-850 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-350"
+                      ? "bg-zinc-100 dark:bg-zinc-800/60 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-350"
                       : "bg-zinc-900 hover:bg-black text-white dark:bg-white dark:hover:bg-zinc-100 dark:text-zinc-950"
                   }`}
                 >
@@ -1757,24 +1751,10 @@ export default function IntegracionesPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                            Dominio de tu tienda Shopify *
-                          </label>
-                          <input
-                            type="text"
-                            className="apple-input"
-                            placeholder="ej. mi-tienda.myshopify.com"
-                            value={shopifyDomain}
-                            onChange={e => setShopifyDomain(e.target.value)}
-                            disabled={oauthLoading}
-                          />
-                        </div>
-
                         <button
                           type="button"
                           onClick={startShopifyOAuth}
-                          disabled={oauthLoading || !shopifyDomain.trim()}
+                          disabled={oauthLoading}
                           className="w-full h-12 bg-[#96BF48] hover:bg-[#85ab3f] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
                         >
                           {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/shopify-bag.webp" alt="" className="w-4 h-4 object-contain" />}
@@ -1811,7 +1791,7 @@ export default function IntegracionesPage() {
                           <input type="password" className="apple-input" placeholder="shpat_..."
                             value={shopifyToken} onChange={e => setShopifyToken(e.target.value)} required disabled={savingSettings} />
                         </div>
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
+                        <div className="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-2 leading-relaxed">
                           <span className="font-extrabold text-zinc-700 dark:text-zinc-350 flex items-center gap-1">
                             <Info className="w-3.5 h-3.5 text-violet-500" /> ¿Cómo obtener el token?
                           </span>
@@ -2013,7 +1993,7 @@ export default function IntegracionesPage() {
                       </select>
                     </div>
 
-                    <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-1 leading-relaxed">
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-150 dark:border-zinc-800 text-[12px] text-zinc-500 dark:text-zinc-400 space-y-1 leading-relaxed">
                       <p>
                         Mercado Libre requiere vinculación mediante autenticación de cuenta oficial (OAuth 2.0). 
                         Al hacer clic en "Conectar", se iniciará el flujo de autorización correspondiente para el país seleccionado ({ML_COUNTRIES.find(c => c.code === mlCountry)?.name}).
@@ -2060,7 +2040,7 @@ export default function IntegracionesPage() {
                         </div>
 
                         {/* Aprobación de Servicios */}
-                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800/80 space-y-3 mb-5">
+                        <div className="p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-150 dark:border-zinc-800/80 space-y-3 mb-5">
                           <span className="text-[10px] font-bold text-zinc-450 dark:text-zinc-500 uppercase tracking-widest block">Servicios a Vincular</span>
                           <div className="space-y-3">
                             <label className="flex items-start gap-3 cursor-pointer">
@@ -2438,7 +2418,7 @@ export default function IntegracionesPage() {
                       type="button"
                       onClick={closeConfigModal}
                       disabled={savingSettings || testingConnection}
-                      className="ml-auto px-4 h-10 rounded-xl text-[12.5px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-450 hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all"
+                      className="ml-auto px-4 h-10 rounded-xl text-[12.5px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-450 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
                     >
                       Cancelar
                     </button>
@@ -2476,7 +2456,7 @@ export default function IntegracionesPage() {
                     )}
                     <button type="button" onClick={closeConfigModal}
                       disabled={oauthLoading || savingSettings}
-                      className="px-5 h-10 rounded-xl text-[12.5px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-550 hover:bg-zinc-50 dark:hover:bg-zinc-850 transition-all">
+                      className="px-5 h-10 rounded-xl text-[12.5px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-550 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all">
                       Cerrar
                     </button>
                   </div>

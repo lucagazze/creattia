@@ -162,6 +162,15 @@ export const MainLayout = () => {
     }
   }, [location.pathname]);
 
+  // Redirect to integrations page if Shopify oauth redirect lands on dashboard/other routes
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const shop = searchParams.get('shop');
+    if (shop && location.pathname !== '/integraciones') {
+      navigate(`/integraciones${window.location.search}`, { replace: true });
+    }
+  }, [location, navigate]);
+
   // Listen for new orders to show global notification
   useEffect(() => {
     const handleNewOrder = () => {

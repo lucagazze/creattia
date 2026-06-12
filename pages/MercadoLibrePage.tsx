@@ -685,7 +685,7 @@ export default function MercadoLibrePage() {
                         </div>
 
                         {/* Associated Listing */}
-                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-150/40 dark:border-zinc-850 rounded-xl">
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-150/40 dark:border-zinc-800 rounded-xl">
                           <img src={q.itemImage} alt="" className="w-6 h-6 rounded object-cover shrink-0" />
                           <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 truncate flex-1">
                             {q.itemTitle}
