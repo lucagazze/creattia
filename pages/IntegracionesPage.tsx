@@ -25,7 +25,8 @@ import {
   Info,
   Lock,
   Key,
-  Instagram
+  Instagram,
+  MessageSquare
 } from "lucide-react";
 
 interface IntegrationPlatform {
@@ -101,6 +102,14 @@ const PLATFORMS: IntegrationPlatform[] = [
     category: "marketing",
     description: "Sincronizá flujos, listas de correo y analizá métricas de retención de clientes.",
     logoUrl: "/assets/Klaviyo-Logo-Photoroom.webp",
+    isSimulated: false
+  },
+  {
+    id: "chatwoot",
+    name: "Mensajería (Chatwoot)",
+    category: "marketing",
+    description: "Unificá tus canales de WhatsApp, Instagram, Facebook y Chat Web en una sola bandeja de entrada inteligente.",
+    logoComponent: MessageSquare,
     isSimulated: false
   }
 ];
@@ -1026,6 +1035,10 @@ export default function IntegracionesPage() {
   };
 
   const handleConnectClick = (platform: IntegrationPlatform) => {
+    if (platform.id === "chatwoot") {
+      window.location.hash = "/mensajeria";
+      return;
+    }
     const status = getPlatformStatus(platform.id);
     if (status === "ok") {
       openConfigModal(platform);
@@ -1051,6 +1064,10 @@ export default function IntegracionesPage() {
   const getPlatformStatus = (platformId: string): "ok" | "error" | "disconnected" => {
     if (!clientData) return "disconnected";
     
+    if (platformId === "chatwoot") {
+      return (clientData.chatwoot_url && clientData.chatwoot_token) ? "ok" : "disconnected";
+    }
+
     let key = platformId;
     if (platformId === "wordpress" || platformId === "tiendanube") {
       key = "shopify";

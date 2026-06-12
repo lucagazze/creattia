@@ -581,7 +581,7 @@ async function handleChatwootRegister(req: VercelRequest, res: VercelResponse) {
     // 3. Create a unique User for the client
     // Generate a unique email and secure password
     const uniqueEmail = `negocio-${clientId}@algoritmiadesarrollos.com.ar`;
-    const randomPassword = crypto.randomBytes(16).toString('hex');
+    const randomPassword = crypto.randomBytes(16).toString('hex') + 'A!1';
 
     const userRes = await fetch(`${cleanUrl}/platform/api/v1/users`, {
       method: 'POST',
