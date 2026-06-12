@@ -257,7 +257,8 @@ async function handleMeta(req: VercelRequest, res: VercelResponse) {
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&state=${encodeURIComponent(state)}` +
       `&scope=${encodeURIComponent('ads_read,ads_management,business_management,read_insights,pages_show_list,pages_messaging,instagram_basic,instagram_manage_comments,instagram_manage_insights,instagram_manage_messages,pages_read_engagement,pages_manage_metadata,pages_read_user_content,pages_manage_posts,pages_manage_engagement')}` +
-      `&response_type=code`;
+      `&response_type=code` +
+      `&auth_type=rerequest`;
     return res.status(200).json({ authorizeUrl });
   }
 
