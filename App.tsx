@@ -7,6 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ViewAsProvider } from './contexts/ViewAsContext';
 import LoginPage from './pages/LoginPage';
 import EmailPreviewPublicPage from './pages/EmailPreviewPublicPage';
+import OAuthSimulatePage from './pages/OAuthSimulatePage';
 import { CenteredPageLoader } from './components/ui/CenteredPageLoader';
 
 const ProtectedRoute = () => {
@@ -136,6 +137,7 @@ export default function App() {
                     <Routes>
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/preview" element={<EmailPreviewPublicPage />} />
+                      <Route path="/oauth-simulate" element={<OAuthSimulatePage />} />
                       
                       <Route element={<ProtectedRoute />}>
                          <Route path="/*" element={<MainLayout />} />

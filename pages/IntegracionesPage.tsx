@@ -856,6 +856,94 @@ export default function IntegracionesPage() {
     }
   };
 
+  const startSimulatedOAuth = (platformId: string) => {
+    if (!activeProfileId) return;
+
+    setSelectedPlatform(null);
+    setOauthLoading(true);
+    setMetaLoadingText(`Abriendo conexión con ${PLATFORMS.find(p => p.id === platformId)?.name}...`);
+
+    const width = 600;
+    const height = 700;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+
+    const popup = window.open(
+      `/#/oauth-simulate?platform=${platformId}&clientId=${encodeURIComponent(activeProfileId)}&country=${mlCountry}`,
+      `${platformId}_oauth`,
+      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+
+    if (!popup) {
+      showToast('Popup bloqueado. Por favor, habilitá los popups para esta página.', 'error');
+      setOauthLoading(false);
+      setMetaLoadingText('');
+      return;
+    }
+
+    let handled = false;
+
+    const handleSuccess = async (data: { platform: string; country?: string }) => {
+      if (handled) return;
+      handled = true;
+      clearInterval(closeTimer);
+      window.removeEventListener('message', messageHandler);
+
+      try {
+        const extraData = data.platform === 'mercadolibre' ? { mercadolibre_country: data.country || mlCountry } : {};
+        const statusKey = data.platform;
+        await updateConnectionStatus(statusKey, 'ok', extraData);
+        showToast(`¡Conexión con ${PLATFORMS.find(p => p.id === data.platform)?.name} exitosa! ✓`, 'success');
+        refreshProfile().then(() => loadClientData());
+      } catch (err: any) {
+        showToast('Error al conectar: ' + err.message, 'error');
+      } finally {
+        setOauthLoading(false);
+        setMetaLoadingText('');
+      }
+    };
+
+    const messageHandler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'simulated-oauth-success' && event.data.platform === platformId) {
+        handleSuccess(event.data);
+      }
+    };
+    window.addEventListener('message', messageHandler);
+
+    const closeTimer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(closeTimer);
+        setTimeout(() => {
+          if (!handled) {
+            handled = true;
+            window.removeEventListener('message', messageHandler);
+            setOauthLoading(false);
+            setMetaLoadingText('');
+          }
+        }, 1000);
+      }
+    }, 500);
+  };
+
+  const handleConnectClick = (platform: IntegrationPlatform) => {
+    const status = getPlatformStatus(platform.id);
+    if (status === "ok") {
+      openConfigModal(platform);
+      return;
+    }
+
+    if (platform.id === "meta") {
+      startMetaOAuth();
+    } else if (platform.id === "tiendanube") {
+      startTiendanubeOAuth();
+    } else if (["mercadolibre", "google_ads", "tiktok_ads"].includes(platform.id)) {
+      startSimulatedOAuth(platform.id);
+    } else {
+      openConfigModal(platform);
+    }
+  };
+
   const getPlatformStatus = (platformId: string): "ok" | "error" | "disconnected" => {
     if (!clientData) return "disconnected";
     
@@ -1145,7 +1233,7 @@ export default function IntegracionesPage() {
                 </span>
 
                 <button
-                  onClick={() => openConfigModal(platform)}
+                  onClick={() => handleConnectClick(platform)}
                   className={`h-9 px-4 rounded-xl text-[12px] font-extrabold flex items-center gap-1.5 transition-all shadow-sm ${
                     status === "ok"
                       ? "bg-zinc-100 dark:bg-zinc-850 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-350"
