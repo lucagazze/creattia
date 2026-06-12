@@ -68,11 +68,23 @@ function PaymentBadge({ status }: { status: string }) {
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${cls}`}>{label}</span>;
 }
 
-function FulfillmentBadge({ status }: { status: string | null }) {
+function FulfillmentBadge({ status, order }: { status: string | null; order?: any }) {
   const s = status || 'unfulfilled';
+  const isLocalPickup = order && (
+    (order.shipping_lines || []).some((sl: any) => {
+      const title = (sl.title || '').toLowerCase();
+      return title.includes('retiro') || title.includes('local') || title.includes('pick') || title.includes('sucursal') || title.includes('showroom') || title.includes('tienda');
+    }) ||
+    (order.shipping_lines || []).some((sl: any) => {
+      const method = (sl.method_id || '').toLowerCase();
+      return method.includes('local_pickup');
+    })
+  );
   const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
     fulfilled:   { label: 'Enviado',    cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', icon: <Truck className="w-2.5 h-2.5" /> },
-    unfulfilled: { label: 'Sin enviar', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',   icon: <Package className="w-2.5 h-2.5" /> },
+    unfulfilled: isLocalPickup
+      ? { label: 'Listo para retiro', cls: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400', icon: <Package className="w-2.5 h-2.5" /> }
+      : { label: 'Sin enviar', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',   icon: <Package className="w-2.5 h-2.5" /> },
     partial:     { label: 'Parcial',    cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',        icon: <Package className="w-2.5 h-2.5" /> },
     restocked:   { label: 'Devuelto',   cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500',                                   icon: <RefreshCw className="w-2.5 h-2.5" /> },
   };
@@ -91,24 +103,34 @@ function OrderExpandedDetail({ order }: { order: any }) {
       {/* Products List */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2">Productos</p>
-        {lineItems.map((item: any, idx: number) => (
-          <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900/50 border border-zinc-150/65 dark:border-white/[0.04]">
-            <div className="flex items-center gap-2 min-w-0 pr-2">
-              <span className="text-[11px] font-black px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-350">
-                ×{item.quantity}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{item.title}</p>
-                {item.variant_title && (
-                  <p className="text-[10px] text-zinc-400 mt-0.5">{item.variant_title}</p>
-                )}
+        {lineItems.map((item: any, idx: number) => {
+          const img = item._wc_image;
+          return (
+            <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900/50 border border-zinc-150/65 dark:border-white/[0.04]">
+              <div className="flex items-center gap-3 min-w-0 pr-2">
+                <div className="shrink-0 min-w-[28px] h-7 px-1.5 rounded bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center">
+                  <span className="text-[11px] font-black">×{item.quantity}</span>
+                </div>
+                <div className="w-8 h-8 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center border border-zinc-200/60 dark:border-white/[0.06]">
+                  {img ? (
+                    <img src={img} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <ShoppingBag className="w-3.5 h-3.5 text-zinc-400" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{item.title}</p>
+                  {item.variant_title && (
+                    <p className="text-[10px] text-zinc-400 mt-0.5">{item.variant_title}</p>
+                  )}
+                </div>
               </div>
+              <span className="text-[12px] font-bold shrink-0 text-zinc-800 dark:text-zinc-200">
+                {fmtCurr(parseFloat(item.price || 0) * item.quantity)}
+              </span>
             </div>
-            <span className="text-[12px] font-bold shrink-0 text-zinc-800 dark:text-zinc-200">
-              {fmtCurr(parseFloat(item.price || 0) * item.quantity)}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Order breakdown */}
@@ -170,7 +192,7 @@ function OrderItemRow({ order }: { order: any }) {
           </span>
         </td>
         <td className="px-4 py-3"><PaymentBadge status={order.financial_status} /></td>
-        <td className="px-4 py-3"><FulfillmentBadge status={order.fulfillment_status} /></td>
+        <td className="px-4 py-3"><FulfillmentBadge status={order.fulfillment_status} order={order} /></td>
         <td className="px-4 py-3 text-right font-black text-zinc-900 dark:text-white">
           {fmtCurr(parseFloat(order.total_price || 0))}
         </td>
@@ -211,7 +233,7 @@ function OrderMobileCard({ order }: { order: any }) {
 
           <div className="flex items-center gap-1.5 flex-wrap">
             <PaymentBadge status={order.financial_status} />
-            <FulfillmentBadge status={order.fulfillment_status} />
+            <FulfillmentBadge status={order.fulfillment_status} order={order} />
           </div>
         </div>
         <div className="flex items-center gap-2.5 shrink-0 self-center">
@@ -242,10 +264,6 @@ export default function ContactosPage() {
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
 
-  const cwUrl = (profile as any)?.chatwoot_url;
-  const cwToken = (profile as any)?.chatwoot_token;
-  const hasChatwoot = !!(cwUrl && cwToken);
-
   // Auto-detect platform just like PedidosPage
   let platform = (profile as any)?.ecommerce_platform;
   if (profile && !platform) {
@@ -265,8 +283,6 @@ export default function ContactosPage() {
   const [selectedStoreCust, setSelectedStoreCust] = useState<any>(null);
   const [storeCustStats, setStoreCustStats] = useState<{ ordersCount: number; totalSpent: number } | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
-  const [chatwootContactId, setChatwootContactId] = useState<number | null>(null);
-  const [checkingChatwoot, setCheckingChatwoot] = useState(false);
   const [selectedCustOrders, setSelectedCustOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
@@ -292,7 +308,7 @@ export default function ContactosPage() {
 
   // Filters and Sorting
   const [filterType, setFilterType] = useState<'all' | 'new' | 'frequent'>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'name' | 'spent' | 'orders'>('name');
+  const [sortBy, setSortBy] = useState<'recent' | 'name' | 'spent' | 'orders'>('recent');
 
   // Load Store Customers
   const loadData = useCallback(async () => {
@@ -647,27 +663,10 @@ export default function ContactosPage() {
   const handleSelectStoreCustomer = async (c: any) => {
     setSelectedStoreCust(c);
     setStoreCustStats(null);
-    setChatwootContactId(null);
     setSelectedCustOrders([]);
     setOrdersError(null);
     
     if (!c) return;
-
-    // Search Chatwoot contact by email in the background if configured
-    if (cwUrl && cwToken && c.email) {
-      setCheckingChatwoot(true);
-      try {
-        const cwData = await chatwoot.searchContacts(cwUrl, cwToken, c.email, 1);
-        const contact = (cwData?.payload || cwData?.data || [])[0];
-        if (contact) {
-          setChatwootContactId(contact.id);
-        }
-      } catch (err) {
-        console.warn('Error fetching Chatwoot contact:', err);
-      } finally {
-        setCheckingChatwoot(false);
-      }
-    }
 
     // Load stats and orders list
     setLoadingStats(true);
@@ -748,7 +747,8 @@ export default function ContactosPage() {
                   title: it.name,
                   quantity: it.quantity,
                   price: it.price,
-                  variant_title: it.meta_data?.filter((m: any) => m.display_key && !m.display_key.startsWith('_')).map((m: any) => m.display_value).join(' / ') || null
+                  variant_title: it.meta_data?.filter((m: any) => m.display_key && !m.display_key.startsWith('_')).map((m: any) => m.display_value).join(' / ') || null,
+                  _wc_image: it.image?.src || null
                 }))
               };
             });
@@ -759,7 +759,7 @@ export default function ContactosPage() {
             'x-tn-store-id': tiendanubeStoreId,
             'x-tn-token': tiendanubeToken
           };
-
+ 
           const oUrl = `/api/shopify/tn/orders?email=${encodeURIComponent(email)}&per_page=200`;
           const oRes = await fetch(oUrl, { headers: tnHeaders });
           if (oRes.ok) {
@@ -774,7 +774,7 @@ export default function ContactosPage() {
               const fulfillment_status = (o.shipping_status === 'shipped' || o.shipping_status === 'delivered') ? 'fulfilled' : 'unfulfilled';
               
               const customerName = o.customer?.name || o.shipping_address?.name || 'Cliente Tiendanube';
-
+ 
               return {
                 id: o.id,
                 order_number: o.number,
@@ -798,7 +798,8 @@ export default function ContactosPage() {
                   title: it.name,
                   quantity: it.quantity,
                   price: it.price,
-                  variant_title: it.variant_values ? it.variant_values.map((vv: any) => vv.es || vv.en || Object.values(vv || {})[0] || '').filter(Boolean).join(' / ') : null
+                  variant_title: it.variant_values ? it.variant_values.map((vv: any) => vv.es || vv.en || Object.values(vv || {})[0] || '').filter(Boolean).join(' / ') : null,
+                  _wc_image: it.image?.src || null
                 }))
               };
             });
@@ -850,8 +851,8 @@ export default function ContactosPage() {
   // Filters logic
   const filteredCustomers = useMemo(() => {
     return storeCustomers.filter(c => {
-      // If Tiendanube, metrics are loaded asynchronously, so we don't filter them out here
-      if (c.orders_count === null) return true;
+      // Show only customers who purchased from the store (orders_count > 0 or unknown null)
+      if (c.orders_count !== null && c.orders_count <= 0) return false;
       
       if (filterType === 'new') {
         return c.orders_count === 1;
@@ -994,42 +995,52 @@ export default function ContactosPage() {
                   <p className="text-[12px] font-bold">Sin clientes</p>
                 </div>
               ) : (
-                visibleCustomers.map(c => {
-                  const isSelected = selectedStoreCust?.id === c.id;
-                  return (
-                    <div
-                      key={c.id}
-                      onClick={() => handleSelectStoreCustomer(c)}
-                      className={`mx-2.5 my-0.5 px-2.5 py-1.5 flex items-center gap-2.5 transition-all duration-200 cursor-pointer rounded-xl group ${
-                        isSelected
-                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/10'
-                          : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/35 border border-transparent'
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[12px] truncate font-bold ${isSelected ? 'text-white' : 'text-zinc-800 dark:text-zinc-100'}`}>
-                          {c.name || 'Cliente sin nombre'}
-                        </p>
+                <>
+                  {visibleCustomers.map(c => {
+                    const isSelected = selectedStoreCust?.id === c.id;
+                    return (
+                      <div
+                        key={c.id}
+                        onClick={() => handleSelectStoreCustomer(c)}
+                        className={`mx-2.5 my-0.5 px-2.5 py-1.5 flex items-center gap-2.5 transition-all duration-200 cursor-pointer rounded-xl group ${
+                          isSelected
+                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/10'
+                            : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/35 border border-transparent'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          {/* Pedidos Count */}
+                          <span className={`inline-flex items-center justify-center shrink-0 min-w-[18px] h-[18px] px-1 rounded-md text-[9.5px] font-black tracking-tighter ${
+                            isSelected 
+                              ? 'bg-white/20 text-white' 
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                          }`}>
+                            {c.orders_count ?? 0}
+                          </span>
+                          <p className={`text-[12px] truncate font-bold flex-1 ${isSelected ? 'text-white' : 'text-zinc-800 dark:text-zinc-100'}`}>
+                            {c.email || c.name || 'Sin email'}
+                          </p>
+                        </div>
+
+                        {/* Gasto Total Badge */}
+                        {c.total_spent !== null && c.total_spent !== undefined && c.total_spent > 0 && (
+                          <span className={`text-[10.5px] font-extrabold whitespace-nowrap shrink-0 ${isSelected ? 'text-white' : 'text-emerald-500 dark:text-emerald-400'}`}>
+                            {fmtCurr(c.total_spent)}
+                          </span>
+                        )}
                       </div>
+                    );
+                  })}
 
-                      {/* Gasto Total Badge */}
-                      {c.total_spent !== null && c.total_spent !== undefined && c.total_spent > 0 && (
-                        <span className={`text-[10.5px] font-extrabold whitespace-nowrap shrink-0 ${isSelected ? 'text-white' : 'text-zinc-700 dark:text-zinc-300'}`}>
-                          {fmtCurr(c.total_spent)}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Infinite scroll sentinel */}
-            <div ref={sentinelRef} className="py-1">
-              {visibleCount < sortedCustomers.length && (
-                <div className="flex justify-center py-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
-                </div>
+                  {/* Infinite scroll sentinel */}
+                  <div ref={sentinelRef} className="py-1">
+                    {visibleCount < sortedCustomers.length && (
+                      <div className="flex justify-center py-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -1080,34 +1091,6 @@ export default function ContactosPage() {
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    {/* Start Chat Button (via Chatwoot linkage) */}
-                    {hasChatwoot && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!chatwootContactId || !cwUrl || !cwToken) return;
-                          try {
-                            const conversationsList = await chatwoot.getContactConversations(cwUrl, cwToken, chatwootContactId);
-                            if (conversationsList && conversationsList.length > 0) {
-                              navigate(`/atencion?convId=${conversationsList[0].id}`);
-                            } else {
-                              navigate('/atencion');
-                            }
-                          } catch {
-                            navigate('/atencion');
-                          }
-                        }}
-                        disabled={checkingChatwoot || !chatwootContactId}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[12px] font-black shadow-sm shadow-blue-500/10 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
-                      >
-                        {checkingChatwoot ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <MessageSquare className="w-4 h-4" />
-                        )}
-                        {chatwootContactId ? 'Iniciar Chat' : 'Sin chat activo'}
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -1201,17 +1184,7 @@ export default function ContactosPage() {
                   </div>
                 </div>
 
-                {hasChatwoot && !chatwootContactId && !checkingChatwoot && (
-                  <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-250 dark:border-amber-900/30 rounded-xl flex items-start gap-3 text-[11.5px] text-amber-700 dark:text-amber-400">
-                    <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold">Sin vinculación directa de mensajería</p>
-                      <p className="text-[10.5px] opacity-90 mt-0.5">
-                        No se encontró un contacto en Chatwoot con el correo <strong>{selectedStoreCust.email}</strong>. Para chatear, buscalo por su nombre o teléfono directamente en la sección de atención.
-                      </p>
-                    </div>
-                  </div>
-                )}
+
 
                 {/* Orders History List */}
                 <div className="space-y-3 pt-2">

@@ -45,11 +45,23 @@ function PaymentBadge({ status }: { status: string }) {
   return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${cls}`}>{label}</span>;
 }
 
-function FulfillmentBadge({ status }: { status: string | null }) {
+function FulfillmentBadge({ status, order }: { status: string | null; order?: any }) {
   const s = status || 'unfulfilled';
+  const isLocalPickup = order && (
+    (order.shipping_lines || []).some((sl: any) => {
+      const title = (sl.title || '').toLowerCase();
+      return title.includes('retiro') || title.includes('local') || title.includes('pick') || title.includes('sucursal') || title.includes('showroom') || title.includes('tienda');
+    }) ||
+    (order.shipping_lines || []).some((sl: any) => {
+      const method = (sl.method_id || '').toLowerCase();
+      return method.includes('local_pickup');
+    })
+  );
   const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
     fulfilled:   { label: 'Enviado',    cls: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400', icon: <Truck className="w-2.5 h-2.5" /> },
-    unfulfilled: { label: 'Sin enviar', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',   icon: <Package className="w-2.5 h-2.5" /> },
+    unfulfilled: isLocalPickup
+      ? { label: 'Listo para retiro', cls: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400', icon: <Package className="w-2.5 h-2.5" /> }
+      : { label: 'Sin enviar', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',   icon: <Package className="w-2.5 h-2.5" /> },
     partial:     { label: 'Parcial',    cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',        icon: <Package className="w-2.5 h-2.5" /> },
     restocked:   { label: 'Devuelto',   cls: 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500',                                   icon: <RefreshCw className="w-2.5 h-2.5" /> },
   };
@@ -148,7 +160,7 @@ function OrderItemRow({ order }: { order: any }) {
           </span>
         </td>
         <td className="px-4 py-3"><PaymentBadge status={order.financial_status} /></td>
-        <td className="px-4 py-3"><FulfillmentBadge status={order.fulfillment_status} /></td>
+        <td className="px-4 py-3"><FulfillmentBadge status={order.fulfillment_status} order={order} /></td>
         <td className="px-4 py-3 text-right font-black text-emerald-600 dark:text-emerald-400">
           {fmtCurr(parseFloat(order.total_price || 0))}
         </td>
@@ -188,7 +200,7 @@ function OrderMobileCard({ order }: { order: any }) {
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-1">{fmtDateTime(order.created_at)}</p>
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
             <PaymentBadge status={order.financial_status} />
-            <FulfillmentBadge status={order.fulfillment_status} />
+            <FulfillmentBadge status={order.fulfillment_status} order={order} />
           </div>
         </div>
         <div className="flex items-center gap-2.5 shrink-0 self-center">

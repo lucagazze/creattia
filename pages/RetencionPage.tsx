@@ -21,9 +21,8 @@ const KlaviyoLogo = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 const fmtCurrency = (n: number) => {
-  if (typeof n !== 'number') return '—';
-  const showDecimals = n < 10 || n % 1 !== 0;
-  return `$ ${n.toLocaleString('es-AR', showDecimals ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 })}`;
+  if (typeof n !== 'number' || isNaN(n)) return '—';
+  return `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
 const PRESETS: { id: DatePreset | 'custom'; label: string }[] = [
@@ -352,7 +351,7 @@ export default function RetencionPage() {
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Zap className="w-3.5 h-3.5 text-emerald-500" /></div>
-                  <h2 className="text-[14px] font-bold text-zinc-900 dark:text-white">Flujos de Automatización</h2>
+                  <h2 className="text-[14px] font-bold text-zinc-900 dark:text-white">Plantillas Email</h2>
                 </div>
                 {fetchingConfig
                   ? <span className="text-[11px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full animate-pulse">Cargando…</span>
@@ -429,7 +428,7 @@ export default function RetencionPage() {
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center"><Mail className="w-3.5 h-3.5 text-emerald-500" /></div>
-                  <h2 className="text-[14px] font-bold text-zinc-900 dark:text-white">Campañas</h2>
+                  <h2 className="text-[14px] font-bold text-zinc-900 dark:text-white">Plantillas Email</h2>
                 </div>
                 {fetchingConfig
                   ? <span className="text-[11px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full animate-pulse">Cargando…</span>

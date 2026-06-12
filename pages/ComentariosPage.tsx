@@ -14,6 +14,7 @@ import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import SmoothImage from '../components/ui/SmoothImage';
+import DOMPurify from 'dompurify';
 
 interface AutoResizeTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
@@ -65,6 +66,9 @@ export default function ComentariosPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [posts, setPosts] = useState<PostItem[]>([]);
+  const [resolvedThumbnails, setResolvedThumbnails] = useState<Record<string, string>>({});
+  const [resolvedDetails, setResolvedDetails] = useState<Record<string, any>>({});
+  const [resolvingIds, setResolvingIds] = useState<Record<string, boolean>>({});
   const [platformFilter, setPlatformFilter] = useState<'all' | 'instagram' | 'facebook' | 'ads'>('all');
   const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -186,7 +190,6 @@ export default function ComentariosPage() {
           ig_business_id: igId,
           ig_username: igUsername,
           fb_page_access_token: page.access_token,
-          facebook_access_token: connectingUserToken,
           connection_statuses: newStatuses
         })
         .eq('id', clientId);
@@ -565,6 +568,44 @@ export default function ComentariosPage() {
       }
     }
   }, [loading, posts, setPendingCommentsCount, clientId]);
+
+  // Background resolver for ad thumbnails and details in ComentariosPage
+  useEffect(() => {
+    const adsToResolve = posts.filter(p => p.isAd && !p.thumbnail && !resolvedDetails[p.id] && !resolvingIds[p.id]);
+    if (adsToResolve.length === 0) return;
+
+    adsToResolve.forEach(async (post) => {
+      const ad = post.raw;
+      if (!ad) return;
+      
+      setResolvingIds(prev => ({ ...prev, [post.id]: true }));
+      
+      const params = new URLSearchParams();
+      if (ad.id) params.set('adId', ad.id);
+      if (ad.creative?.id) params.set('creativeId', ad.creative.id);
+      if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
+      if (clientId) params.set('clientId', clientId);
+
+      try {
+        const res = await fetch(`/api/meta-video?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setResolvedDetails(prev => ({ ...prev, [post.id]: data }));
+          let thumbnail: string | null = null;
+          if (data.type === 'carousel' && data.cards?.[0]?.url) thumbnail = data.cards[0].url;
+          else if ((data.type === 'video_source' || data.type === 'ad_preview') && data.picture) thumbnail = data.picture;
+          else if (data.type === 'image' && data.url) thumbnail = data.url;
+          if (thumbnail) {
+            setResolvedThumbnails(prev => ({ ...prev, [post.id]: thumbnail! }));
+          }
+        }
+      } catch (err) {
+        console.error("Error resolving ad thumbnail in ComentariosPage:", err);
+      } finally {
+        setResolvingIds(prev => { const next = { ...prev }; delete next[post.id]; return next; });
+      }
+    });
+  }, [posts, clientId, resolvedDetails, resolvingIds]);
 
   // Open post slide-over — reload comments from API for freshness
   const openPost = async (post: PostItem) => {
@@ -1036,13 +1077,17 @@ export default function ComentariosPage() {
             >
               {/* Thumbnail */}
               <div className="aspect-square w-full bg-zinc-100 dark:bg-zinc-800 relative overflow-hidden">
-                {post.thumbnail ? (
-                  <SmoothImage src={post.thumbnail} alt="" containerClassName="w-full h-full" className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <MessageSquare className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />
-                  </div>
-                )}
+                {(() => {
+                  const thumb = post.thumbnail || resolvedThumbnails[post.id];
+                  if (thumb) {
+                    return <SmoothImage src={thumb} alt="" containerClassName="w-full h-full" className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500" />;
+                  }
+                  return (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <MessageSquare className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />
+                    </div>
+                  );
+                })()}
 
                 {/* Platform badge */}
                 <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow-md ${
@@ -1192,26 +1237,90 @@ export default function ComentariosPage() {
                 mobileTab === 'comments' ? 'hidden md:flex' : 'flex'
               } md:w-[300px] flex-shrink-0 flex-col border-r border-zinc-100 dark:border-zinc-800 p-5 overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10`}>
                 {/* Media */}
-                {selectedPost.thumbnail || selectedPost.mediaUrl ? (
-                  <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-zinc-100 dark:bg-zinc-900">
-                    {selectedPost.mediaType === 'VIDEO' ? (
-                      playingVideoId === selectedPost.id ? (
-                        <video src={selectedPost.mediaUrl || selectedPost.thumbnail || ''} controls autoPlay {...{ referrerPolicy: "no-referrer" }} className="w-full max-h-64 object-contain bg-black" />
-                      ) : (
-                        <div className="relative cursor-pointer" onClick={() => setPlayingVideoId(selectedPost.id)}>
-                          <img src={selectedPost.thumbnail || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-64 object-cover" />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                            <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                              <Play className="w-6 h-6 fill-zinc-900 text-zinc-900 ml-1" />
-                            </div>
-                          </div>
+                {(() => {
+                  const mediaData = resolvedDetails[selectedPost.id];
+                  const displayThumb = selectedPost.thumbnail || resolvedThumbnails[selectedPost.id] || '';
+
+                  if (selectedPost.isAd && mediaData) {
+                    if (mediaData.type === 'video_source') {
+                      return (
+                        <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-black aspect-[4/5] w-full">
+                          <video
+                            src={mediaData.source || undefined}
+                            poster={mediaData.picture || displayThumb || undefined}
+                            controls
+                            preload="none"
+                            playsInline
+                            {...{ referrerPolicy: 'no-referrer' }}
+                            className="w-full h-full object-contain"
+                          />
                         </div>
-                      )
-                    ) : (
-                      <img src={selectedPost.thumbnail || selectedPost.mediaUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-64 object-cover" loading="lazy" />
-                    )}
-                  </div>
-                ) : null}
+                      );
+                    }
+                    if (mediaData.type === 'carousel' && mediaData.cards?.length > 0) {
+                      const firstCard = mediaData.cards[0];
+                      return (
+                        <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-zinc-100 dark:bg-zinc-900 w-full">
+                          <SmoothImage
+                            src={firstCard.url || displayThumb}
+                            alt=""
+                            containerClassName="w-full h-full"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      );
+                    }
+                    if (mediaData.type === 'ad_preview' && mediaData.embed_html) {
+                      const resizedHtml = mediaData.embed_html
+                        .replace(/width="\d+"/g, 'width="100%"')
+                        .replace(/height="\d+"/g, 'height="320"')
+                        .replace(/<iframe/g, `<iframe style="width:100%;height:320px;border:none;"`);
+                      const cleanHtml = DOMPurify.sanitize(resizedHtml, {
+                        ADD_TAGS: ['iframe'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style', 'src', 'width', 'height'],
+                      });
+                      return (
+                        <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 w-full" style={{ height: 320 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />
+                      );
+                    }
+                    if (mediaData.type === 'image' && mediaData.url) {
+                      return (
+                        <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-zinc-100 dark:bg-zinc-900 w-full">
+                          <SmoothImage
+                            src={mediaData.url}
+                            alt=""
+                            containerClassName="w-full h-full"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      );
+                    }
+                  }
+
+                  if (displayThumb || selectedPost.mediaUrl) {
+                    return (
+                      <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-zinc-100 dark:bg-zinc-900 w-full">
+                        {selectedPost.mediaType === 'VIDEO' ? (
+                          playingVideoId === selectedPost.id ? (
+                            <video src={selectedPost.mediaUrl || displayThumb || ''} controls autoPlay {...{ referrerPolicy: "no-referrer" }} className="w-full max-h-64 object-contain bg-black" />
+                          ) : (
+                            <div className="relative cursor-pointer" onClick={() => setPlayingVideoId(selectedPost.id)}>
+                              <img src={displayThumb || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-64 object-cover" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                                  <Play className="w-6 h-6 fill-zinc-900 text-zinc-900 ml-1" />
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        ) : (
+                          <img src={displayThumb || selectedPost.mediaUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-64 object-cover" loading="lazy" />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
 
                 {/* Caption */}
                 {selectedPost.caption && (

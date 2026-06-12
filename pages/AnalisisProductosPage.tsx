@@ -3,9 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { supabase } from '../services/supabase';
 import { ecommerce } from '../services/ecommerce';
+import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import {
   Package, Search, RefreshCw, Loader2, ChevronRight,
-  CheckCircle, AlertCircle, XCircle, TrendingUp, X
+  CheckCircle, AlertCircle, XCircle, TrendingUp, X,
+  Download, FileText
 } from 'lucide-react';
 
 // ── Score types ────────────────────────────────────────────────────────────────
@@ -41,6 +43,41 @@ export default function AnalisisProductosPage() {
   const [productCacheDate, setProductCacheDate] = useState<Date | null>(null);
 
   const p = profile as any;
+
+  const exportToExcel = () => {
+    const headers = ['Producto', 'Total Pedidos', 'Primeros Pedidos %', 'Recompra %', 'Días Recompra Promedio', 'Precio Promedio', 'AOV Combinado'];
+    const rows = productAnalysis.map(p => [
+      p.name,
+      p.totalOrders,
+      `${p.entryPointPct}%`,
+      `${p.secondPurchasePct}%`,
+      p.repurchaseDays > 0 ? p.repurchaseDays : 'Sin retorno',
+      p.avgPrice.toFixed(2),
+      p.combinedAOV.toFixed(2)
+    ]);
+    
+    const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `analisis_productos_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToPDF = () => {
+    const html = document.documentElement;
+    const wasDark = html.classList.contains('dark');
+    if (wasDark) html.classList.remove('dark');
+    html.classList.add('is-printing');
+    setTimeout(() => {
+      window.print();
+      html.classList.remove('is-printing');
+      if (wasDark) html.classList.add('dark');
+    }, 350);
+  };
 
   const saveAnalysisToDB = async (results: any[], clientId: string) => {
     try {
@@ -127,7 +164,8 @@ export default function AnalisisProductosPage() {
     'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400';
 
   return (
-    <div className="w-full pt-4 pb-20 md:pt-6 animate-fade-in">
+    <CenteredPageLoader isLoading={false}>
+      <div className="w-full pt-4 pb-20 md:pt-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -146,12 +184,30 @@ export default function AnalisisProductosPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden flex-wrap">
           {productAnalysis.length > 0 && (
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Buscar producto..." className="pl-8 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] text-zinc-700 dark:text-zinc-300 outline-none focus:border-pink-400 w-48 transition-all" />
-            </div>
+            <>
+              <button 
+                onClick={exportToExcel}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-pink-500/30 rounded-lg text-[12px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors shadow-sm"
+                title="Exportar a Excel"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Excel</span>
+              </button>
+              <button 
+                onClick={exportToPDF}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-pink-500/30 rounded-lg text-[12px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors shadow-sm"
+                title="Exportar a PDF"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>PDF</span>
+              </button>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Buscar producto..." className="pl-8 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[12px] text-zinc-700 dark:text-zinc-300 outline-none focus:border-pink-400 w-48 transition-all" />
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -328,5 +384,6 @@ export default function AnalisisProductosPage() {
         </div>
       )}
     </div>
+    </CenteredPageLoader>
   );
 }

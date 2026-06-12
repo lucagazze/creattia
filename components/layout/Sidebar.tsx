@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
 import { useUnread } from '../../contexts/UnreadContext';
+import { db } from '../../services/db';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -53,9 +54,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const { viewAsProfile, setViewAsProfile, isViewingAs } = useViewAs();
   const { unreadCount, pendingCommentsCount, commentsLoading, unreadLoading, pendingOrdersCount, ordersLoading } = useUnread();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [hasLinks, setHasLinks] = useState(false);
 
   // Use viewAsProfile if active, otherwise use real profile
   const activeProfile = isViewingAs ? viewAsProfile : profile;
+
+  React.useEffect(() => {
+    if (!activeProfile?.id) {
+      setHasLinks(false);
+      return;
+    }
+    db.links.getByClientId(activeProfile.id)
+      .then(data => {
+        setHasLinks(data && data.length > 0);
+      })
+      .catch(err => {
+        console.error("Error loading links in sidebar:", err);
+        setHasLinks(false);
+      });
+  }, [activeProfile?.id]);
 
   const detectedPlatform = React.useMemo(() => {
     const prof: any = activeProfile;
@@ -91,10 +108,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/entradas',       icon: Inbox,         label: 'Bandejas de Entrada', configured: hasChatwoot },
     { path: '/comentarios',    icon: MessageCircle, label: 'Comentarios',     configured: hasRedes, badge: pendingCommentsCount },
     { path: '/redes-sociales', icon: Instagram,     label: 'Redes Sociales',  configured: hasRedes },
-    { path: '/clientes',       icon: Users,         label: 'Clientes',        configured: hasEcommerce },
-    { path: '/pedidos',         icon: ShoppingCart,  label: 'Pedidos',         configured: hasEcommerce, badge: pendingOrdersCount, badgeLoading: ordersLoading },
+    { path: '/pedidos',        icon: ShoppingCart,  label: 'Pedidos',         configured: hasEcommerce, badge: pendingOrdersCount, badgeLoading: ordersLoading },
     { path: '/inventario',     icon: Package,       label: 'Inventario',      configured: hasEcommerce },
-  ].filter(i => i.configured);
+    { path: '/clientes',       icon: Users,         label: 'Clientes',        configured: hasEcommerce },
+  ].filter(i => isAdmin || i.configured);
 
   const metricasItems = [
     { path: '/tienda',       icon: ShoppingBag,   label: 'Tienda Online', configured: hasEcommerce },
@@ -102,19 +119,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/captacion',    icon: BarChart2,     label: 'Meta Ads',     configured: hasMeta },
     { path: '/atencion',     icon: MessageCircle, label: 'Atención',      configured: hasChatwoot },
     { path: '/retencion',    icon: Mail,          label: 'Email Marketing',     configured: hasKlaviyo },
-  ].filter(i => i.configured);
+  ].filter(i => isAdmin || i.configured);
 
   const activosItems = [
-    { path: '/admin/meta',      icon: Target, label: 'Creativos Ads',    configured: hasMeta },
-    { path: '/email-marketing', icon: Send,   label: 'Campañas y Flujos',  configured: hasKlaviyo },
-  ].filter(i => i.configured);
+    { path: '/analisis-productos',  icon: BarChart2,  label: 'Análisis Productos', configured: hasEcommerce },
+    { path: '/admin/meta',          icon: Target,     label: 'Creativos Ads',      configured: hasMeta },
+    { path: '/email-marketing',     icon: Send,       label: 'Plantillas Email',   configured: hasKlaviyo },
+  ].filter(i => isAdmin || i.configured);
 
   const configuracionItems = [
     { path: '/perfil',           icon: User,   label: 'Mi Perfil',      configured: true },
-    { path: '/links',            icon: Link2,  label: 'Mis Accesos',    configured: true },
+    { path: '/links',            icon: Link2,  label: 'Mis Accesos',    configured: hasLinks },
     { path: '/integraciones',    icon: Workflow, label: 'Integraciones',  configured: true },
     { path: '/cerebro',          icon: Brain,  label: 'Cerebro de IA',  configured: true, adminOnly: true },
-  ].filter(i => !i.adminOnly || isAdmin);
+  ].filter(i => (!i.adminOnly || isAdmin) && (isAdmin || i.configured));
 
   const adminItems = [
     { path: '/admin',                  icon: Building2, label: 'Gestión Negocios' },
@@ -225,7 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         to={item.path}
         title={isUnconfigured ? `${item.label} (no configurado)` : item.label}
         onClick={() => window.innerWidth < 768 && setIsOpen(false)}
-        className={`group flex items-center gap-2.5 px-3 py-2 rounded-xl text-[12px] font-bold transition-all duration-150 active:scale-[0.98] ${
+        className={`group flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[11px] md:text-[12px] font-bold transition-all duration-150 active:scale-[0.98] ${
           isActive
             ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-md shadow-black/10 dark:shadow-white/5'
             : isUnconfigured
@@ -256,7 +274,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       </Link>
     );
   };
-
 
   return (
     <>
@@ -363,7 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         <nav className="flex-1 overflow-y-auto py-5 px-3 space-y-7 scrollbar-hide">
           
           {/* Principal */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
               Principal
             </p>
@@ -372,7 +389,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
           {/* Metricas — solo si hay al menos 1 item */}
           {metricasItems.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
                 Metricas
               </p>
@@ -382,7 +399,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
           {/* Activos — solo si hay al menos 1 item */}
           {activosItems.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
                 Activos
               </p>
@@ -391,7 +408,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
           )}
 
           {/* Configuración */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
               Configuración
             </p>
@@ -400,7 +417,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
           {/* Administración */}
           {profile?.is_admin && !isViewingAs && (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] px-3.5 mb-2.5 flex items-center gap-2 select-none">
                 Administración
               </p>

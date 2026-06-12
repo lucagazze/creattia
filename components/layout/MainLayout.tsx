@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 // Route-level ErrorBoundary — resets automatically on every navigation via `key`
 class RouteErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
@@ -129,11 +129,11 @@ const InventarioPage     = lazyWithRetry(() => import('../../pages/InventarioPag
 const PedidosPage        = lazyWithRetry(() => import('../../pages/PedidosPage'));
 const PerfilPage         = lazyWithRetry(() => import('../../pages/PerfilPage'));
 const ClientePage        = lazyWithRetry(() => import('../../pages/ClientePage'));
+const AnalisisProductosPage = lazyWithRetry(() => import('../../pages/AnalisisProductosPage'));
 const IntegracionesPage  = lazyWithRetry(() => import('../../pages/IntegracionesPage'));
 const PrivacidadPage     = lazyWithRetry(() => import('../../pages/PrivacidadPage'));
 const SoportePage        = lazyWithRetry(() => import('../../pages/SoportePage'));
 const MercadoLibrePage   = lazyWithRetry(() => import('../../pages/MercadoLibrePage'));
-
 
 import { useViewAs } from '../../contexts/ViewAsContext';
 
@@ -150,6 +150,7 @@ export const MainLayout = () => {
   const activeProfile = isViewingAs ? viewAsProfile : profile;
   const { unreadCount } = useUnread();
   const location = useLocation();
+  const navigate = useNavigate();
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   const { showToast } = useToast();
@@ -160,6 +161,28 @@ export const MainLayout = () => {
       scrollContainerRef.current.scrollTop = 0;
     }
   }, [location.pathname]);
+
+  // Listen for new orders to show global notification
+  useEffect(() => {
+    const handleNewOrder = () => {
+      if (location.pathname !== '/pedidos') {
+        showToast(
+          <div 
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate('/pedidos');
+            }}
+          >
+            ¡Llegó un pedido nuevo! 🛍️ <span className="underline ml-1">Ver</span>
+          </div>,
+          'success'
+        );
+      }
+    };
+    window.addEventListener('car_new_order_event', handleNewOrder);
+    return () => window.removeEventListener('car_new_order_event', handleNewOrder);
+  }, [location.pathname, showToast, navigate]);
 
   // Check for auto-recovery redirect from a crashed route
   useEffect(() => {
@@ -256,7 +279,7 @@ export const MainLayout = () => {
             onClick={toggleDarkMode}
             className={`p-1.5 rounded-[8px] border shadow-sm transition-all ${
               darkMode 
-                ? 'bg-zinc-900 border-white/10 text-zinc-300 hover:text-white hover:bg-zinc-800' 
+                ? 'bg-zinc-950 border-white/10 text-zinc-350 hover:text-white hover:bg-zinc-900' 
                 : 'bg-white border-zinc-200 text-zinc-650 hover:text-zinc-900 hover:bg-zinc-50'
             }`}
             title="Cambiar apariencia"
@@ -268,9 +291,11 @@ export const MainLayout = () => {
         <div ref={scrollContainerRef} className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
           location.pathname === '/mensajeria' || location.pathname === '/clientes'
             ? 'overflow-hidden p-0 h-[calc(100dvh-56px)] md:h-screen flex flex-col'
-            : isFixedPage 
-              ? 'overflow-hidden p-4 md:p-6 h-[calc(100dvh-56px)] md:h-screen flex flex-col' 
-              : 'overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:p-8 lg:p-10 pb-8'
+            : location.pathname === '/admin/meta'
+              ? 'overflow-x-hidden overflow-y-auto px-2 py-3 sm:px-3 sm:py-4 md:p-4 lg:p-6 pb-8'
+              : isFixedPage 
+                ? 'overflow-hidden p-4 md:p-6 h-[calc(100dvh-56px)] md:h-screen flex flex-col' 
+                : 'overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:p-8 lg:p-10 pb-8'
         }`}>
           {/* Spacer so content starts below the fixed mobile header */}
           <div className="h-14 md:hidden" />
@@ -298,7 +323,7 @@ export const MainLayout = () => {
               <Route path="/cerebro" element={profile?.is_admin ? <CerebroPage /> : <Navigate to="/" replace />} />
               <Route path="/pedidos" element={<PedidosPage />} />
               <Route path="/inventario" element={<InventarioPage />} />
-              <Route path="/analisis-productos" element={<Navigate to="/tienda" replace />} />
+              <Route path="/analisis-productos" element={<AnalisisProductosPage />} />
               <Route path="/clientes" element={<ContactosPage />} />
               <Route path="/informes" element={<InformesPage />} />
               <Route 

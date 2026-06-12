@@ -29,6 +29,7 @@ export const CustomAudioPlayer: React.FC<Props> = ({ src, mimeType }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [loadError, setLoadError] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [speed, setSpeed] = useState<1 | 1.5 | 2>(1);
 
   const needsProxy = isOggLike(src, mimeType) && !browserCanPlayOgg();
   const [activeSrc, setActiveSrc] = useState(() => needsProxy ? toProxyUrl(src) : src);
@@ -41,7 +42,14 @@ export const CustomAudioPlayer: React.FC<Props> = ({ src, mimeType }) => {
     setDuration(0);
     setLoadError(false);
     setConverting(np);
+    setSpeed(1);
   }, [src, mimeType]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
+  }, [speed]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -51,8 +59,12 @@ export const CustomAudioPlayer: React.FC<Props> = ({ src, mimeType }) => {
     const onLoadedMetadata = () => {
       setConverting(false);
       if (audio.duration && !isNaN(audio.duration)) setDuration(audio.duration);
+      audio.playbackRate = speed;
     };
-    const onCanPlay = () => setConverting(false);
+    const onCanPlay = () => {
+      setConverting(false);
+      audio.playbackRate = speed;
+    };
     const onEnded = () => setIsPlaying(false);
     const onError = () => {
       // If we haven't tried the proxy yet, fall back to it
@@ -75,6 +87,7 @@ export const CustomAudioPlayer: React.FC<Props> = ({ src, mimeType }) => {
     if (audio.readyState >= 1 && audio.duration && !isNaN(audio.duration)) {
       setDuration(audio.duration);
       setConverting(false);
+      audio.playbackRate = speed;
     }
 
     return () => {
@@ -84,7 +97,7 @@ export const CustomAudioPlayer: React.FC<Props> = ({ src, mimeType }) => {
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
     };
-  }, [src, activeSrc]);
+  }, [src, activeSrc, speed]);
 
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -94,6 +107,7 @@ export const CustomAudioPlayer: React.FC<Props> = ({ src, mimeType }) => {
       audio.pause();
       setIsPlaying(false);
     } else {
+      audio.playbackRate = speed;
       audio.play().then(() => setIsPlaying(true)).catch(() => setLoadError(true));
     }
   };
@@ -157,6 +171,20 @@ export const CustomAudioPlayer: React.FC<Props> = ({ src, mimeType }) => {
           <span>{duration > 0 ? formatTime(duration) : '—:—'}</span>
         </div>
       </div>
+
+      {!converting && duration > 0 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            const nextSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+            setSpeed(nextSpeed);
+          }}
+          className="px-2 py-1 rounded-lg bg-zinc-200/50 dark:bg-zinc-800/80 text-[10px] font-black text-zinc-600 dark:text-zinc-350 hover:bg-zinc-250 dark:hover:bg-zinc-700 active:scale-95 transition-all select-none flex-shrink-0"
+        >
+          {speed}x
+        </button>
+      )}
     </div>
   );
 };

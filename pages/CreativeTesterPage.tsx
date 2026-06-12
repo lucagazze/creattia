@@ -150,6 +150,8 @@ export default function CreativeTesterPage() {
         const params = new URLSearchParams();
         if (ad.id) params.set('adId', ad.id);
         if (ad.creative?.id) params.set('creativeId', ad.creative.id);
+        const clientId = (profile as any)?.id;
+        if (clientId) params.set('clientId', clientId);
         const r = await fetch(`/api/meta-video?${params}`).catch(() => null);
         if (r?.ok) {
           const d = await r.json();

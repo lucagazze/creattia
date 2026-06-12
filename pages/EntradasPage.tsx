@@ -6,7 +6,6 @@ import {
   Inbox, Plus, Trash2, Globe, Facebook, Instagram, MessageCircle, Mail,
   Code, Copy, Check, Loader2, AlertCircle, ArrowLeft, ExternalLink, Settings
 } from 'lucide-react';
-import ChatwootSetupCard from '../components/ChatwootSetupCard';
 
 export default function EntradasPage() {
   const { profile: authProfile } = useAuth();
@@ -37,7 +36,6 @@ export default function EntradasPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [createdInbox, setCreatedInbox] = useState<any>(null);
   const [copied, setCopied] = useState(false);
-  const [ssoLoading, setSsoLoading] = useState(false);
 
   const loadInboxes = useCallback(async () => {
     if (!cwUrl || !cwToken) return;
@@ -144,7 +142,19 @@ export default function EntradasPage() {
   };
 
   if (!cwUrl || !cwToken) {
-    return <ChatwootSetupCard onSuccess={loadInboxes} />;
+    return (
+      <div className="flex items-center justify-center h-full py-24">
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-6 max-w-md flex items-start gap-4">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-bold text-amber-800 dark:text-amber-400 text-[14px]">Chatwoot no configurado</h3>
+            <p className="text-[12px] text-amber-600 dark:text-amber-500 mt-1">
+              Completá la URL y el token en la pestaña de Administración → Gestión de Clientes para habilitar las bandejas.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -162,52 +172,22 @@ export default function EntradasPage() {
           </p>
         </div>
         {!showWizard && (
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={async () => {
-                if (ssoLoading || !profile?.id) return;
-                setSsoLoading(true);
-                try {
-                   const res = await fetch(`/api/oauth?action=chatwoot-login&clientId=${profile.id}`);
-                   const data = await res.json();
-                   if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión en Chatwoot');
-                   
-                   const ssoUrl = new URL(data.sso_url);
-                   ssoUrl.searchParams.set('redirect_to', `/app/accounts/${data.accountId}/dashboard`);
-                   window.open(ssoUrl.toString(), '_blank');
-                } catch (e: any) {
-                   alert(`Error al abrir panel: ${e.message}`);
-                } finally {
-                   setSsoLoading(false);
-                }
-              }}
-              disabled={ssoLoading}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700/85 text-zinc-850 dark:text-zinc-250 rounded-xl text-[12.5px] font-black transition-all active:scale-[0.98] disabled:opacity-60 border border-zinc-200/50 dark:border-zinc-700/50"
-            >
-              {ssoLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />
-              ) : (
-                <ExternalLink className="w-4 h-4 text-violet-500" />
-              )}
-              Panel de Chatwoot
-            </button>
-            <button
-              onClick={() => {
-                setShowWizard(true);
-                setWizardStep('select');
-                setSelectedChannel(null);
-                setInboxName('');
-                setWebsiteUrl('');
-                setWebhookUrl('');
-                setCreatedInbox(null);
-                setCreateError(null);
-              }}
-              className="flex items-center justify-center gap-1.5 px-4.5 py-2.5 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12.5px] font-black shadow-md shadow-violet-600/10 transition-all active:scale-[0.98]"
-            >
-              <Plus className="w-4 h-4" />
-              Nueva Bandeja
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setShowWizard(true);
+              setWizardStep('select');
+              setSelectedChannel(null);
+              setInboxName('');
+              setWebsiteUrl('');
+              setWebhookUrl('');
+              setCreatedInbox(null);
+              setCreateError(null);
+            }}
+            className="flex items-center justify-center gap-1.5 px-4.5 py-2.5 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12.5px] font-black shadow-md shadow-violet-600/10 transition-all active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4" />
+            Nueva Bandeja
+          </button>
         )}
       </div>
 
@@ -546,68 +526,29 @@ export default function EntradasPage() {
                     <h4 className="text-[13.5px] font-black text-zinc-800 dark:text-zinc-200">
                       Vincular Canal con Chatwoot
                     </h4>
-                    <p className="text-[11.5px] text-zinc-450 leading-relaxed">
-                      La conexión se realiza de forma segura y privada a través de la interfaz oficial.
-                     </p>
-                   </div>
+                    <p className="text-[11.5px] text-zinc-400 leading-relaxed">
+                      Por motivos de seguridad y flujos de autenticación de Meta y Servidores de correo, la conexión inicial del canal de {selectedChannel?.toUpperCase()} debe realizarse ingresando a la consola oficial de Chatwoot.
+                    </p>
+                  </div>
 
-                   <div className="space-y-2 text-[11.5px] text-zinc-650 dark:text-zinc-400 font-semibold leading-relaxed">
-                     <p>1. Hacé click en **"Vincular Canal en Ventana Segura"**.</p>
-                     <p>2. Se abrirá una ventana que te conectará de forma automática (sin pedirte contraseña) y te llevará directo a la configuración de tu canal.</p>
-                     <p>3. Completá la vinculación de tu canal y luego hacé click en **"Listo, ya lo conecté"** aquí abajo.</p>
-                   </div>
+                  <div className="space-y-2 text-[11.5px] text-zinc-650 dark:text-zinc-400 font-semibold leading-relaxed">
+                    <p>1. Hacé click en el botón de abajo **"Abrir Configuración de Chatwoot"**.</p>
+                    <p>2. En la consola de Chatwoot, seleccioná **"Agregar bandeja de entrada"**.</p>
+                    <p>3. Elegí el canal de **{selectedChannel === 'facebook' ? 'Facebook' : selectedChannel === 'instagram' ? 'Instagram' : selectedChannel === 'whatsapp' ? 'WhatsApp' : 'Email'}** y completá la autenticación.</p>
+                    <p>4. Una vez guardado en Chatwoot, **recargá esta página** y verás el canal ya listado e integrado automáticamente con tu CRM.</p>
+                  </div>
 
-                   <button
-                     onClick={async () => {
-                       if (ssoLoading || !profile?.id) return;
-                       setSsoLoading(true);
-                       try {
-                         const res = await fetch(`/api/oauth?action=chatwoot-login&clientId=${profile.id}`);
-                         const data = await res.json();
-                         if (!res.ok) throw new Error(data.error || 'Error al obtener sesión de Chatwoot');
-                         
-                         const ssoUrl = new URL(data.sso_url);
-                         ssoUrl.searchParams.set('redirect_to', `/app/accounts/${data.accountId}/settings/inboxes/new`);
-                         
-                         const w = 1000;
-                         const h = 800;
-                         const left = window.screen.width / 2 - w / 2;
-                         const top = window.screen.height / 2 - h / 2;
-                         
-                         window.open(
-                           ssoUrl.toString(),
-                           'Vincular Canal',
-                           `width=${w},height=${h},top=${top},left=${left},resizable=yes,scrollbars=yes`
-                         );
-                       } catch (e: any) {
-                         alert(`Error: ${e.message}`);
-                       } finally {
-                         setSsoLoading(false);
-                       }
-                     }}
-                     disabled={ssoLoading}
-                     className="w-full h-10 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12.5px] font-black shadow-md shadow-violet-600/10 flex items-center justify-center gap-1.5 transition-all disabled:opacity-60"
-                   >
-                     {ssoLoading ? (
-                       <Loader2 className="w-4 h-4 animate-spin" />
-                     ) : (
-                       <ExternalLink className="w-4 h-4" />
-                     )}
-                     {ssoLoading ? 'Iniciando Sesión Segura...' : 'Vincular Canal en Ventana Segura'}
-                   </button>
-
-                   <button
-                     onClick={async () => {
-                       setLoading(true);
-                       await loadInboxes();
-                       setShowWizard(false);
-                     }}
-                     className="w-full h-10 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-800 dark:text-white rounded-xl text-[12.5px] font-black transition-all flex items-center justify-center"
-                   >
-                     Listo, ya lo conecté
-                   </button>
-                 </div>
-               )}
+                  <a
+                    href={`${cwUrl.replace(/\/$/, '')}/app/accounts/${inboxes[0]?.account_id || 'me'}/settings/inboxes/new`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full h-10 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12.5px] font-black shadow-md shadow-violet-600/10 flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    Abrir Configuración de Chatwoot
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
