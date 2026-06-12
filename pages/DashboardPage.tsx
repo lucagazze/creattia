@@ -895,6 +895,30 @@ export default function DashboardPage() {
     return platform || null;
   }, [profile]);
 
+  const savePlatformErrorToDB = async (platformKey: string, errorMessage: string) => {
+    if (!profile?.id) return;
+    try {
+      const { data: clientRow } = await supabase
+        .from('clients')
+        .select('connection_statuses')
+        .eq('id', profile.id)
+        .single();
+      
+      const currentStatuses = clientRow?.connection_statuses || {};
+      const updatedStatuses = { 
+        ...currentStatuses, 
+        [platformKey]: `error: ${errorMessage}` 
+      };
+      
+      await supabase
+        .from('clients')
+        .update({ connection_statuses: updatedStatuses })
+        .eq('id', profile.id);
+    } catch (err) {
+      console.error(`Error saving platform error for ${platformKey} to DB:`, err);
+    }
+  };
+
   const [links, setLinks] = useState<any[]>([]);
   const [metaDaily, setMetaDaily] = useState<any[]>([]);
   const [prevMetaDaily, setPrevMetaDaily] = useState<any[]>([]);
@@ -1084,6 +1108,35 @@ export default function DashboardPage() {
     setHistorical90d([]);
   }, [profile?.id]);
 
+  // Pre-load error states from profile connection_statuses when they change
+  useEffect(() => {
+    const statuses = profile?.connection_statuses || {};
+    
+    // Shopify Error
+    const shopifyVal = statuses.shopify;
+    if (typeof shopifyVal === 'string' && shopifyVal.startsWith('error')) {
+      setShopifyError(shopifyVal.replace(/^error:\s*/, '') || 'Error de conexión');
+    } else {
+      setShopifyError(null);
+    }
+
+    // Meta Error
+    const metaVal = statuses.meta;
+    if (typeof metaVal === 'string' && metaVal.startsWith('error')) {
+      setMetaError(metaVal.replace(/^error:\s*/, '') || 'Error de conexión');
+    } else {
+      setMetaError(null);
+    }
+
+    // Klaviyo Error
+    const klaviyoVal = statuses.klaviyo;
+    if (typeof klaviyoVal === 'string' && klaviyoVal.startsWith('error')) {
+      setKlaviyoError(klaviyoVal.replace(/^error:\s*/, '') || 'Error de conexión');
+    } else {
+      setKlaviyoError(null);
+    }
+  }, [profile?.connection_statuses]);
+
   useEffect(() => {
     if (detectedPlatform === 'shopify' && (profile as any)?.shopify_domain && (profile as any)?.shopify_access_token) {
       ecommerce.getProducts((profile as any).shopify_domain, (profile as any).shopify_access_token)
@@ -1149,9 +1202,14 @@ export default function DashboardPage() {
       } catch (e) {}
     };
 
-    setShopifyError(null);
-    setMetaError(null);
-    setKlaviyoError(null);
+    const statuses = profile?.connection_statuses || {};
+    const dbShopifyError = typeof statuses.shopify === 'string' && statuses.shopify.startsWith('error');
+    const dbMetaError = typeof statuses.meta === 'string' && statuses.meta.startsWith('error');
+    const dbKlaviyoError = typeof statuses.klaviyo === 'string' && statuses.klaviyo.startsWith('error');
+
+    if (!dbShopifyError) setShopifyError(null);
+    if (!dbMetaError) setMetaError(null);
+    if (!dbKlaviyoError) setKlaviyoError(null);
 
     try {
       const range = p === "custom" ? { since: s, until: u } : presetToRange(p);
@@ -1164,7 +1222,8 @@ export default function DashboardPage() {
           (detectedPlatform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
           (detectedPlatform === 'tiendanube' && prof.tiendanube_store_id && prof.tiendanube_access_token)
         );
-        if (!hasStoreConfig) {
+        const isStoreInError = typeof statuses.shopify === 'string' && statuses.shopify.startsWith('error');
+        if (!hasStoreConfig || isStoreInError) {
           setFetchingStore(false);
           return;
         }
@@ -1200,7 +1259,9 @@ export default function DashboardPage() {
         } catch (err: any) {
           console.error("Store Fetch Error:", err);
           if (myFetchId === fetchIdRef.current) {
-            setShopifyError(err?.message || "Error al conectar con Shopify");
+            const errMsg = err?.message || "Error al conectar con Shopify";
+            setShopifyError(errMsg);
+            savePlatformErrorToDB("shopify", errMsg);
           }
         } finally {
           if (myFetchId === fetchIdRef.current) setFetchingStore(false);
@@ -1208,7 +1269,8 @@ export default function DashboardPage() {
       };
 
       const fetchMeta = async () => {
-        if (!profile?.meta_account_id) {
+        const isMetaInError = typeof statuses.meta === 'string' && statuses.meta.startsWith('error');
+        if (!profile?.meta_account_id || isMetaInError) {
           setFetchingMeta(false);
           return;
         }
@@ -1330,7 +1392,9 @@ export default function DashboardPage() {
           if (err.name !== "AbortError") {
             console.error("Meta Fetch Error:", err);
             if (myFetchId === fetchIdRef.current) {
-              setMetaError(err?.message || "Error al conectar con Meta Ads");
+              const errMsg = err?.message || "Error al conectar con Meta Ads";
+              setMetaError(errMsg);
+              savePlatformErrorToDB("meta", errMsg);
             }
           }
         } finally {
@@ -1339,7 +1403,8 @@ export default function DashboardPage() {
       };
 
       const fetchKlaviyo = async () => {
-        if (!profile?.klaviyo_api_key) {
+        const isKlaviyoInError = typeof statuses.klaviyo === 'string' && statuses.klaviyo.startsWith('error');
+        if (!profile?.klaviyo_api_key || isKlaviyoInError) {
           setFetchingKlaviyo(false);
           return;
         }
@@ -1369,7 +1434,9 @@ export default function DashboardPage() {
         } catch (err: any) {
           console.error("Klaviyo Fetch Error:", err);
           if (myFetchId === fetchIdRef.current) {
-            setKlaviyoError(err?.message || "Error al conectar con Klaviyo");
+            const errMsg = err?.message || "Error al conectar con Klaviyo";
+            setKlaviyoError(errMsg);
+            savePlatformErrorToDB("klaviyo", errMsg);
           }
         } finally {
           if (myFetchId === fetchIdRef.current) setFetchingKlaviyo(false);
@@ -1407,7 +1474,9 @@ export default function DashboardPage() {
         (detectedPlatform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
         (detectedPlatform === 'tiendanube' && prof.tiendanube_store_id && prof.tiendanube_access_token)
       );
-      if (!hasStoreConfig) return;
+      const savedStatuses = prof.connection_statuses || {};
+      const isStoreInError = typeof savedStatuses.shopify === 'string' && savedStatuses.shopify.startsWith('error');
+      if (!hasStoreConfig || isStoreInError) return;
       setFetching90d(true);
       try {
         const range90 = presetToRange("last_90d");
@@ -1914,7 +1983,7 @@ export default function DashboardPage() {
 
       <div className="space-y-6">
         {/* Shopify Section */}
-        {detectedPlatform && (
+        {detectedPlatform && !shopifyError && (
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
@@ -2127,7 +2196,7 @@ export default function DashboardPage() {
         )}
 
         {/* Meta Ads Section */}
-        {profile?.meta_account_id && (
+        {profile?.meta_account_id && !metaError && (
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
@@ -2359,7 +2428,7 @@ export default function DashboardPage() {
         )}
 
         {/* Email Marketing Section */}
-        {profile?.klaviyo_api_key && (
+        {profile?.klaviyo_api_key && !klaviyoError && (
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">

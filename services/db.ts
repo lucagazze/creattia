@@ -34,6 +34,7 @@ export interface ClientProfile {
   scraped_content?: string;
   instagram_context?: string;
   brain_updated_at?: string;
+  connection_statuses?: Record<string, any>;
   created_at: string;
 }
 

@@ -1389,6 +1389,10 @@ export default function IntegracionesPage() {
       return (clientData.chatwoot_url && clientData.chatwoot_token) ? "ok" : "disconnected";
     }
 
+    if (platformId === "whatsapp") {
+      return (clientData.whatsapp_phone_number_id && clientData.whatsapp_access_token) ? "ok" : "disconnected";
+    }
+
     let key = platformId;
     if (platformId === "wordpress" || platformId === "tiendanube") {
       key = "shopify";
@@ -1399,7 +1403,28 @@ export default function IntegracionesPage() {
     }
 
     const statuses = clientData.connection_statuses || {};
-    return statuses[key] || "disconnected";
+    const val = statuses[key];
+    if (!val) return "disconnected";
+    if (val === "ok" || val === "connected") return "ok";
+    if (val === "error" || (typeof val === "string" && val.startsWith("error"))) return "error";
+    return "disconnected";
+  };
+
+  const getPlatformErrorMessage = (platformId: string): string | null => {
+    if (!clientData) return null;
+    let key = platformId;
+    if (platformId === "wordpress" || platformId === "tiendanube") {
+      key = "shopify";
+      if (clientData.ecommerce_platform !== platformId) {
+        return null;
+      }
+    }
+    const statuses = clientData.connection_statuses || {};
+    const val = statuses[key];
+    if (typeof val === "string" && val.startsWith("error:")) {
+      return val.replace(/^error:\s*/, "");
+    }
+    return null;
   };
 
   const filteredPlatforms = PLATFORMS.filter(p => {
@@ -1741,6 +1766,19 @@ export default function IntegracionesPage() {
                 <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium mb-6">
                   {platform.description}
                 </p>
+
+                {/* Error Banner */}
+                {status === "error" && (
+                  <div className="mb-6 p-3.5 rounded-xl bg-red-50/80 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40 text-[12px] text-red-700 dark:text-red-300 flex items-start gap-2.5 shadow-[inset_0_1px_2px_rgba(239,68,68,0.02)] animate-in fade-in slide-in-from-top-1 duration-200">
+                    <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-red-800 dark:text-red-200 mb-0.5">Fallo de conexión</p>
+                      <p className="leading-relaxed opacity-90 font-semibold break-words">
+                        {getPlatformErrorMessage(platform.id) || "No se pudo conectar a la API. Revisa las credenciales o vuelve a autenticar."}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -2540,7 +2578,7 @@ export default function IntegracionesPage() {
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3">
                     
                     {/* Disconnect button if already connected */}
-                    {getPlatformStatus(selectedPlatform.id) === "ok" && (
+                    {getPlatformStatus(selectedPlatform.id) !== "disconnected" && (
                       <button
                         type="button"
                         onClick={() => handleDisconnect(selectedPlatform.id)}
@@ -2585,7 +2623,7 @@ export default function IntegracionesPage() {
                 {!selectedPlatform.isSimulated && !isManualMode &&
                   ['shopify', 'tiendanube', 'meta', 'mercadolibre', 'tiktok_ads'].includes(selectedPlatform.id) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3 justify-end">
-                    {getPlatformStatus(selectedPlatform.id) === "ok" && (
+                    {getPlatformStatus(selectedPlatform.id) !== "disconnected" && (
                       <button type="button" onClick={() => handleDisconnect(selectedPlatform.id)}
                         disabled={savingSettings || testingConnection}
                         className="mr-auto text-[12.5px] font-bold text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1.5">
@@ -2601,7 +2639,7 @@ export default function IntegracionesPage() {
                 )}
 
                 {/* Footer for simulated OAuth platforms (mercadolibre, google_ads, tiktok_ads) */}
-                {selectedPlatform.isSimulated && getPlatformStatus(selectedPlatform.id) === "ok" && (
+                {selectedPlatform.isSimulated && getPlatformStatus(selectedPlatform.id) !== "disconnected" && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex justify-between">
                     <button type="button" onClick={() => handleDisconnect(selectedPlatform.id)}
                       disabled={savingSettings}
