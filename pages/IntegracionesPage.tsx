@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useViewAs } from "../contexts/ViewAsContext";
@@ -127,6 +128,8 @@ export default function IntegracionesPage() {
   const { profile, refreshProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const { showToast } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const activeProfile = isViewingAs ? viewAsProfile : profile;
   const activeProfileId = activeProfile?.id;
@@ -156,6 +159,9 @@ export default function IntegracionesPage() {
   const [metaPixelId, setMetaPixelId] = useState("");
   const [metaToken, setMetaToken] = useState("");
 
+  const [metaApproveAds, setMetaApproveAds] = useState(true);
+  const [metaApproveMessaging, setMetaApproveMessaging] = useState(true);
+
   // OAuth state
   const [mlCountry, setMlCountry] = useState("AR");
   const [oauthLoading, setOauthLoading] = useState(false); // loading when initiating real OAuth
@@ -164,6 +170,9 @@ export default function IntegracionesPage() {
   // URL param success/error detection after OAuth callback redirect
   const [oauthResult, setOauthResult] = useState<{ platform: string; status: 'success' | 'error'; reason?: string } | null>(null);
 
+  const [chatwootUrl, setChatwootUrl] = useState("https://app.chatwoot.com");
+  const [chatwootToken, setChatwootToken] = useState("");
+
   // Meta combined connection modal (accounts + pages in one step)
   const [metaCombinedModal, setMetaCombinedModal] = useState<{
     clientId: string;
@@ -171,6 +180,8 @@ export default function IntegracionesPage() {
     pages: any[];
     selectedAccountId: string;
     selectedPage: any | null;
+    approveAds: boolean;
+    approveMessaging: boolean;
   } | null>(null);
   const [savingMetaCombined, setSavingMetaCombined] = useState(false);
   const [metaLoadingText, setMetaLoadingText] = useState("");
@@ -281,6 +292,20 @@ export default function IntegracionesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Detect direct navigation request for a platform (e.g. from Chatwoot setup card)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const platformParam = params.get("platform");
+    if (platformParam && clientData) {
+      const platform = PLATFORMS.find(p => p.id === platformParam);
+      if (platform) {
+        openConfigModal(platform);
+        // Clear param from URL
+        navigate("/integraciones", { replace: true });
+      }
+    }
+  }, [location.search, clientData]);
+
   useEffect(() => {
     if (activeProfileId) {
       loadClientData();
@@ -312,6 +337,8 @@ export default function IntegracionesPage() {
         setMetaAccountId(data.meta_account_id || "");
         setMetaPixelId(data.meta_pixel_id || "");
         setMetaToken(data.facebook_access_token || "");
+        setChatwootUrl(data.chatwoot_url || "https://app.chatwoot.com");
+        setChatwootToken(data.chatwoot_token || "");
         
         // ML Country fallback
         if (data.connection_statuses?.mercadolibre_country) {
@@ -388,6 +415,11 @@ export default function IntegracionesPage() {
         setMetaAccountId(clientData.meta_account_id || "");
         setMetaPixelId(clientData.meta_pixel_id || "");
         setMetaToken(clientData.facebook_access_token || "");
+        setMetaApproveAds(clientData.meta_account_id ? true : (clientData.fb_page_id ? false : true));
+        setMetaApproveMessaging(clientData.fb_page_id ? true : (clientData.meta_account_id ? false : true));
+      } else if (platform.id === "chatwoot") {
+        setChatwootUrl(clientData.chatwoot_url || "https://app.chatwoot.com");
+        setChatwootToken(clientData.chatwoot_token || "");
       }
     }
   };
@@ -624,6 +656,8 @@ export default function IntegracionesPage() {
         pages,
         selectedAccountId: autoAccountId,
         selectedPage: autoPage,
+        approveAds: metaApproveAds,
+        approveMessaging: metaApproveMessaging,
       });
     } catch {
       showToast('Error al obtener datos de Meta', 'error');
@@ -634,33 +668,60 @@ export default function IntegracionesPage() {
 
   // ── Save combined selection (account + page) to DB ───────────────────────────
   const saveCombinedMetaSelection = async () => {
-    if (!metaCombinedModal?.selectedAccountId || !metaCombinedModal?.selectedPage) return;
+    if (!metaCombinedModal) return;
+    const { selectedAccountId, selectedPage, clientId, approveAds, approveMessaging } = metaCombinedModal;
+
+    if (approveAds && !selectedAccountId) {
+      showToast('Seleccioná una cuenta publicitaria para habilitar Meta Ads', 'warning');
+      return;
+    }
+    if (approveMessaging && !selectedPage) {
+      showToast('Seleccioná una página de Facebook para habilitar Mensajería', 'warning');
+      return;
+    }
+    if (!approveAds && !approveMessaging) {
+      showToast('Debés aprobar al menos una opción para vincular', 'warning');
+      return;
+    }
+
     setSavingMetaCombined(true);
     try {
-      const { selectedAccountId, selectedPage, clientId } = metaCombinedModal;
-      const igId = selectedPage.instagram_business_account?.id || null;
-      const igUsername = selectedPage.instagram_business_account?.username || null;
-      const fieldsToUpdate = {
-        meta_account_id: selectedAccountId,
-        fb_page_id: selectedPage.id,
-        fb_page_name: selectedPage.name,
-        fb_page_access_token: selectedPage.access_token,
-        ig_business_id: igId,
-        ig_username: igUsername,
+      const igId = selectedPage?.instagram_business_account?.id || null;
+      const igUsername = selectedPage?.instagram_business_account?.username || null;
+      
+      const fieldsToUpdate: any = {
+        meta_account_id: approveAds ? selectedAccountId : null,
+        fb_page_id: approveMessaging ? selectedPage.id : null,
+        fb_page_name: approveMessaging ? selectedPage.name : null,
+        fb_page_access_token: approveMessaging ? selectedPage.access_token : null,
+        ig_business_id: approveMessaging ? igId : null,
+        ig_username: approveMessaging ? igUsername : null,
       };
+
       const currentStatuses = clientData?.connection_statuses || {};
+      const updatedStatuses = { 
+        ...currentStatuses, 
+        meta: approveAds ? 'ok' : null 
+      };
+      if (!approveAds) {
+        delete updatedStatuses.meta;
+      }
+
       const { error } = await supabase
         .from('car_clients')
-        .update({ ...fieldsToUpdate, connection_statuses: { ...currentStatuses, meta: 'ok' } })
+        .update({ ...fieldsToUpdate, connection_statuses: updatedStatuses })
         .eq('id', clientId);
+
       if (error) throw error;
-      if (selectedPage.id && selectedPage.access_token) {
+
+      if (approveMessaging && selectedPage?.id && selectedPage?.access_token) {
         localStorage.setItem(`fb_pat_${selectedPage.id}`, selectedPage.access_token);
         localStorage.setItem('active_fb_page_id', selectedPage.id);
       }
+
       setMetaCombinedModal(null);
       setOauthResult({ platform: 'meta', status: 'success' });
-      showToast('¡Meta Ads y Redes Sociales conectados exitosamente! ✓', 'success');
+      showToast('¡Configuración de Meta guardada exitosamente! ✓', 'success');
       refreshProfile().then(() => loadClientData());
     } catch (err: any) {
       showToast('Error al guardar: ' + err.message, 'error');
@@ -743,6 +804,20 @@ export default function IntegracionesPage() {
     }
   };
 
+  const testChatwootConnection = async (url: string, token: string): Promise<boolean> => {
+    try {
+      const cleanUrl = url.trim().replace(/\/$/, "");
+      const res = await fetch(`${cleanUrl}/api/v1/profile`, {
+        headers: {
+          'api_access_token': token
+        }
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
   const handleSaveRealPlatform = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlatform || !activeProfileId) return;
@@ -818,6 +893,18 @@ export default function IntegracionesPage() {
         if (metaToken) fieldsToUpdate.facebook_access_token = metaToken;
         // Meta: connection ok if account ID is filled
         isConnected = !!metaAccountId.trim();
+      } else if (selectedPlatform.id === "chatwoot") {
+        if (!chatwootUrl.trim() || !chatwootToken.trim()) {
+          showToast("Ingresá la URL de Chatwoot y el Token de Acceso", "warning");
+          setSavingSettings(false);
+          setTestingConnection(false);
+          return;
+        }
+        fieldsToUpdate = {
+          chatwoot_url: chatwootUrl.trim(),
+          chatwoot_token: chatwootToken.trim()
+        };
+        isConnected = await testChatwootConnection(chatwootUrl.trim(), chatwootToken.trim());
       }
 
       // 1. Update fields in car_clients
@@ -889,6 +976,11 @@ export default function IntegracionesPage() {
       fieldsToUpdate = {
         meta_account_id: null,
         meta_pixel_id: null
+      };
+    } else if (platformId === "chatwoot") {
+      fieldsToUpdate = {
+        chatwoot_url: null,
+        chatwoot_token: null
       };
     }
 
@@ -1035,10 +1127,6 @@ export default function IntegracionesPage() {
   };
 
   const handleConnectClick = (platform: IntegrationPlatform) => {
-    if (platform.id === "chatwoot") {
-      window.location.hash = "/mensajeria";
-      return;
-    }
     const status = getPlatformStatus(platform.id);
     if (status === "ok") {
       openConfigModal(platform);
@@ -1046,7 +1134,7 @@ export default function IntegracionesPage() {
     }
 
     if (platform.id === "meta") {
-      startMetaOAuth();
+      openConfigModal(platform);
     } else if (platform.id === "tiendanube") {
       startTiendanubeOAuth();
     } else if (platform.id === "wordpress") {
@@ -1137,119 +1225,160 @@ export default function IntegracionesPage() {
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
 
-              {/* ─ Step 1: Ad Account ─ */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-5 h-5 rounded-full bg-[#1877f2] flex items-center justify-center text-[10px] font-black text-white shrink-0">1</div>
-                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Cuenta publicitaria</p>
+              {/* Aprobación de Servicios */}
+              <div className="p-4 bg-zinc-800/30 rounded-xl border border-zinc-800 space-y-3">
+                <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest block">Servicios a Vincular</span>
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={metaCombinedModal.approveAds}
+                      onChange={e => setMetaCombinedModal(prev => prev ? { ...prev, approveAds: e.target.checked } : null)}
+                      className="mt-0.5 rounded border-zinc-700 bg-zinc-800 text-[#1877f2] focus:ring-offset-0 focus:ring-[#1877f2] w-4 h-4 shrink-0"
+                    />
+                    <div>
+                      <p className="text-white text-xs font-bold">Meta Ads & Píxel (Anuncios)</p>
+                      <p className="text-zinc-500 text-[11px] mt-0.5">Permite seguir la inversión y el retorno ROAS de campañas.</p>
+                    </div>
+                  </label>
+                  
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={metaCombinedModal.approveMessaging}
+                      onChange={e => setMetaCombinedModal(prev => prev ? { ...prev, approveMessaging: e.target.checked } : null)}
+                      className="mt-0.5 rounded border-zinc-700 bg-zinc-800 text-pink-500 focus:ring-offset-0 focus:ring-pink-500 w-4 h-4 shrink-0"
+                    />
+                    <div>
+                      <p className="text-white text-xs font-bold">Mensajería de Redes Sociales (Facebook/Instagram)</p>
+                      <p className="text-zinc-500 text-[11px] mt-0.5">Sincroniza comentarios y mensajes de clientes a tu portal.</p>
+                    </div>
+                  </label>
                 </div>
-                {metaCombinedModal.accounts.length === 0 ? (
-                  <div className="p-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 text-center">
-                    <p className="text-zinc-500 text-sm">No se encontraron cuentas publicitarias</p>
-                    <p className="text-zinc-600 text-xs mt-1">Verificá que tu cuenta tenga acceso a Meta Business.</p>
+              </div>
+
+              {/* ─ Step 1: Ad Account ─ */}
+              {metaCombinedModal.approveAds && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-5 h-5 rounded-full bg-[#1877f2] flex items-center justify-center text-[10px] font-black text-white shrink-0">1</div>
+                    <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Cuenta publicitaria</p>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {metaCombinedModal.accounts.map(acc => {
-                      const isSelected = metaCombinedModal.selectedAccountId === acc.id;
-                      return (
-                        <button
-                          key={acc.id}
-                          onClick={() => setMetaCombinedModal(prev => prev ? { ...prev, selectedAccountId: acc.id } : null)}
-                          disabled={savingMetaCombined}
-                          className={`w-full text-left p-3.5 rounded-xl border transition-all ${
-                            isSelected
-                              ? 'border-[#1877f2] bg-[#1877f2]/10 ring-1 ring-[#1877f2]/20'
-                              : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
-                          } disabled:opacity-50`}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-white font-semibold text-sm truncate">{acc.name}</p>
-                              <p className="text-zinc-500 text-xs mt-0.5">{acc.id}{acc.currency ? ` · ${acc.currency}` : ''}</p>
+                  {metaCombinedModal.accounts.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 text-center">
+                      <p className="text-zinc-500 text-sm">No se encontraron cuentas publicitarias</p>
+                      <p className="text-zinc-600 text-xs mt-1">Verificá que tu cuenta tenga acceso a Meta Business.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {metaCombinedModal.accounts.map(acc => {
+                        const isSelected = metaCombinedModal.selectedAccountId === acc.id;
+                        return (
+                          <button
+                            key={acc.id}
+                            onClick={() => setMetaCombinedModal(prev => prev ? { ...prev, selectedAccountId: acc.id } : null)}
+                            disabled={savingMetaCombined}
+                            className={`w-full text-left p-3.5 rounded-xl border transition-all ${
+                              isSelected
+                                ? 'border-[#1877f2] bg-[#1877f2]/10 ring-1 ring-[#1877f2]/20'
+                                : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                            } disabled:opacity-50`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-white font-semibold text-sm truncate">{acc.name}</p>
+                                <p className="text-zinc-500 text-xs mt-0.5">{acc.id}{acc.currency ? ` · ${acc.currency}` : ''}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <div className={`w-2 h-2 rounded-full ${acc.account_status === 1 ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                                {isSelected && (
+                                  <div className="w-5 h-5 rounded-full bg-[#1877f2] flex items-center justify-center">
+                                    <Check className="w-3 h-3 text-white stroke-[3]" />
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <div className={`w-2 h-2 rounded-full ${acc.account_status === 1 ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ─ Step 2: Facebook Page + Instagram ─ */}
+              {metaCombinedModal.approveMessaging && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-[10px] font-black text-white shrink-0">2</div>
+                    <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Página de Facebook & Instagram</p>
+                  </div>
+                  {metaCombinedModal.pages.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 text-center space-y-1">
+                      <p className="text-zinc-500 text-sm">No se encontraron páginas de Facebook</p>
+                      <p className="text-zinc-600 text-xs">Asegurate de ser administrador de al menos una página.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {metaCombinedModal.pages.map(page => {
+                        const isSelected = metaCombinedModal.selectedPage?.id === page.id;
+                        const ig = page.instagram_business_account;
+                        return (
+                          <button
+                            key={page.id}
+                            onClick={() => setMetaCombinedModal(prev => prev ? { ...prev, selectedPage: page } : null)}
+                            disabled={savingMetaCombined}
+                            className={`w-full text-left p-3.5 rounded-xl border transition-all ${
+                              isSelected
+                                ? 'border-pink-500 bg-pink-500/10 ring-1 ring-pink-500/20'
+                                : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
+                            } disabled:opacity-50`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-white font-semibold text-sm truncate">{page.name}</p>
+                                {ig ? (
+                                  <div className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 px-2 py-0.5 rounded-full">
+                                    <Instagram className="w-3 h-3" />
+                                    <span>@{ig.username}</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-zinc-600 text-xs mt-1">Sin Instagram vinculado</p>
+                                )}
+                              </div>
                               {isSelected && (
-                                <div className="w-5 h-5 rounded-full bg-[#1877f2] flex items-center justify-center">
+                                <div className="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center shrink-0 mt-0.5">
                                   <Check className="w-3 h-3 text-white stroke-[3]" />
                                 </div>
                               )}
                             </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* ─ Step 2: Facebook Page + Instagram ─ */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-[10px] font-black text-white shrink-0">2</div>
-                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Página de Facebook & Instagram</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                {metaCombinedModal.pages.length === 0 ? (
-                  <div className="p-4 rounded-xl border border-zinc-700/50 bg-zinc-800/30 text-center space-y-1">
-                    <p className="text-zinc-500 text-sm">No se encontraron páginas de Facebook</p>
-                    <p className="text-zinc-600 text-xs">Asegurate de ser administrador de al menos una página.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {metaCombinedModal.pages.map(page => {
-                      const isSelected = metaCombinedModal.selectedPage?.id === page.id;
-                      const ig = page.instagram_business_account;
-                      return (
-                        <button
-                          key={page.id}
-                          onClick={() => setMetaCombinedModal(prev => prev ? { ...prev, selectedPage: page } : null)}
-                          disabled={savingMetaCombined}
-                          className={`w-full text-left p-3.5 rounded-xl border transition-all ${
-                            isSelected
-                              ? 'border-pink-500 bg-pink-500/10 ring-1 ring-pink-500/20'
-                              : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/50'
-                          } disabled:opacity-50`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-white font-semibold text-sm truncate">{page.name}</p>
-                              {ig ? (
-                                <div className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 px-2 py-0.5 rounded-full">
-                                  <Instagram className="w-3 h-3" />
-                                  <span>@{ig.username}</span>
-                                </div>
-                              ) : (
-                                <p className="text-zinc-600 text-xs mt-1">Sin Instagram vinculado</p>
-                              )}
-                            </div>
-                            {isSelected && (
-                              <div className="w-5 h-5 rounded-full bg-pink-500 flex items-center justify-center shrink-0 mt-0.5">
-                                <Check className="w-3 h-3 text-white stroke-[3]" />
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
             {/* Footer */}
             <div className="p-4 border-t border-zinc-800 shrink-0 space-y-2">
-              {(!metaCombinedModal.selectedAccountId || !metaCombinedModal.selectedPage) && (
+              {((metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId) || (metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage)) && (
                 <p className="text-center text-zinc-600 text-xs">
-                  {!metaCombinedModal.selectedAccountId && 'Seleccioná una cuenta publicitaria'}
-                  {!metaCombinedModal.selectedAccountId && !metaCombinedModal.selectedPage && ' y '}
-                  {!metaCombinedModal.selectedPage && 'una página de Facebook'}
+                  {metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId && 'Seleccioná una cuenta publicitaria'}
+                  {metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId && metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage && ' y '}
+                  {metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage && 'una página de Facebook'}
                   {' '}para continuar
                 </p>
               )}
               <button
                 onClick={saveCombinedMetaSelection}
-                disabled={!metaCombinedModal.selectedAccountId || !metaCombinedModal.selectedPage || savingMetaCombined}
+                disabled={
+                  savingMetaCombined ||
+                  (!metaCombinedModal.approveAds && !metaCombinedModal.approveMessaging) ||
+                  (metaCombinedModal.approveAds && !metaCombinedModal.selectedAccountId) ||
+                  (metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage)
+                }
                 className="w-full h-11 bg-[#1877f2] hover:bg-[#166fe5] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#1877f2]/20"
               >
                 {savingMetaCombined ? (
@@ -1770,10 +1899,42 @@ export default function IntegracionesPage() {
                           </div>
                         </div>
 
+                        {/* Aprobación de Servicios */}
+                        <div className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-150 dark:border-zinc-800/80 space-y-3 mb-5">
+                          <span className="text-[10px] font-bold text-zinc-450 dark:text-zinc-500 uppercase tracking-widest block">Servicios a Vincular</span>
+                          <div className="space-y-3">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={metaApproveAds}
+                                onChange={e => setMetaApproveAds(e.target.checked)}
+                                className="mt-0.5 rounded border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[#1877f2] focus:ring-offset-0 focus:ring-[#1877f2] w-4 h-4 shrink-0"
+                              />
+                              <div>
+                                <p className="text-zinc-800 dark:text-white text-xs font-bold">Meta Ads & Píxel (Anuncios)</p>
+                                <p className="text-zinc-400 dark:text-zinc-500 text-[11px] mt-0.5">Permite seguir la inversión y el retorno ROAS de campañas.</p>
+                              </div>
+                            </label>
+                            
+                            <label className="flex items-start gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={metaApproveMessaging}
+                                onChange={e => setMetaApproveMessaging(e.target.checked)}
+                                className="mt-0.5 rounded border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-pink-500 focus:ring-offset-0 focus:ring-pink-500 w-4 h-4 shrink-0"
+                              />
+                              <div>
+                                <p className="text-zinc-800 dark:text-white text-xs font-bold">Mensajería de Redes Sociales (Facebook/Instagram)</p>
+                                <p className="text-zinc-400 dark:text-zinc-500 text-[11px] mt-0.5">Sincroniza comentarios y mensajes de clientes a tu portal.</p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+
                         <button
                           type="button"
                           onClick={startMetaOAuth}
-                          disabled={oauthLoading}
+                          disabled={oauthLoading || (!metaApproveAds && !metaApproveMessaging)}
                           className="w-full h-12 bg-[#1877f2] hover:bg-[#166fe5] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
                         >
                           {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
@@ -1933,13 +2094,98 @@ export default function IntegracionesPage() {
                   </div>
                 )}
 
+                {/* CHATWOOT FORM - manual settings URL and Access Token */}
+                {selectedPlatform.id === "chatwoot" && (
+                  <div className="space-y-5">
+                    <div className="p-5 bg-gradient-to-br from-violet-500/10 to-purple-500/10 dark:from-violet-500/5 dark:to-purple-500/5 rounded-2xl border border-violet-500/20 dark:border-violet-500/10 text-[13px] leading-relaxed space-y-3">
+                      <div className="flex gap-3">
+                        <Key className="w-5 h-5 text-violet-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <span className="font-extrabold text-zinc-800 dark:text-zinc-200">Credenciales de Mensajería Chatwoot</span>
+                          <p className="text-zinc-500 dark:text-zinc-400">
+                            Conectá tu cuenta oficial de Chatwoot Cloud o ingresá los datos de tu instancia autohospedada.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {!isManualMode ? (
+                      /* CHATWOOT CLOUD (AUTOMATIC) */
+                      <div className="space-y-5">
+                        {/* Step guide */}
+                        <div className="space-y-2.5">
+                          {[
+                            { n: 1, text: 'Iniciá sesión en Chatwoot Cloud haciendo clic abajo.' },
+                            { n: 2, text: 'Ir a "Configuración del Perfil" (abajo a la izquierda).' },
+                            { n: 3, text: 'Copia el "Token de acceso rápido" al final de la página y pegalo aquí.' }
+                          ].map(step => (
+                            <div key={step.n} className="flex gap-3 items-start">
+                              <div className="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 flex items-center justify-center text-[11px] font-black shrink-0 mt-0.5">{step.n}</div>
+                              <p className="text-[12px] text-zinc-600 dark:text-zinc-400">{step.text}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <a
+                          href="https://app.chatwoot.com/app/settings/profile"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full h-11 bg-[#1f93ff] hover:bg-[#1a7fdc] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98]"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Abrir Chatwoot Cloud (Oficial)</span>
+                        </a>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Token de Acceso Rápido *</label>
+                          <input type="password" className="apple-input" placeholder="Pegá tu token de acceso rápido..."
+                            value={chatwootToken} onChange={e => {
+                              setChatwootToken(e.target.value);
+                              setChatwootUrl("https://app.chatwoot.com");
+                            }} required disabled={savingSettings} />
+                        </div>
+
+                        <div className="text-center pt-1">
+                          <button type="button" onClick={() => setIsManualMode(true)}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4">
+                            Tengo un servidor propio (manual)
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* CHATWOOT SELF-HOSTED (MANUAL) */
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">URL de tu Instancia Chatwoot *</label>
+                          <input type="url" className="apple-input" placeholder="https://mi-chatwoot.com"
+                            value={chatwootUrl} onChange={e => setChatwootUrl(e.target.value)} required disabled={savingSettings} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Token de Acceso Rápido *</label>
+                          <input type="password" className="apple-input" placeholder="Token de acceso..."
+                            value={chatwootToken} onChange={e => setChatwootToken(e.target.value)} required disabled={savingSettings} />
+                        </div>
+                        <div className="text-center pt-1">
+                          <button type="button" onClick={() => {
+                            setIsManualMode(false);
+                            setChatwootUrl("https://app.chatwoot.com");
+                          }}
+                            className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors">
+                            ← Usar Chatwoot Cloud (Recomendado)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* FOOTER ACTIONS - Save / Disconnect / Close */}
                 {/* Show save button for all real platforms (manual or not) */}
                 {!selectedPlatform.isSimulated && (
-                  ['shopify', 'tiendanube', 'wordpress', 'klaviyo', 'meta'].includes(selectedPlatform.id)
+                  ['shopify', 'tiendanube', 'wordpress', 'klaviyo', 'meta', 'chatwoot'].includes(selectedPlatform.id)
                 ) && (
-                  // Show save/connect button only when there are real credentials to save (manual mode or woo/klaviyo)
-                  (isManualMode || selectedPlatform.id === 'wordpress' || selectedPlatform.id === 'klaviyo' || (selectedPlatform.id === 'meta' && isManualMode))
+                  // Show save/connect button only when there are real credentials to save (manual mode or woo/klaviyo/chatwoot)
+                  (isManualMode || selectedPlatform.id === 'wordpress' || selectedPlatform.id === 'klaviyo' || selectedPlatform.id === 'chatwoot' || (selectedPlatform.id === 'meta' && isManualMode))
                 ) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3">
                     

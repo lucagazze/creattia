@@ -1,55 +1,16 @@
-import React, { useState } from "react";
-import { MessageCircle, Globe, Instagram, Facebook, Zap, Loader2, MessageSquare } from "lucide-react";
-import { useToast } from "./Toast";
-import { useAuth } from "../contexts/AuthContext";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { MessageCircle, Globe, Instagram, Zap, MessageSquare } from "lucide-react";
 
 interface ChatwootSetupCardProps {
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
 export default function ChatwootSetupCard({ onSuccess }: ChatwootSetupCardProps) {
-  const { profile, refreshProfile } = useAuth();
-  const { showToast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleActivate = async () => {
-    if (!profile?.id) {
-      showToast("Error: No se encontró el ID de cliente en tu perfil.", "error");
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const res = await fetch("/api/oauth?action=chatwoot-register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          clientId: profile.id,
-          businessName: profile.business_name || "Mi Negocio",
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Error al registrar la cuenta");
-      }
-
-      showToast("¡Centro de mensajería activado con éxito! ✓", "success");
-      
-      // Refresh user profile so changes in Supabase (chatwoot_url, chatwoot_token) are loaded
-      await refreshProfile();
-      
-      // Execute parent callback to reload views
-      onSuccess();
-    } catch (err: any) {
-      console.error("[Chatwoot Activation Error]", err);
-      showToast(err.message || "No se pudo activar la mensajería. Intente nuevamente.", "error");
-    } finally {
-      setLoading(false);
-    }
+  const handleGoToIntegrations = () => {
+    navigate("/integraciones?platform=chatwoot");
   };
 
   return (
@@ -59,10 +20,10 @@ export default function ChatwootSetupCard({ onSuccess }: ChatwootSetupCardProps)
       </div>
 
       <h2 className="text-xl md:text-2xl font-black text-zinc-900 dark:text-white mb-3">
-        Activar Centro de Mensajería
+        Conectar Centro de Mensajería
       </h2>
       <p className="text-[13.5px] text-zinc-500 dark:text-zinc-400 max-w-lg mb-8 leading-relaxed">
-        Unificá tus canales de soporte (WhatsApp, Instagram, Facebook y Chat Web) en una sola bandeja de entrada inteligente. No necesitás registrarte en plataformas externas.
+        Vinculá tu cuenta de Chatwoot (Cloud oficial o instancia autohospedada) para unificar tus canales de soporte (WhatsApp, Instagram, Facebook y Chat Web) en una sola bandeja de entrada inteligente.
       </p>
 
       {/* Grid of features */}
@@ -118,24 +79,14 @@ export default function ChatwootSetupCard({ onSuccess }: ChatwootSetupCardProps)
 
       {/* Button */}
       <button
-        onClick={handleActivate}
-        disabled={loading}
-        className="px-8 py-3.5 bg-violet-600 hover:bg-violet-750 text-white rounded-2xl text-[13px] font-black shadow-lg shadow-violet-600/15 transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+        onClick={handleGoToIntegrations}
+        className="px-8 py-3.5 bg-violet-600 hover:bg-violet-750 text-white rounded-2xl text-[13px] font-black shadow-lg shadow-violet-600/15 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
       >
-        {loading ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Configurando tu CRM...
-          </>
-        ) : (
-          <>
-            <Zap className="w-4 h-4" />
-            Activar Mensajería en 1-Click
-          </>
-        )}
+        <Zap className="w-4 h-4" />
+        Configurar Conexión en Integraciones
       </button>
       <p className="text-[10px] text-zinc-450 dark:text-zinc-550 mt-3 font-semibold">
-        Seguro e instantáneo. La cuenta se creará utilizando los datos de tu perfil.
+        Rápido y configurable. Vas a poder ingresar tu URL oficial y tu token de acceso privado.
       </p>
     </div>
   );
