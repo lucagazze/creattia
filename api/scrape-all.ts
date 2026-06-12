@@ -1111,6 +1111,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 20);
 
+      const provincesMap = new Map<string, number>();
+      const citiesMap = new Map<string, number>();
+      validOrders.forEach((o: any) => {
+        if (o.shipping_address) {
+          const prov = (o.shipping_address.province || '').trim();
+          if (prov) provincesMap.set(prov, (provincesMap.get(prov) || 0) + 1);
+          const city = (o.shipping_address.city || '').trim();
+          if (city) citiesMap.set(city, (citiesMap.get(city) || 0) + 1);
+        }
+      });
+      const topProvinces = [...provincesMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 7)
+        .map(([name, count]) => ({ name, count }));
+      const topCities = [...citiesMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 7)
+        .map(([name, count]) => ({ name, count }));
+
       return res.status(200).json({
         revenue: totalRevenue,
         orders: ordersCount,
@@ -1131,6 +1150,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         daily,
         recentOrders: recentFormatted,
         variantOrders: variantStats,
+        topProvinces,
+        topCities,
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Error interno' });
