@@ -221,6 +221,32 @@ export default function IntegracionesPage() {
     return null;
   };
 
+  // Helper to detect current shopify store domain, falling back to referrer url if parameters were lost
+  const getActiveShop = (): string | null => {
+    let shop = getQueryParam("shop");
+    if (shop) return shop;
+
+    try {
+      const ref = document.referrer;
+      if (ref) {
+        const url = new URL(ref);
+        if (url.hostname.endsWith('myshopify.com')) {
+          return url.hostname;
+        }
+        if (url.hostname === 'admin.shopify.com') {
+          const parts = url.pathname.split('/');
+          const storeIdx = parts.indexOf('store');
+          if (storeIdx !== -1 && parts[storeIdx + 1]) {
+            return `${parts[storeIdx + 1]}.myshopify.com`;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Referrer parse error", e);
+    }
+    return null;
+  };
+
   // ── Detect OAuth callback result from URL params ──────────────────────────────
   // This fires when the user lands back on /#/integraciones after:
   //   a) popup was blocked → meta-callback.html redirected here with ?meta=select#/integraciones
@@ -502,9 +528,12 @@ export default function IntegracionesPage() {
     if (!activeProfileId) return;
     setOauthLoading(true);
     try {
-      const activeShop = shopifyDomain || getQueryParam("shop");
+      let activeShop = shopifyDomain.trim() || getActiveShop();
       if (activeShop) {
-        const cleanDomain = activeShop.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+        let cleanDomain = activeShop.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+        if (!cleanDomain.includes('.') && !cleanDomain.includes('myshopify.com')) {
+          cleanDomain = `${cleanDomain}.myshopify.com`;
+        }
         const res = await fetch(`/api/oauth?action=shopify-authorize&shop=${encodeURIComponent(cleanDomain)}&clientId=${encodeURIComponent(activeProfileId)}`);
         if (!res.ok) {
           const err = await res.json();
@@ -1835,11 +1864,36 @@ export default function IntegracionesPage() {
                           </div>
                         </div>
 
+                        {/* Auto-detected store domain or manual input fallback */}
+                        {getActiveShop() ? (
+                          <div className="p-4 bg-zinc-800/40 rounded-xl border border-zinc-700/50 flex items-center justify-between text-xs">
+                            <span className="text-zinc-400">Tienda detectada:</span>
+                            <span className="text-white font-extrabold">{getActiveShop()}</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                              Dominio de tu tienda de Shopify
+                            </label>
+                            <input
+                              type="text"
+                              className="apple-input"
+                              placeholder="ej. mi-tienda.myshopify.com o mi-tienda"
+                              value={shopifyDomain}
+                              onChange={e => setShopifyDomain(e.target.value)}
+                              disabled={oauthLoading}
+                            />
+                            <p className="text-[11px] text-zinc-500">
+                              Ingresá el nombre o URL de tu tienda (ej. "theskirtingfactory") para abrir la pantalla de instalación.
+                            </p>
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           onClick={startShopifyOAuth}
-                          disabled={oauthLoading}
-                          className="w-full h-12 bg-[#96BF48] hover:bg-[#85ab3f] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
+                          disabled={oauthLoading || (!getActiveShop() && !shopifyDomain.trim())}
+                          className="w-full h-12 bg-[#96BF48] hover:bg-[#85ab3f] disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                         >
                           {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/shopify-bag.webp" alt="" className="w-4 h-4 object-contain" />}
                           <span>{oauthLoading ? 'Conectando...' : 'Autorizar con Shopify'}</span>
