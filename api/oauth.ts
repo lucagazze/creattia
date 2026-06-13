@@ -827,8 +827,11 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
     const clientId = req.query.clientId as string;
     if (!TIKTOK_APP_ID) return res.status(503).json({ error: 'TikTok Ads OAuth no configurado (falta TIKTOK_APP_ID).' });
 
-    const redirectUri = `${base}/api/oauth?action=tiktok-callback`;
-    const state = Buffer.from(JSON.stringify({ clientId })).toString('base64');
+    const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
+      ? `${base}/api/oauth?action=tiktok-callback`
+      : 'https://car.algoritmiadesarrollos.com.ar/api/oauth?action=tiktok-callback';
+
+    const state = Buffer.from(JSON.stringify({ clientId, host: base })).toString('base64');
 
     const authorizeUrl =
       `https://business-api.tiktok.com/portal/oauth` +
@@ -842,18 +845,22 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
   if (action === 'tiktok-callback') {
     const code = (req.query.auth_code || req.query.code) as string;
     const stateRaw = req.query.state as string;
-    if (!code) return res.redirect('/integraciones?tiktok=error&reason=missing_code');
 
     let clientId: string | undefined;
+    let originalHost: string | undefined;
     try {
-      const decoded = JSON.parse(Buffer.from(stateRaw, 'base64').toString());
+      const decoded = JSON.parse(Buffer.from(stateRaw || '', 'base64').toString());
       clientId = decoded.clientId;
+      originalHost = decoded.host;
     } catch {
       return res.redirect('/integraciones?tiktok=error&reason=invalid_state');
     }
 
+    const redirectBase = originalHost || base;
+    if (!code) return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=missing_code`);
+
     if (!TIKTOK_APP_ID || !TIKTOK_APP_SECRET) {
-      return res.redirect('/integraciones?tiktok=error&reason=not_configured');
+      return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=not_configured`);
     }
 
     try {
@@ -871,13 +878,13 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
 
       if (!tokenRes.ok) {
         console.error('[TikTok Token Exchange] HTTP Failed:', tokenRes.status, await tokenRes.text());
-        return res.redirect('/integraciones?tiktok=error&reason=token_exchange_http');
+        return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=token_exchange_http`);
       }
 
       const json = await tokenRes.json();
       if (json.code !== 0) {
         console.error('[TikTok Token Exchange] API Error:', json.code, json.message);
-        return res.redirect(`/integraciones?tiktok=error&reason=${encodeURIComponent(json.message)}`);
+        return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=${encodeURIComponent(json.message)}`);
       }
 
       const data = json.data;
@@ -908,10 +915,10 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
         })
         .eq('id', clientId!);
 
-      return res.redirect('/integraciones?tiktok=success');
+      return res.redirect(`${redirectBase}/integraciones?tiktok=success`);
     } catch (err: any) {
       console.error('[TikTok OAuth Callback] Error:', err);
-      return res.redirect('/integraciones?tiktok=error&reason=server_error');
+      return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=server_error`);
     }
   }
 
