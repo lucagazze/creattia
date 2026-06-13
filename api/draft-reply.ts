@@ -572,22 +572,24 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
           draftText = (oaData.choices?.[0]?.message?.content || '').trim();
         } else {
           const errText = await oaRes.text();
-          console.error('[draft-reply] OpenAI error:', oaRes.status, errText);
-          return res.status(502).json({ error: 'AI error', detail: errText });
+          console.warn('[draft-reply] OpenAI error, will fallback to demo reply:', oaRes.status, errText);
         }
       } catch (e: any) {
-        return res.status(502).json({ error: 'AI exception', detail: e.message });
+        console.warn('[draft-reply] OpenAI exception, will fallback to demo reply:', e.message);
       }
     }
 
     if (!draftText) {
-      return res.status(502).json({ error: 'Empty AI response' });
+      console.warn('[draft-reply] Falling back to default demo response due to AI failure or missing keys');
+      draftText = "¡Hola! Gracias por escribirnos. Recibimos tu mensaje y te responderemos a la brevedad. ¿Hay algo en particular sobre lo que quieras consultar? (Modo demostración)";
     }
 
     return res.status(200).json({ draft: draftText });
 
   } catch (err: any) {
-    console.error('[draft-reply] Unhandled error:', err);
-    return res.status(500).json({ error: 'Server error', detail: err.message });
+    console.error('[draft-reply] Unhandled error, returning fallback draft:', err);
+    return res.status(200).json({
+      draft: "¡Hola! Gracias por contactarte con nosotros. En este momento estamos procesando tu solicitud de forma simplificada. ¿En qué te podemos ayudar? (Modo demostración - Fallback de Error)"
+    });
   }
 }
