@@ -1153,8 +1153,11 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
     const country = (req.query.country as string || 'AR').toUpperCase();
     if (!ML_CLIENT_ID) return res.status(503).json({ error: 'Mercado Libre OAuth no configurado (falta MERCADOLIBRE_CLIENT_ID).' });
 
-    const redirectUri = `${base}/api/oauth?action=mercadolibre-callback`;
-    const state = Buffer.from(JSON.stringify({ clientId, country })).toString('base64');
+    const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
+      ? `${base}/api/oauth?action=mercadolibre-callback`
+      : 'https://car.algoritmiadesarrollos.com.ar/api/oauth?action=mercadolibre-callback';
+
+    const state = Buffer.from(JSON.stringify({ clientId, country, host: base })).toString('base64');
     const tld = getMlTld(country);
 
     const authorizeUrl =
@@ -1170,24 +1173,31 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
   if (action === 'mercadolibre-callback') {
     const code = req.query.code as string;
     const stateRaw = req.query.state as string;
-    if (!code) return res.redirect('/integraciones?mercadolibre=error&reason=missing_code');
 
     let clientId: string | undefined;
     let country: string | undefined;
+    let originalHost: string | undefined;
     try {
       const decoded = JSON.parse(Buffer.from(stateRaw, 'base64').toString());
       clientId = decoded.clientId;
       country = decoded.country;
+      originalHost = decoded.host;
     } catch {
       return res.redirect('/integraciones?mercadolibre=error&reason=invalid_state');
     }
 
+    const redirectBase = originalHost || base;
+    if (!code) return res.redirect(`${redirectBase}/integraciones?mercadolibre=error&reason=missing_code`);
+
     if (!ML_CLIENT_ID || !ML_CLIENT_SECRET) {
-      return res.redirect('/integraciones?mercadolibre=error&reason=not_configured');
+      return res.redirect(`${redirectBase}/integraciones?mercadolibre=error&reason=not_configured`);
     }
 
     try {
-      const redirectUri = `${base}/api/oauth?action=mercadolibre-callback`;
+      const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
+        ? `${base}/api/oauth?action=mercadolibre-callback`
+        : 'https://car.algoritmiadesarrollos.com.ar/api/oauth?action=mercadolibre-callback';
+
       const tokenRes = await fetch('https://api.mercadolibre.com/oauth/token', {
         method: 'POST',
         headers: {
@@ -1205,7 +1215,7 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
 
       if (!tokenRes.ok) {
         console.error('[ML Token Exchange] Failed:', tokenRes.status, await tokenRes.text());
-        return res.redirect('/integraciones?mercadolibre=error&reason=token_exchange');
+        return res.redirect(`${redirectBase}/integraciones?mercadolibre=error&reason=token_exchange`);
       }
 
       const data = await tokenRes.json() as {
@@ -1241,10 +1251,10 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
         })
         .eq('id', clientId!);
 
-      return res.redirect('/integraciones?mercadolibre=success');
+      return res.redirect(`${redirectBase}/integraciones?mercadolibre=success`);
     } catch (err: any) {
       console.error('[Mercado Libre OAuth Callback] Error:', err);
-      return res.redirect('/integraciones?mercadolibre=error&reason=server_error');
+      return res.redirect(`${redirectBase}/integraciones?mercadolibre=error&reason=server_error`);
     }
   }
 
