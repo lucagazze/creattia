@@ -1857,7 +1857,7 @@ export default function IntegracionesPage() {
                           type="button"
                           onClick={startShopifyOAuth}
                           disabled={oauthLoading || (!getActiveShop() && !shopifyDomain.trim())}
-                          className="w-full h-12 bg-[#96BF48] hover:bg-[#85ab3f] disabled:opacity-60 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                          className="w-full h-12 bg-[#96BF48] hover:bg-[#85ab3f] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                         >
                           {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/shopify-bag.webp" alt="" className="w-4 h-4 object-contain" />}
                           <span>{oauthLoading ? 'Conectando...' : 'Autorizar con Shopify'}</span>
@@ -1939,7 +1939,7 @@ export default function IntegracionesPage() {
                           type="button"
                           onClick={startTiendanubeOAuth}
                           disabled={oauthLoading}
-                          className="w-full h-12 bg-[#07B3C2] hover:bg-[#069aaa] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
+                          className="w-full h-12 bg-[#07B3C2] hover:bg-[#069aaa] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                         >
                           {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/tiendanube.webp" alt="" className="w-4 h-4 object-contain" />}
                           <span>{oauthLoading ? 'Conectando...' : 'Autorizar con Tiendanube'}</span>
@@ -2026,7 +2026,7 @@ export default function IntegracionesPage() {
                           type="button"
                           onClick={startWooCommerceOAuth}
                           disabled={oauthLoading || !wooUrl.trim()}
-                          className="w-full h-12 bg-[#7b51a1] hover:bg-[#6a4490] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
+                          className="w-full h-12 bg-[#7b51a1] hover:bg-[#6a4490] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                         >
                           {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/logowordpress.webp" alt="" className="w-4 h-4 object-contain" />}
                           <span>{oauthLoading ? 'Conectando...' : 'Conectar con WooCommerce'}</span>
@@ -2105,8 +2105,8 @@ export default function IntegracionesPage() {
                     <button
                       type="button"
                       onClick={startMercadoLibreOAuth}
-                      disabled={savingSettings}
-                      className="w-full h-11 bg-[#ffe600] text-[#111] hover:bg-[#ffe000] font-black rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
+                      disabled={savingSettings || oauthLoading}
+                      className="w-full h-12 bg-[#ffe600] hover:bg-[#e6cf00] disabled:opacity-50 disabled:cursor-not-allowed text-[#111] font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                     >
                       <Globe className="w-4 h-4" />
                       <span>Conectar vía Mercado Libre OAuth</span>
@@ -2177,7 +2177,7 @@ export default function IntegracionesPage() {
                           type="button"
                           onClick={startMetaOAuth}
                           disabled={oauthLoading || (!metaApproveAds && !metaApproveMessaging)}
-                          className="w-full h-12 bg-[#1877f2] hover:bg-[#166fe5] text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-60"
+                          className="w-full h-12 bg-[#1877f2] hover:bg-[#166fe5] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                         >
                           {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                             <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current shrink-0">
@@ -2251,7 +2251,7 @@ export default function IntegracionesPage() {
                       type="button"
                       onClick={() => runSimulatedOAuth("google_ads")}
                       disabled={savingSettings}
-                      className="w-full h-11 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-sm transition-all"
+                      className="w-full h-12 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                     >
                       <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -2273,8 +2273,8 @@ export default function IntegracionesPage() {
                     <button
                       type="button"
                       onClick={startTiktokOAuth}
-                      disabled={savingSettings}
-                      className="w-full h-11 bg-black hover:bg-zinc-900 text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-sm transition-all"
+                      disabled={savingSettings || oauthLoading}
+                      className="w-full h-12 bg-black hover:bg-zinc-900 dark:bg-zinc-850 dark:hover:bg-zinc-750 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                     >
                       <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-4 h-4 object-contain shrink-0 invert dark:invert-0" />
                       <span>Conectar con TikTok Business</span>
