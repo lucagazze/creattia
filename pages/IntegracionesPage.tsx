@@ -1318,6 +1318,20 @@ export default function IntegracionesPage() {
       return (clientData.chatwoot_url && clientData.chatwoot_token) ? "ok" : "disconnected";
     }
 
+    if (platformId === "shopify") {
+      if (clientData.ecommerce_platform !== "shopify") {
+        return "disconnected";
+      }
+    }
+
+    if (platformId === "meta") {
+      const statuses = clientData.connection_statuses || {};
+      const val = statuses.meta;
+      const hasTokenOrId = !!clientData.facebook_access_token || !!clientData.fb_page_id || !!clientData.meta_account_id;
+      if (val === "ok" || val === "connected" || (hasTokenOrId && val !== "error")) return "ok";
+      if (val === "error") return "error";
+      return "disconnected";
+    }
 
     let key = platformId;
     if (platformId === "wordpress" || platformId === "tiendanube") {
@@ -1338,6 +1352,13 @@ export default function IntegracionesPage() {
 
   const getPlatformErrorMessage = (platformId: string): string | null => {
     if (!clientData) return null;
+
+    if (platformId === "shopify") {
+      if (clientData.ecommerce_platform !== "shopify") {
+        return null;
+      }
+    }
+
     let key = platformId;
     if (platformId === "wordpress" || platformId === "tiendanube") {
       key = "shopify";
@@ -1692,6 +1713,79 @@ export default function IntegracionesPage() {
                 <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-medium mb-6">
                   {platform.description}
                 </p>
+
+                {/* Connected Account Details */}
+                {status === "ok" && clientData && (
+                  <div className="mb-6 px-3.5 py-2.5 rounded-xl bg-emerald-500/[0.04] dark:bg-emerald-500/[0.03] border border-emerald-500/10 dark:border-emerald-500/10 text-[12px] text-zinc-650 dark:text-zinc-350 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <span className="font-extrabold text-zinc-400 dark:text-zinc-500 block text-[9.5px] uppercase tracking-wider mb-1">Cuenta conectada:</span>
+                    <div className="font-bold truncate text-zinc-800 dark:text-zinc-200">
+                      {platform.id === "shopify" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          {clientData.shopify_domain || 'Shopify Store'}
+                        </span>
+                      )}
+                      {platform.id === "tiendanube" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          Tienda ID: {clientData.tiendanube_store_id || 'Conectado'}
+                        </span>
+                      )}
+                      {platform.id === "wordpress" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          {clientData.wordpress_url || 'WooCommerce Store'}
+                        </span>
+                      )}
+                      {platform.id === "mercadolibre" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          {clientData.connection_statuses?.mercadolibre_nickname || clientData.mercadolibre_user_id || 'Conectado'}
+                        </span>
+                      )}
+                      {platform.id === "meta" && (
+                        <div className="space-y-1">
+                          {clientData.fb_page_name && (
+                            <p className="flex items-center gap-1.5 truncate">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                              Página: {clientData.fb_page_name}
+                            </p>
+                          )}
+                          {clientData.meta_account_id && (
+                            <p className="flex items-center gap-1.5 truncate">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                              Cuenta Ads: {clientData.meta_account_id}
+                            </p>
+                          )}
+                          {!clientData.fb_page_name && !clientData.meta_account_id && (
+                            <p className="flex items-center gap-1.5 truncate">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                              Conectado
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {platform.id === "tiktok_ads" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          Advertiser ID: {clientData.tiktok_advertiser_id || 'Conectado'}
+                        </span>
+                      )}
+                      {platform.id === "klaviyo" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          Lista ID: {clientData.klaviyo_list_id || 'Conectado'}
+                        </span>
+                      )}
+                      {platform.id === "chatwoot" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          {clientData.chatwoot_url || 'Bandeja de Entrada'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Error Banner */}
                 {status === "error" && (

@@ -162,11 +162,12 @@ export const MainLayout = () => {
     }
   }, [location.pathname]);
 
-  // Redirect to integrations page if Shopify oauth redirect lands on dashboard/other routes
+  // Redirect to integrations page if Shopify or other oauth redirect lands on dashboard/other routes
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const shop = searchParams.get('shop');
-    if (shop && location.pathname !== '/integraciones') {
+    const hasOauthParam = ['shopify', 'tiendanube', 'woocommerce', 'mercadolibre', 'tiktok', 'meta'].some(param => searchParams.has(param));
+    if ((shop || hasOauthParam) && location.pathname !== '/integraciones') {
       navigate(`/integraciones${window.location.search}`, { replace: true });
     }
   }, [location, navigate]);

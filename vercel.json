@@ -17,6 +17,14 @@
       "destination": "/api/oauth?action=tiendanube-callback"
     },
     {
+      "source": "/api/mercadolibre-callback",
+      "destination": "/api/oauth?action=mercadolibre-callback"
+    },
+    {
+      "source": "/api/tiktok-callback",
+      "destination": "/api/oauth?action=tiktok-callback"
+    },
+    {
       "source": "/api/webhook/store-redact",
       "destination": "/api/oauth?action=tiendanube-webhook&topic=store-redact"
     },

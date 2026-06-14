@@ -88,14 +88,14 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
       clientId = parsedState.clientId;
       originalHost = parsedState.host;
     } catch {
-      return res.redirect('/integraciones?shopify=error&reason=invalid_state');
+      return res.redirect(`${base}/#/integraciones?shopify=error&reason=invalid_state`);
     }
 
     const redirectBase = originalHost || base;
-    if (!code || !shop) return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=missing_params`);
+    if (!code || !shop) return res.redirect(`${redirectBase}/#/integraciones?shopify=error&reason=missing_params`);
 
     if (!SHOPIFY_CLIENT_ID || !SHOPIFY_CLIENT_SECRET)
-      return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=not_configured`);
+      return res.redirect(`${redirectBase}/#/integraciones?shopify=error&reason=not_configured`);
 
     try {
       const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
@@ -107,7 +107,7 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ client_id: SHOPIFY_CLIENT_ID, client_secret: SHOPIFY_CLIENT_SECRET, code })
       });
-      if (!tokenRes.ok) return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=token_exchange`);
+      if (!tokenRes.ok) return res.redirect(`${redirectBase}/#/integraciones?shopify=error&reason=token_exchange`);
       const { access_token } = await tokenRes.json() as { access_token: string };
       const cleanShop = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
       await updateClientStatuses(clientId!, {
@@ -117,10 +117,10 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
         tiendanube_store_id: null, tiendanube_access_token: null,
         wordpress_url: null, woo_consumer_key: null, woo_consumer_secret: null
       }, 'shopify', 'ok');
-      return res.redirect(`${redirectBase}/integraciones?shopify=success`);
+      return res.redirect(`${redirectBase}/#/integraciones?shopify=success`);
     } catch (err: any) {
       console.error('[Shopify OAuth]', err);
-      return res.redirect(`${redirectBase}/integraciones?shopify=error&reason=server_error`);
+      return res.redirect(`${redirectBase}/#/integraciones?shopify=error&reason=server_error`);
     }
   }
 }
@@ -143,14 +143,14 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
   if (action === 'tiendanube-callback') {
     const code = req.query.code as string;
     const stateRaw = req.query.state as string;
-    if (!code) return res.redirect('/integraciones?tiendanube=error&reason=missing_code');
+    if (!code) return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=missing_code`);
 
     let clientId: string | undefined;
     try { clientId = JSON.parse(Buffer.from(stateRaw, 'base64').toString()).clientId; }
-    catch { return res.redirect('/integraciones?tiendanube=error&reason=invalid_state'); }
+    catch { return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=invalid_state`); }
 
     if (!TN_CLIENT_ID || !TN_CLIENT_SECRET)
-      return res.redirect('/integraciones?tiendanube=error&reason=not_configured');
+      return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=not_configured`);
 
     try {
       const tokenRes = await fetch('https://www.tiendanube.com/apps/authorize/token', {
@@ -158,7 +158,7 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ client_id: TN_CLIENT_ID, client_secret: TN_CLIENT_SECRET, grant_type: 'authorization_code', code }).toString()
       });
-      if (!tokenRes.ok) return res.redirect('/integraciones?tiendanube=error&reason=token_exchange');
+      if (!tokenRes.ok) return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=token_exchange`);
       const { access_token, user_id: storeId } = await tokenRes.json() as { access_token: string; user_id: number };
       await updateClientStatuses(clientId!, {
         tiendanube_store_id: String(storeId),
@@ -167,10 +167,10 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
         shopify_domain: null, shopify_access_token: null,
         wordpress_url: null, woo_consumer_key: null, woo_consumer_secret: null
       }, 'shopify', 'ok');
-      return res.redirect('/integraciones?tiendanube=success');
+      return res.redirect(`${base}/#/integraciones?tiendanube=success`);
     } catch (err: any) {
       console.error('[TiendaNube OAuth]', err);
-      return res.redirect('/integraciones?tiendanube=error&reason=server_error');
+      return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=server_error`);
     }
   }
 }
@@ -197,7 +197,7 @@ async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
     shop = shop.replace(/\/$/, '');
 
     const callbackUrl = `${base}/api/oauth?action=woocommerce-callback`;
-    const returnUrl   = `${base}/integraciones?woocommerce=success`;
+    const returnUrl   = `${base}/#/integraciones?woocommerce=success`;
 
     const authorizeUrl =
       `${shop}/wc-auth/v1/authorize` +
@@ -827,9 +827,7 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
     const clientId = req.query.clientId as string;
     if (!TIKTOK_APP_ID) return res.status(503).json({ error: 'TikTok Ads OAuth no configurado (falta TIKTOK_APP_ID).' });
 
-    const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
-      ? `${base}/api/oauth?action=tiktok-callback`
-      : 'https://car.algoritmiadesarrollos.com.ar/api/oauth?action=tiktok-callback';
+    const redirectUri = `${base}/api/tiktok-callback`;
 
     const state = Buffer.from(JSON.stringify({ clientId, host: base })).toString('base64');
 
@@ -853,14 +851,14 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
       clientId = decoded.clientId;
       originalHost = decoded.host;
     } catch {
-      return res.redirect('/integraciones?tiktok=error&reason=invalid_state');
+      return res.redirect(`${base}/#/integraciones?tiktok=error&reason=invalid_state`);
     }
 
     const redirectBase = originalHost || base;
-    if (!code) return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=missing_code`);
+    if (!code) return res.redirect(`${redirectBase}/#/integraciones?tiktok=error&reason=missing_code`);
 
     if (!TIKTOK_APP_ID || !TIKTOK_APP_SECRET) {
-      return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=not_configured`);
+      return res.redirect(`${redirectBase}/#/integraciones?tiktok=error&reason=not_configured`);
     }
 
     try {
@@ -878,13 +876,13 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
 
       if (!tokenRes.ok) {
         console.error('[TikTok Token Exchange] HTTP Failed:', tokenRes.status, await tokenRes.text());
-        return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=token_exchange_http`);
+        return res.redirect(`${redirectBase}/#/integraciones?tiktok=error&reason=token_exchange_http`);
       }
 
       const json = await tokenRes.json();
       if (json.code !== 0) {
         console.error('[TikTok Token Exchange] API Error:', json.code, json.message);
-        return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=${encodeURIComponent(json.message)}`);
+        return res.redirect(`${redirectBase}/#/integraciones?tiktok=error&reason=${encodeURIComponent(json.message)}`);
       }
 
       const data = json.data;
@@ -915,10 +913,10 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
         })
         .eq('id', clientId!);
 
-      return res.redirect(`${redirectBase}/integraciones?tiktok=success`);
+      return res.redirect(`${redirectBase}/#/integraciones?tiktok=success`);
     } catch (err: any) {
       console.error('[TikTok OAuth Callback] Error:', err);
-      return res.redirect(`${redirectBase}/integraciones?tiktok=error&reason=server_error`);
+      return res.redirect(`${redirectBase}/#/integraciones?tiktok=error&reason=server_error`);
     }
   }
 
@@ -1160,9 +1158,7 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
     const country = (req.query.country as string || 'AR').toUpperCase();
     if (!ML_CLIENT_ID) return res.status(503).json({ error: 'Mercado Libre OAuth no configurado (falta MERCADOLIBRE_CLIENT_ID).' });
 
-    const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
-      ? `${base}/api/oauth?action=mercadolibre-callback`
-      : 'https://car.algoritmiadesarrollos.com.ar/api/oauth?action=mercadolibre-callback';
+    const redirectUri = `${base}/api/mercadolibre-callback`;
 
     const state = Buffer.from(JSON.stringify({ clientId, country, host: base })).toString('base64');
     const tld = getMlTld(country);
@@ -1172,7 +1168,8 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
       `?response_type=code` +
       `&client_id=${ML_CLIENT_ID}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&state=${encodeURIComponent(state)}`;
+      `&state=${encodeURIComponent(state)}` +
+      `&prompt=consent`;
 
     return res.status(200).json({ authorizeUrl });
   }
@@ -1190,20 +1187,18 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
       country = decoded.country;
       originalHost = decoded.host;
     } catch {
-      return res.redirect('/integraciones?mercadolibre=error&reason=invalid_state');
+      return res.redirect(`${base}/#/integraciones?mercadolibre=error&reason=invalid_state`);
     }
 
     const redirectBase = originalHost || base;
-    if (!code) return res.redirect(`${redirectBase}/integraciones?mercadolibre=error&reason=missing_code`);
+    if (!code) return res.redirect(`${redirectBase}/#/integraciones?mercadolibre=error&reason=missing_code`);
 
     if (!ML_CLIENT_ID || !ML_CLIENT_SECRET) {
-      return res.redirect(`${redirectBase}/integraciones?mercadolibre=error&reason=not_configured`);
+      return res.redirect(`${redirectBase}/#/integraciones?mercadolibre=error&reason=not_configured`);
     }
 
     try {
-      const redirectUri = base.includes('localhost') || base.includes('127.0.5.1') || base.includes('127.0.0.1')
-        ? `${base}/api/oauth?action=mercadolibre-callback`
-        : 'https://car.algoritmiadesarrollos.com.ar/api/oauth?action=mercadolibre-callback';
+      const redirectUri = `${base}/api/mercadolibre-callback`;
 
       const tokenRes = await fetch('https://api.mercadolibre.com/oauth/token', {
         method: 'POST',
@@ -1222,7 +1217,7 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
 
       if (!tokenRes.ok) {
         console.error('[ML Token Exchange] Failed:', tokenRes.status, await tokenRes.text());
-        return res.redirect(`${redirectBase}/integraciones?mercadolibre=error&reason=token_exchange`);
+        return res.redirect(`${redirectBase}/#/integraciones?mercadolibre=error&reason=token_exchange`);
       }
 
       const data = await tokenRes.json() as {
@@ -1231,6 +1226,23 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
         expires_in: number;
         user_id: number | string;
       };
+
+      let mlNickname = '';
+      try {
+        const userRes = await fetch('https://api.mercadolibre.com/users/me', {
+          headers: {
+            'Authorization': `Bearer ${data.access_token}`
+          }
+        });
+        if (userRes.ok) {
+          const userJson = await userRes.json() as { nickname?: string };
+          if (userJson.nickname) {
+            mlNickname = userJson.nickname;
+          }
+        }
+      } catch (err) {
+        console.error('[Mercado Libre User Fetch] Failed:', err);
+      }
 
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data: clientRow } = await supabase
@@ -1243,7 +1255,8 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
       const updatedStatuses = {
         ...currentStatuses,
         mercadolibre: 'ok',
-        mercadolibre_country: country || 'AR'
+        mercadolibre_country: country || 'AR',
+        mercadolibre_nickname: mlNickname || undefined
       };
 
       const expirationDate = new Date(Date.now() + data.expires_in * 1000).toISOString();
@@ -1258,10 +1271,10 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
         })
         .eq('id', clientId!);
 
-      return res.redirect(`${redirectBase}/integraciones?mercadolibre=success`);
+      return res.redirect(`${redirectBase}/#/integraciones?mercadolibre=success`);
     } catch (err: any) {
       console.error('[Mercado Libre OAuth Callback] Error:', err);
-      return res.redirect(`${redirectBase}/integraciones?mercadolibre=error&reason=server_error`);
+      return res.redirect(`${redirectBase}/#/integraciones?mercadolibre=error&reason=server_error`);
     }
   }
 
@@ -1317,9 +1330,9 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
           buyer: q.from?.nickname || 'Comprador ML',
           date: new Date(q.date_created).toLocaleString('es-AR'),
           text: q.text,
-          itemTitle: item.title || 'Producto Mercado Libre',
+          itemTitle: item.title || `Producto (${q.item_id})`,
           itemId: q.item_id,
-          itemImage: item.secure_thumbnail || item.thumbnail || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=150&q=80',
+          itemImage: item.secure_thumbnail || item.thumbnail || '',
           answerText: ''
         };
       });
@@ -1393,19 +1406,22 @@ async function handleMercadoLibre(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      const publications = results.map((id: string) => {
-        const item = itemsMap.get(id) || {};
-        return {
-          id,
-          title: item.title || 'Publicación Mercado Libre',
-          price: item.price || 0,
-          stock: item.available_quantity || 0,
-          sold: item.sold_quantity || 0,
-          visits: (item.sold_quantity || 0) * 12 + 15,
-          status: item.status === 'active' ? 'active' : 'paused',
-          image: item.secure_thumbnail || item.thumbnail || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=150&q=80'
-        };
-      });
+      const publications = results
+        .map((id: string) => {
+          const item = itemsMap.get(id);
+          if (!item || !item.title) return null;
+          return {
+            id,
+            title: item.title,
+            price: item.price || 0,
+            stock: item.available_quantity || 0,
+            sold: item.sold_quantity || 0,
+            visits: item.visits_count || (item.sold_quantity || 0) * 12 + 15,
+            status: item.status === 'active' ? 'active' : 'paused',
+            image: item.secure_thumbnail || item.thumbnail || ''
+          };
+        })
+        .filter(Boolean);
 
       return res.status(200).json({ publications });
     } catch (err: any) {
@@ -1558,6 +1574,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!action && req.url?.includes('/api/shopify-callback')) {
     (req.query as any).action = 'shopify-callback';
     return handleShopify(req, res);
+  }
+  if (!action && req.url?.includes('/api/mercadolibre-callback')) {
+    (req.query as any).action = 'mercadolibre-callback';
+    return handleMercadoLibre(req, res);
+  }
+  if (!action && req.url?.includes('/api/tiktok-callback')) {
+    (req.query as any).action = 'tiktok-callback';
+    return handleTiktok(req, res);
   }
 
   if (action === 'tiendanube-webhook') return handleTiendanubeWebhook(req, res);
