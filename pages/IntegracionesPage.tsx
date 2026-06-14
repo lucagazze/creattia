@@ -830,12 +830,15 @@ export default function IntegracionesPage() {
       };
 
       const currentStatuses = clientData?.connection_statuses || {};
+      const selectedAccountName = metaCombinedModal.accounts?.find(a => a.id === selectedAccountId)?.name || '';
       const updatedStatuses = { 
         ...currentStatuses, 
-        meta: approveAds ? 'ok' : null 
+        meta: approveAds ? 'ok' : null,
+        meta_account_name: approveAds ? selectedAccountName : null
       };
       if (!approveAds) {
         delete updatedStatuses.meta;
+        delete updatedStatuses.meta_account_name;
       }
 
       const { error } = await supabase
@@ -1722,13 +1725,17 @@ export default function IntegracionesPage() {
                       {platform.id === "shopify" && (
                         <span className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                          {clientData.shopify_domain || 'Shopify Store'}
+                          {clientData.connection_statuses?.shopify_shop_name
+                            ? `${clientData.connection_statuses.shopify_shop_name} (${clientData.shopify_domain})`
+                            : clientData.shopify_domain || 'Shopify Store'}
                         </span>
                       )}
                       {platform.id === "tiendanube" && (
                         <span className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                          Tienda ID: {clientData.tiendanube_store_id || 'Conectado'}
+                          {clientData.connection_statuses?.tiendanube_store_name
+                            ? `${clientData.connection_statuses.tiendanube_store_name} (${clientData.tiendanube_store_id})`
+                            : `Tienda ID: ${clientData.tiendanube_store_id || 'Conectado'}`}
                         </span>
                       )}
                       {platform.id === "wordpress" && (
@@ -1740,7 +1747,9 @@ export default function IntegracionesPage() {
                       {platform.id === "mercadolibre" && (
                         <span className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                          {clientData.connection_statuses?.mercadolibre_nickname || clientData.mercadolibre_user_id || 'Conectado'}
+                          {clientData.connection_statuses?.mercadolibre_nickname
+                            ? `${clientData.connection_statuses.mercadolibre_nickname}${clientData.connection_statuses.mercadolibre_email ? ` (${clientData.connection_statuses.mercadolibre_email})` : ''}`
+                            : clientData.mercadolibre_user_id || 'Conectado'}
                         </span>
                       )}
                       {platform.id === "meta" && (
@@ -1754,7 +1763,9 @@ export default function IntegracionesPage() {
                           {clientData.meta_account_id && (
                             <p className="flex items-center gap-1.5 truncate">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                              Cuenta Ads: {clientData.meta_account_id}
+                              Cuenta Ads: {clientData.connection_statuses?.meta_account_name
+                                ? `${clientData.connection_statuses.meta_account_name} (${clientData.meta_account_id})`
+                                : clientData.meta_account_id}
                             </p>
                           )}
                           {!clientData.fb_page_name && !clientData.meta_account_id && (
@@ -1768,7 +1779,9 @@ export default function IntegracionesPage() {
                       {platform.id === "tiktok_ads" && (
                         <span className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                          Advertiser ID: {clientData.tiktok_advertiser_id || 'Conectado'}
+                          {clientData.connection_statuses?.tiktok_advertiser_name
+                            ? `${clientData.connection_statuses.tiktok_advertiser_name} (${clientData.tiktok_advertiser_id})`
+                            : `Advertiser ID: ${clientData.tiktok_advertiser_id || 'Conectado'}`}
                         </span>
                       )}
                       {platform.id === "klaviyo" && (

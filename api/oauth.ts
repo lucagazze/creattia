@@ -25,7 +25,8 @@ async function updateClientStatuses(
   clientId: string,
   fields: Record<string, any>,
   statusKey: string,
-  statusValue: 'ok' | 'error'
+  statusValue: 'ok' | 'error',
+  extraStatuses?: Record<string, any>
 ) {
   if (!clientId || !SUPABASE_SERVICE_ROLE_KEY) return;
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -34,7 +35,11 @@ async function updateClientStatuses(
     .select('connection_statuses')
     .eq('id', clientId)
     .maybeSingle();
-  const updatedStatuses = { ...(data?.connection_statuses || {}), [statusKey]: statusValue };
+  const updatedStatuses = { 
+    ...(data?.connection_statuses || {}), 
+    [statusKey]: statusValue,
+    ...(extraStatuses || {})
+  };
   const { error: updateErr } = await supabase
     .from('car_clients')
     .update({ ...fields, connection_statuses: updatedStatuses })
@@ -110,13 +115,32 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
       if (!tokenRes.ok) return res.redirect(`${redirectBase}/#/integraciones?shopify=error&reason=token_exchange`);
       const { access_token } = await tokenRes.json() as { access_token: string };
       const cleanShop = shop.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+      let shopName = '';
+      try {
+        const shopRes = await fetch(`https://${cleanShop}/admin/api/2023-04/shop.json`, {
+          headers: {
+            'X-Shopify-Access-Token': access_token,
+            'User-Agent': 'AlgorBot/1.0'
+          }
+        });
+        if (shopRes.ok) {
+          const shopJson = await shopRes.json();
+          if (shopJson.shop?.name) {
+            shopName = shopJson.shop.name;
+          }
+        }
+      } catch (err) {
+        console.error('[Shopify Shop Details Fetch] Failed:', err);
+      }
+
       await updateClientStatuses(clientId!, {
         shopify_domain: cleanShop,
         shopify_access_token: access_token,
         ecommerce_platform: 'shopify',
         tiendanube_store_id: null, tiendanube_access_token: null,
         wordpress_url: null, woo_consumer_key: null, woo_consumer_secret: null
-      }, 'shopify', 'ok');
+      }, 'shopify', 'ok', { shopify_shop_name: shopName || undefined });
       return res.redirect(`${redirectBase}/#/integraciones?shopify=success`);
     } catch (err: any) {
       console.error('[Shopify OAuth]', err);
@@ -158,15 +182,34 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ client_id: TN_CLIENT_ID, client_secret: TN_CLIENT_SECRET, grant_type: 'authorization_code', code }).toString()
       });
-      if (!tokenRes.ok) return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=token_exchange`);
+       if (!tokenRes.ok) return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=token_exchange`);
       const { access_token, user_id: storeId } = await tokenRes.json() as { access_token: string; user_id: number };
+
+      let tnStoreName = '';
+      try {
+        const tnStoreRes = await fetch(`https://api.tiendanube.com/v1/${storeId}/store`, {
+          headers: {
+            'Authentication': `bearer ${access_token}`,
+            'User-Agent': 'AlgorBot/1.0'
+          }
+        });
+        if (tnStoreRes.ok) {
+          const tnStoreJson = await tnStoreRes.json() as { name?: { es?: string; pt?: string; en?: string } };
+          if (tnStoreJson.name) {
+            tnStoreName = tnStoreJson.name.es || tnStoreJson.name.pt || tnStoreJson.name.en || '';
+          }
+        }
+      } catch (err) {
+        console.error('[Tiendanube Store Details Fetch] Failed:', err);
+      }
+
       await updateClientStatuses(clientId!, {
         tiendanube_store_id: String(storeId),
         tiendanube_access_token: access_token,
         ecommerce_platform: 'tiendanube',
         shopify_domain: null, shopify_access_token: null,
         wordpress_url: null, woo_consumer_key: null, woo_consumer_secret: null
-      }, 'shopify', 'ok');
+      }, 'shopify', 'ok', { tiendanube_store_name: tnStoreName || undefined });
       return res.redirect(`${base}/#/integraciones?tiendanube=success`);
     } catch (err: any) {
       console.error('[TiendaNube OAuth]', err);
@@ -888,6 +931,25 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
       const data = json.data;
       const mainAdvertiserId = Array.isArray(data.advertiser_ids) && data.advertiser_ids.length > 0 ? String(data.advertiser_ids[0]) : '';
       
+      let advertiserName = '';
+      if (mainAdvertiserId) {
+        try {
+          const advRes = await fetch(`https://business-api.tiktok.com/open_api/v1.3/advertiser/info/?advertiser_ids=["${mainAdvertiserId}"]`, {
+            headers: {
+              'Access-Token': data.access_token
+            }
+          });
+          if (advRes.ok) {
+            const advJson = await advRes.json();
+            if (advJson.code === 0 && Array.isArray(advJson.data?.list) && advJson.data.list.length > 0) {
+              advertiserName = advJson.data.list[0].name || '';
+            }
+          }
+        } catch (err) {
+          console.error('[TikTok Advertiser Info Fetch] Failed:', err);
+        }
+      }
+
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data: clientRow } = await supabase
         .from('car_clients')
@@ -898,7 +960,8 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
       const currentStatuses = clientRow?.connection_statuses || {};
       const updatedStatuses = {
         ...currentStatuses,
-        tiktok_ads: 'ok'
+        tiktok_ads: 'ok',
+        tiktok_advertiser_name: advertiserName || undefined
       };
 
       const expirationDate = new Date(Date.now() + 86400 * 1000).toISOString();
