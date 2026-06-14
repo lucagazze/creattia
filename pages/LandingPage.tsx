@@ -101,47 +101,98 @@ export default function LandingPage() {
 
   // --- Estados de las Simulaciones Interactivas del Dashboard ---
   const [expandedMetric, setExpandedMetric] = useState<string | null>('tienda');
-  const [creatives, setCreatives] = useState([
+  
+  const creatives = [
     { 
       id: 1, 
       name: 'Anuncio Invierno: Tapado Cuero', 
-      status: true, 
       spent: 650, 
       ctr: 3.4, 
       roas: 12.4, 
       img: '/assets/landing_creativos.jpg',
-      copy: 'Últimas unidades en stock con envío gratis a todo el país.'
+      copy: 'Últimas unidades en stock con envío gratis a todo el país.',
+      analysis: {
+        score: 88,
+        label: 'Listo para escalar',
+        highestRegion: 'V1 & FFA (Corteza Visual / Rostros)',
+        textInsight: 'El elemento visual principal detiene el scroll perfectamente. Alto contraste cromático y gancho inicial óptimo.',
+        attention: 85,
+        emotion: 90,
+        cogLoad: 20,
+        actionItems: [
+          'Mantener activo el anuncio: el gancho inicial detiene el scroll en los primeros 1.5 segundos.',
+          'El contraste cromático entre la modelo y el fondo es de nivel premium.',
+          'Considerá duplicar la inversión para maximizar la conversión en audiencias similares.'
+        ]
+      }
     },
     { 
       id: 2, 
       name: 'Anuncio Tendencia: Botas de Cuero', 
-      status: true, 
       spent: 349, 
       ctr: 2.2, 
       roas: 9.2, 
       img: '/assets/landing_analisis.jpg',
-      copy: 'Botas premium con 30% OFF en nuestra tienda online.'
+      copy: 'Botas premium con 30% OFF en nuestra tienda online.',
+      analysis: {
+        score: 78,
+        label: 'Requiere ajustes',
+        highestRegion: 'EBA (Área Corporal Extraestriada)',
+        textInsight: 'El producto se muestra de forma tardía en el gancho. Buen CTR pero alta carga cognitiva por subtítulos densos.',
+        attention: 72,
+        emotion: 80,
+        cogLoad: 38,
+        actionItems: [
+          'Adelantá la toma de primer plano del producto al segundo 0.5.',
+          'Reducí el tamaño de los subtítulos un 20% para bajar la carga cognitiva de lectura.',
+          'Añadí un sticker de llamado a la acción más visible al final.'
+        ]
+      }
     },
     { 
       id: 3, 
       name: 'Anuncio Accesorios: Cartera Premium', 
-      status: false, 
       spent: 199, 
       ctr: 1.1, 
       roas: 3.5, 
       img: '/assets/landing_pedidos.jpg',
-      copy: 'Cuero argentino legítimo. El accesorio ideal para tu look.'
+      copy: 'Cuero argentino legítimo. El accesorio ideal para tu look.',
+      analysis: {
+        score: 58,
+        label: 'Revisar antes de pautar',
+        highestRegion: 'Ninguna dominante (Bajo estímulo)',
+        textInsight: 'Gancho inicial plano y falta de contraste de color. Alta carga cognitiva debido al exceso de elementos visuales.',
+        attention: 52,
+        emotion: 60,
+        cogLoad: 55,
+        actionItems: [
+          'Cambiá el gancho de inicio por una toma de acción (ej: abriendo la cartera).',
+          'Mejorá el contraste de fondo utilizando tonos neutros que resalten el cuero.',
+          'Recortá el texto en pantalla para que el usuario pueda procesar el mensaje clave en 2 segundos.'
+        ]
+      }
     }
-  ]);
+  ];
 
-  const toggleCreative = (id: number) => {
-    setCreatives(prev => prev.map(c => c.id === id ? { ...c, status: !c.status } : c));
+  const [selectedCreative, setSelectedCreative] = useState<typeof creatives[0] | null>(null);
+  const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'scanning' | 'done'>('idle');
+  const [scanMessage, setScanMessage] = useState('Extrayendo fotogramas...');
+
+  const handleStartAnalysis = (creative: typeof creatives[0]) => {
+    setSelectedCreative(creative);
+    setAnalysisStatus('scanning');
+    setScanMessage('Extrayendo fotogramas...');
+    
+    setTimeout(() => {
+      setScanMessage('Analizando con TRIBE v2...');
+      setTimeout(() => {
+        setScanMessage('Simulando respuesta neuronal...');
+        setTimeout(() => {
+          setAnalysisStatus('done');
+        }, 650);
+      }, 650);
+    }, 650);
   };
-
-  const activeCount = creatives.filter(c => c.status).length;
-  const liveSpent = creatives.reduce((acc, curr) => curr.status ? acc + curr.spent : acc, 0);
-  const liveROAS = activeCount > 0 ? (creatives.reduce((acc, curr) => curr.status ? acc + curr.roas : acc, 0) / activeCount).toFixed(1) : '0.0';
-  const liveCTR = activeCount > 0 ? (creatives.reduce((acc, curr) => curr.status ? acc + curr.ctr : acc, 0) / activeCount).toFixed(1) : '0.0';
 
 
 
@@ -665,9 +716,9 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col gap-2.5 pt-1">
               {[
-                { label: 'ROAS promedio de campañas activas', value: `${liveROAS}×`, color: 'text-emerald-500' },
-                { label: 'Creativos activos', value: `${activeCount} de ${creatives.length}`, color: 'text-violet-500' },
-                { label: 'Inversión total activa', value: `$ ${liveSpent}`, color: 'text-pink-500' },
+                { label: 'ROAS promedio de campañas', value: '10.8×', color: 'text-emerald-500' },
+                { label: 'Eficiencia promedio (TRIBE)', value: '75 / 100', color: 'text-violet-500' },
+                { label: 'Inversión total analizada', value: '$ 1.198', color: 'text-pink-500' },
               ].map((kpi) => (
                 <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border transition-all duration-200 ${
                   darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
@@ -682,62 +733,164 @@ export default function LandingPage() {
           {/* Simulador Interactivo de Optimización de Creativos */}
           <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
             <div className={`rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} overflow-hidden shadow-inner p-4 space-y-4`}>
-              <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3">
-                <div className="text-left">
-                  <h4 className="text-[12.5px] font-bold font-display text-zinc-900 dark:text-white">Optimizador de Creativos</h4>
-                  <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5">Encendé o apagá anuncios para ver el impacto inmediato</p>
-                </div>
-                <div className="flex gap-2">
-                  <div className="p-1.5 rounded-lg bg-zinc-100/50 dark:bg-white/[0.01] border border-zinc-200/50 dark:border-white/[0.03] text-[9px] font-bold text-center">
-                    <span className="text-zinc-400 block text-[7px] uppercase font-semibold">ROAS Promedio</span>
-                    <span className="text-violet-500 font-extrabold">{liveROAS}×</span>
-                  </div>
-                  <div className="p-1.5 rounded-lg bg-zinc-100/50 dark:bg-white/[0.01] border border-zinc-200/50 dark:border-white/[0.03] text-[9px] font-bold text-center">
-                    <span className="text-zinc-400 block text-[7px] uppercase font-semibold">Gasto Total</span>
-                    <span className="text-emerald-500 font-extrabold">${liveSpent}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {creatives.map((creative) => (
-                  <div 
-                    key={creative.id} 
-                    className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-250 ${
-                      creative.status 
-                        ? (darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50')
-                        : 'bg-zinc-900/5 border-transparent opacity-60'
-                    }`}
-                  >
-                    <div className="w-12 h-14 rounded-lg overflow-hidden shrink-0 border border-zinc-200/20 bg-zinc-950">
-                      <img src={creative.img} alt={creative.name} className="w-full h-full object-cover" />
+              
+              {analysisStatus === 'idle' && (
+                <>
+                  <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3">
+                    <div className="text-left">
+                      <h4 className="text-[12.5px] font-bold font-display text-zinc-900 dark:text-white">Creativos Tester</h4>
+                      <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5">TRIBE v2 — Auditoría de anuncios con IA</p>
                     </div>
-                    
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className="text-[10px] font-bold truncate text-zinc-800 dark:text-zinc-100">{creative.name}</p>
-                      <p className="text-[8px] text-zinc-400 truncate font-semibold mt-0.5">{creative.copy}</p>
-                      
-                      <div className="flex gap-3 mt-1.5 text-[8.5px] font-bold">
-                        <span className="text-zinc-500">Gasto: <span className="text-zinc-700 dark:text-zinc-300">${creative.spent}</span></span>
-                        <span className="text-zinc-500">CTR: <span className="text-zinc-700 dark:text-zinc-300">{creative.ctr}%</span></span>
-                        <span className="text-zinc-500">ROAS: <span className="text-violet-500">{creative.roas}×</span></span>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-violet-600/10 text-violet-500 border border-violet-500/20 animate-pulse">
+                      IA Activa
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {creatives.map((creative) => (
+                      <div 
+                        key={creative.id} 
+                        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-250 ${
+                          darkMode ? 'bg-zinc-900/30 border-white/[0.04] hover:bg-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50 hover:bg-zinc-100/60'
+                        }`}
+                      >
+                        <div className="w-12 h-14 rounded-lg overflow-hidden shrink-0 border border-zinc-200/20 bg-zinc-950">
+                          <img src={creative.img} alt={creative.name} className="w-full h-full object-cover" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-[10px] font-bold truncate text-zinc-800 dark:text-zinc-100">{creative.name}</p>
+                          <p className="text-[8px] text-zinc-400 truncate font-semibold mt-0.5">{creative.copy}</p>
+                          
+                          <div className="flex gap-3 mt-1.5 text-[8.5px] font-bold">
+                            <span className="text-zinc-500">Gasto: <span className="text-zinc-700 dark:text-zinc-300">${creative.spent}</span></span>
+                            <span className="text-zinc-500">CTR: <span className="text-zinc-700 dark:text-zinc-300">{creative.ctr}%</span></span>
+                            <span className="text-zinc-500">ROAS: <span className="text-violet-500">{creative.roas}×</span></span>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={() => handleStartAnalysis(creative)}
+                          className="h-7 px-3 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-[9px] font-black shadow-md shadow-violet-500/10 transition-all flex items-center gap-1 shrink-0"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" /> Analizar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {analysisStatus === 'scanning' && selectedCreative && (
+                <div className="flex flex-col items-center justify-center py-12 gap-4 text-center min-h-[280px] animate-in fade-in duration-300">
+                  <div className="relative w-16 h-16">
+                    <div className="absolute inset-0 rounded-full border-4 border-violet-200 dark:border-violet-950" />
+                    <div className="absolute inset-0 rounded-full border-4 border-t-violet-600 animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Zap className="w-6 h-6 text-violet-500 animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[12px] font-bold text-zinc-850 dark:text-zinc-100">{scanMessage}</p>
+                    <p className="text-[8.5px] text-zinc-400 font-semibold">Simulando respuesta de red neuronal en vivo...</p>
+                  </div>
+                </div>
+              )}
+
+              {analysisStatus === 'done' && selectedCreative && (
+                <div className="space-y-4 text-left animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-zinc-200/20 bg-zinc-950">
+                        <img src={selectedCreative.img} alt={selectedCreative.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-[11px] font-bold truncate text-zinc-900 dark:text-white max-w-[150px] sm:max-w-[200px]">{selectedCreative.name}</h4>
+                        <p className="text-[8px] text-zinc-400 font-semibold mt-0.5 truncate max-w-[150px] sm:max-w-[200px]">{selectedCreative.copy}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setAnalysisStatus('idle')}
+                      className="px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-650 dark:text-zinc-350 rounded-lg text-[8.5px] font-black transition-colors"
+                    >
+                      Volver
+                    </button>
+                  </div>
+
+                  {/* Puntaje Principal */}
+                  <div className="flex items-center gap-3.5 p-3 rounded-xl border bg-zinc-50 dark:bg-zinc-900/30 border-zinc-100 dark:border-white/[0.03]">
+                    <div className={`w-14 h-14 rounded-full flex flex-col items-center justify-center font-display shrink-0 text-white shadow-md ${
+                      selectedCreative.analysis.score >= 80 ? 'bg-emerald-500 shadow-emerald-500/10' :
+                      selectedCreative.analysis.score >= 60 ? 'bg-amber-500 shadow-amber-500/10' :
+                      'bg-red-500 shadow-red-500/10'
+                    }`}>
+                      <span className="text-[18px] font-black leading-none">{selectedCreative.analysis.score}</span>
+                      <span className="text-[7px] font-bold opacity-80 leading-none mt-0.5">/100</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11.5px] font-black text-zinc-900 dark:text-white">{selectedCreative.analysis.label}</p>
+                      <p className="text-[9px] text-zinc-400 mt-0.5 leading-snug line-clamp-2">{selectedCreative.analysis.textInsight}</p>
+                      <p className="text-[7.5px] text-zinc-400 font-semibold mt-1">Región: <span className="text-violet-500">{selectedCreative.analysis.highestRegion}</span></p>
+                    </div>
+                  </div>
+
+                  {/* Barras de Métricas */}
+                  <div className="space-y-2.5 p-3 rounded-xl border border-zinc-100 dark:border-white/[0.03] bg-zinc-50/50 dark:bg-zinc-900/10">
+                    {/* Atención */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] font-bold mb-1">
+                        <span className="text-zinc-400 uppercase tracking-wider">Atención</span>
+                        <span className="text-zinc-850 dark:text-white">{selectedCreative.analysis.attention}%</span>
+                      </div>
+                      <div className="h-1.5 bg-zinc-200/50 dark:bg-zinc-850 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full transition-all duration-700" style={{ width: `${selectedCreative.analysis.attention}%` }} />
                       </div>
                     </div>
 
-                    <button 
-                      onClick={() => toggleCreative(creative.id)}
-                      className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 relative shrink-0 flex items-center ${
-                        creative.status ? 'bg-emerald-500' : 'bg-zinc-650 dark:bg-zinc-700'
-                      }`}
-                      aria-label={creative.status ? "Pausar anuncio" : "Activar anuncio"}
-                    >
-                      <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                        creative.status ? 'translate-x-4' : 'translate-x-0'
-                      }`} />
-                    </button>
+                    {/* Emoción */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] font-bold mb-1">
+                        <span className="text-zinc-400 uppercase tracking-wider">Emoción</span>
+                        <span className="text-zinc-850 dark:text-white">{selectedCreative.analysis.emotion}%</span>
+                      </div>
+                      <div className="h-1.5 bg-zinc-200/50 dark:bg-zinc-850 rounded-full overflow-hidden">
+                        <div className="h-full bg-violet-500 rounded-full transition-all duration-700" style={{ width: `${selectedCreative.analysis.emotion}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Carga Cognitiva */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] font-bold mb-1">
+                        <span className="text-zinc-400 uppercase tracking-wider">Carga Cognitiva</span>
+                        <span className="text-zinc-850 dark:text-white">{selectedCreative.analysis.cogLoad}%</span>
+                      </div>
+                      <div className="h-1.5 bg-zinc-200/50 dark:bg-zinc-850 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-700 ${
+                          selectedCreative.analysis.cogLoad <= 30 ? 'bg-emerald-500' :
+                          selectedCreative.analysis.cogLoad <= 50 ? 'bg-amber-500' :
+                          'bg-red-500'
+                        }`} style={{ width: `${selectedCreative.analysis.cogLoad}%` }} />
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Plan de Acción */}
+                  <div className="space-y-1.5 p-3 rounded-xl border border-zinc-100 dark:border-white/[0.03] bg-zinc-50/50 dark:bg-zinc-900/10">
+                    <p className="text-[9px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                      <Check className="w-3 h-3 text-violet-500" /> Plan de Acción Sugerido
+                    </p>
+                    <ul className="space-y-1.5">
+                      {selectedCreative.analysis.actionItems.map((item, index) => (
+                        <li key={index} className="flex items-start gap-1.5 text-[9.5px] leading-snug text-zinc-650 dark:text-zinc-350">
+                          <span className="w-3.5 h-3.5 rounded-full bg-violet-500/10 text-violet-500 text-[8px] font-black flex items-center justify-center shrink-0 mt-0.5">{index + 1}</span>
+                          <span className="font-medium">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
