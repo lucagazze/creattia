@@ -71,15 +71,15 @@ export default function LandingPage() {
   const [zoomImage, setZoomImage] = useState<string | null>(null);
 
   const showcaseTabs = [
-    { id: 'inicio', label: 'Inicio', img: '/assets/landing_inicio.jpg', desc: 'Panel principal unificado. Resumen ejecutivo de ingresos acumulados, pedidos totales, productos estrella analizados y métricas clave en tiempo real.' },
-    { id: 'mensajeria', label: 'Mensajería Directa', img: '/assets/landing_mensajeria.jpg', desc: 'Chat inbox consolidado para Instagram Direct y Facebook Messenger. Leé mensajes y redactá borradores con sugerencias de Inteligencia Artificial.' },
-    { id: 'creativos', label: 'Creativos Ads', img: '/assets/landing_analisis.jpg', desc: 'Panel centralizado de anuncios activos en Meta Ads. Compará rendimiento de creativos, gasto, CTR y ROAS en un solo lugar para escalar lo que funciona.' },
-    { id: 'comentarios', label: 'Moderación Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Bandeja omnicanal integrada. Respondé consultas en posts orgánicos y campañas pagas (Ads) con flujos automatizados de respuesta rápida.' },
-    { id: 'pedidos', label: 'Control Pedidos', img: '/assets/landing_pedidos.jpg', desc: 'Visualización detallada de facturación, pasarelas de pago utilizadas, histórico de compras y estado logístico de las entregas.' },
-    { id: 'inventario', label: 'Stock & Variaciones', img: '/assets/landing_inventario.jpg', desc: 'Monitoreo sincronizado de stock, precios y variantes de productos en múltiples plataformas de e-commerce en simultáneo.' },
-    { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_creativos.jpg', desc: 'Embudo inteligente de comportamiento. Tasas de primer pedido (Entry Point), retención, velocidad de retorno (LTV) y cross-sell sugerido por producto.' },
-    { id: 'meta_ads', label: 'Meta Ads Analytics', img: '/assets/landing_meta_ads.jpg', desc: 'Estadísticas unificadas de rendimiento de pauta. Control de gasto real, alcance total, clicks, conversiones, CTR, ROAS y CPA exactos.' },
-    { id: 'perfil_dark', label: 'Gestión de Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: 'Sincronización con Klaviyo y automatización de campañas. Diseñá flujos de correos, segmentá clientes y recuperá carritos abandonados de forma automática.' }
+    { id: 'inicio', label: 'Inicio', img: '/assets/landing_inicio.jpg', desc: 'Tu negocio al descubierto en una sola pantalla. Monitoreá ingresos acumulados, pedidos de tus canales de venta, productos estrella y métricas ejecutivas en tiempo real.' },
+    { id: 'mensajeria', label: 'Mensajería Directa', img: '/assets/landing_mensajeria.jpg', desc: 'Bandeja omnicanal integrada para Instagram Direct, Facebook Messenger y WhatsApp. Automatizá la gestión diaria y redactá respuestas perfectas con el Cerebro de IA.' },
+    { id: 'creativos', label: 'Creativos Ads', img: '/assets/landing_analisis.jpg', desc: 'Control absoluto de tus campañas en Meta Ads. Compará rendimiento, CTR, ROAS y gasto real por pieza creativa en un solo panel para optimizar tu presupuesto.' },
+    { id: 'comentarios', label: 'Moderación Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Moderación automatizada para posteos orgánicos y anuncios de pago. Respondé consultas, filtrá spam y canalizá interacciones hacia la compra al instante.' },
+    { id: 'pedidos', label: 'Control Pedidos', img: '/assets/landing_pedidos.jpg', desc: 'Visualización detallada del flujo de compras. Seguimiento de estado de envío, facturación integrada, pasarelas de pago y comportamiento del cliente.' },
+    { id: 'inventario', label: 'Stock & Variaciones', img: '/assets/landing_inventario.jpg', desc: 'Sincronización total de tu catálogo. Modificá inventarios, variantes y precios y mirá cómo se propagan automáticamente en todas tus tiendas conectadas.' },
+    { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_creativos.jpg', desc: 'Embudo de comportamiento inteligente por producto. Tasas de primer pedido (Entry Point), retención de clientes, valor de vida (LTV) y velocidad de recompra.' },
+    { id: 'meta_ads', label: 'Meta Ads Analytics', img: '/assets/landing_meta_ads.jpg', desc: 'Estadísticas publicitarias unificadas. Medí alcance, conversiones, CTR, costo por adquisición (CPA) y ROAS exacto contrastado con ventas reales.' },
+    { id: 'perfil_dark', label: 'Gestión de Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: 'Sincronización directa con Klaviyo. Automatizá secuencias de correos para carritos abandonados, bienvenida y retención, atribuyendo cada venta a su respectiva campaña.' }
   ];
 
   const toggleFaq = (index: number) => {
@@ -202,7 +202,7 @@ export default function LandingPage() {
           </h1>
           
           <p className={`text-[13.5px] sm:text-[14.5px] max-w-xl mx-auto leading-relaxed mb-8 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-            Conectá tus tiendas online, marketplaces y canales de chat. Simplificá tu control de inventario y optimizá tu pauta publicitaria desde una interfaz unificada y veloz.
+            Centralizá tus canales de venta, automatizá la atención al cliente con Inteligencia Artificial y controlá tu rentabilidad real en tiempo real. Todo desde un panel unificado y ultrarrápido.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-14 animate-in fade-in slide-in-from-bottom-7 duration-1000">
@@ -317,9 +317,9 @@ export default function LandingPage() {
             <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
               <MessageSquare className="w-4 h-4 text-violet-500" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Inbox Unificado asistido por IA</h3>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja de entrada omnicanal y respuestas inteligentes con IA</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Centralizá las consultas de Instagram, Facebook y WhatsApp. Nuestro Cerebro de IA lee la consulta y sugiere borradores exactos basados en tu stock e historial para responder con un solo clic.
+              Centralizá todas tus conversaciones de WhatsApp, Instagram y Facebook en un solo lugar. El Cerebro de IA lee cada mensaje entrante y te sugiere respuestas exactas con stock y precios actualizados en tiempo real para cerrar ventas en segundos.
             </p>
             
             <div className="pt-1">
@@ -329,7 +329,7 @@ export default function LandingPage() {
                 className={`h-8 px-4 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-sm shadow-violet-600/10`}
               >
                 {chatStatus === 'idle' && (
-                  <>Simular respuesta sugerida por IA <ArrowRight className="w-3.5 h-3.5" /></>
+                  <>Probar simulación de respuesta con IA <ArrowRight className="w-3.5 h-3.5" /></>
                 )}
                 {chatStatus === 'sending' && (
                   <>IA redactando borrador... <RefreshCw className="w-3 h-3 animate-spin" /></>
@@ -443,9 +443,9 @@ export default function LandingPage() {
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
               <TrendingUp className="w-4 h-4 text-emerald-500" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Analizá si tu negocio es rentable, en un solo vistazo</h3>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Toma el control absoluto de tu rentabilidad sin planillas manuales</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Desde el panel principal, accedés a un resumen ejecutivo de todo tu negocio: ingresos acumulados, ticket promedio, pedidos por canal, productos más vendidos y comparación de períodos. Sin planillas, sin armados manuales.
+              Conectamos directamente tus pasarelas de pago y cuentas publicitarias para darte el ROAS real, ticket promedio, facturación neta y costos integrados en tiempo real. Tomá decisiones basadas en datos duros, no en suposiciones.
             </p>
             <div className="flex flex-col gap-2.5 pt-1">
               {[
@@ -487,9 +487,9 @@ export default function LandingPage() {
             <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
               <Zap className="w-4 h-4 text-pink-500" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Identificá qué creativos están funcionando y cuáles no</h3>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Escalá tus anuncios ganadores y recortá el gasto innecesario</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Visualizá todos tus anuncios activos en Meta Ads desde un solo lugar. Comparás alcance, clicks, conversiones y gasto en segundos para decidir qué escalar y qué pausar, sin salir de la plataforma.
+              Centralizá el rendimiento de tus piezas creativas en Meta y TikTok. Compará CTR, conversiones y retorno real por anuncio de manera visual para optimizar tu pauta publicitaria al instante y maximizar tu inversión.
             </p>
             <div className="flex flex-col gap-2.5 pt-1">
               {[
@@ -531,8 +531,8 @@ export default function LandingPage() {
       <section className="py-20 max-w-4xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="text-center max-w-2xl mx-auto mb-14">
           <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">EL DESAFÍO</span>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Menos fricción, más ventas</h2>
-          <p className="text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mt-1.5">Cómo Algoritmia reemplaza el desorden operativo tradicional.</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Eliminá el caos operativo de tu e-commerce</h2>
+          <p className="text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mt-1.5">Dejá atrás las planillas manuales y las ventas perdidas por falta de sincronización.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -544,16 +544,16 @@ export default function LandingPage() {
             <h3 className="text-[14.5px] font-bold font-display mb-3 text-zinc-850 dark:text-zinc-100">El caos operativo tradicional</h3>
             <ul className="space-y-3.5 text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
               <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">•</span> Clientes que esperan horas por respuestas de stock en Instagram.
+                <span className="text-red-500 mt-0.5">•</span> Métricas dispersas en múltiples planillas e informes lentos.
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">•</span> Ventas canceladas porque vendiste un producto sin stock real.
+                <span className="text-red-500 mt-0.5">•</span> Chats perdidos entre Instagram, Facebook y WhatsApp.
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">•</span> Imposibilidad de saber cuál anuncio de Meta Ads realmente generó pedidos.
+                <span className="text-red-500 mt-0.5">•</span> Falta de control del stock real y quiebres de inventario.
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">•</span> Información del cliente fragmentada en múltiples planillas y sistemas.
+                <span className="text-red-500 mt-0.5">•</span> Incertidumbre sobre qué anuncios y creativos traen retorno real.
               </li>
             </ul>
           </div>
@@ -566,16 +566,16 @@ export default function LandingPage() {
             <h3 className="text-[14.5px] font-bold font-display mb-3 text-zinc-850 dark:text-zinc-100">La solución unificada de Algoritmia</h3>
             <ul className="space-y-3.5 text-[12px] font-medium text-zinc-700 dark:text-zinc-300">
               <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Respuestas inmediatas unificando WhatsApp e Instagram DM.
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Ver todas las metricas Unificadas
               </li>
               <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Sincronización en tiempo real de variantes y catálogo completo.
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Mensajeria Unificada
               </li>
               <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Atribución real de pauta Meta/TikTok para entender tu ROAS real.
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Visualizacion de pedidos y stock
               </li>
               <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Ficha de cliente integrada con pedidos, chats e historial de notas.
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Gestion de los Anuncios
               </li>
             </ul>
           </div>
@@ -588,8 +588,8 @@ export default function LandingPage() {
       <section className="py-20 max-w-xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="mb-10">
           <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">PRECIO SIMPLE</span>
-          <h2 className="text-2xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Todo el poder, un único plan corporativo</h2>
-          <p className={`text-[12.5px] font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Integración completa y asistencia sin límites para tu equipo de trabajo.</p>
+          <h2 className="text-2xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Un único plan con todo el poder de automatización</h2>
+          <p className={`text-[12.5px] font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Accedé a todas las integraciones, soporte prioritario e infraestructura sin cargos ocultos ni límites de usuarios.</p>
         </div>
 
         <div className={`rounded-2xl border p-6 relative overflow-hidden text-left transition-all duration-300 ${
@@ -599,7 +599,7 @@ export default function LandingPage() {
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200/50 dark:border-white/[0.04] pb-5 mb-5">
             <div>
-              <h3 className="text-[15px] font-bold font-display text-zinc-900 dark:text-zinc-250">Plan Corporativo</h3>
+              <h3 className="text-[15px] font-bold font-display text-zinc-900 dark:text-white">Plan Corporativo</h3>
               <p className="text-[11.5px] text-zinc-400 font-semibold mt-0.5">Sincronización total multitienda e IA.</p>
             </div>
             <div className="flex items-baseline gap-0.5">
@@ -675,9 +675,9 @@ export default function LandingPage() {
       <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[80px] pointer-events-none" />
         <div className="max-w-3xl mx-auto px-6 relative z-10 space-y-5">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Optimiza tu gestión comercial hoy</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Impulsá la eficiencia y escala tu facturación hoy</h2>
           <p className={`text-[12.5px] font-medium max-w-sm mx-auto ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-            Conectá tus canales de venta y automatizá tu soporte técnico de manera inmediata.
+            Comenzá en menos de 5 minutos. Conectá tus tiendas y empezá a vender de forma inteligente.
           </p>
           <div className="flex justify-center pt-1">
             <Link
