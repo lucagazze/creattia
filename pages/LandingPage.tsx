@@ -163,7 +163,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className={`min-h-screen font-sans transition-colors duration-500 selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#000000] text-zinc-100' : 'bg-[#fafafc] text-zinc-900'}`}>
+    <div className={`min-h-screen font-sans transition-colors duration-500 selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-150' : 'bg-[#fafafc] text-zinc-800'}`}>
       
       {/* Estilos CSS Embebidos para Animaciones Marquee e Interactivas */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -174,55 +174,55 @@ export default function LandingPage() {
         .animate-marquee {
           display: flex;
           width: max-content;
-          animation: marquee 28s linear infinite;
+          animation: marquee 32s linear infinite;
         }
         .animate-marquee:hover {
           animation-play-state: paused;
         }
         .glow-hover:hover {
-          box-shadow: 0 0 30px rgba(139, 92, 246, 0.25);
+          box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
         }
         .pulse-sync {
           animation: pulseGlow 0.8s ease-out;
         }
         @keyframes pulseGlow {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
-          70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.3); }
+          70% { transform: scale(1.015); box-shadow: 0 0 0 6px rgba(139, 92, 246, 0); }
           100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
         }
       `}} />
 
       {/* Header */}
-      <header className={`sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-black/85 border-white/[0.06]' : 'bg-[#fafafc]/85 border-zinc-200/50'}`}>
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className={`sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-7 h-7 object-contain"
+              className="w-6.5 h-6.5 object-contain"
             />
             <div>
-              <span className="text-[13px] font-black tracking-tight uppercase leading-none block">
+              <span className="text-[11.5px] font-bold tracking-tight uppercase leading-none block font-display">
                 ALGORITMIA
               </span>
-              <span className="text-[8.5px] font-bold text-violet-500 tracking-[0.25em] uppercase">Gestión</span>
+              <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={toggleDarkMode}
-              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
-                darkMode ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
+                darkMode ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-white border-zinc-200/60 text-zinc-550 hover:bg-zinc-50 shadow-sm'
               }`}
               aria-label="Cambiar tema"
             >
-              {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-600" />}
+              {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-550" />}
             </button>
             <Link
               to="/login"
-              className={`h-9 px-4 rounded-xl text-[12px] font-extrabold flex items-center transition-all duration-200 ${
-                darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-md shadow-zinc-900/10'
+              className={`h-8 px-3 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
+                darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
               }`}
             >
               Iniciar sesión
@@ -232,33 +232,33 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-20 pb-20 overflow-hidden">
+      <section className="relative pt-16 pb-16 overflow-hidden">
         {/* Glows de fondo */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/5 dark:bg-violet-600/5 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-violet-600/5 dark:bg-violet-600/5 rounded-full blur-[120px] pointer-events-none" />
         
-        <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
-            <Sparkles className="w-3.5 h-3.5" /> Ecosistema Multitienda y Omnicanal
+        <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/15 mb-6 animate-in fade-in slide-in-from-top-4 duration-500 font-sans">
+            <Sparkles className="w-3 h-3" /> Ecosistema Multitienda y Omnicanal
           </div>
           
-          <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tight max-w-4xl mx-auto leading-[1.05] mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-bold tracking-tight max-w-3xl mx-auto leading-[1.12] mb-5 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
             Tu operación comercial en una sola pantalla.
           </h1>
           
-          <p className={`text-base sm:text-lg md:text-[21px] max-w-2xl mx-auto leading-relaxed mb-10 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-            Conectá tus tiendas online, marketplaces y canales de chat. Simplificá tu control de inventario y optimizá tu pauta publicitaria desde una interfaz profesional.
+          <p className={`text-[13.5px] sm:text-[14.5px] max-w-xl mx-auto leading-relaxed mb-8 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400' : 'text-zinc-550'}`}>
+            Conectá tus tiendas online, marketplaces y canales de chat. Simplificá tu control de inventario y optimizá tu pauta publicitaria desde una interfaz unificada y veloz.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-in fade-in slide-in-from-bottom-7 duration-1000">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-14 animate-in fade-in slide-in-from-bottom-7 duration-1000">
             <Link
               to="/login"
-              className="w-full sm:w-auto h-12 px-8 bg-violet-600 hover:bg-violet-500 text-white font-extrabold rounded-2xl text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-violet-600/20 active:scale-[0.98] transition-all glow-hover"
+              className="w-full sm:w-auto h-9.5 px-5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 shadow-sm shadow-violet-600/10 active:scale-[0.98] transition-all glow-hover"
             >
-              Comenzar prueba gratis <ArrowRight className="w-4 h-4" />
+              Comenzar prueba gratis <ArrowRight className="w-3.5 h-3.5" />
             </Link>
             <a
               href="#interactive-demo"
-              className={`w-full sm:w-auto h-12 px-8 border font-extrabold rounded-2xl text-[13px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+              className={`w-full sm:w-auto h-9.5 px-5 border font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
                 darkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 shadow-sm'
               }`}
             >
@@ -267,21 +267,21 @@ export default function LandingPage() {
           </div>
 
           {/* High-Fidelity Showcase Gallery Selector */}
-          <div id="platform-showcase" className="relative max-w-5xl mx-auto rounded-3xl border p-2 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/80 dark:border-white/[0.06] shadow-2xl shadow-zinc-950/5 dark:shadow-black/40 overflow-hidden animate-in fade-in zoom-in-95 duration-1000">
-            <div className={`w-full rounded-2xl border ${darkMode ? 'bg-[#0a0a0c] border-white/[0.05]' : 'bg-white border-zinc-200'} overflow-hidden`}>
+          <div id="platform-showcase" className="relative max-w-4xl mx-auto rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-1000">
+            <div className={`w-full rounded-xl border ${darkMode ? 'bg-[#060608] border-white/[0.04]' : 'bg-white border-zinc-200/60'} overflow-hidden`}>
               
               {/* Tab Selector Header */}
-              <div className="flex border-b border-zinc-200/50 dark:border-white/[0.05] overflow-x-auto scrollbar-none bg-zinc-50/50 dark:bg-zinc-950/20 p-2 md:p-3 gap-1">
+              <div className="flex border-b border-zinc-200/40 dark:border-white/[0.04] overflow-x-auto scrollbar-none bg-zinc-50/30 dark:bg-zinc-950/20 p-2 gap-1">
                 {showcaseTabs.map((tab) => {
                   const isActive = activeTabShowcase === tab.id;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTabShowcase(tab.id as any)}
-                      className={`h-9 px-4 rounded-xl text-[12px] font-black transition-all flex items-center justify-center shrink-0 border ${
+                      className={`h-7.5 px-3 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center shrink-0 border ${
                         isActive
-                          ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/10'
-                          : 'border-transparent text-zinc-550 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-white/5'
+                          ? 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-600/10 font-display'
+                          : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-white/5'
                       }`}
                     >
                       {tab.label}
@@ -291,16 +291,16 @@ export default function LandingPage() {
               </div>
 
               {/* Showcase Content Container */}
-              <div className="p-4 md:p-6 text-left space-y-4">
-                <p className={`text-[12.5px] font-semibold leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              <div className="p-4 md:p-5 text-left space-y-3.5">
+                <p className={`text-[11.5px] font-medium leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
                   {showcaseTabs.find(t => t.id === activeTabShowcase)?.desc}
                 </p>
-                <div className="relative rounded-xl border border-zinc-200/80 dark:border-white/[0.05] overflow-hidden bg-zinc-950 shadow-inner">
+                <div className="relative rounded-lg border border-zinc-200/40 dark:border-white/[0.04] overflow-hidden bg-zinc-950 shadow-inner">
                   <img
                     src={showcaseTabs.find(t => t.id === activeTabShowcase)?.img}
                     alt={showcaseTabs.find(t => t.id === activeTabShowcase)?.label}
                     className="w-full object-cover transition-opacity duration-300 animate-in fade-in"
-                    style={{ minHeight: '300px' }}
+                    style={{ minHeight: '260px' }}
                   />
                 </div>
               </div>
@@ -311,31 +311,30 @@ export default function LandingPage() {
       </section>
 
       {/* Infinite Logo Marquee (Slider / Carousel) */}
-      <section className={`py-10 border-t border-b overflow-hidden ${darkMode ? 'bg-zinc-950/40 border-white/[0.04]' : 'bg-zinc-50/50 border-zinc-200/50'}`}>
-        <div className="max-w-7xl mx-auto px-6 mb-6">
-          <p className="text-center text-[10px] font-extrabold text-zinc-400 dark:text-zinc-550 uppercase tracking-[0.25em]">
+      <section className={`py-8 border-t border-b overflow-hidden ${darkMode ? 'bg-zinc-950/30 border-white/[0.03]' : 'bg-zinc-50/30 border-zinc-200/40'}`}>
+        <div className="max-w-6xl mx-auto px-6 mb-4">
+          <p className="text-center text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] font-sans">
             CONEXIÓN DIRECTA CON TUS PLATAFORMAS PUBLICITARIAS Y DE E-COMMERCE
           </p>
         </div>
         
         {/* Infinite Scrolling Row */}
         <div className="relative w-full flex overflow-hidden">
-          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-[#fafafc] dark:from-[#000] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#fafafc] dark:from-[#000] to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
           
-          <div className="animate-marquee py-2 gap-12 md:gap-16">
-            {/* Primero renderizamos la lista completa */}
+          <div className="animate-marquee py-1 gap-8 md:gap-12">
             {integrations.concat(integrations).map((item, idx) => (
               <div 
                 key={`${item.name}-${idx}`} 
-                className="flex items-center gap-3 opacity-90 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-6 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.02] border border-transparent hover:border-violet-500/20"
+                className="flex items-center gap-2.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-9 px-4 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-violet-500/10"
               >
                 <img
                   src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
                   alt={item.name}
-                  className="h-7 md:h-8 object-contain max-w-[120px]"
+                  className="h-5 object-contain max-w-[100px]"
                 />
-                <span className="text-[13px] font-extrabold tracking-tight">{item.name}</span>
+                <span className="text-[11px] font-bold tracking-tight">{item.name}</span>
               </div>
             ))}
           </div>
@@ -343,36 +342,36 @@ export default function LandingPage() {
       </section>
 
       {/* Secciones Interactivas de Demostración del Producto */}
-      <section id="interactive-demo" className="py-24 max-w-7xl mx-auto px-6 space-y-32">
+      <section id="interactive-demo" className="py-20 max-w-5xl mx-auto px-6 space-y-28">
         
-        <div className="text-center max-w-3xl mx-auto">
-          <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-widest block mb-3">DEMO EN VIVO</span>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-none">Interactúa con nuestras soluciones</h2>
-          <p className={`text-base font-semibold mt-3 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Probá el comportamiento de la plataforma en tiempo real con estas maquetas interactivas.</p>
+        <div className="text-center max-w-2xl mx-auto mb-16">
+          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">DEMO EN VIVO</span>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Interactúa con nuestras soluciones</h2>
+          <p className={`text-[12.5px] mt-2 font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-550'}`}>Probá el comportamiento de la plataforma en tiempo real con estas maquetas interactivas.</p>
         </div>
 
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
-        <div className="flex flex-col lg:flex-row items-center gap-12">
-          <div className="flex-1 space-y-6">
-            <div className="w-12 h-12 rounded-2xl bg-violet-500/10 flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-violet-500" />
+        <div className="flex flex-col lg:flex-row items-center gap-10">
+          <div className="flex-1 space-y-5">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
+              <MessageSquare className="w-4 h-4 text-violet-500" />
             </div>
-            <h3 className="text-2xl sm:text-4xl font-black tracking-tight">Inbox Unificado asistido por IA</h3>
-            <p className={`text-[15px] sm:text-base leading-relaxed font-semibold ${darkMode ? 'text-zinc-450' : 'text-zinc-500'}`}>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Inbox Unificado asistido por IA</h3>
+            <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-550'}`}>
               Centralizá las consultas de Instagram, Facebook y WhatsApp. Nuestro Cerebro de IA lee la consulta y sugiere borradores exactos basados en tu stock e historial para responder con un solo clic.
             </p>
             
-            <div className="pt-2">
+            <div className="pt-1">
               <button 
                 onClick={handleSendAiResponse}
                 disabled={chatStatus !== 'idle'}
-                className={`h-11 px-6 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-extrabold rounded-2xl text-[12px] flex items-center gap-2 transition-all active:scale-[0.98] shadow-md shadow-violet-600/10`}
+                className={`h-8.5 px-4 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-sm shadow-violet-600/10`}
               >
                 {chatStatus === 'idle' && (
-                  <>Simular respuesta sugerida por IA <ArrowRight className="w-4 h-4" /></>
+                  <>Simular respuesta sugerida por IA <ArrowRight className="w-3.5 h-3.5" /></>
                 )}
                 {chatStatus === 'sending' && (
-                  <>IA redactando borrador... <RefreshCw className="w-3.5 h-3.5 animate-spin" /></>
+                  <>IA redactando borrador... <RefreshCw className="w-3 h-3 animate-spin" /></>
                 )}
                 {chatStatus === 'sent' && (
                   <>¡Respuesta enviada! 🎉</>
@@ -381,7 +380,7 @@ export default function LandingPage() {
               {chatStatus === 'sent' && (
                 <button 
                   onClick={handleResetChat}
-                  className="mt-3 text-[11px] font-bold text-violet-500 hover:underline block"
+                  className="mt-2.5 text-[10px] font-semibold text-violet-500 hover:underline block"
                 >
                   Reiniciar simulación
                 </button>
@@ -390,70 +389,70 @@ export default function LandingPage() {
           </div>
 
           {/* Caja Interactiva de Chat */}
-          <div className="flex-1 w-full rounded-3xl border p-2 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/80 dark:border-white/[0.06] shadow-xl">
-            <div className={`rounded-2xl border ${darkMode ? 'bg-[#0b0b0d]/90 border-white/[0.05]' : 'bg-white border-zinc-250/50'} overflow-hidden h-[380px] flex flex-col justify-between`}>
+          <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
+            <div className={`rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} overflow-hidden h-[330px] flex flex-col justify-between`}>
               
               {/* Encabezado del Chat */}
-              <div className="flex items-center justify-between p-4 border-b border-zinc-200/50 dark:border-white/[0.05] bg-zinc-100/30 dark:bg-zinc-950/40">
+              <div className="flex items-center justify-between p-3 border-b border-zinc-200/40 dark:border-white/[0.04] bg-zinc-50/30 dark:bg-zinc-950/30">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center text-white text-xs font-bold font-mono">SR</div>
+                  <div className="w-7 h-7 rounded-full bg-pink-500 flex items-center justify-center text-white text-[11px] font-bold font-mono">SR</div>
                   <div>
-                    <p className="text-[12px] font-bold">Sofía Rodríguez</p>
-                    <p className="text-[9px] text-zinc-450 flex items-center gap-1 font-semibold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-pink-500" /> Instagram DM
+                    <p className="text-[11px] font-bold">Sofía Rodríguez</p>
+                    <p className="text-[8.5px] text-zinc-500 flex items-center gap-1 font-semibold">
+                      <span className="w-1 h-1 rounded-full bg-pink-500" /> Instagram DM
                     </p>
                   </div>
                 </div>
-                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${chatStatus === 'sent' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
+                <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded ${chatStatus === 'sent' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
                   {chatStatus === 'sent' ? 'Respondido' : 'Pendiente'}
                 </span>
               </div>
 
               {/* Mensajes */}
-              <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+              <div className="flex-1 p-3 space-y-2.5 overflow-y-auto">
                 {chatMessages.map(msg => (
                   <div 
                     key={msg.id} 
                     className={`flex flex-col max-w-[80%] ${msg.sender === 'ai' ? 'ml-auto items-end animate-in slide-in-from-bottom-2 duration-300' : 'items-start'}`}
                   >
-                    <div className={`p-3 rounded-2xl text-[12px] font-medium leading-relaxed ${
+                    <div className={`p-2.5 rounded-xl text-[11px] font-medium leading-relaxed ${
                       msg.sender === 'ai' 
                         ? 'bg-violet-600 text-white rounded-tr-none' 
-                        : (darkMode ? 'bg-zinc-900 text-zinc-250 rounded-tl-none' : 'bg-zinc-100 text-zinc-800 rounded-tl-none')
+                        : (darkMode ? 'bg-zinc-900 text-zinc-300 rounded-tl-none' : 'bg-zinc-100 text-zinc-800 rounded-tl-none')
                     }`}>
                       {msg.text}
                     </div>
-                    <span className="text-[8.5px] text-zinc-500 font-semibold mt-1 px-1">{msg.time}</span>
+                    <span className="text-[8px] text-zinc-500 font-semibold mt-0.5 px-1">{msg.time}</span>
                   </div>
                 ))}
 
                 {chatStatus === 'sending' && (
-                  <div className="flex items-center gap-1 p-3 rounded-2xl bg-zinc-900/50 max-w-[80px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="flex items-center gap-1 p-2.5 rounded-xl bg-zinc-900/40 max-w-[70px]">
+                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 )}
               </div>
 
               {/* Caja de Entrada + Sugerencia de IA */}
-              <div className="p-4 border-t border-zinc-200/50 dark:border-white/[0.05] bg-zinc-100/30 dark:bg-zinc-950/40">
+              <div className="p-3 border-t border-zinc-200/40 dark:border-white/[0.04] bg-zinc-50/30 dark:bg-zinc-950/30">
                 {chatStatus === 'idle' && (
-                  <div className={`p-3 rounded-xl border mb-3 flex flex-col gap-1.5 text-left transition-all ${
-                    darkMode ? 'bg-violet-950/10 border-violet-500/20' : 'bg-violet-50 border-violet-200'
+                  <div className={`p-2.5 rounded-lg border mb-2.5 flex flex-col gap-1 text-left transition-all ${
+                    darkMode ? 'bg-violet-950/10 border-violet-500/15' : 'bg-violet-50 border-violet-200/50'
                   }`}>
                     <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-                      <span className="text-[10px] font-black uppercase text-violet-600 dark:text-violet-400 tracking-wider">Cerebro de IA — Respuesta Sugerida</span>
+                      <Sparkles className="w-3 h-3 text-violet-500" />
+                      <span className="text-[9px] font-bold uppercase text-violet-650 dark:text-violet-400 tracking-wider">Cerebro de IA — Respuesta Sugerida</span>
                     </div>
-                    <p className={`text-[11px] leading-relaxed font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-650'}`}>
+                    <p className={`text-[10.5px] leading-relaxed font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
                       "¡Hola Sofía! Sí, nos queda la última unidad en talle S de ese tapado..."
                     </p>
                     <button 
                       onClick={handleSendAiResponse}
-                      className="mt-1 self-start text-[10px] font-black text-violet-600 dark:text-violet-400 hover:underline uppercase flex items-center gap-0.5"
+                      className="mt-1 self-start text-[9px] font-bold text-violet-650 dark:text-violet-400 hover:underline uppercase flex items-center gap-0.5"
                     >
-                      Aprobar y enviar <ArrowUpRight className="w-3 h-3" />
+                      Aprobar y enviar <ArrowUpRight className="w-2.5 h-2.5" />
                     </button>
                   </div>
                 )}
@@ -463,12 +462,12 @@ export default function LandingPage() {
                     type="text" 
                     placeholder="Escribí una respuesta..." 
                     readOnly
-                    className={`flex-1 h-9 px-3 rounded-xl text-xs outline-none border ${
-                      darkMode ? 'bg-zinc-900 border-white/[0.05] text-zinc-400' : 'bg-zinc-50 border-zinc-250/50 text-zinc-500'
+                    className={`flex-1 h-8 px-2.5 rounded-lg text-[11px] outline-none border ${
+                      darkMode ? 'bg-zinc-900 border-white/[0.04] text-zinc-400' : 'bg-zinc-50 border-zinc-200/55 text-zinc-500'
                     }`}
                   />
-                  <button className="h-9 w-9 rounded-xl bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center shrink-0">
-                    <ArrowUpRight className="w-4 h-4" />
+                  <button className="h-8 w-8 rounded-lg bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center shrink-0">
+                    <ArrowUpRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -478,58 +477,58 @@ export default function LandingPage() {
         </div>
 
         {/* 2. MAQUETA INTERACTIVA DE SINCRONIZACIÓN DE STOCK */}
-        <div className="flex flex-col lg:flex-row-reverse items-center gap-12">
-          <div className="flex-1 space-y-6">
-            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5 text-cyan-400" />
+        <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
+          <div className="flex-1 space-y-5">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4 text-cyan-400" />
             </div>
-            <h3 className="text-2xl sm:text-4xl font-black tracking-tight">Sincronización Multitienda en Vivo</h3>
-            <p className={`text-[15px] sm:text-base leading-relaxed font-semibold ${darkMode ? 'text-zinc-455' : 'text-zinc-500'}`}>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Sincronización Multitienda en Vivo</h3>
+            <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-550'}`}>
               Evitá la sobreventa. Cuando vendés en un local físico o actualizás el stock manualmente desde el panel de Algoritmia, el inventario se ajusta instantáneamente en Mercado Libre, Shopify, Tiendanube y WooCommerce.
             </p>
 
             {/* Selector Interactivo de Demo */}
-            <div className="p-4 rounded-2xl border border-zinc-200 dark:border-white/[0.05] bg-zinc-100/30 dark:bg-zinc-950/20 max-w-sm flex items-center justify-between">
+            <div className="p-3 rounded-xl border border-zinc-200/50 dark:border-white/[0.04] bg-zinc-100/30 dark:bg-zinc-950/20 max-w-xs flex items-center justify-between">
               <div>
-                <p className="text-[12px] font-black uppercase text-zinc-400 tracking-wider">Modificar Inventario</p>
-                <p className="text-[10px] text-zinc-450 font-semibold mt-0.5">Simulá un ajuste de stock</p>
+                <p className="text-[10px] font-bold uppercase text-zinc-450 tracking-wider">Modificar Inventario</p>
+                <p className="text-[9px] text-zinc-500 font-semibold mt-0.5">Simulá un ajuste de stock</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <button 
                   onClick={() => handleUpdateStock(-1)}
-                  className="w-8 h-8 rounded-xl border border-zinc-250 dark:border-white/10 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/5 transition-all text-zinc-400 active:scale-90"
+                  className="w-7.5 h-7.5 rounded-lg border border-zinc-200 dark:border-white/10 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/5 transition-all text-zinc-400 active:scale-90"
                 >
-                  <Minus className="w-4 h-4" />
+                  <Minus className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-lg font-black w-6 text-center">{stock}</span>
+                <span className="text-base font-bold w-5 text-center">{stock}</span>
                 <button 
                   onClick={() => handleUpdateStock(1)}
-                  className="w-8 h-8 rounded-xl border border-zinc-250 dark:border-white/10 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/5 transition-all text-zinc-400 active:scale-90"
+                  className="w-7.5 h-7.5 rounded-lg border border-zinc-200 dark:border-white/10 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/5 transition-all text-zinc-400 active:scale-90"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           </div>
 
           {/* Representación Visual de Sincronización */}
-          <div className="flex-1 w-full rounded-3xl border p-2 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/80 dark:border-white/[0.06] shadow-xl">
-            <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-[#0b0b0d]/90 border-white/[0.05]' : 'bg-white border-zinc-250/50'} space-y-6 text-left`}>
+          <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
+            <div className={`p-5 rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} space-y-5 text-left`}>
               
               {/* Product Info */}
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-250/50 dark:border-white/[0.05] flex items-center justify-center text-2xl">🧥</div>
+              <div className="flex items-center gap-3.5">
+                <div className="w-14 h-14 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/60 dark:border-white/[0.04] flex items-center justify-center text-xl">🧥</div>
                 <div>
-                  <h4 className="text-[14px] font-black">Tapado de Cuero Premium</h4>
-                  <p className="text-[10px] text-zinc-450 font-semibold mt-0.5">SKU: TAP-CL-01 · $89,900</p>
-                  <span className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black text-emerald-500 bg-emerald-550/10">
+                  <h4 className="text-[13px] font-bold">Tapado de Cuero Premium</h4>
+                  <p className="text-[9.5px] text-zinc-500 font-semibold mt-0.5">SKU: TAP-CL-01 · $89,900</p>
+                  <span className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8.5px] font-bold text-emerald-500 bg-emerald-500/10">
                     <span className="w-1 h-1 rounded-full bg-emerald-500" /> Stock Unificado: {stock} unidades
                   </span>
                 </div>
               </div>
 
               {/* Stores Grid Sincronizados */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {[
                   { name: 'Shopify', logo: '/assets/shopify-bag.webp', label: 'tienda-online' },
                   { name: 'Tiendanube', logo: '/assets/tiendanubeoscuro.png', darkLogo: '/assets/tiendanube.webp', label: 'Zane Labs' },
@@ -538,26 +537,26 @@ export default function LandingPage() {
                 ].map((store) => (
                   <div 
                     key={store.name}
-                    className={`p-3.5 rounded-xl border transition-all duration-300 flex items-center justify-between ${
+                    className={`p-3 rounded-lg border transition-all duration-300 flex items-center justify-between ${
                       syncPulse 
-                        ? 'pulse-sync border-violet-500 bg-violet-500/[0.02]' 
-                        : (darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50/60 border-zinc-200')
+                        ? 'pulse-sync border-violet-500 bg-violet-500/[0.015]' 
+                        : (darkMode ? 'bg-zinc-900/20 border-white/[0.04]' : 'bg-zinc-50/50 border-zinc-200/80')
                     }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <img 
                         src={darkMode && store.darkLogo ? store.darkLogo : store.logo} 
                         alt={store.name} 
-                        className="w-8 h-8 object-contain flex-shrink-0"
+                        className="w-7 h-7 object-contain flex-shrink-0"
                       />
                       <div className="min-w-0">
-                        <p className="text-[10px] font-black leading-none">{store.name}</p>
-                        <p className="text-[8.5px] text-zinc-450 truncate mt-0.5">{store.label}</p>
+                        <p className="text-[9.5px] font-bold leading-none">{store.name}</p>
+                        <p className="text-[8px] text-zinc-500 truncate mt-0.5">{store.label}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
-                      <span className="text-[13px] font-black text-violet-500">{stock}</span>
-                      <span className="text-[7.5px] font-extrabold text-zinc-500 tracking-wider">UNIDADES</span>
+                      <span className="text-[12px] font-bold text-violet-500">{stock}</span>
+                      <span className="text-[7px] font-bold text-zinc-450 tracking-wider">UNIDADES</span>
                     </div>
                   </div>
                 ))}
@@ -570,54 +569,54 @@ export default function LandingPage() {
       </section>
 
       {/* Problem vs Solution Section (Ultra-Minimalist) */}
-      <section className="py-24 max-w-7xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.04]">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-widest block mb-3">EL DESAFÍO</span>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-none">Menos fricción, más ventas</h2>
-          <p className="text-[13.5px] font-bold text-zinc-450 mt-2">Cómo Algoritmia reemplaza el desorden operativo tradicional.</p>
+      <section className="py-20 max-w-4xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">EL DESAFÍO</span>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Menos fricción, más ventas</h2>
+          <p className="text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mt-1.5">Cómo Algoritmia reemplaza el desorden operativo tradicional.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Problem Card */}
-          <div className={`p-8 rounded-3xl border transition-all duration-300 ${darkMode ? 'bg-zinc-950/40 border-red-500/10' : 'bg-white border-zinc-200/60 shadow-sm'}`}>
-            <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center mb-6">
-              <span className="text-red-500 font-extrabold text-[15px]">✕</span>
+          <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-zinc-950/30 border-red-500/10' : 'bg-white border-zinc-200/50 shadow-sm'}`}>
+            <div className="w-8.5 h-8.5 rounded-lg bg-red-500/10 flex items-center justify-center mb-5">
+              <span className="text-red-500 font-bold text-[13px]">✕</span>
             </div>
-            <h3 className="text-[17px] font-black mb-4">El caos operativo tradicional</h3>
-            <ul className="space-y-4 text-[13.5px] font-semibold text-zinc-500 dark:text-zinc-450">
-              <li className="flex items-start gap-2.5">
-                <span className="text-red-500 mt-0.5">•</span> Clientes que esperan horas por respuestas de stock en Instagram.
+            <h3 className="text-[14.5px] font-bold font-display mb-3 text-zinc-850 dark:text-zinc-100">El caos operativo tradicional</h3>
+            <ul className="space-y-3.5 text-[12px] font-medium text-zinc-550 dark:text-zinc-400">
+              <li className="flex items-start gap-2">
+                <span className="text-red-550 mt-0.5">•</span> Clientes que esperan horas por respuestas de stock en Instagram.
               </li>
-              <li className="flex items-start gap-2.5">
-                <span className="text-red-500 mt-0.5">•</span> Ventas canceladas porque vendiste un producto sin stock real.
+              <li className="flex items-start gap-2">
+                <span className="text-red-550 mt-0.5">•</span> Ventas canceladas porque vendiste un producto sin stock real.
               </li>
-              <li className="flex items-start gap-2.5">
-                <span className="text-red-500 mt-0.5">•</span> Imposibilidad de saber cuál anuncio de Meta Ads realmente generó pedidos.
+              <li className="flex items-start gap-2">
+                <span className="text-red-550 mt-0.5">•</span> Imposibilidad de saber cuál anuncio de Meta Ads realmente generó pedidos.
               </li>
-              <li className="flex items-start gap-2.5">
-                <span className="text-red-500 mt-0.5">•</span> Información del cliente fragmentada en múltiples planillas y sistemas.
+              <li className="flex items-start gap-2">
+                <span className="text-red-550 mt-0.5">•</span> Información del cliente fragmentada en múltiples planillas y sistemas.
               </li>
             </ul>
           </div>
 
           {/* Solution Card */}
-          <div className={`p-8 rounded-3xl border transition-all duration-300 ${darkMode ? 'bg-violet-950/5 border-violet-500/15' : 'bg-violet-500/[0.01] border-violet-200/50 shadow-sm'}`}>
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-6">
-              <Check className="w-4.5 h-4.5 text-violet-500" />
+          <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-violet-950/5 border-violet-500/15' : 'bg-violet-500/[0.005] border-violet-200/40 shadow-sm'}`}>
+            <div className="w-8.5 h-8.5 rounded-lg bg-violet-500/10 flex items-center justify-center mb-5">
+              <Check className="w-4 h-4 text-violet-500" />
             </div>
-            <h3 className="text-[17px] font-black mb-4">La solución unificada de Algoritmia</h3>
-            <ul className="space-y-4 text-[13.5px] font-semibold text-zinc-700 dark:text-zinc-300">
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> Respuestas inmediatas unificando WhatsApp e Instagram DM.
+            <h3 className="text-[14.5px] font-bold font-display mb-3 text-zinc-850 dark:text-zinc-100">La solución unificada de Algoritmia</h3>
+            <ul className="space-y-3.5 text-[12px] font-medium text-zinc-750 dark:text-zinc-350">
+              <li className="flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Respuestas inmediatas unificando WhatsApp e Instagram DM.
               </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> Sincronización en tiempo real de variantes y catálogo completo.
+              <li className="flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Sincronización en tiempo real de variantes y catálogo completo.
               </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> Atribución real de pauta Meta/TikTok para entender tu ROAS real.
+              <li className="flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Atribución real de pauta Meta/TikTok para entender tu ROAS real.
               </li>
-              <li className="flex items-start gap-2.5">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> Ficha de cliente integrada con pedidos, chats e historial de notas.
+              <li className="flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Ficha de cliente integrada con pedidos, chats e historial de notas.
               </li>
             </ul>
           </div>
@@ -625,22 +624,22 @@ export default function LandingPage() {
       </section>
 
       {/* Grid Features (Value Props) */}
-      <section className="py-20 max-w-7xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.04]">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-widest block mb-3">TECNOLOGÍA</span>
-          <h2 className="text-3xl font-black tracking-tight leading-none">Diseñado para la eficiencia operativa</h2>
+      <section className="py-20 max-w-5xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">TECNOLOGÍA</span>
+          <h2 className="text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Diseñado para la eficiencia operativa</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4.5">
           {valueProps.map((prop) => {
             const Icon = prop.icon;
             return (
-              <div key={prop.title} className={`p-6 rounded-3xl border transition-all duration-300 hover:scale-[1.01] ${darkMode ? 'bg-zinc-900/20 border-white/[0.05]' : 'bg-white border-zinc-200/60 shadow-sm'}`}>
-                <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-5">
-                  <Icon className="w-4.5 h-4.5 text-violet-500" />
+              <div key={prop.title} className={`p-5 rounded-2xl border transition-all duration-300 hover:scale-[1.01] ${darkMode ? 'bg-zinc-900/10 border-white/[0.04]' : 'bg-white border-zinc-200/50 shadow-sm'}`}>
+                <div className="w-8.5 h-8.5 rounded-lg bg-violet-500/10 flex items-center justify-center mb-4.5">
+                  <Icon className="w-4 h-4 text-violet-500" />
                 </div>
-                <h4 className="text-[15px] font-extrabold mb-2.5">{prop.title}</h4>
-                <p className={`text-[12.5px] leading-relaxed font-semibold ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{prop.description}</p>
+                <h4 className="text-[13.5px] font-bold font-display mb-1.5 text-zinc-900 dark:text-zinc-100">{prop.title}</h4>
+                <p className={`text-[11.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-450'}`}>{prop.description}</p>
               </div>
             );
           })}
@@ -648,30 +647,30 @@ export default function LandingPage() {
       </section>
 
       {/* Corporate Pricing Card (Minimalist Apple style) */}
-      <section className="py-24 max-w-3xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.04]">
-        <div className="mb-12">
-          <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-widest block mb-3">PRECIO SIMPLE</span>
-          <h2 className="text-3xl font-black tracking-tight mb-4">Todo el poder, un único plan corporativo</h2>
-          <p className={`text-[14px] font-semibold ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Integración completa y asistencia sin límites para tu equipo de trabajo.</p>
+      <section className="py-20 max-w-xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.03]">
+        <div className="mb-10">
+          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">PRECIO SIMPLE</span>
+          <h2 className="text-2xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Todo el poder, un único plan corporativo</h2>
+          <p className={`text-[12.5px] font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-450'}`}>Integración completa y asistencia sin límites para tu equipo de trabajo.</p>
         </div>
 
-        <div className={`rounded-3xl border p-8 relative overflow-hidden text-left transition-all duration-300 ${
-          darkMode ? 'bg-zinc-950/60 border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.5)]' : 'bg-white border-zinc-200 shadow-xl shadow-zinc-200/10'
+        <div className={`rounded-2xl border p-6 relative overflow-hidden text-left transition-all duration-300 ${
+          darkMode ? 'bg-zinc-950/50 border-white/[0.06] shadow-[0_15px_40px_rgba(0,0,0,0.4)]' : 'bg-white border-zinc-200 shadow-lg shadow-zinc-200/5'
         }`}>
-          <div className="absolute top-0 right-0 bg-violet-600 text-white font-extrabold text-[9px] uppercase tracking-wider px-3.5 py-1 rounded-bl-xl">POPULAR</div>
+          <div className="absolute top-0 right-0 bg-violet-600 text-white font-bold text-[8.5px] uppercase tracking-wider px-3 py-0.5 rounded-bl-lg font-display">POPULAR</div>
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/60 dark:border-white/[0.06] pb-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200/50 dark:border-white/[0.04] pb-5 mb-5">
             <div>
-              <h3 className="text-lg font-black">Plan Corporativo</h3>
-              <p className="text-[12.5px] text-zinc-400 font-semibold mt-1">Sincronización total multitienda e IA.</p>
+              <h3 className="text-[15px] font-bold font-display text-zinc-900 dark:text-zinc-150">Plan Corporativo</h3>
+              <p className="text-[11.5px] text-zinc-450 font-semibold mt-0.5">Sincronización total multitienda e IA.</p>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl sm:text-4xl font-black">$ 49</span>
-              <span className="text-zinc-450 font-semibold text-[13px]">/ mes</span>
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-3xl font-bold font-display text-zinc-900 dark:text-white">$ 49</span>
+              <span className="text-zinc-500 font-semibold text-[12px]">/ mes</span>
             </div>
           </div>
 
-          <div className="space-y-4 mb-8">
+          <div className="space-y-3.5 mb-6.5">
             {[
               'Sincronización en tiempo real de Shopify, Tiendanube, WooCommerce y ML',
               'Bandeja omnicanal de mensajes (WhatsApp, Instagram y Facebook)',
@@ -680,8 +679,8 @@ export default function LandingPage() {
               'Agentes y colaboradores de soporte sin costos adicionales',
               'Soporte corporativo y prioritario 24/7'
             ].map((feature) => (
-              <div key={feature} className="flex items-start gap-3 text-[13px] font-semibold">
-                <Check className="w-4.5 h-4.5 text-emerald-500 shrink-0 mt-0.5" />
+              <div key={feature} className="flex items-start gap-2.5 text-[12px] font-medium">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span>{feature}</span>
               </div>
             ))}
@@ -689,7 +688,7 @@ export default function LandingPage() {
 
           <Link
             to="/login"
-            className="w-full h-11 bg-violet-600 hover:bg-violet-500 text-white font-extrabold rounded-2xl text-[13px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-md shadow-violet-600/10 glow-hover"
+            className="w-full h-9 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all shadow-sm shadow-violet-600/10 glow-hover"
           >
             Comenzar mi prueba gratuita
           </Link>
@@ -697,33 +696,33 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ Section (Accordion) */}
-      <section className="py-24 max-w-4xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.04]">
-        <div className="text-center mb-12">
-          <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-widest block mb-2">RESPUESTAS RÁPIDAS</span>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-center">Preguntas frecuentes</h2>
+      <section className="py-20 max-w-3xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
+        <div className="text-center mb-10">
+          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">RESPUESTAS RÁPIDAS</span>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-center text-zinc-900 dark:text-white">Preguntas frecuentes</h2>
         </div>
-        <div className="space-y-3.5">
+        <div className="space-y-3">
           {faqs.map((faq, idx) => {
             const isOpen = activeFaq === idx;
             return (
               <div
                 key={faq.q}
-                className={`rounded-2xl border transition-all duration-300 ${
+                className={`rounded-xl border transition-all duration-300 ${
                   isOpen 
-                    ? (darkMode ? 'bg-zinc-900/35 border-violet-500/20 shadow-md' : 'bg-violet-500/[0.01] border-violet-500/20 shadow-sm')
-                    : (darkMode ? 'bg-[#060608]/40 border-white/[0.04] hover:bg-zinc-900/20 hover:border-white/[0.08]' : 'bg-white border-zinc-200/60 hover:bg-zinc-50/50')
+                    ? (darkMode ? 'bg-zinc-900/20 border-violet-500/20 shadow' : 'bg-violet-500/[0.005] border-violet-500/15 shadow-sm')
+                    : (darkMode ? 'bg-[#060608]/40 border-white/[0.03] hover:bg-zinc-900/10 hover:border-white/[0.06]' : 'bg-white border-zinc-200/50 hover:bg-zinc-50/50')
                 }`}
               >
                 <button
                   onClick={() => toggleFaq(idx)}
-                  className="w-full px-6 py-4.5 flex items-center justify-between gap-4 text-left"
+                  className="w-full px-5 py-3.5 flex items-center justify-between gap-4 text-left"
                 >
-                  <span className={`text-[14.0px] sm:text-[14.5px] font-bold tracking-tight transition-colors duration-250 ${isOpen ? 'text-violet-500 dark:text-violet-400' : 'text-zinc-800 dark:text-zinc-250'}`}>{faq.q}</span>
-                  <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-violet-500' : ''}`} />
+                  <span className={`text-[12.5px] sm:text-[13px] font-semibold tracking-tight transition-colors duration-250 ${isOpen ? 'text-violet-500 dark:text-violet-400 font-display' : 'text-zinc-800 dark:text-zinc-200'}`}>{faq.q}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-violet-500' : ''}`} />
                 </button>
                 {isOpen && (
-                  <div className={`px-6 pb-5 text-[13px] leading-relaxed font-medium border-t pt-3.5 animate-in fade-in duration-300 ${
-                    darkMode ? 'text-zinc-400 border-white/[0.04]' : 'text-zinc-550 border-zinc-100'
+                  <div className={`px-5 pb-4 text-[11.5px] sm:text-[12px] leading-relaxed font-medium border-t pt-3 animate-in fade-in duration-300 ${
+                    darkMode ? 'text-zinc-400 border-white/[0.03]' : 'text-zinc-550 border-zinc-100'
                   }`}>
                     {faq.a}
                   </div>
@@ -735,43 +734,43 @@ export default function LandingPage() {
       </section>
 
       {/* Call to Action Final */}
-      <section className={`py-20 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/20 border-t border-white/[0.04]' : 'bg-zinc-50 border-t border-zinc-200/50'}`}>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-violet-500/5 rounded-full blur-[80px] pointer-events-none" />
-        <div className="max-w-4xl mx-auto px-6 relative z-10 space-y-6">
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Optimiza tu gestión comercial hoy</h2>
-          <p className={`text-[14px] font-semibold max-w-md mx-auto ${darkMode ? 'text-zinc-500' : 'text-zinc-450'}`}>
+      <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[80px] pointer-events-none" />
+        <div className="max-w-3xl mx-auto px-6 relative z-10 space-y-5">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Optimiza tu gestión comercial hoy</h2>
+          <p className={`text-[12.5px] font-medium max-w-sm mx-auto ${darkMode ? 'text-zinc-500' : 'text-zinc-450'}`}>
             Conectá tus canales de venta y automatizá tu soporte técnico de manera inmediata.
           </p>
-          <div className="flex justify-center pt-2">
+          <div className="flex justify-center pt-1">
             <Link
               to="/login"
-              className="h-12 px-8 bg-violet-600 hover:bg-violet-500 text-white font-extrabold rounded-2xl text-[13px] flex items-center justify-center gap-2 shadow-lg shadow-violet-600/15 active:scale-[0.98] transition-all glow-hover"
+              className="h-9 px-6 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 shadow-sm shadow-violet-600/10 active:scale-[0.98] transition-all glow-hover"
             >
-              Crear mi cuenta <ArrowRight className="w-4 h-4" />
+              Crear mi cuenta <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className={`py-12 border-t text-center ${darkMode ? 'bg-black border-white/[0.06] text-zinc-650' : 'bg-white border-zinc-200/50 text-zinc-400'}`}>
-        <div className="max-w-7xl mx-auto px-6 space-y-6">
+      <footer className={`py-10 border-t text-center ${darkMode ? 'bg-black border-white/[0.04] text-zinc-600' : 'bg-white border-zinc-200/40 text-zinc-450'}`}>
+        <div className="max-w-6xl mx-auto px-6 space-y-5">
           <div className="flex items-center justify-center gap-2">
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-5 h-5 object-contain"
+              className="w-4.5 h-4.5 object-contain"
             />
-            <span className="text-[11px] font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-200">ALGORITMIA</span>
+            <span className="text-[10px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGORITMIA</span>
           </div>
-          <p className="text-[11.5px] font-semibold max-w-sm mx-auto leading-relaxed">
+          <p className="text-[10.5px] font-medium max-w-xs mx-auto leading-relaxed">
             Ecosistema de control y automatización omnicanal para e-commerce. Diseñado por Algoritmia Desarrollos.
           </p>
-          <div className="flex justify-center gap-6 text-[11px] font-extrabold">
+          <div className="flex justify-center gap-5 text-[9.5px] font-semibold">
             <Link to="/privacidad" className="hover:underline">Políticas de Privacidad</Link>
             <Link to="/soporte" className="hover:underline">Soporte Técnico</Link>
           </div>
-          <p className="text-[10px] font-medium text-zinc-500 pt-2">
+          <p className="text-[8.5px] font-medium text-zinc-500 pt-1.5">
             &copy; {new Date().getFullYear()} Algoritmia Desarrollos. Todos los derechos reservados.
           </p>
         </div>
