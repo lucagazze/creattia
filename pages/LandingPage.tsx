@@ -86,7 +86,7 @@ export default function LandingPage() {
     setActiveFaq(activeFaq === index ? null : index);
   };
 
-  // Logos de Integraciones con el nuevo Google Ads
+  // Logos de Integraciones con el nuevo Google Ads y Chatwoot
   const integrations = [
     { name: 'Shopify', logo: '/assets/shopify-bag.webp' },
     { name: 'Tiendanube', logo: '/assets/tiendanubeoscuro.png', darkLogo: '/assets/tiendanube.webp' },
@@ -95,8 +95,53 @@ export default function LandingPage() {
     { name: 'Google Ads', logo: '/assets/GADS.webp' },
     { name: 'Meta Ads', logo: '/assets/meta (1).webp' },
     { name: 'TikTok Ads', logo: '/assets/logotiktok.png' },
-    { name: 'Klaviyo', logo: '/assets/Klaviyo-Logo-Photoroom.webp' }
+    { name: 'Klaviyo', logo: '/assets/Klaviyo-Logo-Photoroom.webp' },
+    { name: 'Chatwoot', logo: '/assets/chatwoot.png' }
   ];
+
+  // --- Estados de las Simulaciones Interactivas del Dashboard ---
+  const [expandedMetric, setExpandedMetric] = useState<string | null>('tienda');
+  const [creatives, setCreatives] = useState([
+    { 
+      id: 1, 
+      name: 'Anuncio Invierno: Tapado Cuero', 
+      status: true, 
+      spent: 650, 
+      ctr: 3.4, 
+      roas: 12.4, 
+      img: '/assets/landing_creativos.jpg',
+      copy: 'Últimas unidades en stock con envío gratis a todo el país.'
+    },
+    { 
+      id: 2, 
+      name: 'Anuncio Tendencia: Botas de Cuero', 
+      status: true, 
+      spent: 349, 
+      ctr: 2.2, 
+      roas: 9.2, 
+      img: '/assets/landing_analisis.jpg',
+      copy: 'Botas premium con 30% OFF en nuestra tienda online.'
+    },
+    { 
+      id: 3, 
+      name: 'Anuncio Accesorios: Cartera Premium', 
+      status: false, 
+      spent: 199, 
+      ctr: 1.1, 
+      roas: 3.5, 
+      img: '/assets/landing_pedidos.jpg',
+      copy: 'Cuero argentino legítimo. El accesorio ideal para tu look.'
+    }
+  ]);
+
+  const toggleCreative = (id: number) => {
+    setCreatives(prev => prev.map(c => c.id === id ? { ...c, status: !c.status } : c));
+  };
+
+  const activeCount = creatives.filter(c => c.status).length;
+  const liveSpent = creatives.reduce((acc, curr) => curr.status ? acc + curr.spent : acc, 0);
+  const liveROAS = activeCount > 0 ? (creatives.reduce((acc, curr) => curr.status ? acc + curr.roas : acc, 0) / activeCount).toFixed(1) : '0.0';
+  const liveCTR = activeCount > 0 ? (creatives.reduce((acc, curr) => curr.status ? acc + curr.ctr : acc, 0) / activeCount).toFixed(1) : '0.0';
 
 
 
@@ -449,13 +494,19 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col gap-2.5 pt-1">
               {[
-                { label: 'Ingresos de la tienda online', value: '$ 937.790', color: 'text-emerald-500' },
-                { label: 'Retorno de publicidad (ROAS)', value: '10.8×', color: 'text-violet-500' },
-                { label: 'Ingresos de email marketing', value: '$ 91.249', color: 'text-cyan-500' },
+                { id: 'tienda', label: 'Ingresos de la tienda online', value: '$ 937.790', color: 'text-emerald-500' },
+                { id: 'meta', label: 'Retorno de publicidad (ROAS)', value: '10.8×', color: 'text-violet-500' },
+                { id: 'email', label: 'Ingresos de email marketing', value: '$ 91.249', color: 'text-cyan-500' },
               ].map((kpi) => (
-                <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border ${
-                  darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
-                }`}>
+                <div 
+                  key={kpi.id} 
+                  className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-all duration-200 ${
+                    expandedMetric === kpi.id
+                      ? (darkMode ? 'bg-violet-950/15 border-violet-500/35 shadow-sm' : 'bg-violet-50 border-violet-200/90')
+                      : (darkMode ? 'bg-zinc-900/30 border-white/[0.04] hover:bg-zinc-900/50' : 'bg-zinc-50 border-zinc-200/60 hover:bg-zinc-100/60')
+                  }`}
+                  onClick={() => setExpandedMetric(expandedMetric === kpi.id ? null : kpi.id)}
+                >
                   <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{kpi.label}</span>
                   <span className={`text-[13px] font-bold ${kpi.color}`}>{kpi.value}</span>
                 </div>
@@ -463,19 +514,140 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Imagen del Dashboard */}
+          {/* Simulador Interactivo de Métricas */}
           <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
-            <div
-              className="relative rounded-xl overflow-hidden cursor-zoom-in group"
-              onClick={() => setZoomImage('/assets/landing_inicio.jpg')}
-            >
-              <img
-                src="/assets/landing_inicio.jpg"
-                alt="Panel de métricas del negocio"
-                className="w-full h-auto max-h-[380px] object-cover object-top transition-all duration-300 group-hover:scale-[1.01]"
-              />
-              <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-white px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 shadow border border-white/10 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
-                <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Tocar para ampliar
+            <div className={`rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} overflow-hidden shadow-inner p-4 space-y-3`}>
+              <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3">
+                <div className="text-left">
+                  <h4 className="text-[12.5px] font-bold font-display text-zinc-900 dark:text-white">Resumen General</h4>
+                  <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5">Toca las tarjetas para desplegar el desglose real</p>
+                </div>
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-violet-600/10 text-violet-500 border border-violet-500/20">
+                  Últimos 30 días
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {/* 1. Tienda Online */}
+                <div 
+                  className={`border rounded-xl p-3 cursor-pointer transition-all duration-200 ${
+                    expandedMetric === 'tienda' 
+                      ? (darkMode ? 'bg-violet-950/10 border-violet-500/20 shadow-sm' : 'bg-violet-50/50 border-violet-200')
+                      : (darkMode ? 'bg-zinc-900/20 border-white/[0.02] hover:bg-zinc-900/40' : 'bg-zinc-50 border-zinc-200/40 hover:bg-zinc-100/40')
+                  }`}
+                  onClick={() => setExpandedMetric(expandedMetric === 'tienda' ? null : 'tienda')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img src="/assets/shopify-bag.webp" alt="E-commerce" className="w-5 h-5 object-contain" />
+                      <div className="text-left">
+                        <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200">Tienda Online</p>
+                        <p className="text-[8.5px] text-zinc-400 font-semibold">Canales integrados</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[12px] font-bold text-emerald-500">$ 937.790</p>
+                      <p className="text-[8.5px] text-emerald-500 font-bold">+ 3.6%</p>
+                    </div>
+                  </div>
+
+                  {expandedMetric === 'tienda' && (
+                    <div className="mt-3 pt-3 border-t border-zinc-200/40 dark:border-white/[0.04] grid grid-cols-2 gap-2 text-[10px] animate-in fade-in duration-200">
+                      <div className="p-2 rounded-lg bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Shopify</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200">$ 625.300</span>
+                        <span className="text-[8px] text-zinc-400 block font-semibold">82 pedidos</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Tiendanube</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200">$ 312.490</span>
+                        <span className="text-[8px] text-zinc-400 block font-semibold">37 pedidos</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Publicidad (Meta Ads) */}
+                <div 
+                  className={`border rounded-xl p-3 cursor-pointer transition-all duration-200 ${
+                    expandedMetric === 'meta' 
+                      ? (darkMode ? 'bg-violet-950/10 border-violet-500/20 shadow-sm' : 'bg-violet-50/50 border-violet-200')
+                      : (darkMode ? 'bg-zinc-900/20 border-white/[0.02] hover:bg-zinc-900/40' : 'bg-zinc-50 border-zinc-200/40 hover:bg-zinc-100/40')
+                  }`}
+                  onClick={() => setExpandedMetric(expandedMetric === 'meta' ? null : 'meta')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img src="/assets/meta (1).webp" alt="Meta Ads" className="w-5 h-5 object-contain" />
+                      <div className="text-left">
+                        <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200">Meta Ads Analytics</p>
+                        <p className="text-[8.5px] text-zinc-400 font-semibold">Rentabilidad atribución</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[12px] font-bold text-violet-500">ROAS 10.8×</p>
+                      <p className="text-[8.5px] text-zinc-400 font-semibold">Gasto: $ 999</p>
+                    </div>
+                  </div>
+
+                  {expandedMetric === 'meta' && (
+                    <div className="mt-3 pt-3 border-t border-zinc-200/40 dark:border-white/[0.04] grid grid-cols-3 gap-2 text-[10px] animate-in fade-in duration-200">
+                      <div className="p-2 rounded-lg bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Clicks</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200">72.277</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Ventas</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200">39</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Retorno</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200">$ 10.362</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Email Marketing (Klaviyo) */}
+                <div 
+                  className={`border rounded-xl p-3 cursor-pointer transition-all duration-200 ${
+                    expandedMetric === 'email' 
+                      ? (darkMode ? 'bg-violet-950/10 border-violet-500/20 shadow-sm' : 'bg-violet-50/50 border-violet-200')
+                      : (darkMode ? 'bg-zinc-900/20 border-white/[0.02] hover:bg-zinc-900/40' : 'bg-zinc-50 border-zinc-200/40 hover:bg-zinc-100/40')
+                  }`}
+                  onClick={() => setExpandedMetric(expandedMetric === 'email' ? null : 'email')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img src="/assets/Klaviyo-Logo-Photoroom.webp" alt="Email Marketing" className="w-5 h-5 object-contain" />
+                      <div className="text-left">
+                        <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200">Email Marketing</p>
+                        <p className="text-[8.5px] text-zinc-400 font-semibold">Atribución de retención</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[12px] font-bold text-cyan-500">$ 91.249</p>
+                      <p className="text-[8.5px] text-emerald-500 font-bold">+ 18.2%</p>
+                    </div>
+                  </div>
+
+                  {expandedMetric === 'email' && (
+                    <div className="mt-3 pt-3 border-t border-zinc-200/40 dark:border-white/[0.04] grid grid-cols-3 gap-2 text-[10px] animate-in fade-in duration-200">
+                      <div className="p-2 rounded-lg bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Enviados</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200">1.450</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Apertura</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200">65.7%</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Clicks</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200">10.8%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -493,11 +665,11 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col gap-2.5 pt-1">
               {[
-                { label: 'ROAS promedio de campañas activas', value: '4.8×', color: 'text-emerald-500' },
-                { label: 'Creativos con CTR > 2%', value: '7 de 12', color: 'text-violet-500' },
-                { label: 'Inversión total activa', value: '$ 42.500', color: 'text-pink-500' },
+                { label: 'ROAS promedio de campañas activas', value: `${liveROAS}×`, color: 'text-emerald-500' },
+                { label: 'Creativos activos', value: `${activeCount} de ${creatives.length}`, color: 'text-violet-500' },
+                { label: 'Inversión total activa', value: `$ ${liveSpent}`, color: 'text-pink-500' },
               ].map((kpi) => (
-                <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border ${
+                <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border transition-all duration-200 ${
                   darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
                 }`}>
                   <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{kpi.label}</span>
@@ -507,19 +679,64 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Imagen de Creativos */}
+          {/* Simulador Interactivo de Optimización de Creativos */}
           <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
-            <div
-              className="relative rounded-xl overflow-hidden cursor-zoom-in group"
-              onClick={() => setZoomImage('/assets/landing_analisis.jpg')}
-            >
-              <img
-                src="/assets/landing_analisis.jpg"
-                alt="Panel de creativos activos"
-                className="w-full h-auto max-h-[380px] object-cover object-top transition-all duration-300 group-hover:scale-[1.01]"
-              />
-              <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-white px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 shadow border border-white/10 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
-                <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Tocar para ampliar
+            <div className={`rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} overflow-hidden shadow-inner p-4 space-y-4`}>
+              <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3">
+                <div className="text-left">
+                  <h4 className="text-[12.5px] font-bold font-display text-zinc-900 dark:text-white">Optimizador de Creativos</h4>
+                  <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5">Encendé o apagá anuncios para ver el impacto inmediato</p>
+                </div>
+                <div className="flex gap-2">
+                  <div className="p-1.5 rounded-lg bg-zinc-100/50 dark:bg-white/[0.01] border border-zinc-200/50 dark:border-white/[0.03] text-[9px] font-bold text-center">
+                    <span className="text-zinc-400 block text-[7px] uppercase font-semibold">ROAS Promedio</span>
+                    <span className="text-violet-500 font-extrabold">{liveROAS}×</span>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-zinc-100/50 dark:bg-white/[0.01] border border-zinc-200/50 dark:border-white/[0.03] text-[9px] font-bold text-center">
+                    <span className="text-zinc-400 block text-[7px] uppercase font-semibold">Gasto Total</span>
+                    <span className="text-emerald-500 font-extrabold">${liveSpent}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {creatives.map((creative) => (
+                  <div 
+                    key={creative.id} 
+                    className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-250 ${
+                      creative.status 
+                        ? (darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50')
+                        : 'bg-zinc-900/5 border-transparent opacity-60'
+                    }`}
+                  >
+                    <div className="w-12 h-14 rounded-lg overflow-hidden shrink-0 border border-zinc-200/20 bg-zinc-950">
+                      <img src={creative.img} alt={creative.name} className="w-full h-full object-cover" />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-[10px] font-bold truncate text-zinc-800 dark:text-zinc-100">{creative.name}</p>
+                      <p className="text-[8px] text-zinc-400 truncate font-semibold mt-0.5">{creative.copy}</p>
+                      
+                      <div className="flex gap-3 mt-1.5 text-[8.5px] font-bold">
+                        <span className="text-zinc-500">Gasto: <span className="text-zinc-700 dark:text-zinc-300">${creative.spent}</span></span>
+                        <span className="text-zinc-500">CTR: <span className="text-zinc-700 dark:text-zinc-300">{creative.ctr}%</span></span>
+                        <span className="text-zinc-500">ROAS: <span className="text-violet-500">{creative.roas}×</span></span>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => toggleCreative(creative.id)}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 relative shrink-0 flex items-center ${
+                        creative.status ? 'bg-emerald-500' : 'bg-zinc-650 dark:bg-zinc-700'
+                      }`}
+                      aria-label={creative.status ? "Pausar anuncio" : "Activar anuncio"}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        creative.status ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
