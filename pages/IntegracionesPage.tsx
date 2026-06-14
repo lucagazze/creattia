@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useViewAs } from "../contexts/ViewAsContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { useToast } from "../components/Toast";
 import { ecommerce } from "../services/ecommerce";
 import { klaviyo } from "../services/klaviyo";
@@ -127,6 +128,7 @@ const ML_COUNTRIES = [
 export default function IntegracionesPage() {
   const { profile, refreshProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
+  const { darkMode } = useTheme();
   const { showToast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1685,7 +1687,11 @@ export default function IntegracionesPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-11 h-11 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden shadow-sm shrink-0">
                     {platform.logoUrl ? (
-                      <img src={platform.logoUrl} alt={platform.name} className="w-6 h-6 object-contain" />
+                      <img 
+                        src={platform.id === 'tiendanube' && darkMode ? "/assets/tiendanube.webp" : platform.logoUrl} 
+                        alt={platform.name} 
+                        className="w-6 h-6 object-contain" 
+                      />
                     ) : Logo ? (
                       <Logo className="w-5 h-5 text-[#15B374]" />
                     ) : null}
@@ -1861,7 +1867,7 @@ export default function IntegracionesPage() {
             <div className="flex items-center gap-4 mb-6 pb-5 border-b border-zinc-100 dark:border-white/[0.04]">
               <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
                 {selectedPlatform.logoUrl && (
-                  <img src={selectedPlatform.logoUrl} alt={selectedPlatform.name} className="w-6 h-6 object-contain" />
+                  <img src={selectedPlatform.id === 'tiendanube' && darkMode ? "/assets/tiendanube.webp" : selectedPlatform.logoUrl} alt={selectedPlatform.name} className="w-6 h-6 object-contain" />
                 )}
               </div>
               <div>
@@ -2048,7 +2054,7 @@ export default function IntegracionesPage() {
                           disabled={oauthLoading}
                           className="w-full h-12 bg-[#07B3C2] hover:bg-[#069aaa] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                         >
-                          {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/tiendanubeoscuro.png" alt="" className="w-4 h-4 object-contain" />}
+                          {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src={darkMode ? "/assets/tiendanube.webp" : "/assets/tiendanubeoscuro.png"} alt="" className="w-4 h-4 object-contain" />}
                           <span>{oauthLoading ? 'Conectando...' : 'Autorizar con Tiendanube'}</span>
                         </button>
 

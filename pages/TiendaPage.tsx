@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 
 import { ShoppingBag, DollarSign, Package, Calendar, ChevronDown, Receipt, Tag, TrendingUp, CheckCircle, Clock, BarChart2, Download, X, Search, AlertCircle, XCircle, Loader2, RefreshCw, Users, ChevronRight, MapPin, Building } from 'lucide-react';
@@ -113,6 +114,7 @@ const TotalBadge: React.FC<{ score: number }> = ({ score }) => {
 export default function TiendaPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
+  const { darkMode } = useTheme();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   
   const detectedPlatform = useMemo(() => {
@@ -270,7 +272,7 @@ export default function TiendaPage() {
               {detectedPlatform === 'shopify' ? (
                 <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-8 h-8 object-contain" />
               ) : detectedPlatform === 'tiendanube' ? (
-                <img src="/assets/tiendanubeoscuro.png" alt="Tiendanube" className="w-8 h-8 object-contain" />
+                <img src={darkMode ? "/assets/tiendanube.webp" : "/assets/tiendanubeoscuro.png"} alt="Tiendanube" className="w-8 h-8 object-contain" />
               ) : detectedPlatform === 'wordpress' ? (
                 <img src="/assets/logowordpress.webp" alt="WooCommerce" className="w-8 h-8 object-contain" />
               ) : (

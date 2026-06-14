@@ -1990,7 +1990,7 @@ export default function DashboardPage() {
                 {detectedPlatform === 'shopify' ? (
                   <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-5 h-5 object-contain shrink-0" />
                 ) : detectedPlatform === 'tiendanube' ? (
-                  <img src="/assets/tiendanubeoscuro.png" alt="Tiendanube" className="w-5 h-5 object-contain shrink-0" />
+                  <img src={darkMode ? "/assets/tiendanube.webp" : "/assets/tiendanubeoscuro.png"} alt="Tiendanube" className="w-5 h-5 object-contain shrink-0" />
                 ) : detectedPlatform === 'wordpress' ? (
                   <img src="/assets/logowordpress.webp" alt="WooCommerce" className="w-5 h-5 object-contain shrink-0" />
                 ) : (
