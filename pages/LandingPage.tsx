@@ -225,9 +225,6 @@ export default function LandingPage() {
           width: max-content;
           animation: marquee 32s linear infinite;
         }
-        .animate-marquee:hover {
-          animation-play-state: paused;
-        }
         .glow-hover:hover {
           box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
         }
