@@ -5,7 +5,6 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   MessageSquare,
   TrendingUp,
-  BarChart2,
   Mail,
   Check,
   ChevronDown,
@@ -15,7 +14,8 @@ import {
   Moon,
   RefreshCw,
   ArrowUpRight,
-  Zap
+  Zap,
+  ShoppingBag
 } from 'lucide-react';
 
 export default function LandingPage() {
