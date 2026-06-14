@@ -86,14 +86,15 @@ export default function LandingPage() {
   };
 
   // Tabbed high-fidelity screenshots switcher
-  const [activeTabShowcase, setActiveTabShowcase] = useState<'resumen' | 'comentarios' | 'pedidos' | 'tienda' | 'publicidad'>('resumen');
+  const [activeTabShowcase, setActiveTabShowcase] = useState<'resumen' | 'comentarios' | 'pedidos' | 'tienda' | 'publicidad' | 'analisis'>('resumen');
 
   const showcaseTabs = [
     { id: 'resumen', label: 'Resumen General', img: '/assets/landing_dashboard.png', desc: 'Panel unificado con ingresos acumulados, métricas clave y rendimiento multicanal.' },
     { id: 'comentarios', label: 'Inbox & Comentarios', img: '/assets/landing_comments.png', desc: 'Bandeja omnicanal para moderar comentarios y chatear con asistencia de inteligencia artificial.' },
     { id: 'pedidos', label: 'Gestión de Pedidos', img: '/assets/landing_orders.png', desc: 'Monitoreo consolidado de compras, estado de pago y órdenes de envío pendientes.' },
     { id: 'tienda', label: 'Rendimiento Tienda', img: '/assets/landing_shopify.png', desc: 'Métricas de evolución de ingresos, tasa de recompra y comportamiento del cliente.' },
-    { id: 'publicidad', label: 'Meta & Google Ads', img: '/assets/landing_meta.png', desc: 'Atribución publicitaria real de pauta digital y ROAS por plataforma y región.' }
+    { id: 'publicidad', label: 'Meta & Google Ads', img: '/assets/landing_meta.png', desc: 'Atribución publicitaria real de pauta digital y ROAS por plataforma y región.' },
+    { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_product_analysis.png', desc: 'Identificación de productos estrella, tasas de recompra y comportamiento de retorno de clientes.' }
   ];
 
   const toggleFaq = (index: number) => {

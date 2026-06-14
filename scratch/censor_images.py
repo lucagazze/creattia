@@ -113,4 +113,17 @@ if os.path.exists(img5_path):
     
     im.save(os.path.join(dest_dir, "landing_meta.png"))
 
+# 6. Product Analysis Dashboard (media__1781450509904.png)
+img6_path = os.path.join(src_dir, "media__1781450509904.png")
+if os.path.exists(img6_path):
+    print("Processing Image 6 (Product Analysis Dashboard)...")
+    im = Image.open(img6_path)
+    draw = ImageDraw.Draw(im)
+    
+    # Cover the workspace name 'theskirtingfac...' and 'The Skirting Facto...' in the profile switcher at bottom left
+    draw.rectangle([40, 580, 140, 625], fill="#ffffff")
+    
+    im.save(os.path.join(dest_dir, "landing_product_analysis.png"))
+
 print("All screenshots successfully processed and exported to public/assets!")
+

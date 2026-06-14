@@ -610,9 +610,8 @@ export default function MetaAdsPage() {
 
         {/* Ads grid */}
         {accountId && activeAds.length > 0 && (() => {
-          const adsWithSpend = activeAds.filter(ad => parseFloat(adInsightsMap[ad.id]?.spend || 0) > 0);
           const grouped: Record<string, { campaignName: string; ads: any[] }> = {};
-          adsWithSpend.forEach(ad => {
+          activeAds.forEach(ad => {
             const cid = ad.campaign_id || 'other';
             const cname = campaignMap[cid] || 'Sin campaña';
             if (!grouped[cid]) grouped[cid] = { campaignName: cname, ads: [] };
@@ -634,10 +633,6 @@ export default function MetaAdsPage() {
             const spendB = b[1].ads.reduce((sum, ad) => sum + parseFloat(adInsightsMap[ad.id]?.spend || 0), 0);
             return spendB - spendA;
           });
-
-          if (sortedGroupedEntries.length === 0) return (
-            <p className="text-sm text-zinc-400 text-center py-16">Hay {activeAds.length} anuncios activos pero sin gasto registrado en el período seleccionado.</p>
-          );
 
           return (
             <div className={`space-y-10 transition-opacity duration-200 ${isDateReloading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>

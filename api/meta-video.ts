@@ -51,7 +51,7 @@ async function getPageToken(pageId: string, systemToken: string): Promise<string
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { adId, creativeId, videoId, action, url, filename } = req.query;
+  const { adId, creativeId, videoId, action, url, filename, clientId } = req.query;
 
   if (action === 'download') {
     if (!url || typeof url !== 'string' || !isMetaUrl(url)) {
@@ -91,7 +91,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const token = await getMetaToken();
+    let clientToken: string | null = null;
+    let dbPageToken: string | null = null;
+    if (clientId && typeof clientId === 'string') {
+      const { data: clientData } = await supabase
+        .from('car_clients')
+        .select('facebook_access_token, fb_page_access_token')
+        .eq('id', clientId)
+        .maybeSingle();
+      clientToken = clientData?.facebook_access_token || null;
+      dbPageToken = clientData?.fb_page_access_token || null;
+    }
+
+    const token = clientToken || await getMetaToken();
     if (!token) return res.status(500).json({ error: 'No Meta token configured' });
 
     const base = 'https://graph.facebook.com/v21.0';
@@ -117,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return null;
     }
 
-    let activeToken = token;
+    let activeToken = dbPageToken || token;
     let pageToken: string | null = null;
     let creativeData: any = null;
 
@@ -134,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           (creativeData.effective_object_story_id ? creativeData.effective_object_story_id.split('_')[0] : null) ||
           (creativeData.object_story_id ? creativeData.object_story_id.split('_')[0] : null);
 
-        pageToken = pageId ? await getPageToken(pageId, token) : null;
+        pageToken = dbPageToken || (pageId ? await getPageToken(pageId, token) : null);
         if (pageToken) {
           activeToken = pageToken;
         }
@@ -392,7 +404,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 3. Fallback to Meta Ad Previews API (on creative ID first)
     if (creativeId && typeof creativeId === 'string') {
       const previewRes = await fetch(
-        `${base}/${creativeId}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${token}`
+        `${base}/${creativeId}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${activeToken}`
       );
 
       if (previewRes.ok) {
@@ -411,7 +423,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 4. Fallback to Meta Ad Previews API (on ad ID)
     if (adId && typeof adId === 'string') {
       const previewRes = await fetch(
-        `${base}/${adId}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${token}`
+        `${base}/${adId}/previews?ad_format=MOBILE_FEED_STANDARD&access_token=${activeToken}`
       );
 
       if (previewRes.ok) {
