@@ -76,9 +76,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
   const detectedPlatform = React.useMemo(() => {
     const prof: any = activeProfile;
-    if (prof?.shopify_domain && prof?.shopify_access_token) return 'shopify';
-    if (prof?.wordpress_url && prof?.woo_consumer_key && prof?.woo_consumer_secret) return 'wordpress';
-    if (prof?.tiendanube_store_id && prof?.tiendanube_access_token) return 'tiendanube';
+    const platform = prof?.ecommerce_platform;
+    if (platform === 'shopify' && prof?.shopify_domain && prof?.shopify_access_token) return 'shopify';
+    if (platform === 'wordpress' && prof?.wordpress_url && prof?.woo_consumer_key && prof?.woo_consumer_secret) return 'wordpress';
+    if (platform === 'tiendanube' && prof?.tiendanube_store_id && prof?.tiendanube_access_token) return 'tiendanube';
     return null;
   }, [activeProfile]);
 
@@ -86,11 +87,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const hasChatwoot  = !!(activeProfile?.chatwoot_url && activeProfile?.chatwoot_token);
   const hasMeta      = !!(activeProfile?.meta_account_id);
   const hasKlaviyo   = !!(activeProfile?.klaviyo_api_key);
+  const connectionStatuses = activeProfile?.connection_statuses || {};
   const hasEcommerce = !!(
-    activeProfile?.shopify_domain ||
-    activeProfile?.tiendanube_store_id ||
-    (activeProfile as any)?.wordpress_url ||
-    activeProfile?.ecommerce_platform === 'wordpress'
+    activeProfile?.ecommerce_platform &&
+    (connectionStatuses.shopify === 'ok' || connectionStatuses.shopify === 'connected')
   );
   const hasRedes = !!(
     activeProfile?.fb_page_id ||
