@@ -806,7 +806,7 @@ export default function LandingPage() {
           </div>
           
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            La mejor plataforma para <span className="bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">gestionar tu negocio online</span> y <span className="bg-gradient-to-r from-fuchsia-600 to-violet-500 bg-clip-text text-transparent">escalar ventas</span>
+            La plataforma para gestionar tu negocio online y escalar ventas
           </h1>
           
           <p className={`text-[15.5px] sm:text-[17.5px] max-w-2xl mx-auto leading-relaxed mb-10 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400 font-medium' : 'text-zinc-550 font-semibold'}`}>
@@ -816,7 +816,9 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-in fade-in slide-in-from-bottom-7 duration-1000">
             <Link
               to="/login"
-              className="w-full sm:w-auto h-11 px-7 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-extrabold rounded-xl text-[12.5px] flex items-center justify-center gap-1.5 shadow-lg shadow-violet-600/25 active:scale-[0.98] transition-all duration-300 hover:scale-[1.02]"
+              className={`w-full sm:w-auto h-11 px-7 font-bold rounded-xl text-[12.5px] flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all duration-200 ${
+                darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800'
+              }`}
             >
               Comenzar prueba gratis <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -830,64 +832,44 @@ export default function LandingPage() {
             </a>
           </div>
  
-          {/* High-Fidelity Showcase Gallery Selector (Mock Browser Window) */}
-          <div id="platform-showcase" className="relative max-w-4xl mx-auto rounded-3xl border p-1.5 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-1000">
-            <div className={`w-full rounded-2xl border ${darkMode ? 'bg-[#060608] border-white/[0.04]' : 'bg-white border-zinc-200/60'} overflow-hidden`}>
-              
-              {/* Apple-style Mock Browser Header Bar */}
-              <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] bg-zinc-50/50 dark:bg-zinc-950/30 px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
-                </div>
-                <div className="h-5 px-8 rounded bg-zinc-150 dark:bg-zinc-900 border border-zinc-200/30 dark:border-white/[0.02] text-[8.5px] text-zinc-400 font-mono flex items-center justify-center shrink-0 max-w-[200px] truncate">
-                  app.algoritmiadesarrollos.com
-                </div>
-                <div className="w-10 shrink-0" />
-              </div>
+          {/* High-Fidelity Showcase Gallery */}
+          <div id="platform-showcase" className={`relative max-w-5xl mx-auto mt-10 rounded-2xl border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.06]' : 'bg-white border-zinc-200/50'}`}>
 
-              {/* Tab Selector Header */}
-              <div className="flex border-b border-zinc-200/40 dark:border-white/[0.04] overflow-x-auto scrollbar-none bg-zinc-50/20 dark:bg-zinc-950/10 p-2 gap-1">
-                {showcaseTabs.map((tab) => {
-                  const isActive = activeTabShowcase === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTabShowcase(tab.id as any)}
-                      className={`h-8 px-4 rounded-xl text-[11.5px] font-bold transition-all flex items-center justify-center shrink-0 border ${
-                        isActive
-                          ? 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-600/10 font-display'
-                          : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-white/5'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
- 
-              {/* Showcase Content Container */}
-              <div className="p-5 md:p-6 text-left space-y-4">
-                <p className={`text-[14px] sm:text-[15px] font-medium leading-relaxed ${darkMode ? 'text-zinc-400 font-medium' : 'text-zinc-500 font-semibold'}`}>
-                  {showcaseTabs.find(t => t.id === activeTabShowcase)?.desc}
-                </p>
-                <div 
-                  className="relative rounded-xl border border-zinc-200/40 dark:border-white/[0.04] overflow-hidden bg-zinc-950/40 dark:bg-zinc-950/80 shadow-inner cursor-zoom-in group"
-                  onClick={() => setZoomImage(showcaseTabs.find(t => t.id === activeTabShowcase)?.img || null)}
-                >
-                  <img
-                    src={showcaseTabs.find(t => t.id === activeTabShowcase)?.img}
-                    alt={showcaseTabs.find(t => t.id === activeTabShowcase)?.label}
-                    className="w-full h-auto max-h-[500px] object-contain transition-all duration-300 animate-in fade-in block mx-auto group-hover:scale-[1.005]"
-                  />
-                  <div className="absolute bottom-3.5 right-3.5 bg-black/70 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[9.5px] font-bold flex items-center gap-1 shadow border border-white/10 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
-                    <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Tocar para ampliar
-                  </div>
-                </div>
-              </div>
- 
+            {/* Tab Selector */}
+            <div className={`flex border-b overflow-x-auto scrollbar-none p-2 gap-1 ${darkMode ? 'border-white/[0.05] bg-zinc-950/50' : 'border-zinc-200/50 bg-zinc-50/40'}`}>
+              {showcaseTabs.map((tab) => {
+                const isActive = activeTabShowcase === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTabShowcase(tab.id as any)}
+                    className={`h-7 px-3.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center shrink-0 ${
+                      isActive
+                        ? (darkMode ? 'bg-white/10 text-white border border-white/10' : 'bg-zinc-900 text-white shadow-sm')
+                        : (darkMode ? 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/80')
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Screenshot */}
+            <div
+              className="relative cursor-zoom-in group"
+              onClick={() => setZoomImage(showcaseTabs.find(t => t.id === activeTabShowcase)?.img || null)}
+            >
+              <img
+                src={showcaseTabs.find(t => t.id === activeTabShowcase)?.img}
+                alt={showcaseTabs.find(t => t.id === activeTabShowcase)?.label}
+                className="w-full h-auto max-h-[580px] object-contain block mx-auto transition-all duration-300 animate-in fade-in"
+              />
+              <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Ampliar
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -1056,8 +1038,8 @@ export default function LandingPage() {
         </div>
 
         {/* 2. MÉTRICAS Y RENTABILIDAD DEL NEGOCIO */}
-        <div className="flex flex-col lg:flex-row-reverse items-center gap-12 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
-          <div className="flex-1 space-y-6 text-left animate-in fade-in slide-in-from-right-4 duration-700">
+        <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
+          <div className="max-w-2xl space-y-5 text-left">
             <h3 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
               Toma el <strong>control absoluto</strong> de tu rentabilidad <strong>sin planillas manuales</strong>
             </h3>
@@ -1082,26 +1064,22 @@ export default function LandingPage() {
           </div>
 
           {/* Simulador Interactivo de Métricas (Dashboard Real de la App) */}
-          <div className="flex-1 w-full rounded-3xl border p-1.5 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-xl animate-in fade-in slide-in-from-left-4 duration-700">
+          <div className="w-full rounded-3xl border p-1.5 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-xl">
             <div className={`rounded-2xl border ${darkMode ? 'bg-[#060608] border-white/[0.04]' : 'bg-white border-zinc-200/60'} overflow-hidden p-4 flex flex-col`}>
               
-              {/* Apple-style Mock Browser Header Bar */}
+              {/* Dashboard Header */}
               <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+                <div className="flex items-center gap-2">
+                  <img src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'} alt="" className="w-4 h-4 object-contain opacity-60" />
+                  <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Dashboard</span>
                 </div>
-                <div className="h-5 px-6 rounded bg-zinc-150 dark:bg-zinc-900 border border-zinc-200/30 dark:border-white/[0.02] text-[8.5px] text-zinc-400 font-mono flex items-center justify-center shrink-0 max-w-[200px] truncate">
-                  app.algoritmiadesarrollos.com/dashboard
-                </div>
-                <span className="text-[9.5px] font-bold px-2 py-0.5 rounded bg-violet-600/10 text-violet-500 border border-violet-500/20">
+                <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-lg border ${darkMode ? 'bg-white/[0.03] border-white/[0.06] text-zinc-400' : 'bg-zinc-100 border-zinc-200 text-zinc-500'}`}>
                   Últimos 30 días
                 </span>
               </div>
 
-              {/* Scrollable dashboard body */}
-              <div className="flex-1 overflow-y-auto max-h-[460px] pr-1 mt-3.5 space-y-5 scrollbar-thin text-left">
+              {/* Dashboard body */}
+              <div className="mt-3.5 space-y-5 text-left">
                 
                 {/* 1. SECCIÓN: TIENDA ONLINE */}
                 <div className="space-y-2.5">
@@ -1437,120 +1415,109 @@ export default function LandingPage() {
         </div>
 
         {/* 3. CREATIVOS ACTIVOS */}
-        <div className="flex flex-col lg:flex-row items-center gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
-          <div className="flex-1 space-y-5 text-left">
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Escalá tus anuncios ganadores y recortá el gasto innecesario</h3>
-            <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Centralizá el rendimiento de tus piezas creativas en Meta y TikTok. Compará CTR, conversiones y retorno real por anuncio de manera visual para optimizar tu pauta publicitaria al instante y maximizar tu inversión.
-            </p>
-            <div className="flex flex-col gap-2.5 pt-1">
+        <div className="flex flex-col gap-8 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con métricas en tiempo real</h3>
+              <p className={`text-[13px] font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Tocá cualquier anuncio para ver el análisis de IA y moderar comentarios de compradores</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
               {[
-                { label: 'ROAS promedio de campañas activas', value: '10.8×', color: 'text-emerald-500' },
-                { label: 'Creativos activos', value: `${simCreatives.filter(c => c.status === 'active').length} de ${simCreatives.length}`, color: 'text-violet-500' },
-                { label: 'Inversión total activa', value: `$${simCreatives.reduce((acc, c) => acc + (c.status === 'active' ? c.spent : 0), 0)}`, color: 'text-pink-500' },
-                { 
-                  label: 'Consultas pendientes en anuncios', 
-                  value: `${simCreatives.reduce((acc, c) => acc + c.comments.filter(comm => comm.pending).length, 0)}`, 
-                  color: simCreatives.reduce((acc, c) => acc + c.comments.filter(comm => comm.pending).length, 0) > 0 ? 'text-violet-500 animate-pulse font-extrabold' : 'text-emerald-500'
+                { label: 'ROAS prom.', value: '10.8×', color: 'text-emerald-500' },
+                { label: 'Activos', value: `${simCreatives.filter(c => c.status === 'active').length}/${simCreatives.length}`, color: 'text-violet-500' },
+                {
+                  label: 'Consultas',
+                  value: `${simCreatives.reduce((acc, c) => acc + c.comments.filter(comm => comm.pending).length, 0)}`,
+                  color: simCreatives.reduce((acc, c) => acc + c.comments.filter(comm => comm.pending).length, 0) > 0 ? 'text-violet-500' : 'text-emerald-500'
                 },
               ].map((kpi) => (
-                <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border transition-all duration-200 ${
-                  darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
-                }`}>
-                  <span className="text-[11px] font-semibold text-zinc-550 dark:text-zinc-400">{kpi.label}</span>
-                  <span className={`text-[13px] font-bold ${kpi.color}`}>{kpi.value}</span>
+                <div key={kpi.label} className={`px-3 py-1.5 rounded-lg border text-center min-w-[60px] ${darkMode ? 'bg-zinc-900/40 border-white/[0.04]' : 'bg-white border-zinc-200/60'}`}>
+                  <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider">{kpi.label}</p>
+                  <p className={`text-[12px] font-black ${kpi.color}`}>{kpi.value}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Simulador Interactivo de Optimización de Creativos */}
-          <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
-            <div className={`rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} overflow-hidden shadow-inner p-4 space-y-4`}>
-              <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3">
-                <div className="text-left">
-                  <h4 className="text-[12.5px] font-bold font-display text-zinc-900 dark:text-white">Optimizador de Creativos</h4>
-                  <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5">Hacé clic en cualquier creativo para abrir el análisis e inbox interactivo</p>
-                </div>
-                <div className="flex gap-2">
-                  <div className="p-1.5 rounded-lg bg-zinc-100/50 dark:bg-white/[0.01] border border-zinc-200/50 dark:border-white/[0.03] text-[9px] font-bold text-center min-w-[75px]">
-                    <span className="text-zinc-400 block text-[7px] uppercase font-semibold">ROAS Promedio</span>
-                    <span className="text-violet-500 font-extrabold">10.8×</span>
+          {/* 3-card creative grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {simCreatives.map((creative) => {
+              const pendingCount = creative.comments.filter(c => c.pending).length;
+              const tribeScore = creative.tribeMetrics.score;
+              return (
+                <button
+                  key={creative.id}
+                  onClick={() => { setSelectedSimCreativeId(creative.id); setSimModalTab('metrics'); }}
+                  className={`relative flex flex-col rounded-2xl border overflow-hidden group transition-all duration-250 text-left cursor-pointer ${
+                    darkMode
+                      ? 'bg-zinc-950/50 border-white/[0.06] hover:border-violet-500/25 hover:shadow-lg hover:shadow-violet-500/5'
+                      : 'bg-white border-zinc-200/60 hover:border-violet-200 shadow-sm hover:shadow-lg hover:shadow-violet-50'
+                  }`}
+                >
+                  {/* Creative image */}
+                  <div className="relative aspect-[4/5] overflow-hidden bg-zinc-950">
+                    <img
+                      src={creative.img}
+                      alt={creative.name}
+                      className="w-full h-full object-cover transition-transform duration-400 group-hover:scale-[1.04]"
+                    />
+                    {/* Platform badge */}
+                    <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm p-1.5 rounded-lg">
+                      {creative.platform === 'instagram'
+                        ? <Instagram className="w-3.5 h-3.5 text-pink-400" />
+                        : <Facebook className="w-3.5 h-3.5 text-blue-400" />
+                      }
+                    </div>
+                    {/* Status */}
+                    <div className="absolute top-2 left-2">
+                      <span className={`text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
+                        creative.status === 'active' ? 'bg-emerald-500/80 text-white' : 'bg-zinc-600/80 text-white'
+                      }`}>
+                        {creative.status === 'active' ? 'Activo' : 'Pausado'}
+                      </span>
+                    </div>
+                    {/* Tribe score */}
+                    <div className={`absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-[10px] shadow-lg ${
+                      tribeScore >= 80 ? 'bg-emerald-500' : tribeScore >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                    }`}>
+                      {tribeScore}
+                    </div>
+                    {/* Pending comments */}
+                    {pendingCount > 0 && (
+                      <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-violet-600/90 backdrop-blur-sm text-white text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                        <MessageCircle className="w-2.5 h-2.5" />
+                        {pendingCount}
+                      </div>
+                    )}
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <span className="translate-y-1 group-hover:translate-y-0 transition-transform duration-200 bg-white/90 dark:bg-zinc-900/90 text-zinc-900 dark:text-white text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1 shadow-lg border border-zinc-200/50 dark:border-white/10">
+                        <Sparkles className="w-3 h-3 text-violet-500" /> Ver análisis
+                      </span>
+                    </div>
                   </div>
-                  <div className="p-1.5 rounded-lg bg-zinc-100/50 dark:bg-white/[0.01] border border-zinc-200/50 dark:border-white/[0.03] text-[9px] font-bold text-center min-w-[70px]">
-                    <span className="text-zinc-400 block text-[7px] uppercase font-semibold">Gasto Total</span>
-                    <span className="text-emerald-500 font-extrabold">$999</span>
+
+                  {/* Metrics below */}
+                  <div className={`p-3.5 border-t ${darkMode ? 'border-white/[0.04]' : 'border-zinc-100'}`}>
+                    <p className="text-[11.5px] font-bold text-zinc-800 dark:text-zinc-100 mb-3 leading-tight line-clamp-1">{creative.name}</p>
+                    <div className="grid grid-cols-3 gap-1">
+                      <div className="text-center">
+                        <p className="text-[8px] font-semibold text-zinc-400 uppercase tracking-wide mb-0.5">Gasto</p>
+                        <p className="text-[13px] font-black text-zinc-700 dark:text-zinc-200">${creative.spent}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[8px] font-semibold text-zinc-400 uppercase tracking-wide mb-0.5">CTR</p>
+                        <p className="text-[13px] font-black text-zinc-700 dark:text-zinc-200">{creative.ctr}%</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[8px] font-semibold text-zinc-400 uppercase tracking-wide mb-0.5">ROAS</p>
+                        <p className={`text-[13px] font-black ${creative.roas >= 10 ? 'text-emerald-500' : creative.roas >= 6 ? 'text-amber-500' : 'text-red-500'}`}>{creative.roas}×</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {simCreatives.map((creative) => {
-                  const pendingCount = creative.comments.filter(c => c.pending).length;
-                  return (
-                    <button 
-                      key={creative.id} 
-                      onClick={() => {
-                        setSelectedSimCreativeId(creative.id);
-                        setSimModalTab('metrics');
-                      }}
-                      className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-250 cursor-pointer group text-left relative overflow-hidden ${
-                        darkMode 
-                          ? 'bg-zinc-900/30 border-white/[0.04] hover:bg-zinc-900/65 hover:border-violet-500/30' 
-                          : 'bg-zinc-50 border-zinc-200/50 hover:bg-zinc-100/80 hover:border-violet-350'
-                      }`}
-                    >
-                      <div className="w-12 h-14 rounded-lg overflow-hidden shrink-0 border border-zinc-200/20 bg-zinc-950 relative">
-                        <img src={creative.img} alt={creative.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                        {creative.platform === 'instagram' ? (
-                          <div className="absolute bottom-0.5 right-0.5 bg-black/60 p-0.5 rounded-md">
-                            <Instagram className="w-2.5 h-2.5 text-pink-500" />
-                          </div>
-                        ) : (
-                          <div className="absolute bottom-0.5 right-0.5 bg-black/60 p-0.5 rounded-md">
-                            <Facebook className="w-2.5 h-2.5 text-blue-500" />
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0 text-left">
-                        <div className="flex items-center gap-2">
-                          <p className="text-[11px] font-black truncate text-zinc-800 dark:text-zinc-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">{creative.name}</p>
-                          {pendingCount > 0 && (
-                            <span className="shrink-0 flex items-center gap-0.5 text-[7.5px] font-black text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-full border border-violet-500/20 animate-pulse">
-                              <span className="w-1 h-1 rounded-full bg-violet-500" />
-                              {pendingCount}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 truncate font-semibold mt-0.5">{creative.copy}</p>
-                        
-                        <div className="flex gap-3 mt-1.5 text-[9px] font-bold">
-                          <span className="text-zinc-500 dark:text-zinc-400">Gasto: <span className="text-zinc-700 dark:text-zinc-200 font-extrabold">${creative.spent}</span></span>
-                          <span className="text-zinc-500 dark:text-zinc-400">CTR: <span className="text-zinc-700 dark:text-zinc-200 font-extrabold">{creative.ctr}%</span></span>
-                          <span className="text-zinc-500 dark:text-zinc-400">ROAS: <span className="text-violet-500 font-black">{creative.roas}×</span></span>
-                        </div>
-                      </div>
-
-                      <div className="shrink-0 flex flex-col items-end gap-1.5">
-                        {creative.status === 'active' ? (
-                          <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                            Activo
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
-                            Pausado
-                          </span>
-                        )}
-                        <span className="text-[8px] font-black text-violet-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-                          Simular <ArrowRight className="w-2 h-2" />
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
