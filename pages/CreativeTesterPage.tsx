@@ -8,6 +8,18 @@ import {
   Upload, Film, Image, Zap, CheckCircle, AlertCircle, XCircle,
   RefreshCw, Loader2, Target, Brain, Eye, ChevronRight, Layers,
 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+
+// Generate realistic attention/emotion curve for a ~30s creative
+const genTimeline = (attn: number, emot: number, seed: number): { t: number; attn: number; emot: number }[] => {
+  const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
+  const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
+  return attnOff.map((ao, i) => ({
+    t: Math.round(i * 30 / (attnOff.length - 1)),
+    attn: Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4))),
+    emot: Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4))),
+  }));
+};
 
 // ── Seeded mock fallback ──────────────────────────────────────────────────────
 function mockAnalysis(file: { name: string; size: number; type: string; lastModified: number }, isVideo: boolean) {
@@ -128,6 +140,7 @@ export default function CreativeTesterPage() {
   const [result, setResult] = useState<any>(null);
   const [score, setScore] = useState(0);
   const [usedMock, setUsedMock] = useState(false);
+  const [timeline, setTimeline] = useState<{ t: number; attn: number; emot: number }[]>([]);
 
   // For account ads
   const [accountAds, setAccountAds] = useState<any[]>([]);
@@ -211,7 +224,7 @@ export default function CreativeTesterPage() {
         } catch { frames = []; }
       }
 
-      setStep('Analizando con TRIBE v2...');
+      setStep('Analizando respuesta visual...');
       let analysisResult: any = null;
 
       if (frames.length > 0) {
@@ -243,6 +256,7 @@ export default function CreativeTesterPage() {
       );
       setScore(finalScore);
       setResult(analysisResult);
+      setTimeline(genTimeline(analysisResult.attentionPct, analysisResult.emotionPct, finalScore));
       setStatus('done');
     } catch (err) {
       setStatus('error');
@@ -261,7 +275,7 @@ export default function CreativeTesterPage() {
       const mockSrc = { name: ad.name || 'anuncio', size: 100000, type: 'image/jpeg', lastModified: Date.now() };
       const r = mockAnalysis(mockSrc, isVid);
       const s = Math.floor(r.attentionPct * 0.4 + r.emotionPct * 0.4 + (100 - r.cogLoad) * 0.2);
-      setScore(s); setResult(r); setUsedMock(true); setStatus('done');
+      setScore(s); setResult(r); setUsedMock(true); setTimeline(genTimeline(r.attentionPct, r.emotionPct, s)); setStatus('done');
     }
   };
 
@@ -275,7 +289,7 @@ export default function CreativeTesterPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">Creativos Tester</h1>
-            <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">TRIBE v2 — Análisis neurológico simulado de creativos.</p>
+            <p className="text-zinc-500 dark:text-zinc-400 text-[13px] font-medium">Análisis Creativo — Simulación de respuesta visual y emocional.</p>
           </div>
         </div>
 
@@ -344,7 +358,7 @@ export default function CreativeTesterPage() {
                   disabled={!file || status === 'analyzing'}
                   className="w-full flex items-center justify-center gap-2 py-3 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-[13px] font-black shadow-lg shadow-violet-200 dark:shadow-none transition-all"
                 >
-                  {status === 'analyzing' ? <><Loader2 className="w-4 h-4 animate-spin" />{step || 'Analizando...'}</> : <><Zap className="w-4 h-4" />Ejecutar análisis TRIBE v2</>}
+                  {status === 'analyzing' ? <><Loader2 className="w-4 h-4 animate-spin" />{step || 'Analizando...'}</> : <><Zap className="w-4 h-4" />Analizar creativo</>}
                 </button>
               </div>
             )}
@@ -404,7 +418,7 @@ export default function CreativeTesterPage() {
                   <Target className="w-7 h-7 text-zinc-400" />
                 </div>
                 <p className="text-[14px] font-semibold text-zinc-550">Subí un creativo o elegí un anuncio</p>
-                <p className="text-[12px] text-zinc-400 max-w-xs">TRIBE v2 analizará la atención, emoción y carga cognitiva de tu creativo.</p>
+                <p className="text-[12px] text-zinc-400 max-w-xs">Analizará la atención, emoción y carga cognitiva de tu creativo.</p>
               </div>
             )}
 
@@ -418,7 +432,7 @@ export default function CreativeTesterPage() {
                   </div>
                 </div>
                 <p className="text-[13px] font-bold text-zinc-700 dark:text-zinc-300">{step || 'Procesando...'}</p>
-                <p className="text-[11px] text-zinc-400">TRIBE v2 está simulando la respuesta neuronal</p>
+                <p className="text-[11px] text-zinc-400">Analizando respuesta visual y emocional...</p>
               </div>
             )}
 
@@ -450,9 +464,31 @@ export default function CreativeTesterPage() {
                   <MetricBar label="Carga Cognitiva" value={result.cogLoad} color={result.cogLoad <= 30 ? 'bg-emerald-500' : result.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={result.cogLoadReason} />
                 </div>
 
+                {/* Curva de Atención y Emoción en el tiempo */}
+                {timeline.length > 0 && (
+                  <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
+                      <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
+                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
+                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
+                      </div>
+                    </div>
+                    <div className="h-[130px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={timeline} margin={{ left: -15, right: 4, top: 4, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" className="dark:[stroke:rgba(255,255,255,0.04)]" />
+                          <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}s`} />
+                          <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}`} width={22} />
+                          <Line type="monotone" dataKey="attn" stroke="#10b981" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="emot" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
 
-
-                <button onClick={() => { setStatus('idle'); setResult(null); setFile(null); setPreviewUrl(null); setSelectedAd(null); }} className="w-full text-[12px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 py-2 transition-colors">
+                <button onClick={() => { setStatus('idle'); setResult(null); setFile(null); setPreviewUrl(null); setSelectedAd(null); setTimeline([]); }} className="w-full text-[12px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 py-2 transition-colors">
                   Analizar otro creativo
                 </button>
               </div>

@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   AreaChart,
   Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -238,6 +240,18 @@ const chartMockData: Record<string, { date: string; val: number }[]> = {
     { date: '2026-06-07', val: 920 },
     { date: '2026-06-14', val: 950 }
   ]
+};
+
+// Generates a realistic attention/emotion curve for a 30-second video creative
+const genTimeline = (attn: number, emot: number, seed: number): { t: number; attn: number; emot: number }[] => {
+  // Attention: high hook → dip → partial recovery  |  Emotion: slow build, peaks late
+  const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
+  const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
+  return attnOff.map((ao, i) => ({
+    t: Math.round(i * 30 / (attnOff.length - 1)),
+    attn: Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4))),
+    emot: Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4))),
+  }));
 };
 
 const MockDetailChart = ({
@@ -474,14 +488,14 @@ export default function LandingPage() {
 
   const showcaseTabs = [
     { id: 'inicio', label: 'Dashboard', img: '/assets/landing_inicio.jpg', desc: 'Tu negocio al descubierto en una sola pantalla. Monitoreá ingresos acumulados, pedidos de tus canales de venta, productos estrella y métricas ejecutivas en tiempo real.' },
-    { id: 'mensajeria', label: 'Mensajería Directa', img: '/assets/landing_mensajeria.jpg', desc: 'Bandeja omnicanal integrada para Instagram Direct, Facebook Messenger y WhatsApp. Automatizá la gestión diaria y redactá respuestas perfectas con el Cerebro de IA.' },
-    { id: 'creativos', label: 'Creativos Ads', img: '/assets/landing_analisis.jpg', desc: 'Control absoluto de tus campañas en Meta Ads. Compará rendimiento, CTR, ROAS y gasto real por pieza creativa en un solo panel para optimizar tu presupuesto.' },
-    { id: 'comentarios', label: 'Moderación Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Moderación automatizada para posteos orgánicos y anuncios de pago. Respondé consultas, filtrá spam y canalizá interacciones hacia la compra al instante.' },
-    { id: 'pedidos', label: 'Control Pedidos', img: '/assets/landing_pedidos.jpg', desc: 'Visualización detallada del flujo de compras. Seguimiento de estado de envío, facturación integrada, pasarelas de pago y comportamiento del cliente.' },
-    { id: 'inventario', label: 'Stock & Variaciones', img: '/assets/landing_inventario.jpg', desc: 'Sincronización total de tu catálogo. Modificá inventarios, variantes y precios y mirá cómo se propagan automáticamente en todas tus tiendas conectadas.' },
-    { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_creativos.jpg', desc: 'Embudo de comportamiento inteligente por producto. Tasas de primer pedido (Entry Point), retención de clientes, valor de vida (LTV) y velocidad de recompra.' },
-    { id: 'meta_ads', label: 'Meta Ads Analytics', img: '/assets/landing_meta_ads.jpg', desc: 'Estadísticas publicitarias unificadas. Medí alcance, conversiones, CTR, costo por adquisición (CPA) y ROAS exacto contrastado con ventas reales.' },
-    { id: 'perfil_dark', label: 'Gestión de Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: 'Sincronización directa con Klaviyo. Automatizá secuencias de correos para carritos abandonados, bienvenida y retención, atribuyendo cada venta a su respectiva campaña.' }
+    { id: 'mensajeria', label: 'Mensajería', img: '/assets/landing_mensajeria.jpg', desc: 'Bandeja omnicanal integrada para Instagram Direct, Facebook Messenger y WhatsApp. Automatizá la gestión diaria y redactá respuestas perfectas con el Cerebro de IA.' },
+    { id: 'creativos', label: 'Creativos', img: '/assets/landing_analisis.jpg', desc: 'Control absoluto de tus campañas en Meta Ads. Compará rendimiento, CTR, ROAS y gasto real por pieza creativa en un solo panel para optimizar tu presupuesto.' },
+    { id: 'comentarios', label: 'Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Moderación automatizada para posteos orgánicos y anuncios de pago. Respondé consultas, filtrá spam y canalizá interacciones hacia la compra al instante.' },
+    { id: 'pedidos', label: 'Pedidos', img: '/assets/landing_pedidos.jpg', desc: 'Visualización detallada del flujo de compras. Seguimiento de estado de envío, facturación integrada, pasarelas de pago y comportamiento del cliente.' },
+    { id: 'inventario', label: 'Inventario', img: '/assets/landing_inventario.jpg', desc: 'Sincronización total de tu catálogo. Modificá inventarios, variantes y precios y mirá cómo se propagan automáticamente en todas tus tiendas conectadas.' },
+    { id: 'analisis', label: 'Análisis', img: '/assets/landing_creativos.jpg', desc: 'Embudo de comportamiento inteligente por producto. Tasas de primer pedido (Entry Point), retención de clientes, valor de vida (LTV) y velocidad de recompra.' },
+    { id: 'perfil_dark', label: 'Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: 'Sincronización directa con Klaviyo. Automatizá secuencias de correos para carritos abandonados, bienvenida y retención, atribuyendo cada venta a su respectiva campaña.' },
+    { id: 'meta_ads', label: 'Meta Ads', img: '/assets/landing_meta_ads.jpg', desc: 'Estadísticas publicitarias unificadas. Medí alcance, conversiones, CTR, costo por adquisición (CPA) y ROAS exacto contrastado con ventas reales.' }
   ];
 
   const toggleFaq = (index: number) => {
@@ -840,15 +854,15 @@ export default function LandingPage() {
           {/* High-Fidelity Showcase Gallery */}
           <div id="platform-showcase" className={`relative max-w-5xl mx-auto mt-10 rounded-2xl border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.06]' : 'bg-white border-zinc-200/50'}`}>
 
-            {/* Tab Selector */}
-            <div className={`flex border-b overflow-x-auto scrollbar-none p-2 gap-1 ${darkMode ? 'border-white/[0.05] bg-zinc-950/50' : 'border-zinc-200/50 bg-zinc-50/40'}`}>
+            {/* Tab Selector — responsive wrap */}
+            <div className={`flex flex-wrap border-b p-1.5 gap-1 ${darkMode ? 'border-white/[0.05] bg-zinc-950/50' : 'border-zinc-200/50 bg-zinc-50/40'}`}>
               {showcaseTabs.map((tab) => {
                 const isActive = activeTabShowcase === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTabShowcase(tab.id as any)}
-                    className={`h-7 px-3.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center shrink-0 ${
+                    className={`h-6 px-2.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center ${
                       isActive
                         ? (darkMode ? 'bg-white/10 text-white border border-white/10' : 'bg-zinc-900 text-white shadow-sm')
                         : (darkMode ? 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/80')
@@ -1349,73 +1363,6 @@ export default function LandingPage() {
                   )}
                 </div>
 
-                {/* 4. DESGLOSE POR CANAL */}
-                <div className="space-y-2 border-t border-zinc-200/40 dark:border-white/[0.03] pt-4">
-                  <span className="text-[8.5px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block mb-2">Desglose de rendimiento</span>
-
-                  {(!expandedMetric || expandedMetric.startsWith('s-')) && (
-                    <div className="grid grid-cols-2 gap-2 text-[10px] animate-in fade-in duration-200">
-                      <div className="p-3 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-4 h-4 object-contain" />
-                          <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Shopify</span>
-                        </div>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 41.330</span>
-                        <span className="text-[8.5px] text-zinc-450 dark:text-zinc-500 block font-semibold">124 pedidos concretados</span>
-                      </div>
-
-                      <div className="p-3 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <img src={darkMode ? "/assets/tiendanube.webp" : "/assets/tiendanubeoscuro.png"} alt="Tiendanube" className="w-4 h-4 object-contain" />
-                          <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Tiendanube</span>
-                        </div>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 27.553</span>
-                        <span className="text-[8.5px] text-zinc-450 dark:text-zinc-500 block font-semibold">83 pedidos concretados</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {expandedMetric && expandedMetric.startsWith('meta-') && (
-                    <div className="grid grid-cols-3 gap-2 text-[10px] animate-in fade-in duration-200">
-                      <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Clicks</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">6.050</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">CTR Promedio 2.3%</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Ventas</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">121 compras</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">Atribución directa</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Retorno</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 32.529</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">ROAS 17.3×</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {expandedMetric && expandedMetric.startsWith('email-') && (
-                    <div className="grid grid-cols-3 gap-2 text-[10px] animate-in fade-in duration-200">
-                      <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Enviados</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">2.770 correos</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">Campañas + Secuencias</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Apertura</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">60.9%</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">Tasa promedio</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Ingresos</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 14.822</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">Atribuido a Klaviyo</span>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
 
               </div>
 
@@ -1835,28 +1782,24 @@ export default function LandingPage() {
               <div className={`p-4 border-b flex items-center justify-between ${
                 darkMode ? 'border-white/[0.04] bg-[#0c0c10]' : 'border-zinc-200/60 bg-zinc-50/50'
               }`}>
-                <div className="flex items-center gap-1.5">
-                  <span className="flex items-center gap-1 text-[11.5px] font-black text-violet-500 bg-violet-500/10 px-2.5 py-1 rounded-full border border-violet-500/10">
-                    <Brain className="w-3.5 h-3.5" /> TRIBE v2
-                  </span>
-                  <span className="text-[12px] font-bold text-zinc-400 dark:text-zinc-500 font-display">|</span>
+                <div className="flex items-center gap-1">
                   <div className="flex gap-1">
-                    <button 
+                    <button
                       onClick={() => setSimModalTab('metrics')}
                       className={`px-3 py-1 rounded-lg text-[11px] font-black transition-all ${
                         simModalTab === 'metrics'
-                          ? (darkMode ? 'bg-white/5 text-white border border-white/10' : 'bg-white text-zinc-800 border border-zinc-200 shadow-sm')
-                          : 'text-zinc-400 hover:text-zinc-650'
+                          ? (darkMode ? 'bg-white/8 text-white border border-white/10' : 'bg-white text-zinc-800 border border-zinc-200 shadow-sm')
+                          : (darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-700')
                       }`}
                     >
-                      Neurométricas
+                      Análisis Creativo
                     </button>
-                    <button 
+                    <button
                       onClick={() => setSimModalTab('comments')}
                       className={`px-3 py-1 rounded-lg text-[11px] font-black transition-all flex items-center gap-1 relative ${
                         simModalTab === 'comments'
-                          ? (darkMode ? 'bg-white/5 text-white border border-white/10' : 'bg-white text-zinc-800 border border-zinc-200 shadow-sm')
-                          : 'text-zinc-400 hover:text-zinc-650'
+                          ? (darkMode ? 'bg-white/8 text-white border border-white/10' : 'bg-white text-zinc-800 border border-zinc-200 shadow-sm')
+                          : (darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-700')
                       }`}
                     >
                       Comentarios
@@ -1885,18 +1828,19 @@ export default function LandingPage() {
                       darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'
                     }`}>
                       <div className={`w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-lg font-black text-white shrink-0 ${
-                        selectedSimCreative.tribeMetrics.score >= 80 ? 'bg-emerald-500 shadow-emerald-500/10' :
-                        selectedSimCreative.tribeMetrics.score >= 60 ? 'bg-amber-500 shadow-amber-500/10' :
-                        'bg-red-500 shadow-red-500/10'
+                        selectedSimCreative.tribeMetrics.score >= 80 ? 'bg-emerald-500' :
+                        selectedSimCreative.tribeMetrics.score >= 60 ? 'bg-amber-500' :
+                        'bg-red-500'
                       }`}>
                         <span className="text-[20px] leading-none">{selectedSimCreative.tribeMetrics.score}</span>
                         <span className="text-[8px] opacity-75">/100</span>
                       </div>
                       <div>
-                        <h4 className="text-[13.5px] font-black">{selectedSimCreative.tribeMetrics.label}</h4>
-                        <p className="text-[9.5px] text-zinc-400 mt-1">
-                          Región dominante: <span className="font-bold text-violet-500">{selectedSimCreative.tribeMetrics.highestRegion}</span>
+                        <h4 className="text-[13.5px] font-black text-zinc-900 dark:text-white">{selectedSimCreative.tribeMetrics.label}</h4>
+                        <p className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                          Región dominante: <span className="font-bold text-violet-500 dark:text-violet-400">{selectedSimCreative.tribeMetrics.highestRegion}</span>
                         </p>
+                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
                       </div>
                     </div>
 
@@ -1906,46 +1850,68 @@ export default function LandingPage() {
                     }`}>
                       {/* Atención */}
                       <div>
-                        <div className="flex items-center justify-between mb-1 text-[10px] font-bold">
-                          <span className="text-zinc-400 uppercase tracking-wider">Atención del Consumidor</span>
+                        <div className="flex items-center justify-between mb-1.5 text-[10px] font-bold">
+                          <span className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Atención</span>
                           <span className="text-emerald-500 font-extrabold">{selectedSimCreative.tribeMetrics.attentionPct}%</span>
                         </div>
-                        <div className="h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${selectedSimCreative.tribeMetrics.attentionPct}%` }} />
+                        <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full transition-all duration-700" style={{ width: `${selectedSimCreative.tribeMetrics.attentionPct}%` }} />
                         </div>
-                        <p className="text-[9px] text-zinc-400 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.attentionReason}</p>
+                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.attentionReason}</p>
                       </div>
 
                       {/* Emoción */}
                       <div>
-                        <div className="flex items-center justify-between mb-1 text-[10px] font-bold">
-                          <span className="text-zinc-400 uppercase tracking-wider">Resonancia Emocional</span>
+                        <div className="flex items-center justify-between mb-1.5 text-[10px] font-bold">
+                          <span className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Emoción</span>
                           <span className="text-violet-500 font-extrabold">{selectedSimCreative.tribeMetrics.emotionPct}%</span>
                         </div>
-                        <div className="h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-violet-500 rounded-full" style={{ width: `${selectedSimCreative.tribeMetrics.emotionPct}%` }} />
+                        <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-violet-500 rounded-full transition-all duration-700" style={{ width: `${selectedSimCreative.tribeMetrics.emotionPct}%` }} />
                         </div>
-                        <p className="text-[9px] text-zinc-400 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.emotionReason}</p>
+                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.emotionReason}</p>
                       </div>
 
                       {/* Carga Cognitiva */}
                       <div>
-                        <div className="flex items-center justify-between mb-1 text-[10px] font-bold">
-                          <span className="text-zinc-400 uppercase tracking-wider">Carga Cognitiva (Saturación)</span>
+                        <div className="flex items-center justify-between mb-1.5 text-[10px] font-bold">
+                          <span className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Carga Cognitiva</span>
                           <span className={`font-extrabold ${
                             selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'text-emerald-500' :
                             selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'text-amber-500' :
                             'text-red-500'
                           }`}>{selectedSimCreative.tribeMetrics.cogLoad}%</span>
                         </div>
-                        <div className="h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${
+                        <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-700 ${
                             selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'bg-emerald-500' :
                             selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'bg-amber-500' :
                             'bg-red-500'
                           }`} style={{ width: `${selectedSimCreative.tribeMetrics.cogLoad}%` }} />
                         </div>
-                        <p className="text-[9px] text-zinc-400 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.cogLoadReason}</p>
+                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.cogLoadReason}</p>
+                      </div>
+                    </div>
+
+                    {/* Gráfico Atención/Emoción en el tiempo */}
+                    <div className={`p-4 border rounded-2xl ${darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</span>
+                        <div className="flex items-center gap-3 text-[9px] font-bold">
+                          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
+                          <span className={`flex items-center gap-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
+                        </div>
+                      </div>
+                      <div className="h-[110px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={genTimeline(selectedSimCreative.tribeMetrics.attentionPct, selectedSimCreative.tribeMetrics.emotionPct, selectedSimCreative.id)} margin={{ left: -20, right: 4, top: 4, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'} />
+                            <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}s`} />
+                            <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}`} width={24} />
+                            <Line type="monotone" dataKey="attn" stroke="#10b981" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="emot" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
                       </div>
                     </div>
 
