@@ -129,20 +129,24 @@ export default function LandingPage() {
 
   const faqs = [
     {
-      q: '¿Cómo funciona la sincronización multitienda?',
-      a: 'Nos conectamos mediante APIs oficiales a Shopify, Tiendanube, WooCommerce y Mercado Libre. Cualquier cambio en tus productos, precios o inventario se actualiza de manera bidireccional y en tiempo real en todos tus canales activos.'
+      q: '¿Qué integraciones puedo conectar y cuánto tiempo toma?',
+      a: 'Podés conectar Shopify, Tiendanube, WooCommerce, Mercado Libre, Google Ads, Meta Ads, TikTok Ads y Klaviyo en menos de 5 minutos. La integración se realiza mediante protocolos OAuth oficiales y seguros con un par de clics, sin requerir conocimientos técnicos ni programación.'
     },
     {
-      q: '¿Qué canales de chat puedo integrar?',
-      a: 'Nuestra bandeja omnicanal unifica WhatsApp Business, Instagram DM y Facebook Messenger. Podés gestionar conversaciones grupales y asignar agentes de atención con métricas de tiempo de respuesta detalladas.'
+      q: '¿Puedo cancelar mi suscripción en cualquier momento?',
+      a: 'Sí, absolutamente. No hay contratos de permanencia ni cláusulas ocultas. Podés dar de baja o pausar tu plan corporativo con un solo clic desde tu panel de facturación en el momento que quieras, sin ningún tipo de cargo adicional por cancelación.'
     },
     {
-      q: '¿Cómo se configura el Cerebro de IA?',
-      a: 'Solo debés ingresar el link de tu web o subir tus preguntas frecuentes. Nuestra IA analiza el contenido en segundos para proponer respuestas inteligentes, fichas de producto y precios correctos a tus agentes.'
+      q: '¿Cómo ayuda el Cerebro de IA a automatizar mi soporte?',
+      a: 'La inteligencia artificial analiza el contenido de tu web, tus políticas y las preguntas frecuentes cargadas. A partir de allí, asiste a tus agentes de atención sugiriendo borradores de respuestas perfectas con stock y precios en tiempo real para despachar con un solo clic.'
     },
     {
-      q: '¿Tienen soporte técnico personalizado?',
-      a: 'Sí. Todos nuestros clientes corporativos cuentan con asistencia prioritaria 24/7 y asistencia guiada sin cargo durante la configuración inicial de integraciones.'
+      q: '¿Tienen soporte técnico durante la configuración inicial?',
+      a: 'Sí. Nuestro equipo técnico de soporte te guiará de forma personalizada y sin costo a través de videollamada para conectar todas tus tiendas y cuentas publicitarias paso a paso, asegurando que tu stock y campañas queden perfectamente integrados.'
+    },
+    {
+      q: '¿Cuántos agentes de atención o tiendas puedo configurar?',
+      a: 'Todos los que necesites. Nuestro plan de tarifa plana corporativo incluye agentes, sucursales y tiendas conectadas ilimitadas. No cobramos cargos sorpresa ni costos adicionales por usuario colaborador registrado.'
     }
   ];
 
@@ -587,7 +591,7 @@ export default function LandingPage() {
                       <img 
                         src={darkMode && store.darkLogo ? store.darkLogo : store.logo} 
                         alt={store.name} 
-                        className="w-5.5 h-5.5 object-contain"
+                        className="w-8 h-8 object-contain flex-shrink-0"
                       />
                       <div className="min-w-0">
                         <p className="text-[10px] font-black leading-none">{store.name}</p>
@@ -736,28 +740,33 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ Section (Accordion) */}
-      <section className="py-24 max-w-3xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.04]">
-        <h2 className="text-3xl font-black tracking-tight text-center mb-12">Preguntas frecuentes</h2>
-        <div className="space-y-4">
+      <section className="py-24 max-w-4xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.04]">
+        <div className="text-center mb-12">
+          <span className="text-[10px] font-extrabold text-violet-500 uppercase tracking-widest block mb-2">RESPUESTAS RÁPIDAS</span>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-center">Preguntas frecuentes</h2>
+        </div>
+        <div className="space-y-3.5">
           {faqs.map((faq, idx) => {
             const isOpen = activeFaq === idx;
             return (
               <div
                 key={faq.q}
-                className={`rounded-2xl border transition-all duration-200 ${
-                  darkMode ? 'bg-zinc-900/20 border-white/[0.06]' : 'bg-white border-zinc-200/60 shadow-sm'
+                className={`rounded-2xl border transition-all duration-300 ${
+                  isOpen 
+                    ? (darkMode ? 'bg-zinc-900/35 border-violet-500/20 shadow-md' : 'bg-violet-500/[0.01] border-violet-500/20 shadow-sm')
+                    : (darkMode ? 'bg-[#060608]/40 border-white/[0.04] hover:bg-zinc-900/20 hover:border-white/[0.08]' : 'bg-white border-zinc-200/60 hover:bg-zinc-50/50')
                 }`}
               >
                 <button
                   onClick={() => toggleFaq(idx)}
                   className="w-full px-6 py-4.5 flex items-center justify-between gap-4 text-left"
                 >
-                  <span className="text-[13.5px] font-extrabold">{faq.q}</span>
-                  <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+                  <span className={`text-[14.0px] sm:text-[14.5px] font-bold tracking-tight transition-colors duration-250 ${isOpen ? 'text-violet-500 dark:text-violet-400' : 'text-zinc-800 dark:text-zinc-250'}`}>{faq.q}</span>
+                  <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-violet-500' : ''}`} />
                 </button>
                 {isOpen && (
-                  <div className={`px-6 pb-4.5 text-[12.5px] leading-relaxed font-semibold border-t pt-3.5 animate-in fade-in duration-200 ${
-                    darkMode ? 'text-zinc-450 border-white/[0.04]' : 'text-zinc-500 border-zinc-100'
+                  <div className={`px-6 pb-5 text-[13px] leading-relaxed font-medium border-t pt-3.5 animate-in fade-in duration-300 ${
+                    darkMode ? 'text-zinc-400 border-white/[0.04]' : 'text-zinc-550 border-zinc-100'
                   }`}>
                     {faq.a}
                   </div>
