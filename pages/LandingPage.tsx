@@ -125,124 +125,118 @@ const MockMetricCard = ({
   );
 };
 
-// Simulated daily historical data for dashboard metrics
+// Simulated daily data for dashboard metrics — values match real app (Últimos 28 días)
 const chartMockData: Record<string, { date: string; val: number }[]> = {
+  // Tienda Online: $68.883 ingresos, 207 pedidos, $333 ticket promedio
   's-revenue': [
-    { date: '2026-06-08', val: 28000 },
-    { date: '2026-06-09', val: 31000 },
-    { date: '2026-06-10', val: 29500 },
-    { date: '2026-06-11', val: 34000 },
-    { date: '2026-06-12', val: 30500 },
-    { date: '2026-06-13', val: 32400 },
-    { date: '2026-06-14', val: 35000 }
+    { date: '2026-05-18', val: 2200 },
+    { date: '2026-05-22', val: 2380 },
+    { date: '2026-05-26', val: 2290 },
+    { date: '2026-05-30', val: 2520 },
+    { date: '2026-06-03', val: 2450 },
+    { date: '2026-06-07', val: 2610 },
+    { date: '2026-06-14', val: 2560 }
   ],
   's-orders': [
-    { date: '2026-06-08', val: 3 },
-    { date: '2026-06-09', val: 4 },
-    { date: '2026-06-10', val: 4 },
-    { date: '2026-06-11', val: 5 },
-    { date: '2026-06-12', val: 4 },
-    { date: '2026-06-13', val: 6 },
-    { date: '2026-06-14', val: 5 }
+    { date: '2026-05-18', val: 6 },
+    { date: '2026-05-22', val: 7 },
+    { date: '2026-05-26', val: 7 },
+    { date: '2026-05-30', val: 8 },
+    { date: '2026-06-03', val: 7 },
+    { date: '2026-06-07', val: 9 },
+    { date: '2026-06-14', val: 8 }
   ],
   's-aov': [
-    { date: '2026-06-08', val: 7600 },
-    { date: '2026-06-09', val: 7750 },
-    { date: '2026-06-10', val: 7375 },
-    { date: '2026-06-11', val: 6800 },
-    { date: '2026-06-12', val: 7625 },
-    { date: '2026-06-13', val: 5400 },
-    { date: '2026-06-14', val: 7000 }
+    { date: '2026-05-18', val: 315 },
+    { date: '2026-05-22', val: 325 },
+    { date: '2026-05-26', val: 320 },
+    { date: '2026-05-30', val: 312 },
+    { date: '2026-06-03', val: 340 },
+    { date: '2026-06-07', val: 328 },
+    { date: '2026-06-14', val: 333 }
   ],
-  's-mer': [
-    { date: '2026-06-08', val: 8.8 },
-    { date: '2026-06-09', val: 9.2 },
-    { date: '2026-06-10', val: 9.5 },
-    { date: '2026-06-11', val: 9.1 },
-    { date: '2026-06-12', val: 9.3 },
-    { date: '2026-06-13', val: 9.7 },
-    { date: '2026-06-14', val: 9.4 }
-  ],
+  // Meta Ads: $1.882 inversión, 147.284 alcance, 121 compras, ROAS 17.3, $32.529 retorno
   'meta-inversion': [
-    { date: '2026-06-08', val: 3100 },
-    { date: '2026-06-09', val: 3350 },
-    { date: '2026-06-10', val: 3200 },
-    { date: '2026-06-11', val: 3500 },
-    { date: '2026-06-12', val: 3250 },
-    { date: '2026-06-13', val: 3400 },
-    { date: '2026-06-14', val: 3330 }
+    { date: '2026-05-18', val: 52 },
+    { date: '2026-05-22', val: 61 },
+    { date: '2026-05-26', val: 65 },
+    { date: '2026-05-30', val: 70 },
+    { date: '2026-06-03', val: 68 },
+    { date: '2026-06-07', val: 74 },
+    { date: '2026-06-14', val: 73 }
   ],
   'meta-alcance': [
-    { date: '2026-06-08', val: 1200 },
-    { date: '2026-06-09', val: 1550 },
-    { date: '2026-06-10', val: 1380 },
-    { date: '2026-06-11', val: 1720 },
-    { date: '2026-06-12', val: 1450 },
-    { date: '2026-06-13', val: 1680 },
-    { date: '2026-06-14', val: 2100 }
+    { date: '2026-05-18', val: 5620 },
+    { date: '2026-05-22', val: 5480 },
+    { date: '2026-05-26', val: 5350 },
+    { date: '2026-05-30', val: 5280 },
+    { date: '2026-06-03', val: 5260 },
+    { date: '2026-06-07', val: 5240 },
+    { date: '2026-06-14', val: 5210 }
   ],
   'meta-compras': [
-    { date: '2026-06-08', val: 2 },
-    { date: '2026-06-09', val: 3 },
-    { date: '2026-06-10', val: 3 },
-    { date: '2026-06-11', val: 4 },
-    { date: '2026-06-12', val: 3 },
-    { date: '2026-06-13', val: 5 },
+    { date: '2026-05-18', val: 6 },
+    { date: '2026-05-22', val: 5 },
+    { date: '2026-05-26', val: 5 },
+    { date: '2026-05-30', val: 4 },
+    { date: '2026-06-03', val: 4 },
+    { date: '2026-06-07', val: 4 },
     { date: '2026-06-14', val: 4 }
   ],
   'meta-roas': [
-    { date: '2026-06-08', val: 9.8 },
-    { date: '2026-06-09', val: 10.2 },
-    { date: '2026-06-10', val: 10.5 },
-    { date: '2026-06-11', val: 10.1 },
-    { date: '2026-06-12', val: 10.3 },
-    { date: '2026-06-13', val: 11.2 },
-    { date: '2026-06-14', val: 10.8 }
+    { date: '2026-05-18', val: 24.8 },
+    { date: '2026-05-22', val: 22.5 },
+    { date: '2026-05-26', val: 21.0 },
+    { date: '2026-05-30', val: 19.8 },
+    { date: '2026-06-03', val: 18.5 },
+    { date: '2026-06-07', val: 17.9 },
+    { date: '2026-06-14', val: 17.3 }
   ],
   'meta-retorno': [
-    { date: '2026-06-08', val: 28400 },
-    { date: '2026-06-09', val: 31200 },
-    { date: '2026-06-10', val: 29800 },
-    { date: '2026-06-11', val: 33500 },
-    { date: '2026-06-12', val: 30100 },
-    { date: '2026-06-13', val: 32000 },
-    { date: '2026-06-14', val: 31800 }
+    { date: '2026-05-18', val: 980 },
+    { date: '2026-05-22', val: 1050 },
+    { date: '2026-05-26', val: 1100 },
+    { date: '2026-05-30', val: 1160 },
+    { date: '2026-06-03', val: 1200 },
+    { date: '2026-06-07', val: 1230 },
+    { date: '2026-06-14', val: 1250 }
   ],
+  // Email: 2.770 entregas, 60.9% apertura, 10.8% clics, $14.822 ingresos
   'email-sent': [
-    { date: '2026-06-08', val: 1200 },
-    { date: '2026-06-09', val: 1350 },
-    { date: '2026-06-10', val: 1280 },
-    { date: '2026-06-11', val: 1420 },
-    { date: '2026-06-12', val: 1350 },
-    { date: '2026-06-13', val: 1390 },
-    { date: '2026-06-14', val: 1450 }
+    { date: '2026-05-18', val: 42 },
+    { date: '2026-05-22', val: 68 },
+    { date: '2026-05-26', val: 95 },
+    { date: '2026-05-30', val: 128 },
+    { date: '2026-06-03', val: 148 },
+    { date: '2026-06-07', val: 162 },
+    { date: '2026-06-14', val: 168 }
   ],
   'email-open': [
-    { date: '2026-06-08', val: 62.4 },
-    { date: '2026-06-09', val: 64.2 },
-    { date: '2026-06-10', val: 65.5 },
-    { date: '2026-06-11', val: 63.8 },
-    { date: '2026-06-12', val: 64.9 },
-    { date: '2026-06-13', val: 66.2 },
-    { date: '2026-06-14', val: 65.7 }
+    { date: '2026-05-18', val: 57.8 },
+    { date: '2026-05-22', val: 58.5 },
+    { date: '2026-05-26', val: 59.3 },
+    { date: '2026-05-30', val: 59.8 },
+    { date: '2026-06-03', val: 60.3 },
+    { date: '2026-06-07', val: 60.7 },
+    { date: '2026-06-14', val: 60.9 }
   ],
   'email-click': [
-    { date: '2026-06-08', val: 9.8 },
-    { date: '2026-06-09', val: 10.2 },
-    { date: '2026-06-10', val: 10.5 },
-    { date: '2026-06-11', val: 10.1 },
-    { date: '2026-06-12', val: 10.3 },
-    { date: '2026-06-13', val: 11.2 },
+    { date: '2026-05-18', val: 5.8 },
+    { date: '2026-05-22', val: 6.5 },
+    { date: '2026-05-26', val: 7.4 },
+    { date: '2026-05-30', val: 8.3 },
+    { date: '2026-06-03', val: 9.2 },
+    { date: '2026-06-07', val: 10.1 },
     { date: '2026-06-14', val: 10.8 }
   ],
   'email-revenue': [
-    { date: '2026-06-08', val: 2100 },
-    { date: '2026-06-09', val: 2400 },
-    { date: '2026-06-10', val: 2600 },
-    { date: '2026-06-11', val: 2800 },
-    { date: '2026-06-12', val: 3250 },
-    { date: '2026-06-13', val: 3100 },
-    { date: '2026-06-14', val: 3400 }
+    { date: '2026-05-18', val: 210 },
+    { date: '2026-05-22', val: 380 },
+    { date: '2026-05-26', val: 560 },
+    { date: '2026-05-30', val: 720 },
+    { date: '2026-06-03', val: 840 },
+    { date: '2026-06-07', val: 920 },
+    { date: '2026-06-14', val: 950 }
   ]
 };
 
@@ -508,7 +502,7 @@ export default function LandingPage() {
   ];
 
   // --- Estados de las Simulaciones Interactivas del Dashboard ---
-  const [expandedMetric, setExpandedMetric] = useState<string | null>('s-revenue');
+  const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
   
   const [selectedSimCreativeId, setSelectedSimCreativeId] = useState<number | null>(null);
   const [simModalTab, setSimModalTab] = useState<'metrics' | 'comments'>('metrics');
@@ -1085,13 +1079,30 @@ export default function LandingPage() {
                   <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Dashboard</span>
                 </div>
                 <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-lg border ${darkMode ? 'bg-white/[0.03] border-white/[0.06] text-zinc-400' : 'bg-zinc-100 border-zinc-200 text-zinc-500'}`}>
-                  Últimos 30 días
+                  Últimos 28 días
                 </span>
               </div>
 
               {/* Dashboard body */}
               <div className="mt-3.5 space-y-5 text-left">
-                
+
+                {/* Hint interactivo — visible cuando ninguna métrica está expandida */}
+                {!expandedMetric && (
+                  <div className="flex justify-center">
+                    <button
+                      onClick={() => setExpandedMetric('s-revenue')}
+                      className={`flex items-center gap-2 text-[10px] font-bold px-4 py-2 rounded-full border transition-all duration-200 ${
+                        darkMode
+                          ? 'bg-white/[0.03] border-white/[0.08] text-zinc-400 hover:bg-white/[0.07] hover:text-white hover:border-white/[0.18]'
+                          : 'bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 hover:border-zinc-300'
+                      }`}
+                    >
+                      <MousePointerClick className="w-3.5 h-3.5" />
+                      Tocá cualquier métrica para ver su evolución
+                    </button>
+                  </div>
+                )}
+
                 {/* 1. SECCIÓN: TIENDA ONLINE */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 px-1">
@@ -1102,13 +1113,13 @@ export default function LandingPage() {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <MockMetricCard
                       metricId="s-aov"
                       label="Ticket Promedio"
-                      value="$ 7.880"
-                      change="4.2"
+                      value="$ 333"
+                      change="13.9"
                       trend="up"
                       sparklineColor="#ec4899"
                       icon={Receipt}
@@ -1119,8 +1130,8 @@ export default function LandingPage() {
                     <MockMetricCard
                       metricId="s-orders"
                       label="Pedidos"
-                      value="119"
-                      change="8.5"
+                      value="207"
+                      change="16.9"
                       trend="up"
                       sparklineColor="#ec4899"
                       icon={Package}
@@ -1131,8 +1142,8 @@ export default function LandingPage() {
                     <MockMetricCard
                       metricId="s-revenue"
                       label="Ingresos"
-                      value="$ 937.790"
-                      change="12.4"
+                      value="$ 68.883"
+                      change="5.3"
                       trend="up"
                       sparklineColor="#ec4899"
                       icon={DollarSign}
@@ -1140,28 +1151,15 @@ export default function LandingPage() {
                       onClick={() => setExpandedMetric(expandedMetric === 's-revenue' ? null : 's-revenue')}
                       darkMode={darkMode}
                     />
-                    <MockMetricCard
-                      metricId="s-mer"
-                      label="M.E.R. (Eficiencia)"
-                      value="9.4x"
-                      change="3.2"
-                      trend="up"
-                      sparklineColor="#ec4899"
-                      icon={TrendingUp}
-                      active={expandedMetric === 's-mer'}
-                      onClick={() => setExpandedMetric(expandedMetric === 's-mer' ? null : 's-mer')}
-                      darkMode={darkMode}
-                    />
                   </div>
-                  
+
                   {/* Chart for Tienda group */}
                   {expandedMetric && expandedMetric.startsWith('s-') && (
                     (() => {
                       const details = {
                         's-aov': { label: 'Ticket Promedio', color: '#ec4899' },
-                        's-orders': { label: 'Pedidos Concretados', color: '#ec4899' },
+                        's-orders': { label: 'Pedidos', color: '#ec4899' },
                         's-revenue': { label: 'Ingresos de Tienda', color: '#ec4899' },
-                        's-mer': { label: 'M.E.R. (Eficiencia)', color: '#ec4899' }
                       }[expandedMetric];
                       return details ? (
                         <MockDetailChart
@@ -1177,20 +1175,20 @@ export default function LandingPage() {
                 {/* 2. SECCIÓN: PUBLICIDAD DE META ADS */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 px-1 pt-1.5">
-                    <TrendingUp className="w-4 h-4 text-violet-500 shrink-0" />
+                    <svg className="w-4 h-4 text-violet-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M13.028 23.956C18.943 23.302 23.5 18.261 23.5 12.135c0-6.35-5.149-11.5-11.5-11.5S.5 5.785.5 12.135c0 5.73 4.172 10.486 9.668 11.368V15.63H7.445v-3.495h2.723V9.72c0-2.682 1.597-4.163 4.04-4.163 1.171 0 2.395.21 2.395.21v2.634h-1.35c-1.33 0-1.745.825-1.745 1.671v2.01h2.97l-.474 3.494h-2.496v7.873a11.554 11.554 0 0 0 1.52-.494z"/></svg>
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-display">Meta Ads</span>
                     <div className="flex items-center gap-1 ml-auto">
                       <span className="text-[8.5px] text-zinc-400 dark:text-zinc-500 font-semibold">Facebook & Instagram Ads</span>
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                     <MockMetricCard
                       metricId="meta-inversion"
                       label="Inversión"
-                      value="$ 99.900"
-                      change="5.1"
+                      value="$ 1.882"
+                      change="27.5"
                       trend="up"
                       sparklineColor="#8b5cf6"
                       icon={DollarSign}
@@ -1201,9 +1199,9 @@ export default function LandingPage() {
                     <MockMetricCard
                       metricId="meta-alcance"
                       label="Alcance"
-                      value="45.200"
-                      change="12.8"
-                      trend="up"
+                      value="147.284"
+                      change="0.3"
+                      trend="down"
                       sparklineColor="#8b5cf6"
                       icon={Users}
                       active={expandedMetric === 'meta-alcance'}
@@ -1213,9 +1211,9 @@ export default function LandingPage() {
                     <MockMetricCard
                       metricId="meta-compras"
                       label="Compras"
-                      value="82"
-                      change="9.3"
-                      trend="up"
+                      value="121"
+                      change="22.9"
+                      trend="down"
                       sparklineColor="#8b5cf6"
                       icon={Package}
                       active={expandedMetric === 'meta-compras'}
@@ -1225,9 +1223,9 @@ export default function LandingPage() {
                     <MockMetricCard
                       metricId="meta-roas"
                       label="ROAS"
-                      value="10.8x"
-                      change="6.2"
-                      trend="up"
+                      value="17.3"
+                      change="32.3"
+                      trend="down"
                       sparklineColor="#8b5cf6"
                       icon={TrendingUp}
                       active={expandedMetric === 'meta-roas'}
@@ -1237,8 +1235,8 @@ export default function LandingPage() {
                     <MockMetricCard
                       metricId="meta-retorno"
                       label="Retorno"
-                      value="$ 937.000"
-                      change="11.5"
+                      value="$ 32.529"
+                      change="13.7"
                       trend="up"
                       sparklineColor="#8b5cf6"
                       icon={DollarSign}
@@ -1247,16 +1245,16 @@ export default function LandingPage() {
                       darkMode={darkMode}
                     />
                   </div>
-                  
+
                   {/* Chart for Meta group */}
                   {expandedMetric && expandedMetric.startsWith('meta-') && (
                     (() => {
                       const details = {
                         'meta-inversion': { label: 'Inversión Publicitaria', color: '#8b5cf6' },
-                        'meta-alcance': { label: 'Alcance (Impresiones Únicas)', color: '#8b5cf6' },
+                        'meta-alcance': { label: 'Alcance (Personas Únicas)', color: '#8b5cf6' },
                         'meta-compras': { label: 'Compras Atribuidas', color: '#8b5cf6' },
-                        'meta-roas': { label: 'ROAS Atribuido (Retorno)', color: '#8b5cf6' },
-                        'meta-retorno': { label: 'Retorno Atribuido (Ventas)', color: '#8b5cf6' }
+                        'meta-roas': { label: 'ROAS', color: '#8b5cf6' },
+                        'meta-retorno': { label: 'Retorno Atribuido', color: '#8b5cf6' }
                       }[expandedMetric];
                       return details ? (
                         <MockDetailChart
@@ -1279,13 +1277,13 @@ export default function LandingPage() {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <MockMetricCard
                       metricId="email-sent"
                       label="Entregas"
-                      value="1.450"
-                      change="15.2"
+                      value="2.770"
+                      change="406.4"
                       trend="up"
                       sparklineColor="#10b981"
                       icon={Mail}
@@ -1296,8 +1294,8 @@ export default function LandingPage() {
                     <MockMetricCard
                       metricId="email-open"
                       label="Tasa de Apertura"
-                      value="65.7%"
-                      change="2.8"
+                      value="60.9%"
+                      change="4.0"
                       trend="up"
                       sparklineColor="#10b981"
                       icon={MailOpen}
@@ -1309,7 +1307,7 @@ export default function LandingPage() {
                       metricId="email-click"
                       label="Tasa de Clics"
                       value="10.8%"
-                      change="1.4"
+                      change="63.5"
                       trend="up"
                       sparklineColor="#10b981"
                       icon={MousePointerClick}
@@ -1320,8 +1318,8 @@ export default function LandingPage() {
                     <MockMetricCard
                       metricId="email-revenue"
                       label="Ingresos Email"
-                      value="$ 91.200"
-                      change="18.2"
+                      value="$ 14.822"
+                      change="393.1"
                       trend="up"
                       sparklineColor="#10b981"
                       icon={DollarSign}
@@ -1330,7 +1328,7 @@ export default function LandingPage() {
                       darkMode={darkMode}
                     />
                   </div>
-                  
+
                   {/* Chart for Email group */}
                   {expandedMetric && expandedMetric.startsWith('email-') && (
                     (() => {
@@ -1338,7 +1336,7 @@ export default function LandingPage() {
                         'email-sent': { label: 'Correos Entregados', color: '#10b981' },
                         'email-open': { label: 'Tasa de Apertura', color: '#10b981' },
                         'email-click': { label: 'Tasa de Clics', color: '#10b981' },
-                        'email-revenue': { label: 'Ingresos Email (Klaviyo)', color: '#10b981' }
+                        'email-revenue': { label: 'Ingresos por Email (Klaviyo)', color: '#10b981' }
                       }[expandedMetric];
                       return details ? (
                         <MockDetailChart
@@ -1351,10 +1349,10 @@ export default function LandingPage() {
                   )}
                 </div>
 
-                {/* 4. PERFORMANCE BREAKDOWN DETAIL (DESGLOSE) */}
+                {/* 4. DESGLOSE POR CANAL */}
                 <div className="space-y-2 border-t border-zinc-200/40 dark:border-white/[0.03] pt-4">
                   <span className="text-[8.5px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block mb-2">Desglose de rendimiento</span>
-                  
+
                   {(!expandedMetric || expandedMetric.startsWith('s-')) && (
                     <div className="grid grid-cols-2 gap-2 text-[10px] animate-in fade-in duration-200">
                       <div className="p-3 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
@@ -1362,17 +1360,17 @@ export default function LandingPage() {
                           <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-4 h-4 object-contain" />
                           <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Shopify</span>
                         </div>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 625.300</span>
-                        <span className="text-[8.5px] text-zinc-450 dark:text-zinc-500 block font-semibold">82 pedidos concretados</span>
+                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 41.330</span>
+                        <span className="text-[8.5px] text-zinc-450 dark:text-zinc-500 block font-semibold">124 pedidos concretados</span>
                       </div>
-                      
+
                       <div className="p-3 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
                         <div className="flex items-center gap-1.5 mb-1">
                           <img src={darkMode ? "/assets/tiendanube.webp" : "/assets/tiendanubeoscuro.png"} alt="Tiendanube" className="w-4 h-4 object-contain" />
                           <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider">Tiendanube</span>
                         </div>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 312.490</span>
-                        <span className="text-[8.5px] text-zinc-450 dark:text-zinc-500 block font-semibold">37 pedidos concretados</span>
+                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 27.553</span>
+                        <span className="text-[8.5px] text-zinc-450 dark:text-zinc-500 block font-semibold">83 pedidos concretados</span>
                       </div>
                     </div>
                   )}
@@ -1381,18 +1379,18 @@ export default function LandingPage() {
                     <div className="grid grid-cols-3 gap-2 text-[10px] animate-in fade-in duration-200">
                       <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
                         <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Clicks</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">72.277</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">CTR Promedio 2.8%</span>
+                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">6.050</span>
+                        <span className="text-[8px] text-zinc-400 block font-semibold">CTR Promedio 2.3%</span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
                         <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Ventas</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">39 compras</span>
+                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">121 compras</span>
                         <span className="text-[8px] text-zinc-400 block font-semibold">Atribución directa</span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
                         <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Retorno</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 10.362</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">ROAS Atribuido 10.8×</span>
+                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 32.529</span>
+                        <span className="text-[8px] text-zinc-400 block font-semibold">ROAS 17.3×</span>
                       </div>
                     </div>
                   )}
@@ -1401,18 +1399,18 @@ export default function LandingPage() {
                     <div className="grid grid-cols-3 gap-2 text-[10px] animate-in fade-in duration-200">
                       <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
                         <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Enviados</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">1.450 correos</span>
+                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">2.770 correos</span>
                         <span className="text-[8px] text-zinc-400 block font-semibold">Campañas + Secuencias</span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
                         <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Apertura</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">65.7%</span>
+                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">60.9%</span>
                         <span className="text-[8px] text-zinc-400 block font-semibold">Tasa promedio</span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-zinc-200/30 dark:border-white/[0.02] text-left">
-                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Clicks</span>
-                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">10.8%</span>
-                        <span className="text-[8px] text-zinc-400 block font-semibold">CTR del Email</span>
+                        <span className="text-zinc-400 font-semibold block text-[8px] uppercase tracking-wider mb-1">Ingresos</span>
+                        <span className="font-extrabold text-[12.5px] text-zinc-800 dark:text-zinc-200 block mb-0.5">$ 14.822</span>
+                        <span className="text-[8px] text-zinc-400 block font-semibold">Atribuido a Klaviyo</span>
                       </div>
                     </div>
                   )}
