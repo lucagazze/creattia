@@ -367,7 +367,7 @@ export default function LandingPage() {
             {integrations.concat(integrations).map((item, idx) => (
               <div 
                 key={`${item.name}-${idx}`} 
-                className="flex items-center gap-3 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-6 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.02] border border-transparent hover:border-violet-500/20"
+                className="flex items-center gap-3 opacity-90 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-6 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.02] border border-transparent hover:border-violet-500/20"
               >
                 <img
                   src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
