@@ -73,13 +73,13 @@ export default function LandingPage() {
   const showcaseTabs = [
     { id: 'inicio', label: 'Inicio', img: '/assets/landing_inicio.jpg', desc: 'Panel principal unificado. Resumen ejecutivo de ingresos acumulados, pedidos totales, productos estrella analizados y métricas clave en tiempo real.' },
     { id: 'mensajeria', label: 'Mensajería Directa', img: '/assets/landing_mensajeria.jpg', desc: 'Chat inbox consolidado para Instagram Direct y Facebook Messenger. Leé mensajes y redactá borradores con sugerencias de Inteligencia Artificial.' },
+    { id: 'creativos', label: 'Creativos Ads', img: '/assets/landing_analisis.jpg', desc: 'Panel centralizado de anuncios activos en Meta Ads. Compará rendimiento de creativos, gasto, CTR y ROAS en un solo lugar para escalar lo que funciona.' },
     { id: 'comentarios', label: 'Moderación Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Bandeja omnicanal integrada. Respondé consultas en posts orgánicos y campañas pagas (Ads) con flujos automatizados de respuesta rápida.' },
     { id: 'pedidos', label: 'Control Pedidos', img: '/assets/landing_pedidos.jpg', desc: 'Visualización detallada de facturación, pasarelas de pago utilizadas, histórico de compras y estado logístico de las entregas.' },
     { id: 'inventario', label: 'Stock & Variaciones', img: '/assets/landing_inventario.jpg', desc: 'Monitoreo sincronizado de stock, precios y variantes de productos en múltiples plataformas de e-commerce en simultáneo.' },
     { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_creativos.jpg', desc: 'Embudo inteligente de comportamiento. Tasas de primer pedido (Entry Point), retención, velocidad de retorno (LTV) y cross-sell sugerido por producto.' },
-    { id: 'creativos', label: 'Creativos Ads', img: '/assets/landing_analisis.jpg', desc: 'Panel centralizado de anuncios activos en Meta Ads. Compará rendimiento de creativos, gasto, CTR y ROAS en un solo lugar para escalar lo que funciona.' },
     { id: 'meta_ads', label: 'Meta Ads Analytics', img: '/assets/landing_meta_ads.jpg', desc: 'Estadísticas unificadas de rendimiento de pauta. Control de gasto real, alcance total, clicks, conversiones, CTR, ROAS y CPA exactos.' },
-    { id: 'perfil_dark', label: 'Diseño Premium', img: '/assets/landing_perfil_dark.jpg', desc: 'Experiencia visual inmersiva. Configuración y administración con tema noche oscuro (Dark Mode) adaptativo de alto contraste.' }
+    { id: 'perfil_dark', label: 'Gestión de Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: 'Sincronización con Klaviyo y automatización de campañas. Diseñá flujos de correos, segmentá clientes y recuperá carritos abandonados de forma automática.' }
   ];
 
   const toggleFaq = (index: number) => {
