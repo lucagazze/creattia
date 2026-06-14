@@ -85,8 +85,16 @@ export default function LandingPage() {
     setTimeout(() => setSyncPulse(false), 800);
   };
 
-  // 3. Simulación de Gráfico Interactivo / KPIs
-  const [activeKpiHover, setActiveKpiHover] = useState<number | null>(null);
+  // Tabbed high-fidelity screenshots switcher
+  const [activeTabShowcase, setActiveTabShowcase] = useState<'resumen' | 'comentarios' | 'pedidos' | 'tienda' | 'publicidad'>('resumen');
+
+  const showcaseTabs = [
+    { id: 'resumen', label: 'Resumen General', img: '/assets/landing_dashboard.png', desc: 'Panel unificado con ingresos acumulados, métricas clave y rendimiento multicanal.' },
+    { id: 'comentarios', label: 'Inbox & Comentarios', img: '/assets/landing_comments.png', desc: 'Bandeja omnicanal para moderar comentarios y chatear con asistencia de inteligencia artificial.' },
+    { id: 'pedidos', label: 'Gestión de Pedidos', img: '/assets/landing_orders.png', desc: 'Monitoreo consolidado de compras, estado de pago y órdenes de envío pendientes.' },
+    { id: 'tienda', label: 'Rendimiento Tienda', img: '/assets/landing_shopify.png', desc: 'Métricas de evolución de ingresos, tasa de recompra y comportamiento del cliente.' },
+    { id: 'publicidad', label: 'Meta & Google Ads', img: '/assets/landing_meta.png', desc: 'Atribución publicitaria real de pauta digital y ROAS por plataforma y región.' }
+  ];
 
   const toggleFaq = (index: number) => {
     setActiveFaq(activeFaq === index ? null : index);
@@ -254,97 +262,42 @@ export default function LandingPage() {
             </a>
           </div>
 
-          {/* Interactive CSS Dashboard Preview (Instead of PNG Screenshot) */}
-          <div id="dashboard-preview" className="relative max-w-5xl mx-auto rounded-3xl border p-2 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/80 dark:border-white/[0.06] shadow-2xl shadow-zinc-950/5 dark:shadow-black/40 overflow-hidden animate-in fade-in zoom-in-95 duration-1000">
-            <div className={`w-full rounded-2xl border ${darkMode ? 'bg-[#0a0a0c] border-white/[0.05]' : 'bg-white border-zinc-200'} p-4 md:p-6 text-left`}>
+          {/* High-Fidelity Showcase Gallery Selector */}
+          <div id="platform-showcase" className="relative max-w-5xl mx-auto rounded-3xl border p-2 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/80 dark:border-white/[0.06] shadow-2xl shadow-zinc-950/5 dark:shadow-black/40 overflow-hidden animate-in fade-in zoom-in-95 duration-1000">
+            <div className={`w-full rounded-2xl border ${darkMode ? 'bg-[#0a0a0c] border-white/[0.05]' : 'bg-white border-zinc-200'} overflow-hidden`}>
               
-              {/* Fake Dashboard Header */}
-              <div className="flex items-center justify-between pb-6 border-b border-zinc-200/50 dark:border-white/[0.05] mb-6 flex-wrap gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white font-black text-xs">A</div>
-                  <div>
-                    <h3 className="text-[14px] font-black tracking-tight leading-none">ALGORITMIA PORTAL</h3>
-                    <p className="text-[10px] text-zinc-400 font-semibold mt-1">Monitoreo de Canal Unificado</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <span className="h-7 px-3 rounded-lg border border-zinc-200 dark:border-white/[0.05] bg-zinc-50 dark:bg-zinc-900 text-[10px] font-bold flex items-center gap-1.5 text-emerald-500">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sincronización OK
-                  </span>
-                </div>
+              {/* Tab Selector Header */}
+              <div className="flex border-b border-zinc-200/50 dark:border-white/[0.05] overflow-x-auto scrollbar-none bg-zinc-50/50 dark:bg-zinc-950/20 p-2 md:p-3 gap-1">
+                {showcaseTabs.map((tab) => {
+                  const isActive = activeTabShowcase === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTabShowcase(tab.id as any)}
+                      className={`h-9 px-4 rounded-xl text-[12px] font-black transition-all flex items-center justify-center shrink-0 border ${
+                        isActive
+                          ? 'bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/10'
+                          : 'border-transparent text-zinc-550 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Grid de KPIs */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                {[
-                  { title: 'Ingresos Totales (Hoy)', val: '$128,950', change: '+14.2%', note: 'Shopify + Tiendanube + ML' },
-                  { title: 'Respuestas de IA Automáticas', val: '412', change: '98.5% Éxito', note: 'Canales de Chat Activos' },
-                  { title: 'ROAS Promedio Publicitario', val: '6.4x', change: 'Optimizado', note: 'Meta, TikTok y Google Ads' }
-                ].map((kpi, idx) => (
-                  <div 
-                    key={kpi.title}
-                    onMouseEnter={() => setActiveKpiHover(idx)}
-                    onMouseLeave={() => setActiveKpiHover(null)}
-                    className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer ${
-                      activeKpiHover === idx 
-                        ? 'border-violet-500 bg-violet-500/[0.02] -translate-y-[2px]' 
-                        : (darkMode ? 'bg-zinc-900/40 border-white/[0.04]' : 'bg-zinc-50/70 border-zinc-200')
-                    }`}
-                  >
-                    <p className="text-[11px] font-bold text-zinc-450">{kpi.title}</p>
-                    <div className="flex items-baseline gap-2 mt-2">
-                      <span className="text-xl md:text-2xl font-black tracking-tight">{kpi.val}</span>
-                      <span className="text-[10px] font-black text-emerald-500">{kpi.change}</span>
-                    </div>
-                    <p className="text-[9.5px] text-zinc-400 font-semibold mt-1">{kpi.note}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Fake SVG Chart */}
-              <div className={`rounded-2xl border ${darkMode ? 'bg-zinc-950 border-white/[0.04]' : 'bg-zinc-50/50 border-zinc-200'} p-4 relative overflow-hidden`}>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[11px] font-extrabold uppercase text-zinc-450 tracking-wider">Flujo de Ventas Semanales</span>
-                  <div className="flex gap-4 text-[10px] font-bold">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500" /> Venta Directa</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan-400" /> Tráfico Ads</span>
-                  </div>
-                </div>
-
-                <div className="h-44 w-full flex items-end">
-                  <svg className="w-full h-full" viewBox="0 0 500 150" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="chartGlow" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    {/* Area path */}
-                    <path 
-                      d="M0 150 L50 110 L100 130 L150 90 L200 115 L250 60 L300 70 L350 40 L400 48 L450 15 L500 25 L500 150 Z" 
-                      fill="url(#chartGlow)"
-                    />
-                    {/* Secondary Area */}
-                    <path 
-                      d="M0 150 L50 135 L100 142 L150 120 L200 130 L250 90 L300 102 L350 78 L400 83 L450 50 L500 55" 
-                      fill="none" 
-                      stroke="#22d3ee" 
-                      strokeWidth="1.5"
-                      strokeDasharray="4 3"
-                    />
-                    {/* Main Line */}
-                    <path 
-                      d="M0 150 L50 110 L100 130 L150 90 L200 115 L250 60 L300 70 L350 40 L400 48 L450 15 L500 25" 
-                      fill="none" 
-                      stroke="#8b5cf6" 
-                      strokeWidth="2.5" 
-                      className="transition-all duration-500"
-                    />
-                    {/* Dots */}
-                    <circle cx="250" cy="60" r="4" fill="#8b5cf6" className="animate-ping" />
-                    <circle cx="250" cy="60" r="3" fill="#8b5cf6" />
-                    <circle cx="450" cy="15" r="3" fill="#8b5cf6" />
-                  </svg>
+              {/* Showcase Content Container */}
+              <div className="p-4 md:p-6 text-left space-y-4">
+                <p className={`text-[12.5px] font-semibold leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  {showcaseTabs.find(t => t.id === activeTabShowcase)?.desc}
+                </p>
+                <div className="relative rounded-xl border border-zinc-200/80 dark:border-white/[0.05] overflow-hidden bg-zinc-950 shadow-inner">
+                  <img
+                    src={showcaseTabs.find(t => t.id === activeTabShowcase)?.img}
+                    alt={showcaseTabs.find(t => t.id === activeTabShowcase)?.label}
+                    className="w-full object-cover transition-opacity duration-300 animate-in fade-in"
+                    style={{ minHeight: '300px' }}
+                  />
                 </div>
               </div>
 
