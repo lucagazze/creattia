@@ -86,15 +86,18 @@ export default function LandingPage() {
   };
 
   // Tabbed high-fidelity screenshots switcher
-  const [activeTabShowcase, setActiveTabShowcase] = useState<'resumen' | 'comentarios' | 'pedidos' | 'tienda' | 'publicidad' | 'analisis'>('resumen');
+  const [activeTabShowcase, setActiveTabShowcase] = useState<'inicio' | 'mensajeria' | 'comentarios' | 'pedidos' | 'inventario' | 'analisis' | 'creativos' | 'meta_ads' | 'perfil_dark'>('inicio');
 
   const showcaseTabs = [
-    { id: 'resumen', label: 'Resumen General', img: '/assets/landing_dashboard.png', desc: 'Panel unificado con ingresos acumulados, métricas clave y rendimiento multicanal.' },
-    { id: 'comentarios', label: 'Inbox & Comentarios', img: '/assets/landing_comments.png', desc: 'Bandeja omnicanal para moderar comentarios y chatear con asistencia de inteligencia artificial.' },
-    { id: 'pedidos', label: 'Gestión de Pedidos', img: '/assets/landing_orders.png', desc: 'Monitoreo consolidado de compras, estado de pago y órdenes de envío pendientes.' },
-    { id: 'tienda', label: 'Rendimiento Tienda', img: '/assets/landing_shopify.png', desc: 'Métricas de evolución de ingresos, tasa de recompra y comportamiento del cliente.' },
-    { id: 'publicidad', label: 'Meta & Google Ads', img: '/assets/landing_meta.png', desc: 'Atribución publicitaria real de pauta digital y ROAS por plataforma y región.' },
-    { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_product_analysis.png', desc: 'Identificación de productos estrella, tasas de recompra y comportamiento de retorno de clientes.' }
+    { id: 'inicio', label: 'Inicio', img: '/assets/landing_inicio.jpg', desc: 'Panel principal unificado. Resumen ejecutivo de ingresos acumulados, pedidos totales, productos estrella analizados y métricas clave en tiempo real.' },
+    { id: 'mensajeria', label: 'Mensajería Directa', img: '/assets/landing_mensajeria.jpg', desc: 'Chat inbox consolidado para Instagram Direct y Facebook Messenger. Leé mensajes y redactá borradores con sugerencias de Inteligencia Artificial.' },
+    { id: 'comentarios', label: 'Moderación Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Bandeja omnicanal integrada. Respondé consultas en posts orgánicos y campañas pagas (Ads) con flujos automatizados de respuesta rápida.' },
+    { id: 'pedidos', label: 'Control Pedidos', img: '/assets/landing_pedidos.jpg', desc: 'Visualización detallada de facturación, pasarelas de pago utilizadas, histórico de compras y estado logístico de las entregas.' },
+    { id: 'inventario', label: 'Stock & Variaciones', img: '/assets/landing_inventario.jpg', desc: 'Monitoreo sincronizado de stock, precios y variantes de productos en múltiples plataformas de e-commerce en simultáneo.' },
+    { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_analisis.jpg', desc: 'Embudo inteligente de comportamiento. Tasas de primer pedido (Entry Point), retención, velocidad de retorno (LTV) y cross-sell sugerido.' },
+    { id: 'creativos', label: 'Creativos Ads & Neurología', img: '/assets/landing_creativos.jpg', desc: 'Predicción de impacto visual de anuncios (TRIBE v2). Puntuación de atención, nivel emocional y carga cognitiva mediante simulación de red neuronal.' },
+    { id: 'meta_ads', label: 'Meta Ads Analytics', img: '/assets/landing_meta_ads.jpg', desc: 'Estadísticas unificadas de rendimiento de pauta. Control de gasto real, alcance total, clicks, conversiones, CTR, ROAS y CPA exactos.' },
+    { id: 'perfil_dark', label: 'Diseño Premium', img: '/assets/landing_perfil_dark.jpg', desc: 'Experiencia visual inmersiva. Configuración y administración con tema noche oscuro (Dark Mode) adaptativo de alto contraste.' }
   ];
 
   const toggleFaq = (index: number) => {
