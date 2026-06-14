@@ -52,108 +52,375 @@ const MockMetricCard = ({
   value,
   change,
   trend,
-  sparklinePath,
   sparklineColor,
   active,
   onClick,
   icon: Icon,
-  info,
   darkMode
 }: any) => {
-  const gradId = `spark-grad-${metricId}`;
+  const isPink = sparklineColor === '#ec4899';
+  const isViolet = sparklineColor === '#8b5cf6';
+  const isGreen = sparklineColor === '#10b981';
+  
+  let activeBgClass = "bg-blue-50/60 dark:bg-blue-500/5 border-blue-500/30";
+  let pulseClass = "bg-blue-500";
+  if (isPink) { activeBgClass = "bg-pink-50/60 dark:bg-pink-500/5 border-pink-500/30"; pulseClass = "bg-pink-500"; }
+  if (isViolet) { activeBgClass = "bg-violet-50/60 dark:bg-violet-500/5 border-violet-500/30"; pulseClass = "bg-violet-500"; }
+  if (isGreen) { activeBgClass = "bg-emerald-50/60 dark:bg-emerald-500/5 border-emerald-500/30"; pulseClass = "bg-emerald-500"; }
+
+  const data = chartMockData[metricId] || [];
+
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col p-2.5 bg-white dark:bg-[#0f0f13] border rounded-xl transition-all text-left relative overflow-hidden group w-full ${
+      className={`flex flex-col p-3.5 bg-white dark:bg-[#0f0f13] border rounded-[16px] transition-all text-left relative overflow-visible group w-full ${
         active
-          ? (darkMode ? 'bg-violet-950/20 border-violet-500/40 shadow-sm shadow-violet-500/5' : 'bg-violet-50 border-violet-300')
-          : (darkMode ? 'bg-[#0f0f13] border-white/[0.04] hover:bg-white/[0.02]' : 'bg-zinc-50/50 border-zinc-200/60 hover:bg-zinc-50')
+          ? activeBgClass
+          : (darkMode ? 'border-white/[0.04] hover:bg-white/[0.02]' : 'border-zinc-200/60 hover:bg-zinc-50')
       }`}
     >
-      <div className="flex items-center justify-between mb-1 w-full">
-        <div className="flex items-center gap-1.5 text-[8.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider min-w-0">
-          {Icon && <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: sparklineColor }} />}
-          <span className="truncate">{label}</span>
+      <div className="flex items-center justify-between mb-2.5 w-full">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: sparklineColor }} />}
+          <span className="text-[9.5px] font-bold text-zinc-550 dark:text-zinc-450 uppercase tracking-widest truncate">
+            {label}
+          </span>
         </div>
         {active && (
-          <span className="w-1.5 h-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: sparklineColor }} />
+          <div className={`w-1.5 h-1.5 rounded-full ${pulseClass} animate-pulse flex-shrink-0`} />
         )}
       </div>
-      <div className="flex items-end justify-between gap-1 w-full mt-auto">
-        <div className="shrink-0">
-          <span className="text-[12px] sm:text-[13px] font-black text-zinc-900 dark:text-white block leading-none mb-1">
+      <div className="flex items-end justify-between gap-2 w-full mt-auto">
+        <div className="flex flex-col shrink-0">
+          <span className="text-[15px] sm:text-[17px] font-bold text-zinc-900 dark:text-white leading-none mb-1.5 font-display">
             {value}
           </span>
-          <span className={`text-[8.5px] font-bold flex items-center gap-0.5 leading-none ${trend === 'up' ? 'text-emerald-500' : 'text-rose-500'}`}>
-            {trend === 'up' ? '▲' : '▼'} {change}%
-          </span>
+          <div className={`flex items-center gap-0.5 text-[10.5px] font-bold ${trend === 'up' ? 'text-emerald-500' : 'text-rose-500'}`}>
+            {trend === 'up' ? (
+              <TrendingUp className="w-3 h-3" />
+            ) : (
+              <TrendingUp className="w-3 h-3 rotate-180" />
+            )}
+            {change}%
+          </div>
         </div>
-        {/* SVG Sparkline Graph */}
-        <div className="h-5 w-12 opacity-80 group-hover:opacity-100 shrink-0">
-          <svg viewBox="0 0 50 20" className="w-full h-full">
-            <path d={sparklinePath} fill="none" stroke={sparklineColor} strokeWidth="1.75" strokeLinecap="round" />
-            <path d={`${sparklinePath} L50,20 L0,20 Z`} fill={`url(#${gradId})`} opacity="0.08" />
-            <defs>
-              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={sparklineColor} />
-                <stop offset="100%" stopColor={sparklineColor} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-          </svg>
+        {/* Real AreaChart Sparkline */}
+        <div className="h-8 flex-1 min-w-0 max-w-[95px] ml-2.5 opacity-60 group-hover:opacity-100 transition-opacity">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <Area
+                type="monotone"
+                dataKey="val"
+                stroke={sparklineColor}
+                fill={sparklineColor}
+                fillOpacity={0.08}
+                strokeWidth={2}
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </button>
   );
 };
 
+// Simulated daily historical data for dashboard metrics
+const chartMockData: Record<string, { date: string; val: number }[]> = {
+  's-revenue': [
+    { date: '2026-06-08', val: 28000 },
+    { date: '2026-06-09', val: 31000 },
+    { date: '2026-06-10', val: 29500 },
+    { date: '2026-06-11', val: 34000 },
+    { date: '2026-06-12', val: 30500 },
+    { date: '2026-06-13', val: 32400 },
+    { date: '2026-06-14', val: 35000 }
+  ],
+  's-orders': [
+    { date: '2026-06-08', val: 3 },
+    { date: '2026-06-09', val: 4 },
+    { date: '2026-06-10', val: 4 },
+    { date: '2026-06-11', val: 5 },
+    { date: '2026-06-12', val: 4 },
+    { date: '2026-06-13', val: 6 },
+    { date: '2026-06-14', val: 5 }
+  ],
+  's-aov': [
+    { date: '2026-06-08', val: 7600 },
+    { date: '2026-06-09', val: 7750 },
+    { date: '2026-06-10', val: 7375 },
+    { date: '2026-06-11', val: 6800 },
+    { date: '2026-06-12', val: 7625 },
+    { date: '2026-06-13', val: 5400 },
+    { date: '2026-06-14', val: 7000 }
+  ],
+  's-mer': [
+    { date: '2026-06-08', val: 8.8 },
+    { date: '2026-06-09', val: 9.2 },
+    { date: '2026-06-10', val: 9.5 },
+    { date: '2026-06-11', val: 9.1 },
+    { date: '2026-06-12', val: 9.3 },
+    { date: '2026-06-13', val: 9.7 },
+    { date: '2026-06-14', val: 9.4 }
+  ],
+  'meta-inversion': [
+    { date: '2026-06-08', val: 3100 },
+    { date: '2026-06-09', val: 3350 },
+    { date: '2026-06-10', val: 3200 },
+    { date: '2026-06-11', val: 3500 },
+    { date: '2026-06-12', val: 3250 },
+    { date: '2026-06-13', val: 3400 },
+    { date: '2026-06-14', val: 3330 }
+  ],
+  'meta-alcance': [
+    { date: '2026-06-08', val: 1200 },
+    { date: '2026-06-09', val: 1550 },
+    { date: '2026-06-10', val: 1380 },
+    { date: '2026-06-11', val: 1720 },
+    { date: '2026-06-12', val: 1450 },
+    { date: '2026-06-13', val: 1680 },
+    { date: '2026-06-14', val: 2100 }
+  ],
+  'meta-compras': [
+    { date: '2026-06-08', val: 2 },
+    { date: '2026-06-09', val: 3 },
+    { date: '2026-06-10', val: 3 },
+    { date: '2026-06-11', val: 4 },
+    { date: '2026-06-12', val: 3 },
+    { date: '2026-06-13', val: 5 },
+    { date: '2026-06-14', val: 4 }
+  ],
+  'meta-roas': [
+    { date: '2026-06-08', val: 9.8 },
+    { date: '2026-06-09', val: 10.2 },
+    { date: '2026-06-10', val: 10.5 },
+    { date: '2026-06-11', val: 10.1 },
+    { date: '2026-06-12', val: 10.3 },
+    { date: '2026-06-13', val: 11.2 },
+    { date: '2026-06-14', val: 10.8 }
+  ],
+  'meta-retorno': [
+    { date: '2026-06-08', val: 28400 },
+    { date: '2026-06-09', val: 31200 },
+    { date: '2026-06-10', val: 29800 },
+    { date: '2026-06-11', val: 33500 },
+    { date: '2026-06-12', val: 30100 },
+    { date: '2026-06-13', val: 32000 },
+    { date: '2026-06-14', val: 31800 }
+  ],
+  'email-sent': [
+    { date: '2026-06-08', val: 1200 },
+    { date: '2026-06-09', val: 1350 },
+    { date: '2026-06-10', val: 1280 },
+    { date: '2026-06-11', val: 1420 },
+    { date: '2026-06-12', val: 1350 },
+    { date: '2026-06-13', val: 1390 },
+    { date: '2026-06-14', val: 1450 }
+  ],
+  'email-open': [
+    { date: '2026-06-08', val: 62.4 },
+    { date: '2026-06-09', val: 64.2 },
+    { date: '2026-06-10', val: 65.5 },
+    { date: '2026-06-11', val: 63.8 },
+    { date: '2026-06-12', val: 64.9 },
+    { date: '2026-06-13', val: 66.2 },
+    { date: '2026-06-14', val: 65.7 }
+  ],
+  'email-click': [
+    { date: '2026-06-08', val: 9.8 },
+    { date: '2026-06-09', val: 10.2 },
+    { date: '2026-06-10', val: 10.5 },
+    { date: '2026-06-11', val: 10.1 },
+    { date: '2026-06-12', val: 10.3 },
+    { date: '2026-06-13', val: 11.2 },
+    { date: '2026-06-14', val: 10.8 }
+  ],
+  'email-revenue': [
+    { date: '2026-06-08', val: 2100 },
+    { date: '2026-06-09', val: 2400 },
+    { date: '2026-06-10', val: 2600 },
+    { date: '2026-06-11', val: 2800 },
+    { date: '2026-06-12', val: 3250 },
+    { date: '2026-06-13', val: 3100 },
+    { date: '2026-06-14', val: 3400 }
+  ]
+};
+
 const MockDetailChart = ({
   metricId,
   label,
-  averageLabel,
-  color,
-  pathData,
-  tooltipText,
-  tooltipX,
-  tooltipY
+  color
 }: any) => {
-  const gradId = `detail-grad-${metricId}`;
+  const { darkMode } = useTheme();
+  const data = chartMockData[metricId] || [];
+  const vals = data.map(d => d.val);
+  const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  const maxVal = Math.max(...vals, 0);
+
+  const isPercentLabel = label.toLowerCase().includes("tasa") || label.toLowerCase().includes("porcentaje") || label.toLowerCase().includes("apertura") || label.toLowerCase().includes("clics");
+  const isMoneyLabel =
+    label.toLowerCase().includes("ingreso") ||
+    label.toLowerCase().includes("inversión") ||
+    label.toLowerCase().includes("retorno");
+  const isCostLabel = label.toLowerCase().includes("costo");
+  const isRoasLabel = label.toLowerCase().includes("roas") || label.toLowerCase().includes("m.e.r");
+
+  const fmtVal = (v: number) => {
+    if (v === null || v === undefined || isNaN(v)) return "0";
+    if (isPercentLabel) return `${v.toFixed(1)}%`;
+    if (isMoneyLabel)
+      return `$${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v.toFixed(0)}`;
+    if (isCostLabel) return `$${v.toFixed(2)}`;
+    if (isRoasLabel) return `${v.toFixed(1)}x`;
+    if (v >= 1000) return (v / 1000).toFixed(0) + "k";
+    return v.toFixed(0);
+  };
+
+  const gradientId = `detail-grad-${metricId}`;
+
   return (
-    <div className="border rounded-xl p-3 bg-zinc-50/30 dark:bg-zinc-900/10 border-zinc-200/40 dark:border-white/[0.03] text-left mt-2.5 mb-1 animate-in fade-in slide-in-from-top-2 duration-300">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[8.5px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block">
-          Evolución diaria — {label}
-        </span>
-        <span className="text-[9px] font-bold text-zinc-550 dark:text-zinc-450">
-          {averageLabel}
-        </span>
+    <div className={`border rounded-[20px] p-4 sm:p-8 text-left mt-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-350 ${
+      darkMode ? 'bg-zinc-900 border-white/[0.06] shadow-none' : 'bg-white border-zinc-200 shadow-sm'
+    }`}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <h3 className="text-[12px] font-bold text-zinc-550 dark:text-zinc-450 uppercase tracking-widest">
+          Evolución de {label}
+        </h3>
+        
+        <div className="flex items-center gap-3 flex-wrap text-[11px] font-bold">
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+            <span className="text-zinc-650 dark:text-zinc-450">Actual</span>
+          </div>
+          {avg > 0 && (
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <div className="w-3 h-0.5 bg-amber-500 flex-shrink-0" />
+              <span className="text-amber-600 dark:text-amber-500 font-bold">
+                Med. Act: {fmtVal(avg)}
+              </span>
+            </div>
+          )}
+          {maxVal > 0 && (
+            <div className="flex items-center gap-1.5 whitespace-nowrap pl-2 border-l border-zinc-150 dark:border-zinc-800">
+              <span className="text-zinc-450 dark:text-zinc-500">Máx:</span>
+              <span className="text-zinc-700 dark:text-zinc-200">{fmtVal(maxVal)}</span>
+            </div>
+          )}
+        </div>
       </div>
-      
-      <div className="h-28 w-full relative">
-        <svg viewBox="0 0 300 100" className="w-full h-full overflow-visible">
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.15" />
-              <stop offset="100%" stopColor={color} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {/* Grid Lines */}
-          <line x1="0" y1="20" x2="300" y2="20" stroke="currentColor" className="text-zinc-200/40 dark:text-white/[0.02]" strokeDasharray="3,3" />
-          <line x1="0" y1="50" x2="300" y2="50" stroke="currentColor" className="text-zinc-200/40 dark:text-white/[0.02]" strokeDasharray="3,3" />
-          <line x1="0" y1="80" x2="300" y2="80" stroke="currentColor" className="text-zinc-200/40 dark:text-white/[0.02]" strokeDasharray="3,3" />
-          
-          {/* Chart Area and Line */}
-          <path d={`${pathData} L300,100 L0,100 Z`} fill={`url(#${gradId})`} />
-          <path d={pathData} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
-          
-          {/* Interactive points */}
-          <circle cx={tooltipX} cy={tooltipY} r="4" fill={color} stroke="#fff" strokeWidth="1.5" className="animate-pulse" />
-          
-          {/* Tooltip */}
-          <g transform={`translate(${tooltipX - 45}, ${tooltipY - 28})`} className="opacity-95">
-            <rect x="0" y="0" width="90" height="20" rx="5" fill="#111" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
-            <text x="45" y="12" fill="#fff" fontSize="8" fontWeight="extrabold" textAnchor="middle">{tooltipText}</text>
-          </g>
-        </svg>
+
+      <div className="h-[220px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ left: -30, right: 8, top: 12, bottom: 0 }}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.15} />
+                <stop offset="95%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} />
+            <XAxis
+              dataKey="date"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 10, fill: "#9ca3af" }}
+              tickFormatter={(d) => {
+                const parts = d.split('-');
+                return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : d;
+              }}
+            />
+            <YAxis
+              domain={[0, maxVal > 0 ? maxVal * 1.2 : "auto"]}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 9, fill: "#9ca3af" }}
+              tickFormatter={(v) => v === 0 ? "" : fmtVal(v)}
+              width={35}
+            />
+            <Tooltip
+              content={({ active, payload }: any) => {
+                if (active && payload && payload.length) {
+                  const curr = payload[0];
+                  const fmtTooltip = (v: number) => {
+                    if (typeof v !== "number") return String(v ?? "—");
+                    if (isMoneyLabel)
+                      return `$ ${v.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+                    if (isPercentLabel) return `${v.toFixed(2)}%`;
+                    if (isRoasLabel) return `${v.toFixed(1)}`;
+                    return v.toLocaleString("es-AR", {
+                      maximumFractionDigits: 2,
+                    });
+                  };
+                  return (
+                    <div className="glass-premium dark:bg-zinc-950/80 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-black/[0.06] dark:border-white/[0.06] min-w-[150px] text-left animate-in fade-in duration-200">
+                      <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-2.5">
+                        {curr.payload.date ? new Date(curr.payload.date).toLocaleDateString("es-AR") : ""}
+                      </p>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                          <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">Valor</span>
+                        </div>
+                        <span className="text-[12px] font-black text-zinc-900 dark:text-white">{fmtTooltip(curr.value)}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            
+            {avg > 0 && (
+              <ReferenceLine
+                y={avg}
+                stroke="#f59e0b"
+                strokeDasharray="4 4"
+                strokeWidth={2}
+              />
+            )}
+
+            {maxVal > 0 && (
+              <ReferenceLine
+                y={maxVal}
+                stroke="#6366f1"
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                label={{
+                  value: `MÁX: ${fmtVal(maxVal)}`,
+                  position: "insideTopRight",
+                  fontSize: 10,
+                  fontWeight: "900",
+                  fill: "#6366f1",
+                }}
+              />
+            )}
+
+            <Area
+              type="monotone"
+              dataKey="val"
+              stroke={color}
+              strokeWidth={3}
+              fillOpacity={0}
+              fill="none"
+              dot={(p: any) =>
+                p.value > 0 ? (
+                  <circle
+                    key={`dot-${p.index}-${p.cx}`}
+                    cx={p.cx}
+                    cy={p.cy}
+                    r={4}
+                    fill={color}
+                    stroke="#fff"
+                    strokeWidth={2}
+                  />
+                ) : (
+                  <path key={`empty-${p.index}-${p.cx}`} d="" />
+                )
+              }
+              activeDot={{ r: 6, strokeWidth: 0 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -212,7 +479,7 @@ export default function LandingPage() {
   const [zoomImage, setZoomImage] = useState<string | null>(null);
 
   const showcaseTabs = [
-    { id: 'inicio', label: 'Inicio', img: '/assets/landing_inicio.jpg', desc: 'Tu negocio al descubierto en una sola pantalla. Monitoreá ingresos acumulados, pedidos de tus canales de venta, productos estrella y métricas ejecutivas en tiempo real.' },
+    { id: 'inicio', label: 'Dashboard', img: '/assets/landing_inicio.jpg', desc: 'Tu negocio al descubierto en una sola pantalla. Monitoreá ingresos acumulados, pedidos de tus canales de venta, productos estrella y métricas ejecutivas en tiempo real.' },
     { id: 'mensajeria', label: 'Mensajería Directa', img: '/assets/landing_mensajeria.jpg', desc: 'Bandeja omnicanal integrada para Instagram Direct, Facebook Messenger y WhatsApp. Automatizá la gestión diaria y redactá respuestas perfectas con el Cerebro de IA.' },
     { id: 'creativos', label: 'Creativos Ads', img: '/assets/landing_analisis.jpg', desc: 'Control absoluto de tus campañas en Meta Ads. Compará rendimiento, CTR, ROAS y gasto real por pieza creativa en un solo panel para optimizar tu presupuesto.' },
     { id: 'comentarios', label: 'Moderación Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Moderación automatizada para posteos orgánicos y anuncios de pago. Respondé consultas, filtrá spam y canalizá interacciones hacia la compra al instante.' },
@@ -542,8 +809,8 @@ export default function LandingPage() {
             La mejor plataforma para <span className="bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">gestionar tu negocio online</span> y <span className="bg-gradient-to-r from-fuchsia-600 to-violet-500 bg-clip-text text-transparent">escalar ventas</span>
           </h1>
           
-          <p className={`text-[15.5px] sm:text-[17.5px] max-w-2xl mx-auto leading-relaxed mb-10 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400 font-medium' : 'text-zinc-500 font-semibold'}`}>
-            Centralizá tus <strong>canales de venta</strong>, automatizá la <strong>atención al cliente con IA</strong> y controlá tu <strong>rentabilidad real</strong> en tiempo real. Todo desde un panel <strong>unificado</strong>, <strong>ultrarrápido</strong> y sin planillas manuales.
+          <p className={`text-[15.5px] sm:text-[17.5px] max-w-2xl mx-auto leading-relaxed mb-10 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400 font-medium' : 'text-zinc-550 font-semibold'}`}>
+            Centralizá tus canales de venta, automatizá la atención al cliente con IA y controlá tu rentabilidad real en tiempo real. Todo desde un panel unificado, ultrarrápido y sin planillas manuales.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-in fade-in slide-in-from-bottom-7 duration-1000">
@@ -667,12 +934,9 @@ export default function LandingPage() {
 
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
         <div className="flex flex-col lg:flex-row items-center gap-10">
-          <div className="flex-1 space-y-5">
-            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
-              <MessageSquare className="w-4 h-4 text-violet-500" />
-            </div>
+          <div className="flex-1 space-y-5 text-left">
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja de entrada omnicanal y respuestas inteligentes con IA</h3>
-            <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+            <p className={`text-[13.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
               Centralizá todas tus conversaciones de WhatsApp, Instagram y Facebook en un solo lugar. El Cerebro de IA lee cada mensaje entrante y te sugiere respuestas exactas con stock y precios actualizados en tiempo real para cerrar ventas en segundos.
             </p>
             
@@ -794,9 +1058,6 @@ export default function LandingPage() {
         {/* 2. MÉTRICAS Y RENTABILIDAD DEL NEGOCIO */}
         <div className="flex flex-col lg:flex-row-reverse items-center gap-12 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="flex-1 space-y-6 text-left animate-in fade-in slide-in-from-right-4 duration-700">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-emerald-500" />
-            </div>
             <h3 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
               Toma el <strong>control absoluto</strong> de tu rentabilidad <strong>sin planillas manuales</strong>
             </h3>
@@ -807,15 +1068,15 @@ export default function LandingPage() {
             <ul className="space-y-3.5 text-[14px] sm:text-[15px] font-semibold text-zinc-650 dark:text-zinc-350">
               <li className="flex items-center gap-2.5">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Sincronización automatizada multitienda (**Shopify y Tiendanube**).</span>
+                <span>Sincronización automatizada multitienda (<strong>Shopify y Tiendanube</strong>).</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Atribución exacta de pauta en **Meta Ads y TikTok Ads**.</span>
+                <span>Atribución exacta de pauta en <strong>Meta Ads y TikTok Ads</strong>.</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Medición directa de la retención y conversión de **Email Marketing**.</span>
+                <span>Medición directa de la retención y conversión de <strong>Email Marketing</strong>.</span>
               </li>
             </ul>
           </div>
@@ -860,8 +1121,8 @@ export default function LandingPage() {
                       value="$ 7.880"
                       change="4.2"
                       trend="up"
-                      sparklinePath="M0,15 L10,14 L20,10 L30,12 L40,8 L50,6"
                       sparklineColor="#ec4899"
+                      icon={Receipt}
                       active={expandedMetric === 's-aov'}
                       onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')}
                       darkMode={darkMode}
@@ -872,8 +1133,8 @@ export default function LandingPage() {
                       value="119"
                       change="8.5"
                       trend="up"
-                      sparklinePath="M0,14 L10,16 L20,11 L30,9 L40,12 L50,5"
                       sparklineColor="#ec4899"
+                      icon={Package}
                       active={expandedMetric === 's-orders'}
                       onClick={() => setExpandedMetric(expandedMetric === 's-orders' ? null : 's-orders')}
                       darkMode={darkMode}
@@ -884,8 +1145,8 @@ export default function LandingPage() {
                       value="$ 937.790"
                       change="12.4"
                       trend="up"
-                      sparklinePath="M0,16 L10,13 L20,12 L30,8 L40,6 L50,2"
                       sparklineColor="#ec4899"
+                      icon={DollarSign}
                       active={expandedMetric === 's-revenue'}
                       onClick={() => setExpandedMetric(expandedMetric === 's-revenue' ? null : 's-revenue')}
                       darkMode={darkMode}
@@ -896,8 +1157,8 @@ export default function LandingPage() {
                       value="9.4x"
                       change="3.2"
                       trend="up"
-                      sparklinePath="M0,10 L10,11 L20,9 L30,8 L40,10 L50,7"
                       sparklineColor="#ec4899"
+                      icon={TrendingUp}
                       active={expandedMetric === 's-mer'}
                       onClick={() => setExpandedMetric(expandedMetric === 's-mer' ? null : 's-mer')}
                       darkMode={darkMode}
@@ -908,21 +1169,16 @@ export default function LandingPage() {
                   {expandedMetric && expandedMetric.startsWith('s-') && (
                     (() => {
                       const details = {
-                        's-aov': { label: 'Ticket Promedio', averageLabel: 'Promedio: $7.880', color: '#ec4899', pathData: 'M0,80 L40,75 L80,72 L120,60 L160,55 L200,45 L240,35 L300,38', tooltipText: '$7.920', tooltipX: 200, tooltipY: 45 },
-                        's-orders': { label: 'Pedidos Concretados', averageLabel: 'Promedio: 4 pedidos/día', color: '#ec4899', pathData: 'M0,75 L40,82 L80,50 L120,68 L160,42 L200,55 L240,28 L300,32', tooltipText: '6 pedidos', tooltipX: 160, tooltipY: 42 },
-                        's-revenue': { label: 'Ingresos de Tienda', averageLabel: 'Promedio diario: $31.259', color: '#ec4899', pathData: 'M0,80 L40,75 L80,55 L120,45 L160,60 L200,35 L240,25 L300,28', tooltipText: '$32.400', tooltipX: 120, tooltipY: 45 },
-                        's-mer': { label: 'M.E.R. (Eficiencia)', averageLabel: 'Promedio global: 9.4x', color: '#ec4899', pathData: 'M0,50 L40,55 L80,48 L120,42 L160,45 L200,38 L240,35 L300,36', tooltipText: '9.6x', tooltipX: 200, tooltipY: 38 }
+                        's-aov': { label: 'Ticket Promedio', color: '#ec4899' },
+                        's-orders': { label: 'Pedidos Concretados', color: '#ec4899' },
+                        's-revenue': { label: 'Ingresos de Tienda', color: '#ec4899' },
+                        's-mer': { label: 'M.E.R. (Eficiencia)', color: '#ec4899' }
                       }[expandedMetric];
                       return details ? (
                         <MockDetailChart
                           metricId={expandedMetric}
                           label={details.label}
-                          averageLabel={details.averageLabel}
                           color={details.color}
-                          pathData={details.pathData}
-                          tooltipText={details.tooltipText}
-                          tooltipX={details.tooltipX}
-                          tooltipY={details.tooltipY}
                         />
                       ) : null;
                     })()
@@ -947,8 +1203,8 @@ export default function LandingPage() {
                       value="$ 99.900"
                       change="5.1"
                       trend="up"
-                      sparklinePath="M0,12 L10,11 L20,12 L30,10 L40,11 L50,9"
                       sparklineColor="#8b5cf6"
+                      icon={DollarSign}
                       active={expandedMetric === 'meta-inversion'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-inversion' ? null : 'meta-inversion')}
                       darkMode={darkMode}
@@ -959,8 +1215,8 @@ export default function LandingPage() {
                       value="45.200"
                       change="12.8"
                       trend="up"
-                      sparklinePath="M0,15 L10,10 L20,13 L30,7 L40,9 L50,3"
                       sparklineColor="#8b5cf6"
+                      icon={Users}
                       active={expandedMetric === 'meta-alcance'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-alcance' ? null : 'meta-alcance')}
                       darkMode={darkMode}
@@ -971,8 +1227,8 @@ export default function LandingPage() {
                       value="82"
                       change="9.3"
                       trend="up"
-                      sparklinePath="M0,14 L10,15 L20,11 L30,9 L40,11 L50,4"
                       sparklineColor="#8b5cf6"
+                      icon={Package}
                       active={expandedMetric === 'meta-compras'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-compras' ? null : 'meta-compras')}
                       darkMode={darkMode}
@@ -983,8 +1239,8 @@ export default function LandingPage() {
                       value="10.8x"
                       change="6.2"
                       trend="up"
-                      sparklinePath="M0,13 L10,11 L20,12 L30,8 L40,6 L50,3"
                       sparklineColor="#8b5cf6"
+                      icon={TrendingUp}
                       active={expandedMetric === 'meta-roas'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-roas' ? null : 'meta-roas')}
                       darkMode={darkMode}
@@ -995,8 +1251,8 @@ export default function LandingPage() {
                       value="$ 937.000"
                       change="11.5"
                       trend="up"
-                      sparklinePath="M0,16 L10,13 L20,11 L30,9 L40,6 L50,3"
                       sparklineColor="#8b5cf6"
+                      icon={DollarSign}
                       active={expandedMetric === 'meta-retorno'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-retorno' ? null : 'meta-retorno')}
                       darkMode={darkMode}
@@ -1007,22 +1263,17 @@ export default function LandingPage() {
                   {expandedMetric && expandedMetric.startsWith('meta-') && (
                     (() => {
                       const details = {
-                        'meta-inversion': { label: 'Inversión Publicitaria', averageLabel: 'Inversión diaria: $3.330', color: '#8b5cf6', pathData: 'M0,60 L40,65 L80,58 L120,62 L160,55 L200,50 L240,48 L300,45', tooltipText: '$3.250', tooltipX: 160, tooltipY: 55 },
-                        'meta-alcance': { label: 'Alcance (Impresiones Únicas)', averageLabel: 'Promedio diario: 1.506', color: '#8b5cf6', pathData: 'M0,80 L40,45 L80,72 L120,35 L160,50 L200,28 L240,65 L300,32', tooltipText: '2.100 pers.', tooltipX: 120, tooltipY: 35 },
-                        'meta-compras': { label: 'Compras Atribuidas', averageLabel: 'Total atribuido: 82', color: '#8b5cf6', pathData: 'M0,78 L40,82 L80,58 L120,62 L160,45 L200,50 L240,32 L300,38', tooltipText: '4 compras', tooltipX: 240, tooltipY: 32 },
-                        'meta-roas': { label: 'ROAS Atribuido (Retorno)', averageLabel: 'Promedio del período: 10.8x', color: '#8b5cf6', pathData: 'M0,70 L40,65 L80,72 L120,50 L160,42 L200,48 L240,35 L300,39', tooltipText: '10.5x', tooltipX: 160, tooltipY: 42 },
-                        'meta-retorno': { label: 'Retorno Atribuido (Ventas)', averageLabel: 'Total atribuido: $937.000', color: '#8b5cf6', pathData: 'M0,80 L40,75 L80,55 L120,45 L160,60 L200,35 L240,25 L300,28', tooltipText: '$31.800', tooltipX: 120, tooltipY: 45 }
+                        'meta-inversion': { label: 'Inversión Publicitaria', color: '#8b5cf6' },
+                        'meta-alcance': { label: 'Alcance (Impresiones Únicas)', color: '#8b5cf6' },
+                        'meta-compras': { label: 'Compras Atribuidas', color: '#8b5cf6' },
+                        'meta-roas': { label: 'ROAS Atribuido (Retorno)', color: '#8b5cf6' },
+                        'meta-retorno': { label: 'Retorno Atribuido (Ventas)', color: '#8b5cf6' }
                       }[expandedMetric];
                       return details ? (
                         <MockDetailChart
                           metricId={expandedMetric}
                           label={details.label}
-                          averageLabel={details.averageLabel}
                           color={details.color}
-                          pathData={details.pathData}
-                          tooltipText={details.tooltipText}
-                          tooltipX={details.tooltipX}
-                          tooltipY={details.tooltipY}
                         />
                       ) : null;
                     })()
@@ -1047,8 +1298,8 @@ export default function LandingPage() {
                       value="1.450"
                       change="15.2"
                       trend="up"
-                      sparklinePath="M0,15 L10,14 L20,12 L30,11 L40,9 L50,7"
                       sparklineColor="#10b981"
+                      icon={Mail}
                       active={expandedMetric === 'email-sent'}
                       onClick={() => setExpandedMetric(expandedMetric === 'email-sent' ? null : 'email-sent')}
                       darkMode={darkMode}
@@ -1059,8 +1310,8 @@ export default function LandingPage() {
                       value="65.7%"
                       change="2.8"
                       trend="up"
-                      sparklinePath="M0,10 L10,9 L20,11 L30,10 L40,9 L50,9"
                       sparklineColor="#10b981"
+                      icon={MailOpen}
                       active={expandedMetric === 'email-open'}
                       onClick={() => setExpandedMetric(expandedMetric === 'email-open' ? null : 'email-open')}
                       darkMode={darkMode}
@@ -1071,8 +1322,8 @@ export default function LandingPage() {
                       value="10.8%"
                       change="1.4"
                       trend="up"
-                      sparklinePath="M0,11 L10,12 L20,10 L30,9 L40,11 L50,10"
                       sparklineColor="#10b981"
+                      icon={MousePointerClick}
                       active={expandedMetric === 'email-click'}
                       onClick={() => setExpandedMetric(expandedMetric === 'email-click' ? null : 'email-click')}
                       darkMode={darkMode}
@@ -1083,8 +1334,8 @@ export default function LandingPage() {
                       value="$ 91.200"
                       change="18.2"
                       trend="up"
-                      sparklinePath="M0,15 L10,13 L20,12 L30,9 L40,7 L50,4"
                       sparklineColor="#10b981"
+                      icon={DollarSign}
                       active={expandedMetric === 'email-revenue'}
                       onClick={() => setExpandedMetric(expandedMetric === 'email-revenue' ? null : 'email-revenue')}
                       darkMode={darkMode}
@@ -1095,21 +1346,16 @@ export default function LandingPage() {
                   {expandedMetric && expandedMetric.startsWith('email-') && (
                     (() => {
                       const details = {
-                        'email-sent': { label: 'Correos Entregados', averageLabel: 'Enviados: 1.450', color: '#10b981', pathData: 'M0,85 L40,78 L80,68 L120,62 L160,55 L200,48 L240,32 L300,28', tooltipText: '120 emails', tooltipX: 200, tooltipY: 48 },
-                        'email-open': { label: 'Tasa de Apertura', averageLabel: 'Promedio: 65.7%', color: '#10b981', pathData: 'M0,40 L40,42 L80,38 L120,35 L160,39 L200,34 L240,37 L300,35', tooltipText: '67.2%', tooltipX: 200, tooltipY: 34 },
-                        'email-click': { label: 'Tasa de Clics', averageLabel: 'Promedio: 10.8%', color: '#10b981', pathData: 'M0,60 L40,58 L80,62 L120,55 L160,58 L200,52 L240,54 L300,53', tooltipText: '11.2%', tooltipX: 200, tooltipY: 52 },
-                        'email-revenue': { label: 'Ingresos Email (Klaviyo)', averageLabel: 'Total atribuido: $91.200', color: '#10b981', pathData: 'M0,85 L40,78 L80,68 L120,62 L160,55 L200,48 L240,32 L300,28', tooltipText: '$3.250', tooltipX: 240, tooltipY: 32 }
+                        'email-sent': { label: 'Correos Entregados', color: '#10b981' },
+                        'email-open': { label: 'Tasa de Apertura', color: '#10b981' },
+                        'email-click': { label: 'Tasa de Clics', color: '#10b981' },
+                        'email-revenue': { label: 'Ingresos Email (Klaviyo)', color: '#10b981' }
                       }[expandedMetric];
                       return details ? (
                         <MockDetailChart
                           metricId={expandedMetric}
                           label={details.label}
-                          averageLabel={details.averageLabel}
                           color={details.color}
-                          pathData={details.pathData}
-                          tooltipText={details.tooltipText}
-                          tooltipX={details.tooltipX}
-                          tooltipY={details.tooltipY}
                         />
                       ) : null;
                     })()
@@ -1192,10 +1438,7 @@ export default function LandingPage() {
 
         {/* 3. CREATIVOS ACTIVOS */}
         <div className="flex flex-col lg:flex-row items-center gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
-          <div className="flex-1 space-y-5">
-            <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-pink-500" />
-            </div>
+          <div className="flex-1 space-y-5 text-left">
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Escalá tus anuncios ganadores y recortá el gasto innecesario</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
               Centralizá el rendimiento de tus piezas creativas en Meta y TikTok. Compará CTR, conversiones y retorno real por anuncio de manera visual para optimizar tu pauta publicitaria al instante y maximizar tu inversión.
@@ -1664,8 +1907,7 @@ export default function LandingPage() {
                       </div>
                       <div>
                         <h4 className="text-[13.5px] font-black">{selectedSimCreative.tribeMetrics.label}</h4>
-                        <p className="text-[10.5px] text-zinc-450 mt-0.5 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
-                        <p className="text-[9px] text-zinc-400 mt-1">
+                        <p className="text-[9.5px] text-zinc-400 mt-1">
                           Región dominante: <span className="font-bold text-violet-500">{selectedSimCreative.tribeMetrics.highestRegion}</span>
                         </p>
                       </div>
@@ -1720,24 +1962,7 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Plan de Acción */}
-                    <div className={`p-4 border rounded-2xl ${
-                      darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'
-                    }`}>
-                      <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                        <Zap className="w-3.5 h-3.5 text-violet-500" /> Plan de Acción Neurométrico Sugerido
-                      </h5>
-                      <ul className="space-y-2">
-                        {selectedSimCreative.tribeMetrics.actionItems.map((item, idx) => (
-                          <li key={idx} className="flex items-start gap-2.5 text-[11px] text-zinc-700 dark:text-zinc-300">
-                            <span className="w-4 h-4 rounded-full bg-violet-500/10 text-violet-500 border border-violet-500/20 text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">
-                              {idx + 1}
-                            </span>
-                            <span className="font-semibold">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+
                   </div>
                 ) : (
                   <div className="space-y-4 text-left animate-in fade-in duration-200">

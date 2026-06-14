@@ -404,7 +404,7 @@ export default function CreativeTesterPage() {
                   <Target className="w-7 h-7 text-zinc-400" />
                 </div>
                 <p className="text-[14px] font-semibold text-zinc-550">Subí un creativo o elegí un anuncio</p>
-                <p className="text-[12px] text-zinc-400 max-w-xs">TRIBE v2 analizará atención, emoción, carga cognitiva y generará un plan de acción.</p>
+                <p className="text-[12px] text-zinc-400 max-w-xs">TRIBE v2 analizará la atención, emoción y carga cognitiva de tu creativo.</p>
               </div>
             )}
 
@@ -439,7 +439,6 @@ export default function CreativeTesterPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[16px] font-black text-zinc-900 dark:text-white">{scoreLabel(score)}</p>
-                    <p className="text-[11px] text-zinc-400 mt-1 leading-snug">{result.textInsight}</p>
                     <p className="text-[10px] text-zinc-400 mt-1">Región dominante: <span className="font-bold text-violet-600 dark:text-violet-400">{result.highestRegion}</span></p>
                   </div>
                 </div>
@@ -451,22 +450,7 @@ export default function CreativeTesterPage() {
                   <MetricBar label="Carga Cognitiva" value={result.cogLoad} color={result.cogLoad <= 30 ? 'bg-emerald-500' : result.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={result.cogLoadReason} />
                 </div>
 
-                {/* Action items */}
-                {result.actionItems?.length > 0 && (
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
-                    <p className="text-[11px] font-black text-zinc-550 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <ChevronRight className="w-3.5 h-3.5 text-violet-500" />Plan de Acción
-                    </p>
-                    <ul className="space-y-2">
-                      {result.actionItems.map((item: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-[12px] text-zinc-700 dark:text-zinc-300">
-                          <span className="w-4 h-4 rounded-full bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+
 
                 <button onClick={() => { setStatus('idle'); setResult(null); setFile(null); setPreviewUrl(null); setSelectedAd(null); }} className="w-full text-[12px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 py-2 transition-colors">
                   Analizar otro creativo

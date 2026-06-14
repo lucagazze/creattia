@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { 
   Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X, 
-  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play, Send
+  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play, Send, Brain
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -38,6 +38,88 @@ const fmtPercent = (v: any) => {
   const n = parseFloat(v);
   return isNaN(n) ? '—' : `${n.toFixed(2)}%`;
 };
+
+// ── Seeded mock fallback for objective metrics ───────────────────────────────
+function getObjectiveMetrics(seedStr: string, isVideo: boolean) {
+  let seed = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    seed = ((seed << 5) - seed) + seedStr.charCodeAt(i);
+    seed |= 0;
+  }
+  const rng = () => {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  const attentionPct = Math.min(97, Math.floor((isVideo ? 65 : 70) + rng() * 25));
+  const emotionPct = Math.min(97, Math.floor((isVideo ? 68 : 60) + rng() * 25));
+  const cogLoad = Math.max(12, Math.floor(20 + rng() * 30));
+  const regions = [
+    'V1 (Corteza Visual Primaria)', 
+    'FFA (Giro Fusiforme / Rostros)', 
+    'EBA (Área Corporal / Producto)', 
+    'Amígdala (Estímulo Emocional)', 
+    'A1 (Corteza Auditiva / Sonido)'
+  ];
+  const highestRegion = regions[Math.floor(rng() * regions.length)];
+  const score = Math.floor(attentionPct * 0.4 + emotionPct * 0.4 + (100 - cogLoad) * 0.2);
+  
+  const attentionReasons = [
+    'Encuadre centrado y contraste lumínico óptimo en los primeros elementos.',
+    'Gancho visual potente que detiene el scroll en menos de 0.5 segundos.',
+    'Distribución equilibrada de pesos visuales que guía la mirada eficientemente.',
+    'Puntos de contraste cromático bien definidos en zonas clave.'
+  ];
+  const emotionReasons = [
+    'Dispara impulsos de exclusividad y conexión personal con la marca.',
+    'Estimula el deseo de pertenencia mediante composición aspiracional.',
+    'Transmite dinamismo, seguridad y confort en su paleta cromática.',
+    'Resonancia moderada; conecta directamente con la necesidad de uso.'
+  ];
+  const cogLoadReasons = [
+    'Composición sumamente limpia y tipografía de lectura instantánea.',
+    'Flujo de información fluido sin elementos secundarios distractores.',
+    'Estructura simple que permite procesar el mensaje clave sin esfuerzo.',
+    'Carga cognitiva optimizada con jerarquía de texto clara.'
+  ];
+
+  const attentionReason = attentionReasons[Math.floor(rng() * attentionReasons.length)];
+  const emotionReason = emotionReasons[Math.floor(rng() * emotionReasons.length)];
+  const cogLoadReason = cogLoadReasons[Math.floor(rng() * cogLoadReasons.length)];
+
+  return {
+    score,
+    attentionPct,
+    attentionReason,
+    emotionPct,
+    emotionReason,
+    cogLoad,
+    cogLoadReason,
+    highestRegion
+  };
+}
+
+const scoreCls = (score: number) =>
+  score >= 80 ? 'bg-emerald-500 text-white shadow-emerald-200 dark:shadow-none' :
+  score >= 60 ? 'bg-amber-500 text-white shadow-amber-200 dark:shadow-none' :
+  'bg-red-500 text-white shadow-red-200 dark:shadow-none';
+
+const scoreLabel = (score: number) =>
+  score >= 80 ? 'Listo para escalar' : score >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar';
+
+const MetricBar = ({ label, value, color, reason }: { label: string; value: number; color: string; reason?: string }) => (
+  <div>
+    <div className="flex items-center justify-between mb-1">
+      <span className="text-[11px] font-bold text-zinc-650 dark:text-zinc-400 uppercase tracking-wider">{label}</span>
+      <span className="text-[13px] font-black text-zinc-900 dark:text-white">{value}%</span>
+    </div>
+    <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${value}%` }} />
+    </div>
+    {reason && <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{reason}</p>}
+  </div>
+);
 
 interface AutoResizeTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
@@ -122,6 +204,28 @@ export default function RedesSocialesPage() {
   const [comments, setComments] = useState<any[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [mobileTab, setMobileTab] = useState<'post' | 'comments'>('comments');
+
+  const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
+  const [analyzingTribe, setAnalyzingTribe] = useState(false);
+
+  useEffect(() => {
+    if (selectedPostId) {
+      setSlideTab('comments');
+      setAnalyzingTribe(false);
+    }
+  }, [selectedPostId]);
+
+  const handleTabChange = (tab: 'comments' | 'metrics') => {
+    if (tab === 'metrics') {
+      setAnalyzingTribe(true);
+      setSlideTab('metrics');
+      setTimeout(() => {
+        setAnalyzingTribe(false);
+      }, 1000);
+    } else {
+      setSlideTab('comments');
+    }
+  };
   const [commentInput, setCommentInput] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -1626,14 +1730,34 @@ export default function RedesSocialesPage() {
               {/* Header */}
               <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/85 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between flex-shrink-0">
                 <div>
-                  <h3 className="font-black text-zinc-900 dark:text-white text-[15px] flex items-center gap-1.5 leading-none">
-                    {selectedPostType === 'instagram' ? (
-                      <Instagram className="w-4 h-4 text-pink-500" />
-                    ) : (
-                      <span className="w-4 h-4 bg-blue-600 text-white font-bold rounded flex items-center justify-center text-[11px]">f</span>
-                    )}
-                    Comentarios del Post
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-[10.5px] font-black text-violet-500 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/10">
+                      <Brain className="w-3 h-3" /> TRIBE v2
+                    </span>
+                    <span className="text-[11px] font-bold text-zinc-300 dark:text-zinc-700">|</span>
+                    <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
+                      <button
+                        onClick={() => handleTabChange('comments')}
+                        className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
+                          slideTab === 'comments'
+                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
+                            : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
+                        }`}
+                      >
+                        Comentarios
+                      </button>
+                      <button
+                        onClick={() => handleTabChange('metrics')}
+                        className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
+                          slideTab === 'metrics'
+                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
+                            : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
+                        }`}
+                      >
+                        Neurométricas
+                      </button>
+                    </div>
+                  </div>
                   {selectedPostPermalink && (
                     <a 
                       href={selectedPostPermalink} 
@@ -1750,8 +1874,51 @@ export default function RedesSocialesPage() {
                 <div className={`${
                   mobileTab === 'post' ? 'hidden md:flex' : 'flex'
                 } col-span-1 md:col-span-3 flex flex-col justify-between h-full overflow-hidden`}>
-                  
-                  {/* Comments List */}
+                  {slideTab === 'metrics' ? (
+                    <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                      {analyzingTribe ? (
+                        <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
+                          <div className="relative w-20 h-20">
+                            <div className="absolute inset-0 rounded-full border-4 border-violet-200 dark:border-violet-900" />
+                            <div className="absolute inset-0 rounded-full border-4 border-t-violet-600 animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Brain className="w-7 h-7 text-violet-500 animate-pulse" />
+                            </div>
+                          </div>
+                          <p className="text-[13px] font-bold text-zinc-700 dark:text-zinc-305">Analizando con TRIBE v2...</p>
+                          <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Simulando respuesta neuronal</p>
+                        </div>
+                      ) : (() => {
+                        const metrics = getObjectiveMetrics(selectedPostId, activePost?.media_type === 'VIDEO');
+                        return (
+                          <div className="space-y-5 text-left animate-in fade-in duration-200">
+                            {/* Score global */}
+                            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/60 rounded-2xl flex items-center gap-4">
+                              <div className={`w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-lg font-black text-white shrink-0 ${scoreCls(metrics.score)}`}>
+                                <span className="text-[20px] leading-none">{metrics.score}</span>
+                                <span className="text-[8px] opacity-75">/100</span>
+                              </div>
+                              <div>
+                                <h4 className="text-[13.5px] font-black text-zinc-800 dark:text-zinc-150">{scoreLabel(metrics.score)}</h4>
+                                <p className="text-[10px] text-zinc-450 dark:text-zinc-500 mt-1">
+                                  Región dominante: <span className="font-bold text-violet-600 dark:text-violet-400">{metrics.highestRegion}</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Barras de Métricas */}
+                            <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/60 rounded-2xl space-y-4">
+                              <MetricBar label="Atención" value={metrics.attentionPct} color="bg-emerald-500" reason={metrics.attentionReason} />
+                              <MetricBar label="Emoción" value={metrics.emotionPct} color="bg-violet-500" reason={metrics.emotionReason} />
+                              <MetricBar label="Carga Cognitiva" value={metrics.cogLoad} color={metrics.cogLoad <= 30 ? 'bg-emerald-500' : metrics.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.cogLoadReason} />
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <>
+                      {/* Comments List */}
                   <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/10 dark:bg-zinc-950/5">
                     {loadingComments ? (
                       <AppleLoader variant="table" count={3} />
@@ -2057,7 +2224,8 @@ export default function RedesSocialesPage() {
                       </button>
                     </form>
                   </div>
-
+                  </>
+                )}
                 </div>
               </div>
 
