@@ -142,7 +142,6 @@ export default function App() {
                       <Route path="/oauth-simulate" element={<OAuthSimulatePage />} />
                       
                       <Route element={<ProtectedRoute />}>
-                        <Route path="/dashboard" element={<MainLayout />} />
                         <Route path="/*" element={<MainLayout />} />
                       </Route>
                     </Routes>
