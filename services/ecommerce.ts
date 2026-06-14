@@ -759,7 +759,10 @@ export const ecommerce = {
       const res = await fetch(`/api/shopify/tn/orders?${params.toString()}`, {
         headers: { 'x-tn-store-id': storeId, 'x-tn-token': token },
       });
-      if (!res.ok) throw new Error(`Tiendanube API Error: ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 404) break;
+        throw new Error(`Tiendanube API Error: ${res.status}`);
+      }
       const data: any[] = await res.json();
       if (!Array.isArray(data) || data.length === 0) break;
       allOrders = allOrders.concat(data);

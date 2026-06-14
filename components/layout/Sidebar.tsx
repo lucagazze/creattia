@@ -229,7 +229,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       }
       if (isTiendaOnline) {
         if (detectedPlatform === 'shopify') return <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
-        if (detectedPlatform === 'tiendanube') return <img src={darkMode ? "/assets/tiendanube.webp" : "/assets/tiendanubeoscuro.png"} alt="Tiendanube" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
+        if (detectedPlatform === 'tiendanube') {
+          const showDarkLogo = isActive ? darkMode : !darkMode;
+          return <img src={showDarkLogo ? "/assets/tiendanubeoscuro.png" : "/assets/tiendanube.webp"} alt="Tiendanube" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
+        }
         if (detectedPlatform === 'wordpress') return <img src="/assets/logowordpress.webp" alt="WooCommerce" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
         return <ShoppingBag className={className} />;
       }
