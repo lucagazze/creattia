@@ -1013,7 +1013,7 @@ export default function CostosPage() {
                 {/* Tiendanube */}
                 <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-white/[0.04]">
                   <div className="flex items-center gap-2 mb-3">
-                    <img src="/assets/tiendanube.webp" alt="Tiendanube" className="w-6 h-6 object-contain shrink-0" />
+                    <img src="/assets/tiendanubeoscuro.png" alt="Tiendanube" className="w-6 h-6 object-contain shrink-0" />
                     <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">Tiendanube Fee</span>
                   </div>
                   <div className="flex gap-2">
@@ -1032,7 +1032,7 @@ export default function CostosPage() {
                 {/* Mercado Libre */}
                 <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-white/[0.04]">
                   <div className="flex items-center gap-2 mb-3">
-                    <img src="/assets/mercadolibre.webp" alt="Mercado Libre" className="w-6 h-6 object-contain shrink-0" />
+                    <img src="/assets/logomercadolibre.png" alt="Mercado Libre" className="w-6 h-6 object-contain shrink-0" />
                     <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">MercadoLibre Fee</span>
                   </div>
                   <div className="flex gap-2">
@@ -1209,7 +1209,7 @@ export default function CostosPage() {
                   {/* Mercado Pago */}
                   <div className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-100 dark:border-white/[0.04] bg-white dark:bg-zinc-900/30">
                     <div className="flex items-center gap-3">
-                      <img src="/assets/mercadolibre.webp" alt="Mercado Pago" className="w-8 h-8 object-contain shrink-0" />
+                      <img src="/assets/logomercadolibre.png" alt="Mercado Pago" className="w-8 h-8 object-contain shrink-0" />
                       <span className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200">mercado pago</span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1617,7 +1617,7 @@ export default function CostosPage() {
                                 </div>
                               ) : item.platform === 'TikTok' ? (
                                 <div className="flex items-center gap-1.5">
-                                  <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-4 h-4 object-contain shrink-0" />
+                                  <img src="/assets/logotiktok.png" alt="TikTok" className="w-4 h-4 object-contain shrink-0" />
                                   <span className="text-zinc-650 dark:text-zinc-350">TikTok</span>
                                 </div>
                               ) : (
@@ -1744,7 +1744,7 @@ export default function CostosPage() {
                                 </div>
                               ) : item.platform === 'TikTok' ? (
                                 <div className="flex items-center gap-1.5">
-                                  <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-4 h-4 object-contain shrink-0" />
+                                  <img src="/assets/logotiktok.png" alt="TikTok" className="w-4 h-4 object-contain shrink-0" />
                                   <span className="text-zinc-650 dark:text-zinc-350">TikTok</span>
                                 </div>
                               ) : (

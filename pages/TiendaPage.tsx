@@ -270,7 +270,7 @@ export default function TiendaPage() {
               {detectedPlatform === 'shopify' ? (
                 <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-8 h-8 object-contain" />
               ) : detectedPlatform === 'tiendanube' ? (
-                <img src="/assets/tiendanube.webp" alt="Tiendanube" className="w-8 h-8 object-contain" />
+                <img src="/assets/tiendanubeoscuro.png" alt="Tiendanube" className="w-8 h-8 object-contain" />
               ) : detectedPlatform === 'wordpress' ? (
                 <img src="/assets/logowordpress.webp" alt="WooCommerce" className="w-8 h-8 object-contain" />
               ) : (

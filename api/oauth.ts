@@ -1050,7 +1050,7 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
       const fallbackProfile = {
         advertiser_id: advertiserId,
         name: 'TikTok Business Account',
-        avatar_url: '/assets/tiktok-icon.webp',
+        avatar_url: '/assets/logotiktok.png',
         currency: 'USD',
         timezone: 'America/Argentina/Buenos_Aires',
         status: 'STATUS_APPROVED',

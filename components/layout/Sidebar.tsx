@@ -225,11 +225,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         return <img src="/assets/Klaviyo-Logo-Photoroom.webp" alt="Klaviyo" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
       }
       if (isMercadoLibre) {
-        return <img src="/assets/mercadolibre.webp" alt="Mercado Libre" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
+        return <img src="/assets/logomercadolibre.png" alt="Mercado Libre" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
       }
       if (isTiendaOnline) {
         if (detectedPlatform === 'shopify') return <img src="/assets/shopify-bag.webp" alt="Shopify" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
-        if (detectedPlatform === 'tiendanube') return <img src="/assets/tiendanube.webp" alt="Tiendanube" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
+        if (detectedPlatform === 'tiendanube') return <img src="/assets/tiendanubeoscuro.png" alt="Tiendanube" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
         if (detectedPlatform === 'wordpress') return <img src="/assets/logowordpress.webp" alt="WooCommerce" className="w-4 h-4 object-contain flex-shrink-0 transition-all duration-150 group-hover:scale-110" />;
         return <ShoppingBag className={className} />;
       }

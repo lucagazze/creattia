@@ -290,7 +290,7 @@ export default function OAuthSimulatePage() {
           {/* TikTok Logo */}
           <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
             <div className="flex items-center gap-2">
-              <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-6 h-6 object-contain" />
+              <img src="/assets/logotiktok.png" alt="TikTok" className="w-6 h-6 object-contain" />
               <span className="font-extrabold text-[15px] tracking-tight uppercase">TikTok for Business</span>
             </div>
             <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest bg-zinc-800 px-2.5 py-1 rounded-full">

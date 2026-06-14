@@ -54,7 +54,7 @@ const PLATFORMS: IntegrationPlatform[] = [
     name: "Tiendanube",
     category: "ecommerce",
     description: "Conectá tu tienda Tiendanube para importar órdenes y sincronizar productos de forma automática.",
-    logoUrl: "/assets/tiendanube.webp",
+    logoUrl: "/assets/tiendanubeoscuro.png",
     isSimulated: false
   },
   {
@@ -70,7 +70,7 @@ const PLATFORMS: IntegrationPlatform[] = [
     name: "Mercado Libre",
     category: "ecommerce",
     description: "Importá ventas y gestioná el stock de tus publicaciones del marketplace líder de LATAM.",
-    logoUrl: "/assets/mercadolibre.webp",
+    logoUrl: "/assets/logomercadolibre.png",
     isSimulated: false
   },
   {
@@ -94,7 +94,7 @@ const PLATFORMS: IntegrationPlatform[] = [
     name: "TikTok Ads",
     category: "ads",
     description: "Medí el impacto de tus creativos y campañas de video en la plataforma de mayor crecimiento.",
-    logoUrl: "/assets/tiktok-icon.webp",
+    logoUrl: "/assets/logotiktok.png",
     isSimulated: false
   },
   {
@@ -2035,7 +2035,7 @@ export default function IntegracionesPage() {
                           disabled={oauthLoading}
                           className="w-full h-12 bg-[#07B3C2] hover:bg-[#069aaa] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                         >
-                          {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/tiendanube.webp" alt="" className="w-4 h-4 object-contain" />}
+                          {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src="/assets/tiendanubeoscuro.png" alt="" className="w-4 h-4 object-contain" />}
                           <span>{oauthLoading ? 'Conectando...' : 'Autorizar con Tiendanube'}</span>
                         </button>
 
@@ -2370,7 +2370,7 @@ export default function IntegracionesPage() {
                       disabled={savingSettings || oauthLoading}
                       className="w-full h-12 bg-black hover:bg-zinc-900 dark:bg-zinc-850 dark:hover:bg-zinc-750 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                     >
-                      <img src="/assets/tiktok-icon.webp" alt="TikTok" className="w-4 h-4 object-contain shrink-0 invert dark:invert-0" />
+                      <img src="/assets/logotiktok.png" alt="TikTok" className="w-4 h-4 object-contain shrink-0 invert dark:invert-0" />
                       <span>Conectar con TikTok Business</span>
                     </button>
                   </div>
