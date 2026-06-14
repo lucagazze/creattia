@@ -3,6 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine
+} from 'recharts';
+import {
   MessageSquare,
   TrendingUp,
   Mail,
@@ -24,7 +34,15 @@ import {
   MailOpen,
   MousePointerClick,
   Info,
-  AlertCircle
+  AlertCircle,
+  X,
+  Send,
+  ThumbsUp,
+  Heart,
+  Brain,
+  Instagram,
+  Facebook,
+  MessageCircle
 } from 'lucide-react';
 
 // Helper components for Dashboard metrics simulation
@@ -225,7 +243,13 @@ export default function LandingPage() {
   // --- Estados de las Simulaciones Interactivas del Dashboard ---
   const [expandedMetric, setExpandedMetric] = useState<string | null>('s-revenue');
   
-  const creatives = [
+  const [selectedSimCreativeId, setSelectedSimCreativeId] = useState<number | null>(null);
+  const [simModalTab, setSimModalTab] = useState<'metrics' | 'comments'>('metrics');
+  const [simDraftingCommentId, setSimDraftingCommentId] = useState<string | null>(null);
+  const [simReplyTexts, setSimReplyTexts] = useState<Record<string, string>>({});
+  const [simExpandedCommentId, setSimExpandedCommentId] = useState<string | null>(null);
+
+  const [simCreatives, setSimCreatives] = useState([
     { 
       id: 1, 
       name: 'Anuncio Invierno: Tapado Cuero', 
@@ -234,7 +258,45 @@ export default function LandingPage() {
       roas: 12.4, 
       img: '/assets/landing_creativos.jpg',
       copy: 'Últimas unidades en stock con envío gratis a todo el país.',
-      status: 'active'
+      status: 'active',
+      platform: 'instagram' as const,
+      tribeMetrics: {
+        score: 92,
+        label: 'Listo para escalar',
+        colorClass: 'bg-emerald-500 text-white shadow-emerald-500/20',
+        textColor: 'text-emerald-500',
+        textInsight: 'La pieza tiene una respuesta emocional excepcional y retención visual del producto por encima del promedio.',
+        attentionPct: 94,
+        attentionReason: 'Contraste alto y encuadre del producto claro en los primeros 3 segundos.',
+        emotionPct: 88,
+        emotionReason: 'Dispara impulsos de exclusividad y resguardo térmico.',
+        cogLoad: 24,
+        cogLoadReason: 'Composición limpia, tipografía legible sin sobrecarga informativa.',
+        highestRegion: 'Amígdala (Estímulo Emocional)',
+        actionItems: [
+          'Duplicar el presupuesto de esta pieza publicitaria.',
+          'Crear una variante optimizada con llamada de acción por stock limitado.',
+          'Usar esta pieza en campañas de Retargeting para audiencias tibias.'
+        ]
+      },
+      comments: [
+        {
+          id: 'sc1_1',
+          user: 'Sofia_Rodriguez',
+          text: 'Hola! Hacen envíos a Córdoba y tienen cuotas sin interés?',
+          time: 'Hace 10 min',
+          pending: true,
+          replies: [] as string[]
+        },
+        {
+          id: 'sc1_2',
+          user: 'Martin_Gomez',
+          text: 'Excelente tapado! Me llegó en 3 días a Mendoza. La calidad del cuero es premium total.',
+          time: 'Hace 2 h',
+          pending: false,
+          replies: ['¡Hola Martín! Qué alegría que te haya encantado el tapado. ¡Que lo disfrutes muchísimo!']
+        }
+      ]
     },
     { 
       id: 2, 
@@ -244,7 +306,37 @@ export default function LandingPage() {
       roas: 9.2, 
       img: '/assets/landing_analisis.jpg',
       copy: 'Botas premium con 30% OFF en nuestra tienda online.',
-      status: 'active'
+      status: 'active',
+      platform: 'facebook' as const,
+      tribeMetrics: {
+        score: 79,
+        label: 'Requiere ajustes',
+        colorClass: 'bg-amber-500 text-white shadow-amber-500/20',
+        textColor: 'text-amber-500',
+        textInsight: 'La respuesta atencional es buena, pero decae rápidamente a los 5 segundos de reproducción.',
+        attentionPct: 81,
+        attentionReason: 'Buen gancho inicial, pero el ritmo de edición en la segunda mitad ralentiza la atención.',
+        emotionPct: 76,
+        emotionReason: 'Mediana respuesta de deseo; la promoción resalta más que la propuesta de valor.',
+        cogLoad: 39,
+        cogLoadReason: 'Moderada; el texto del 30% OFF compite levemente con el calzado en pantalla.',
+        highestRegion: 'FFA (Reconocimiento de Formas)',
+        actionItems: [
+          'Mover el texto del descuento del final al primer segundo de reproducción.',
+          'Aumentar el contraste del fondo para resaltar la textura del cuero de las botas.',
+          'Acortar el video a 15 segundos para mantener la retención.'
+        ]
+      },
+      comments: [
+        {
+          id: 'sc2_1',
+          user: 'Valeria_Rossi',
+          text: 'Hola! Tienen stock en talle 38? Y qué colores hay?',
+          time: 'Hace 15 min',
+          pending: true,
+          replies: [] as string[]
+        }
+      ]
     },
     { 
       id: 3, 
@@ -254,9 +346,97 @@ export default function LandingPage() {
       roas: 3.5, 
       img: '/assets/landing_pedidos.jpg',
       copy: 'Cuero argentino legítimo. El accesorio ideal para tu look.',
-      status: 'paused'
+      status: 'paused',
+      platform: 'instagram' as const,
+      tribeMetrics: {
+        score: 45,
+        label: 'Revisar antes de pautar',
+        colorClass: 'bg-red-500 text-white shadow-red-500/20',
+        textColor: 'text-red-500',
+        textInsight: 'La pieza presenta un rendimiento muy bajo en atención y alta sobrecarga cognitiva.',
+        attentionPct: 48,
+        attentionReason: 'Bajo contraste cromático. El producto no se distingue adecuadamente de los elementos secundarios.',
+        emotionPct: 42,
+        emotionReason: 'La paleta de colores fríos inhibe el deseo de compra impulsivo.',
+        cogLoad: 68,
+        cogLoadReason: 'Carga alta. Demasiados elementos de texto flotantes que saturan la lectura.',
+        highestRegion: 'V1 (Corteza Visual Primaria)',
+        actionItems: [
+          'Simplificar el fondo eliminando el texto descriptivo excesivo.',
+          'Reemplazar la foto de producto sola por una de modelo luciendo la cartera.',
+          'Ajustar el balance de blancos a tonos más cálidos para inducir mayor confort.'
+        ]
+      },
+      comments: [
+        {
+          id: 'sc3_1',
+          user: 'Camila_Fernandez',
+          text: 'Hermosa cartera! Me pasan el precio y si hacen envíos?',
+          time: 'Hace 1 día',
+          pending: true,
+          replies: [] as string[]
+        }
+      ]
     }
-  ];
+  ]);
+
+  const selectedSimCreative = simCreatives.find(c => c.id === selectedSimCreativeId) || null;
+
+  const handleSimGenerateDraft = (commentId: string, author: string, text: string) => {
+    setSimDraftingCommentId(commentId);
+    
+    // Simulate AI loading/typing delay
+    setTimeout(() => {
+      let draftText = '';
+      const lowerText = text.toLowerCase();
+      if (lowerText.includes('cuotas') || lowerText.includes('precio') || lowerText.includes('envío') || lowerText.includes('envio')) {
+        draftText = `¡Hola @${author}! El tapado está disponible con envío gratis hoy mismo y hasta 3 cuotas sin interés con todas las tarjetas de crédito. ¿Te gustaría que te reserve una unidad?`;
+      } else if (lowerText.includes('talle') || lowerText.includes('stock') || lowerText.includes('colores')) {
+        draftText = `¡Hola @${author}! Sí, tenemos stock disponible del talle 38 en color Negro y Chocolate. Hacemos envíos rápidos a todo el país. ¿Te reservo un par en chocolate?`;
+      } else {
+        draftText = `¡Hola @${author}! La cartera está confeccionada en cuero argentino legítimo y cuenta con envío gratis hoy. ¿Te gustaría elegir el color para avanzar con tu compra?`;
+      }
+      
+      setSimReplyTexts(prev => ({
+        ...prev,
+        [commentId]: draftText
+      }));
+      setSimDraftingCommentId(null);
+    }, 1000);
+  };
+
+  const handleSimSendReply = (creativeId: number, commentId: string) => {
+    const text = simReplyTexts[commentId];
+    if (!text || !text.trim()) return;
+
+    setSimCreatives(prev => prev.map(creative => {
+      if (creative.id === creativeId) {
+        const updatedComments = creative.comments.map(c => {
+          if (c.id === commentId) {
+            return {
+              ...c,
+              pending: false,
+              replies: [...c.replies, text.trim()]
+            };
+          }
+          return c;
+        });
+        return {
+          ...creative,
+          comments: updatedComments
+        };
+      }
+      return creative;
+    }));
+
+    // Limpiar texto y expandido
+    setSimReplyTexts(prev => {
+      const copy = { ...prev };
+      delete copy[commentId];
+      return copy;
+    });
+    setSimExpandedCommentId(null);
+  };
 
 
 
@@ -1023,13 +1203,18 @@ export default function LandingPage() {
             <div className="flex flex-col gap-2.5 pt-1">
               {[
                 { label: 'ROAS promedio de campañas activas', value: '10.8×', color: 'text-emerald-500' },
-                { label: 'Creativos activos', value: '2 de 3', color: 'text-violet-500' },
-                { label: 'Inversión total activa', value: '$ 999', color: 'text-pink-500' },
+                { label: 'Creativos activos', value: `${simCreatives.filter(c => c.status === 'active').length} de ${simCreatives.length}`, color: 'text-violet-500' },
+                { label: 'Inversión total activa', value: `$${simCreatives.reduce((acc, c) => acc + (c.status === 'active' ? c.spent : 0), 0)}`, color: 'text-pink-500' },
+                { 
+                  label: 'Consultas pendientes en anuncios', 
+                  value: `${simCreatives.reduce((acc, c) => acc + c.comments.filter(comm => comm.pending).length, 0)}`, 
+                  color: simCreatives.reduce((acc, c) => acc + c.comments.filter(comm => comm.pending).length, 0) > 0 ? 'text-violet-500 animate-pulse font-extrabold' : 'text-emerald-500'
+                },
               ].map((kpi) => (
                 <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border transition-all duration-200 ${
                   darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
                 }`}>
-                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{kpi.label}</span>
+                  <span className="text-[11px] font-semibold text-zinc-550 dark:text-zinc-400">{kpi.label}</span>
                   <span className={`text-[13px] font-bold ${kpi.color}`}>{kpi.value}</span>
                 </div>
               ))}
@@ -1042,7 +1227,7 @@ export default function LandingPage() {
               <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3">
                 <div className="text-left">
                   <h4 className="text-[12.5px] font-bold font-display text-zinc-900 dark:text-white">Optimizador de Creativos</h4>
-                  <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5">Visualizá el rendimiento de tus piezas para tomar mejores decisiones</p>
+                  <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5">Hacé clic en cualquier creativo para abrir el análisis e inbox interactivo</p>
                 </div>
                 <div className="flex gap-2">
                   <div className="p-1.5 rounded-lg bg-zinc-100/50 dark:bg-white/[0.01] border border-zinc-200/50 dark:border-white/[0.03] text-[9px] font-bold text-center min-w-[75px]">
@@ -1057,41 +1242,70 @@ export default function LandingPage() {
               </div>
 
               <div className="space-y-3">
-                {creatives.map((creative) => (
-                  <div 
-                    key={creative.id} 
-                    className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-250 ${
-                      darkMode ? 'bg-zinc-900/30 border-white/[0.04] hover:bg-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50 hover:bg-zinc-100/60'
-                    }`}
-                  >
-                    <div className="w-12 h-14 rounded-lg overflow-hidden shrink-0 border border-zinc-200/20 bg-zinc-950">
-                      <img src={creative.img} alt={creative.name} className="w-full h-full object-cover" />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className="text-[10px] font-bold truncate text-zinc-800 dark:text-zinc-100">{creative.name}</p>
-                      <p className="text-[8px] text-zinc-400 truncate font-semibold mt-0.5">{creative.copy}</p>
-                      
-                      <div className="flex gap-3 mt-1.5 text-[8.5px] font-bold">
-                        <span className="text-zinc-500">Gasto: <span className="text-zinc-700 dark:text-zinc-300">${creative.spent}</span></span>
-                        <span className="text-zinc-500">CTR: <span className="text-zinc-700 dark:text-zinc-300">{creative.ctr}%</span></span>
-                        <span className="text-zinc-500">ROAS: <span className="text-violet-500">{creative.roas}×</span></span>
+                {simCreatives.map((creative) => {
+                  const pendingCount = creative.comments.filter(c => c.pending).length;
+                  return (
+                    <button 
+                      key={creative.id} 
+                      onClick={() => {
+                        setSelectedSimCreativeId(creative.id);
+                        setSimModalTab('metrics');
+                      }}
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-xl border transition-all duration-250 cursor-pointer group text-left relative overflow-hidden ${
+                        darkMode 
+                          ? 'bg-zinc-900/30 border-white/[0.04] hover:bg-zinc-900/65 hover:border-violet-500/30' 
+                          : 'bg-zinc-50 border-zinc-200/50 hover:bg-zinc-100/80 hover:border-violet-350'
+                      }`}
+                    >
+                      <div className="w-12 h-14 rounded-lg overflow-hidden shrink-0 border border-zinc-200/20 bg-zinc-950 relative">
+                        <img src={creative.img} alt={creative.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        {creative.platform === 'instagram' ? (
+                          <div className="absolute bottom-0.5 right-0.5 bg-black/60 p-0.5 rounded-md">
+                            <Instagram className="w-2.5 h-2.5 text-pink-500" />
+                          </div>
+                        ) : (
+                          <div className="absolute bottom-0.5 right-0.5 bg-black/60 p-0.5 rounded-md">
+                            <Facebook className="w-2.5 h-2.5 text-blue-500" />
+                          </div>
+                        )}
                       </div>
-                    </div>
+                      
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[11px] font-black truncate text-zinc-800 dark:text-zinc-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">{creative.name}</p>
+                          {pendingCount > 0 && (
+                            <span className="shrink-0 flex items-center gap-0.5 text-[7.5px] font-black text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-full border border-violet-500/20 animate-pulse">
+                              <span className="w-1 h-1 rounded-full bg-violet-500" />
+                              {pendingCount}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 truncate font-semibold mt-0.5">{creative.copy}</p>
+                        
+                        <div className="flex gap-3 mt-1.5 text-[9px] font-bold">
+                          <span className="text-zinc-500 dark:text-zinc-400">Gasto: <span className="text-zinc-700 dark:text-zinc-200 font-extrabold">${creative.spent}</span></span>
+                          <span className="text-zinc-500 dark:text-zinc-400">CTR: <span className="text-zinc-700 dark:text-zinc-200 font-extrabold">{creative.ctr}%</span></span>
+                          <span className="text-zinc-500 dark:text-zinc-400">ROAS: <span className="text-violet-500 font-black">{creative.roas}×</span></span>
+                        </div>
+                      </div>
 
-                    <div className="shrink-0">
-                      {creative.status === 'active' ? (
-                        <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                          Activo
+                      <div className="shrink-0 flex flex-col items-end gap-1.5">
+                        {creative.status === 'active' ? (
+                          <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                            Activo
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-zinc-500/10 text-zinc-400 border border-zinc-500/20">
+                            Pausado
+                          </span>
+                        )}
+                        <span className="text-[8px] font-black text-violet-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                          Simular <ArrowRight className="w-2 h-2" />
                         </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-zinc-550/10 text-zinc-400 border border-zinc-500/20">
-                          Pausado
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1306,6 +1520,362 @@ export default function LandingPage() {
               alt="Visualización ampliada" 
               className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-250 border border-white/10" 
             />
+          </div>
+        </div>
+      )}
+
+      {selectedSimCreative && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 cursor-default" 
+            onClick={() => setSelectedSimCreativeId(null)} 
+          />
+          <div className={`relative w-full max-w-5xl rounded-[24px] border shadow-2xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] md:max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 ${
+            darkMode ? 'bg-[#09090b] border-white/[0.06] text-white' : 'bg-white border-zinc-200/80 text-zinc-800'
+          }`}>
+            {/* LADO IZQUIERDO — Vista Previa del Anuncio (Mockup de Red Social) */}
+            <div className={`w-full md:w-[42%] border-r p-5 flex flex-col justify-between ${
+              darkMode ? 'bg-[#0c0c10] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
+            }`}>
+              <div className="space-y-4">
+                {/* Cabecera del Anuncio */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-violet-600 text-white font-black text-[12px] flex items-center justify-center shadow-md shadow-violet-600/10">
+                      A
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[11px] font-black leading-none">Algoritmia Store</p>
+                      <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5 flex items-center gap-0.5">
+                        Patrocinado • <span className="text-[7.5px] font-bold">Publicidad</span>
+                      </p>
+                    </div>
+                  </div>
+                  {selectedSimCreative.platform === 'instagram' ? (
+                    <Instagram className="w-4 h-4 text-pink-500" />
+                  ) : (
+                    <Facebook className="w-4 h-4 text-blue-500" />
+                  )}
+                </div>
+
+                {/* Imagen del Anuncio */}
+                <div className="aspect-[4/5] rounded-xl overflow-hidden border border-zinc-250/20 dark:border-white/[0.03] bg-zinc-950 shadow-inner relative flex items-center justify-center">
+                  <img 
+                    src={selectedSimCreative.img} 
+                    alt={selectedSimCreative.name} 
+                    className="w-full h-full object-cover" 
+                  />
+                  
+                  {/* Action Bar (Heart, Comment, etc) */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8 flex items-center justify-between text-white">
+                    <div className="flex items-center gap-3">
+                      <Heart className="w-4 h-4 text-white hover:text-red-500 cursor-pointer transition-colors" />
+                      <MessageSquare className="w-4 h-4 text-white cursor-pointer" />
+                      <Send className="w-4 h-4 text-white cursor-pointer" />
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded border border-white/10">
+                      Ver Tienda
+                    </span>
+                  </div>
+                </div>
+
+                {/* Caption / Copy */}
+                <div className="text-left space-y-1">
+                  <p className="text-[11px] leading-relaxed">
+                    <span className="font-black mr-1.5">Algoritmia Store</span>
+                    {selectedSimCreative.copy}
+                  </p>
+                  <p className="text-[9.5px] text-zinc-400 font-bold uppercase tracking-wider pt-0.5">
+                    Hace 2 días
+                  </p>
+                </div>
+              </div>
+
+              {/* Pie con KPI Rápido */}
+              <div className="pt-4 border-t border-zinc-200/40 dark:border-white/[0.03] flex items-center justify-between text-[10px]">
+                <span className="font-semibold text-zinc-500">Inversión Real: <span className="font-black text-zinc-800 dark:text-white">${selectedSimCreative.spent}</span></span>
+                <span className="font-semibold text-zinc-500">CTR: <span className="font-black text-zinc-800 dark:text-white">{selectedSimCreative.ctr}%</span></span>
+                <span className="font-semibold text-zinc-500">ROAS: <span className="font-black text-violet-500">{selectedSimCreative.roas}×</span></span>
+              </div>
+            </div>
+
+            {/* LADO DERECHO — Panel de Control Simulador (Métricas y Moderación) */}
+            <div className="w-full md:w-[58%] flex flex-col h-[500px] md:h-[600px] overflow-hidden">
+              {/* Cabecera y Selector de Pestañas */}
+              <div className={`p-4 border-b flex items-center justify-between ${
+                darkMode ? 'border-white/[0.04] bg-[#0c0c10]' : 'border-zinc-200/60 bg-zinc-50/50'
+              }`}>
+                <div className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-1 text-[11.5px] font-black text-violet-500 bg-violet-500/10 px-2.5 py-1 rounded-full border border-violet-500/10">
+                    <Brain className="w-3.5 h-3.5" /> TRIBE v2
+                  </span>
+                  <span className="text-[12px] font-bold text-zinc-400 dark:text-zinc-500 font-display">|</span>
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => setSimModalTab('metrics')}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-black transition-all ${
+                        simModalTab === 'metrics'
+                          ? (darkMode ? 'bg-white/5 text-white border border-white/10' : 'bg-white text-zinc-800 border border-zinc-200 shadow-sm')
+                          : 'text-zinc-400 hover:text-zinc-650'
+                      }`}
+                    >
+                      Neurométricas
+                    </button>
+                    <button 
+                      onClick={() => setSimModalTab('comments')}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-black transition-all flex items-center gap-1 relative ${
+                        simModalTab === 'comments'
+                          ? (darkMode ? 'bg-white/5 text-white border border-white/10' : 'bg-white text-zinc-800 border border-zinc-200 shadow-sm')
+                          : 'text-zinc-400 hover:text-zinc-650'
+                      }`}
+                    >
+                      Comentarios
+                      {selectedSimCreative.comments.filter(c => c.pending).length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedSimCreativeId(null)}
+                  className={`p-1.5 rounded-full border transition-all ${
+                    darkMode ? 'bg-white/[0.02] border-white/10 hover:bg-white/[0.06] text-zinc-400' : 'bg-zinc-100 border-zinc-200 hover:bg-zinc-200 text-zinc-600'
+                  }`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Panel de Contenido Desplazable */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                {simModalTab === 'metrics' ? (
+                  <div className="space-y-5 text-left animate-in fade-in duration-200">
+                    {/* Score global */}
+                    <div className={`p-4 border rounded-2xl flex items-center gap-4 ${
+                      darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'
+                    }`}>
+                      <div className={`w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-lg font-black text-white shrink-0 ${
+                        selectedSimCreative.tribeMetrics.score >= 80 ? 'bg-emerald-500 shadow-emerald-500/10' :
+                        selectedSimCreative.tribeMetrics.score >= 60 ? 'bg-amber-500 shadow-amber-500/10' :
+                        'bg-red-500 shadow-red-500/10'
+                      }`}>
+                        <span className="text-[20px] leading-none">{selectedSimCreative.tribeMetrics.score}</span>
+                        <span className="text-[8px] opacity-75">/100</span>
+                      </div>
+                      <div>
+                        <h4 className="text-[13.5px] font-black">{selectedSimCreative.tribeMetrics.label}</h4>
+                        <p className="text-[10.5px] text-zinc-450 mt-0.5 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
+                        <p className="text-[9px] text-zinc-400 mt-1">
+                          Región dominante: <span className="font-bold text-violet-500">{selectedSimCreative.tribeMetrics.highestRegion}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Barras de Métricas */}
+                    <div className={`p-4 border rounded-2xl space-y-4 ${
+                      darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'
+                    }`}>
+                      {/* Atención */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1 text-[10px] font-bold">
+                          <span className="text-zinc-400 uppercase tracking-wider">Atención del Consumidor</span>
+                          <span className="text-emerald-500 font-extrabold">{selectedSimCreative.tribeMetrics.attentionPct}%</span>
+                        </div>
+                        <div className="h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${selectedSimCreative.tribeMetrics.attentionPct}%` }} />
+                        </div>
+                        <p className="text-[9px] text-zinc-400 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.attentionReason}</p>
+                      </div>
+
+                      {/* Emoción */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1 text-[10px] font-bold">
+                          <span className="text-zinc-400 uppercase tracking-wider">Resonancia Emocional</span>
+                          <span className="text-violet-500 font-extrabold">{selectedSimCreative.tribeMetrics.emotionPct}%</span>
+                        </div>
+                        <div className="h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-violet-500 rounded-full" style={{ width: `${selectedSimCreative.tribeMetrics.emotionPct}%` }} />
+                        </div>
+                        <p className="text-[9px] text-zinc-400 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.emotionReason}</p>
+                      </div>
+
+                      {/* Carga Cognitiva */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1 text-[10px] font-bold">
+                          <span className="text-zinc-400 uppercase tracking-wider">Carga Cognitiva (Saturación)</span>
+                          <span className={`font-extrabold ${
+                            selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'text-emerald-500' :
+                            selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'text-amber-500' :
+                            'text-red-500'
+                          }`}>{selectedSimCreative.tribeMetrics.cogLoad}%</span>
+                        </div>
+                        <div className="h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${
+                            selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'bg-emerald-500' :
+                            selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'bg-amber-500' :
+                            'bg-red-500'
+                          }`} style={{ width: `${selectedSimCreative.tribeMetrics.cogLoad}%` }} />
+                        </div>
+                        <p className="text-[9px] text-zinc-400 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.cogLoadReason}</p>
+                      </div>
+                    </div>
+
+                    {/* Plan de Acción */}
+                    <div className={`p-4 border rounded-2xl ${
+                      darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'
+                    }`}>
+                      <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-violet-500" /> Plan de Acción Neurométrico Sugerido
+                      </h5>
+                      <ul className="space-y-2">
+                        {selectedSimCreative.tribeMetrics.actionItems.map((item, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5 text-[11px] text-zinc-700 dark:text-zinc-300">
+                            <span className="w-4 h-4 rounded-full bg-violet-500/10 text-violet-500 border border-violet-500/20 text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                              {idx + 1}
+                            </span>
+                            <span className="font-semibold">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 text-left animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between text-[10.5px] font-bold text-zinc-400 border-b border-zinc-200/40 dark:border-white/[0.03] pb-2">
+                      <span>Bandeja de Consultas de Anuncio</span>
+                      <span className="text-violet-500">
+                        {selectedSimCreative.comments.filter(c => c.pending).length} Pendiente{selectedSimCreative.comments.filter(c => c.pending).length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3.5">
+                      {selectedSimCreative.comments.map((comment) => (
+                        <div 
+                          key={comment.id}
+                          className={`p-3.5 rounded-xl border space-y-3 transition-all ${
+                            comment.pending
+                              ? (darkMode ? 'bg-[#0f0f13] border-violet-500/20 shadow-sm shadow-violet-500/5' : 'bg-violet-50/20 border-violet-100')
+                              : (darkMode ? 'bg-[#07070a]/30 border-white/[0.03] opacity-80' : 'bg-zinc-50/50 border-zinc-200/50')
+                          }`}
+                        >
+                          {/* Info del Comentario */}
+                          <div className="flex items-start justify-between">
+                            <div className="flex gap-2.5">
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase ${
+                                comment.pending ? 'bg-violet-500 shadow-md shadow-violet-500/10' : 'bg-zinc-400 dark:bg-zinc-700'
+                              }`}>
+                                {comment.user.slice(0, 2)}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] font-black text-zinc-800 dark:text-zinc-100">@{comment.user}</span>
+                                  <span className="text-[8.5px] text-zinc-400 font-semibold">{comment.time}</span>
+                                </div>
+                                <p className="text-[11.5px] font-semibold text-zinc-650 dark:text-zinc-300 mt-0.5">{comment.text}</p>
+                              </div>
+                            </div>
+
+                            {comment.pending ? (
+                              <span className="shrink-0 text-[8px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1.5 py-0.5 rounded-md">
+                                Pendiente
+                              </span>
+                            ) : (
+                              <span className="shrink-0 text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                                <Check className="w-2 h-2" /> Respondido
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Respuestas Existentes */}
+                          {comment.replies.length > 0 && (
+                            <div className="pl-6 border-l-2 border-zinc-200 dark:border-zinc-800 space-y-2 mt-2">
+                              {comment.replies.map((reply, rIdx) => (
+                                <div key={rIdx} className="flex gap-2 items-start text-[10.5px]">
+                                  <div className="w-5 h-5 rounded-full bg-violet-600/20 border border-violet-500/25 text-violet-500 text-[8px] font-black flex items-center justify-center shrink-0">
+                                    A
+                                  </div>
+                                  <div className="bg-zinc-100 dark:bg-white/[0.02] p-2 rounded-xl border border-zinc-200/50 dark:border-white/[0.04] flex-1">
+                                    <p className="font-semibold text-[11px] leading-relaxed text-zinc-750 dark:text-zinc-200">
+                                      <span className="font-extrabold text-violet-600 dark:text-violet-400 mr-1.5">Algoritmia Store</span>
+                                      {reply}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Interacciones de Moderación */}
+                          {comment.pending && (
+                            <div className="pt-1 flex items-center gap-2">
+                              {simExpandedCommentId !== comment.id ? (
+                                <>
+                                  <button 
+                                    onClick={() => setSimExpandedCommentId(comment.id)}
+                                    className="px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[9.5px] transition-colors"
+                                  >
+                                    Responder
+                                  </button>
+                                  <button 
+                                    onClick={() => handleSimGenerateDraft(comment.id, comment.user, comment.text)}
+                                    disabled={simDraftingCommentId !== null}
+                                    className="px-3 py-1 rounded-lg text-[9.5px] font-black border border-zinc-200 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/[0.02] flex items-center gap-1 transition-colors"
+                                  >
+                                    <Sparkles className="w-3 h-3 text-violet-500" /> Asistencia IA
+                                  </button>
+                                </>
+                              ) : (
+                                <div className="w-full space-y-2.5 animate-in slide-in-from-top-1 duration-200 text-left">
+                                  {simDraftingCommentId === comment.id ? (
+                                    <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-violet-500 py-2">
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Cerebro de IA sugiriendo borrador...
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <textarea
+                                        value={simReplyTexts[comment.id] || ''}
+                                        onChange={(e) => setSimReplyTexts(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                                        placeholder="Escribí tu respuesta..."
+                                        className={`w-full p-2.5 rounded-lg border text-[11px] outline-none font-medium h-16 resize-none ${
+                                          darkMode ? 'bg-black border-white/10 text-white focus:border-violet-500/50' : 'bg-white border-zinc-350 focus:border-violet-400'
+                                        }`}
+                                      />
+                                      <div className="flex justify-between items-center">
+                                        <button 
+                                          onClick={() => handleSimGenerateDraft(comment.id, comment.user, comment.text)}
+                                          className="text-[9.5px] font-black text-violet-500 hover:underline flex items-center gap-0.5"
+                                        >
+                                          <Sparkles className="w-3 h-3" /> Generar borrador con IA
+                                        </button>
+                                        <div className="flex gap-1.5">
+                                          <button 
+                                            onClick={() => setSimExpandedCommentId(null)}
+                                            className="px-2.5 py-1 text-zinc-400 hover:text-zinc-650 font-bold text-[9.5px]"
+                                          >
+                                            Cancelar
+                                          </button>
+                                          <button 
+                                            onClick={() => handleSimSendReply(selectedSimCreative.id, comment.id)}
+                                            disabled={!(simReplyTexts[comment.id] || '').trim()}
+                                            className="px-3 py-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-black rounded-lg text-[9.5px] flex items-center gap-1"
+                                          >
+                                            <Send className="w-2.5 h-2.5" /> Enviar
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
