@@ -73,16 +73,64 @@ export default function LandingPage() {
     setChatStatus('idle');
   };
 
-  // 2. Simulación de Sincronización de Stock
-  const [stock, setStock] = useState(8);
+  // 2. Simulación de Sincronización de Stock por Ventas
+  const [stock, setStock] = useState(12);
   const [syncPulse, setSyncPulse] = useState(false);
+  const [salesLog, setSalesLog] = useState<{ id: number; text: string; time: string; channel: string }[]>([
+    { id: 1, text: "Venta POS #1294 - 1 Tapado de Cuero M", time: "Hace 5 minutos", channel: "Local Físico" },
+    { id: 2, text: "Venta Tiendanube #4082 - 1 Tapado de Cuero S", time: "Hace 12 minutos", channel: "Tiendanube" }
+  ]);
+  const [isSimulatingSale, setIsSimulatingSale] = useState(false);
 
-  const handleUpdateStock = (change: number) => {
-    const newVal = Math.max(0, stock + change);
-    if (newVal === stock) return;
-    setStock(newVal);
+  const handleSimulateSale = (channel: string) => {
+    if (stock <= 0 || isSimulatingSale) return;
+    setIsSimulatingSale(true);
     setSyncPulse(true);
-    setTimeout(() => setSyncPulse(false), 800);
+    setStock(prev => Math.max(0, prev - 1));
+
+    // Agregar al feed de ventas
+    setSalesLog(prev => [
+      {
+        id: Date.now(),
+        text: `Venta ${channel} #${Math.floor(1000 + Math.random() * 9000)} - 1 Tapado de Cuero S`,
+        time: "Hace un instante",
+        channel: channel
+      },
+      ...prev.slice(0, 3) // Mantener las últimas 4
+    ]);
+
+    setTimeout(() => {
+      setSyncPulse(false);
+      setIsSimulatingSale(false);
+    }, 850);
+  };
+
+  const handleResetStock = () => {
+    setStock(12);
+    setSalesLog([
+      { id: 1, text: "Venta POS #1294 - 1 Tapado de Cuero M", time: "Hace 5 minutos", channel: "Local Físico" },
+      { id: 2, text: "Venta Tiendanube #4082 - 1 Tapado de Cuero S", time: "Hace 12 minutos", channel: "Tiendanube" }
+    ]);
+  };
+
+  // 3. Simulación de Test Neuronal de Creativo (TRIBE v2)
+  const [testerStatus, setTesterStatus] = useState<'idle' | 'analyzing' | 'completed'>('idle');
+  const [heatMapVisible, setHeatMapVisible] = useState(false);
+
+  const handleRunCreativeTest = () => {
+    if (testerStatus !== 'idle') return;
+    setTesterStatus('analyzing');
+    setHeatMapVisible(false);
+
+    setTimeout(() => {
+      setTesterStatus('completed');
+      setHeatMapVisible(true);
+    }, 1600);
+  };
+
+  const handleResetCreativeTest = () => {
+    setTesterStatus('idle');
+    setHeatMapVisible(false);
   };
 
   // Tabbed high-fidelity screenshots switcher
@@ -191,15 +239,13 @@ export default function LandingPage() {
           100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
         }
       `}} />
-
-      {/* Header */}
       <header className={`sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-6.5 h-6.5 object-contain"
+              className="w-[26px] h-[26px] object-contain"
             />
             <div>
               <span className="text-[11.5px] font-bold tracking-tight uppercase leading-none block font-display">
@@ -221,7 +267,7 @@ export default function LandingPage() {
             </button>
             <Link
               to="/login"
-              className={`h-8 px-3 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
+              className={`h-8 px-3.5 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
                 darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
               }`}
             >
@@ -252,13 +298,13 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 mb-14 animate-in fade-in slide-in-from-bottom-7 duration-1000">
             <Link
               to="/login"
-              className="w-full sm:w-auto h-9.5 px-5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 shadow-sm shadow-violet-600/10 active:scale-[0.98] transition-all glow-hover"
+              className="w-full sm:w-auto h-9 px-5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 shadow-sm shadow-violet-600/10 active:scale-[0.98] transition-all glow-hover"
             >
               Comenzar prueba gratis <ArrowRight className="w-3.5 h-3.5" />
             </Link>
             <a
               href="#interactive-demo"
-              className={`w-full sm:w-auto h-9.5 px-5 border font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
+              className={`w-full sm:w-auto h-9 px-5 border font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
                 darkMode ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 shadow-sm'
               }`}
             >
@@ -278,10 +324,10 @@ export default function LandingPage() {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTabShowcase(tab.id as any)}
-                      className={`h-7.5 px-3 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center shrink-0 border ${
+                      className={`h-7 px-3 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center shrink-0 border ${
                         isActive
                           ? 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-600/10 font-display'
-                          : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-white/5'
+                          : 'border-transparent text-zinc-550 dark:text-zinc-400 hover:bg-zinc-200/40 dark:hover:bg-white/5'
                       }`}
                     >
                       {tab.label}
@@ -365,7 +411,7 @@ export default function LandingPage() {
               <button 
                 onClick={handleSendAiResponse}
                 disabled={chatStatus !== 'idle'}
-                className={`h-8.5 px-4 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-sm shadow-violet-600/10`}
+                className={`h-8 px-4 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-sm shadow-violet-600/10`}
               >
                 {chatStatus === 'idle' && (
                   <>Simular respuesta sugerida por IA <ArrowRight className="w-3.5 h-3.5" /></>
@@ -476,7 +522,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 2. MAQUETA INTERACTIVA DE SINCRONIZACIÓN DE STOCK */}
+        {/* 2. MAQUETA INTERACTIVA DE SINCRONIZACIÓN DE STOCK POR VENTAS */}
         <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
           <div className="flex-1 space-y-5">
             <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
@@ -484,30 +530,66 @@ export default function LandingPage() {
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Sincronización Multitienda en Vivo</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-550'}`}>
-              Evitá la sobreventa. Cuando vendés en un local físico o actualizás el stock manualmente desde el panel de Algoritmia, el inventario se ajusta instantáneamente en Mercado Libre, Shopify, Tiendanube y WooCommerce.
+              Evitá la sobreventa. Cuando ingresa una venta online o se factura en tu local físico, el inventario se ajusta instantáneamente en Mercado Libre, Shopify, Tiendanube, WooCommerce y tu sucursal POS.
             </p>
 
-            {/* Selector Interactivo de Demo */}
-            <div className="p-3 rounded-xl border border-zinc-200/50 dark:border-white/[0.04] bg-zinc-100/30 dark:bg-zinc-950/20 max-w-xs flex items-center justify-between">
+            {/* Simulador Interactivo de Ventas */}
+            <div className="space-y-3 max-w-sm">
               <div>
-                <p className="text-[10px] font-bold uppercase text-zinc-450 tracking-wider">Modificar Inventario</p>
-                <p className="text-[9px] text-zinc-500 font-semibold mt-0.5">Simulá un ajuste de stock</p>
+                <p className="text-[10px] font-bold uppercase text-cyan-555 dark:text-cyan-400 tracking-wider">Simular Transacciones en Vivo</p>
+                <p className="text-[9px] text-zinc-450 font-semibold mt-0.5">Simulá una venta entrante haciendo clic en un canal:</p>
               </div>
-              <div className="flex items-center gap-2.5">
+
+              <div className="flex flex-wrap gap-2">
                 <button 
-                  onClick={() => handleUpdateStock(-1)}
-                  className="w-7.5 h-7.5 rounded-lg border border-zinc-200 dark:border-white/10 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/5 transition-all text-zinc-400 active:scale-90"
+                  onClick={() => handleSimulateSale('Shopify')}
+                  disabled={stock <= 0 || isSimulatingSale}
+                  className="h-8 px-3 rounded-lg border border-zinc-250 dark:border-white/10 bg-zinc-200/20 dark:bg-white/[0.02] hover:bg-zinc-200/40 dark:hover:bg-white/5 transition-all text-[10.5px] font-bold active:scale-[0.96] disabled:opacity-50 text-zinc-700 dark:text-zinc-200"
                 >
-                  <Minus className="w-3.5 h-3.5" />
+                  Venta en Shopify (-1)
                 </button>
-                <span className="text-base font-bold w-5 text-center">{stock}</span>
                 <button 
-                  onClick={() => handleUpdateStock(1)}
-                  className="w-7.5 h-7.5 rounded-lg border border-zinc-200 dark:border-white/10 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-white/5 transition-all text-zinc-400 active:scale-90"
+                  onClick={() => handleSimulateSale('Mercado Libre')}
+                  disabled={stock <= 0 || isSimulatingSale}
+                  className="h-8 px-3 rounded-lg border border-zinc-250 dark:border-white/10 bg-zinc-200/20 dark:bg-white/[0.02] hover:bg-zinc-200/40 dark:hover:bg-white/5 transition-all text-[10.5px] font-bold active:scale-[0.96] disabled:opacity-50 text-zinc-700 dark:text-zinc-200"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  Venta en M. Libre (-1)
+                </button>
+                <button 
+                  onClick={() => handleSimulateSale('Local Físico (POS)')}
+                  disabled={stock <= 0 || isSimulatingSale}
+                  className="h-8 px-3 rounded-lg border border-zinc-250 dark:border-white/10 bg-zinc-200/20 dark:bg-white/[0.02] hover:bg-zinc-200/40 dark:hover:bg-white/5 transition-all text-[10.5px] font-bold active:scale-[0.96] disabled:opacity-50 text-zinc-700 dark:text-zinc-200"
+                >
+                  Venta en Local POS (-1)
                 </button>
               </div>
+
+              {/* Real-time Sales Feed */}
+              <div className="rounded-xl border border-zinc-200/40 dark:border-white/[0.04] bg-zinc-50/20 dark:bg-zinc-950/40 p-3 space-y-2 text-left">
+                <p className="text-[9.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Feed de Ventas Omnicanal</p>
+                <div className="space-y-1.5 max-h-[85px] overflow-y-auto scrollbar-none">
+                  {salesLog.map((log) => (
+                    <div key={log.id} className="flex justify-between items-center text-[10px] font-medium text-zinc-650 dark:text-zinc-400 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <span className="truncate flex items-center gap-1.5">
+                        <span className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse" />
+                        {log.text}
+                      </span>
+                      <span className="text-[8px] text-zinc-550 shrink-0 font-semibold">{log.time}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {stock === 0 ? (
+                <button 
+                  onClick={handleResetStock}
+                  className="text-[9.5px] font-semibold text-violet-500 hover:underline block"
+                >
+                  Restablecer inventario (12 unidades)
+                </button>
+              ) : (
+                <span className="text-[8px] text-zinc-450 font-semibold">Simulá hasta agotar stock para reiniciar.</span>
+              )}
             </div>
           </div>
 
@@ -521,23 +603,26 @@ export default function LandingPage() {
                 <div>
                   <h4 className="text-[13px] font-bold">Tapado de Cuero Premium</h4>
                   <p className="text-[9.5px] text-zinc-500 font-semibold mt-0.5">SKU: TAP-CL-01 · $89,900</p>
-                  <span className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8.5px] font-bold text-emerald-500 bg-emerald-500/10">
+                  <span className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8.5px] font-bold text-emerald-500 bg-emerald-550/10">
                     <span className="w-1 h-1 rounded-full bg-emerald-500" /> Stock Unificado: {stock} unidades
                   </span>
                 </div>
               </div>
 
-              {/* Stores Grid Sincronizados */}
+              {/* Stores Grid Sincronizados (5 Canales en total) */}
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { name: 'Shopify', logo: '/assets/shopify-bag.webp', label: 'tienda-online' },
                   { name: 'Tiendanube', logo: '/assets/tiendanubeoscuro.png', darkLogo: '/assets/tiendanube.webp', label: 'Zane Labs' },
                   { name: 'WooCommerce', logo: '/assets/logowordpress.webp', label: 'wordpress-site' },
-                  { name: 'Mercado Libre', logo: '/assets/logomercadolibre.png', label: 'LUCAGAZZE10' }
-                ].map((store) => (
+                  { name: 'Mercado Libre', logo: '/assets/logomercadolibre.png', label: 'LUCAGAZZE10' },
+                  { name: 'Local Físico (POS)', logo: '/assets/logoSinFondo.png', label: 'Sucursal Central' }
+                ].map((store, idx) => (
                   <div 
                     key={store.name}
                     className={`p-3 rounded-lg border transition-all duration-300 flex items-center justify-between ${
+                      idx === 4 ? 'col-span-2' : ''
+                    } ${
                       syncPulse 
                         ? 'pulse-sync border-violet-500 bg-violet-500/[0.015]' 
                         : (darkMode ? 'bg-zinc-900/20 border-white/[0.04]' : 'bg-zinc-50/50 border-zinc-200/80')
@@ -566,6 +651,122 @@ export default function LandingPage() {
           </div>
         </div>
 
+        {/* 3. MAQUETA INTERACTIVA DE ANÁLISIS DE CREATIVOS */}
+        <div className="flex flex-col lg:flex-row items-center gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
+          <div className="flex-1 space-y-5">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-violet-550" />
+            </div>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Predicción Neuronal de Atención (TRIBE v2)</h3>
+            <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-550'}`}>
+              Evaluá el impacto de tus anuncios antes de invertir en pauta. Nuestra red neuronal simula el comportamiento visual humano, estimando qué zonas de tu creativo captan más atención y calculando una puntuación predictiva de conversión.
+            </p>
+            
+            <div className="pt-1">
+              <button 
+                onClick={handleRunCreativeTest}
+                disabled={testerStatus !== 'idle'}
+                className="h-8 px-4 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-sm shadow-violet-600/10"
+              >
+                {testerStatus === 'idle' && (
+                  <>Simular Análisis Neuronal <ArrowRight className="w-3.5 h-3.5" /></>
+                )}
+                {testerStatus === 'analyzing' && (
+                  <>Ejecutando mapas de calor... <RefreshCw className="w-3 h-3 animate-spin" /></>
+                )}
+                {testerStatus === 'completed' && (
+                  <>¡Análisis Finalizado! ✨</>
+                )}
+              </button>
+              {testerStatus === 'completed' && (
+                <button 
+                  onClick={handleResetCreativeTest}
+                  className="mt-2.5 text-[10px] font-semibold text-violet-500 hover:underline block"
+                >
+                  Volver a probar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Caja Interactiva del Analizador de Anuncios */}
+          <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
+            <div className={`p-4 rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} space-y-4 text-left relative overflow-hidden`}>
+              
+              <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-2.5">
+                <div>
+                  <h4 className="text-[12.5px] font-bold font-display text-zinc-900 dark:text-white">Simulador de Anuncio (TRIBE v2)</h4>
+                  <p className="text-[8.5px] text-zinc-450 font-semibold mt-0.5">Subí tu imagen o seleccioná una de tu catálogo</p>
+                </div>
+                <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded ${testerStatus === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : (testerStatus === 'analyzing' ? 'bg-violet-500/10 text-violet-500' : 'bg-zinc-550/10 text-zinc-450')}`}>
+                  {testerStatus === 'completed' ? 'Analizado' : (testerStatus === 'analyzing' ? 'Procesando' : 'Listo para probar')}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                {/* Visual Ad Box */}
+                <div className="relative rounded-lg border border-zinc-250/50 dark:border-white/10 overflow-hidden bg-zinc-950 shadow-inner aspect-[4/5] flex items-center justify-center">
+                  {/* Mock Ad Creative */}
+                  <img 
+                    src="/assets/landing_creativos.jpg" 
+                    alt="Creative Ad mockup"
+                    className="w-full h-full object-cover opacity-80"
+                  />
+                  
+                  {/* Heatmap overlay simulating human attention */}
+                  {heatMapVisible && (
+                    <div className="absolute inset-0 bg-transparent pointer-events-none mix-blend-color-dodge animate-in fade-in duration-500">
+                      {/* Highlight spots using neon CSS gradients */}
+                      <div className="absolute top-[20%] left-[30%] w-24 h-24 rounded-full bg-red-500/40 blur-md" />
+                      <div className="absolute top-[45%] left-[55%] w-20 h-20 rounded-full bg-yellow-400/40 blur-md" />
+                      <div className="absolute bottom-[25%] left-[40%] w-28 h-28 rounded-full bg-cyan-400/30 blur-md" />
+                    </div>
+                  )}
+
+                  {/* Heatmap labels overlay */}
+                  {heatMapVisible && (
+                    <div className="absolute inset-0 bg-black/10 flex flex-col justify-between p-2 text-[8px] font-bold text-white tracking-wide">
+                      <div className="bg-red-650/80 px-1.5 py-0.5 rounded self-start">FOCO 1: LOGOTIPO (94%)</div>
+                      <div className="bg-yellow-600/80 px-1.5 py-0.5 rounded self-center">FOCO 2: LLAMADO A ACCIÓN (82%)</div>
+                      <div className="bg-cyan-600/80 px-1.5 py-0.5 rounded self-end mb-12">FOCO 3: IMAGEN PRODUCTO (75%)</div>
+                    </div>
+                  )}
+
+                  {testerStatus === 'analyzing' && (
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                      <RefreshCw className="w-5 h-5 text-violet-550 animate-spin" />
+                      <span className="text-[9.5px] text-zinc-300 font-bold uppercase tracking-wider">Escaneando contornos...</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Simulated Neural Net metrics */}
+                <div className="space-y-3">
+                  <p className="text-[9.5px] font-bold text-zinc-450 dark:text-zinc-500 uppercase tracking-wider border-b border-zinc-200/40 dark:border-white/[0.04] pb-1">Métricas Predictivas</p>
+                  
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Atención Visual', score: testerStatus === 'completed' ? '88%' : '--', desc: 'Capacidad de destacar en feed', color: 'text-emerald-500' },
+                      { name: 'Carga Cognitiva', score: testerStatus === 'completed' ? '36%' : '--', desc: 'Facilidad de comprensión lectora', color: 'text-violet-400' },
+                      { name: 'ROAS Predictivo', score: testerStatus === 'completed' ? '5.2x' : '--', desc: 'Retorno estimado de pauta', color: 'text-cyan-400' },
+                      { name: 'Score Neuronal', score: testerStatus === 'completed' ? '8.4/10' : '--', desc: 'Puntuación final del creativo', color: 'text-pink-500' }
+                    ].map((metric) => (
+                      <div key={metric.name} className="p-2 rounded-lg bg-zinc-100/40 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-white/[0.03]">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200">{metric.name}</span>
+                          <span className={`text-[11.5px] font-bold ${metric.color}`}>{metric.score}</span>
+                        </div>
+                        <p className="text-[7.5px] text-zinc-450 font-semibold mt-0.5">{metric.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
       </section>
 
       {/* Problem vs Solution Section (Ultra-Minimalist) */}
@@ -579,7 +780,7 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Problem Card */}
           <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-zinc-950/30 border-red-500/10' : 'bg-white border-zinc-200/50 shadow-sm'}`}>
-            <div className="w-8.5 h-8.5 rounded-lg bg-red-500/10 flex items-center justify-center mb-5">
+            <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center mb-5">
               <span className="text-red-500 font-bold text-[13px]">✕</span>
             </div>
             <h3 className="text-[14.5px] font-bold font-display mb-3 text-zinc-850 dark:text-zinc-100">El caos operativo tradicional</h3>
@@ -601,7 +802,7 @@ export default function LandingPage() {
 
           {/* Solution Card */}
           <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-violet-950/5 border-violet-500/15' : 'bg-violet-500/[0.005] border-violet-200/40 shadow-sm'}`}>
-            <div className="w-8.5 h-8.5 rounded-lg bg-violet-500/10 flex items-center justify-center mb-5">
+            <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center mb-5">
               <Check className="w-4 h-4 text-violet-500" />
             </div>
             <h3 className="text-[14.5px] font-bold font-display mb-3 text-zinc-850 dark:text-zinc-100">La solución unificada de Algoritmia</h3>
@@ -630,12 +831,12 @@ export default function LandingPage() {
           <h2 className="text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Diseñado para la eficiencia operativa</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {valueProps.map((prop) => {
             const Icon = prop.icon;
             return (
               <div key={prop.title} className={`p-5 rounded-2xl border transition-all duration-300 hover:scale-[1.01] ${darkMode ? 'bg-zinc-900/10 border-white/[0.04]' : 'bg-white border-zinc-200/50 shadow-sm'}`}>
-                <div className="w-8.5 h-8.5 rounded-lg bg-violet-500/10 flex items-center justify-center mb-4.5">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center mb-4">
                   <Icon className="w-4 h-4 text-violet-500" />
                 </div>
                 <h4 className="text-[13.5px] font-bold font-display mb-1.5 text-zinc-900 dark:text-zinc-100">{prop.title}</h4>
@@ -759,7 +960,7 @@ export default function LandingPage() {
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-4.5 h-4.5 object-contain"
+              className="w-4 h-4 object-contain"
             />
             <span className="text-[10px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGORITMIA</span>
           </div>
