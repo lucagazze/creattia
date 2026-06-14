@@ -517,12 +517,17 @@ export default function LandingPage() {
   const [simExpandedCommentId, setSimExpandedCommentId] = useState<string | null>(null);
 
   const [simCreatives, setSimCreatives] = useState([
-    { 
-      id: 1, 
-      name: 'Anuncio Invierno: Tapado Cuero', 
-      spent: 650, 
-      ctr: 3.4, 
-      roas: 12.4, 
+    {
+      id: 1,
+      name: 'Anuncio Invierno: Tapado Cuero',
+      spent: 650,
+      ctr: 3.4,
+      roas: 12.4,
+      purchases: 5,
+      leads: 2,
+      messages: 8,
+      cpa: 65,
+      reach: 18500,
       img: '/assets/landing_creativos.jpg',
       copy: 'Últimas unidades en stock con envío gratis a todo el país.',
       status: 'active',
@@ -565,12 +570,17 @@ export default function LandingPage() {
         }
       ]
     },
-    { 
-      id: 2, 
-      name: 'Anuncio Tendencia: Botas de Cuero', 
-      spent: 349, 
-      ctr: 2.2, 
-      roas: 9.2, 
+    {
+      id: 2,
+      name: 'Anuncio Tendencia: Botas de Cuero',
+      spent: 349,
+      ctr: 2.2,
+      roas: 9.2,
+      purchases: 2,
+      leads: 3,
+      messages: 5,
+      cpa: 58,
+      reach: 12800,
       img: '/assets/landing_analisis.jpg',
       copy: 'Botas premium con 30% OFF en nuestra tienda online.',
       status: 'active',
@@ -605,12 +615,17 @@ export default function LandingPage() {
         }
       ]
     },
-    { 
-      id: 3, 
-      name: 'Anuncio Accesorios: Cartera Premium', 
-      spent: 199, 
-      ctr: 1.1, 
-      roas: 3.5, 
+    {
+      id: 3,
+      name: 'Anuncio Accesorios: Cartera Premium',
+      spent: 199,
+      ctr: 1.1,
+      roas: 3.5,
+      purchases: 0,
+      leads: 1,
+      messages: 2,
+      cpa: 99,
+      reach: 7200,
       img: '/assets/landing_pedidos.jpg',
       copy: 'Cuero argentino legítimo. El accesorio ideal para tu look.',
       status: 'paused',
@@ -1435,83 +1450,94 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* 3-card creative grid */}
+          {/* 3-card creative grid — mismo diseño que Creativos Activos en la app */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {simCreatives.map((creative) => {
               const pendingCount = creative.comments.filter(c => c.pending).length;
               const tribeScore = creative.tribeMetrics.score;
+              const fmtN = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
               return (
-                <button
+                <div
                   key={creative.id}
                   onClick={() => { setSelectedSimCreativeId(creative.id); setSimModalTab('metrics'); }}
-                  className={`relative flex flex-col rounded-2xl border overflow-hidden group transition-all duration-250 text-left cursor-pointer ${
+                  className={`rounded-2xl border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col cursor-pointer ${
                     darkMode
-                      ? 'bg-zinc-950/50 border-white/[0.06] hover:border-violet-500/25 hover:shadow-lg hover:shadow-violet-500/5'
-                      : 'bg-white border-zinc-200/60 hover:border-violet-200 shadow-sm hover:shadow-lg hover:shadow-violet-50'
+                      ? 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                      : 'bg-white border-zinc-100 hover:border-zinc-300'
                   }`}
                 >
-                  {/* Creative image */}
-                  <div className="relative aspect-[4/5] overflow-hidden bg-zinc-950">
-                    <img
-                      src={creative.img}
-                      alt={creative.name}
-                      className="w-full h-full object-cover transition-transform duration-400 group-hover:scale-[1.04]"
-                    />
+                  {/* Image — exacto al diseño de la app */}
+                  <div className="relative w-full h-52 bg-zinc-100 dark:bg-zinc-800 group overflow-hidden flex-shrink-0">
+                    <>
+                      <img src={creative.img} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60" aria-hidden />
+                      <img src={creative.img} alt={creative.name} className="relative z-10 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" />
+                      <div className="absolute inset-0 z-20 bg-black/0 group-hover:bg-black/30 transition-all duration-200 flex items-center justify-center">
+                        <div className="flex items-center justify-center w-14 h-14 rounded-full bg-black/50 shadow-2xl opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-200">
+                          <Sparkles className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                    </>
                     {/* Platform badge */}
-                    <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm p-1.5 rounded-lg">
+                    <div className="absolute top-2 right-2 z-30 flex items-center gap-1 bg-black/60 text-white px-2 py-0.5 rounded-full text-[9px] font-bold uppercase backdrop-blur-sm">
                       {creative.platform === 'instagram'
-                        ? <Instagram className="w-3.5 h-3.5 text-pink-400" />
-                        : <Facebook className="w-3.5 h-3.5 text-blue-400" />
+                        ? <><Instagram className="w-3 h-3 text-pink-300" /> IG</>
+                        : <><Facebook className="w-3 h-3 text-blue-300" /> FB</>
                       }
                     </div>
-                    {/* Status */}
-                    <div className="absolute top-2 left-2">
-                      <span className={`text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full backdrop-blur-sm ${
-                        creative.status === 'active' ? 'bg-emerald-500/80 text-white' : 'bg-zinc-600/80 text-white'
-                      }`}>
+                    {/* Status badge */}
+                    <div className="absolute top-2 left-2 z-30">
+                      <span className={`text-[9px] font-black px-2 py-1 rounded-lg backdrop-blur-sm text-white uppercase tracking-wider ${creative.status === 'active' ? 'bg-emerald-500/90' : 'bg-zinc-500/90'}`}>
                         {creative.status === 'active' ? 'Activo' : 'Pausado'}
                       </span>
                     </div>
-                    {/* Tribe score */}
-                    <div className={`absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-[10px] shadow-lg ${
-                      tribeScore >= 80 ? 'bg-emerald-500' : tribeScore >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                    {/* Pending comments badge */}
+                    {pendingCount > 0 && (
+                      <div className="absolute bottom-2 left-2 z-30 flex items-center gap-1 bg-amber-500/90 backdrop-blur-sm text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+                        <MessageCircle className="w-2.5 h-2.5" />
+                        {pendingCount} sin responder
+                      </div>
+                    )}
+                    {/* TRIBE score badge */}
+                    <div className={`absolute bottom-2 right-2 z-30 w-9 h-9 rounded-full flex flex-col items-center justify-center text-white font-black text-[11px] shadow-lg ${
+                      tribeScore >= 80 ? 'bg-emerald-500 shadow-emerald-200 dark:shadow-none' : tribeScore >= 60 ? 'bg-amber-500 shadow-amber-200 dark:shadow-none' : 'bg-red-500 shadow-red-200 dark:shadow-none'
                     }`}>
                       {tribeScore}
                     </div>
-                    {/* Pending comments */}
-                    {pendingCount > 0 && (
-                      <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-violet-600/90 backdrop-blur-sm text-white text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse">
-                        <MessageCircle className="w-2.5 h-2.5" />
-                        {pendingCount}
-                      </div>
-                    )}
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <span className="translate-y-1 group-hover:translate-y-0 transition-transform duration-200 bg-white/90 dark:bg-zinc-900/90 text-zinc-900 dark:text-white text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1 shadow-lg border border-zinc-200/50 dark:border-white/10">
-                        <Sparkles className="w-3 h-3 text-violet-500" /> Ver análisis
+                  </div>
+
+                  {/* Info + metrics — exacto al diseño de la app */}
+                  <div className="p-4 flex flex-col gap-3 flex-1">
+                    <p className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2">{creative.name}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Gasto', val: `$${creative.spent}`, highlight: false },
+                        { label: 'Compras', val: creative.purchases > 0 ? String(creative.purchases) : '—', highlight: creative.purchases > 0 },
+                        { label: 'Leads', val: creative.leads > 0 ? String(creative.leads) : '—', highlight: creative.leads > 0 },
+                        { label: 'Mensajes', val: creative.messages > 0 ? String(creative.messages) : '—', highlight: creative.messages > 0 },
+                        { label: 'CPA', val: `$${creative.cpa}`, highlight: false },
+                        { label: 'ROAS', val: creative.roas > 0 ? `${creative.roas.toFixed(1)}` : '—', highlight: creative.roas > 1 },
+                        { label: 'CTR', val: `${creative.ctr.toFixed(1)}%`, highlight: false },
+                        { label: 'Alcance', val: fmtN(creative.reach), highlight: false },
+                      ].map(({ label, val, highlight }) => (
+                        <div key={label} className={`rounded-xl p-1.5 px-2 border flex items-center justify-between gap-1 min-w-0 ${darkMode ? 'bg-zinc-800/50 border-white/[0.04]' : 'bg-zinc-50 border-zinc-100'}`}>
+                          <p className="text-[9px] font-black text-zinc-450 dark:text-zinc-500 uppercase tracking-tight text-left min-w-0 flex-1 truncate">{label}</p>
+                          <p className={`text-[11px] font-black text-right shrink-0 leading-none ${highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-800 dark:text-zinc-100'}`}>{val}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Platform links footer */}
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-auto" onClick={e => e.stopPropagation()}>
+                      <span className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-[#1877F2] bg-[#1877F2]/8 dark:bg-[#1877F2]/10 cursor-default">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        FB
+                      </span>
+                      <span className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-pink-500 bg-pink-50 dark:bg-pink-500/10 cursor-default">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                        IG
                       </span>
                     </div>
                   </div>
-
-                  {/* Metrics below */}
-                  <div className={`p-3.5 border-t ${darkMode ? 'border-white/[0.04]' : 'border-zinc-100'}`}>
-                    <p className="text-[11.5px] font-bold text-zinc-800 dark:text-zinc-100 mb-3 leading-tight line-clamp-1">{creative.name}</p>
-                    <div className="grid grid-cols-3 gap-1">
-                      <div className="text-center">
-                        <p className="text-[8px] font-semibold text-zinc-400 uppercase tracking-wide mb-0.5">Gasto</p>
-                        <p className="text-[13px] font-black text-zinc-700 dark:text-zinc-200">${creative.spent}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[8px] font-semibold text-zinc-400 uppercase tracking-wide mb-0.5">CTR</p>
-                        <p className="text-[13px] font-black text-zinc-700 dark:text-zinc-200">{creative.ctr}%</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[8px] font-semibold text-zinc-400 uppercase tracking-wide mb-0.5">ROAS</p>
-                        <p className={`text-[13px] font-black ${creative.roas >= 10 ? 'text-emerald-500' : creative.roas >= 6 ? 'text-amber-500' : 'text-red-500'}`}>{creative.roas}×</p>
-                      </div>
-                    </div>
-                  </div>
-                </button>
+                </div>
               );
             })}
           </div>
