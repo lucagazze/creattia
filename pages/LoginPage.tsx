@@ -121,16 +121,28 @@ export default function LoginPage() {
             <span className="text-[8.5px] font-bold text-violet-500 tracking-[0.25em] uppercase">Gestión</span>
           </div>
         </div>
-        <button
-          onClick={toggleDarkMode}
-          className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
-            darkMode
-              ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white'
-              : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
-          }`}
-        >
-          {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-600" />}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className={`px-3.5 py-2 rounded-xl border text-[11px] font-bold transition-all duration-300 hover:scale-105 active:scale-95 ${
+              darkMode
+                ? 'bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white'
+                : 'bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm'
+            }`}
+          >
+            Volver a la web
+          </button>
+          <button
+            onClick={toggleDarkMode}
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
+              darkMode
+                ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white'
+                : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
+            }`}
+          >
+            {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-600" />}
+          </button>
+        </div>
       </header>
 
       {/* Main */}
