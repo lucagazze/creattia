@@ -240,7 +240,7 @@ export default function LandingPage() {
           100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
         }
       `}} />
-      <header className={`sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
+      <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img
@@ -279,7 +279,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-16 pb-16 overflow-hidden">
+      <section className="relative pt-20 sm:pt-28 pb-16 overflow-hidden">
         {/* Glows de fondo */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-violet-600/5 dark:bg-violet-600/5 rounded-full blur-[120px] pointer-events-none" />
         
