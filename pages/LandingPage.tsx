@@ -470,9 +470,9 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col gap-2.5 pt-1">
               {[
-                { label: 'Ingresos totales del período', value: '$ 1.248.900', color: 'text-emerald-500' },
-                { label: 'Ticket promedio por pedido', value: '$ 8.200', color: 'text-violet-500' },
-                { label: 'Pedidos procesados este mes', value: '152', color: 'text-cyan-500' },
+                { label: 'Ingresos de la tienda online', value: '$ 937.790', color: 'text-emerald-500' },
+                { label: 'Retorno de publicidad (ROAS)', value: '10.8×', color: 'text-violet-500' },
+                { label: 'Ingresos de email marketing', value: '$ 91.249', color: 'text-cyan-500' },
               ].map((kpi) => (
                 <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border ${
                   darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
