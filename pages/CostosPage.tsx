@@ -1617,7 +1617,7 @@ export default function CostosPage() {
                                 </div>
                               ) : item.platform === 'TikTok' ? (
                                 <div className="flex items-center gap-1.5">
-                                  <img src="/assets/logotiktok.png" alt="TikTok" className="w-4 h-4 object-contain shrink-0" />
+                                  <img src="/assets/logotiktok.png" alt="TikTok" className="w-6 h-6 -my-1 -mx-0.5 object-contain shrink-0" />
                                   <span className="text-zinc-650 dark:text-zinc-350">TikTok</span>
                                 </div>
                               ) : (
@@ -1744,7 +1744,7 @@ export default function CostosPage() {
                                 </div>
                               ) : item.platform === 'TikTok' ? (
                                 <div className="flex items-center gap-1.5">
-                                  <img src="/assets/logotiktok.png" alt="TikTok" className="w-4 h-4 object-contain shrink-0" />
+                                  <img src="/assets/logotiktok.png" alt="TikTok" className="w-6 h-6 -my-1 -mx-0.5 object-contain shrink-0" />
                                   <span className="text-zinc-650 dark:text-zinc-350">TikTok</span>
                                 </div>
                               ) : (

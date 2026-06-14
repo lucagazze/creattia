@@ -1690,7 +1690,7 @@ export default function IntegracionesPage() {
                       <img 
                         src={platform.id === 'tiendanube' && darkMode ? "/assets/tiendanube.webp" : platform.logoUrl} 
                         alt={platform.name} 
-                        className="w-6 h-6 object-contain" 
+                        className={platform.id === 'tiktok_ads' ? "w-10 h-10 object-contain scale-[1.1]" : "w-6 h-6 object-contain"}
                       />
                     ) : Logo ? (
                       <Logo className="w-5 h-5 text-[#15B374]" />
@@ -1867,7 +1867,11 @@ export default function IntegracionesPage() {
             <div className="flex items-center gap-4 mb-6 pb-5 border-b border-zinc-100 dark:border-white/[0.04]">
               <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
                 {selectedPlatform.logoUrl && (
-                  <img src={selectedPlatform.id === 'tiendanube' && darkMode ? "/assets/tiendanube.webp" : selectedPlatform.logoUrl} alt={selectedPlatform.name} className="w-6 h-6 object-contain" />
+                  <img 
+                    src={selectedPlatform.id === 'tiendanube' && darkMode ? "/assets/tiendanube.webp" : selectedPlatform.logoUrl} 
+                    alt={selectedPlatform.name} 
+                    className={selectedPlatform.id === 'tiktok_ads' ? "w-11 h-11 object-contain scale-[1.1]" : "w-6 h-6 object-contain"} 
+                  />
                 )}
               </div>
               <div>
@@ -2389,7 +2393,7 @@ export default function IntegracionesPage() {
                       disabled={savingSettings || oauthLoading}
                       className="w-full h-12 bg-black hover:bg-zinc-900 dark:bg-zinc-850 dark:hover:bg-zinc-750 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                     >
-                      <img src="/assets/logotiktok.png" alt="TikTok" className="w-4 h-4 object-contain shrink-0 invert dark:invert-0" />
+                      <img src="/assets/logotiktok.png" alt="TikTok" className="w-7 h-7 -my-1 -mx-0.5 object-contain shrink-0 invert dark:invert-0" />
                       <span>Conectar con TikTok Business</span>
                     </button>
                   </div>
