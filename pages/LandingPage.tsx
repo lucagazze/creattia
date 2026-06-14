@@ -523,6 +523,18 @@ export default function LandingPage() {
   const [simDraftingCommentId, setSimDraftingCommentId] = useState<string | null>(null);
   const [simReplyTexts, setSimReplyTexts] = useState<Record<string, string>>({});
   const [simExpandedCommentId, setSimExpandedCommentId] = useState<string | null>(null);
+  const [simAnalyzedIds, setSimAnalyzedIds] = useState<Set<number>>(new Set());
+  const [simAnalyzingId, setSimAnalyzingId] = useState<number | null>(null);
+
+  // Lock body scroll when creative modal is open
+  useEffect(() => {
+    if (selectedSimCreativeId !== null) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [selectedSimCreativeId]);
 
   const [simCreatives, setSimCreatives] = useState([
     {
@@ -728,7 +740,14 @@ export default function LandingPage() {
     setSimExpandedCommentId(null);
   };
 
-
+  const handleSimAnalyze = (id: number) => {
+    if (simAnalyzedIds.has(id) || simAnalyzingId === id) return;
+    setSimAnalyzingId(id);
+    setTimeout(() => {
+      setSimAnalyzedIds(prev => new Set(prev).add(id));
+      setSimAnalyzingId(null);
+    }, 2200);
+  };
 
   const faqs = [
     {
@@ -795,6 +814,23 @@ export default function LandingPage() {
             </div>
           </div>
 
+          {/* Nav links — hidden on small screens */}
+          <nav className="hidden md:flex items-center gap-1">
+            {[
+              { label: 'Demo', href: '#interactive-demo' },
+              { label: 'Precio', href: '#pricing' },
+              { label: 'FAQ', href: '#faq' },
+            ].map(({ label, href }) => (
+              <a
+                key={label}
+                href={href}
+                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
+
           <div className="flex items-center gap-3">
             <button
               onClick={toggleDarkMode}
@@ -832,23 +868,23 @@ export default function LandingPage() {
             Centralizá tus canales de venta, automatizá la atención al cliente con IA y controlá tu rentabilidad real en tiempo real. Todo desde un panel unificado, ultrarrápido y sin planillas manuales.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-in fade-in slide-in-from-bottom-7 duration-1000">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16 animate-in fade-in slide-in-from-bottom-7 duration-1000">
             <Link
               to="/login"
-              className={`w-full sm:w-auto h-11 px-7 font-bold rounded-xl text-[12.5px] flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all duration-200 ${
-                darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800'
+              className={`w-full sm:w-auto h-12 px-8 font-black rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all duration-200 ${
+                darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100 shadow-white/10' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-zinc-900/20'
               }`}
             >
-              Comenzar prueba gratis <ArrowRight className="w-3.5 h-3.5" />
+              Comenzar prueba gratis <ArrowRight className="w-4 h-4" />
             </Link>
-            <a
-              href="#interactive-demo"
-              className={`w-full sm:w-auto h-11 px-7 border font-extrabold rounded-xl text-[12.5px] flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] hover:scale-[1.02] duration-300 ${
-                darkMode ? 'bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm'
+            <Link
+              to="/login"
+              className={`w-full sm:w-auto h-12 px-8 border font-bold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] duration-200 ${
+                darkMode ? 'bg-white/5 border-white/[0.12] text-zinc-200 hover:bg-white/10 hover:text-white hover:border-white/20' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm'
               }`}
             >
-              Ver maquetas interactivas
-            </a>
+              Probar la plataforma →
+            </Link>
           </div>
  
           {/* High-Fidelity Showcase Gallery */}
@@ -1404,7 +1440,7 @@ export default function LandingPage() {
               return (
                 <div
                   key={creative.id}
-                  onClick={() => { setSelectedSimCreativeId(creative.id); setSimModalTab('metrics'); }}
+                  onClick={() => { setSelectedSimCreativeId(creative.id); setSimModalTab('comments'); }}
                   className={`rounded-2xl border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col cursor-pointer ${
                     darkMode
                       ? 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
@@ -1548,7 +1584,7 @@ export default function LandingPage() {
 
 
       {/* Corporate Pricing Card (Minimalist Apple style) */}
-      <section className="py-20 max-w-xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.03]">
+      <section id="pricing" className="py-20 max-w-xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="mb-10">
           <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">PRECIO SIMPLE</span>
           <h2 className="text-2xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Un único plan con todo el poder de automatización</h2>
@@ -1597,7 +1633,7 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ Section (Accordion) */}
-      <section className="py-20 max-w-3xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
+      <section id="faq" className="py-20 max-w-3xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="text-center mb-10">
           <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">RESPUESTAS RÁPIDAS</span>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-center text-zinc-900 dark:text-white">Preguntas frecuentes</h2>
@@ -1654,26 +1690,61 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className={`py-10 border-t text-center ${darkMode ? 'bg-black border-white/[0.04] text-zinc-600' : 'bg-white border-zinc-200/40 text-zinc-400'}`}>
-        <div className="max-w-6xl mx-auto px-6 space-y-5">
-          <div className="flex items-center justify-center gap-2">
-            <img
-              src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
-              alt="Algoritmia"
-              className="w-4 h-4 object-contain"
-            />
-            <span className="text-[10px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGORITMIA</span>
+      <footer className={`py-12 border-t ${darkMode ? 'bg-black border-white/[0.04] text-zinc-500' : 'bg-zinc-50 border-zinc-200/40 text-zinc-400'}`}>
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-8">
+            {/* Brand */}
+            <div className="col-span-2 sm:col-span-1 space-y-3">
+              <div className="flex items-center gap-2">
+                <img src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'} alt="Algoritmia" className="w-5 h-5 object-contain" />
+                <span className="text-[11px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGORITMIA</span>
+              </div>
+              <p className="text-[10.5px] leading-relaxed">
+                Ecosistema de control y automatización omnicanal para e-commerce.
+              </p>
+              <a href="https://wa.me/5493476245523" target="_blank" rel="noopener noreferrer" className={`text-[10px] font-semibold flex items-center gap-1.5 hover:underline ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 text-[#25D366]"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                +54 9 3476 24-5523
+              </a>
+            </div>
+            {/* Plataforma */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Plataforma</p>
+              <div className="space-y-2">
+                {[{ label: 'Inicio', href: '#' }, { label: 'Demo interactiva', href: '#interactive-demo' }, { label: 'Precio', href: '#pricing' }, { label: 'Preguntas frecuentes', href: '#faq' }].map(l => (
+                  <a key={l.label} href={l.href} className="block text-[10.5px] hover:underline">{l.label}</a>
+                ))}
+              </div>
+            </div>
+            {/* Legal */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Legal</p>
+              <div className="space-y-2">
+                {[{ label: 'Políticas de Privacidad', to: '/privacidad' }, { label: 'Términos de Uso', to: '/privacidad' }, { label: 'Seguridad de Datos', to: '/privacidad' }].map(l => (
+                  <Link key={l.label} to={l.to} className="block text-[10.5px] hover:underline">{l.label}</Link>
+                ))}
+              </div>
+            </div>
+            {/* Soporte */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Soporte</p>
+              <div className="space-y-2">
+                {[{ label: 'Centro de soporte', href: '#' }, { label: 'WhatsApp +54 9 3476 24-5523', href: 'https://wa.me/5493476245523' }, { label: 'algoritmia@soporte.com', href: 'mailto:algoritmia@soporte.com' }].map(l => (
+                  <a key={l.label} href={l.href} target={l.href.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" className="block text-[10.5px] hover:underline">{l.label}</a>
+                ))}
+              </div>
+            </div>
           </div>
-          <p className="text-[10.5px] font-medium max-w-xs mx-auto leading-relaxed">
-            Ecosistema de control y automatización omnicanal para e-commerce. Diseñado por Algoritmia Desarrollos.
-          </p>
-          <div className="flex justify-center gap-5 text-[9.5px] font-semibold">
-            <Link to="/privacidad" className="hover:underline">Políticas de Privacidad</Link>
-            <Link to="/soporte" className="hover:underline">Soporte Técnico</Link>
+          <div className={`pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-[9.5px] font-medium ${darkMode ? 'border-white/[0.04]' : 'border-zinc-200/50'}`}>
+            <p>&copy; {new Date().getFullYear()} Algoritmia Desarrollos. Todos los derechos reservados.</p>
+            <div className="flex items-center gap-4">
+              <Link to="/privacidad" className="hover:underline">Privacidad</Link>
+              <span className={darkMode ? 'text-zinc-700' : 'text-zinc-300'}>•</span>
+              <Link to="/privacidad" className="hover:underline">Términos</Link>
+              <span className={darkMode ? 'text-zinc-700' : 'text-zinc-300'}>•</span>
+              <a href="https://wa.me/5493476245523" target="_blank" rel="noopener noreferrer" className="hover:underline">Soporte</a>
+            </div>
           </div>
-          <p className="text-[8.5px] font-medium text-zinc-500 pt-1.5">
-            &copy; {new Date().getFullYear()} Algoritmia Desarrollos. Todos los derechos reservados.
-          </p>
         </div>
       </footer>
 
@@ -1700,6 +1771,20 @@ export default function LandingPage() {
           </div>
         </div>
       )}
+
+      {/* WhatsApp floating button */}
+      <a
+        href="https://wa.me/5493476245523"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Contactar por WhatsApp"
+        className="fixed bottom-6 right-6 z-[400] w-13 h-13 flex items-center justify-center rounded-full bg-[#25D366] shadow-lg shadow-[#25D366]/30 hover:bg-[#20BA5A] transition-all duration-200 hover:scale-110 active:scale-95"
+        style={{ width: '52px', height: '52px' }}
+      >
+        <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+      </a>
 
       {selectedSimCreative && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
@@ -1823,6 +1908,38 @@ export default function LandingPage() {
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
                 {simModalTab === 'metrics' ? (
                   <div className="space-y-5 text-left animate-in fade-in duration-200">
+                    {!simAnalyzedIds.has(selectedSimCreative.id) ? (
+                      <div className="flex flex-col items-center justify-center gap-5 py-8 text-center">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                          <Brain className="w-6 h-6 text-violet-500" />
+                        </div>
+                        {simAnalyzingId === selectedSimCreative.id ? (
+                          <>
+                            <div className="relative w-16 h-16">
+                              <div className="absolute inset-0 rounded-full border-4 border-violet-200 dark:border-violet-900" />
+                              <div className="absolute inset-0 rounded-full border-4 border-t-violet-600 animate-spin" />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Brain className="w-6 h-6 text-violet-500" />
+                              </div>
+                            </div>
+                            <p className="text-[12px] font-bold text-zinc-700 dark:text-zinc-300">Analizando respuesta visual...</p>
+                            <p className="text-[10px] text-zinc-400">Procesando atención, emoción y carga cognitiva</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-[13px] font-semibold text-zinc-700 dark:text-zinc-300">Análisis Creativo</p>
+                            <p className="text-[11px] text-zinc-400 max-w-[220px]">Analizará la atención, emoción y carga cognitiva de este anuncio.</p>
+                            <button
+                              onClick={() => handleSimAnalyze(selectedSimCreative.id)}
+                              className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-[12px] font-black shadow-lg shadow-violet-200 dark:shadow-none transition-all"
+                            >
+                              <Zap className="w-4 h-4" /> Analizar creativo
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                    <>
                     {/* Score global */}
                     <div className={`p-4 border rounded-2xl flex items-center gap-4 ${
                       darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'
@@ -1914,7 +2031,8 @@ export default function LandingPage() {
                         </ResponsiveContainer>
                       </div>
                     </div>
-
+                    </>
+                    )}
 
                   </div>
                 ) : (
