@@ -98,28 +98,7 @@ export default function LandingPage() {
     { name: 'Klaviyo', logo: '/assets/Klaviyo-Logo-Photoroom.webp' }
   ];
 
-  const valueProps = [
-    {
-      icon: Sparkles,
-      title: 'Bandeja con Asistente de IA',
-      description: 'El Cerebro de IA analiza tu negocio y te ayuda a redactar borradores perfectos al instante.'
-    },
-    {
-      icon: TrendingUp,
-      title: 'Monitoreo de ROAS en un clic',
-      description: 'Centralizá el presupuesto publicitario de Meta, TikTok y Google Ads contrastándolo con ventas reales.'
-    },
-    {
-      icon: ShoppingBag,
-      title: 'Sincronizador Automático',
-      description: 'Modificá tu stock o catálogo y mirá cómo se propaga a todas tus tiendas en tiempo real.'
-    },
-    {
-      icon: Mail,
-      title: 'Retención de Clientes',
-      description: 'Enlazá herramientas como Klaviyo para reactivar carritos y fidelizar compradores sin esfuerzo.'
-    }
-  ];
+
 
   const faqs = [
     {
@@ -335,8 +314,8 @@ export default function LandingPage() {
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
         <div className="flex flex-col lg:flex-row items-center gap-10">
           <div className="flex-1 space-y-5">
-            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
-              <MessageSquare className="w-4 h-4 text-violet-500" />
+            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md mb-2">
+              <img src="/assets/icon_inbox_apple.png" alt="Inbox" className="w-full h-full object-cover" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Inbox Unificado asistido por IA</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
@@ -461,8 +440,8 @@ export default function LandingPage() {
         {/* 2. MÉTRICAS Y RENTABILIDAD DEL NEGOCIO */}
         <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
           <div className="flex-1 space-y-5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-emerald-500" />
+            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md mb-2">
+              <img src="/assets/icon_metrics_apple.png" alt="Métricas" className="w-full h-full object-cover" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Analizá si tu negocio es rentable, en un solo vistazo</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
@@ -505,8 +484,8 @@ export default function LandingPage() {
         {/* 3. CREATIVOS ACTIVOS */}
         <div className="flex flex-col lg:flex-row items-center gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="flex-1 space-y-5">
-            <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-pink-500" />
+            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md mb-2">
+              <img src="/assets/icon_ads_apple.png" alt="Creativos Ads" className="w-full h-full object-cover" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Identificá qué creativos están funcionando y cuáles no</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
@@ -603,28 +582,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Grid Features (Value Props) */}
-      <section className="py-20 max-w-5xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">TECNOLOGÍA</span>
-          <h2 className="text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Diseñado para la eficiencia operativa</h2>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {valueProps.map((prop) => {
-            const Icon = prop.icon;
-            return (
-              <div key={prop.title} className={`p-5 rounded-2xl border transition-all duration-300 hover:scale-[1.01] ${darkMode ? 'bg-zinc-900/10 border-white/[0.04]' : 'bg-white border-zinc-200/50 shadow-sm'}`}>
-                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center mb-4">
-                  <Icon className="w-4 h-4 text-violet-500" />
-                </div>
-                <h4 className="text-[13.5px] font-bold font-display mb-1.5 text-zinc-900 dark:text-zinc-100">{prop.title}</h4>
-                <p className={`text-[11.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{prop.description}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
 
       {/* Corporate Pricing Card (Minimalist Apple style) */}
       <section className="py-20 max-w-xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.03]">
