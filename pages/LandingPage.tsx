@@ -4,25 +4,18 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
   MessageSquare,
-  ShoppingBag,
   TrendingUp,
+  BarChart2,
   Mail,
-  Zap,
   Check,
   ChevronDown,
   ArrowRight,
-  Shield,
-  MessageCircle,
-  Activity,
-  Workflow,
   Sparkles,
   Sun,
   Moon,
-  Plus,
-  Minus,
   RefreshCw,
-  Clock,
-  ArrowUpRight
+  ArrowUpRight,
+  Zap
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -71,66 +64,6 @@ export default function LandingPage() {
       { id: 2, sender: 'user', text: '¿Y hacen envíos a Córdoba?', time: '12:04' }
     ]);
     setChatStatus('idle');
-  };
-
-  // 2. Simulación de Sincronización de Stock por Ventas
-  const [stock, setStock] = useState(12);
-  const [syncPulse, setSyncPulse] = useState(false);
-  const [salesLog, setSalesLog] = useState<{ id: number; text: string; time: string; channel: string }[]>([
-    { id: 1, text: "Venta POS #1294 - 1 Tapado de Cuero M", time: "Hace 5 minutos", channel: "Local Físico" },
-    { id: 2, text: "Venta Tiendanube #4082 - 1 Tapado de Cuero S", time: "Hace 12 minutos", channel: "Tiendanube" }
-  ]);
-  const [isSimulatingSale, setIsSimulatingSale] = useState(false);
-
-  const handleSimulateSale = (channel: string) => {
-    if (stock <= 0 || isSimulatingSale) return;
-    setIsSimulatingSale(true);
-    setSyncPulse(true);
-    setStock(prev => Math.max(0, prev - 1));
-
-    // Agregar al feed de ventas
-    setSalesLog(prev => [
-      {
-        id: Date.now(),
-        text: `Venta ${channel} #${Math.floor(1000 + Math.random() * 9000)} - 1 Tapado de Cuero S`,
-        time: "Hace un instante",
-        channel: channel
-      },
-      ...prev.slice(0, 3) // Mantener las últimas 4
-    ]);
-
-    setTimeout(() => {
-      setSyncPulse(false);
-      setIsSimulatingSale(false);
-    }, 850);
-  };
-
-  const handleResetStock = () => {
-    setStock(12);
-    setSalesLog([
-      { id: 1, text: "Venta POS #1294 - 1 Tapado de Cuero M", time: "Hace 5 minutos", channel: "Local Físico" },
-      { id: 2, text: "Venta Tiendanube #4082 - 1 Tapado de Cuero S", time: "Hace 12 minutos", channel: "Tiendanube" }
-    ]);
-  };
-
-  // 3. Simulación de Test Neuronal de Creativo (TRIBE v2)
-  const [testerStatus, setTesterStatus] = useState<'idle' | 'analyzing' | 'completed'>('idle');
-  const [heatMapVisible, setHeatMapVisible] = useState(false);
-
-  const handleRunCreativeTest = () => {
-    if (testerStatus !== 'idle') return;
-    setTesterStatus('analyzing');
-    setHeatMapVisible(false);
-
-    setTimeout(() => {
-      setTesterStatus('completed');
-      setHeatMapVisible(true);
-    }, 1600);
-  };
-
-  const handleResetCreativeTest = () => {
-    setTesterStatus('idle');
-    setHeatMapVisible(false);
   };
 
   // Tabbed high-fidelity screenshots switcher
@@ -525,249 +458,90 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 2. MAQUETA INTERACTIVA DE SINCRONIZACIÓN DE STOCK POR VENTAS */}
+        {/* 2. MÉTRICAS Y RENTABILIDAD DEL NEGOCIO */}
         <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
           <div className="flex-1 space-y-5">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-              <ShoppingBag className="w-4 h-4 text-cyan-400" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-emerald-500" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Sincronización Multitienda en Vivo</h3>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Analizá si tu negocio es rentable, en un solo vistazo</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Evitá la sobreventa. Cuando ingresa una venta online o se factura en tu local físico, el inventario se ajusta instantáneamente en Mercado Libre, Shopify, Tiendanube, WooCommerce y tu sucursal POS.
+              Desde el panel principal, accedés a un resumen ejecutivo de todo tu negocio: ingresos acumulados, ticket promedio, pedidos por canal, productos más vendidos y comparación de períodos. Sin planillas, sin armados manuales.
             </p>
-
-            {/* Simulador Interactivo de Ventas */}
-            <div className="space-y-3 max-w-sm">
-              <div>
-                <p className="text-[10px] font-bold uppercase text-cyan-500 dark:text-cyan-400 tracking-wider">Simular Transacciones en Vivo</p>
-                <p className="text-[9px] text-zinc-400 font-semibold mt-0.5">Simulá una venta entrante haciendo clic en un canal:</p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button 
-                  onClick={() => handleSimulateSale('Shopify')}
-                  disabled={stock <= 0 || isSimulatingSale}
-                  className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-200/20 dark:bg-white/[0.02] hover:bg-zinc-200/40 dark:hover:bg-white/5 transition-all text-[10.5px] font-bold active:scale-[0.96] disabled:opacity-50 text-zinc-700 dark:text-zinc-200"
-                >
-                  Venta en Shopify (-1)
-                </button>
-                <button 
-                  onClick={() => handleSimulateSale('Mercado Libre')}
-                  disabled={stock <= 0 || isSimulatingSale}
-                  className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-200/20 dark:bg-white/[0.02] hover:bg-zinc-200/40 dark:hover:bg-white/5 transition-all text-[10.5px] font-bold active:scale-[0.96] disabled:opacity-50 text-zinc-700 dark:text-zinc-200"
-                >
-                  Venta en M. Libre (-1)
-                </button>
-                <button 
-                  onClick={() => handleSimulateSale('Local Físico (POS)')}
-                  disabled={stock <= 0 || isSimulatingSale}
-                  className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-200/20 dark:bg-white/[0.02] hover:bg-zinc-200/40 dark:hover:bg-white/5 transition-all text-[10.5px] font-bold active:scale-[0.96] disabled:opacity-50 text-zinc-700 dark:text-zinc-200"
-                >
-                  Venta en Local POS (-1)
-                </button>
-              </div>
-
-              {/* Real-time Sales Feed */}
-              <div className="rounded-xl border border-zinc-200/40 dark:border-white/[0.04] bg-zinc-50/20 dark:bg-zinc-950/40 p-3 space-y-2 text-left">
-                <p className="text-[9.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Feed de Ventas Omnicanal</p>
-                <div className="space-y-1.5 max-h-[85px] overflow-y-auto scrollbar-none">
-                  {salesLog.map((log) => (
-                    <div key={log.id} className="flex justify-between items-center text-[10px] font-medium text-zinc-650 dark:text-zinc-400 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <span className="truncate flex items-center gap-1.5">
-                        <span className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse" />
-                        {log.text}
-                      </span>
-                      <span className="text-[8px] text-zinc-500 shrink-0 font-semibold">{log.time}</span>
-                    </div>
-                  ))}
+            <div className="flex flex-col gap-2.5 pt-1">
+              {[
+                { label: 'Ingresos totales del período', value: '$ 1.248.900', color: 'text-emerald-500' },
+                { label: 'Ticket promedio por pedido', value: '$ 8.200', color: 'text-violet-500' },
+                { label: 'Pedidos procesados este mes', value: '152', color: 'text-cyan-500' },
+              ].map((kpi) => (
+                <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border ${
+                  darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
+                }`}>
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{kpi.label}</span>
+                  <span className={`text-[13px] font-bold ${kpi.color}`}>{kpi.value}</span>
                 </div>
-              </div>
-
-              {stock === 0 ? (
-                <button 
-                  onClick={handleResetStock}
-                  className="text-[9.5px] font-semibold text-violet-500 hover:underline block"
-                >
-                  Restablecer inventario (12 unidades)
-                </button>
-              ) : (
-                <span className="text-[8px] text-zinc-400 font-semibold">Simulá hasta agotar stock para reiniciar.</span>
-              )}
+              ))}
             </div>
           </div>
 
-          {/* Representación Visual de Sincronización */}
+          {/* Imagen del Dashboard */}
           <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
-            <div className={`p-5 rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} space-y-5 text-left`}>
-              
-              {/* Product Info */}
-              <div className="flex items-center gap-3.5">
-                <div className="w-14 h-14 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/60 dark:border-white/[0.04] flex items-center justify-center text-xl">🧥</div>
-                <div>
-                  <h4 className="text-[13px] font-bold">Tapado de Cuero Premium</h4>
-                  <p className="text-[9.5px] text-zinc-500 font-semibold mt-0.5">SKU: TAP-CL-01 · $89,900</p>
-                  <span className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8.5px] font-bold text-emerald-500 bg-emerald-500/10">
-                    <span className="w-1 h-1 rounded-full bg-emerald-500" /> Stock Unificado: {stock} unidades
-                  </span>
-                </div>
+            <div
+              className="relative rounded-xl overflow-hidden cursor-zoom-in group"
+              onClick={() => setZoomImage('/assets/landing_inicio.jpg')}
+            >
+              <img
+                src="/assets/landing_inicio.jpg"
+                alt="Panel de métricas del negocio"
+                className="w-full h-auto max-h-[380px] object-cover object-top transition-all duration-300 group-hover:scale-[1.01]"
+              />
+              <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-white px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 shadow border border-white/10 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
+                <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Tocar para ampliar
               </div>
-
-              {/* Stores Grid Sincronizados (5 Canales en total) */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { name: 'Shopify', logo: '/assets/shopify-bag.webp', label: 'tienda-online' },
-                  { name: 'Tiendanube', logo: '/assets/tiendanubeoscuro.png', darkLogo: '/assets/tiendanube.webp', label: 'Zane Labs' },
-                  { name: 'WooCommerce', logo: '/assets/logowordpress.webp', label: 'wordpress-site' },
-                  { name: 'Mercado Libre', logo: '/assets/logomercadolibre.png', label: 'LUCAGAZZE10' },
-                  { name: 'Local Físico (POS)', logo: '/assets/logoSinFondo.png', label: 'Sucursal Central' }
-                ].map((store, idx) => (
-                  <div 
-                    key={store.name}
-                    className={`p-3 rounded-lg border transition-all duration-300 flex items-center justify-between ${
-                      idx === 4 ? 'col-span-2' : ''
-                    } ${
-                      syncPulse 
-                        ? 'pulse-sync border-violet-500 bg-violet-500/[0.015]' 
-                        : (darkMode ? 'bg-zinc-900/20 border-white/[0.04]' : 'bg-zinc-50/50 border-zinc-200/80')
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <img 
-                        src={darkMode && store.darkLogo ? store.darkLogo : store.logo} 
-                        alt={store.name} 
-                        className="w-7 h-7 object-contain flex-shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-[9.5px] font-bold leading-none">{store.name}</p>
-                        <p className="text-[8px] text-zinc-500 truncate mt-0.5">{store.label}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-[12px] font-bold text-violet-500">{stock}</span>
-                      <span className="text-[7px] font-bold text-zinc-400 tracking-wider">UNIDADES</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
             </div>
           </div>
         </div>
 
-        {/* 3. MAQUETA INTERACTIVA DE ANÁLISIS DE CREATIVOS */}
+        {/* 3. CREATIVOS ACTIVOS */}
         <div className="flex flex-col lg:flex-row items-center gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="flex-1 space-y-5">
-            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-violet-500" />
+            <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-pink-500" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Predicción Neuronal de Atención (TRIBE v2)</h3>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Identificá qué creativos están funcionando y cuáles no</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Evaluá el impacto de tus anuncios antes de invertir en pauta. Nuestra red neuronal simula el comportamiento visual humano, estimando qué zonas de tu creativo captan más atención y calculando una puntuación predictiva de conversión.
+              Visualizá todos tus anuncios activos en Meta Ads desde un solo lugar. Comparás alcance, clicks, conversiones y gasto en segundos para decidir qué escalar y qué pausar, sin salir de la plataforma.
             </p>
-            
-            <div className="pt-1">
-              <button 
-                onClick={handleRunCreativeTest}
-                disabled={testerStatus !== 'idle'}
-                className="h-8 px-4 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-sm shadow-violet-600/10"
-              >
-                {testerStatus === 'idle' && (
-                  <>Simular Análisis Neuronal <ArrowRight className="w-3.5 h-3.5" /></>
-                )}
-                {testerStatus === 'analyzing' && (
-                  <>Ejecutando mapas de calor... <RefreshCw className="w-3 h-3 animate-spin" /></>
-                )}
-                {testerStatus === 'completed' && (
-                  <>¡Análisis Finalizado! ✨</>
-                )}
-              </button>
-              {testerStatus === 'completed' && (
-                <button 
-                  onClick={handleResetCreativeTest}
-                  className="mt-2.5 text-[10px] font-semibold text-violet-500 hover:underline block"
-                >
-                  Volver a probar
-                </button>
-              )}
+            <div className="flex flex-col gap-2.5 pt-1">
+              {[
+                { label: 'ROAS promedio de campañas activas', value: '4.8×', color: 'text-emerald-500' },
+                { label: 'Creativos con CTR > 2%', value: '7 de 12', color: 'text-violet-500' },
+                { label: 'Inversión total activa', value: '$ 42.500', color: 'text-pink-500' },
+              ].map((kpi) => (
+                <div key={kpi.label} className={`flex items-center justify-between p-2.5 rounded-lg border ${
+                  darkMode ? 'bg-zinc-900/30 border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
+                }`}>
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{kpi.label}</span>
+                  <span className={`text-[13px] font-bold ${kpi.color}`}>{kpi.value}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Caja Interactiva del Analizador de Anuncios */}
+          {/* Imagen de Creativos */}
           <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
-            <div className={`p-4 rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'}`}>
-              <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-2.5">
-                <div>
-                  <h4 className="text-[12.5px] font-bold font-display text-zinc-900 dark:text-white">Simulador de Anuncio (TRIBE v2)</h4>
-                  <p className="text-[8.5px] text-zinc-400 font-semibold mt-0.5">Subí tu imagen o seleccioná una de tu catálogo</p>
-                </div>
-                <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded ${testerStatus === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : (testerStatus === 'analyzing' ? 'bg-violet-500/10 text-violet-500' : 'bg-zinc-500/10 text-zinc-400')}`}>
-                  {testerStatus === 'completed' ? 'Analizado' : (testerStatus === 'analyzing' ? 'Procesando' : 'Listo para probar')}
-                </span>
+            <div
+              className="relative rounded-xl overflow-hidden cursor-zoom-in group"
+              onClick={() => setZoomImage('/assets/landing_analisis.jpg')}
+            >
+              <img
+                src="/assets/landing_analisis.jpg"
+                alt="Panel de creativos activos"
+                className="w-full h-auto max-h-[380px] object-cover object-top transition-all duration-300 group-hover:scale-[1.01]"
+              />
+              <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-white px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 shadow border border-white/10 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
+                <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Tocar para ampliar
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center mt-4">
-                {/* Visual Ad Box */}
-                <div 
-                  className="relative rounded-lg border border-zinc-200/50 dark:border-white/10 overflow-hidden bg-zinc-950 shadow-inner aspect-[4/5] flex items-center justify-center cursor-zoom-in group/ad"
-                  onClick={() => setZoomImage('/assets/landing_creativos.jpg')}
-                >
-                  <img 
-                    src="/assets/landing_creativos.jpg" 
-                    alt="Creative Ad mockup"
-                    className="w-full h-full object-contain transition-all duration-300 group-hover/ad:scale-[1.01]"
-                  />
-                  
-                  {heatMapVisible && (
-                    <div className="absolute inset-0 bg-transparent pointer-events-none mix-blend-color-dodge animate-in fade-in duration-500">
-                      <div className="absolute top-[20%] left-[30%] w-24 h-24 rounded-full bg-red-500/40 blur-md" />
-                      <div className="absolute top-[45%] left-[55%] w-20 h-20 rounded-full bg-yellow-400/40 blur-md" />
-                      <div className="absolute bottom-[25%] left-[40%] w-28 h-28 rounded-full bg-cyan-400/30 blur-md" />
-                    </div>
-                  )}
-
-                  {heatMapVisible && (
-                    <div className="absolute inset-0 bg-black/10 flex flex-col justify-between p-2 text-[8px] font-bold text-white tracking-wide pointer-events-none">
-                      <div className="bg-red-600/80 px-1.5 py-0.5 rounded self-start">FOCO 1: LOGOTIPO (94%)</div>
-                      <div className="bg-yellow-600/80 px-1.5 py-0.5 rounded self-center">FOCO 2: LLAMADO A ACCIÓN (82%)</div>
-                      <div className="bg-cyan-600/80 px-1.5 py-0.5 rounded self-end mb-12">FOCO 3: IMAGEN PRODUCTO (75%)</div>
-                    </div>
-                  )}
-
-                  {testerStatus === 'analyzing' && (
-                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
-                      <RefreshCw className="w-5 h-5 text-violet-500 animate-spin" />
-                      <span className="text-[9.5px] text-zinc-300 font-bold uppercase tracking-wider">Escaneando contornos...</span>
-                    </div>
-                  )}
-
-                  <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-white px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 shadow border border-white/10 pointer-events-none opacity-80 group-hover/ad:opacity-100 transition-opacity">
-                    <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Tocar para ampliar
-                  </div>
-                </div>
-
-                {/* Simulated Neural Net metrics */}
-                <div className="space-y-3">
-                  <p className="text-[9.5px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider border-b border-zinc-200/40 dark:border-white/[0.04] pb-1">Métricas Predictivas</p>
-                  
-                  <div className="space-y-2">
-                    {[
-                      { name: 'Atención Visual', score: testerStatus === 'completed' ? '88%' : '--', desc: 'Capacidad de destacar en feed', color: 'text-emerald-500' },
-                      { name: 'Carga Cognitiva', score: testerStatus === 'completed' ? '36%' : '--', desc: 'Facilidad de comprensión lectora', color: 'text-violet-400' },
-                      { name: 'ROAS Predictivo', score: testerStatus === 'completed' ? '5.2x' : '--', desc: 'Retorno estimado de pauta', color: 'text-cyan-400' },
-                      { name: 'Score Neuronal', score: testerStatus === 'completed' ? '8.4/10' : '--', desc: 'Puntuación final del creativo', color: 'text-pink-500' }
-                    ].map((metric) => (
-                      <div key={metric.name} className="p-2 rounded-lg bg-zinc-100/40 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-white/[0.03]">
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-[10px] font-bold text-zinc-800 dark:text-zinc-200">{metric.name}</span>
-                          <span className={`text-[11.5px] font-bold ${metric.color}`}>{metric.score}</span>
-                        </div>
-                        <p className="text-[7.5px] text-zinc-400 font-semibold mt-0.5">{metric.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
             </div>
           </div>
         </div>
