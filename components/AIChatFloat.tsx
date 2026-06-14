@@ -421,7 +421,7 @@ export const AIChatFloat = () => {
       else if (lowerText.includes('links') || lowerText.includes('mis accesos') || lowerText.includes('acceso')) handleNavigate('/links');
       else if (lowerText.includes('email marketing')) handleNavigate('/email-marketing');
       else if (lowerText.includes('redes sociales') || lowerText.includes('facebook') || lowerText.includes('instagram')) handleNavigate('/redes-sociales');
-      else if (lowerText.includes('inicio') || lowerText.includes('dashboard') || lowerText.includes('principal')) handleNavigate('/');
+      else if (lowerText.includes('inicio') || lowerText.includes('dashboard') || lowerText.includes('principal')) handleNavigate('/dashboard');
     }
 
     const userMsg: Message = { role: 'user', content: text };

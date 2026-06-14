@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ViewAsProvider } from './contexts/ViewAsContext';
 import LoginPage from './pages/LoginPage';
+import LandingPage from './pages/LandingPage';
 import EmailPreviewPublicPage from './pages/EmailPreviewPublicPage';
 import OAuthSimulatePage from './pages/OAuthSimulatePage';
 import { CenteredPageLoader } from './components/ui/CenteredPageLoader';
@@ -135,12 +136,14 @@ export default function App() {
                 <ToastProvider>
                   <ErrorBoundary>
                     <Routes>
+                      <Route path="/" element={<LandingPage />} />
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/preview" element={<EmailPreviewPublicPage />} />
                       <Route path="/oauth-simulate" element={<OAuthSimulatePage />} />
                       
                       <Route element={<ProtectedRoute />}>
-                         <Route path="/*" element={<MainLayout />} />
+                        <Route path="/dashboard" element={<MainLayout />} />
+                        <Route path="/*" element={<MainLayout />} />
                       </Route>
                     </Routes>
                   </ErrorBoundary>

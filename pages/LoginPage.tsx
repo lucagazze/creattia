@@ -28,7 +28,7 @@ export default function LoginPage() {
   const { session } = useAuth();
 
   useEffect(() => {
-    if (session) navigate('/');
+    if (session) navigate('/dashboard');
   }, [session, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {

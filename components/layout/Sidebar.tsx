@@ -103,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
   // Sidebar Menu Items
   const principalItems = [
-    { path: '/',               icon: Home,          label: 'Inicio',          configured: true },
+    { path: '/dashboard',      icon: Home,          label: 'Inicio',          configured: true },
     { path: '/mensajeria',     icon: MessageSquare, label: 'Mensajería',      configured: hasChatwoot, badge: unreadCount },
     { path: '/entradas',       icon: Inbox,         label: 'Bandejas de Entrada', configured: hasChatwoot },
     { path: '/comentarios',    icon: MessageCircle, label: 'Comentarios',     configured: hasRedes, badge: pendingCommentsCount },

@@ -312,7 +312,8 @@ export const MainLayout = () => {
           <RouteErrorBoundary key={location.pathname}>
           <Suspense fallback={<PageSkeleton />}>
             <Routes>
-              <Route path="/" element={<DashboardPage />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/captacion" element={<CaptacionPage />} />
               <Route path="/redes-sociales" element={<RedesSocialesPage />} />
               <Route path="/mensajeria" element={<MensajeriaPage />} />
@@ -323,14 +324,14 @@ export const MainLayout = () => {
               <Route path="/links" element={<LinksPage />} />
               <Route path="/reportes" element={<ReportsPage />} />
               <Route path="/admin" element={<AdminPage />} />
-              <Route path="/admin/usuarios" element={profile?.is_admin && !isViewingAs ? <AdminUsersPage /> : <Navigate to="/" replace />} />
+              <Route path="/admin/usuarios" element={profile?.is_admin && !isViewingAs ? <AdminUsersPage /> : <Navigate to="/dashboard" replace />} />
               <Route path="/admin/actividad" element={<ActivityPage />} />
               <Route path="/admin/meta" element={<MetaAdsPage />} />
               <Route path="/admin/emails" element={<EmailLibraryPage />} />
               <Route path="/admin/email-monitor" element={<EmailMonitorPage />} />
               <Route path="/email-marketing" element={<EmailMarketingPage />} />
               <Route path="/entradas" element={<EntradasPage />} />
-              <Route path="/cerebro" element={profile?.is_admin ? <CerebroPage /> : <Navigate to="/" replace />} />
+              <Route path="/cerebro" element={profile?.is_admin ? <CerebroPage /> : <Navigate to="/dashboard" replace />} />
               <Route path="/pedidos" element={<PedidosPage />} />
               <Route path="/inventario" element={<InventarioPage />} />
               <Route path="/analisis-productos" element={<AnalisisProductosPage />} />
@@ -338,7 +339,7 @@ export const MainLayout = () => {
               <Route path="/informes" element={<InformesPage />} />
               <Route 
                 path="/costos" 
-                element={profile?.is_admin && !isViewingAs ? <CostosPage /> : <Navigate to="/" replace />} 
+                element={profile?.is_admin && !isViewingAs ? <CostosPage /> : <Navigate to="/dashboard" replace />} 
               />
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/cliente/:email" element={<ClientePage />} />
@@ -346,7 +347,7 @@ export const MainLayout = () => {
               <Route path="/mercadolibre" element={<MercadoLibrePage />} />
               <Route path="/privacidad" element={<PrivacidadPage />} />
               <Route path="/soporte" element={<SoportePage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </Suspense>
           </RouteErrorBoundary>

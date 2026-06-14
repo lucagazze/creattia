@@ -2170,7 +2170,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                           : { ...editingClient, is_admin: false } as any,
                       );
                       closeEdit();
-                      if (viewAsProfile?.id !== editingClient.id) navigate("/");
+                      if (viewAsProfile?.id !== editingClient.id) navigate("/dashboard");
                     }}
                     className={`py-1.5 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all border ${
                       viewAsProfile?.id === editingClient.id
@@ -2249,7 +2249,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                         : { ...editingClient, is_admin: false } as any,
                     );
                     closeEdit();
-                    if (viewAsProfile?.id !== editingClient.id) navigate("/");
+                    if (viewAsProfile?.id !== editingClient.id) navigate("/dashboard");
                   }}
                   className={`w-full py-2 px-3 rounded-lg text-[11px] font-bold flex items-center justify-center gap-2 transition-all border ${
                     viewAsProfile?.id === editingClient.id
