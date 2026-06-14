@@ -801,10 +801,6 @@ export default function LandingPage() {
         <div className="absolute top-1/3 left-1/3 w-[400px] h-[400px] bg-fuchsia-500/5 dark:bg-fuchsia-500/5 rounded-full blur-[100px] pointer-events-none" />
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[10.5px] font-bold bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/15 mb-8 animate-in fade-in slide-in-from-top-4 duration-500 font-sans tracking-wide">
-            <Sparkles className="w-3.5 h-3.5" /> Ecosistema Multitienda y Omnicanal
-          </div>
-          
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
             La plataforma para gestionar tu negocio online y escalar ventas
           </h1>
