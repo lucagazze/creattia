@@ -76,8 +76,8 @@ export default function LandingPage() {
     { id: 'comentarios', label: 'Moderación Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Bandeja omnicanal integrada. Respondé consultas en posts orgánicos y campañas pagas (Ads) con flujos automatizados de respuesta rápida.' },
     { id: 'pedidos', label: 'Control Pedidos', img: '/assets/landing_pedidos.jpg', desc: 'Visualización detallada de facturación, pasarelas de pago utilizadas, histórico de compras y estado logístico de las entregas.' },
     { id: 'inventario', label: 'Stock & Variaciones', img: '/assets/landing_inventario.jpg', desc: 'Monitoreo sincronizado de stock, precios y variantes de productos en múltiples plataformas de e-commerce en simultáneo.' },
-    { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_analisis.jpg', desc: 'Embudo inteligente de comportamiento. Tasas de primer pedido (Entry Point), retención, velocidad de retorno (LTV) y cross-sell sugerido.' },
-    { id: 'creativos', label: 'Creativos Ads & Neurología', img: '/assets/landing_creativos.jpg', desc: 'Predicción de impacto visual de anuncios (TRIBE v2). Puntuación de atención, nivel emocional y carga cognitiva mediante simulación de red neuronal.' },
+    { id: 'analisis', label: 'Análisis de Productos', img: '/assets/landing_creativos.jpg', desc: 'Embudo inteligente de comportamiento. Tasas de primer pedido (Entry Point), retención, velocidad de retorno (LTV) y cross-sell sugerido por producto.' },
+    { id: 'creativos', label: 'Creativos Ads', img: '/assets/landing_analisis.jpg', desc: 'Panel centralizado de anuncios activos en Meta Ads. Compará rendimiento de creativos, gasto, CTR y ROAS en un solo lugar para escalar lo que funciona.' },
     { id: 'meta_ads', label: 'Meta Ads Analytics', img: '/assets/landing_meta_ads.jpg', desc: 'Estadísticas unificadas de rendimiento de pauta. Control de gasto real, alcance total, clicks, conversiones, CTR, ROAS y CPA exactos.' },
     { id: 'perfil_dark', label: 'Diseño Premium', img: '/assets/landing_perfil_dark.jpg', desc: 'Experiencia visual inmersiva. Configuración y administración con tema noche oscuro (Dark Mode) adaptativo de alto contraste.' }
   ];
@@ -219,7 +219,7 @@ export default function LandingPage() {
           </div>
           
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[52px] font-bold tracking-tight max-w-3xl mx-auto leading-[1.12] mb-5 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            Tu operación comercial en una sola pantalla.
+            La mejor plataforma para gestionar tu negocio online
           </h1>
           
           <p className={`text-[13.5px] sm:text-[14.5px] max-w-xl mx-auto leading-relaxed mb-8 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
