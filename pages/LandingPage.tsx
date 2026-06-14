@@ -284,18 +284,18 @@ export default function LandingPage() {
           <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
           <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
           
-          <div className="animate-marquee py-1 gap-8 md:gap-12">
+          <div className="animate-marquee py-2 gap-8 md:gap-12">
             {integrations.concat(integrations).map((item, idx) => (
               <div 
                 key={`${item.name}-${idx}`} 
-                className="flex items-center gap-2.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-9 px-4 rounded-xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-violet-500/10"
+                className="flex items-center gap-3.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-5 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-violet-500/10"
               >
                 <img
                   src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
                   alt={item.name}
-                  className="h-5 object-contain max-w-[100px]"
+                  className="h-7 object-contain max-w-[120px]"
                 />
-                <span className="text-[11px] font-bold tracking-tight">{item.name}</span>
+                <span className="text-[12px] font-bold tracking-tight">{item.name}</span>
               </div>
             ))}
           </div>
@@ -314,8 +314,8 @@ export default function LandingPage() {
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
         <div className="flex flex-col lg:flex-row items-center gap-10">
           <div className="flex-1 space-y-5">
-            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md mb-2">
-              <img src="/assets/icon_inbox_apple.png" alt="Inbox" className="w-full h-full object-cover" />
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
+              <MessageSquare className="w-4 h-4 text-violet-500" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Inbox Unificado asistido por IA</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
@@ -440,8 +440,8 @@ export default function LandingPage() {
         {/* 2. MÉTRICAS Y RENTABILIDAD DEL NEGOCIO */}
         <div className="flex flex-col lg:flex-row-reverse items-center gap-10">
           <div className="flex-1 space-y-5">
-            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md mb-2">
-              <img src="/assets/icon_metrics_apple.png" alt="Métricas" className="w-full h-full object-cover" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-emerald-500" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Analizá si tu negocio es rentable, en un solo vistazo</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
@@ -484,8 +484,8 @@ export default function LandingPage() {
         {/* 3. CREATIVOS ACTIVOS */}
         <div className="flex flex-col lg:flex-row items-center gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="flex-1 space-y-5">
-            <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md mb-2">
-              <img src="/assets/icon_ads_apple.png" alt="Creativos Ads" className="w-full h-full object-cover" />
+            <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-pink-500" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Identificá qué creativos están funcionando y cuáles no</h3>
             <p className={`text-[13px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
