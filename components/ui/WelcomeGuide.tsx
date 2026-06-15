@@ -200,7 +200,7 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
             width: rect.width + GUTTER * 2,
             height: rect.height + GUTTER * 2,
             boxShadow: '0 0 0 9999px rgba(0,0,0,0.65)',
-            border: '2px solid rgba(139, 92, 246, 0.8)',
+            border: '2px solid rgba(16, 185, 129, 0.8)',
           }}
         />
       )}
@@ -216,14 +216,14 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
         onClick={e => e.stopPropagation()}
         className={`fixed z-[9993] bottom-6 right-6 w-[300px] rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-250 ${
           darkMode
-            ? 'bg-[#0d0d18] border-violet-500/30 text-white'
+            ? 'bg-[#0d0d18] border-emerald-500/30 text-white'
             : 'bg-white border-zinc-200 text-zinc-900'
         }`}
       >
         {/* Progress bar */}
         <div className={`h-[3px] rounded-t-2xl overflow-hidden ${darkMode ? 'bg-white/5' : 'bg-zinc-100'}`}>
           <div
-            className="h-full bg-violet-500 transition-all duration-300"
+            className="h-full bg-emerald-500 transition-all duration-300"
             style={{ width: `${((step + 1) / TOUR_STEPS.length) * 100}%` }}
           />
         </div>
@@ -275,7 +275,7 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
               {current.isFinal ? (
                 <button
                   onClick={() => { dismiss(); if (current.ctaPath) navigate(current.ctaPath); }}
-                  className="w-full h-8 flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-[11px] font-black transition-all shadow-lg shadow-violet-200 dark:shadow-none"
+                  className="w-full h-8 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-black transition-all shadow-lg shadow-emerald-200 dark:shadow-none"
                 >
                   <Zap className="w-3 h-3" /> {current.ctaLabel || 'Continuar'}
                 </button>

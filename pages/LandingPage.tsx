@@ -959,18 +959,10 @@ export default function LandingPage() {
         }
         .animate-marquee {
           display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          width: 100%;
-          animation: none;
-        }
-        @media (min-width: 640px) {
-          .animate-marquee {
-            flex-wrap: nowrap;
-            justify-content: flex-start;
-            width: max-content;
-            animation: marquee 32s linear infinite;
-          }
+          flex-wrap: nowrap;
+          justify-content: flex-start;
+          width: max-content;
+          animation: marquee 32s linear infinite;
         }
         @media (prefers-reduced-motion: reduce) {
           .animate-marquee { animation: none; }
@@ -1095,7 +1087,7 @@ export default function LandingPage() {
           </div>
  
           {/* High-Fidelity Showcase Gallery */}
-          <div id="platform-showcase" className={`relative max-w-5xl mx-auto mt-10 rounded-2xl border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.06]' : 'bg-white border-zinc-200/50'}`}>
+          <div id="platform-showcase" className={`relative max-w-5xl mx-auto mt-10 -mx-6 sm:mx-auto rounded-none sm:rounded-2xl border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.06]' : 'bg-white border-zinc-200/50'}`}>
 
             {/* Tab Selector — responsive wrap */}
             <div className={`flex flex-wrap border-b p-1.5 gap-1 ${darkMode ? 'border-white/[0.05] bg-zinc-950/50' : 'border-zinc-200/50 bg-zinc-50/40'}`}>
@@ -1137,7 +1129,7 @@ export default function LandingPage() {
             {/* Screenshot — crossfade between tabs, no height jump */}
             <div
               className={`relative cursor-zoom-in group overflow-hidden ${darkMode ? 'bg-zinc-950' : 'bg-white'}`}
-              style={{ height: 'clamp(320px, 58vw, 680px)' }}
+              style={{ aspectRatio: '1600/757', maxHeight: 680 }}
               onClick={() => setZoomImage(activeShowcaseTab.img)}
             >
               {showcaseTabs.map(tab => (
@@ -1189,21 +1181,37 @@ export default function LandingPage() {
       </section>
 
       {/* Infinite Logo Marquee (Slider / Carousel) */}
-      <section className={`py-8 border-t border-b overflow-hidden ${darkMode ? 'bg-zinc-950/30 border-white/[0.03]' : 'bg-zinc-50/30 border-zinc-200/40'}`}>
+      <section className={`py-8 border-t border-b ${darkMode ? 'bg-zinc-950/30 border-white/[0.03]' : 'bg-zinc-50/30 border-zinc-200/40'}`}>
         <p className="text-center text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] font-sans mb-4 px-6">
           CONEXIÓN DIRECTA CON TUS PLATAFORMAS PUBLICITARIAS Y DE E-COMMERCE
         </p>
-        
-        {/* Infinite Scrolling Row */}
-        <div className="relative w-full flex overflow-hidden">
+
+        {/* Mobile: static centered grid — clean and always visible */}
+        <div className="sm:hidden flex flex-wrap items-center justify-center gap-2.5 px-5">
+          {integrations.map((item) => (
+            <div
+              key={item.name}
+              className={`flex items-center gap-2 h-10 px-3.5 rounded-xl border ${darkMode ? 'bg-white/[0.03] border-white/[0.06] text-zinc-300' : 'bg-white border-zinc-200/80 text-zinc-700 shadow-sm'}`}
+            >
+              <img
+                src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
+                alt={item.name}
+                className={`${item.name === 'TikTok Ads' ? 'h-6' : 'h-5'} object-contain max-w-[72px]`}
+              />
+              <span className="text-[11px] font-semibold tracking-tight">{item.name}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop: animated horizontal marquee */}
+        <div className="relative w-full hidden sm:flex overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
           <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
-          
           <div className="animate-marquee py-2 gap-8 md:gap-12">
             {integrations.concat(integrations).map((item, idx) => (
-              <div 
-                key={`${item.name}-${idx}`} 
-                className={`${idx >= integrations.length ? 'hidden sm:flex' : 'flex'} items-center gap-3.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-5 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-emerald-500/10`}
+              <div
+                key={`${item.name}-${idx}`}
+                className="flex items-center gap-3.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-5 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-emerald-500/10"
               >
                 <img
                   src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
@@ -2266,7 +2274,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Imagen/Video del Anuncio */}
-                <div className="aspect-square md:aspect-[4/5] rounded-xl overflow-hidden border border-zinc-250/20 dark:border-white/[0.03] bg-zinc-950 shadow-inner relative flex items-center justify-center">
+                <div className="aspect-[4/3] sm:aspect-square md:aspect-[4/5] rounded-xl overflow-hidden border border-zinc-250/20 dark:border-white/[0.03] bg-zinc-950 shadow-inner relative flex items-center justify-center">
                   {selectedSimCreative.isVideo ? (
                     <video
                       src={selectedSimCreative.img}
@@ -2308,7 +2316,7 @@ export default function LandingPage() {
             </div>
 
             {/* LADO DERECHO — Panel de Control Simulador (Métricas y Moderación) */}
-            <div className="w-full md:w-[58%] flex flex-col min-h-[520px] md:min-h-0 md:h-auto md:max-h-[85vh] overflow-hidden">
+            <div className="w-full md:w-[58%] flex flex-col min-h-[420px] md:min-h-0 md:h-auto md:max-h-[85vh] overflow-hidden">
               {/* Cabecera y Selector de Pestañas */}
               <div className={`p-4 border-b flex items-center justify-between ${
                 darkMode ? 'border-white/[0.04] bg-[#0c0c10]' : 'border-zinc-200/60 bg-zinc-50/50'
@@ -2459,7 +2467,7 @@ export default function LandingPage() {
                 ) : (
                   <div className="space-y-4 text-left animate-in fade-in duration-200">
                     <div className="flex items-center justify-between text-[10.5px] font-bold text-zinc-400 border-b border-zinc-200/40 dark:border-white/[0.03] pb-2">
-                      <span>Bandeja de Consultas de Anuncio</span>
+                      <span>Comentarios del Anuncio</span>
                       <span className="text-emerald-500">
                         {selectedSimCreative.comments.filter(c => c.pending).length} Pendiente{selectedSimCreative.comments.filter(c => c.pending).length !== 1 ? 's' : ''}
                       </span>

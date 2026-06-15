@@ -113,46 +113,54 @@ export default function LoginPage() {
 
   const inputClass = `w-full h-11 px-3.5 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
     darkMode
-      ? 'bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-violet-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-violet-500/10'
-      : 'bg-zinc-50 border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus:border-violet-500/80 focus:bg-white focus:ring-4 focus:ring-violet-500/10'
+      ? 'bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-emerald-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-emerald-500/10'
+      : 'bg-zinc-50 border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500/80 focus:bg-white focus:ring-4 focus:ring-emerald-500/10'
   }`;
 
   const labelClass = `text-[9.5px] font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`;
 
   return (
     <div
-      className={`relative flex flex-col font-sans overflow-hidden transition-colors duration-500 ${darkMode ? 'bg-[#060606]' : 'bg-[#f8f9fa]'}`}
+      className={`relative flex flex-col font-sans overflow-hidden ${darkMode ? 'bg-[#060606]' : 'bg-[#f8f9fa]'}`}
       style={{ height: '100dvh', minHeight: '100dvh' }}
     >
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-4 w-full">
-        <div className="flex items-center gap-3.5">
-          <img
-            src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
-            alt="Algoritmia"
-            className="w-7 h-7 object-contain"
-          />
-          <div className="flex flex-col justify-center gap-0.5">
-            <span className={`text-[13px] font-black tracking-[-0.03em] leading-[0.9] uppercase block ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              ALGORITMIA
-            </span>
-            <span className="text-[8.5px] leading-none font-bold text-violet-500 tracking-[0.22em] uppercase">Gestión</span>
+      <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b ${darkMode ? 'bg-[#060606]/85 border-white/[0.04]' : 'bg-[#f8f9fa]/85 border-zinc-200/40'}`}>
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <img
+              src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
+              alt="Algoritmia"
+              className="w-[26px] h-[26px] object-contain"
+            />
+            <div>
+              <span className={`text-[11.5px] font-bold tracking-tight uppercase leading-none block ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+                ALGORITMIA
+              </span>
+              <span className="text-[7.5px] font-bold text-emerald-600 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/')}
-            className={`px-3.5 py-2 rounded-xl border text-[11px] font-bold transition-all duration-300 hover:scale-105 active:scale-95 ${
-              darkMode
-                ? 'bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white'
-                : 'bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm'
-            }`}
-          >
-            Volver a la web
-          </button>
+
+          <nav className="hidden md:flex items-center gap-1">
+            {[
+              { label: 'Demo', hash: 'interactive-demo' },
+              { label: 'Precio', hash: 'pricing' },
+              { label: 'FAQ', hash: 'faq' },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={() => navigate(`/#${item.hash}`)}
+                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-3">
           <button
             onClick={toggleDarkMode}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
+            className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 ${
               darkMode
                 ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white'
                 : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
@@ -160,11 +168,22 @@ export default function LoginPage() {
           >
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-600" />}
           </button>
+          <button
+            onClick={() => navigate('/')}
+            className={`h-8 px-3.5 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
+              darkMode
+                ? 'bg-white text-zinc-950 hover:bg-zinc-100'
+                : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
+            }`}
+          >
+            Volver a la web
+          </button>
+        </div>
         </div>
       </header>
 
       {/* Main */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pb-12 overflow-hidden">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pt-16 pb-12 overflow-hidden">
         <div className="w-full max-w-[360px] animate-in fade-in slide-in-from-bottom-5 duration-700 my-auto py-4">
 
           {/* Logo + title */}
@@ -314,7 +333,7 @@ export default function LoginPage() {
                 <p className="text-[12px] text-zinc-500">Revisá tu email para confirmar tu cuenta, luego iniciá sesión.</p>
                 <button
                   onClick={() => { setMode('login'); setRegistered(false); }}
-                  className="text-[12px] font-bold text-violet-500 hover:text-violet-400 transition-colors"
+                  className="text-[12px] font-bold text-emerald-500 hover:text-emerald-400 transition-colors"
                 >
                   Ir al inicio de sesión →
                 </button>
