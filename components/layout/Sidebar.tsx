@@ -124,6 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const activosItems = [
     { path: '/analisis-productos',  icon: BarChart2,  label: 'Análisis Productos', configured: hasEcommerce },
     { path: '/admin/meta',          icon: Target,     label: 'Creativos Ads',      configured: hasMeta },
+    { path: '/analisis-creativo',   icon: Brain,      label: 'Análisis Creativo',  configured: hasMeta },
     { path: '/email-marketing',     icon: Send,       label: 'Plantillas Email',   configured: hasKlaviyo },
   ].filter(i => isAdmin || i.configured);
 

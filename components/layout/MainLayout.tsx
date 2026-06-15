@@ -133,9 +133,11 @@ const AnalisisProductosPage = lazyWithRetry(() => import('../../pages/AnalisisPr
 const IntegracionesPage  = lazyWithRetry(() => import('../../pages/IntegracionesPage'));
 const PrivacidadPage     = lazyWithRetry(() => import('../../pages/PrivacidadPage'));
 const SoportePage        = lazyWithRetry(() => import('../../pages/SoportePage'));
-const MercadoLibrePage   = lazyWithRetry(() => import('../../pages/MercadoLibrePage'));
+const MercadoLibrePage      = lazyWithRetry(() => import('../../pages/MercadoLibrePage'));
+const CreativeTesterPage    = lazyWithRetry(() => import('../../pages/CreativeTesterPage'));
 
 import { useViewAs } from '../../contexts/ViewAsContext';
+import { WelcomeGuide } from '../ui/WelcomeGuide';
 
 // Loader within the content area — sidebar stays visible
 const PageSkeleton = () => (
@@ -208,13 +210,22 @@ export const MainLayout = () => {
   }, [location.pathname, showToast]);
 
   // Auto-create profile for new users (Google OAuth or email signup)
+  // When the profile is freshly created, redirect to integrations with welcome flag
   useEffect(() => {
     if (!profile && user && !loading) {
       fetch('/api/oauth?action=ensure-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, email: user.email }),
-      }).then(() => refreshProfile()).catch(console.error);
+      })
+        .then(r => r.json())
+        .then(data => {
+          refreshProfile();
+          if (data?.created) {
+            navigate('/integraciones?welcome=1', { replace: true });
+          }
+        })
+        .catch(console.error);
     }
   }, [profile, user, loading]);
 
@@ -309,6 +320,10 @@ export const MainLayout = () => {
         }`}>
           {/* Spacer so content starts below the fixed mobile header */}
           <div className="h-14 md:hidden" />
+          {/* Onboarding guide — shows on dashboard for users with no integrations configured */}
+          {activeProfile && location.pathname === '/dashboard' && (
+            <WelcomeGuide profile={activeProfile} />
+          )}
           <RouteErrorBoundary key={location.pathname}>
           <Suspense fallback={<PageSkeleton />}>
             <Routes>
@@ -345,6 +360,7 @@ export const MainLayout = () => {
               <Route path="/cliente/:email" element={<ClientePage />} />
               <Route path="/integraciones" element={<IntegracionesPage />} />
               <Route path="/mercadolibre" element={<MercadoLibrePage />} />
+              <Route path="/analisis-creativo" element={<CreativeTesterPage />} />
               <Route path="/privacidad" element={<PrivacidadPage />} />
               <Route path="/soporte" element={<SoportePage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
