@@ -2,6 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+
+// Wraps accented vowels (á é í ó ú) in a violet span for visual rhythm
+const vt = (text: string): React.ReactNode =>
+  <>{text.split('').map((char, i) =>
+    /[áéíóúÁÉÍÓÚ]/.test(char)
+      ? <span key={i} className="text-violet-500">{char}</span>
+      : char
+  )}</>;
 import {
   AreaChart,
   Area,
@@ -961,7 +969,7 @@ export default function LandingPage() {
         }
         .tab-progress-bar {
           transform-origin: left center;
-          animation: tabProgress 3s linear forwards;
+          animation: tabProgress 4s linear forwards;
         }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
@@ -1026,7 +1034,7 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            Gestioná tu negocio online. Escalá tus ventas.
+            {vt('Gestioná tu negocio online. Escalá tus ventas.')}
           </h1>
 
           <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
@@ -1096,9 +1104,10 @@ export default function LandingPage() {
               onClick={() => setZoomImage(showcaseTabs.find(t => t.id === activeTabShowcase)?.img || null)}
             >
               <img
+                key={activeTabShowcase}
                 src={showcaseTabs.find(t => t.id === activeTabShowcase)?.img}
                 alt={showcaseTabs.find(t => t.id === activeTabShowcase)?.label}
-                className="w-full h-auto max-h-[520px] object-contain block mx-auto transition-all duration-300 animate-in fade-in"
+                className="w-full h-auto max-h-[520px] object-contain block mx-auto animate-in fade-in duration-300"
               />
               <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Ampliar
@@ -1368,7 +1377,7 @@ export default function LandingPage() {
         <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="max-w-2xl space-y-4 text-left">
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
-              Control total de tu rentabilidad, sin planillas
+              {vt('Control total de tu rentabilidad, sin planillas')}
             </h3>
             <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
               ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
@@ -1819,7 +1828,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight font-display leading-tight mb-4 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              Todo lo que necesitás, en un solo lugar
+              {vt('Todo lo que necesitás, en un solo lugar')}
             </h2>
             <p className={`text-[14.5px] max-w-lg mx-auto leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
               Cada módulo está diseñado para conectarse con el siguiente. Un ecosistema completo, no una colección de herramientas.
@@ -1981,7 +1990,7 @@ export default function LandingPage() {
       {/* Call to Action Final */}
       <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
         <div className="max-w-3xl mx-auto px-6 space-y-5">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender más inteligente hoy</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">{vt('Empezá a vender más inteligente hoy')}</h2>
           <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
             Configuración en 5 minutos. Sin tarjeta de crédito.
           </p>
