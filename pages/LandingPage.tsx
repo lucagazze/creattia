@@ -1048,7 +1048,7 @@ export default function LandingPage() {
             />
             <div>
               <span className="text-[11.5px] font-bold tracking-tight uppercase leading-none block font-display">
-                ALGOR.
+                ALGOR
               </span>
               <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
             </div>
@@ -1133,8 +1133,8 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 space-y-1">
-            <span className="block text-[36px] sm:text-[52px] md:text-[64px] lg:text-[72px] font-bold text-zinc-500 dark:text-zinc-400 leading-[1.05]">Gestioná tu negocio online.</span>
-            <span className="block text-[36px] sm:text-[52px] md:text-[64px] lg:text-[72px] font-black text-zinc-900 dark:text-white leading-[1.05]">Escalá tus ventas.</span>
+            <span className="block text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-400 dark:text-zinc-500 leading-snug">Gestioná tu negocio online.</span>
+            <span className="block text-4xl sm:text-5xl md:text-[64px] lg:text-[80px] font-black text-zinc-900 dark:text-white leading-[1.05]">Escalá tus ventas.</span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -2388,7 +2388,7 @@ export default function LandingPage() {
             <div className="col-span-2 sm:col-span-1 space-y-3">
               <div className="flex items-center gap-2">
                 <img src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'} alt="Algoritmia" className="w-5 h-5 object-contain" />
-                <span className="text-[11px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGOR.</span>
+                <span className="text-[11px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGOR</span>
               </div>
               <p className="text-[10.5px] leading-relaxed">
                 Ecosistema de control y automatización omnicanal para e-commerce.

@@ -113,8 +113,8 @@ export default function LoginPage() {
 
   const inputClass = `w-full h-11 px-3.5 rounded-xl border text-[13px] font-semibold outline-none transition-all duration-200 ${
     darkMode
-      ? 'bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-emerald-500/80 focus:bg-white/[0.07] focus:ring-4 focus:ring-emerald-500/10'
-      : 'bg-zinc-50 border-zinc-200/80 text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500/80 focus:bg-white focus:ring-4 focus:ring-emerald-500/10'
+      ? 'bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-emerald-500/80 focus:bg-zinc-750 focus:ring-4 focus:ring-emerald-500/10'
+      : 'bg-white border-zinc-300 text-zinc-900 placeholder:text-zinc-400 focus:border-emerald-500/80 focus:ring-4 focus:ring-emerald-500/10'
   }`;
 
   const labelClass = `text-[9.5px] font-bold uppercase tracking-wider ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`;
@@ -141,7 +141,7 @@ export default function LoginPage() {
                 className={`text-[11.5px] font-bold tracking-tight uppercase leading-none block ${darkMode ? 'text-white' : 'text-zinc-900'}`}
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
               >
-                ALGOR.
+                ALGOR
               </span>
               <span
                 className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5"

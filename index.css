@@ -44,6 +44,24 @@ input, textarea, [contenteditable="true"], .selectable-text {
   -ms-user-select: text !important;
 }
 
+/* Override browser autofill yellow background — light mode */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #111827 !important;
+  caret-color: #111827;
+}
+
+/* Override browser autofill — dark mode */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #27272a inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff;
+}
+
 .dark body {
   background-color: #030303;
   color: #f8fafc;
