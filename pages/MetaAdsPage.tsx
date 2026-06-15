@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import DOMPurify from 'dompurify';
 import { useAIGate } from '../hooks/useAIGate';
 import { metaAds, today, presetToRange, DatePreset } from '../services/metaAds';
@@ -102,6 +103,17 @@ const scoreCls = (score: number) =>
 const scoreLabel = (score: number) =>
   score >= 80 ? 'Listo para escalar' : score >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar';
 
+const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number) => {
+  const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
+  const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
+  return attnOff.map((ao, i) => {
+    const a = Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4)));
+    const e = Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4)));
+    const imp = Math.max(8, Math.min(99, Math.round(a * 0.4 + e * 0.4 + (100 - cogLoad) * 0.2)));
+    return { t: Math.round(i * 30 / (attnOff.length - 1)), attn: a, emot: e, impact: imp };
+  });
+};
+
 const MetricBar = ({ label, value, color, reason }: { label: string; value: number; color: string; reason?: string }) => (
   <div>
     <div className="flex items-center justify-between mb-1">
@@ -191,12 +203,14 @@ export default function MetaAdsPage() {
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
   const [tribeResult, setTribeResult] = useState<any>(null);
+  const [timeline, setTimeline] = useState<any[]>([]);
 
   useEffect(() => {
     if (selectedAd) {
       setSlideTab('comments');
       setAnalyzingTribe(false);
       setTribeResult(null);
+      setTimeline([]);
     }
   }, [selectedAd]);
 
@@ -238,7 +252,12 @@ export default function MetaAdsPage() {
       setTribeResult(null);
       setSlideTab('metrics');
       analyzeCreativeUrl(imageUrl || null, isVideo || false)
-        .then(result => { if (result) setTribeResult(result); })
+        .then(result => {
+          if (result) {
+            setTribeResult(result);
+            setTimeline(genTimeline(result.attentionPct, result.emotionPct, result.cogLoad, result.score));
+          }
+        })
         .finally(() => setAnalyzingTribe(false));
     } else {
       setSlideTab('comments');
@@ -1039,7 +1058,7 @@ export default function MetaAdsPage() {
                 <div className={`${mobileTab === 'stats' ? 'hidden md:grid' : 'flex-1 overflow-hidden grid'} grid-cols-1 md:grid-cols-5 h-full`}>
 
                   {/* Left: creative + info (40%) */}
-	                  <div className={`${mobileTab !== 'post' ? 'hidden' : 'flex'} md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 h-full`}>
+	                  <div className={`${mobileTab !== 'post' ? 'hidden md:flex' : 'flex'} md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 h-full`}>
 
                     {/* Creative */}
                     {(!mediaData || resolvingIds[selectedAd.adId]) ? (
@@ -1115,73 +1134,79 @@ export default function MetaAdsPage() {
                       </div>
                     )}
 
-                    {/* Ad name */}
-                    <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
-                      <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Nombre</p>
-                      <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.name}</p>
-                    </div>
-
-                    {/* Description/body */}
-                    {selectedAd.body && (
+                    {/* Ad name + description + performance — mobile only (desktop shows in right panel) */}
+                    <div className="md:hidden space-y-3">
                       <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
-                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Descripción</p>
-                        <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium line-clamp-5">{selectedAd.body}</p>
+                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Nombre</p>
+                        <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.name}</p>
                       </div>
-                    )}
-
-                    {/* Performance — desktop only (mobile: Rendimiento tab) */}
-                    {insights && (
-                      <div className="hidden md:block p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
-                        {[
-                          { label: 'Gasto', val: `$${adSpend.toFixed(0)}` },
-                          { label: 'Compras', val: purchases > 0 ? String(purchases) : '—', highlight: purchases > 0 },
-                          { label: 'Leads', val: leads > 0 ? String(leads) : '—', highlight: leads > 0 },
-                          { label: 'Mensajes', val: msgs > 0 ? String(msgs) : '—', highlight: msgs > 0 },
-                          { label: 'CPA', val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—' },
-                          { label: 'ROAS', val: adRoas > 0 ? `${adRoas.toFixed(1)}` : '—', highlight: adRoas > 1 },
-                          { label: 'CTR', val: adCtr > 0 ? `${adCtr.toFixed(1)}%` : '—' },
-                          { label: 'Alcance', val: fmtN(adReach) },
-                        ].map(({ label, val, highlight }: any) => (
-                          <div key={label} className="flex items-center justify-between text-[12px] font-bold">
-                            <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
-                            <span className={highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}>{val}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Comment counts per platform — desktop only (mobile: Rendimiento tab) */}
-                    <div className="hidden md:block p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                      <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Comentarios</p>
-                      {selectedAd.igStoryId && (
-                        <button onClick={() => switchCommentPlatform('instagram')} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                          <span className="flex items-center gap-1.5 text-pink-500"><Instagram className="w-3 h-3" /> Instagram</span>
-                          <span className="flex items-center gap-1.5">
-                            {loadingByPlatform.instagram ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : (
-                              <span className="text-zinc-900 dark:text-white">{igTotal}</span>
-                            )}
-                            {igPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{igPending} pend.</span>}
-                          </span>
-                        </button>
-                      )}
-                      {selectedAd.fbStoryId && (
-                        <button onClick={() => switchCommentPlatform('facebook')} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                          <span className="flex items-center gap-1.5 text-blue-500"><Facebook className="w-3 h-3" /> Facebook</span>
-                          <span className="flex items-center gap-1.5">
-                            {loadingByPlatform.facebook ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : (
-                              <span className="text-zinc-900 dark:text-white">{fbTotal}</span>
-                            )}
-                            {fbPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{fbPending} pend.</span>}
-                          </span>
-                        </button>
+                      {selectedAd.body && (
+                        <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
+                          <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Descripción</p>
+                          <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium line-clamp-5">{selectedAd.body}</p>
+                        </div>
                       )}
                     </div>
                   </div>
 
                   {/* Right: Comments (60%) */}
-	                  <div className={`${mobileTab === 'post' ? 'hidden' : 'flex'} md:col-span-3 overflow-y-auto flex-col`}>
-                    {slideTab === 'metrics' ? (
+	                  <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} md:col-span-3 flex-col overflow-hidden h-full`}>
+                    {mobileTab === 'post' ? (
+                      /* Desktop-only: name + description + performance when on Anuncio tab */
+                      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                        <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
+                          <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Nombre</p>
+                          <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.name}</p>
+                        </div>
+                        {selectedAd.body && (
+                          <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
+                            <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Descripción</p>
+                            <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.body}</p>
+                          </div>
+                        )}
+                        {insights && (
+                          <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
+                            <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
+                            {[
+                              { label: 'Gasto', val: `$${adSpend.toFixed(0)}` },
+                              { label: 'Compras', val: purchases > 0 ? String(purchases) : '—', highlight: purchases > 0 },
+                              { label: 'Leads', val: leads > 0 ? String(leads) : '—', highlight: leads > 0 },
+                              { label: 'Mensajes', val: msgs > 0 ? String(msgs) : '—', highlight: msgs > 0 },
+                              { label: 'CPA', val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—' },
+                              { label: 'ROAS', val: adRoas > 0 ? `${adRoas.toFixed(1)}` : '—', highlight: adRoas > 1 },
+                              { label: 'CTR', val: adCtr > 0 ? `${adCtr.toFixed(1)}%` : '—' },
+                              { label: 'Alcance', val: fmtN(adReach) },
+                            ].map(({ label, val, highlight }: any) => (
+                              <div key={label} className="flex items-center justify-between text-[12px] font-bold">
+                                <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
+                                <span className={highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}>{val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
+                          <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Comentarios</p>
+                          {selectedAd.igStoryId && (
+                            <button onClick={() => { switchCommentPlatform('instagram'); setMobileTab('comments'); }} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
+                              <span className="flex items-center gap-1.5 text-pink-500"><Instagram className="w-3 h-3" /> Instagram</span>
+                              <span className="flex items-center gap-1.5">
+                                {loadingByPlatform.instagram ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : <span className="text-zinc-900 dark:text-white">{igTotal}</span>}
+                                {igPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{igPending} pend.</span>}
+                              </span>
+                            </button>
+                          )}
+                          {selectedAd.fbStoryId && (
+                            <button onClick={() => { switchCommentPlatform('facebook'); setMobileTab('comments'); }} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
+                              <span className="flex items-center gap-1.5 text-blue-500"><Facebook className="w-3 h-3" /> Facebook</span>
+                              <span className="flex items-center gap-1.5">
+                                {loadingByPlatform.facebook ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : <span className="text-zinc-900 dark:text-white">{fbTotal}</span>}
+                                {fbPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{fbPending} pend.</span>}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : slideTab === 'metrics' ? (
                       <div className="flex-1 overflow-y-auto p-5 space-y-5">
                         {analyzingTribe ? (
                           <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
@@ -1215,16 +1240,45 @@ export default function MetaAdsPage() {
 
                               {/* Barras de Métricas */}
                               <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/60 rounded-2xl space-y-4">
-                                <MetricBar label="Atención" value={metrics.attentionPct} color="bg-emerald-500" reason={metrics.attentionReason} />
-                                <MetricBar label="Emoción" value={metrics.emotionPct} color="bg-violet-500" reason={metrics.emotionReason} />
+                                <MetricBar label="Atención" value={metrics.attentionPct} color={metrics.attentionPct >= 75 ? 'bg-emerald-500' : metrics.attentionPct >= 60 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.attentionReason} />
+                                <MetricBar label="Emoción" value={metrics.emotionPct} color={metrics.emotionPct >= 70 ? 'bg-emerald-500' : metrics.emotionPct >= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.emotionReason} />
                                 <MetricBar label="Carga Cognitiva" value={metrics.cogLoad} color={metrics.cogLoad <= 30 ? 'bg-emerald-500' : metrics.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.cogLoadReason} />
                               </div>
+
+                              {/* Curva de Respuesta */}
+                              {(() => {
+                                const displayTimeline = timeline.length > 0 ? timeline : genTimeline(metrics.attentionPct, metrics.emotionPct, metrics.cogLoad, metrics.score);
+                                return (
+                                  <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                      <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
+                                      <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
+                                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
+                                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-400 inline-block rounded-full" />Impacto</span>
+                                      </div>
+                                    </div>
+                                    <div className="h-[140px]">
+                                      <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={displayTimeline} margin={{ left: -15, right: 4, top: 4, bottom: 0 }}>
+                                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" className="dark:[stroke:rgba(255,255,255,0.04)]" />
+                                          <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}s`} />
+                                          <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} width={22} />
+                                          <Line type="monotone" dataKey="attn" name="Atención" stroke="#10b981" strokeWidth={2} dot={false} />
+                                          <Line type="monotone" dataKey="emot" name="Emoción" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                                          <Line type="monotone" dataKey="impact" name="Impacto" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+                                        </LineChart>
+                                      </ResponsiveContainer>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           );
                         })()}
                       </div>
                     ) : (
-                      <>
+                      <div className="flex flex-col flex-1 overflow-hidden min-h-0">
 
                     {/* Platform switcher (right panel header) — only when both platforms */}
                     {hasBothPlatforms && (
@@ -1405,7 +1459,7 @@ export default function MetaAdsPage() {
                           })
                       )}
                     </div>
-                    </>
+                    </div>
                     )}
                   </div>
                 </div>

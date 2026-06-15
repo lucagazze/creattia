@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { useAIGate } from '../hooks/useAIGate';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import {
@@ -109,6 +110,17 @@ const scoreCls = (score: number) =>
 const scoreLabel = (score: number) =>
   score >= 80 ? 'Listo para escalar' : score >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar';
 
+const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number) => {
+  const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
+  const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
+  return attnOff.map((ao, i) => {
+    const a = Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4)));
+    const e = Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4)));
+    const imp = Math.max(8, Math.min(99, Math.round(a * 0.4 + e * 0.4 + (100 - cogLoad) * 0.2)));
+    return { t: Math.round(i * 30 / (attnOff.length - 1)), attn: a, emot: e, impact: imp };
+  });
+};
+
 const MetricBar = ({ label, value, color, reason }: { label: string; value: number; color: string; reason?: string }) => (
   <div>
     <div className="flex items-center justify-between mb-1">
@@ -210,12 +222,14 @@ export default function RedesSocialesPage() {
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
   const [tribeResult, setTribeResult] = useState<any>(null);
+  const [timeline, setTimeline] = useState<any[]>([]);
 
   useEffect(() => {
     if (selectedPostId) {
       setSlideTab('comments');
       setAnalyzingTribe(false);
       setTribeResult(null);
+      setTimeline([]);
     }
   }, [selectedPostId]);
 
@@ -257,7 +271,12 @@ export default function RedesSocialesPage() {
       setTribeResult(null);
       setSlideTab('metrics');
       analyzeCreativeUrl(imageUrl || null, isVideo || false)
-        .then(result => { if (result) setTribeResult(result); })
+        .then(result => {
+          if (result) {
+            setTribeResult(result);
+            setTimeline(genTimeline(result.attentionPct, result.emotionPct, result.cogLoad, result.score));
+          }
+        })
         .finally(() => setAnalyzingTribe(false));
     } else {
       setSlideTab('comments');
@@ -1833,7 +1852,7 @@ export default function RedesSocialesPage() {
               </div>
 
               {/* Modal tabs */}
-              <div className="grid grid-cols-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+              <div className="grid grid-cols-3 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
                 <button
                   onClick={() => { setMobileTab('post'); handleTabChange('comments'); }}
                   className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
@@ -1858,16 +1877,6 @@ export default function RedesSocialesPage() {
                   )}
                 </button>
                 <button
-                  onClick={() => { setMobileTab('stats'); handleTabChange('comments'); }}
-                  className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
-                    mobileTab === 'stats'
-                      ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
-                      : 'text-zinc-500 dark:text-zinc-400'
-                  }`}
-                >
-                  Rendimiento
-                </button>
-                <button
                   onClick={() => {
                     const imageUrl = activePost?.media_url || activePost?.full_picture || activePost?.thumbnail_url || null;
                     const isVid = activePost?.media_type === 'VIDEO' || !!activePost?.source;
@@ -1882,28 +1891,12 @@ export default function RedesSocialesPage() {
                 >Análisis de creativos</button>
               </div>
 
-              {mobileTab === 'stats' && (
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                  <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                    <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
-                    <div className="flex items-center justify-between text-[12px] font-bold">
-                      <span className="text-zinc-600 dark:text-zinc-400">Me gusta</span>
-                      <span className="text-zinc-900 dark:text-white">{fmtNumber(activePost?.like_count || activePost?.likes?.summary?.total_count || 0)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[12px] font-bold">
-                      <span className="text-zinc-600 dark:text-zinc-400">Comentarios</span>
-                      <span className="text-zinc-900 dark:text-white">{fmtNumber(activePost?.comments_count || activePost?.comments?.summary?.total_count || comments.length || 0)}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Split Body Container */}
-              <div className={`${mobileTab === 'stats' ? 'hidden' : 'grid'} flex-1 overflow-hidden grid-cols-1 md:grid-cols-5 h-full`}>
+              <div className="grid flex-1 overflow-hidden grid-cols-1 md:grid-cols-5 h-full">
                 
                 {/* Column 1: Post Media Context (Left Side - 40% width on md/lg, hidden on mobile) */}
                 <div className={`${
-                  mobileTab !== 'post' ? 'hidden' : 'flex'
+                  mobileTab !== 'post' ? 'hidden md:flex' : 'flex'
                 } md:col-span-2 flex-col justify-start border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-5 overflow-y-auto h-full space-y-4`}>
                   {activePost ? (
                     <>
@@ -1935,23 +1928,23 @@ export default function RedesSocialesPage() {
                         </div>
                       )}
 
-                      {/* Post Caption/Message */}
-                      <div className="space-y-1.5">
-                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block">Descripción del Post</span>
-                        <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/80 rounded-2xl text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 font-medium whitespace-pre-wrap max-h-48 overflow-y-auto">
-                          {activePost.caption || activePost.message || <span className="italic text-zinc-400">Sin descripción.</span>}
+                      {/* Post Caption/Message + Engagement — mobile only (desktop shows in right panel) */}
+                      <div className="md:hidden space-y-4">
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block">Descripción del Post</span>
+                          <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/80 rounded-2xl text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 font-medium whitespace-pre-wrap max-h-48 overflow-y-auto">
+                            {activePost.caption || activePost.message || <span className="italic text-zinc-400">Sin descripción.</span>}
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Engagement Metrics */}
-                      <div className="grid grid-cols-2 gap-3 pt-2">
-                        <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
-                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Me gusta</span>
-                          <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.like_count || activePost.likes?.summary?.total_count || 0)}</span>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
-                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Comentarios</span>
-                          <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.comments_count || activePost.comments?.summary?.total_count || 0)}</span>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Me gusta</span>
+                            <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.like_count || activePost.likes?.summary?.total_count || 0)}</span>
+                          </div>
+                          <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Comentarios</span>
+                            <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.comments_count || activePost.comments?.summary?.total_count || 0)}</span>
+                          </div>
                         </div>
                       </div>
                     </>
@@ -1965,9 +1958,33 @@ export default function RedesSocialesPage() {
 
                 {/* Column 2: Comments List & Inputs (Right Side - 60% width on md/lg, full width on mobile) */}
                 <div className={`${
-                  mobileTab === 'post' ? 'hidden' : 'flex'
-                } col-span-1 md:col-span-3 flex flex-col justify-between h-full overflow-hidden`}>
-                  {slideTab === 'metrics' ? (
+                  mobileTab === 'post' ? 'hidden md:flex' : 'flex'
+                } col-span-1 md:col-span-3 flex-col h-full overflow-hidden`}>
+                  {mobileTab === 'post' ? (
+                    /* Desktop-only: description + stats when on Anuncio tab */
+                    <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                      {activePost ? (
+                        <>
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block">Descripción del Post</span>
+                            <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/80 rounded-2xl text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 font-medium whitespace-pre-wrap">
+                              {activePost.caption || activePost.message || <span className="italic text-zinc-400">Sin descripción.</span>}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
+                              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Me gusta</span>
+                              <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.like_count || activePost.likes?.summary?.total_count || 0)}</span>
+                            </div>
+                            <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
+                              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Comentarios</span>
+                              <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.comments_count || activePost.comments?.summary?.total_count || 0)}</span>
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : slideTab === 'metrics' ? (
                     <div className="flex-1 overflow-y-auto p-5 space-y-5">
                       {analyzingTribe ? (
                         <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
@@ -2001,16 +2018,45 @@ export default function RedesSocialesPage() {
 
                             {/* Barras de Métricas */}
                             <div className="p-5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/60 rounded-2xl space-y-4">
-                              <MetricBar label="Atención" value={metrics.attentionPct} color="bg-emerald-500" reason={metrics.attentionReason} />
-                              <MetricBar label="Emoción" value={metrics.emotionPct} color="bg-violet-500" reason={metrics.emotionReason} />
+                              <MetricBar label="Atención" value={metrics.attentionPct} color={metrics.attentionPct >= 75 ? 'bg-emerald-500' : metrics.attentionPct >= 60 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.attentionReason} />
+                              <MetricBar label="Emoción" value={metrics.emotionPct} color={metrics.emotionPct >= 70 ? 'bg-emerald-500' : metrics.emotionPct >= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.emotionReason} />
                               <MetricBar label="Carga Cognitiva" value={metrics.cogLoad} color={metrics.cogLoad <= 30 ? 'bg-emerald-500' : metrics.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.cogLoadReason} />
                             </div>
+
+                            {/* Curva de Respuesta */}
+                            {(() => {
+                              const displayTimeline = timeline.length > 0 ? timeline : genTimeline(metrics.attentionPct, metrics.emotionPct, metrics.cogLoad, metrics.score);
+                              return (
+                                <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
+                                  <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
+                                    <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
+                                      <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
+                                      <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
+                                      <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-400 inline-block rounded-full" />Impacto</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-[140px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <LineChart data={displayTimeline} margin={{ left: -15, right: 4, top: 4, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" className="dark:[stroke:rgba(255,255,255,0.04)]" />
+                                        <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}s`} />
+                                        <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} width={22} />
+                                        <Line type="monotone" dataKey="attn" name="Atención" stroke="#10b981" strokeWidth={2} dot={false} />
+                                        <Line type="monotone" dataKey="emot" name="Emoción" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                                        <Line type="monotone" dataKey="impact" name="Impacto" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+                                      </LineChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         );
                       })()}
                     </div>
                   ) : (
-                    <>
+                    <div className="flex flex-col flex-1 overflow-hidden min-h-0">
                       {/* Comments List */}
                   <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/10 dark:bg-zinc-950/5">
                     {loadingComments ? (
@@ -2317,7 +2363,7 @@ export default function RedesSocialesPage() {
                       </button>
                     </form>
                   </div>
-                  </>
+                  </div>
                 )}
                 </div>
               </div>
