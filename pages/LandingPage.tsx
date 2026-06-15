@@ -2,14 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-
-// Wraps accented vowels (á é í ó ú) in a violet span for visual rhythm
-const vt = (text: string): React.ReactNode =>
-  <>{text.split('').map((char, i) =>
-    /[áéíóúÁÉÍÓÚ]/.test(char)
-      ? <span key={i} className="text-violet-500">{char}</span>
-      : char
-  )}</>;
 import {
   AreaChart,
   Area,
@@ -508,11 +500,18 @@ export default function LandingPage() {
   const [selectedInboxConvId, setSelectedInboxConvId] = useState('conv1');
   const [inboxChannelFilter, setInboxChannelFilter] = useState<'all' | 'instagram' | 'facebook' | 'whatsapp'>('all');
   const [inboxConvStatuses, setInboxConvStatuses] = useState<Record<string, 'idle' | 'sending' | 'sent'>>({});
+  const [inboxOpenedIds, setInboxOpenedIds] = useState<Set<string>>(() => new Set(['conv1']));
   const [inboxMobileView, setInboxMobileView] = useState<'list' | 'chat'>('list');
 
   const getConvStatus = (id: string) => inboxConvStatuses[id] || 'idle';
+  const isInboxPending = (conv: typeof inboxConversations[number]) =>
+    conv.status === 'pending' && !inboxOpenedIds.has(conv.id) && getConvStatus(conv.id) !== 'sent';
+  const getInboxDisplayStatus = (conv: typeof inboxConversations[number]) => {
+    if (conv.status === 'answered' || getConvStatus(conv.id) === 'sent') return 'Respondido';
+    if (isInboxPending(conv)) return 'Pendiente';
+    return 'Visto';
+  };
   const selectedInboxConv = inboxConversations.find(c => c.id === selectedInboxConvId)!;
-  const selectedConvStatus = getConvStatus(selectedInboxConvId);
   const filteredInboxConvs = inboxChannelFilter === 'all'
     ? inboxConversations
     : inboxConversations.filter(c => c.channel === inboxChannelFilter);
@@ -529,6 +528,7 @@ export default function LandingPage() {
   // legacy reset (kept for compat)
   const handleResetChat = () => {
     setInboxConvStatuses({});
+    setInboxOpenedIds(new Set(['conv1']));
   };
 
   // Tabbed high-fidelity screenshots switcher
@@ -933,23 +933,23 @@ export default function LandingPage() {
   const faqs = [
     {
       q: '¿Qué integraciones puedo conectar y cuánto tiempo toma?',
-      a: 'Podés conectar Shopify, Tiendanube, WooCommerce, Mercado Libre, Google Ads, Meta Ads, TikTok Ads y Klaviyo en menos de 5 minutos. La integración se realiza mediante protocolos OAuth oficiales y seguros con un par de clics, sin requerir conocimientos técnicos ni programación.'
+      a: <>Podés conectar <strong>Shopify, Tiendanube, WooCommerce, Mercado Libre, Google Ads, Meta Ads, TikTok Ads y Klaviyo</strong> en menos de <strong>5 minutos</strong>. La conexión se hace con protocolos oficiales y seguros, sin programación.</>
     },
     {
       q: '¿Puedo cancelar mi suscripción en cualquier momento?',
-      a: 'Sí, absolutamente. No hay contratos de permanencia ni cláusulas ocultas. Podés dar de baja o pausar tu plan corporativo con un solo clic desde tu panel de facturación en el momento que quieras, sin ningún tipo de cargo adicional por cancelación.'
+      a: <>Sí. <strong>No hay permanencia ni cláusulas ocultas.</strong> Podés dar de baja o pausar tu plan desde el panel de facturación cuando quieras, sin cargos extra por cancelación.</>
     },
     {
       q: '¿Cómo ayuda el Cerebro de IA a automatizar mi soporte?',
-      a: 'La inteligencia artificial analiza el contenido de tu web, tus políticas y las preguntas frecuentes cargadas. A partir de allí, asiste a tus agentes de atención sugiriendo borradores de respuestas perfectas con stock y precios en tiempo real para despachar con un solo clic.'
+      a: <>El Cerebro de IA usa <strong>tu web, políticas, preguntas frecuentes, stock y precios</strong> para sugerir respuestas listas para enviar. La idea es que tu equipo responda más rápido sin perder contexto comercial.</>
     },
     {
       q: '¿Tienen soporte técnico durante la configuración inicial?',
-      a: 'Sí. Nuestro equipo técnico de soporte te guiará de forma personalizada y sin costo a través de videollamada para conectar todas tus tiendas y cuentas publicitarias paso a paso, asegurando que tu stock y campañas queden perfectamente integrados.'
+      a: <>Sí. Te guiamos paso a paso para conectar <strong>tiendas, cuentas publicitarias y mensajería</strong>. El objetivo es que la cuenta quede operativa desde el inicio, sin que tengas que adivinar qué hacer.</>
     },
     {
       q: '¿Cuántos agentes de atención o tiendas puedo configurar?',
-      a: 'Todos los que necesites. Nuestro plan de tarifa plana corporativo incluye agentes, sucursales y tiendas conectadas ilimitadas. No cobramos cargos sorpresa ni costos adicionales por usuario colaborador registrado.'
+      a: <>Podés configurar los que necesites. El plan incluye <strong>colaboradores, sucursales y tiendas conectadas</strong>, sin costos sorpresa por sumar usuarios al equipo.</>
     }
   ];
 
@@ -1051,7 +1051,7 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            {vt('Gestioná tu negocio online. Escalá tus ventas.')}
+            Gestioná tu negocio online. <span className="text-violet-500">Escalá tus ventas.</span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -1121,7 +1121,7 @@ export default function LandingPage() {
             {/* Screenshot — crossfade between tabs, no height jump */}
             <div
               className="relative cursor-zoom-in group overflow-hidden"
-              style={{ height: 'clamp(220px, 50vw, 520px)' }}
+              style={{ height: 'clamp(220px, 42vw, 455px)' }}
               onClick={() => setZoomImage(showcaseTabs.find(t => t.id === activeTabShowcase)?.img || null)}
             >
               {showcaseTabs.map(tab => (
@@ -1147,7 +1147,7 @@ export default function LandingPage() {
             {(() => {
               const activeTab = showcaseTabs.find(t => t.id === activeTabShowcase);
               return activeTab ? (
-                <div className={`min-h-[96px] sm:min-h-[78px] px-5 py-4 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
+                <div className={`px-5 py-3 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
                   <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-zinc-400 dark:bg-zinc-600" />
                   <div>
                     <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{activeTab.label}</p>
@@ -1251,7 +1251,7 @@ export default function LandingPage() {
               })}
               <div className="ml-auto flex items-center gap-1.5">
                 <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${darkMode ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-600 border border-amber-200/60'}`}>
-                  {inboxConversations.filter(c => (inboxChannelFilter === 'all' || c.channel === inboxChannelFilter) && c.status === 'pending' && getConvStatus(c.id) !== 'sent').length} pendientes
+                  {inboxConversations.filter(c => (inboxChannelFilter === 'all' || c.channel === inboxChannelFilter) && isInboxPending(c)).length} pendientes
                 </span>
               </div>
             </div>
@@ -1261,14 +1261,23 @@ export default function LandingPage() {
               <div className={`${inboxMobileView === 'chat' ? 'hidden sm:flex' : 'flex'} flex-col w-full sm:w-[220px] sm:max-w-[220px] border-r flex-shrink-0 overflow-y-auto ${darkMode ? 'border-white/[0.04]' : 'border-zinc-100'}`}>
                 {filteredInboxConvs.map(conv => {
                   const isSelected = conv.id === selectedInboxConvId;
-                  const convStatus = getConvStatus(conv.id);
-                  const isAnswered = conv.status === 'answered' || convStatus === 'sent';
+                  const displayStatus = getInboxDisplayStatus(conv);
                   const chDot = conv.channel === 'instagram' ? 'bg-pink-500' : conv.channel === 'facebook' ? 'bg-blue-500' : 'bg-emerald-500';
                   const chLabel = conv.channel === 'instagram' ? 'IG' : conv.channel === 'facebook' ? 'FB' : 'WA';
                   return (
                     <button
                       key={conv.id}
-                      onClick={() => { setSelectedInboxConvId(conv.id); setInboxMobileView('chat'); }}
+                      onClick={() => {
+                        setSelectedInboxConvId(conv.id);
+                        setInboxMobileView('chat');
+                        if (conv.status === 'pending') {
+                          setInboxOpenedIds(prev => {
+                            const next = new Set(prev);
+                            next.add(conv.id);
+                            return next;
+                          });
+                        }
+                      }}
                       className={`flex items-start gap-2.5 p-3 text-left border-b transition-all ${
                         isSelected
                           ? (darkMode ? 'bg-white/[0.04] border-white/[0.04]' : 'bg-violet-50/60 border-zinc-100')
@@ -1287,10 +1296,13 @@ export default function LandingPage() {
                         <p className={`text-[10px] truncate mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{conv.preview}</p>
                         <div className="flex items-center gap-1 mt-1">
                           <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${chDot} bg-opacity-15 ${conv.channel === 'instagram' ? 'text-pink-500' : conv.channel === 'facebook' ? 'text-blue-500' : 'text-emerald-500'}`}>{chLabel}</span>
-                          {!isAnswered && (
+                          {displayStatus === 'Pendiente' && (
                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500">Pendiente</span>
                           )}
-                          {isAnswered && (
+                          {displayStatus === 'Visto' && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-500">Visto</span>
+                          )}
+                          {displayStatus === 'Respondido' && (
                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500">Respondido</span>
                           )}
                         </div>
@@ -1323,11 +1335,13 @@ export default function LandingPage() {
                     </div>
                   </div>
                   <span className={`text-[8.5px] font-bold px-2 py-0.5 rounded-full border ${
-                    getConvStatus(selectedInboxConvId) === 'sent' || selectedInboxConv.status === 'answered'
+                    getInboxDisplayStatus(selectedInboxConv) === 'Respondido'
                       ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                      : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                      : getInboxDisplayStatus(selectedInboxConv) === 'Visto'
+                        ? 'bg-violet-500/10 text-violet-500 border-violet-500/20'
+                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                   }`}>
-                    {getConvStatus(selectedInboxConvId) === 'sent' || selectedInboxConv.status === 'answered' ? 'Respondido' : 'Pendiente'}
+                    {getInboxDisplayStatus(selectedInboxConv)}
                   </span>
                 </div>
 
@@ -1423,7 +1437,7 @@ export default function LandingPage() {
         <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="max-w-2xl space-y-4 text-left">
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
-              {vt('Control total de tu rentabilidad, sin planillas')}
+              Control total de tu <span className="text-violet-500">rentabilidad</span>, sin planillas
             </h3>
             <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
@@ -1874,7 +1888,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight font-display leading-tight mb-4 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              {vt('Todo lo que necesitás, en un solo lugar')}
+              Todo lo que necesitás, <span className="text-violet-500">en un solo lugar</span>
             </h2>
             <p className={`text-[14.5px] max-w-lg mx-auto leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               Cada módulo está diseñado para conectarse con el siguiente. Un ecosistema completo, no una colección de herramientas.
@@ -1984,7 +1998,7 @@ export default function LandingPage() {
               <p className="text-[11.5px] text-zinc-400 font-semibold mt-0.5">Sincronización total multitienda e IA.</p>
             </div>
             <div className="flex items-baseline gap-0.5">
-              <span className="text-3xl font-bold font-display text-zinc-900 dark:text-white">$ 49</span>
+              <span className="text-3xl font-bold font-display text-zinc-900 dark:text-white">$ 20</span>
               <span className="text-zinc-500 font-semibold text-[12px]">/ mes</span>
             </div>
           </div>
@@ -2039,7 +2053,7 @@ export default function LandingPage() {
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-zinc-600 dark:text-zinc-300' : 'text-zinc-400'}`} />
                 </button>
                 {isOpen && (
-                  <div className={`px-5 pb-4 text-[11.5px] sm:text-[12px] leading-relaxed font-medium border-t pt-3 animate-in fade-in duration-300 ${
+                  <div className={`px-5 pb-5 text-[13px] sm:text-[14px] leading-7 font-medium border-t pt-4 animate-in fade-in duration-300 [&>strong]:font-black [&>strong]:text-zinc-900 dark:[&>strong]:text-white ${
                     darkMode ? 'text-zinc-300 border-white/[0.03]' : 'text-zinc-500 border-zinc-100'
                   }`}>
                     {faq.a}
@@ -2054,7 +2068,7 @@ export default function LandingPage() {
       {/* Call to Action Final */}
       <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
         <div className="max-w-3xl mx-auto px-6 space-y-5">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">{vt('Empezá a vender más inteligente hoy')}</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender <span className="text-violet-500">más inteligente</span> hoy</h2>
           <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>
             Configuración en 5 minutos. Sin tarjeta de crédito.
           </p>

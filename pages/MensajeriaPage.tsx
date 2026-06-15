@@ -2308,7 +2308,10 @@ export default function MensajeriaPage() {
                       <div className="md:hidden px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-100 dark:border-zinc-900 sticky bottom-0 z-10">
                         <a href={contactUrl} target="_blank" rel="noreferrer"
                           className={`w-full flex items-center justify-center gap-2 py-3 ${btnColor} text-white text-[14px] font-black rounded-2xl active:scale-[0.98] transition-transform shadow-sm`}>
-                          <MessageCircle className="w-5 h-5" />
+                          {ch === 'whatsapp'
+                            ? <WhatsAppIcon className="w-5 h-5 text-white" />
+                            : <MessageCircle className="w-5 h-5" />
+                          }
                           {contactLabel}
                         </a>
                       </div>
@@ -2396,7 +2399,10 @@ export default function MensajeriaPage() {
                           {contactUrl && contactLabel && (
                             <a href={contactUrl} target="_blank" rel="noreferrer"
                               className={`w-full flex items-center justify-center gap-2 py-2.5 ${contactColor} text-white text-[12px] font-black rounded-xl transition-all shadow-sm active:scale-[0.98]`}>
-                              <MessageCircle className="w-4 h-4" />
+                              {ch === 'whatsapp'
+                                ? <WhatsAppIcon className="w-4 h-4 text-white" />
+                                : <MessageCircle className="w-4 h-4" />
+                              }
                               {contactLabel}
                             </a>
                           )}

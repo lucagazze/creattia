@@ -411,7 +411,7 @@ export default function MetaAdsPage() {
           .filter(Boolean)
       );
       setActiveAds((adsRes.data || []).filter((ad: any) => {
-        const isReallyActive = ad.status === 'ACTIVE' || ad.effective_status === 'ACTIVE' || ad.configured_status === 'ACTIVE';
+        const isReallyActive = ad.status === 'ACTIVE' || ad.effective_status === 'ACTIVE';
         return isReallyActive || spentAdIds.has(ad.id);
       }));
       const byAdId: Record<string, any> = {};
@@ -756,7 +756,7 @@ export default function MetaAdsPage() {
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
             <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"><Layers className="w-7 h-7 text-zinc-400" /></div>
             <p className="text-[15px] font-semibold text-zinc-500">No hay anuncios activos</p>
-            <p className="text-[13px] text-zinc-400">No se encontraron anuncios con estado ACTIVE en esta cuenta.</p>
+            <p className="text-[13px] text-zinc-400">No se encontraron anuncios activos ni anuncios con gasto en el período seleccionado.</p>
           </div>
         )}
 
