@@ -190,21 +190,56 @@ export default function MetaAdsPage() {
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
+  const [tribeResult, setTribeResult] = useState<any>(null);
 
   useEffect(() => {
     if (selectedAd) {
       setSlideTab('comments');
       setAnalyzingTribe(false);
+      setTribeResult(null);
     }
   }, [selectedAd]);
 
-  const handleTabChange = (tab: 'comments' | 'metrics') => {
+  const analyzeCreativeUrl = async (imageUrl: string | null, isVideo: boolean): Promise<any | null> => {
+    if (!imageUrl) return null;
+    try {
+      const r = await fetch(imageUrl);
+      if (!r.ok) return null;
+      const blob = await r.blob();
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const canvas = document.createElement('canvas');
+      const img = document.createElement('img');
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = b64; });
+      const scale = Math.min(1, 256 / Math.max(img.width, 1));
+      canvas.width = Math.floor(img.width * scale);
+      canvas.height = Math.floor(img.height * scale);
+      canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const frame = canvas.toDataURL('image/jpeg', 0.6);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+      const res = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ type: 'analyze-creative', frames: [frame], isVideo }),
+      });
+      if (res.ok) return await res.json();
+    } catch {}
+    return null;
+  };
+
+  const handleTabChange = (tab: 'comments' | 'metrics', imageUrl?: string, isVideo?: boolean) => {
     if (tab === 'metrics') {
       setAnalyzingTribe(true);
+      setTribeResult(null);
       setSlideTab('metrics');
-      setTimeout(() => {
-        setAnalyzingTribe(false);
-      }, 1000);
+      analyzeCreativeUrl(imageUrl || null, isVideo || false)
+        .then(result => { if (result) setTribeResult(result); })
+        .finally(() => setAnalyzingTribe(false));
     } else {
       setSlideTab('comments');
     }
@@ -369,7 +404,8 @@ export default function MetaAdsPage() {
       metaAds.getAdInsightsForAccount(accountId, adFields, tr).catch(() => []),
       metaAds.getCampaigns(accountId).catch(() => ({ data: [] })),
     ]).then(([adsRes, insightsRes, campsRes]) => {
-      setActiveAds((adsRes.data || []).filter((ad: any) => ad.status === 'ACTIVE'));
+      const insightIds = new Set((insightsRes || []).map((i: any) => i.ad_id).filter(Boolean));
+      setActiveAds((adsRes.data || []).filter((ad: any) => ad.status === 'ACTIVE' || insightIds.has(ad.id)));
       const byAdId: Record<string, any> = {};
       (insightsRes || []).forEach((i: any) => { if (i.ad_id) byAdId[i.ad_id] = i; });
       setAdInsightsMap(byAdId);
@@ -894,10 +930,6 @@ export default function MetaAdsPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="flex items-center gap-1 text-[10.5px] font-black text-violet-500 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/10">
-                          <Brain className="w-3 h-3" /> TRIBE v2
-                        </span>
-                        <span className="text-[11px] font-bold text-zinc-300 dark:text-zinc-700">|</span>
                         <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
                           <button
                             onClick={() => handleTabChange('comments')}
@@ -910,14 +942,21 @@ export default function MetaAdsPage() {
                             Comentarios
                           </button>
                           <button
-                            onClick={() => handleTabChange('metrics')}
+                            onClick={() => {
+                              const md = resolvedDetails[selectedAd.adId];
+                              const imageUrl = md?.type === 'video_source' ? (md.picture || thumbUrl) :
+                                md?.type === 'image' ? md.url :
+                                md?.type === 'carousel' ? (md.cards?.[0]?.url || thumbUrl) :
+                                thumbUrl;
+                              handleTabChange('metrics', imageUrl, md?.type === 'video_source');
+                            }}
                             className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
                               slideTab === 'metrics'
                                 ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
                                 : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
                             }`}
                           >
-                            Neurométricas
+                            Análisis de Creativo
                           </button>
                         </div>
                       </div>
@@ -1007,19 +1046,19 @@ export default function MetaAdsPage() {
                 )}
 
                 {/* Body */}
-                <div className={`${mobileTab === 'stats' ? 'hidden md:grid' : 'flex-1 overflow-hidden grid'} grid-cols-1 md:grid-cols-2 h-full`}>
+                <div className={`${mobileTab === 'stats' ? 'hidden md:grid' : 'flex-1 overflow-hidden grid'} grid-cols-1 md:grid-cols-5 h-full`}>
 
-                  {/* Left: creative + info (50%) */}
-                  <div className={`${mobileTab !== 'post' ? 'hidden md:flex' : 'flex'} flex-col border-r border-zinc-100 dark:border-zinc-800 p-5 overflow-y-auto space-y-4 bg-zinc-50/15 dark:bg-zinc-950/10 h-full`}>
+                  {/* Left: creative + info (40%) */}
+                  <div className={`${mobileTab !== 'post' ? 'hidden md:flex' : 'flex'} md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 h-full`}>
 
-                    {/* Creative — mismo patrón que RedesSociales */}
+                    {/* Creative */}
                     {(!mediaData || resolvingIds[selectedAd.adId]) ? (
-                      <div className="rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 aspect-[4/5] w-full flex-shrink-0 flex flex-col items-center justify-center gap-2">
+                      <div className="rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 aspect-square w-full flex-shrink-0 flex flex-col items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
                         <span className="text-[10px] text-zinc-400 font-bold">Cargando creativo...</span>
                       </div>
                     ) : mediaData.type === 'video_source' ? (
-                      <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm w-full aspect-[4/5] flex-shrink-0 relative flex items-center justify-center">
+                      <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm w-full aspect-square flex-shrink-0 relative flex items-center justify-center">
                         <video
                           src={mediaData.source || undefined}
                           poster={mediaData.picture || thumbUrl || undefined}
@@ -1033,7 +1072,7 @@ export default function MetaAdsPage() {
                     ) : mediaData.type === 'carousel' && mediaData.cards?.length > 0 ? (() => {
                       const card = mediaData.cards[panelCarouselIndex];
                       return (
-                        <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm w-full aspect-[4/5] flex-shrink-0 relative flex items-center justify-center">
+                        <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm w-full aspect-square flex-shrink-0 relative flex items-center justify-center">
                           {card.isVideo && card.videoSrc ? (
                             <video src={card.videoSrc} poster={card.url || undefined} controls preload="none" playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full h-full object-contain bg-black" />
                           ) : card.url ? (
@@ -1071,7 +1110,7 @@ export default function MetaAdsPage() {
                       });
                       return <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 w-full" style={{ height: 400 }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
                     })() : mediaData.type === 'image' || thumbUrl ? (
-                      <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200 dark:border-zinc-800 shadow-sm w-full aspect-[4/5] flex-shrink-0 relative flex items-center justify-center">
+                      <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200 dark:border-zinc-800 shadow-sm w-full aspect-square flex-shrink-0 relative flex items-center justify-center">
                         <SmoothImage
                           src={(mediaData.type === 'image' ? mediaData.url : thumbUrl) || ''}
                           alt={selectedAd.name}
@@ -1080,7 +1119,7 @@ export default function MetaAdsPage() {
                         />
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800 aspect-[4/5] w-full flex-shrink-0 flex flex-col items-center justify-center text-zinc-400 gap-2">
+                      <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800 aspect-square w-full flex-shrink-0 flex flex-col items-center justify-center text-zinc-400 gap-2">
                         <ImageIcon className="w-8 h-8" />
                         <span className="text-[11px] font-bold">Sin preview disponible</span>
                       </div>
@@ -1150,8 +1189,8 @@ export default function MetaAdsPage() {
                     </div>
                   </div>
 
-                  {/* Right: Comments (50%) */}
-                  <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} overflow-y-auto flex-col`}>
+                  {/* Right: Comments (60%) */}
+                  <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} md:col-span-3 overflow-y-auto flex-col`}>
                     {slideTab === 'metrics' ? (
                       <div className="flex-1 overflow-y-auto p-5 space-y-5">
                         {analyzingTribe ? (
@@ -1163,11 +1202,11 @@ export default function MetaAdsPage() {
                                 <Brain className="w-7 h-7 text-violet-500 animate-pulse" />
                               </div>
                             </div>
-                            <p className="text-[13px] font-bold text-zinc-700 dark:text-zinc-350">Analizando con TRIBE v2...</p>
-                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Simulando respuesta neuronal</p>
+                            <p className="text-[13px] font-bold text-zinc-700 dark:text-zinc-350">Analizando creativo con IA...</p>
+                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Procesando respuesta visual</p>
                           </div>
                         ) : (() => {
-                          const metrics = getObjectiveMetrics(selectedAd.adId, mediaData?.type === 'video_source');
+                          const metrics = tribeResult || getObjectiveMetrics(selectedAd.adId, mediaData?.type === 'video_source');
                           return (
                             <div className="space-y-5 text-left animate-in fade-in duration-200">
                               {/* Score global */}

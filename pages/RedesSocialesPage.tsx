@@ -209,21 +209,56 @@ export default function RedesSocialesPage() {
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
+  const [tribeResult, setTribeResult] = useState<any>(null);
 
   useEffect(() => {
     if (selectedPostId) {
       setSlideTab('comments');
       setAnalyzingTribe(false);
+      setTribeResult(null);
     }
   }, [selectedPostId]);
 
-  const handleTabChange = (tab: 'comments' | 'metrics') => {
+  const analyzeCreativeUrl = async (imageUrl: string | null, isVideo: boolean): Promise<any | null> => {
+    if (!imageUrl) return null;
+    try {
+      const r = await fetch(imageUrl);
+      if (!r.ok) return null;
+      const blob = await r.blob();
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const canvas = document.createElement('canvas');
+      const img = document.createElement('img');
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = b64; });
+      const scale = Math.min(1, 256 / Math.max(img.width, 1));
+      canvas.width = Math.floor(img.width * scale);
+      canvas.height = Math.floor(img.height * scale);
+      canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const frame = canvas.toDataURL('image/jpeg', 0.6);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+      const res = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ type: 'analyze-creative', frames: [frame], isVideo }),
+      });
+      if (res.ok) return await res.json();
+    } catch {}
+    return null;
+  };
+
+  const handleTabChange = (tab: 'comments' | 'metrics', imageUrl?: string, isVideo?: boolean) => {
     if (tab === 'metrics') {
       setAnalyzingTribe(true);
+      setTribeResult(null);
       setSlideTab('metrics');
-      setTimeout(() => {
-        setAnalyzingTribe(false);
-      }, 1000);
+      analyzeCreativeUrl(imageUrl || null, isVideo || false)
+        .then(result => { if (result) setTribeResult(result); })
+        .finally(() => setAnalyzingTribe(false));
     } else {
       setSlideTab('comments');
     }
@@ -1736,53 +1771,53 @@ export default function RedesSocialesPage() {
               
               {/* Header */}
               <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/85 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between flex-shrink-0">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1 text-[10.5px] font-black text-violet-500 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/10">
-                      <Brain className="w-3 h-3" /> TRIBE v2
-                    </span>
-                    <span className="text-[11px] font-bold text-zinc-300 dark:text-zinc-700">|</span>
-                    <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
-                      <button
-                        onClick={() => handleTabChange('comments')}
-                        className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
-                          slideTab === 'comments'
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
-                            : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
-                        }`}
-                      >
-                        Comentarios
-                      </button>
-                      <button
-                        onClick={() => handleTabChange('metrics')}
-                        className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
-                          slideTab === 'metrics'
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
-                            : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
-                        }`}
-                      >
-                        Neurométricas
-                      </button>
-                    </div>
-                  </div>
-                  {selectedPostPermalink && (
-                    <a 
-                      href={selectedPostPermalink} 
-                      target="_blank" 
-                      rel="noreferrer" 
-                      className="inline-flex items-center gap-1 text-[11px] text-violet-500 font-bold hover:underline mt-1.5"
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
+                    <button
+                      onClick={() => handleTabChange('comments')}
+                      className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
+                        slideTab === 'comments'
+                          ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
+                          : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
+                      }`}
                     >
-                      Ver original en la plataforma
+                      Comentarios
+                    </button>
+                    <button
+                      onClick={() => {
+                        const imageUrl = activePost?.media_url || activePost?.full_picture || activePost?.thumbnail_url || null;
+                        const isVid = activePost?.media_type === 'VIDEO' || !!activePost?.source;
+                        handleTabChange('metrics', imageUrl, isVid);
+                      }}
+                      className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
+                        slideTab === 'metrics'
+                          ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
+                          : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
+                      }`}
+                    >
+                      Análisis de Creativo
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {selectedPostPermalink && (
+                    <a
+                      href={selectedPostPermalink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 p-1.5 md:px-3 md:py-1.5 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl text-[11px] text-zinc-600 dark:text-zinc-300 font-bold border border-zinc-200 dark:border-zinc-700 transition-all"
+                    >
                       <ArrowUpRight className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">Ver original</span>
                     </a>
                   )}
+                  <button
+                    onClick={closeCommentsModal}
+                    className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-750 dark:text-zinc-400 dark:hover:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 active:scale-95 transition-all shadow-sm"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <button 
-                  onClick={closeCommentsModal}
-                  className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-750 dark:text-zinc-400 dark:hover:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 active:scale-95 transition-all shadow-sm"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
 
               {/* Mobile tab bar */}
@@ -1892,11 +1927,11 @@ export default function RedesSocialesPage() {
                               <Brain className="w-7 h-7 text-violet-500 animate-pulse" />
                             </div>
                           </div>
-                          <p className="text-[13px] font-bold text-zinc-700 dark:text-zinc-305">Analizando con TRIBE v2...</p>
+                          <p className="text-[13px] font-bold text-zinc-700 dark:text-zinc-305">Analizando creativo con IA...</p>
                           <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Simulando respuesta neuronal</p>
                         </div>
                       ) : (() => {
-                        const metrics = getObjectiveMetrics(selectedPostId, activePost?.media_type === 'VIDEO');
+                        const metrics = tribeResult || getObjectiveMetrics(selectedPostId, activePost?.media_type === 'VIDEO');
                         return (
                           <div className="space-y-5 text-left animate-in fade-in duration-200">
                             {/* Score global */}
