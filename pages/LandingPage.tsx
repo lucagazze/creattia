@@ -1017,17 +1017,17 @@ export default function LandingPage() {
           {/* Nav links — hidden on small screens */}
           <nav className="hidden md:flex items-center gap-1">
             {[
-              { label: 'Demo', href: '#interactive-demo' },
-              { label: 'Precio', href: '#pricing' },
-              { label: 'FAQ', href: '#faq' },
-            ].map(({ label, href }) => (
-              <a
+              { label: 'Demo', id: 'interactive-demo' },
+              { label: 'Precio', id: 'pricing' },
+              { label: 'FAQ', id: 'faq' },
+            ].map(({ label, id }) => (
+              <button
                 key={label}
-                href={href}
+                onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                 className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
               >
                 {label}
-              </a>
+              </button>
             ))}
           </nav>
 
@@ -1060,7 +1060,7 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            Gestioná tu negocio online. <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">Escalá tus ventas.</span>
+            Gestioná tu negocio online. Escalá tus ventas.
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -1487,7 +1487,7 @@ export default function LandingPage() {
         <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="max-w-2xl space-y-4 text-left">
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
-              Control total de tu <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">rentabilidad</span>, sin planillas
+              Control total de tu rentabilidad, sin planillas
             </h3>
             <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
@@ -2038,6 +2038,81 @@ export default function LandingPage() {
       </section>
 
 
+
+      {/* Testimonials */}
+      {(() => {
+        const testimonials = [
+          { name: 'Lucas Romero', role: 'Dueño de tienda Shopify', quote: 'Tenía 3 tiendas y me volvía loco con las planillas. Ahora entro al panel y en 2 minutos veo todo. Un cambio total.', initials: 'LR', color: '#7c3aed' },
+          { name: 'Valentina Suárez', role: 'E-commerce Manager', quote: 'Las métricas de Meta Ads integradas con la tienda me salvaron. Antes tardaba horas en cruzar los datos, ahora lo tengo al instante.', initials: 'VS', color: '#0ea5e9' },
+          { name: 'Martín Córdoba', role: 'Emprendedor digital', quote: 'El módulo de comentarios con IA es increíble. Redujimos el tiempo de respuesta un 70% y los clientes lo notaron.', initials: 'MC', color: '#10b981' },
+          { name: 'Sofía Méndez', role: 'Directora de Marketing', quote: 'Finalmente puedo ver mi ROAS real contra mi facturación. Tomé decisiones que me ahorraron mucho en pauta.', initials: 'SM', color: '#f59e0b' },
+          { name: 'Nicolás García', role: 'Tienda Tiendanube', quote: 'Conecté Shopify y Tiendanube a la vez y todo sincroniza solo. No lo podía creer. Antes lo hacía a mano cada semana.', initials: 'NG', color: '#ec4899' },
+          { name: 'Agustina Torres', role: 'Consultora de e-commerce', quote: 'El Cerebro de IA sugiere respuestas para los mensajes y son buenísimas. Mis clientes se sorprenden con la rapidez.', initials: 'AT', color: '#6366f1' },
+          { name: 'Fernando Díaz', role: 'Vendedor multicanal', quote: 'El inventario centralizado me evita el horror de quedarme sin stock sin darme cuenta. Ya me pasó una vez antes de usar esto.', initials: 'FD', color: '#14b8a6' },
+          { name: 'Carolina Villalba', role: 'Emprendedora textil', quote: 'Me ayudó a descubrir que mi mejor día para vender es el jueves. Nunca lo hubiera visto con las planillas antiguas.', initials: 'CV', color: '#f97316' },
+          { name: 'Diego Herrera', role: 'Agencia digital', quote: 'Para agencias como la mía es fundamental. Manejo 8 clientes desde un solo panel, cada uno con sus métricas separadas.', initials: 'DH', color: '#8b5cf6' },
+          { name: 'Julieta Paredes', role: 'Co-fundadora startup', quote: 'El informe semanal automático se lo mando a mis socios y ya no me preguntan más cómo vamos. Un ahorro de tiempo enorme.', initials: 'JP', color: '#06b6d4' },
+          { name: 'Sebastián Molina', role: 'Dueño de marca propia', quote: 'Migré de tener todo en Excel a esto. La diferencia es abismal. No entiendo cómo vivía sin un dashboard así.', initials: 'SB', color: '#84cc16' },
+          { name: 'Florencia Acosta', role: 'Growth Manager', quote: 'La integración con TikTok Ads llegó justo cuando la necesitaba. Todo en un solo lugar, sin exportar nada.', initials: 'FA', color: '#d946ef' },
+          { name: 'Rodrigo Vega', role: 'Performance marketer', quote: 'Ver el ticket promedio en tiempo real me cambió la forma de hacer campañas. Ahora escalo con datos, no con intuición.', initials: 'RV', color: '#f43f5e' },
+          { name: 'Camila Reyes', role: 'Moda online', quote: 'Empecé con el plan Starter y ya estoy en Corporativo. Vale cada peso. El retorno que me generó es enorme.', initials: 'CR', color: '#a855f7' },
+          { name: 'Tomás Fernández', role: 'Director de operaciones', quote: 'El soporte es rápido y el producto mejora constantemente. Se nota que hay gente detrás que entiende de e-commerce.', initials: 'TF', color: '#22c55e' },
+          { name: 'Lucía Benítez', role: 'Agencia de marketing', quote: 'En nuestra agencia usamos Algoritmia para todos los clientes. Imposible volver a la forma anterior.', initials: 'LB', color: '#3b82f6' },
+        ];
+        const row1 = [...testimonials.slice(0, 8), ...testimonials.slice(0, 8)];
+        const row2 = [...testimonials.slice(8), ...testimonials.slice(8)];
+        const stars = Array(5).fill(null);
+        const Card = ({ t }: { t: typeof testimonials[0] }) => (
+          <div className={`flex-shrink-0 w-[280px] rounded-2xl p-5 border ${darkMode ? 'bg-zinc-900/80 border-white/[0.06]' : 'bg-white border-zinc-200/60'} shadow-sm`}>
+            <div className="flex gap-0.5 mb-3">
+              {stars.map((_, i) => (
+                <svg key={i} className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              ))}
+            </div>
+            <p className={`text-[12.5px] leading-relaxed mb-4 ${darkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>"{t.quote}"</p>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-black flex-shrink-0" style={{ backgroundColor: t.color }}>{t.initials}</div>
+              <div>
+                <div className={`text-[11.5px] font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{t.name}</div>
+                <div className="text-[10px] text-zinc-400">{t.role}</div>
+              </div>
+              <div className="ml-auto flex-shrink-0">
+                <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
+                  Verificado
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+        return (
+          <section className={`py-20 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'} overflow-hidden`}>
+            <style>{`
+              @keyframes marquee-left { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+              @keyframes marquee-right { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+              .marquee-left { animation: marquee-left 40s linear infinite; }
+              .marquee-right { animation: marquee-right 44s linear infinite; }
+              .marquee-left:hover, .marquee-right:hover { animation-play-state: paused; }
+            `}</style>
+            <div className="max-w-5xl mx-auto px-6 text-center mb-12">
+              <p className={`text-[11px] font-bold uppercase tracking-widest mb-3 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Lo que dicen nuestros usuarios</p>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Miles de negocios ya gestionan mejor</h2>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="overflow-hidden">
+                <div className="marquee-left flex gap-4" style={{ width: 'max-content' }}>
+                  {row1.map((t, i) => <Card key={i} t={t} />)}
+                </div>
+              </div>
+              <div className="overflow-hidden">
+                <div className="marquee-right flex gap-4" style={{ width: 'max-content' }}>
+                  {row2.map((t, i) => <Card key={i} t={t} />)}
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Pricing — 3 plans */}
       <section id="pricing" className="py-20 max-w-5xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
