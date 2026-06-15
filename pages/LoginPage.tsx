@@ -150,22 +150,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-1">
-            {[
-              { label: 'Demo', hash: 'interactive-demo' },
-              { label: 'Precio', hash: 'pricing' },
-              { label: 'FAQ', hash: 'faq' },
-            ].map(item => (
-              <button
-                key={item.label}
-                onClick={() => navigate(`/#${item.hash}`)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-
           <div className="flex items-center gap-3">
             <button
               onClick={toggleDarkMode}

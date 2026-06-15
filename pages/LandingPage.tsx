@@ -1053,23 +1053,23 @@ export default function LandingPage() {
         .hero-image-layer { will-change: opacity; transform: translateZ(0); backface-visibility: hidden; }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+        <div className="max-w-6xl mx-auto px-6 h-[76px] flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-[26px] h-[26px] object-contain"
+              className="w-10 h-10 object-contain"
             />
             <div>
-              <span className="text-[11.5px] font-bold tracking-tight uppercase leading-none block font-display">
+              <span className="text-[15px] font-bold tracking-tight uppercase leading-none block font-display">
                 Algoritmia
               </span>
-              <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
+              <span className="text-[9.5px] font-bold text-violet-500 tracking-[0.24em] uppercase block mt-1">Gestión</span>
             </div>
           </div>
 
           {/* Nav links — hidden on small screens */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-1.5">
             {[
               { label: 'Demo', id: 'interactive-demo' },
               { label: 'Precio', id: 'pricing' },
@@ -1078,28 +1078,28 @@ export default function LandingPage() {
               <button
                 key={label}
                 onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-colors ${darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
+                className={`px-4 py-2.5 text-[14px] font-semibold rounded-lg transition-colors ${darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
               >
                 {label}
               </button>
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {/* Dark mode toggle — always visible */}
             <button
               onClick={toggleDarkMode}
-              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
+              className={`w-10 h-10 rounded-lg border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
                 darkMode ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-white border-zinc-200/60 text-zinc-500 hover:bg-zinc-50 shadow-sm'
               }`}
               aria-label="Cambiar tema"
             >
-              {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-500" />}
+              {darkMode ? <Sun className="w-[18px] h-[18px] text-amber-400" /> : <Moon className="w-[18px] h-[18px] text-zinc-500" />}
             </button>
             {/* Login button — always visible */}
             <Link
               to="/login"
-              className={`h-8 px-3.5 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
+              className={`h-10 px-5 rounded-lg text-[14px] font-bold flex items-center transition-all duration-200 ${
                 darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
               }`}
             >
@@ -1108,12 +1108,12 @@ export default function LandingPage() {
             {/* Hamburger — mobile only */}
             <button
               onClick={() => setMenuOpen(o => !o)}
-              className={`md:hidden w-8 h-8 rounded-lg border flex items-center justify-center transition-all active:scale-95 ${
+              className={`md:hidden w-10 h-10 rounded-lg border flex items-center justify-center transition-all active:scale-95 ${
                 darkMode ? 'bg-white/5 border-white/8 text-zinc-300 hover:bg-white/10' : 'bg-white border-zinc-200/60 text-zinc-600 hover:bg-zinc-50 shadow-sm'
               }`}
               aria-label="Abrir menú"
             >
-              {menuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -1141,7 +1141,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-24 sm:pt-36 pb-20 overflow-hidden">
+      <section className="relative pt-32 sm:pt-44 pb-20 overflow-hidden">
         {/* Subtle background halo */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-zinc-400/5 dark:bg-zinc-400/4 rounded-full blur-[120px] pointer-events-none" />
         
@@ -1162,7 +1162,7 @@ export default function LandingPage() {
                   darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100 shadow-white/10' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-zinc-900/20'
                 }`}
               >
-                Comenzar Prueba Gratis <ArrowRight className="w-4 h-4" />
+                Comenzar Prueba Gratis de 3 días <ArrowRight className="w-4 h-4" />
               </Link>
               <button
                 onClick={() => document.getElementById('interactive-demo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
@@ -1172,10 +1172,6 @@ export default function LandingPage() {
               >
                 Ver demo de la plataforma →
               </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className={`text-[12px] font-semibold ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Prueba gratis de 3 días · Sin tarjeta requerida</span>
             </div>
           </div>
  
@@ -1190,7 +1186,7 @@ export default function LandingPage() {
                   <button
                     key={tab.id}
                     onClick={() => { setAutoTabCycle(false); setActiveTabShowcase(tab.id as any); setHeroCycleKey(k => k + 1); }}
-                    className={`h-6 px-2.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center relative ${
+                    className={`h-6 md:h-[25px] px-2.5 rounded-md text-[10px] md:text-[11px] font-bold transition-all flex items-center justify-center relative ${
                       isActive
                         ? (darkMode ? 'bg-white/10 text-white border border-white/10' : 'bg-zinc-900 text-white shadow-sm')
                         : (darkMode ? 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/80')
@@ -1204,7 +1200,8 @@ export default function LandingPage() {
                 );
               })}
               {autoTabCycle && (
-                <span className={`ml-auto self-center text-[8.5px] font-semibold flex items-center gap-1 pr-1 ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                <span className={`ml-auto self-center text-[8.5px] md:text-[9.5px] font-semibold flex items-center gap-1 pr-1 ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                  <span className="hidden md:inline-block w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
                   <span className="animate-pulse">↑</span> Tocá para explorar
                 </span>
               )}
@@ -1245,11 +1242,11 @@ export default function LandingPage() {
             </div>
 
             {/* Tab description */}
-            <div className={`px-4 sm:px-5 py-3 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
+            <div className={`h-[142px] sm:h-[116px] md:h-[104px] px-4 sm:px-5 py-3 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
               <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-violet-500" />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 md:max-w-xl">
                 <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{activeShowcaseTab.label}</p>
-                <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium line-clamp-2 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeShowcaseTab.desc}</p>
+                <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeShowcaseTab.desc}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
@@ -1279,39 +1276,21 @@ export default function LandingPage() {
           CONEXIÓN DIRECTA CON TUS PLATAFORMAS PUBLICITARIAS Y DE E-COMMERCE
         </p>
 
-        {/* Mobile: static centered grid — clean and always visible */}
-        <div className="sm:hidden flex flex-wrap items-center justify-center gap-2.5 px-5">
-          {integrations.map((item) => (
-            <div
-              key={item.name}
-              className={`flex items-center gap-2 h-10 px-3.5 rounded-xl border ${darkMode ? 'bg-white/[0.03] border-white/[0.06] text-zinc-300' : 'bg-white border-zinc-200/80 text-zinc-700 shadow-sm'}`}
-            >
-              <img
-                src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
-                alt={item.name}
-                className={`${item.name === 'TikTok Ads' ? 'h-6' : 'h-5'} object-contain max-w-[72px]`}
-              />
-              <span className="text-[11px] font-semibold tracking-tight">{item.name}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Desktop: animated horizontal marquee */}
-        <div className="relative w-full hidden sm:flex overflow-hidden">
+        <div className="relative w-full flex overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
           <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
-          <div className="animate-marquee py-2 gap-8 md:gap-12">
+          <div className="animate-marquee py-2 gap-4 sm:gap-8 md:gap-12">
             {integrations.concat(integrations).map((item, idx) => (
               <div
                 key={`${item.name}-${idx}`}
-                className="flex items-center gap-3.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-5 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-emerald-500/10"
+                className="flex items-center gap-2.5 sm:gap-3.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-10 sm:h-12 px-3.5 sm:px-5 rounded-xl sm:rounded-2xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-emerald-500/10"
               >
                 <img
                   src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
                   alt={item.name}
-                  className={`${item.name === 'TikTok Ads' ? 'h-9' : 'h-7'} object-contain max-w-[120px]`}
+                  className={`${item.name === 'TikTok Ads' ? 'h-7 sm:h-9' : 'h-5 sm:h-7'} object-contain max-w-[84px] sm:max-w-[120px]`}
                 />
-                <span className="text-[12px] font-bold tracking-tight">{item.name}</span>
+                <span className="text-[11px] sm:text-[12px] font-bold tracking-tight whitespace-nowrap">{item.name}</span>
               </div>
             ))}
           </div>
@@ -1319,9 +1298,9 @@ export default function LandingPage() {
       </section>
 
       {/* Secciones Interactivas de Demostración del Producto */}
-      <section id="interactive-demo" className="pt-10 pb-20 max-w-5xl mx-auto px-6 flex flex-col gap-28">
+      <section id="interactive-demo" className="pt-10 pb-20 max-w-5xl mx-auto px-6 flex flex-col gap-8 sm:gap-10">
         
-        <div className="text-center max-w-2xl mx-auto mb-10 order-1">
+        <div className="text-center max-w-2xl mx-auto order-1">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Demo interactiva</h2>
           <p className={`text-[13px] mt-3 mb-8 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>Probá la plataforma en tiempo real. Todo funciona de verdad.</p>
           <div className="flex items-center justify-center gap-2">
@@ -2454,11 +2433,7 @@ export default function LandingPage() {
 
       {/* Floating free trial pill */}
       <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
-        <div className={`pointer-events-auto flex items-center gap-3 pl-4 pr-2 py-2 rounded-full shadow-lg border backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-500 ${darkMode ? 'bg-zinc-900/90 border-white/[0.08] text-white shadow-black/40' : 'bg-white/90 border-zinc-200/70 text-zinc-800 shadow-zinc-900/10'}`}>
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-            <span className="text-[11.5px] font-semibold whitespace-nowrap">Prueba gratis de 3 días · Sin tarjeta</span>
-          </div>
+        <div className={`pointer-events-auto flex items-center p-2 rounded-full shadow-lg border backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-500 ${darkMode ? 'bg-zinc-900/90 border-white/[0.08] text-white shadow-black/40' : 'bg-white/90 border-zinc-200/70 text-zinc-800 shadow-zinc-900/10'}`}>
           <Link
             to="/login"
             className={`h-7 px-3 rounded-full text-[11px] font-black flex items-center gap-1 transition-all duration-200 flex-shrink-0 ${darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
