@@ -1060,7 +1060,7 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            Gestioná tu negocio online. <span className="font-black underline decoration-violet-500 decoration-[3px] underline-offset-4">Escalá tus ventas.</span>
+            Gestioná tu negocio online. <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">Escalá tus ventas.</span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -1487,7 +1487,7 @@ export default function LandingPage() {
         <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="max-w-2xl space-y-4 text-left">
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
-              Control total de tu <span className="font-black underline decoration-violet-500 decoration-[3px] underline-offset-4">rentabilidad</span>, sin planillas
+              Control total de tu <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">rentabilidad</span>, sin planillas
             </h3>
             <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
@@ -1920,7 +1920,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight font-display leading-tight mb-4 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              Todo lo que necesitás, <span className="font-black underline decoration-violet-500 decoration-[3px] underline-offset-4">en un solo lugar</span>
+              Todo lo que necesitás, <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">en un solo lugar</span>
             </h2>
             <p className={`text-[14.5px] max-w-lg mx-auto leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               Cada módulo está diseñado para conectarse con el siguiente. Un ecosistema completo, no una colección de herramientas.
@@ -2127,7 +2127,7 @@ export default function LandingPage() {
       {/* Call to Action Final */}
       <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
         <div className="max-w-3xl mx-auto px-6 space-y-5">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender <span className="font-black underline decoration-violet-500 decoration-[3px] underline-offset-4">más inteligente</span> hoy</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">más inteligente</span> hoy</h2>
           <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>
             Configuración en 5 minutos. Sin tarjeta de crédito.
           </p>
