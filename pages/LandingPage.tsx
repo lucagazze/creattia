@@ -1008,7 +1008,7 @@ export default function LandingPage() {
   const activeShowcaseIndex = Math.max(0, showcaseTabs.findIndex(t => t.id === activeTabShowcase));
   const activeShowcaseTab = showcaseTabs[activeShowcaseIndex] || showcaseTabs[0];
   return (
-    <div className={`landing-page-text-bump min-h-screen font-sans selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
+    <div className={`min-h-screen font-sans selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
       
       {/* Estilos CSS Embebidos para Animaciones Marquee e Interactivas */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -1055,11 +1055,6 @@ export default function LandingPage() {
           will-change: transform;
         }
         .hero-image-layer { will-change: opacity; transform: translateZ(0); backface-visibility: hidden; }
-        @media (min-width: 768px) {
-          .landing-page-text-bump :where(h1, h2, h3, h4, p, span, a, button, li, label):not(.faq-answer *) {
-            font-size: calc(1em + 1px);
-          }
-        }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
         <div className="max-w-6xl mx-auto px-6 h-[76px] flex items-center justify-between">
