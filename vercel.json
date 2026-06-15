@@ -13,6 +13,10 @@
       "destination": "/api/oauth?action=shopify-callback"
     },
     {
+      "source": "/api/shopify-billing-callback",
+      "destination": "/api/oauth?action=shopify-billing-callback"
+    },
+    {
       "source": "/api/tiendanube-callback",
       "destination": "/api/oauth?action=tiendanube-callback"
     },

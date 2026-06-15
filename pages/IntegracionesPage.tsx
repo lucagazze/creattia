@@ -245,11 +245,16 @@ export default function IntegracionesPage() {
     const meta         = getQueryParam('meta');
     const mercadolibre = getQueryParam('mercadolibre');
     const tiktok       = getQueryParam('tiktok');
+    const billing      = getQueryParam('billing');
     const reason       = getQueryParam('reason');
 
     if (shopify === 'success') {
       setOauthResult({ platform: 'shopify', status: 'success' });
-      showToast('¡Shopify conectado exitosamente! ✓', 'success');
+      if (billing === 'declined') {
+        showToast('Shopify conectado. Podés activar tu suscripción desde Integraciones.', 'success');
+      } else {
+        showToast('¡Shopify conectado exitosamente! ✓', 'success');
+      }
       window.history.replaceState({}, '', '/#/integraciones');
       refreshProfile().then(() => loadClientData());
     } else if (shopify === 'error') {

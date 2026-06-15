@@ -362,7 +362,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!dbProfile) {
-      return res.status(403).json({ error: 'Access denied: Profile not found' });
+      // Auto-create profile for valid authenticated users who don't have one yet
+      // (handles race conditions during sign-up and direct Shopify App Store installs)
+      const email = user.email || '';
+      await supabase
+        .from('car_clients')
+        .insert({ user_id: user.id, business_name: email.split('@')[0] || 'Mi negocio' })
+        .select('id')
+        .maybeSingle();
+      const { data: retryProfile } = await supabase
+        .from('car_clients')
+        .select('id, is_admin')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!retryProfile) {
+        return res.status(403).json({ error: 'Access denied: Profile not found' });
+      }
+      dbProfile = retryProfile;
     }
 
     isAdmin = !!dbProfile.is_admin;
