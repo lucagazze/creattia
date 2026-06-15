@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useAIGate } from '../hooks/useAIGate';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
-import { 
-  Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X, 
+import {
+  Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X,
   ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play, Send, Brain
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -157,6 +158,7 @@ const AutoResizeTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizeTexta
 AutoResizeTextarea.displayName = 'AutoResizeTextarea';
 
 export default function RedesSocialesPage() {
+  const { gate, isReady: aiReady, AIGate } = useAIGate();
   const { isViewingAs, viewAsProfile } = useViewAs();
   const { profile: authProfile, user, loading: authLoading, session } = useAuth();
   const profile = isViewingAs ? viewAsProfile : authProfile;
@@ -284,6 +286,7 @@ export default function RedesSocialesPage() {
 
   // Bulk draft generation for all pending comments in the modal
   const handleBulkDrafts = async () => {
+    if (!aiReady) { gate(() => handleBulkDrafts()); return; }
     const pendingComments = comments.filter(c => isCommentPending(c));
     if (pendingComments.length === 0) return;
     
@@ -411,6 +414,7 @@ export default function RedesSocialesPage() {
   };
 
   const handlePendingDraft = async (item: { postCaption: string; postId: string; network: string; comment: any }) => {
+    if (!aiReady) { gate(() => handlePendingDraft(item)); return; }
     const commentId = item.comment.id;
     setPendingDraftLoading(prev => ({ ...prev, [commentId]: true }));
     try {
@@ -529,6 +533,7 @@ export default function RedesSocialesPage() {
 
   // Single comment AI draft generator (inline)
   const handleSingleCommentDraft = async (commentId: string, itemText: string, username: string, replyTarget?: any) => {
+    if (!aiReady) { gate(() => handleSingleCommentDraft(commentId, itemText, username, replyTarget)); return; }
     const target = replyTarget || { text: itemText, username };
     const text = target.text || target.message || '';
     const lang: 'en' | 'es' = target._forceLang || replyLangs[commentId] || detectLang(text);
@@ -610,6 +615,7 @@ export default function RedesSocialesPage() {
 
   const generateSocialCommentDraft = async () => {
     if (!replyingTo || !selectedPostId) return;
+    if (!aiReady) { gate(() => generateSocialCommentDraft()); return; }
     const commentToReply = comments.find(c => c.id === replyingTo.id);
     if (!commentToReply) return;
 
@@ -1118,6 +1124,7 @@ export default function RedesSocialesPage() {
 
   return (
     <CenteredPageLoader isLoading={loading || authLoading}>
+    {AIGate}
     <div className="space-y-5 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300">
 
       {/* Page Header */}

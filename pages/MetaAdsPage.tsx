@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import DOMPurify from 'dompurify';
+import { useAIGate } from '../hooks/useAIGate';
 import { metaAds, today, presetToRange, DatePreset } from '../services/metaAds';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -127,6 +128,7 @@ type SelectedAd = {
 };
 
 export default function MetaAdsPage() {
+  const { gate, isReady: aiReady, AIGate } = useAIGate();
   const { profile: authProfile, loading: authLoading, user } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
@@ -517,6 +519,7 @@ export default function MetaAdsPage() {
   // ── AI draft ─────────────────────────────────────────────────────────────────
   const generateDraft = async (comment: any, replyTarget?: any) => {
     if (!selectedAd || !clientId) return;
+    if (!aiReady) { gate(() => generateDraft(comment, replyTarget)); return; }
     const target = replyTarget || comment;
     const text = target.text || target.message || '';
     const lang: 'en' | 'es' = target._forceLang || replyLangs[comment.id] || detectLang(text);
@@ -634,6 +637,7 @@ export default function MetaAdsPage() {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <CenteredPageLoader isLoading={loading || authLoading}>
+      {AIGate}
       <div className="w-full animate-fade-in pb-20 pt-6 px-2 md:px-4 lg:px-6">
 
         {/* Header */}

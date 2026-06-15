@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAIGate } from '../hooks/useAIGate';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { chatwoot } from '../services/chatwoot';
@@ -187,6 +188,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function MensajeriaPage() {
+  const { gate, isReady: aiReady, AIGate } = useAIGate();
   const navigate = useNavigate();
   const location = useLocation();
   const { profile: authProfile, loading: authLoading, session } = useAuth();
@@ -825,6 +827,7 @@ export default function MensajeriaPage() {
 
   const generateAiDraft = async () => {
     if (!profile?.id || !selected || messages.length === 0) return;
+    if (!aiReady) { gate(() => generateAiDraft()); return; }
     setGeneratingDraft(true);
     setSendError(null);
     try {
@@ -1823,6 +1826,7 @@ export default function MensajeriaPage() {
 
   return (
     <CenteredPageLoader isLoading={!isFirstLoadDone}>
+      {AIGate}
       <div className="flex flex-col flex-1 min-h-0 w-full overflow-hidden bg-[#f5f5f7] dark:bg-[#0a0a0a]">
 
       {/* Top Header Bar */}

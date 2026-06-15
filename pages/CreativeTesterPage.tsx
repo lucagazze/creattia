@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useAIGate } from '../hooks/useAIGate';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { supabase } from '../services/supabase';
@@ -120,6 +121,7 @@ const MetricBar = ({ label, value, color, reason }: { label: string; value: numb
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function CreativeTesterPage() {
+  const { gate, isReady: aiReady, AIGate } = useAIGate();
   const { profile: authProfile, loading: authLoading, session } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
@@ -192,6 +194,7 @@ export default function CreativeTesterPage() {
   }, []);
 
   const analyze = async (sourceFile?: File, adThumbnailUrl?: string, adName?: string) => {
+    if (!aiReady) { gate(() => analyze(sourceFile, adThumbnailUrl, adName)); return; }
     setStatus('analyzing');
     setResult(null);
     setUsedMock(false);
@@ -281,6 +284,7 @@ export default function CreativeTesterPage() {
 
   return (
     <CenteredPageLoader isLoading={pageLoading || authLoading}>
+      {AIGate}
       <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6 px-4 md:px-0">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">

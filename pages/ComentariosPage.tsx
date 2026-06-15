@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useAIGate } from '../hooks/useAIGate';
 import {
   Instagram, MessageCircle, Loader2, RefreshCw, AlertCircle, MessageSquare,
   Sparkles, Send, Heart, X, ArrowUpRight, CheckCircle2, ThumbsUp, Play, Facebook,
@@ -131,6 +132,7 @@ type PostItem = {
 };
 
 export default function ComentariosPage() {
+  const { gate, isReady: aiReady, AIGate } = useAIGate();
   const { isViewingAs, viewAsProfile } = useViewAs();
   const { profile: authProfile, user, session } = useAuth();
   const profile = isViewingAs ? viewAsProfile : authProfile;
@@ -831,6 +833,7 @@ export default function ComentariosPage() {
   // Generate AI draft for one comment
   const generateDraft = async (comment: any, replyTarget?: any) => {
     if (!selectedPost || !clientId) return;
+    if (!aiReady) { gate(() => generateDraft(comment, replyTarget)); return; }
     const target = replyTarget || comment;
     const text = target.text || target.message || '';
     // _forceLang comes from clicking a specific flag in the dropdown
@@ -1071,6 +1074,7 @@ export default function ComentariosPage() {
 
   return (
     <CenteredPageLoader isLoading={loading}>
+    {AIGate}
     <div className="space-y-6 w-full pt-6 px-4 md:px-6 lg:px-8 animate-in fade-in duration-300">
       {/* Header */}
       <div className="page-header pb-4 border-b border-zinc-200/60 dark:border-zinc-800/60">
