@@ -60,6 +60,8 @@ const MockMetricCard = ({
   active,
   onClick,
   icon: Icon,
+  logoSrc,
+  logoAlt,
   darkMode
 }: any) => {
   const isPink = sparklineColor === '#ec4899';
@@ -77,15 +79,19 @@ const MockMetricCard = ({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col p-3.5 bg-white dark:bg-[#0f0f13] border rounded-[16px] transition-all text-left relative overflow-visible group w-full ${
+      className={`flex flex-col p-3.5 bg-white dark:bg-[#0f0f13] border rounded-[14px] transition-all text-left relative overflow-visible group w-full ${
         active
           ? activeBgClass
-          : (darkMode ? 'border-white/[0.04] hover:bg-white/[0.02]' : 'border-zinc-200/60 hover:bg-zinc-50')
+          : (darkMode ? 'border-white/[0.035] hover:bg-white/[0.02]' : 'border-zinc-200/45 hover:bg-zinc-50')
       }`}
     >
       <div className="flex items-center justify-between mb-2.5 w-full">
         <div className="flex items-center gap-1.5 min-w-0">
-          {Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: sparklineColor }} />}
+          {logoSrc ? (
+            <img src={logoSrc} alt={logoAlt || ''} className="w-4 h-4 object-contain flex-shrink-0" />
+          ) : (
+            Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: sparklineColor }} />
+          )}
           <span className="text-[9.5px] font-bold text-zinc-550 dark:text-zinc-450 uppercase tracking-widest truncate">
             {label}
           </span>
@@ -591,15 +597,15 @@ export default function LandingPage() {
   const transformRef = useRef<HTMLElement>(null);
 
   const showcaseTabs = [
-    { id: 'inicio', label: 'Dashboard', img: '/assets/landing_inicio.jpg', desc: 'Tu negocio al descubierto en una sola pantalla. Monitoreá ingresos acumulados, pedidos de tus canales de venta, productos estrella y métricas ejecutivas en tiempo real.' },
-    { id: 'mensajeria', label: 'Mensajería', img: '/assets/landing_mensajeria.jpg', desc: 'Bandeja omnicanal integrada para Instagram Direct, Facebook Messenger y WhatsApp. Automatizá la gestión diaria y redactá respuestas perfectas con el Cerebro de IA.' },
-    { id: 'creativos', label: 'Creativos', img: '/assets/landing_analisis.jpg', desc: 'Control absoluto de tus campañas en Meta Ads. Compará rendimiento, CTR, ROAS y gasto real por pieza creativa en un solo panel para optimizar tu presupuesto.' },
-    { id: 'comentarios', label: 'Comentarios', img: '/assets/landing_comentarios.jpg', desc: 'Moderación automatizada para posteos orgánicos y anuncios de pago. Respondé consultas, filtrá spam y canalizá interacciones hacia la compra al instante.' },
-    { id: 'pedidos', label: 'Pedidos', img: '/assets/landing_pedidos.jpg', desc: 'Visualización detallada del flujo de compras. Seguimiento de estado de envío, facturación integrada, pasarelas de pago y comportamiento del cliente.' },
-    { id: 'inventario', label: 'Inventario', img: '/assets/landing_inventario.jpg', desc: 'Sincronización total de tu catálogo. Modificá inventarios, variantes y precios y mirá cómo se propagan automáticamente en todas tus tiendas conectadas.' },
-    { id: 'analisis', label: 'Análisis', img: '/assets/landing_creativos.jpg', desc: 'Embudo de comportamiento inteligente por producto. Tasas de primer pedido (Entry Point), retención de clientes, valor de vida (LTV) y velocidad de recompra.' },
-    { id: 'perfil_dark', label: 'Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: 'Sincronización directa con Klaviyo. Automatizá secuencias de correos para carritos abandonados, bienvenida y retención, atribuyendo cada venta a su respectiva campaña.' },
-    { id: 'meta_ads', label: 'Meta Ads', img: '/assets/landing_meta_ads.jpg', desc: 'Estadísticas publicitarias unificadas. Medí alcance, conversiones, CTR, costo por adquisición (CPA) y ROAS exacto contrastado con ventas reales.' }
+    { id: 'inicio', label: 'Dashboard', img: '/assets/landing_inicio.jpg', desc: <>Tu negocio en una sola pantalla: <strong>ingresos</strong>, <strong>pedidos</strong>, productos estrella y métricas ejecutivas en tiempo real.</> },
+    { id: 'mensajeria', label: 'Mensajería', img: '/assets/landing_mensajeria.jpg', desc: <>Bandeja <strong>omnicanal</strong> para Instagram, Facebook y WhatsApp. Automatizá la gestión diaria con el <strong>Cerebro de IA</strong>.</> },
+    { id: 'creativos', label: 'Creativos', img: '/assets/landing_analisis.jpg', desc: <>Control absoluto de campañas en <strong>Meta Ads</strong>. Compará <strong>CTR, ROAS y gasto real</strong> por pieza creativa.</> },
+    { id: 'comentarios', label: 'Comentarios', img: '/assets/landing_comentarios.jpg', desc: <>Moderación automatizada para posteos y anuncios. Respondé consultas, filtrá <strong>spam</strong> y llevá interacciones hacia la <strong>compra</strong>.</> },
+    { id: 'pedidos', label: 'Pedidos', img: '/assets/landing_pedidos.jpg', desc: <>Visualización del <strong>flujo de compras</strong>: envíos, facturación, pasarelas de pago y comportamiento del cliente.</> },
+    { id: 'inventario', label: 'Inventario', img: '/assets/landing_inventario.jpg', desc: <>Sincronización total del <strong>catálogo</strong>. Cambiá inventarios, variantes y precios en todas tus tiendas conectadas.</> },
+    { id: 'analisis', label: 'Análisis', img: '/assets/landing_creativos.jpg', desc: <>Embudo inteligente por producto: <strong>Entry Point</strong>, retención, <strong>LTV</strong> y velocidad de recompra.</> },
+    { id: 'perfil_dark', label: 'Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: <>Sincronización con <strong>Klaviyo</strong>. Automatizá carritos abandonados, bienvenida y retención con <strong>ventas atribuidas</strong>.</> },
+    { id: 'meta_ads', label: 'Meta Ads', img: '/assets/landing_meta_ads.jpg', desc: <>Estadísticas publicitarias unificadas: <strong>alcance, conversiones, CPA</strong> y <strong>ROAS exacto</strong> contra ventas reales.</> }
   ];
 
   const toggleFaq = (index: number) => {
@@ -1057,18 +1063,18 @@ export default function LandingPage() {
         .hero-image-layer { will-change: opacity; transform: translateZ(0); backface-visibility: hidden; }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
-        <div className="max-w-6xl mx-auto px-6 h-[76px] flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 md:h-[76px] flex items-center justify-between">
+          <div className="flex items-center gap-2.5 md:gap-3.5">
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-10 h-10 object-contain"
+              className="w-8 h-8 md:w-10 md:h-10 object-contain"
             />
             <div>
-              <span className="text-[15px] font-bold tracking-tight uppercase leading-none block font-display">
+              <span className="text-[13px] md:text-[15px] font-bold tracking-tight uppercase leading-none block font-display">
                 Algoritmia
               </span>
-              <span className="text-[9.5px] font-bold text-violet-500 tracking-[0.24em] uppercase block mt-1">Gestión</span>
+              <span className="text-[8px] md:text-[9.5px] font-bold text-violet-500 tracking-[0.24em] uppercase block mt-0.5 md:mt-1">Gestión</span>
             </div>
           </div>
 
@@ -1090,10 +1096,10 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2.5">
-            {/* Dark mode toggle — always visible */}
+            {/* Dark mode toggle — desktop */}
             <button
               onClick={toggleDarkMode}
-              className={`w-10 h-10 rounded-lg border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
+              className={`hidden md:flex w-10 h-10 rounded-lg border items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
                 darkMode ? 'bg-zinc-900/80 border-zinc-500/35 text-zinc-400 hover:bg-zinc-800/90 hover:border-zinc-400/45 hover:text-zinc-100' : 'bg-white border-zinc-200/60 text-zinc-500 hover:bg-zinc-50 shadow-sm'
               }`}
               aria-label="Cambiar tema"
@@ -1103,7 +1109,7 @@ export default function LandingPage() {
             {/* Login button — always visible */}
             <Link
               to="/login"
-              className={`h-10 px-5 rounded-lg text-[14px] font-bold flex items-center transition-all duration-200 ${
+              className={`h-9 md:h-10 px-4 md:px-5 rounded-lg text-[12px] md:text-[14px] font-bold flex items-center transition-all duration-200 ${
                 darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
               }`}
             >
@@ -1112,7 +1118,7 @@ export default function LandingPage() {
             {/* Hamburger — mobile only */}
             <button
               onClick={() => setMenuOpen(o => !o)}
-              className={`md:hidden w-10 h-10 rounded-lg border flex items-center justify-center transition-all active:scale-95 ${
+              className={`md:hidden w-9 h-9 rounded-lg border flex items-center justify-center transition-all active:scale-95 ${
                 darkMode ? 'bg-zinc-900/80 border-zinc-500/35 text-zinc-300 hover:bg-zinc-800/90 hover:border-zinc-400/45' : 'bg-white border-zinc-200/60 text-zinc-600 hover:bg-zinc-50 shadow-sm'
               }`}
               aria-label="Abrir menú"
@@ -1122,27 +1128,83 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Mobile nav dropdown */}
-        {menuOpen && (
-          <div className={`md:hidden border-t ${darkMode ? 'border-white/[0.05] bg-[#030303]/95' : 'border-zinc-200/50 bg-[#fafafc]/95'} backdrop-blur-md`}>
-            <nav className="max-w-6xl mx-auto px-6 py-3 flex flex-col gap-0.5">
-              {[
-                { label: 'Demo interactiva', id: 'interactive-demo' },
-                { label: 'Precio', id: 'pricing' },
-                { label: 'Preguntas frecuentes', id: 'faq' },
-              ].map(({ label, id }) => (
-                <button
-                  key={label}
-                  onClick={() => { setMenuOpen(false); setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
-                  className={`w-full text-left px-3 py-2.5 text-[13px] font-semibold rounded-lg transition-colors ${darkMode ? 'text-zinc-300 hover:text-white hover:bg-white/5' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        )}
       </header>
+      {/* Mobile side menu */}
+      <div
+        className={`fixed inset-0 z-[280] md:hidden bg-black/40 backdrop-blur-md transition-opacity duration-300 ${
+          menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setMenuOpen(false)}
+      />
+      <aside
+        className={`fixed inset-y-0 left-0 z-[300] md:hidden w-[220px] flex flex-col border-r transition-all duration-300 ease-in-out ${
+          darkMode ? 'bg-[#09090b] border-white/[0.05]' : 'bg-white border-zinc-200'
+        } ${menuOpen ? 'translate-x-0 shadow-[20px_0_60px_rgba(0,0,0,0.2)]' : '-translate-x-full'}`}
+      >
+        <div className={`h-[76px] flex items-center px-5 border-b flex-shrink-0 ${darkMode ? 'border-white/[0.03]' : 'border-zinc-100'}`}>
+          <div className="flex items-center gap-3.5">
+            <img
+              src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
+              alt="Algoritmia"
+              className="w-10 h-10 object-contain"
+            />
+            <div className="flex flex-col">
+              <span className={`text-[15px] font-black tracking-tighter leading-none uppercase font-display ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+                Algoritmia
+              </span>
+              <span className="text-[9.5px] font-bold text-violet-500 tracking-[0.2em] mt-1 uppercase">Gestión</span>
+            </div>
+          </div>
+          <button
+            className={`ml-auto p-1.5 rounded-xl transition-all ${darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100'}`}
+            onClick={() => setMenuOpen(false)}
+            aria-label="Cerrar menú"
+          >
+            <X className="w-[18px] h-[18px]" />
+          </button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-5 px-3 space-y-7 scrollbar-hide">
+          <div className="space-y-1">
+            <p className={`text-[10px] font-bold uppercase tracking-[0.2em] px-3.5 mb-2.5 select-none ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
+              Navegación
+            </p>
+            {[
+              { label: 'Demo interactiva', id: 'interactive-demo' },
+              { label: 'Precio', id: 'pricing' },
+              { label: 'Preguntas frecuentes', id: 'faq' },
+            ].map(({ label, id }) => (
+              <button
+                key={label}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 280);
+                }}
+                className={`w-full flex items-center h-10 px-3.5 rounded-xl text-[13px] font-bold transition-all ${
+                  darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/[0.04]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-1">
+            <p className={`text-[10px] font-bold uppercase tracking-[0.2em] px-3.5 mb-2.5 select-none ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
+              Apariencia
+            </p>
+            <button
+              onClick={toggleDarkMode}
+              className={`w-full flex items-center justify-between h-10 px-3.5 rounded-xl text-[13px] font-bold transition-all ${
+                darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/[0.04]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+              }`}
+            >
+              <span>{darkMode ? 'Modo claro' : 'Modo oscuro'}</span>
+              {darkMode ? <Sun className="w-[18px] h-[18px] text-amber-400" /> : <Moon className="w-[18px] h-[18px]" />}
+            </button>
+          </div>
+        </nav>
+      </aside>
 
       {/* Hero Section */}
       <section className="relative pt-32 sm:pt-44 pb-20 overflow-hidden">
@@ -1151,7 +1213,11 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className={`font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 text-4xl sm:text-5xl md:text-[62px] lg:text-[72px] font-black leading-[1.1] ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-            Gestioná tu negocio online. <span className="text-violet-500 dark:text-violet-400">Escalá tus ventas.</span>
+            Gestioná tu negocio online.{' '}
+            <span className="relative inline-block">
+              Escalá tus ventas.
+              <span className="absolute left-0 right-0 -bottom-1.5 h-1.5 rounded-full bg-violet-500/45 dark:bg-violet-400/45" />
+            </span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -1180,7 +1246,7 @@ export default function LandingPage() {
           </div>
  
           {/* High-Fidelity Showcase Gallery */}
-          <div id="platform-showcase" className={`relative max-w-5xl mx-auto mt-10 -mx-6 sm:mx-auto rounded-none sm:rounded-2xl border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.06]' : 'bg-white border-zinc-200/50'}`}>
+          <div id="platform-showcase" className={`relative max-w-5xl mx-auto mt-10 -mx-6 sm:mx-auto rounded-none sm:rounded-[18px] border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.04]' : 'bg-white border-zinc-200/40'}`}>
 
             {/* Tab Selector — responsive wrap */}
             <div className={`flex flex-wrap border-b p-1.5 gap-1 ${darkMode ? 'border-white/[0.05] bg-zinc-950/50' : 'border-zinc-200/50 bg-zinc-50/40'}`}>
@@ -1203,12 +1269,6 @@ export default function LandingPage() {
                   </button>
                 );
               })}
-              {autoTabCycle && (
-                <span className={`ml-auto self-center text-[8.5px] md:text-[9.5px] font-semibold flex items-center gap-1 pr-1 ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>
-                  <span className="hidden md:inline-block w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
-                  <span className="animate-pulse">↑</span> Tocá para explorar
-                </span>
-              )}
             </div>
 
             {/* Progress bar — fills over 4s before each auto-cycle switch */}
@@ -1250,7 +1310,7 @@ export default function LandingPage() {
               <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-violet-500" />
               <div className="min-w-0 flex-1 md:max-w-xl">
                 <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{activeShowcaseTab.label}</p>
-                <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeShowcaseTab.desc}</p>
+                <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium [&_strong]:font-black ${darkMode ? 'text-zinc-300 [&_strong]:text-zinc-100' : 'text-zinc-500 [&_strong]:text-zinc-800'}`}>{activeShowcaseTab.desc}</p>
               </div>
                   </div>
 
@@ -1282,6 +1342,23 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+        </div>
+        <div className="max-w-4xl mx-auto px-6 pt-5 flex flex-wrap items-center justify-center gap-2.5">
+          {[
+            { label: 'Shopify Partners', logo: '/assets/shopify-bag.webp' },
+            { label: 'Tiendanube Partners', logo: darkMode ? '/assets/tiendanube.webp' : '/assets/tiendanubeoscuro.png' },
+            { label: 'Meta Ads Partners', logo: '/assets/meta (1).webp' },
+          ].map(partner => (
+            <div
+              key={partner.label}
+              className={`h-9 px-3.5 rounded-full border flex items-center gap-2 text-[10.5px] font-black tracking-tight ${
+                darkMode ? 'bg-white/[0.03] border-white/[0.07] text-zinc-300' : 'bg-white border-zinc-200/70 text-zinc-700 shadow-sm'
+              }`}
+            >
+              <img src={partner.logo} alt="" className="w-4 h-4 object-contain" />
+              {partner.label}
+            </div>
+          ))}
         </div>
       </section>
 
@@ -1324,7 +1401,7 @@ export default function LandingPage() {
           </div>
 
           {/* Full inbox widget */}
-          <div className={`min-w-0 rounded-2xl border overflow-hidden shadow-lg ${darkMode ? 'bg-zinc-900/60 border-white/[0.06]' : 'bg-white border-zinc-200/60'}`}>
+          <div className={`min-w-0 rounded-[18px] border overflow-hidden shadow-lg ${darkMode ? 'bg-zinc-900/60 border-white/[0.04]' : 'bg-white border-zinc-200/40'}`}>
             {/* Top bar — channel filter */}
             <div className={`flex items-center gap-1.5 px-3 py-2 border-b ${darkMode ? 'border-white/[0.04] bg-zinc-950/40' : 'border-zinc-100 bg-zinc-50/60'}`}>
               {(['all', 'instagram', 'facebook', 'whatsapp'] as const).map(ch => {
@@ -1567,8 +1644,8 @@ export default function LandingPage() {
           </div>
 
           {/* Simulador Interactivo de Métricas (Dashboard Real de la App) */}
-          <div className="w-full rounded-3xl border p-1.5 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-xl">
-            <div className={`rounded-2xl border ${darkMode ? 'bg-[#060608] border-white/[0.04]' : 'bg-white border-zinc-200/60'} overflow-hidden p-4 flex flex-col`}>
+          <div className="w-full rounded-[22px] border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/35 dark:border-white/[0.035] shadow-xl">
+            <div className={`rounded-[18px] border ${darkMode ? 'bg-[#060608] border-white/[0.035]' : 'bg-white border-zinc-200/45'} overflow-hidden p-4 flex flex-col`}>
               
               {/* Dashboard Header */}
               <div className="flex items-center justify-between border-b border-zinc-200/40 dark:border-white/[0.04] pb-3.5">
@@ -1602,7 +1679,7 @@ export default function LandingPage() {
                 {/* 1. SECCIÓN: TIENDA ONLINE */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 px-1">
-                    <ShoppingBag className="w-4 h-4 text-pink-500 shrink-0" />
+                    <img src="/assets/shopify-bag.webp" alt="" className="w-4 h-4 object-contain shrink-0" />
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-display">Tienda Online</span>
                     <div className="flex items-center gap-1 ml-auto">
                       <span className="text-[8.5px] text-zinc-400 dark:text-zinc-500 font-semibold">Shopify & Tiendanube</span>
@@ -1618,7 +1695,8 @@ export default function LandingPage() {
                       change="13.9"
                       trend="up"
                       sparklineColor="#ec4899"
-                      icon={Receipt}
+                      logoSrc="/assets/shopify-bag.webp"
+                      logoAlt="Shopify"
                       active={expandedMetric === 's-aov'}
                       onClick={() => setExpandedMetric(expandedMetric === 's-aov' ? null : 's-aov')}
                       darkMode={darkMode}
@@ -1630,7 +1708,8 @@ export default function LandingPage() {
                       change="16.9"
                       trend="up"
                       sparklineColor="#ec4899"
-                      icon={Package}
+                      logoSrc={darkMode ? '/assets/tiendanube.webp' : '/assets/tiendanubeoscuro.png'}
+                      logoAlt="Tiendanube"
                       active={expandedMetric === 's-orders'}
                       onClick={() => setExpandedMetric(expandedMetric === 's-orders' ? null : 's-orders')}
                       darkMode={darkMode}
@@ -1642,7 +1721,8 @@ export default function LandingPage() {
                       change="5.3"
                       trend="up"
                       sparklineColor="#ec4899"
-                      icon={DollarSign}
+                      logoSrc="/assets/shopify-bag.webp"
+                      logoAlt="Shopify"
                       active={expandedMetric === 's-revenue'}
                       onClick={() => setExpandedMetric(expandedMetric === 's-revenue' ? null : 's-revenue')}
                       darkMode={darkMode}
@@ -1671,7 +1751,7 @@ export default function LandingPage() {
                 {/* 2. SECCIÓN: PUBLICIDAD DE META ADS */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 px-1 pt-1.5">
-                    <svg className="w-4 h-4 text-violet-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M13.028 23.956C18.943 23.302 23.5 18.261 23.5 12.135c0-6.35-5.149-11.5-11.5-11.5S.5 5.785.5 12.135c0 5.73 4.172 10.486 9.668 11.368V15.63H7.445v-3.495h2.723V9.72c0-2.682 1.597-4.163 4.04-4.163 1.171 0 2.395.21 2.395.21v2.634h-1.35c-1.33 0-1.745.825-1.745 1.671v2.01h2.97l-.474 3.494h-2.496v7.873a11.554 11.554 0 0 0 1.52-.494z"/></svg>
+                    <img src="/assets/meta (1).webp" alt="" className="w-4 h-4 object-contain shrink-0" />
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-display">Meta Ads</span>
                     <div className="flex items-center gap-1 ml-auto">
                       <span className="text-[8.5px] text-zinc-400 dark:text-zinc-500 font-semibold">Facebook & Instagram Ads</span>
@@ -1687,7 +1767,8 @@ export default function LandingPage() {
                       change="27.5"
                       trend="up"
                       sparklineColor="#10b981"
-                      icon={DollarSign}
+                      logoSrc="/assets/meta (1).webp"
+                      logoAlt="Meta Ads"
                       active={expandedMetric === 'meta-inversion'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-inversion' ? null : 'meta-inversion')}
                       darkMode={darkMode}
@@ -1699,7 +1780,8 @@ export default function LandingPage() {
                       change="0.3"
                       trend="down"
                       sparklineColor="#10b981"
-                      icon={Users}
+                      logoSrc="/assets/meta (1).webp"
+                      logoAlt="Meta Ads"
                       active={expandedMetric === 'meta-alcance'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-alcance' ? null : 'meta-alcance')}
                       darkMode={darkMode}
@@ -1711,7 +1793,8 @@ export default function LandingPage() {
                       change="22.9"
                       trend="down"
                       sparklineColor="#10b981"
-                      icon={Package}
+                      logoSrc="/assets/meta (1).webp"
+                      logoAlt="Meta Ads"
                       active={expandedMetric === 'meta-compras'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-compras' ? null : 'meta-compras')}
                       darkMode={darkMode}
@@ -1723,7 +1806,8 @@ export default function LandingPage() {
                       change="32.3"
                       trend="down"
                       sparklineColor="#10b981"
-                      icon={TrendingUp}
+                      logoSrc="/assets/meta (1).webp"
+                      logoAlt="Meta Ads"
                       active={expandedMetric === 'meta-roas'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-roas' ? null : 'meta-roas')}
                       darkMode={darkMode}
@@ -1735,7 +1819,8 @@ export default function LandingPage() {
                       change="13.7"
                       trend="up"
                       sparklineColor="#10b981"
-                      icon={DollarSign}
+                      logoSrc="/assets/meta (1).webp"
+                      logoAlt="Meta Ads"
                       active={expandedMetric === 'meta-retorno'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-retorno' ? null : 'meta-retorno')}
                       darkMode={darkMode}
@@ -1766,7 +1851,7 @@ export default function LandingPage() {
                 {/* 3. SECCIÓN: EMAIL MARKETING (KLAVIYO) */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 px-1 pt-1.5">
-                    <Mail className="w-4 h-4 text-violet-500 shrink-0" />
+                    <img src="/assets/Klaviyo-Logo-Photoroom.webp" alt="" className="w-4 h-4 object-contain shrink-0" />
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-display">Email Marketing</span>
                     <div className="flex items-center gap-1 ml-auto">
                       <span className="text-[8.5px] text-zinc-400 dark:text-zinc-500 font-semibold">Sincronizado con Klaviyo</span>
@@ -1782,7 +1867,8 @@ export default function LandingPage() {
                       change="406.4"
                       trend="up"
                       sparklineColor="#10b981"
-                      icon={Mail}
+                      logoSrc="/assets/Klaviyo-Logo-Photoroom.webp"
+                      logoAlt="Klaviyo"
                       active={expandedMetric === 'email-sent'}
                       onClick={() => setExpandedMetric(expandedMetric === 'email-sent' ? null : 'email-sent')}
                       darkMode={darkMode}
@@ -1794,7 +1880,8 @@ export default function LandingPage() {
                       change="4.0"
                       trend="up"
                       sparklineColor="#10b981"
-                      icon={MailOpen}
+                      logoSrc="/assets/Klaviyo-Logo-Photoroom.webp"
+                      logoAlt="Klaviyo"
                       active={expandedMetric === 'email-open'}
                       onClick={() => setExpandedMetric(expandedMetric === 'email-open' ? null : 'email-open')}
                       darkMode={darkMode}
@@ -1806,7 +1893,8 @@ export default function LandingPage() {
                       change="63.5"
                       trend="up"
                       sparklineColor="#10b981"
-                      icon={MousePointerClick}
+                      logoSrc="/assets/Klaviyo-Logo-Photoroom.webp"
+                      logoAlt="Klaviyo"
                       active={expandedMetric === 'email-click'}
                       onClick={() => setExpandedMetric(expandedMetric === 'email-click' ? null : 'email-click')}
                       darkMode={darkMode}
@@ -1818,7 +1906,8 @@ export default function LandingPage() {
                       change="393.1"
                       trend="up"
                       sparklineColor="#10b981"
-                      icon={DollarSign}
+                      logoSrc="/assets/Klaviyo-Logo-Photoroom.webp"
+                      logoAlt="Klaviyo"
                       active={expandedMetric === 'email-revenue'}
                       onClick={() => setExpandedMetric(expandedMetric === 'email-revenue' ? null : 'email-revenue')}
                       darkMode={darkMode}
@@ -1877,10 +1966,10 @@ export default function LandingPage() {
                 <div
                   key={creative.id}
                   onClick={() => { setSelectedSimCreativeId(creative.id); setSimModalTab('comments'); }}
-                  className={`rounded-2xl border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col cursor-pointer ${
+                  className={`rounded-[18px] border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col cursor-pointer ${
                     darkMode
-                      ? 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
-                      : 'bg-white border-zinc-100 hover:border-zinc-300'
+                      ? 'bg-zinc-900/50 border-white/[0.04] hover:border-white/[0.08]'
+                      : 'bg-white border-zinc-200/40 hover:border-zinc-300/70'
                   }`}
                 >
                   {/* Image/Video — exacto al diseño de la app */}
@@ -2044,10 +2133,10 @@ export default function LandingPage() {
               <div
                 key={i}
                 style={{ transitionDelay: `${i * 60}ms` }}
-                className={`p-5 rounded-2xl border transition-all duration-700 ease-out ${transformVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${
+                className={`p-5 rounded-[18px] border transition-all duration-700 ease-out ${transformVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${
                   darkMode
-                    ? 'bg-zinc-900/40 border-white/[0.05] hover:border-white/10 hover:bg-zinc-900/60'
-                    : 'bg-white border-zinc-200/60 hover:border-zinc-300 shadow-sm hover:shadow-md'
+                    ? 'bg-zinc-900/40 border-white/[0.04] hover:border-white/[0.08] hover:bg-zinc-900/60'
+                    : 'bg-white border-zinc-200/40 hover:border-zinc-300/70 shadow-sm hover:shadow-md'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-4">
@@ -2056,7 +2145,7 @@ export default function LandingPage() {
                       key={logo.alt}
                       title={logo.alt}
                       className={`w-9 h-9 rounded-xl border flex items-center justify-center ${
-                        darkMode ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-zinc-50 border-zinc-200/70'
+                        darkMode ? 'bg-white/[0.03] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/45'
                       }`}
                     >
                       {logo.icon === 'instagram' ? (
@@ -2387,7 +2476,7 @@ export default function LandingPage() {
             <div className="space-y-3">
               <p className="text-[10px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Legal</p>
               <div className="space-y-2">
-                {[{ label: 'Políticas de Privacidad', to: '/privacidad' }, { label: 'Términos de Uso', to: '/privacidad' }, { label: 'Seguridad de Datos', to: '/privacidad' }].map(l => (
+                {[{ label: 'Políticas de Privacidad', to: '/privacidad' }, { label: 'Términos de Uso', to: '/terminos' }, { label: 'Seguridad de Datos', to: '/privacidad' }].map(l => (
                   <Link key={l.label} to={l.to} className="block text-[10.5px] hover:underline">{l.label}</Link>
                 ))}
               </div>
@@ -2396,8 +2485,12 @@ export default function LandingPage() {
             <div className="space-y-3">
               <p className="text-[10px] font-black text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">Soporte</p>
               <div className="space-y-2">
-                {[{ label: 'Centro de soporte', href: '#' }, { label: 'WhatsApp +54 9 3476 24-5523', href: 'https://wa.me/5493476245523' }, { label: 'algoritmia@soporte.com', href: 'mailto:algoritmia@soporte.com' }].map(l => (
+                {[{ label: 'Centro de soporte', href: '/soporte' }, { label: 'WhatsApp +54 9 3476 24-5523', href: 'https://wa.me/5493476245523' }, { label: 'algoritmia@soporte.com', href: 'mailto:algoritmia@soporte.com' }].map(l => (
+                  l.href.startsWith('/') ? (
+                    <Link key={l.label} to={l.href} className="block text-[10.5px] hover:underline">{l.label}</Link>
+                  ) : (
                   <a key={l.label} href={l.href} target={l.href.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" className="block text-[10.5px] hover:underline">{l.label}</a>
+                  )
                 ))}
               </div>
             </div>
@@ -2407,9 +2500,9 @@ export default function LandingPage() {
             <div className="flex items-center gap-4">
               <Link to="/privacidad" className="hover:underline">Privacidad</Link>
               <span className={darkMode ? 'text-zinc-700' : 'text-zinc-300'}>•</span>
-              <Link to="/privacidad" className="hover:underline">Términos</Link>
+              <Link to="/terminos" className="hover:underline">Términos</Link>
               <span className={darkMode ? 'text-zinc-700' : 'text-zinc-300'}>•</span>
-              <a href="https://wa.me/5493476245523" target="_blank" rel="noopener noreferrer" className="hover:underline">Soporte</a>
+              <Link to="/soporte" className="hover:underline">Soporte</Link>
             </div>
           </div>
         </div>

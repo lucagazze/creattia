@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation, Outlet, Link } from 'react-router-dom';
 import { ToastProvider } from './components/Toast';
 import { MainLayout } from './components/layout/MainLayout';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -9,6 +9,9 @@ import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/LandingPage';
 import EmailPreviewPublicPage from './pages/EmailPreviewPublicPage';
 import OAuthSimulatePage from './pages/OAuthSimulatePage';
+import PrivacidadPage from './pages/PrivacidadPage';
+import SoportePage from './pages/SoportePage';
+import TerminosPage from './pages/TerminosPage';
 import { CenteredPageLoader } from './components/ui/CenteredPageLoader';
 
 const ProtectedRoute = () => {
@@ -27,6 +30,25 @@ const ProtectedRoute = () => {
 
   return <Outlet />;
 };
+
+const PublicInfoLayout = ({ children }: { children: React.ReactNode }) => (
+  <div className="min-h-screen bg-[#f5f5f7] dark:bg-[#080808] text-zinc-900 dark:text-zinc-100 px-4 sm:px-6 py-8 sm:py-10">
+    <div className="max-w-4xl mx-auto mb-6 flex items-center justify-between">
+      <Link to="/landing" className="flex items-center gap-2.5">
+        <img src="/assets/logoAlgoritmia1.webp" alt="Algoritmia" className="w-8 h-8 object-contain dark:hidden" />
+        <img src="/assets/logoSinFondo.png" alt="Algoritmia" className="w-8 h-8 object-contain hidden dark:block" />
+        <div>
+          <span className="block text-[13px] font-black uppercase leading-none tracking-tight">Algoritmia</span>
+          <span className="block text-[8px] font-bold text-violet-500 tracking-[0.24em] uppercase mt-0.5">Gestión</span>
+        </div>
+      </Link>
+      <Link to="/landing" className="h-9 px-4 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-bold flex items-center">
+        Volver
+      </Link>
+    </div>
+    {children}
+  </div>
+);
 
 // Global backstop — only catches errors that escape the per-route boundary
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -138,6 +160,9 @@ export default function App() {
                     <Routes>
                       <Route path="/landing" element={<LandingPage />} />
                       <Route path="/login" element={<LoginPage />} />
+                      <Route path="/privacidad" element={<PublicInfoLayout><PrivacidadPage /></PublicInfoLayout>} />
+                      <Route path="/terminos" element={<PublicInfoLayout><TerminosPage /></PublicInfoLayout>} />
+                      <Route path="/soporte" element={<PublicInfoLayout><SoportePage /></PublicInfoLayout>} />
                       <Route path="/preview" element={<EmailPreviewPublicPage />} />
                       <Route path="/oauth-simulate" element={<OAuthSimulatePage />} />
                       
