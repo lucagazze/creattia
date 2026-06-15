@@ -1097,31 +1097,38 @@ export default function LandingPage() {
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-zinc-400/5 dark:bg-zinc-400/4 rounded-full blur-[120px] pointer-events-none" />
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            Gestioná tu negocio online. Escalá tus ventas.
+          <h1 className="font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 space-y-1">
+            <span className="block text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-400 dark:text-zinc-500 leading-snug">Gestioná tu negocio online.</span>
+            <span className="block text-4xl sm:text-5xl md:text-[64px] lg:text-[80px] font-black text-zinc-900 dark:text-white leading-[1.05]">Escalá tus ventas.</span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
             Un panel unificado para tus tiendas, campañas y mensajes. Con IA que responde, analiza y optimiza por vos.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16 animate-in fade-in slide-in-from-bottom-7 duration-1000">
-            <Link
-              to="/login"
-              className={`w-full sm:w-auto h-12 px-8 font-black rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all duration-200 ${
-                darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100 shadow-white/10' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-zinc-900/20'
-              }`}
-            >
-              Comenzar prueba gratis <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link
-              to="/login"
-              className={`w-full sm:w-auto h-12 px-8 border font-bold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] duration-200 ${
-                darkMode ? 'bg-white/5 border-white/[0.12] text-zinc-200 hover:bg-white/10 hover:text-white hover:border-white/20' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm'
-              }`}
-            >
-              Probar la plataforma →
-            </Link>
+          <div className="flex flex-col items-center gap-3 mb-16 animate-in fade-in slide-in-from-bottom-7 duration-1000">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link
+                to="/login"
+                className={`w-full sm:w-auto h-12 px-8 font-black rounded-xl text-[13px] flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all duration-200 ${
+                  darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100 shadow-white/10' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-zinc-900/20'
+                }`}
+              >
+                Comenzar gratis <ArrowRight className="w-4 h-4" />
+              </Link>
+              <button
+                onClick={() => document.getElementById('interactive-demo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className={`w-full sm:w-auto h-12 px-8 border font-bold rounded-xl text-[13px] flex items-center justify-center gap-2 transition-all active:scale-[0.98] duration-200 ${
+                  darkMode ? 'bg-white/5 border-white/[0.12] text-zinc-200 hover:bg-white/10 hover:text-white hover:border-white/20' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 shadow-sm'
+                }`}
+              >
+                Ver demo de la plataforma →
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className={`text-[12px] font-semibold ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Prueba gratis de 3 días · Sin tarjeta requerida</span>
+            </div>
           </div>
  
           {/* High-Fidelity Showcase Gallery */}
@@ -1264,20 +1271,20 @@ export default function LandingPage() {
       </section>
 
       {/* Secciones Interactivas de Demostración del Producto */}
-      <section id="interactive-demo" className="py-20 max-w-5xl mx-auto px-6 space-y-28">
+      <section id="interactive-demo" className="py-20 max-w-5xl mx-auto px-6 flex flex-col gap-28">
         
-        <div className="text-center max-w-2xl mx-auto mb-10">
+        <div className="text-center max-w-2xl mx-auto mb-10 order-1">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Demo interactiva</h2>
           <p className={`text-[13px] mt-3 mb-8 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>Probá la plataforma en tiempo real. Todo funciona de verdad.</p>
           <div className="flex items-center justify-center gap-2">
             <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
-            <span className={`text-[9px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>Mensajería omnicanal</span>
+            <span className={`text-[9px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>Métricas del negocio</span>
             <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
           </div>
         </div>
 
-        {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)] gap-6 lg:gap-8 items-start">
+        {/* 2. BANDEJA OMNICANAL */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)] gap-6 lg:gap-8 items-start border-t border-zinc-200/40 dark:border-white/[0.03] pt-20 order-3">
           <div className="space-y-4 lg:sticky lg:top-20">
             <div className="space-y-2">
               <h3 className="text-[20px] sm:text-2xl md:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Bandeja omnicanal con respuestas de IA</h3>
@@ -1528,8 +1535,8 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 2. MÉTRICAS Y RENTABILIDAD DEL NEGOCIO */}
-        <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
+        {/* 1. MÉTRICAS Y RENTABILIDAD DEL NEGOCIO */}
+        <div className="flex flex-col gap-10 order-2">
           <div className="max-w-2xl space-y-4 text-left">
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
               Control total de tu rentabilidad, sin planillas
@@ -1840,7 +1847,7 @@ export default function LandingPage() {
         </div>
 
         {/* 3. CREATIVOS ACTIVOS */}
-        <div className="flex flex-col gap-8 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
+        <div className="flex flex-col gap-8 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20 order-4">
           <div className="space-y-2">
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con métricas en tiempo real</h3>
             <button className={`${!simAnalyzedIds.size ? 'ring-pulse' : ''} flex items-center gap-2 text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all duration-200 w-fit ${darkMode ? 'bg-zinc-900/50 border-white/[0.06] text-zinc-400 hover:text-zinc-200' : 'bg-white border-zinc-200 text-zinc-500 hover:text-zinc-800 shadow-sm'}`}>
@@ -2137,7 +2144,6 @@ export default function LandingPage() {
               @keyframes marquee-right { from { transform: translateX(-50%); } to { transform: translateX(0); } }
               .marquee-left { animation: marquee-left 40s linear infinite; }
               .marquee-right { animation: marquee-right 44s linear infinite; }
-              .marquee-left:hover, .marquee-right:hover { animation-play-state: paused; }
             `}</style>
             <div className="max-w-5xl mx-auto px-6 text-center mb-12">
               <p className={`text-[11px] font-bold uppercase tracking-widest mb-3 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Lo que dicen nuestros usuarios</p>
@@ -2398,29 +2404,38 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {zoomImage && (
-        <div 
-          className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center bg-black/95 backdrop-blur-md transition-all duration-300 p-4 cursor-zoom-out"
-          onClick={() => setZoomImage(null)}
-        >
-          <div className="absolute top-4 right-4 z-[101]">
-            <button 
+      {zoomImage && (() => {
+        const zTab = showcaseTabs.find(t => t.img === zoomImage);
+        return (
+          <div
+            className="fixed inset-0 z-[900] bg-black/96 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
+            onClick={() => setZoomImage(null)}
+          >
+            <button
               onClick={() => setZoomImage(null)}
-              className="w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition-all border border-white/10"
-              aria-label="Cerrar vista"
+              className="fixed top-4 right-4 z-[10] w-10 h-10 rounded-full bg-white/10 border border-white/15 text-white hover:bg-white/20 flex items-center justify-center transition-all"
+              aria-label="Cerrar"
             >
-              <span className="text-lg font-bold">✕</span>
+              <X className="w-5 h-5" />
             </button>
+            <div className="min-h-full flex items-start justify-center py-14 px-4">
+              <div className="w-full max-w-5xl" onClick={e => e.stopPropagation()}>
+                {zTab && (
+                  <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mb-3 text-center">{zTab.label}</p>
+                )}
+                <img
+                  src={zoomImage}
+                  alt={zTab?.label || 'Vista ampliada'}
+                  className="w-full rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200"
+                />
+                {zTab && (
+                  <p className="text-[13.5px] text-zinc-300 leading-relaxed mt-5 max-w-3xl mx-auto text-center">{zTab.desc}</p>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="max-w-[96vw] max-h-[92dvh] w-full flex items-center justify-center p-2" onClick={(e) => e.stopPropagation()}>
-            <img 
-              src={zoomImage} 
-              alt="Visualización ampliada" 
-              className="max-w-full max-h-[92dvh] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-250 border border-white/10" 
-            />
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* WhatsApp floating button */}
       <a
@@ -2445,6 +2460,14 @@ export default function LandingPage() {
           <div className={`relative w-full max-w-5xl my-2 md:my-0 rounded-[20px] md:rounded-[24px] border shadow-2xl flex flex-col md:flex-row overflow-hidden max-h-none md:max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 ${
             darkMode ? 'bg-[#09090b] border-white/[0.06] text-white' : 'bg-white border-zinc-200/80 text-zinc-800'
           }`}>
+            {/* Close button — top-right of modal */}
+            <button
+              onClick={() => setSelectedSimCreativeId(null)}
+              className="absolute top-3 right-3 z-[20] w-9 h-9 rounded-full bg-zinc-900/80 dark:bg-black/60 border border-white/10 text-white hover:bg-zinc-800 flex items-center justify-center transition-all shadow-lg"
+              aria-label="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
             {/* LADO IZQUIERDO — Vista Previa del Anuncio (Mockup de Red Social) */}
             <div className={`w-full md:w-[42%] md:border-r border-b md:border-b-0 p-4 md:p-5 flex flex-col gap-4 md:justify-between ${
               darkMode ? 'bg-[#0c0c10] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
@@ -2545,14 +2568,7 @@ export default function LandingPage() {
                     </button>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setSelectedSimCreativeId(null)}
-                  className={`p-1.5 rounded-full border transition-all ${
-                    darkMode ? 'bg-white/[0.02] border-white/10 hover:bg-white/[0.06] text-zinc-400' : 'bg-zinc-100 border-zinc-200 hover:bg-zinc-200 text-zinc-600'
-                  }`}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                <div className="w-9 h-9" />
               </div>
 
               {/* Panel de Contenido Desplazable */}
