@@ -597,15 +597,15 @@ export default function LandingPage() {
   const transformRef = useRef<HTMLElement>(null);
 
   const showcaseTabs = [
-    { id: 'inicio', label: 'Dashboard', img: '/assets/landing_inicio.jpg', desc: <>Tu negocio en una sola pantalla: <strong>ingresos</strong>, <strong>pedidos</strong>, productos estrella y métricas ejecutivas en tiempo real.</> },
-    { id: 'mensajeria', label: 'Mensajería', img: '/assets/landing_mensajeria.jpg', desc: <>Bandeja <strong>omnicanal</strong> para Instagram, Facebook y WhatsApp. Automatizá la gestión diaria con el <strong>Cerebro de IA</strong>.</> },
-    { id: 'creativos', label: 'Creativos', img: '/assets/landing_analisis.jpg', desc: <>Control absoluto de campañas en <strong>Meta Ads</strong>. Compará <strong>CTR, ROAS y gasto real</strong> por pieza creativa.</> },
-    { id: 'comentarios', label: 'Comentarios', img: '/assets/landing_comentarios.jpg', desc: <>Moderación automatizada para posteos y anuncios. Respondé consultas, filtrá <strong>spam</strong> y llevá interacciones hacia la <strong>compra</strong>.</> },
-    { id: 'pedidos', label: 'Pedidos', img: '/assets/landing_pedidos.jpg', desc: <>Visualización del <strong>flujo de compras</strong>: envíos, facturación, pasarelas de pago y comportamiento del cliente.</> },
-    { id: 'inventario', label: 'Inventario', img: '/assets/landing_inventario.jpg', desc: <>Sincronización total del <strong>catálogo</strong>. Cambiá inventarios, variantes y precios en todas tus tiendas conectadas.</> },
-    { id: 'analisis', label: 'Análisis', img: '/assets/landing_creativos.jpg', desc: <>Embudo inteligente por producto: <strong>Entry Point</strong>, retención, <strong>LTV</strong> y velocidad de recompra.</> },
-    { id: 'perfil_dark', label: 'Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: <>Sincronización con <strong>Klaviyo</strong>. Automatizá carritos abandonados, bienvenida y retención con <strong>ventas atribuidas</strong>.</> },
-    { id: 'meta_ads', label: 'Meta Ads', img: '/assets/landing_meta_ads.jpg', desc: <>Estadísticas publicitarias unificadas: <strong>alcance, conversiones, CPA</strong> y <strong>ROAS exacto</strong> contra ventas reales.</> }
+    { id: 'inicio', label: 'Dashboard', img: '/assets/landing_inicio.jpg', desc: <>Vista ejecutiva con <strong>ingresos</strong>, <strong>pedidos</strong>, productos clave y métricas en tiempo real.</> },
+    { id: 'mensajeria', label: 'Mensajería', img: '/assets/landing_mensajeria.jpg', desc: <>Bandeja <strong>omnicanal</strong> para Instagram, Facebook y WhatsApp con respuestas del <strong>Cerebro de IA</strong>.</> },
+    { id: 'creativos', label: 'Creativos', img: '/assets/landing_analisis.jpg', desc: <>Campañas de <strong>Meta Ads</strong> con lectura rápida de <strong>CTR, ROAS y gasto real</strong> por creativo.</> },
+    { id: 'comentarios', label: 'Comentarios', img: '/assets/landing_comentarios.jpg', desc: <>Moderá posteos y anuncios, filtrá <strong>spam</strong> y convertí consultas en oportunidades de <strong>compra</strong>.</> },
+    { id: 'pedidos', label: 'Pedidos', img: '/assets/landing_pedidos.jpg', desc: <>Seguimiento del <strong>flujo de compras</strong>: envíos, facturación, pagos y comportamiento del cliente.</> },
+    { id: 'inventario', label: 'Inventario', img: '/assets/landing_inventario.jpg', desc: <>Controlá <strong>catálogo</strong>, inventarios, variantes y precios en todas tus tiendas conectadas.</> },
+    { id: 'analisis', label: 'Análisis', img: '/assets/landing_creativos.jpg', desc: <>Embudo por producto con <strong>Entry Point</strong>, retención, <strong>LTV</strong> y velocidad de recompra.</> },
+    { id: 'perfil_dark', label: 'Email Marketing', img: '/assets/landing_perfil_dark.jpg', desc: <>Automatizaciones en <strong>Klaviyo</strong> para bienvenida, carritos y retención con <strong>ventas atribuidas</strong>.</> },
+    { id: 'meta_ads', label: 'Meta Ads', img: '/assets/landing_meta_ads.jpg', desc: <>Métricas de pauta con <strong>alcance, conversiones, CPA</strong> y <strong>ROAS exacto</strong> contra ventas reales.</> }
   ];
 
   const toggleFaq = (index: number) => {
@@ -1214,9 +1214,8 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
           <h1 className={`font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 text-4xl sm:text-5xl md:text-[62px] lg:text-[72px] font-black leading-[1.1] ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
             Gestioná tu negocio online.{' '}
-            <span className="relative inline-block">
+            <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">
               Escalá tus ventas.
-              <span className="absolute left-0 right-0 -bottom-1.5 h-1.5 rounded-full bg-violet-500/45 dark:bg-violet-400/45" />
             </span>
           </h1>
 
@@ -1306,7 +1305,7 @@ export default function LandingPage() {
             </div>
 
             {/* Tab description */}
-            <div className={`h-[142px] sm:h-[116px] md:h-[104px] px-4 sm:px-5 py-3 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
+            <div className={`h-[118px] sm:h-[98px] md:h-[86px] px-4 sm:px-5 py-2.5 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
               <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-violet-500" />
               <div className="min-w-0 flex-1 md:max-w-2xl lg:max-w-3xl">
                 <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{activeShowcaseTab.label}</p>
