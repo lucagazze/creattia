@@ -178,7 +178,7 @@ export default function LoginPage() {
               {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-500" />}
             </button>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/landing')}
               className={`h-8 px-3.5 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
                 darkMode
                   ? 'bg-white text-zinc-950 hover:bg-zinc-100'
