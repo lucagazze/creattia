@@ -917,7 +917,7 @@ export default function MetaAdsPage() {
           const ltTotalComments = igTotal + fbTotal;
 
           return (
-            <div className="fixed inset-0 z-[400] flex justify-end animate-in fade-in duration-200">
+            <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedAd(null)} />
 
               <div className="relative w-full md:max-w-5xl h-full bg-white dark:bg-[#0d0d11] border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 z-10">

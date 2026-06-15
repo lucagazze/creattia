@@ -245,8 +245,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       '/dashboard': 'tour-dashboard',
       '/mensajeria': 'tour-mensajeria',
       '/admin/meta': 'tour-creativos',
+      '/comentarios': 'tour-comentarios',
+      '/pedidos': 'tour-pedidos',
       '/inventario': 'tour-inventario',
       '/integraciones': 'tour-integraciones',
+      '/perfil': 'tour-perfil',
     };
 
     return (

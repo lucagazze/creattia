@@ -34,7 +34,7 @@ export function useAIGate() {
   };
 
   const AIGate = pendingFn !== null ? (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={dismiss}>
+    <div className="fixed inset-0 z-[950] flex min-h-[100dvh] w-screen items-center justify-center p-4" onClick={dismiss}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
         className={`relative w-full max-w-sm rounded-2xl border p-6 shadow-2xl ${

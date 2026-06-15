@@ -1106,27 +1106,29 @@ export default function RedesSocialesPage() {
 
   // IntersectionObserver for Instagram sentinel
   useEffect(() => {
-    if (!igSentinelRef.current) return;
+    if (!igSentinelRef.current || activeTab !== 'instagram') return;
+    const scrollRoot = document.getElementById('main-scroll-container');
     const observer = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadMoreIg(); },
-      { rootMargin: '200px' }
+      (entries) => { if (entries[0].isIntersecting && igNextCursor && !loadingMoreIg) loadMoreIg(); },
+      { root: scrollRoot, rootMargin: '700px 0px', threshold: 0.01 }
     );
     observer.observe(igSentinelRef.current);
     return () => observer.disconnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [igNextCursor, loadingMoreIg, igId]);
+  }, [activeTab, igNextCursor, loadingMoreIg, igId]);
 
   // IntersectionObserver for Facebook sentinel
   useEffect(() => {
-    if (!fbSentinelRef.current) return;
+    if (!fbSentinelRef.current || activeTab !== 'facebook') return;
+    const scrollRoot = document.getElementById('main-scroll-container');
     const observer = new IntersectionObserver(
-      (entries) => { if (entries[0].isIntersecting) loadMoreFb(); },
-      { rootMargin: '200px' }
+      (entries) => { if (entries[0].isIntersecting && fbNextCursor && !loadingMoreFb) loadMoreFb(); },
+      { root: scrollRoot, rootMargin: '700px 0px', threshold: 0.01 }
     );
     observer.observe(fbSentinelRef.current);
     return () => observer.disconnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fbNextCursor, loadingMoreFb, fbPageId]);
+  }, [activeTab, fbNextCursor, loadingMoreFb, fbPageId]);
 
 
   const igEngagementRate = useMemo(() => {
@@ -1759,7 +1761,7 @@ export default function RedesSocialesPage() {
           : fbMedia.find(m => m.id === selectedPostId);
 
         return (
-          <div className="fixed inset-0 z-[350] flex justify-end animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
             {/* Backdrop */}
             <div
               onClick={closeCommentsModal}
@@ -2278,7 +2280,7 @@ export default function RedesSocialesPage() {
 
       {/* ── Pending Comments Drawer ───────────────────────────────────── */}
       {showPendingPanel && (
-        <div className="fixed inset-0 z-[200] flex">
+        <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen">
           {/* Backdrop */}
           <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={() => setShowPendingPanel(false)} />
 

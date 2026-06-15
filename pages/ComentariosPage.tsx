@@ -353,7 +353,7 @@ export default function ComentariosPage() {
 
   const renderConnectModal = () => {
     return (
-      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowConnectModal(false)} />
         <div className="relative bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-6 max-w-[450px] w-full text-left flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <div className="pb-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
@@ -1292,7 +1292,7 @@ export default function ComentariosPage() {
 
       {/* === SLIDE-OVER: Comments detail (same as RedesSocialesPage) === */}
       {selectedPost && (
-        <div className="fixed inset-0 z-[400] flex justify-end animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedPost(null)} />
 
           <div className="relative w-full md:max-w-5xl h-full bg-white dark:bg-[#0d0d11] border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right transition-spring duration-300 z-10">

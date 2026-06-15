@@ -535,7 +535,7 @@ export default function LandingPage() {
   // Tabbed high-fidelity screenshots switcher
   const [activeTabShowcase, setActiveTabShowcase] = useState<'inicio' | 'mensajeria' | 'comentarios' | 'pedidos' | 'inventario' | 'analisis' | 'creativos' | 'meta_ads' | 'perfil_dark'>('inicio');
   const [autoTabCycle, setAutoTabCycle] = useState(true);
-  const [tabKey, setTabKey] = useState(0);
+  const [heroProgress, setHeroProgress] = useState(0);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [transformVisible, setTransformVisible] = useState(false);
   const transformRef = useRef<HTMLElement>(null);
@@ -590,25 +590,44 @@ export default function LandingPage() {
     return () => { document.body.style.overflow = ''; };
   }, [selectedSimCreativeId]);
 
-  // Force CSS animation to restart fresh after initial paint (fixes 75%→100% jump on first tab)
+  // Preload hero screenshots so tab transitions never flash blank.
   useEffect(() => {
-    const t = setTimeout(() => setTabKey(k => k + 1), 50);
-    return () => clearTimeout(t);
+    showcaseTabs.forEach(tab => {
+      const img = new Image();
+      img.src = tab.img;
+    });
   }, []);
 
-  // Auto-cycle hero tabs to hint interactivity — stops on first user click
+  // Auto-cycle hero tabs with one animation clock for both the bar and tab switch.
   useEffect(() => {
-    if (!autoTabCycle) return;
+    if (!autoTabCycle) {
+      setHeroProgress(0);
+      return;
+    }
+
     const tabIds = showcaseTabs.map(t => t.id);
-    const timer = setInterval(() => {
-      setActiveTabShowcase(prev => {
-        const idx = tabIds.indexOf(prev);
-        return tabIds[(idx + 1) % tabIds.length] as any;
-      });
-      setTabKey(k => k + 1);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [autoTabCycle]);
+    const startedAt = performance.now();
+    const duration = 4000;
+    let frame = 0;
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - startedAt) / duration, 1);
+      setHeroProgress(progress * 100);
+
+      if (progress >= 1) {
+        setActiveTabShowcase(prev => {
+          const idx = tabIds.indexOf(prev);
+          return tabIds[(idx + 1) % tabIds.length] as any;
+        });
+        return;
+      }
+
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [autoTabCycle, activeTabShowcase]);
 
   // Scroll-triggered reveal for transformation section
   useEffect(() => {
@@ -969,14 +988,7 @@ export default function LandingPage() {
           0%, 100% { opacity: 0.5; }
           50% { opacity: 1; }
         }
-        @keyframes tabProgress {
-          from { transform: scaleX(0); }
-          to { transform: scaleX(1); }
-        }
-        .tab-progress-bar {
-          transform-origin: left center;
-          animation: tabProgress 4s linear forwards;
-        }
+        .hero-image-layer { will-change: opacity; transform: translateZ(0); backface-visibility: hidden; }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -1076,7 +1088,7 @@ export default function LandingPage() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => { setAutoTabCycle(false); setActiveTabShowcase(tab.id as any); setTabKey(k => k + 1); }}
+                    onClick={() => { setAutoTabCycle(false); setActiveTabShowcase(tab.id as any); }}
                     className={`h-6 px-2.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center relative ${
                       isActive
                         ? (darkMode ? 'bg-white/10 text-white border border-white/10' : 'bg-zinc-900 text-white shadow-sm')
@@ -1099,24 +1111,35 @@ export default function LandingPage() {
 
             {/* Progress bar — fills over 4s before each auto-cycle switch */}
             {autoTabCycle && (
-              <div key={tabKey} className={`h-[3px] overflow-hidden ${darkMode ? 'bg-white/[0.04]' : 'bg-zinc-100'}`}>
-                <div className="tab-progress-bar h-full bg-violet-500" />
+              <div className={`h-[4px] overflow-hidden ${darkMode ? 'bg-white/[0.04]' : 'bg-zinc-100'}`}>
+                <div
+                  className="h-full bg-violet-500 transition-none"
+                  style={{ width: `${heroProgress}%` }}
+                />
               </div>
             )}
 
-            {/* Screenshot */}
+            {/* Screenshot — crossfade between tabs, no height jump */}
             <div
-              className="relative cursor-zoom-in group"
-              style={{ minHeight: 420 }}
+              className="relative cursor-zoom-in group overflow-hidden"
+              style={{ aspectRatio: '16/10', maxHeight: 520 }}
               onClick={() => setZoomImage(showcaseTabs.find(t => t.id === activeTabShowcase)?.img || null)}
             >
-              <img
-                key={activeTabShowcase}
-                src={showcaseTabs.find(t => t.id === activeTabShowcase)?.img}
-                alt={showcaseTabs.find(t => t.id === activeTabShowcase)?.label}
-                className="w-full h-auto max-h-[520px] object-contain block mx-auto animate-in fade-in duration-300"
-              />
-              <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+              {showcaseTabs.map(tab => (
+                <img
+                  key={tab.id}
+                  src={tab.img}
+                  alt={tab.label}
+                  loading="eager"
+                  decoding="async"
+                  className="hero-image-layer absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ease-out"
+                  style={{
+                    opacity: activeTabShowcase === tab.id ? 1 : 0,
+                    zIndex: activeTabShowcase === tab.id ? 2 : 1,
+                  }}
+                />
+              ))}
+              <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                 <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Ampliar
               </div>
             </div>
@@ -1125,7 +1148,7 @@ export default function LandingPage() {
             {(() => {
               const activeTab = showcaseTabs.find(t => t.id === activeTabShowcase);
               return activeTab ? (
-                <div className={`px-5 py-4 border-t flex items-start gap-3 text-left animate-in fade-in duration-300 ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
+                <div className={`min-h-[96px] sm:min-h-[78px] px-5 py-4 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
                   <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-zinc-400 dark:bg-zinc-600" />
                   <div>
                     <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{activeTab.label}</p>
@@ -1788,7 +1811,7 @@ export default function LandingPage() {
                         {pendingCount} sin responder
                       </div>
                     )}
-                    {/* TRIBE score badge */}
+                    {/* Creative score badge */}
                     <div className={`absolute bottom-2 right-2 z-30 w-9 h-9 rounded-full flex flex-col items-center justify-center text-white font-black text-[11px] shadow-lg ${
                       tribeScore >= 80 ? 'bg-emerald-500 shadow-emerald-200 dark:shadow-none' : tribeScore >= 60 ? 'bg-amber-500 shadow-amber-200 dark:shadow-none' : 'bg-red-500 shadow-red-200 dark:shadow-none'
                     }`}>
@@ -1881,7 +1904,7 @@ export default function LandingPage() {
               {
                 icon: '🧠',
                 title: 'Análisis de creativos con IA',
-                desc: 'Escaneo de atención, emoción y carga cognitiva en tus anuncios. Recomendaciones accionables para escalar.',
+                desc: 'Escaneo de atención, emoción y carga cognitiva en tus anuncios para entender qué pieza conviene escalar.',
               },
               {
                 icon: '📧',
@@ -2085,7 +2108,7 @@ export default function LandingPage() {
 
       {zoomImage && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md transition-all duration-300 p-4 cursor-zoom-out"
+          className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center bg-black/95 backdrop-blur-md transition-all duration-300 p-4 cursor-zoom-out"
           onClick={() => setZoomImage(null)}
         >
           <div className="absolute top-4 right-4 z-[101]">
@@ -2122,7 +2145,7 @@ export default function LandingPage() {
       </a>
 
       {selectedSimCreative && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
           <div 
             className="absolute inset-0 cursor-default" 
             onClick={() => setSelectedSimCreativeId(null)} 

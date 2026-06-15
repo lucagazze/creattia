@@ -310,7 +310,7 @@ export const MainLayout = () => {
           </button>
         </div>
 
-        <div ref={scrollContainerRef} className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
+        <div id="main-scroll-container" ref={scrollContainerRef} className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
           location.pathname === '/mensajeria' || location.pathname === '/clientes'
             ? 'overflow-hidden p-0 h-[calc(100dvh-56px)] md:h-screen flex flex-col'
             : location.pathname === '/admin/meta'

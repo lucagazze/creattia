@@ -809,7 +809,7 @@ export default function IntegracionesPage() {
       return;
     }
     if (approveMessaging && !selectedPage) {
-      showToast('Seleccioná una página de Facebook para habilitar Mensajería', 'warning');
+      showToast('Seleccioná una página de Facebook para habilitar comentarios y publicaciones', 'warning');
       return;
     }
     if (!approveAds && !approveMessaging) {
@@ -1398,7 +1398,7 @@ export default function IntegracionesPage() {
 
       {/* Loading Overlay */}
       {metaLoadingText && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen flex-col items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 max-w-xs text-center">
             <Loader2 className="w-9 h-9 text-blue-500 animate-spin" />
             <p className="text-white font-bold text-[13px]">{metaLoadingText}</p>
@@ -1406,7 +1406,7 @@ export default function IntegracionesPage() {
         </div>
       )}      {/* Meta Combined Connection Modal — Ad Account + Page/Instagram step-by-step wizard */}
       {metaCombinedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[88vh]">
 
             {/* Header */}
@@ -1420,12 +1420,12 @@ export default function IntegracionesPage() {
                 <h2 className="text-white font-bold text-[15px] leading-tight">Configurar Meta Ads</h2>
                 <p className="text-zinc-500 text-xs mt-0.5">
                   {!metaCombinedModal.approveAds 
-                    ? 'Seleccioná tu página de Facebook e Instagram' 
+                    ? 'Seleccioná tu página para comentarios y publicaciones'
                     : !metaCombinedModal.approveMessaging
                     ? 'Seleccioná tu cuenta publicitaria'
                     : metaStep === 1
                     ? 'Paso 1: Seleccioná tu cuenta publicitaria'
-                    : 'Paso 2: Seleccioná tu página de Facebook e Instagram'}
+                    : 'Paso 2: Seleccioná tu página para comentarios'}
                 </p>
               </div>
               <button
@@ -1584,7 +1584,7 @@ export default function IntegracionesPage() {
               )}
               {metaStep === 2 && metaCombinedModal.approveMessaging && !metaCombinedModal.selectedPage && (
                 <p className="text-center text-zinc-500 text-xs mb-3">
-                  Seleccioná una página de Facebook con Instagram para continuar
+                  Seleccioná una página de Facebook con Instagram para sincronizar comentarios
                 </p>
               )}
 
@@ -1855,7 +1855,7 @@ export default function IntegracionesPage() {
 
       {/* Modal Dialog */}
       {selectedPlatform && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={closeConfigModal}>
+        <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center p-4 animate-in fade-in duration-200" onClick={closeConfigModal}>
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
 
@@ -2284,8 +2284,8 @@ export default function IntegracionesPage() {
                                 className="mt-0.5 rounded border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-pink-500 focus:ring-offset-0 focus:ring-pink-500 w-4 h-4 shrink-0"
                               />
                               <div>
-                                <p className="text-zinc-800 dark:text-white text-xs font-bold">Mensajería de Redes Sociales (Facebook/Instagram)</p>
-                                <p className="text-zinc-400 dark:text-zinc-500 text-[11px] mt-0.5">Sincroniza comentarios y mensajes de clientes a tu portal.</p>
+                                <p className="text-zinc-800 dark:text-white text-xs font-bold">Comentarios y Publicaciones (Facebook/Instagram)</p>
+                                <p className="text-zinc-400 dark:text-zinc-500 text-[11px] mt-0.5">Sincroniza comentarios de anuncios y publicaciones orgánicas a tu portal.</p>
                               </div>
                             </label>
                           </div>

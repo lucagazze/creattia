@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ChevronRight, ChevronLeft, X, Zap } from 'lucide-react';
@@ -7,41 +7,108 @@ interface WelcomeGuideProps {
   profile: any;
 }
 
-const TOUR_STEPS = [
+const BASE_STEPS = [
   {
     targetId: 'tour-integraciones',
     emoji: '⚡',
     title: 'Primero: conectá tus APIs',
     desc: 'Para ver datos reales, conectá tu tienda online (Shopify, Tiendanube), Meta Ads y mensajería en Integraciones. Son los pasos que activan todo el poder de Algoritmia.',
+    isFinal: false,
   },
   {
     targetId: 'tour-dashboard',
     emoji: '📊',
     title: 'Dashboard unificado',
     desc: 'Todo tu negocio en una sola pantalla. Métricas de ventas, pedidos, campañas publicitarias y comportamiento de clientes — actualizados en tiempo real.',
+    isFinal: false,
   },
   {
-    targetId: 'tour-mensajeria',
-    emoji: '💬',
-    title: 'Mensajería omnicanal',
-    desc: 'Una sola bandeja para Instagram DM, Facebook Messenger y WhatsApp. La IA redacta respuestas y convierte mensajes en ventas.',
-  },
-  {
-    targetId: 'tour-creativos',
-    emoji: '📣',
-    title: 'Creativos y Meta Ads',
-    desc: 'Controlá el rendimiento de cada pieza publicitaria. ROAS exacto, CTR y gasto real por creativo en un solo panel.',
-  },
-  {
-    targetId: 'tour-inventario',
-    emoji: '📦',
-    title: 'Inventario en tiempo real',
-    desc: 'Stock sincronizado automáticamente en todas tus tiendas. Nunca más quiebres de stock inesperados.',
+    targetId: 'tour-perfil',
+    emoji: '👤',
+    title: 'Mi Perfil',
+    desc: 'Configurá tu cuenta, preferencias y opciones de acceso. Desde aquí también podés gestionar el acceso de colaboradores.',
     isFinal: true,
     ctaPath: '/integraciones',
     ctaLabel: 'Ir a Integraciones',
   },
 ];
+
+const META_STEPS = [
+  {
+    targetId: 'tour-creativos',
+    emoji: '📣',
+    title: 'Creativos y Meta Ads',
+    desc: 'Controlá el rendimiento de cada pieza publicitaria. ROAS exacto, CTR y gasto real por creativo en un solo panel.',
+    isFinal: false,
+  },
+  {
+    targetId: 'tour-comentarios',
+    emoji: '💭',
+    title: 'Comentarios',
+    desc: 'Moderá comentarios de tus publicaciones orgánicas y anuncios. Respondé con IA y canalizá consultas hacia la venta.',
+    isFinal: true,
+    ctaPath: '/comentarios',
+    ctaLabel: 'Ir a Comentarios',
+  },
+];
+
+const MESSAGING_STEPS = [
+  {
+    targetId: 'tour-mensajeria',
+    emoji: '💬',
+    title: 'Mensajería omnicanal',
+    desc: 'Con Chatwoot conectado, tus conversaciones de WhatsApp, Instagram, Facebook y chat web viven en una misma bandeja con respuestas asistidas por IA.',
+    isFinal: true,
+    ctaPath: '/mensajeria',
+    ctaLabel: 'Ir a Mensajería',
+  },
+];
+
+const ECOM_STEPS = [
+  {
+    targetId: 'tour-pedidos',
+    emoji: '📦',
+    title: 'Pedidos en tiempo real',
+    desc: 'Seguimiento de cada venta y estado de envío desde todas tus tiendas conectadas en una sola vista.',
+    isFinal: false,
+  },
+  {
+    targetId: 'tour-inventario',
+    emoji: '🗃️',
+    title: 'Inventario sincronizado',
+    desc: 'Stock actualizado automáticamente en todas tus tiendas. Nunca más quiebres inesperados ni ventas sin stock.',
+    isFinal: true,
+    ctaPath: '/pedidos',
+    ctaLabel: 'Ver Pedidos',
+  },
+];
+
+function getIntegrationGroups(profile: any): string[] {
+  const groups: string[] = [];
+  const hasMessaging = !!(profile.chatwoot_url && profile.chatwoot_token);
+  const hasMeta = !!(
+    (profile as any).meta_access_token ||
+    profile.fb_page_id ||
+    profile.ig_business_id
+  );
+  const hasEcom = !!(
+    profile.shopify_domain ||
+    (profile as any).tiendanube_store_id ||
+    (profile as any).woocommerce_url
+  );
+  if (hasMessaging) groups.push('messaging');
+  if (hasMeta) groups.push('meta');
+  if (hasEcom) groups.push('ec');
+  return groups;
+}
+
+function getStepsForKey(key: string) {
+  if (key === 'base') return BASE_STEPS;
+  if (key === 'messaging') return MESSAGING_STEPS;
+  if (key === 'meta') return META_STEPS;
+  if (key === 'ec') return ECOM_STEPS;
+  return [];
+}
 
 export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
   const { darkMode } = useTheme();
@@ -49,33 +116,47 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
   const [step, setStep] = useState(0);
   const [visible, setVisible] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [tourKey, setTourKey] = useState<string>('');
 
-  const doneKey = `ag_tour_${profile?.id}`;
+  const doneKey = `ag_tour_${profile?.id}_${tourKey}`;
 
-  // Trigger: show once for new users with no integrations configured yet
   useEffect(() => {
     if (!profile?.id) return;
     try {
-      if (localStorage.getItem(doneKey)) return;
-      const hasIntegration = !!(
-        profile.shopify_domain ||
-        profile.fb_page_id ||
-        profile.ig_business_id ||
-        (profile as any).meta_access_token ||
-        (profile as any).tiendanube_store_id ||
-        (profile as any).woocommerce_url
-      );
-      if (!hasIntegration) {
-        const t = setTimeout(() => setVisible(true), 1200);
-        return () => clearTimeout(t);
+      const groups = getIntegrationGroups(profile);
+      const nextKey = groups.length === 0
+        ? 'base'
+        : groups.find(group => !localStorage.getItem(`ag_tour_${profile.id}_${group}`));
+
+      if (!nextKey) {
+        setVisible(false);
+        setTourKey('');
+        return;
       }
+      setTourKey(nextKey);
+      setStep(0);
+      const t = setTimeout(() => setVisible(true), 1200);
+      return () => clearTimeout(t);
     } catch { /* ignore */ }
-  }, [profile?.id, doneKey, profile?.shopify_domain, profile?.fb_page_id, profile?.ig_business_id]);
+  }, [
+    profile?.id,
+    profile?.shopify_domain,
+    profile?.fb_page_id,
+    profile?.ig_business_id,
+    profile?.chatwoot_url,
+    profile?.chatwoot_token,
+    (profile as any)?.meta_access_token,
+    (profile as any)?.tiendanube_store_id,
+    (profile as any)?.woocommerce_url,
+  ]);
+
+  const TOUR_STEPS = getStepsForKey(tourKey);
 
   // Spotlight: position around current step's target element
   useEffect(() => {
     if (!visible) return;
     const current = TOUR_STEPS[step];
+    if (!current) return;
     const el = document.getElementById(current.targetId);
     if (!el) { setRect(null); return; }
 
@@ -87,7 +168,7 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [visible, step]);
+  }, [visible, step, TOUR_STEPS]);
 
   const dismiss = () => {
     setVisible(false);
@@ -101,9 +182,10 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
 
   const prev = () => { if (step > 0) setStep(s => s - 1); };
 
-  if (!visible || !profile) return null;
+  if (!visible || !profile || TOUR_STEPS.length === 0) return null;
 
   const current = TOUR_STEPS[step];
+  if (!current) return null;
   const GUTTER = 6;
 
   return (
@@ -192,10 +274,10 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
             <div className="flex-1">
               {current.isFinal ? (
                 <button
-                  onClick={() => { dismiss(); navigate(current.ctaPath!); }}
+                  onClick={() => { dismiss(); if (current.ctaPath) navigate(current.ctaPath); }}
                   className="w-full h-8 flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-[11px] font-black transition-all shadow-lg shadow-violet-200 dark:shadow-none"
                 >
-                  <Zap className="w-3 h-3" /> {current.ctaLabel}
+                  <Zap className="w-3 h-3" /> {current.ctaLabel || 'Continuar'}
                 </button>
               ) : (
                 <button
