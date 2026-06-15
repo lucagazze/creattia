@@ -236,6 +236,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ── CREATIVE ANALYSIS — no auth required (landing page + app users) ─────────
+  const { type: earlyType, frames: earlyFrames, isVideo: earlyIsVideo } = req.body as any;
+  if (earlyType === 'analyze-creative') {
+    const geminiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!geminiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY no configurada' });
+    if (!earlyFrames?.length) return res.status(400).json({ error: 'No frames provided' });
+
+    const prompt = earlyIsVideo
+      ? `ERES: TRIBE v2, especialista en análisis de video-creatives para redes sociales (Reels, TikTok, Facebook Ads).\n\nSE TE PASAN: ${earlyFrames.length} capturas del VIDEO completo, ~1 por segundo de inicio a fin. Analízalas EN CONJUNTO como una sola pieza.\n\nANALIZA COMO DIRECTOR CREATIVO: gancho de los primeros 3 segundos, ritmo del video, claridad del mensaje, efectividad del CTA, energía de la persona en cámara.\n\nPROHIBIDO: mencionar problemas técnicos de foto. Solo analiza el video como pieza creativa y de marketing.\nPERMITIDO SER BRUTAL: "Regrabar el video", "El gancho es inexistente", "Nadie va a ver esto más de 2 segundos".\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿El gancho detiene el scroll?\n2. Impacto Emocional (0-99): ¿Despierta curiosidad, deseo, humor o impacto?\n3. Carga Cognitiva (0-99): ¿El mensaje es claro sin esfuerzo? Ideal <30.\n4. Región Principal: "V1" (visual puro), "A1" (voz/música), "FFA" (persona/rostro), "EBA" (movimiento/cuerpo), "Amígdala" (emoción/shock).\n\nRESPONDE SOLO CON ESTE JSON (sin texto extra):\n{"attentionPct":72,"attentionReason":"Por qué la atención es ese número.","emotionPct":65,"emotionReason":"Por qué el impacto emocional es ese número.","cogLoad":28,"cogLoadReason":"Por qué la carga cognitiva es ese número.","highestRegion":"FFA","textInsight":"Diagnóstico del video en 2-3 líneas.","actionItems":["Consejo 1","Consejo 2","Consejo 3","Consejo 4"]}`
+      : `ERES: TRIBE v2, especialista en análisis de anuncios gráficos estáticos para redes sociales.\n\nANALIZA COMO DIRECTOR DE ARTE: jerarquía visual, contraste, legibilidad del texto, efectividad del CTA, balance imagen/copy.\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿Para el scroll en 0.5 segundos?\n2. Impacto Emocional (0-99): ¿La imagen genera deseo, curiosidad o urgencia?\n3. Carga Cognitiva (0-99): ¿Se entiende en <3 segundos? Ideal <30.\n4. Región Principal: "V1" (composición), "FFA" (rostro/persona), "EBA" (producto/objeto), "Amígdala" (color/emoción), "A1" (texto dominante).\n\nRESPONDE SOLO CON ESTE JSON:\n{"attentionPct":72,"attentionReason":"Por qué.","emotionPct":65,"emotionReason":"Por qué.","cogLoad":28,"cogLoadReason":"Por qué.","highestRegion":"V1","textInsight":"Diagnóstico en 2-3 líneas.","actionItems":["Consejo 1","Consejo 2","Consejo 3","Consejo 4"]}`;
+
+    try {
+      const parts: any[] = [{ text: prompt }];
+      for (const b64 of earlyFrames) {
+        const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
+        parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Data } });
+      }
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts }],
+            generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' },
+            thinkingConfig: { thinkingBudget: 0 },
+          }),
+        }
+      );
+      if (!geminiRes.ok) return res.status(geminiRes.status).json({ error: 'Gemini API error' });
+      const geminiData = await geminiRes.json();
+      const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) return res.status(500).json({ error: 'Empty AI response' });
+      return res.status(200).json(JSON.parse(text));
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Analysis failed' });
+    }
+  }
+
   // 1. Authenticate (check cron bypass first, then user session)
   const authHeader = req.headers.authorization;
   const isCron = (authHeader && authHeader === `Bearer ${process.env.CRON_SECRET}`) || req.headers['x-vercel-cron'] === '1';
@@ -319,44 +358,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (!isAdmin && clientId !== userClientId) {
       return res.status(403).json({ error: 'Access denied: client mismatch' });
-    }
-  }
-
-  // ── CREATIVE ANALYSIS (TRIBE v2) ──────────────────────────────────────────
-  if (type === 'analyze-creative') {
-    const geminiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!geminiKey) return res.status(500).json({ error: 'Gemini key not configured' });
-    if (!frames?.length) return res.status(400).json({ error: 'No frames provided' });
-
-    const prompt = isVideo
-      ? `ERES: TRIBE v2, especialista en análisis de video-creatives para redes sociales (Reels, TikTok, Facebook Ads).\n\nSE TE PASAN: ${frames.length} capturas del VIDEO completo, ~1 por segundo de inicio a fin. Analízalas EN CONJUNTO como una sola pieza.\n\nANALIZA COMO DIRECTOR CREATIVO: gancho de los primeros 3 segundos, ritmo del video, claridad del mensaje, efectividad del CTA, energía de la persona en cámara.\n\nPROHIBIDO: mencionar problemas técnicos de foto. Solo analiza el video como pieza creativa y de marketing.\nPERMITIDO SER BRUTAL: "Regrabar el video", "El gancho es inexistente", "Nadie va a ver esto más de 2 segundos".\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿El gancho detiene el scroll?\n2. Impacto Emocional (0-99): ¿Despierta curiosidad, deseo, humor o impacto?\n3. Carga Cognitiva (0-99): ¿El mensaje es claro sin esfuerzo? Ideal <30.\n4. Región Principal: "V1" (visual puro), "A1" (voz/música), "FFA" (persona/rostro), "EBA" (movimiento/cuerpo), "Amígdala" (emoción/shock).\n\nRESPONDE SOLO CON ESTE JSON (sin texto extra):\n{"attentionPct":72,"attentionReason":"Por qué la atención es ese número.","emotionPct":65,"emotionReason":"Por qué el impacto emocional es ese número.","cogLoad":28,"cogLoadReason":"Por qué la carga cognitiva es ese número.","highestRegion":"FFA","textInsight":"Diagnóstico del video en 2-3 líneas.","actionItems":["Consejo 1","Consejo 2","Consejo 3","Consejo 4"]}`
-      : `ERES: TRIBE v2, especialista en análisis de anuncios gráficos estáticos para redes sociales.\n\nANALIZA COMO DIRECTOR DE ARTE: jerarquía visual, contraste, legibilidad del texto, efectividad del CTA, balance imagen/copy.\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿Para el scroll en 0.5 segundos?\n2. Impacto Emocional (0-99): ¿La imagen genera deseo, curiosidad o urgencia?\n3. Carga Cognitiva (0-99): ¿Se entiende en <3 segundos? Ideal <30.\n4. Región Principal: "V1" (composición), "FFA" (rostro/persona), "EBA" (producto/objeto), "Amígdala" (color/emoción), "A1" (texto dominante).\n\nRESPONDE SOLO CON ESTE JSON:\n{"attentionPct":72,"attentionReason":"Por qué.","emotionPct":65,"emotionReason":"Por qué.","cogLoad":28,"cogLoadReason":"Por qué.","highestRegion":"V1","textInsight":"Diagnóstico en 2-3 líneas.","actionItems":["Consejo 1","Consejo 2","Consejo 3","Consejo 4"]}`;
-
-    try {
-      const parts: any[] = [{ text: prompt }];
-      for (const b64 of frames) {
-        const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
-        parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Data } });
-      }
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts }],
-            generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' },
-            thinkingConfig: { thinkingBudget: 0 },
-          }),
-        }
-      );
-      if (!geminiRes.ok) return res.status(geminiRes.status).json({ error: 'Gemini API error' });
-      const geminiData = await geminiRes.json();
-      const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return res.status(500).json({ error: 'Empty AI response' });
-      return res.status(200).json(JSON.parse(text));
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message || 'Analysis failed' });
     }
   }
 

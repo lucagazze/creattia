@@ -982,7 +982,7 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            La plataforma para gestionar tu negocio online y escalar ventas
+            La plataforma para <span className="text-violet-600 dark:text-violet-400">gestionar</span> tu negocio online y <span className="text-violet-600 dark:text-violet-400">escalar ventas</span>
           </h1>
           
           <p className={`text-[15.5px] sm:text-[17.5px] max-w-2xl mx-auto leading-relaxed mb-10 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400 font-medium' : 'text-zinc-550 font-semibold'}`}>
@@ -1122,7 +1122,7 @@ export default function LandingPage() {
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
         <div className="flex flex-col lg:flex-row items-center gap-10">
           <div className="flex-1 space-y-5 text-left">
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja de entrada omnicanal y respuestas inteligentes con IA</h3>
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja de entrada <span className="text-violet-600 dark:text-violet-400">omnicanal</span> y respuestas inteligentes con <span className="text-violet-600 dark:text-violet-400">IA</span></h3>
             <p className={`text-[13.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
               Centralizá todas tus conversaciones de WhatsApp, Instagram y Facebook en un solo lugar. El Cerebro de IA lee cada mensaje entrante y te sugiere respuestas exactas con stock y precios actualizados en tiempo real para cerrar ventas en segundos.
             </p>
@@ -1286,12 +1286,11 @@ export default function LandingPage() {
               {/* Dashboard body */}
               <div className="mt-3.5 space-y-5 text-left">
 
-                {/* Hint interactivo — visible cuando ninguna métrica está expandida */}
-                {!expandedMetric && (
-                  <div className="flex justify-center">
+                {/* Hint interactivo — siempre visible */}
+                <div className="flex justify-center">
                     <button
                       onClick={() => setExpandedMetric('s-revenue')}
-                      className={`ring-pulse flex items-center gap-2 text-[10px] font-bold px-4 py-2 rounded-full border transition-all duration-200 ${
+                      className={`${!expandedMetric ? 'ring-pulse' : ''} flex items-center gap-2 text-[10px] font-bold px-4 py-2 rounded-full border transition-all duration-200 ${
                         darkMode
                           ? 'bg-violet-950/20 border-violet-500/30 text-violet-300 hover:bg-violet-900/30 hover:text-white hover:border-violet-400/50'
                           : 'bg-violet-50 border-violet-200 text-violet-600 hover:bg-violet-100 hover:text-violet-800 hover:border-violet-300'
@@ -1301,7 +1300,6 @@ export default function LandingPage() {
                       Tocá cualquier métrica para ver su evolución
                     </button>
                   </div>
-                )}
 
                 {/* 1. SECCIÓN: TIENDA ONLINE */}
                 <div className="space-y-2.5">
@@ -1560,7 +1558,7 @@ export default function LandingPage() {
         <div className="flex flex-col gap-8 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div className="space-y-2">
-              <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con métricas en tiempo real</h3>
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con <span className="text-violet-600 dark:text-violet-400">métricas en tiempo real</span></h3>
               <p className={`text-[13px] font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Tocá cualquier anuncio para ver el análisis de IA y moderar comentarios de compradores</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -2055,7 +2053,7 @@ export default function LandingPage() {
             </div>
 
             {/* LADO DERECHO — Panel de Control Simulador (Métricas y Moderación) */}
-            <div className="w-full md:w-[58%] flex flex-col h-[500px] md:h-[600px] overflow-hidden">
+            <div className="w-full md:w-[58%] flex flex-col h-[520px] md:h-auto md:max-h-[85vh] overflow-hidden">
               {/* Cabecera y Selector de Pestañas */}
               <div className={`p-4 border-b flex items-center justify-between ${
                 darkMode ? 'border-white/[0.04] bg-[#0c0c10]' : 'border-zinc-200/60 bg-zinc-50/50'
@@ -2133,98 +2131,88 @@ export default function LandingPage() {
                       </div>
                     ) : (
                     <>
-                    {/* Score global */}
-                    <div className={`p-4 border rounded-2xl flex items-center gap-4 ${
-                      darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'
+                    {/* Score — igual al CreativeTesterPage */}
+                    <div className={`flex items-center gap-4 border rounded-2xl p-5 ${
+                      darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'
                     }`}>
-                      <div className={`w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-lg font-black text-white shrink-0 ${
-                        selectedSimCreative.tribeMetrics.score >= 80 ? 'bg-emerald-500' :
-                        selectedSimCreative.tribeMetrics.score >= 60 ? 'bg-amber-500' :
-                        'bg-red-500'
+                      <div className={`w-20 h-20 rounded-full flex flex-col items-center justify-center shadow-lg font-black text-white shrink-0 ${
+                        selectedSimCreative.tribeMetrics.score >= 80 ? 'bg-emerald-500 shadow-emerald-200 dark:shadow-none' :
+                        selectedSimCreative.tribeMetrics.score >= 60 ? 'bg-amber-500 shadow-amber-200 dark:shadow-none' :
+                        'bg-red-500 shadow-red-200 dark:shadow-none'
                       }`}>
-                        <span className="text-[20px] leading-none">{selectedSimCreative.tribeMetrics.score}</span>
-                        <span className="text-[8px] opacity-75">/100</span>
+                        <span className="text-[24px] leading-none">{selectedSimCreative.tribeMetrics.score}</span>
+                        <span className="text-[9px] opacity-80 font-bold">/100</span>
                       </div>
-                      <div>
-                        <h4 className="text-[13.5px] font-black text-zinc-900 dark:text-white">{selectedSimCreative.tribeMetrics.label}</h4>
-                        <p className="text-[9.5px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Región dominante: <span className="font-bold text-violet-500 dark:text-violet-400">{selectedSimCreative.tribeMetrics.highestRegion}</span>
-                        </p>
-                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[16px] font-black text-zinc-900 dark:text-white">{selectedSimCreative.tribeMetrics.label}</p>
+                        <p className="text-[10px] text-zinc-400 mt-1">Región dominante: <span className="font-bold text-violet-600 dark:text-violet-400">{selectedSimCreative.tribeMetrics.highestRegion}</span></p>
+                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
                       </div>
                     </div>
 
-                    {/* Barras de Métricas */}
-                    <div className={`p-4 border rounded-2xl space-y-4 ${
-                      darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'
+                    {/* Barras de Métricas — igual al CreativeTesterPage */}
+                    <div className={`border rounded-2xl p-5 space-y-4 ${
+                      darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'
                     }`}>
-                      {/* Atención */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5 text-[10px] font-bold">
-                          <span className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Atención</span>
-                          <span className="text-emerald-500 font-extrabold">{selectedSimCreative.tribeMetrics.attentionPct}%</span>
+                      {[
+                        { label: 'Atención', value: selectedSimCreative.tribeMetrics.attentionPct, color: 'bg-emerald-500', reason: selectedSimCreative.tribeMetrics.attentionReason },
+                        { label: 'Emoción', value: selectedSimCreative.tribeMetrics.emotionPct, color: 'bg-violet-500', reason: selectedSimCreative.tribeMetrics.emotionReason },
+                        { label: 'Carga Cognitiva', value: selectedSimCreative.tribeMetrics.cogLoad,
+                          color: selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'bg-emerald-500' : selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500',
+                          reason: selectedSimCreative.tribeMetrics.cogLoadReason },
+                      ].map(m => (
+                        <div key={m.label}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">{m.label}</span>
+                            <span className="text-[13px] font-black text-zinc-900 dark:text-white">{m.value}%</span>
+                          </div>
+                          <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-700 ${m.color}`} style={{ width: `${m.value}%` }} />
+                          </div>
+                          {m.reason && <p className="text-[10px] text-zinc-400 mt-1 leading-snug">{m.reason}</p>}
                         </div>
-                        <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full transition-all duration-700" style={{ width: `${selectedSimCreative.tribeMetrics.attentionPct}%` }} />
-                        </div>
-                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.attentionReason}</p>
-                      </div>
-
-                      {/* Emoción */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5 text-[10px] font-bold">
-                          <span className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Emoción</span>
-                          <span className="text-violet-500 font-extrabold">{selectedSimCreative.tribeMetrics.emotionPct}%</span>
-                        </div>
-                        <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-violet-500 rounded-full transition-all duration-700" style={{ width: `${selectedSimCreative.tribeMetrics.emotionPct}%` }} />
-                        </div>
-                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.emotionReason}</p>
-                      </div>
-
-                      {/* Carga Cognitiva */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5 text-[10px] font-bold">
-                          <span className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Carga Cognitiva</span>
-                          <span className={`font-extrabold ${
-                            selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'text-emerald-500' :
-                            selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'text-amber-500' :
-                            'text-red-500'
-                          }`}>{selectedSimCreative.tribeMetrics.cogLoad}%</span>
-                        </div>
-                        <div className="h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full transition-all duration-700 ${
-                            selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'bg-emerald-500' :
-                            selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'bg-amber-500' :
-                            'bg-red-500'
-                          }`} style={{ width: `${selectedSimCreative.tribeMetrics.cogLoad}%` }} />
-                        </div>
-                        <p className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.cogLoadReason}</p>
-                      </div>
+                      ))}
                     </div>
 
-                    {/* Gráfico Atención/Emoción en el tiempo */}
-                    <div className={`p-4 border rounded-2xl ${darkMode ? 'bg-[#0f0f13] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/50'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</span>
-                        <div className="flex items-center gap-3 text-[9px] font-bold">
+                    {/* Curva Atención/Emoción — igual al CreativeTesterPage */}
+                    <div className={`border rounded-2xl p-5 space-y-3 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
+                        <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
                           <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
-                          <span className={`flex items-center gap-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
+                          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
                         </div>
                       </div>
-                      <div className="h-[110px]">
+                      <div className="h-[130px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={genTimeline(selectedSimCreative.tribeMetrics.attentionPct, selectedSimCreative.tribeMetrics.emotionPct, selectedSimCreative.id)} margin={{ left: -20, right: 4, top: 4, bottom: 0 }}>
+                          <LineChart data={genTimeline(selectedSimCreative.tribeMetrics.attentionPct, selectedSimCreative.tribeMetrics.emotionPct, selectedSimCreative.id)} margin={{ left: -15, right: 4, top: 4, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'} />
                             <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}s`} />
-                            <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}`} width={24} />
+                            <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} width={22} />
                             <Line type="monotone" dataKey="attn" stroke="#10b981" strokeWidth={2} dot={false} />
                             <Line type="monotone" dataKey="emot" stroke="#8b5cf6" strokeWidth={2} dot={false} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
-                    </>
+
+                    {/* Recomendaciones — action items */}
+                    {selectedSimCreative.tribeMetrics.actionItems?.length > 0 && (
+                      <div className={`border rounded-2xl p-5 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
+                        <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Recomendaciones</p>
+                        <ul className="space-y-2">
+                          {selectedSimCreative.tribeMetrics.actionItems.map((item: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2.5 text-[11.5px] font-medium text-zinc-700 dark:text-zinc-300 leading-snug">
+                              <span className="w-4 h-4 rounded-full bg-violet-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span className="text-violet-500 text-[9px] font-black">{i + 1}</span>
+                              </span>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+</>
                     )}
 
                   </div>

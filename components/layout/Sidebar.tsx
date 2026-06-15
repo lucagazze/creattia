@@ -241,10 +241,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       return <Icon className={className} />;
     };
 
+    const tourId: Record<string, string> = {
+      '/dashboard': 'tour-dashboard',
+      '/mensajeria': 'tour-mensajeria',
+      '/admin/meta': 'tour-creativos',
+      '/inventario': 'tour-inventario',
+      '/integraciones': 'tour-integraciones',
+    };
+
     return (
       <Link
         key={item.path}
         to={item.path}
+        id={tourId[item.path]}
         title={isUnconfigured ? `${item.label} (no configurado)` : item.label}
         onClick={() => window.innerWidth < 768 && setIsOpen(false)}
         className={`group flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[11px] md:text-[12px] font-bold transition-all duration-150 active:scale-[0.98] ${
