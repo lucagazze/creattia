@@ -201,7 +201,7 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
               name: 'Plan Corporativo',
               price: 20.00,
               return_url: billingReturnUrl,
-              trial_days: 14,
+              trial_days: 3,
             }
           })
         });
