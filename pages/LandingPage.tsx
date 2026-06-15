@@ -654,6 +654,16 @@ export default function LandingPage() {
     return () => window.clearInterval(interval);
   }, [autoTabCycle, activeTabShowcase]);
 
+  // Lock body scroll when zoom modal is open
+  useEffect(() => {
+    if (zoomImage) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [zoomImage]);
+
   // Scroll-triggered reveal for transformation section
   useEffect(() => {
     const el = transformRef.current;
@@ -1132,9 +1142,8 @@ export default function LandingPage() {
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-zinc-400/5 dark:bg-zinc-400/4 rounded-full blur-[120px] pointer-events-none" />
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
-          <h1 className="font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 space-y-1">
-            <span className="block text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-400 dark:text-zinc-500 leading-snug">Gestioná tu negocio online.</span>
-            <span className="block text-4xl sm:text-5xl md:text-[64px] lg:text-[80px] font-black text-zinc-900 dark:text-white leading-[1.05]">Escalá tus ventas.</span>
+          <h1 className={`font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 text-4xl sm:text-5xl md:text-[62px] lg:text-[72px] font-black leading-[1.1] ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+            Gestioná tu negocio online. Escalá tus ventas.
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -2459,30 +2468,31 @@ export default function LandingPage() {
         const zTab = showcaseTabs.find(t => t.img === zoomImage);
         return (
           <div
-            className="fixed inset-0 z-[900] bg-black/96 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
+            className="fixed inset-0 z-[900] bg-black/97 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden flex flex-col items-center justify-center"
             onClick={() => setZoomImage(null)}
           >
             <button
               onClick={() => setZoomImage(null)}
-              className="fixed top-4 right-4 z-[10] w-10 h-10 rounded-full bg-white/10 border border-white/15 text-white hover:bg-white/20 flex items-center justify-center transition-all"
+              className="fixed top-4 right-4 z-[10] w-10 h-10 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 flex items-center justify-center transition-all"
               aria-label="Cerrar"
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="min-h-screen flex items-center justify-center py-14 px-4">
-              <div className="w-full max-w-5xl" onClick={e => e.stopPropagation()}>
-                {zTab && (
-                  <p className="text-[11px] font-black uppercase tracking-widest text-zinc-100 mb-3 text-center">{zTab.label}</p>
-                )}
-                <img
-                  src={zoomImage}
-                  alt={zTab?.label || 'Vista ampliada'}
-                  className="w-full rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200"
-                />
-                {zTab && (
-                  <p className="text-[13.5px] text-white leading-relaxed mt-5 max-w-3xl mx-auto text-center">{zTab.desc}</p>
-                )}
-              </div>
+            <div className="w-full flex flex-col" onClick={e => e.stopPropagation()}>
+              {zTab && (
+                <p className="text-[11px] font-black uppercase tracking-widest text-white mb-4 text-center px-6 drop-shadow-[0_1px_4px_rgba(0,0,0,1)]">{zTab.label}</p>
+              )}
+              <img
+                src={zoomImage}
+                alt={zTab?.label || 'Vista ampliada'}
+                className="w-full object-contain animate-in zoom-in-95 duration-200"
+                style={{ maxHeight: '72vh' }}
+              />
+              {zTab && (
+                <div className="mt-5 px-6">
+                  <p className="text-[13.5px] text-white leading-relaxed max-w-3xl mx-auto text-center drop-shadow-[0_1px_4px_rgba(0,0,0,1)]">{zTab.desc}</p>
+                </div>
+              )}
             </div>
           </div>
         );
