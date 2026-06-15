@@ -62,13 +62,13 @@ const MockMetricCard = ({
   darkMode
 }: any) => {
   const isPink = sparklineColor === '#ec4899';
-  const isViolet = sparklineColor === '#8b5cf6';
+  const isEmerald = sparklineColor === '#10b981';
   const isGreen = sparklineColor === '#10b981';
   
   let activeBgClass = "bg-blue-50/60 dark:bg-blue-500/5 border-blue-500/30";
   let pulseClass = "bg-blue-500";
   if (isPink) { activeBgClass = "bg-pink-50/60 dark:bg-pink-500/5 border-pink-500/30"; pulseClass = "bg-pink-500"; }
-  if (isViolet) { activeBgClass = "bg-violet-50/60 dark:bg-violet-500/5 border-violet-500/30"; pulseClass = "bg-violet-500"; }
+  if (isEmerald) { activeBgClass = "bg-emerald-50/60 dark:bg-emerald-500/5 border-emerald-500/30"; pulseClass = "bg-emerald-500"; }
   if (isGreen) { activeBgClass = "bg-emerald-50/60 dark:bg-emerald-500/5 border-emerald-500/30"; pulseClass = "bg-emerald-500"; }
 
   const data = chartMockData[metricId] || [];
@@ -486,7 +486,7 @@ export default function LandingPage() {
     },
     {
       id: 'conv4', name: 'Lucas Fernández', channel: 'instagram' as const,
-      avatarBg: 'bg-violet-500', initials: 'LF', time: 'Ayer', status: 'answered' as const,
+      avatarBg: 'bg-emerald-500', initials: 'LF', time: 'Ayer', status: 'answered' as const,
       preview: 'Gracias! Muy buena atención 🙌',
       messages: [
         { id: 1, sender: 'user', text: '¿Me pueden indicar el precio del cinturón de cuero?', time: 'Ayer' },
@@ -534,7 +534,7 @@ export default function LandingPage() {
   // Tabbed high-fidelity screenshots switcher
   const [activeTabShowcase, setActiveTabShowcase] = useState<'inicio' | 'mensajeria' | 'comentarios' | 'pedidos' | 'inventario' | 'analisis' | 'creativos' | 'meta_ads' | 'perfil_dark'>('inicio');
   const [autoTabCycle, setAutoTabCycle] = useState(true);
-  const [heroProgress, setHeroProgress] = useState(0);
+  const [heroCycleKey, setHeroCycleKey] = useState(0);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [transformVisible, setTransformVisible] = useState(false);
   const transformRef = useRef<HTMLElement>(null);
@@ -597,35 +597,21 @@ export default function LandingPage() {
     });
   }, []);
 
-  // Auto-cycle hero tabs with one animation clock for both the bar and tab switch.
+  // Auto-cycle hero tabs without per-frame React updates; this keeps scrolling smooth.
   useEffect(() => {
-    if (!autoTabCycle) {
-      setHeroProgress(0);
-      return;
-    }
+    if (!autoTabCycle) return;
 
     const tabIds = showcaseTabs.map(t => t.id);
-    const startedAt = performance.now();
-    const duration = 4000;
-    let frame = 0;
+    setHeroCycleKey(k => k + 1);
+    const interval = window.setInterval(() => {
+      setActiveTabShowcase(prev => {
+        const idx = tabIds.indexOf(prev);
+        return tabIds[(idx + 1) % tabIds.length] as any;
+      });
+      setHeroCycleKey(k => k + 1);
+    }, 4000);
 
-    const tick = (now: number) => {
-      const progress = Math.min((now - startedAt) / duration, 1);
-      setHeroProgress(progress * 100);
-
-      if (progress >= 1) {
-        setActiveTabShowcase(prev => {
-          const idx = tabIds.indexOf(prev);
-          return tabIds[(idx + 1) % tabIds.length] as any;
-        });
-        return;
-      }
-
-      frame = requestAnimationFrame(tick);
-    };
-
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => window.clearInterval(interval);
   }, [autoTabCycle, activeTabShowcase]);
 
   // Scroll-triggered reveal for transformation section
@@ -953,8 +939,17 @@ export default function LandingPage() {
     }
   ];
 
+  const activeShowcaseIndex = Math.max(0, showcaseTabs.findIndex(t => t.id === activeTabShowcase));
+  const activeShowcaseTab = showcaseTabs[activeShowcaseIndex] || showcaseTabs[0];
+  const goShowcase = (delta: number) => {
+    const nextIndex = (activeShowcaseIndex + delta + showcaseTabs.length) % showcaseTabs.length;
+    setAutoTabCycle(false);
+    setActiveTabShowcase(showcaseTabs[nextIndex].id as any);
+    setHeroCycleKey(k => k + 1);
+  };
+
   return (
-    <div className={`min-h-screen font-sans transition-colors duration-500 selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
+    <div className={`min-h-screen font-sans selection:bg-emerald-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
       
       {/* Estilos CSS Embebidos para Animaciones Marquee e Interactivas */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -964,28 +959,50 @@ export default function LandingPage() {
         }
         .animate-marquee {
           display: flex;
-          width: max-content;
-          animation: marquee 32s linear infinite;
+          flex-wrap: wrap;
+          justify-content: center;
+          width: 100%;
+          animation: none;
+        }
+        @media (min-width: 640px) {
+          .animate-marquee {
+            flex-wrap: nowrap;
+            justify-content: flex-start;
+            width: max-content;
+            animation: marquee 32s linear infinite;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-marquee { animation: none; }
         }
         .glow-hover:hover {
-          box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+          box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
         }
         .pulse-sync {
           animation: pulseGlow 0.8s ease-out;
         }
         @keyframes pulseGlow {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.3); }
-          70% { transform: scale(1.015); box-shadow: 0 0 0 6px rgba(139, 92, 246, 0); }
-          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.3); }
+          70% { transform: scale(1.015); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
         @keyframes ringPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.5), 0 0 0 0 rgba(139, 92, 246, 0.25); }
-          50% { box-shadow: 0 0 0 5px rgba(139, 92, 246, 0.15), 0 0 0 10px rgba(139, 92, 246, 0); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5), 0 0 0 0 rgba(16, 185, 129, 0.25); }
+          50% { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.15), 0 0 0 10px rgba(16, 185, 129, 0); }
         }
         .ring-pulse { animation: ringPulse 2s ease-in-out infinite; }
         @keyframes tabGlow {
           0%, 100% { opacity: 0.5; }
           50% { opacity: 1; }
+        }
+        @keyframes tabProgress {
+          from { transform: scaleX(0); }
+          to { transform: scaleX(1); }
+        }
+        .tab-progress-bar {
+          transform-origin: left center;
+          animation: tabProgress 4s linear forwards;
+          will-change: transform;
         }
         .hero-image-layer { will-change: opacity; transform: translateZ(0); backface-visibility: hidden; }
       `}} />
@@ -1001,7 +1018,7 @@ export default function LandingPage() {
               <span className="text-[11.5px] font-bold tracking-tight uppercase leading-none block font-display">
                 ALGORITMIA
               </span>
-              <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
+              <span className="text-[7.5px] font-bold text-emerald-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
             </div>
           </div>
 
@@ -1051,7 +1068,7 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            Gestioná tu negocio online. <span className="text-violet-500">Escalá tus ventas.</span>
+            Gestioná tu negocio online. <span className="text-emerald-500">Escalá tus ventas.</span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -1087,7 +1104,7 @@ export default function LandingPage() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => { setAutoTabCycle(false); setActiveTabShowcase(tab.id as any); }}
+                    onClick={() => { setAutoTabCycle(false); setActiveTabShowcase(tab.id as any); setHeroCycleKey(k => k + 1); }}
                     className={`h-6 px-2.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center relative ${
                       isActive
                         ? (darkMode ? 'bg-white/10 text-white border border-white/10' : 'bg-zinc-900 text-white shadow-sm')
@@ -1096,7 +1113,7 @@ export default function LandingPage() {
                   >
                     {tab.label}
                     {isActive && autoTabCycle && (
-                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     )}
                   </button>
                 );
@@ -1110,19 +1127,18 @@ export default function LandingPage() {
 
             {/* Progress bar — fills over 4s before each auto-cycle switch */}
             {autoTabCycle && (
-              <div className={`h-[4px] overflow-hidden ${darkMode ? 'bg-white/[0.04]' : 'bg-zinc-100'}`}>
+              <div key={`${activeTabShowcase}-${heroCycleKey}`} className={`h-[4px] sm:h-[3px] overflow-hidden ${darkMode ? 'bg-white/[0.04]' : 'bg-zinc-100'}`}>
                 <div
-                  className="h-full bg-violet-500 transition-none"
-                  style={{ width: `${heroProgress}%` }}
+                  className="tab-progress-bar h-full bg-emerald-500"
                 />
               </div>
             )}
 
             {/* Screenshot — crossfade between tabs, no height jump */}
             <div
-              className="relative cursor-zoom-in group overflow-hidden"
-              style={{ height: 'clamp(220px, 42vw, 455px)' }}
-              onClick={() => setZoomImage(showcaseTabs.find(t => t.id === activeTabShowcase)?.img || null)}
+              className={`relative cursor-zoom-in group overflow-hidden ${darkMode ? 'bg-zinc-950' : 'bg-white'}`}
+              style={{ height: 'clamp(320px, 58vw, 680px)' }}
+              onClick={() => setZoomImage(activeShowcaseTab.img)}
             >
               {showcaseTabs.map(tab => (
                 <img
@@ -1131,7 +1147,7 @@ export default function LandingPage() {
                   alt={tab.label}
                   loading="eager"
                   decoding="async"
-                  className="hero-image-layer absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-700 ease-out"
+                  className="hero-image-layer absolute inset-0 w-full h-full object-contain object-center transition-opacity duration-500 ease-out"
                   style={{
                     opacity: activeTabShowcase === tab.id ? 1 : 0,
                     zIndex: activeTabShowcase === tab.id ? 2 : 1,
@@ -1139,23 +1155,34 @@ export default function LandingPage() {
                 />
               ))}
               <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Ampliar
+                <Sparkles className="w-2.5 h-2.5 text-emerald-400" /> Ampliar
               </div>
             </div>
 
             {/* Tab description */}
-            {(() => {
-              const activeTab = showcaseTabs.find(t => t.id === activeTabShowcase);
-              return activeTab ? (
-                <div className={`px-5 py-3 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
-                  <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-zinc-400 dark:bg-zinc-600" />
-                  <div>
-                    <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{activeTab.label}</p>
-                    <p className={`text-[11.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeTab.desc}</p>
+            <div className={`px-4 sm:px-5 py-3 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
+              <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-emerald-500" />
+              <div className="min-w-0 flex-1">
+                <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{activeShowcaseTab.label}</p>
+                <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeShowcaseTab.desc}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); goShowcase(-1); }}
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${darkMode ? 'bg-white/[0.03] border-white/[0.08] text-zinc-300 hover:bg-white/[0.08]' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
+                  aria-label="Ver sección anterior"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); goShowcase(1); }}
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${darkMode ? 'bg-white/[0.03] border-white/[0.08] text-zinc-300 hover:bg-white/[0.08]' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
+                  aria-label="Ver sección siguiente"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
                   </div>
-                </div>
-              ) : null;
-            })()}
 
           </div>
         </div>
@@ -1176,7 +1203,7 @@ export default function LandingPage() {
             {integrations.concat(integrations).map((item, idx) => (
               <div 
                 key={`${item.name}-${idx}`} 
-                className="flex items-center gap-3.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-5 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-violet-500/10"
+                className={`${idx >= integrations.length ? 'hidden sm:flex' : 'flex'} items-center gap-3.5 opacity-80 hover:opacity-100 transition-all duration-300 cursor-pointer h-12 px-5 rounded-2xl bg-zinc-200/10 dark:bg-white/[0.01] border border-transparent hover:border-emerald-500/10`}
               >
                 <img
                   src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
@@ -1193,14 +1220,19 @@ export default function LandingPage() {
       {/* Secciones Interactivas de Demostración del Producto */}
       <section id="interactive-demo" className="py-20 max-w-5xl mx-auto px-6 space-y-28">
         
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        <div className="text-center max-w-2xl mx-auto mb-10">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Demo interactiva</h2>
-          <p className={`text-[13px] mt-3 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>Probá la plataforma en tiempo real. Todo funciona de verdad.</p>
+          <p className={`text-[13px] mt-3 mb-8 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>Probá la plataforma en tiempo real. Todo funciona de verdad.</p>
+          <div className="flex items-center justify-center gap-2">
+            <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
+            <span className={`text-[9px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>Mensajería omnicanal</span>
+            <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
+          </div>
         </div>
 
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
-        <div className="grid grid-cols-[minmax(124px,0.78fr)_minmax(0,1.55fr)] md:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)] gap-4 sm:gap-6 md:gap-8 items-start">
-          <div className="space-y-4 sticky top-20">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)] gap-6 lg:gap-8 items-start">
+          <div className="space-y-4 lg:sticky lg:top-20">
             <div className="space-y-2">
               <h3 className="text-[20px] sm:text-2xl md:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Bandeja omnicanal con respuestas de IA</h3>
               <p className={`text-[12px] sm:text-[13.5px] leading-relaxed max-w-sm ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -1208,12 +1240,12 @@ export default function LandingPage() {
               </p>
             </div>
             {Object.values(inboxConvStatuses).some(s => s === 'sent') && (
-              <button onClick={handleResetChat} className="text-[10px] font-semibold text-violet-500 hover:underline shrink-0">
+              <button onClick={handleResetChat} className="text-[10px] font-semibold text-emerald-500 hover:underline shrink-0">
                 Reiniciar simulación
               </button>
             )}
             <div className={`hidden sm:block rounded-2xl border p-4 ${darkMode ? 'bg-zinc-900/50 border-white/[0.06] text-zinc-300' : 'bg-white border-zinc-200/70 text-zinc-600 shadow-sm'}`}>
-              <p className="text-[10px] font-black uppercase tracking-wider text-violet-500 mb-2">Demo en vivo</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500 mb-2">Demo en vivo</p>
               <p className="text-[12px] leading-relaxed font-medium">Filtrá canales, abrí conversaciones y generá una respuesta con IA como dentro de la app.</p>
             </div>
           </div>
@@ -1225,6 +1257,9 @@ export default function LandingPage() {
               {(['all', 'instagram', 'facebook', 'whatsapp'] as const).map(ch => {
                 const labels = { all: 'Todos', instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp' };
                 const active = inboxChannelFilter === ch;
+                const pendingCount = inboxConversations.filter(c =>
+                  (ch === 'all' || c.channel === ch) && isInboxPending(c)
+                ).length;
                 const ChannelIcon = () => {
                   if (ch === 'instagram') return <Instagram className="w-3 h-3 text-pink-500" />;
                   if (ch === 'facebook') return <Facebook className="w-3 h-3 text-blue-500" />;
@@ -1246,6 +1281,13 @@ export default function LandingPage() {
                     <ChannelIcon />
                     <span className="hidden sm:inline">{labels[ch]}</span>
                     <span className="sm:hidden">{ch === 'all' ? 'Todos' : ch === 'instagram' ? 'IG' : ch === 'facebook' ? 'FB' : 'WA'}</span>
+                    {pendingCount > 0 && (
+                      <span className={`min-w-[14px] h-[14px] px-[3px] rounded-full text-[8px] font-black flex items-center justify-center ${
+                        active ? 'bg-white/25 text-white' : 'bg-amber-500 text-white'
+                      }`}>
+                        {pendingCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -1280,7 +1322,7 @@ export default function LandingPage() {
                       }}
                       className={`flex items-start gap-2.5 p-3 text-left border-b transition-all ${
                         isSelected
-                          ? (darkMode ? 'bg-white/[0.04] border-white/[0.04]' : 'bg-violet-50/60 border-zinc-100')
+                          ? (darkMode ? 'bg-white/[0.04] border-white/[0.04]' : 'bg-emerald-50/60 border-zinc-100')
                           : (darkMode ? 'hover:bg-white/[0.02] border-white/[0.03]' : 'hover:bg-zinc-50 border-zinc-50')
                       }`}
                     >
@@ -1300,7 +1342,7 @@ export default function LandingPage() {
                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500">Pendiente</span>
                           )}
                           {displayStatus === 'Visto' && (
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-500">Visto</span>
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500">Visto</span>
                           )}
                           {displayStatus === 'Respondido' && (
                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500">Respondido</span>
@@ -1338,7 +1380,7 @@ export default function LandingPage() {
                     getInboxDisplayStatus(selectedInboxConv) === 'Respondido'
                       ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                       : getInboxDisplayStatus(selectedInboxConv) === 'Visto'
-                        ? 'bg-violet-500/10 text-violet-500 border-violet-500/20'
+                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                         : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                   }`}>
                     {getInboxDisplayStatus(selectedInboxConv)}
@@ -1354,7 +1396,7 @@ export default function LandingPage() {
                     >
                       <div className={`p-2.5 rounded-xl text-[11px] font-medium leading-relaxed ${
                         msg.sender === 'ai'
-                          ? 'bg-violet-600 text-white rounded-tr-none'
+                          ? 'bg-emerald-600 text-white rounded-tr-none'
                           : (darkMode ? 'bg-zinc-800 text-zinc-300 rounded-tl-none' : 'bg-zinc-100 text-zinc-800 rounded-tl-none')
                       }`}>
                         {msg.text}
@@ -1364,14 +1406,14 @@ export default function LandingPage() {
                   ))}
                   {getConvStatus(selectedInboxConvId) === 'sending' && (
                     <div className="flex items-center gap-1 p-2.5 rounded-xl bg-zinc-900/40 max-w-[70px] ml-auto">
-                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
                   )}
                   {getConvStatus(selectedInboxConvId) === 'sent' && selectedInboxConv.aiReply && (
                     <div className="flex flex-col max-w-[82%] ml-auto items-end animate-in slide-in-from-bottom-2 duration-300">
-                      <div className="p-2.5 rounded-xl text-[11px] font-medium leading-relaxed bg-violet-600 text-white rounded-tr-none">
+                      <div className="p-2.5 rounded-xl text-[11px] font-medium leading-relaxed bg-emerald-600 text-white rounded-tr-none">
                         {selectedInboxConv.aiReply.text}
                       </div>
                       <span className="text-[8px] text-zinc-500 font-semibold mt-0.5 px-1">{selectedInboxConv.aiReply.time}</span>
@@ -1383,18 +1425,18 @@ export default function LandingPage() {
                 <div className={`p-3 border-t shrink-0 ${darkMode ? 'border-white/[0.04] bg-zinc-950/20' : 'border-zinc-100 bg-zinc-50/30'}`}>
                   {selectedInboxConv.status !== 'answered' && getConvStatus(selectedInboxConvId) === 'idle' && selectedInboxConv.aiDraft && (
                     <div className={`p-2.5 rounded-lg border mb-2.5 flex flex-col gap-1 text-left ${
-                      darkMode ? 'bg-violet-950/10 border-violet-500/15' : 'bg-violet-50 border-violet-200/50'
+                      darkMode ? 'bg-emerald-950/10 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200/50'
                     }`}>
                       <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3 text-violet-500" />
-                        <span className="text-[9px] font-bold uppercase text-violet-600 dark:text-violet-400 tracking-wider">Cerebro de IA — Respuesta Sugerida</span>
+                        <Sparkles className="w-3 h-3 text-emerald-500" />
+                        <span className="text-[9px] font-bold uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">Cerebro de IA — Respuesta Sugerida</span>
                       </div>
                       <p className={`text-[10.5px] leading-relaxed font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
                         "{selectedInboxConv.aiDraft.slice(0, 60)}..."
                       </p>
                       <button
                         onClick={handleSendAiResponse}
-                        className="mt-1 self-start text-[9px] font-bold text-violet-600 dark:text-violet-400 hover:underline uppercase flex items-center gap-0.5"
+                        className="mt-1 self-start text-[9px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline uppercase flex items-center gap-0.5"
                       >
                         Aprobar y enviar <ArrowUpRight className="w-2.5 h-2.5" />
                       </button>
@@ -1412,7 +1454,7 @@ export default function LandingPage() {
                     <button
                       onClick={handleSendAiResponse}
                       disabled={getConvStatus(selectedInboxConvId) !== 'idle' || selectedInboxConv.status === 'answered'}
-                      className={`h-8 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shrink-0 transition-all disabled:opacity-50 bg-violet-600 hover:bg-violet-500 text-white`}
+                      className={`h-8 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shrink-0 transition-all disabled:opacity-50 bg-emerald-600 hover:bg-emerald-500 text-white`}
                     >
                       {getConvStatus(selectedInboxConvId) === 'sending'
                         ? <><RefreshCw className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">Generando...</span></>
@@ -1437,7 +1479,7 @@ export default function LandingPage() {
         <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="max-w-2xl space-y-4 text-left">
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
-              Control total de tu <span className="text-violet-500">rentabilidad</span>, sin planillas
+              Control total de tu <span className="text-emerald-500">rentabilidad</span>, sin planillas
             </h3>
             <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
@@ -1482,8 +1524,8 @@ export default function LandingPage() {
                       onClick={() => setExpandedMetric('s-revenue')}
                       className={`${!expandedMetric ? 'ring-pulse' : ''} flex items-center gap-2 text-[10px] font-bold px-4 py-2 rounded-full border transition-all duration-200 ${
                         darkMode
-                          ? 'bg-violet-950/20 border-violet-500/30 text-violet-300 hover:bg-violet-900/30 hover:text-white hover:border-violet-400/50'
-                          : 'bg-violet-50 border-violet-200 text-violet-600 hover:bg-violet-100 hover:text-violet-800 hover:border-violet-300'
+                          ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300 hover:bg-emerald-900/30 hover:text-white hover:border-emerald-400/50'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-800 hover:border-emerald-300'
                       }`}
                     >
                       <MousePointerClick className="w-3.5 h-3.5" />
@@ -1563,7 +1605,7 @@ export default function LandingPage() {
                 {/* 2. SECCIÓN: PUBLICIDAD DE META ADS */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 px-1 pt-1.5">
-                    <svg className="w-4 h-4 text-violet-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M13.028 23.956C18.943 23.302 23.5 18.261 23.5 12.135c0-6.35-5.149-11.5-11.5-11.5S.5 5.785.5 12.135c0 5.73 4.172 10.486 9.668 11.368V15.63H7.445v-3.495h2.723V9.72c0-2.682 1.597-4.163 4.04-4.163 1.171 0 2.395.21 2.395.21v2.634h-1.35c-1.33 0-1.745.825-1.745 1.671v2.01h2.97l-.474 3.494h-2.496v7.873a11.554 11.554 0 0 0 1.52-.494z"/></svg>
+                    <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M13.028 23.956C18.943 23.302 23.5 18.261 23.5 12.135c0-6.35-5.149-11.5-11.5-11.5S.5 5.785.5 12.135c0 5.73 4.172 10.486 9.668 11.368V15.63H7.445v-3.495h2.723V9.72c0-2.682 1.597-4.163 4.04-4.163 1.171 0 2.395.21 2.395.21v2.634h-1.35c-1.33 0-1.745.825-1.745 1.671v2.01h2.97l-.474 3.494h-2.496v7.873a11.554 11.554 0 0 0 1.52-.494z"/></svg>
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-display">Meta Ads</span>
                     <div className="flex items-center gap-1 ml-auto">
                       <span className="text-[8.5px] text-zinc-400 dark:text-zinc-500 font-semibold">Facebook & Instagram Ads</span>
@@ -1578,7 +1620,7 @@ export default function LandingPage() {
                       value="$ 1.882"
                       change="27.5"
                       trend="up"
-                      sparklineColor="#8b5cf6"
+                      sparklineColor="#10b981"
                       icon={DollarSign}
                       active={expandedMetric === 'meta-inversion'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-inversion' ? null : 'meta-inversion')}
@@ -1590,7 +1632,7 @@ export default function LandingPage() {
                       value="147.284"
                       change="0.3"
                       trend="down"
-                      sparklineColor="#8b5cf6"
+                      sparklineColor="#10b981"
                       icon={Users}
                       active={expandedMetric === 'meta-alcance'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-alcance' ? null : 'meta-alcance')}
@@ -1602,7 +1644,7 @@ export default function LandingPage() {
                       value="121"
                       change="22.9"
                       trend="down"
-                      sparklineColor="#8b5cf6"
+                      sparklineColor="#10b981"
                       icon={Package}
                       active={expandedMetric === 'meta-compras'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-compras' ? null : 'meta-compras')}
@@ -1614,7 +1656,7 @@ export default function LandingPage() {
                       value="17.3"
                       change="32.3"
                       trend="down"
-                      sparklineColor="#8b5cf6"
+                      sparklineColor="#10b981"
                       icon={TrendingUp}
                       active={expandedMetric === 'meta-roas'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-roas' ? null : 'meta-roas')}
@@ -1626,7 +1668,7 @@ export default function LandingPage() {
                       value="$ 32.529"
                       change="13.7"
                       trend="up"
-                      sparklineColor="#8b5cf6"
+                      sparklineColor="#10b981"
                       icon={DollarSign}
                       active={expandedMetric === 'meta-retorno'}
                       onClick={() => setExpandedMetric(expandedMetric === 'meta-retorno' ? null : 'meta-retorno')}
@@ -1638,11 +1680,11 @@ export default function LandingPage() {
                   {expandedMetric && expandedMetric.startsWith('meta-') && (
                     (() => {
                       const details = {
-                        'meta-inversion': { label: 'Inversión Publicitaria', color: '#8b5cf6' },
-                        'meta-alcance': { label: 'Alcance (Personas Únicas)', color: '#8b5cf6' },
-                        'meta-compras': { label: 'Compras Atribuidas', color: '#8b5cf6' },
-                        'meta-roas': { label: 'ROAS', color: '#8b5cf6' },
-                        'meta-retorno': { label: 'Retorno Atribuido', color: '#8b5cf6' }
+                        'meta-inversion': { label: 'Inversión Publicitaria', color: '#10b981' },
+                        'meta-alcance': { label: 'Alcance (Personas Únicas)', color: '#10b981' },
+                        'meta-compras': { label: 'Compras Atribuidas', color: '#10b981' },
+                        'meta-roas': { label: 'ROAS', color: '#10b981' },
+                        'meta-retorno': { label: 'Retorno Atribuido', color: '#10b981' }
                       }[expandedMetric];
                       return details ? (
                         <MockDetailChart
@@ -1746,30 +1788,12 @@ export default function LandingPage() {
 
         {/* 3. CREATIVOS ACTIVOS */}
         <div className="flex flex-col gap-8 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div className="space-y-2">
-              <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con métricas en tiempo real</h3>
-              <button className={`${!simAnalyzedIds.size ? 'ring-pulse' : ''} flex items-center gap-2 text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all duration-200 w-fit ${darkMode ? 'bg-zinc-900/50 border-white/[0.06] text-zinc-400 hover:text-zinc-200' : 'bg-white border-zinc-200 text-zinc-500 hover:text-zinc-800 shadow-sm'}`}>
-                <Brain className="w-3 h-3 text-violet-500" />
-                Tocá cualquier creativo para analizarlo con IA
-              </button>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {[
-                { label: 'ROAS prom.', value: '10.8×', color: 'text-emerald-500' },
-                { label: 'Activos', value: `${simCreatives.filter(c => c.status === 'active').length}/${simCreatives.length}`, color: 'text-violet-500' },
-                {
-                  label: 'Consultas',
-                  value: `${simCreatives.reduce((acc, c) => acc + c.comments.filter(comm => comm.pending).length, 0)}`,
-                  color: simCreatives.reduce((acc, c) => acc + c.comments.filter(comm => comm.pending).length, 0) > 0 ? 'text-violet-500' : 'text-emerald-500'
-                },
-              ].map((kpi) => (
-                <div key={kpi.label} className={`px-3 py-1.5 rounded-lg border text-center min-w-[60px] ${darkMode ? 'bg-zinc-900/40 border-white/[0.04]' : 'bg-white border-zinc-200/60'}`}>
-                  <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider">{kpi.label}</p>
-                  <p className={`text-[12px] font-black ${kpi.color}`}>{kpi.value}</p>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-2">
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con métricas en tiempo real</h3>
+            <button className={`${!simAnalyzedIds.size ? 'ring-pulse' : ''} flex items-center gap-2 text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all duration-200 w-fit ${darkMode ? 'bg-zinc-900/50 border-white/[0.06] text-zinc-400 hover:text-zinc-200' : 'bg-white border-zinc-200 text-zinc-500 hover:text-zinc-800 shadow-sm'}`}>
+              <Brain className="w-3 h-3 text-emerald-500" />
+              Tocá cualquier creativo para analizarlo con IA
+            </button>
           </div>
 
           {/* 3-card creative grid — mismo diseño que Creativos Activos en la app */}
@@ -1864,7 +1888,7 @@ export default function LandingPage() {
                         className={`flex-1 h-7 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all ${
                           simAnalyzedIds.has(creative.id)
                             ? (darkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-200/60')
-                            : (darkMode ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20' : 'bg-violet-50 text-violet-600 border border-violet-200/60 hover:bg-violet-100')
+                            : (darkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-200/60 hover:bg-emerald-100')
                         }`}
                       >
                         <Brain className="w-3 h-3" />
@@ -1888,7 +1912,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight font-display leading-tight mb-4 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              Todo lo que necesitás, <span className="text-violet-500">en un solo lugar</span>
+              Todo lo que necesitás, <span className="text-emerald-500">en un solo lugar</span>
             </h2>
             <p className={`text-[14.5px] max-w-lg mx-auto leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               Cada módulo está diseñado para conectarse con el siguiente. Un ecosistema completo, no una colección de herramientas.
@@ -2095,7 +2119,7 @@ export default function LandingPage() {
       {/* Call to Action Final */}
       <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
         <div className="max-w-3xl mx-auto px-6 space-y-5">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender <span className="text-violet-500">más inteligente</span> hoy</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender <span className="text-emerald-500">más inteligente</span> hoy</h2>
           <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>
             Configuración en 5 minutos. Sin tarjeta de crédito.
           </p>
@@ -2183,11 +2207,11 @@ export default function LandingPage() {
               <span className="text-lg font-bold">✕</span>
             </button>
           </div>
-          <div className="max-w-4xl max-h-[85vh] w-full flex items-center justify-center p-2" onClick={(e) => e.stopPropagation()}>
+          <div className="max-w-[96vw] max-h-[92dvh] w-full flex items-center justify-center p-2" onClick={(e) => e.stopPropagation()}>
             <img 
               src={zoomImage} 
               alt="Visualización ampliada" 
-              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-250 border border-white/10" 
+              className="max-w-full max-h-[92dvh] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-250 border border-white/10" 
             />
           </div>
         </div>
@@ -2202,32 +2226,29 @@ export default function LandingPage() {
         className="fixed bottom-6 right-6 z-[400] w-13 h-13 flex items-center justify-center rounded-full bg-[#25D366] shadow-lg shadow-[#25D366]/30 hover:bg-[#20BA5A] transition-all duration-200 hover:scale-110 active:scale-95"
         style={{ width: '52px', height: '52px' }}
       >
-        <span className={`absolute right-[60px] whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-black shadow-md ${darkMode ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white'}`}>
-          ¿Consultas?
-        </span>
         <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6">
           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
         </svg>
       </a>
 
       {selectedSimCreative && (
-        <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-start md:items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
           <div 
             className="absolute inset-0 cursor-default" 
             onClick={() => setSelectedSimCreativeId(null)} 
           />
-          <div className={`relative w-full max-w-5xl rounded-[24px] border shadow-2xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] md:max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 ${
+          <div className={`relative w-full max-w-5xl my-2 md:my-0 rounded-[20px] md:rounded-[24px] border shadow-2xl flex flex-col md:flex-row overflow-hidden max-h-none md:max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 ${
             darkMode ? 'bg-[#09090b] border-white/[0.06] text-white' : 'bg-white border-zinc-200/80 text-zinc-800'
           }`}>
             {/* LADO IZQUIERDO — Vista Previa del Anuncio (Mockup de Red Social) */}
-            <div className={`w-full md:w-[42%] border-r p-5 flex flex-col justify-between ${
+            <div className={`w-full md:w-[42%] md:border-r border-b md:border-b-0 p-4 md:p-5 flex flex-col gap-4 md:justify-between ${
               darkMode ? 'bg-[#0c0c10] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
             }`}>
               <div className="space-y-4">
                 {/* Cabecera del Anuncio */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-violet-600 text-white font-black text-[12px] flex items-center justify-center shadow-md shadow-violet-600/10">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black text-[12px] flex items-center justify-center shadow-md shadow-emerald-600/10">
                       A
                     </div>
                     <div className="text-left">
@@ -2245,7 +2266,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Imagen/Video del Anuncio */}
-                <div className="aspect-[4/5] rounded-xl overflow-hidden border border-zinc-250/20 dark:border-white/[0.03] bg-zinc-950 shadow-inner relative flex items-center justify-center">
+                <div className="aspect-square md:aspect-[4/5] rounded-xl overflow-hidden border border-zinc-250/20 dark:border-white/[0.03] bg-zinc-950 shadow-inner relative flex items-center justify-center">
                   {selectedSimCreative.isVideo ? (
                     <video
                       src={selectedSimCreative.img}
@@ -2282,12 +2303,12 @@ export default function LandingPage() {
               <div className="pt-4 border-t border-zinc-200/40 dark:border-white/[0.03] flex items-center justify-between text-[10px]">
                 <span className="font-semibold text-zinc-500">Inversión Real: <span className="font-black text-zinc-800 dark:text-white">${selectedSimCreative.spent}</span></span>
                 <span className="font-semibold text-zinc-500">CTR: <span className="font-black text-zinc-800 dark:text-white">{selectedSimCreative.ctr}%</span></span>
-                <span className="font-semibold text-zinc-500">ROAS: <span className="font-black text-violet-500">{selectedSimCreative.roas}×</span></span>
+                <span className="font-semibold text-zinc-500">ROAS: <span className="font-black text-emerald-500">{selectedSimCreative.roas}×</span></span>
               </div>
             </div>
 
             {/* LADO DERECHO — Panel de Control Simulador (Métricas y Moderación) */}
-            <div className="w-full md:w-[58%] flex flex-col h-[520px] md:h-auto md:max-h-[85vh] overflow-hidden">
+            <div className="w-full md:w-[58%] flex flex-col min-h-[520px] md:min-h-0 md:h-auto md:max-h-[85vh] overflow-hidden">
               {/* Cabecera y Selector de Pestañas */}
               <div className={`p-4 border-b flex items-center justify-between ${
                 darkMode ? 'border-white/[0.04] bg-[#0c0c10]' : 'border-zinc-200/60 bg-zinc-50/50'
@@ -2314,7 +2335,7 @@ export default function LandingPage() {
                     >
                       Comentarios
                       {selectedSimCreative.comments.filter(c => c.pending).length > 0 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       )}
                     </button>
                   </div>
@@ -2336,15 +2357,15 @@ export default function LandingPage() {
                     {!simAnalyzedIds.has(selectedSimCreative.id) ? (
                       <div className="flex flex-col items-center justify-center gap-5 py-8 text-center">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-                          <Brain className="w-6 h-6 text-violet-500" />
+                          <Brain className="w-6 h-6 text-emerald-500" />
                         </div>
                         {simAnalyzingId === selectedSimCreative.id ? (
                           <>
                             <div className="relative w-16 h-16">
-                              <div className="absolute inset-0 rounded-full border-4 border-violet-200 dark:border-violet-900" />
-                              <div className="absolute inset-0 rounded-full border-4 border-t-violet-600 animate-spin" />
+                              <div className="absolute inset-0 rounded-full border-4 border-emerald-200 dark:border-emerald-900" />
+                              <div className="absolute inset-0 rounded-full border-4 border-t-emerald-600 animate-spin" />
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <Brain className="w-6 h-6 text-violet-500" />
+                                <Brain className="w-6 h-6 text-emerald-500" />
                               </div>
                             </div>
                             <p className="text-[12px] font-bold text-zinc-700 dark:text-zinc-300">Analizando respuesta visual...</p>
@@ -2356,7 +2377,7 @@ export default function LandingPage() {
                             <p className="text-[11px] text-zinc-400 max-w-[220px]">Analizará la atención, emoción y carga cognitiva de este anuncio.</p>
                             <button
                               onClick={() => handleSimAnalyze(selectedSimCreative.id)}
-                              className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-[12px] font-black shadow-lg shadow-violet-200 dark:shadow-none transition-all"
+                              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[12px] font-black shadow-lg shadow-emerald-200 dark:shadow-none transition-all"
                             >
                               <Zap className="w-4 h-4" /> Analizar creativo
                             </button>
@@ -2379,7 +2400,7 @@ export default function LandingPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[16px] font-black text-zinc-900 dark:text-white">{selectedSimCreative.tribeMetrics.label}</p>
-                        <p className="text-[10px] text-zinc-400 mt-1">Región dominante: <span className="font-bold text-violet-600 dark:text-violet-400">{selectedSimCreative.tribeMetrics.highestRegion}</span></p>
+                        <p className="text-[10px] text-zinc-400 mt-1">Región dominante: <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedSimCreative.tribeMetrics.highestRegion}</span></p>
                         <p className="text-[10px] text-zinc-400 dark:text-zinc-300 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
                       </div>
                     </div>
@@ -2390,7 +2411,7 @@ export default function LandingPage() {
                     }`}>
                       {[
                         { label: 'Atención', value: selectedSimCreative.tribeMetrics.attentionPct, color: 'bg-emerald-500', reason: selectedSimCreative.tribeMetrics.attentionReason },
-                        { label: 'Emoción', value: selectedSimCreative.tribeMetrics.emotionPct, color: 'bg-violet-500', reason: selectedSimCreative.tribeMetrics.emotionReason },
+                        { label: 'Emoción', value: selectedSimCreative.tribeMetrics.emotionPct, color: 'bg-sky-500', reason: selectedSimCreative.tribeMetrics.emotionReason },
                         { label: 'Carga Cognitiva', value: selectedSimCreative.tribeMetrics.cogLoad,
                           color: selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'bg-emerald-500' : selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500',
                           reason: selectedSimCreative.tribeMetrics.cogLoadReason },
@@ -2414,7 +2435,7 @@ export default function LandingPage() {
                         <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
                         <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
                           <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
-                          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
+                          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-sky-500 inline-block rounded-full" />Emoción</span>
                         </div>
                       </div>
                       <div className="h-[130px]">
@@ -2424,7 +2445,7 @@ export default function LandingPage() {
                             <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}s`} />
                             <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} width={22} />
                             <Line type="monotone" dataKey="attn" stroke="#10b981" strokeWidth={2} dot={false} />
-                            <Line type="monotone" dataKey="emot" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="emot" stroke="#0ea5e9" strokeWidth={2} dot={false} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -2439,7 +2460,7 @@ export default function LandingPage() {
                   <div className="space-y-4 text-left animate-in fade-in duration-200">
                     <div className="flex items-center justify-between text-[10.5px] font-bold text-zinc-400 border-b border-zinc-200/40 dark:border-white/[0.03] pb-2">
                       <span>Bandeja de Consultas de Anuncio</span>
-                      <span className="text-violet-500">
+                      <span className="text-emerald-500">
                         {selectedSimCreative.comments.filter(c => c.pending).length} Pendiente{selectedSimCreative.comments.filter(c => c.pending).length !== 1 ? 's' : ''}
                       </span>
                     </div>
@@ -2450,7 +2471,7 @@ export default function LandingPage() {
                           key={comment.id}
                           className={`p-3.5 rounded-xl border space-y-3 transition-all ${
                             comment.pending
-                              ? (darkMode ? 'bg-[#0f0f13] border-violet-500/20 shadow-sm shadow-violet-500/5' : 'bg-violet-50/20 border-violet-100')
+                              ? (darkMode ? 'bg-[#0f0f13] border-emerald-500/20 shadow-sm shadow-emerald-500/5' : 'bg-emerald-50/20 border-emerald-100')
                               : (darkMode ? 'bg-[#07070a]/30 border-white/[0.03] opacity-80' : 'bg-zinc-50/50 border-zinc-200/50')
                           }`}
                         >
@@ -2458,7 +2479,7 @@ export default function LandingPage() {
                           <div className="flex items-start justify-between">
                             <div className="flex gap-2.5">
                               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase ${
-                                comment.pending ? 'bg-violet-500 shadow-md shadow-violet-500/10' : 'bg-zinc-400 dark:bg-zinc-700'
+                                comment.pending ? 'bg-emerald-500 shadow-md shadow-emerald-500/10' : 'bg-zinc-400 dark:bg-zinc-700'
                               }`}>
                                 {comment.user.slice(0, 2)}
                               </div>
@@ -2487,12 +2508,12 @@ export default function LandingPage() {
                             <div className="pl-6 border-l-2 border-zinc-200 dark:border-zinc-800 space-y-2 mt-2">
                               {comment.replies.map((reply, rIdx) => (
                                 <div key={rIdx} className="flex gap-2 items-start text-[10.5px]">
-                                  <div className="w-5 h-5 rounded-full bg-violet-600/20 border border-violet-500/25 text-violet-500 text-[8px] font-black flex items-center justify-center shrink-0">
+                                  <div className="w-5 h-5 rounded-full bg-emerald-600/20 border border-emerald-500/25 text-emerald-500 text-[8px] font-black flex items-center justify-center shrink-0">
                                     A
                                   </div>
                                   <div className="bg-zinc-100 dark:bg-white/[0.02] p-2 rounded-xl border border-zinc-200/50 dark:border-white/[0.04] flex-1">
                                     <p className="font-semibold text-[11px] leading-relaxed text-zinc-750 dark:text-zinc-200">
-                                      <span className="font-extrabold text-violet-600 dark:text-violet-400 mr-1.5">Algoritmia Store</span>
+                                      <span className="font-extrabold text-emerald-600 dark:text-emerald-400 mr-1.5">Algoritmia Store</span>
                                       {reply}
                                     </p>
                                   </div>
@@ -2508,22 +2529,22 @@ export default function LandingPage() {
                                 <>
                                   <button 
                                     onClick={() => setSimExpandedCommentId(comment.id)}
-                                    className="px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[9.5px] transition-colors"
+                                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[9.5px] transition-colors"
                                   >
                                     Responder
                                   </button>
                                   <button
                                     onClick={() => { setSimExpandedCommentId(comment.id); handleSimGenerateDraft(comment.id, comment.user, comment.text); }}
                                     disabled={simDraftingCommentId !== null}
-                                    className="px-3 py-1 rounded-lg text-[9.5px] font-black border border-violet-200 dark:border-violet-500/20 bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 flex items-center gap-1 transition-colors"
+                                    className="px-3 py-1 rounded-lg text-[9.5px] font-black border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 flex items-center gap-1 transition-colors"
                                   >
-                                    <Sparkles className="w-3 h-3 text-violet-500" /> Asistencia IA
+                                    <Sparkles className="w-3 h-3 text-emerald-500" /> Asistencia IA
                                   </button>
                                 </>
                               ) : (
                                 <div className="w-full space-y-2.5 animate-in slide-in-from-top-1 duration-200 text-left">
                                   {simDraftingCommentId === comment.id ? (
-                                    <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-violet-500 py-2">
+                                    <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-emerald-500 py-2">
                                       <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Cerebro de IA sugiriendo borrador...
                                     </div>
                                   ) : (
@@ -2533,13 +2554,13 @@ export default function LandingPage() {
                                         onChange={(e) => setSimReplyTexts(prev => ({ ...prev, [comment.id]: e.target.value }))}
                                         placeholder="Escribí tu respuesta..."
                                         className={`w-full p-2.5 rounded-lg border text-[11px] outline-none font-medium h-16 resize-none ${
-                                          darkMode ? 'bg-black border-white/10 text-white focus:border-violet-500/50' : 'bg-white border-zinc-350 focus:border-violet-400'
+                                          darkMode ? 'bg-black border-white/10 text-white focus:border-emerald-500/50' : 'bg-white border-zinc-350 focus:border-emerald-400'
                                         }`}
                                       />
                                       <div className="flex justify-between items-center">
                                         <button 
                                           onClick={() => handleSimGenerateDraft(comment.id, comment.user, comment.text)}
-                                          className="text-[9.5px] font-black text-violet-500 hover:underline flex items-center gap-0.5"
+                                          className="text-[9.5px] font-black text-emerald-500 hover:underline flex items-center gap-0.5"
                                         >
                                           <Sparkles className="w-3 h-3" /> Generar borrador con IA
                                         </button>
@@ -2553,7 +2574,7 @@ export default function LandingPage() {
                                           <button 
                                             onClick={() => handleSimSendReply(selectedSimCreative.id, comment.id)}
                                             disabled={!(simReplyTexts[comment.id] || '').trim()}
-                                            className="px-3 py-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-black rounded-lg text-[9.5px] flex items-center gap-1"
+                                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-lg text-[9.5px] flex items-center gap-1"
                                           >
                                             <Send className="w-2.5 h-2.5" /> Enviar
                                           </button>
