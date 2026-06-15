@@ -403,7 +403,7 @@ export const metaAds = {
   // ── ALL ADS FOR ACCOUNT ──────────────────────────────────
   getAccountAds: (accountId = META_AD_ACCOUNT) =>
     apiGet(`${accountId}/ads`, {
-      fields: 'id,name,status,campaign_id,preview_shareable_link,creative{id,name,body,title,thumbnail_url,image_url,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_permalink_url}',
+      fields: 'id,name,status,effective_status,configured_status,campaign_id,preview_shareable_link,creative{id,name,body,title,thumbnail_url,image_url,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_permalink_url}',
       limit: '150',
     }),
 

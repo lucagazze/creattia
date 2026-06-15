@@ -48,7 +48,6 @@ import {
   X,
   Send,
   ThumbsUp,
-  Heart,
   Brain,
   Instagram,
   Facebook,
@@ -1055,7 +1054,7 @@ export default function LandingPage() {
             {vt('Gestioná tu negocio online. Escalá tus ventas.')}
           </h1>
 
-          <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
             Un panel unificado para tus tiendas, campañas y mensajes. Con IA que responde, analiza y optimiza por vos.
           </p>
 
@@ -1122,7 +1121,7 @@ export default function LandingPage() {
             {/* Screenshot — crossfade between tabs, no height jump */}
             <div
               className="relative cursor-zoom-in group overflow-hidden"
-              style={{ aspectRatio: '16/10', maxHeight: 520 }}
+              style={{ height: 'clamp(220px, 50vw, 520px)' }}
               onClick={() => setZoomImage(showcaseTabs.find(t => t.id === activeTabShowcase)?.img || null)}
             >
               {showcaseTabs.map(tab => (
@@ -1152,7 +1151,7 @@ export default function LandingPage() {
                   <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-zinc-400 dark:bg-zinc-600" />
                   <div>
                     <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{activeTab.label}</p>
-                    <p className={`text-[11.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>{activeTab.desc}</p>
+                    <p className={`text-[11.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeTab.desc}</p>
                   </div>
                 </div>
               ) : null;
@@ -1196,15 +1195,15 @@ export default function LandingPage() {
         
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Demo interactiva</h2>
-          <p className={`text-[13px] mt-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Probá la plataforma en tiempo real. Todo funciona de verdad.</p>
+          <p className={`text-[13px] mt-3 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>Probá la plataforma en tiempo real. Todo funciona de verdad.</p>
         </div>
 
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="grid grid-cols-[minmax(124px,0.78fr)_minmax(0,1.55fr)] md:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)] gap-4 sm:gap-6 md:gap-8 items-start">
+          <div className="space-y-4 sticky top-20">
             <div className="space-y-2">
-              <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja omnicanal con respuestas de IA</h3>
-              <p className={`text-[13.5px] leading-relaxed max-w-lg ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              <h3 className="text-[20px] sm:text-2xl md:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Bandeja omnicanal con respuestas de IA</h3>
+              <p className={`text-[12px] sm:text-[13.5px] leading-relaxed max-w-sm ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
                 Instagram, WhatsApp y Facebook en un solo lugar. Filtrá por canal y respondé con IA en segundos.
               </p>
             </div>
@@ -1213,10 +1212,14 @@ export default function LandingPage() {
                 Reiniciar simulación
               </button>
             )}
+            <div className={`hidden sm:block rounded-2xl border p-4 ${darkMode ? 'bg-zinc-900/50 border-white/[0.06] text-zinc-300' : 'bg-white border-zinc-200/70 text-zinc-600 shadow-sm'}`}>
+              <p className="text-[10px] font-black uppercase tracking-wider text-violet-500 mb-2">Demo en vivo</p>
+              <p className="text-[12px] leading-relaxed font-medium">Filtrá canales, abrí conversaciones y generá una respuesta con IA como dentro de la app.</p>
+            </div>
           </div>
 
           {/* Full inbox widget */}
-          <div className={`rounded-2xl border overflow-hidden shadow-lg ${darkMode ? 'bg-zinc-900/60 border-white/[0.06]' : 'bg-white border-zinc-200/60'}`}>
+          <div className={`min-w-0 rounded-2xl border overflow-hidden shadow-lg ${darkMode ? 'bg-zinc-900/60 border-white/[0.06]' : 'bg-white border-zinc-200/60'}`}>
             {/* Top bar — channel filter */}
             <div className={`flex items-center gap-1.5 px-3 py-2 border-b ${darkMode ? 'border-white/[0.04] bg-zinc-950/40' : 'border-zinc-100 bg-zinc-50/60'}`}>
               {(['all', 'instagram', 'facebook', 'whatsapp'] as const).map(ch => {
@@ -1234,14 +1237,15 @@ export default function LandingPage() {
                   <button
                     key={ch}
                     onClick={() => setInboxChannelFilter(ch)}
-                    className={`flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[10px] font-bold transition-all ${
+                    className={`flex items-center gap-1.5 h-6 px-2 sm:px-2.5 rounded-full text-[10px] font-bold transition-all ${
                       active
                         ? (darkMode ? 'bg-white/10 text-white border border-white/15' : 'bg-zinc-900 text-white')
                         : (darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-700')
                     }`}
                   >
                     <ChannelIcon />
-                    {labels[ch]}
+                    <span className="hidden sm:inline">{labels[ch]}</span>
+                    <span className="sm:hidden">{ch === 'all' ? 'Todos' : ch === 'instagram' ? 'IG' : ch === 'facebook' ? 'FB' : 'WA'}</span>
                   </button>
                 );
               })}
@@ -1278,7 +1282,7 @@ export default function LandingPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <p className={`text-[11px] font-bold truncate ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>{conv.name}</p>
-                          <span className="text-[8.5px] text-zinc-500 shrink-0">{conv.time}</span>
+                          <span className="hidden sm:inline text-[8.5px] text-zinc-500 shrink-0">{conv.time}</span>
                         </div>
                         <p className={`text-[10px] truncate mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{conv.preview}</p>
                         <div className="flex items-center gap-1 mt-1">
@@ -1421,10 +1425,10 @@ export default function LandingPage() {
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
               {vt('Control total de tu rentabilidad, sin planillas')}
             </h3>
-            <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+            <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
             </p>
-            <ul className="space-y-2.5 text-[13.5px] text-zinc-600 dark:text-zinc-400">
+            <ul className="space-y-2.5 text-[13.5px] text-zinc-600 dark:text-zinc-300">
               <li className="flex items-center gap-2.5">
                 <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span>Sincronización multitienda: Shopify, Tiendanube y WooCommerce</span>
@@ -1872,7 +1876,7 @@ export default function LandingPage() {
             <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight font-display leading-tight mb-4 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
               {vt('Todo lo que necesitás, en un solo lugar')}
             </h2>
-            <p className={`text-[14.5px] max-w-lg mx-auto leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+            <p className={`text-[14.5px] max-w-lg mx-auto leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               Cada módulo está diseñado para conectarse con el siguiente. Un ecosistema completo, no una colección de herramientas.
             </p>
           </div>
@@ -1923,7 +1927,7 @@ export default function LandingPage() {
               >
                 <div className="text-2xl mb-3 leading-none">{feat.icon}</div>
                 <h3 className={`text-[14px] font-bold mb-1.5 ${darkMode ? 'text-zinc-100' : 'text-zinc-900'}`}>{feat.title}</h3>
-                <p className={`text-[12.5px] leading-relaxed ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>{feat.desc}</p>
+                <p className={`text-[12.5px] leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{feat.desc}</p>
               </div>
             ))}
           </div>
@@ -1948,7 +1952,7 @@ export default function LandingPage() {
       <section id="pricing" className="py-20 max-w-xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="mb-10">
           <h2 className="text-2xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Un único plan, sin sorpresas</h2>
-          <p className={`text-[13px] ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Todas las integraciones, soporte prioritario y colaboradores ilimitados.</p>
+          <p className={`text-[13px] ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>Todas las integraciones, soporte prioritario y colaboradores ilimitados.</p>
         </div>
 
         <div className={`rounded-2xl border p-6 relative overflow-hidden text-left transition-all duration-300 ${
@@ -2018,7 +2022,7 @@ export default function LandingPage() {
                 </button>
                 {isOpen && (
                   <div className={`px-5 pb-4 text-[11.5px] sm:text-[12px] leading-relaxed font-medium border-t pt-3 animate-in fade-in duration-300 ${
-                    darkMode ? 'text-zinc-400 border-white/[0.03]' : 'text-zinc-500 border-zinc-100'
+                    darkMode ? 'text-zinc-300 border-white/[0.03]' : 'text-zinc-500 border-zinc-100'
                   }`}>
                     {faq.a}
                   </div>
@@ -2033,7 +2037,7 @@ export default function LandingPage() {
       <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
         <div className="max-w-3xl mx-auto px-6 space-y-5">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">{vt('Empezá a vender más inteligente hoy')}</h2>
-          <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+          <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>
             Configuración en 5 minutos. Sin tarjeta de crédito.
           </p>
           <div className="flex justify-center pt-1">
@@ -2198,17 +2202,6 @@ export default function LandingPage() {
                     />
                   )}
                   
-                  {/* Action Bar (Heart, Comment, etc) */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8 flex items-center justify-between text-white">
-                    <div className="flex items-center gap-3">
-                      <Heart className="w-4 h-4 text-white hover:text-red-500 cursor-pointer transition-colors" />
-                      <MessageSquare className="w-4 h-4 text-white cursor-pointer" />
-                      <Send className="w-4 h-4 text-white cursor-pointer" />
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded border border-white/10">
-                      Ver Tienda
-                    </span>
-                  </div>
                 </div>
 
                 {/* Caption / Copy */}
@@ -2325,7 +2318,7 @@ export default function LandingPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-[16px] font-black text-zinc-900 dark:text-white">{selectedSimCreative.tribeMetrics.label}</p>
                         <p className="text-[10px] text-zinc-400 mt-1">Región dominante: <span className="font-bold text-violet-600 dark:text-violet-400">{selectedSimCreative.tribeMetrics.highestRegion}</span></p>
-                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
+                        <p className="text-[10px] text-zinc-400 dark:text-zinc-300 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
                       </div>
                     </div>
 

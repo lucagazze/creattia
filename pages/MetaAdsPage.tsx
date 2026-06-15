@@ -404,8 +404,16 @@ export default function MetaAdsPage() {
       metaAds.getAdInsightsForAccount(accountId, adFields, tr).catch(() => []),
       metaAds.getCampaigns(accountId).catch(() => ({ data: [] })),
     ]).then(([adsRes, insightsRes, campsRes]) => {
-      const insightIds = new Set((insightsRes || []).map((i: any) => i.ad_id).filter(Boolean));
-      setActiveAds((adsRes.data || []).filter((ad: any) => ad.status === 'ACTIVE' || insightIds.has(ad.id)));
+      const spentAdIds = new Set(
+        (insightsRes || [])
+          .filter((i: any) => parseFloat(i.spend || '0') > 0)
+          .map((i: any) => i.ad_id)
+          .filter(Boolean)
+      );
+      setActiveAds((adsRes.data || []).filter((ad: any) => {
+        const isReallyActive = ad.status === 'ACTIVE' || ad.effective_status === 'ACTIVE' || ad.configured_status === 'ACTIVE';
+        return isReallyActive || spentAdIds.has(ad.id);
+      }));
       const byAdId: Record<string, any> = {};
       (insightsRes || []).forEach((i: any) => { if (i.ad_id) byAdId[i.ad_id] = i; });
       setAdInsightsMap(byAdId);
