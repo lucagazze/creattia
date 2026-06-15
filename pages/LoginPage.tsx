@@ -121,8 +121,8 @@ export default function LoginPage() {
 
   return (
     <div
-      className={`relative flex flex-col font-sans overflow-hidden ${darkMode ? 'bg-[#060606]' : 'bg-[#f8f9fa]'}`}
-      style={{ height: '100dvh', minHeight: '100dvh' }}
+      className={`relative flex flex-col font-sans overflow-y-auto ${darkMode ? 'bg-[#060606]' : 'bg-[#f8f9fa]'}`}
+      style={{ minHeight: '100dvh' }}
     >
       {/* Header */}
       <header
@@ -186,8 +186,8 @@ export default function LoginPage() {
       </header>
 
       {/* Main */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pt-16 pb-12 overflow-hidden">
-        <div className="w-full max-w-[360px] animate-in fade-in slide-in-from-bottom-5 duration-700 my-auto py-4">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-start px-4 pt-28 pb-16">
+        <div className="w-full max-w-[360px] animate-in fade-in slide-in-from-bottom-5 duration-700">
 
           {/* Logo + title */}
           <div className="flex flex-col items-center mb-6 text-center">
