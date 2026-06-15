@@ -125,43 +125,31 @@ export default function LoginPage() {
       style={{ minHeight: '100dvh' }}
     >
       {/* Header */}
-      <header
-        style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
-        className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b ${darkMode ? 'bg-[#060606]/85 border-white/[0.04]' : 'bg-[#f8f9fa]/85 border-zinc-200/40'}`}
-      >
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+      <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#060606]/85 border-white/[0.04]' : 'bg-[#f8f9fa]/85 border-zinc-200/40'}`}>
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-[68px] flex items-center justify-between">
+          <div className="flex items-center gap-2.5 md:gap-3.5">
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-[26px] h-[26px] object-contain"
+              className="w-8 h-8 md:w-9 md:h-9 object-contain"
             />
             <div>
-              <span
-                className={`text-[11.5px] font-bold tracking-tight uppercase leading-none block ${darkMode ? 'text-white' : 'text-zinc-900'}`}
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-              >
+              <span className={`text-[13px] md:text-[14px] font-bold tracking-tight uppercase leading-none block font-display ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
                 Algoritmia
               </span>
-              <span
-                className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5"
-                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-              >Gestión</span>
+              <span className="text-[8px] md:text-[9px] font-bold text-violet-500 tracking-[0.24em] uppercase block mt-0.5 md:mt-1">Gestión</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleDarkMode}
-              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 ${
-                darkMode
-                  ? 'bg-zinc-900/80 border-zinc-500/35 text-zinc-400 hover:bg-zinc-800/90 hover:border-zinc-400/45 hover:text-zinc-100'
-                  : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
-              }`}
-            >
-              {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-500" />}
-            </button>
-          </div>
+          <button
+            onClick={toggleDarkMode}
+            className={`w-9 h-9 md:w-10 md:h-10 rounded-lg border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
+              darkMode ? 'bg-zinc-900/80 border-zinc-500/35 text-zinc-400 hover:bg-zinc-800/90 hover:border-zinc-400/45 hover:text-zinc-100' : 'bg-white border-zinc-200/60 text-zinc-500 hover:bg-zinc-50 shadow-sm'
+            }`}
+            aria-label="Cambiar tema"
+          >
+            {darkMode ? <Sun className="w-[18px] h-[18px] text-amber-400" /> : <Moon className="w-[18px] h-[18px] text-zinc-500" />}
+          </button>
         </div>
       </header>
 

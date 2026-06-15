@@ -1063,18 +1063,18 @@ export default function LandingPage() {
         .hero-image-layer { will-change: opacity; transform: translateZ(0); backface-visibility: hidden; }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
-        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 md:h-[76px] flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-[68px] flex items-center justify-between">
           <div className="flex items-center gap-2.5 md:gap-3.5">
             <img
               src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
               alt="Algoritmia"
-              className="w-8 h-8 md:w-10 md:h-10 object-contain"
+              className="w-8 h-8 md:w-9 md:h-9 object-contain"
             />
             <div>
-              <span className="text-[13px] md:text-[15px] font-bold tracking-tight uppercase leading-none block font-display">
+              <span className="text-[13px] md:text-[14px] font-bold tracking-tight uppercase leading-none block font-display">
                 Algoritmia
               </span>
-              <span className="text-[8px] md:text-[9.5px] font-bold text-violet-500 tracking-[0.24em] uppercase block mt-0.5 md:mt-1">Gestión</span>
+              <span className="text-[8px] md:text-[9px] font-bold text-violet-500 tracking-[0.24em] uppercase block mt-0.5 md:mt-1">Gestión</span>
             </div>
           </div>
 
@@ -1207,11 +1207,11 @@ export default function LandingPage() {
       </aside>
 
       {/* Hero Section */}
-      <section className="relative pt-32 sm:pt-44 pb-20 overflow-hidden">
+      <section className="relative pt-32 sm:pt-44 pb-20 lg:pb-28 overflow-hidden">
         {/* Subtle background halo */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-zinc-400/5 dark:bg-zinc-400/4 rounded-full blur-[120px] pointer-events-none" />
         
-        <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
+        <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
           <h1 className={`font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 text-4xl sm:text-5xl md:text-[62px] lg:text-[72px] font-black leading-[1.1] ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
             Gestioná tu negocio online.{' '}
             <span className="relative inline-block">
@@ -1246,7 +1246,7 @@ export default function LandingPage() {
           </div>
  
           {/* High-Fidelity Showcase Gallery */}
-          <div id="platform-showcase" className={`relative max-w-5xl mx-auto mt-10 -mx-6 sm:mx-auto rounded-none sm:rounded-[18px] border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.04]' : 'bg-white border-zinc-200/40'}`}>
+          <div id="platform-showcase" className={`relative max-w-5xl lg:max-w-6xl mx-auto mt-10 lg:mt-14 -mx-6 sm:mx-auto rounded-none sm:rounded-[18px] border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.04]' : 'bg-white border-zinc-200/40'}`}>
 
             {/* Tab Selector — responsive wrap */}
             <div className={`flex flex-wrap border-b p-1.5 gap-1 ${darkMode ? 'border-white/[0.05] bg-zinc-950/50' : 'border-zinc-200/50 bg-zinc-50/40'}`}>
@@ -1308,7 +1308,7 @@ export default function LandingPage() {
             {/* Tab description */}
             <div className={`h-[142px] sm:h-[116px] md:h-[104px] px-4 sm:px-5 py-3 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
               <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-violet-500" />
-              <div className="min-w-0 flex-1 md:max-w-xl">
+              <div className="min-w-0 flex-1 md:max-w-2xl lg:max-w-3xl">
                 <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{activeShowcaseTab.label}</p>
                 <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium [&_strong]:font-black ${darkMode ? 'text-zinc-300 [&_strong]:text-zinc-100' : 'text-zinc-500 [&_strong]:text-zinc-800'}`}>{activeShowcaseTab.desc}</p>
               </div>
@@ -1319,7 +1319,7 @@ export default function LandingPage() {
       </section>
 
       {/* Infinite Logo Marquee (Slider / Carousel) */}
-      <section className={`py-8 border-t border-b ${darkMode ? 'bg-zinc-950/30 border-white/[0.03]' : 'bg-zinc-50/30 border-zinc-200/40'}`}>
+      <section className={`py-8 lg:py-10 border-t border-b ${darkMode ? 'bg-zinc-950/30 border-white/[0.03]' : 'bg-zinc-50/30 border-zinc-200/40'}`}>
         <p className="text-center text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] font-sans mb-4 px-6">
           CONEXIÓN DIRECTA CON TUS PLATAFORMAS PUBLICITARIAS Y DE E-COMMERCE
         </p>
@@ -1343,7 +1343,7 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-        <div className="max-w-4xl mx-auto px-6 pt-5 flex flex-wrap items-center justify-center gap-2.5">
+        <div className="max-w-5xl mx-auto px-6 pt-5 flex flex-wrap items-center justify-center gap-2.5">
           {[
             { label: 'Shopify Partners', logo: '/assets/shopify-bag.webp' },
             { label: 'Tiendanube Partners', logo: darkMode ? '/assets/tiendanube.webp' : '/assets/tiendanubeoscuro.png' },
@@ -1363,7 +1363,7 @@ export default function LandingPage() {
       </section>
 
       {/* Secciones Interactivas de Demostración del Producto */}
-      <section id="interactive-demo" className="pt-10 pb-20 max-w-5xl mx-auto px-6 flex flex-col gap-8 sm:gap-10">
+      <section id="interactive-demo" className="pt-10 lg:pt-16 pb-20 lg:pb-28 max-w-5xl lg:max-w-6xl mx-auto px-6 flex flex-col gap-8 sm:gap-10 lg:gap-14">
         
         <div className="text-center max-w-2xl mx-auto order-1">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Demo interactiva</h2>
@@ -2067,9 +2067,9 @@ export default function LandingPage() {
       {/* Feature Highlights Section */}
       <section
         ref={transformRef}
-        className={`py-24 px-6 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'}`}
+        className={`py-24 lg:py-32 px-6 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'}`}
       >
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl lg:max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight font-display leading-tight mb-4 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
               Todo lo que necesitás, <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">en un solo lugar</span>
@@ -2238,14 +2238,14 @@ export default function LandingPage() {
           </div>
         );
         return (
-          <section className={`py-20 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'} overflow-hidden`}>
+          <section className={`py-20 lg:py-28 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'} overflow-hidden`}>
             <style>{`
               @keyframes marquee-left { from { transform: translateX(0); } to { transform: translateX(-50%); } }
               @keyframes marquee-right { from { transform: translateX(-50%); } to { transform: translateX(0); } }
               .marquee-left { animation: marquee-left 40s linear infinite; }
               .marquee-right { animation: marquee-right 44s linear infinite; }
             `}</style>
-            <div className="max-w-5xl mx-auto px-6 text-center mb-12">
+            <div className="max-w-5xl lg:max-w-6xl mx-auto px-6 text-center mb-12 lg:mb-16">
               <p className={`text-[11px] font-bold uppercase tracking-widest mb-3 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Lo que dicen nuestros usuarios</p>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Miles de negocios ya gestionan mejor</h2>
             </div>
@@ -2266,7 +2266,7 @@ export default function LandingPage() {
       })()}
 
       {/* Pricing — 3 plans */}
-      <section id="pricing" className="py-20 max-w-5xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
+      <section id="pricing" className="py-20 lg:py-28 max-w-5xl lg:max-w-6xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="text-center mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Planes para cada etapa</h2>
           <p className={`text-[13px] ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>Empezá gratis y escalá según tu negocio crece.</p>
@@ -2391,7 +2391,7 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ Section (Accordion) */}
-      <section id="faq" className="py-20 max-w-3xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
+      <section id="faq" className="py-20 lg:py-28 max-w-3xl lg:max-w-4xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="text-center mb-10">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-center text-zinc-900 dark:text-white">Preguntas frecuentes</h2>
         </div>
@@ -2428,7 +2428,7 @@ export default function LandingPage() {
       </section>
 
       {/* Call to Action Final */}
-      <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
+      <section className={`py-16 lg:py-24 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
         <div className="max-w-3xl mx-auto px-6 space-y-5">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender <span className="underline decoration-violet-500 decoration-[3px] underline-offset-4">más inteligente</span> hoy</h2>
           <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>
@@ -2447,7 +2447,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className={`py-12 border-t ${darkMode ? 'bg-black border-white/[0.04] text-zinc-500' : 'bg-zinc-50 border-zinc-200/40 text-zinc-400'}`}>
-        <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-8">
             {/* Brand */}
             <div className="col-span-2 sm:col-span-1 space-y-3">
