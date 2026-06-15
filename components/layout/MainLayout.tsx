@@ -135,6 +135,7 @@ const PrivacidadPage     = lazyWithRetry(() => import('../../pages/PrivacidadPag
 const SoportePage        = lazyWithRetry(() => import('../../pages/SoportePage'));
 const MercadoLibrePage      = lazyWithRetry(() => import('../../pages/MercadoLibrePage'));
 const CreativeTesterPage    = lazyWithRetry(() => import('../../pages/CreativeTesterPage'));
+const NotFoundPage          = lazyWithRetry(() => import('../../pages/NotFoundPage'));
 
 import { useViewAs } from '../../contexts/ViewAsContext';
 import { WelcomeGuide } from '../ui/WelcomeGuide';
@@ -363,7 +364,7 @@ export const MainLayout = () => {
               <Route path="/analisis-creativo" element={<CreativeTesterPage />} />
               <Route path="/privacidad" element={<PrivacidadPage />} />
               <Route path="/soporte" element={<SoportePage />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
           </RouteErrorBoundary>

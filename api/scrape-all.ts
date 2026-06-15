@@ -9,6 +9,22 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// Basic in-memory rate limiter for Gemini analysis (10 calls / 10 min per IP)
+const geminiRateMap = new Map<string, { count: number; resetAt: number }>();
+function checkGeminiRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const WINDOW = 10 * 60 * 1000; // 10 minutes
+  const MAX = 10;
+  const entry = geminiRateMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    geminiRateMap.set(ip, { count: 1, resetAt: now + WINDOW });
+    return true;
+  }
+  if (entry.count >= MAX) return false;
+  entry.count++;
+  return true;
+}
+
 function cleanHtml(html: string): string {
   let text = html;
   // Remove non-content sections
@@ -242,6 +258,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const geminiKey = process.env.GOOGLE_AI_API_KEY;
     if (!geminiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY no configurada' });
     if (!earlyFrames?.length) return res.status(400).json({ error: 'No frames provided' });
+
+    // Rate limit: 10 Gemini calls per IP per 10 minutes
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    if (!checkGeminiRateLimit(clientIp)) {
+      return res.status(429).json({ error: 'Demasiados análisis. Intentá de nuevo en unos minutos.' });
+    }
 
     const prompt = earlyIsVideo
       ? `ERES: TRIBE v2, especialista en análisis de video-creatives para redes sociales (Reels, TikTok, Facebook Ads).\n\nSE TE PASAN: ${earlyFrames.length} capturas del VIDEO completo, ~1 por segundo de inicio a fin. Analízalas EN CONJUNTO como una sola pieza.\n\nANALIZA COMO DIRECTOR CREATIVO: gancho de los primeros 3 segundos, ritmo del video, claridad del mensaje, efectividad del CTA, energía de la persona en cámara.\n\nPROHIBIDO: mencionar problemas técnicos de foto. Solo analiza el video como pieza creativa y de marketing.\nPERMITIDO SER BRUTAL: "Regrabar el video", "El gancho es inexistente", "Nadie va a ver esto más de 2 segundos".\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿El gancho detiene el scroll?\n2. Impacto Emocional (0-99): ¿Despierta curiosidad, deseo, humor o impacto?\n3. Carga Cognitiva (0-99): ¿El mensaje es claro sin esfuerzo? Ideal <30.\n4. Región Principal: "V1" (visual puro), "A1" (voz/música), "FFA" (persona/rostro), "EBA" (movimiento/cuerpo), "Amígdala" (emoción/shock).\n\nRESPONDE SOLO CON ESTE JSON (sin texto extra):\n{"attentionPct":72,"attentionReason":"Por qué la atención es ese número.","emotionPct":65,"emotionReason":"Por qué el impacto emocional es ese número.","cogLoad":28,"cogLoadReason":"Por qué la carga cognitiva es ese número.","highestRegion":"FFA","textInsight":"Diagnóstico del video en 2-3 líneas.","actionItems":["Consejo 1","Consejo 2","Consejo 3","Consejo 4"]}`

@@ -976,17 +976,16 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative pt-24 sm:pt-36 pb-20 overflow-hidden">
-        {/* Halos de luz de fondo estilo Linear */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/10 dark:bg-violet-600/8 rounded-full blur-[140px] pointer-events-none" />
-        <div className="absolute top-1/3 left-1/3 w-[400px] h-[400px] bg-fuchsia-500/5 dark:bg-fuchsia-500/5 rounded-full blur-[100px] pointer-events-none" />
+        {/* Subtle background halo */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-zinc-400/5 dark:bg-zinc-400/4 rounded-full blur-[120px] pointer-events-none" />
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            La plataforma para <span className="text-violet-600 dark:text-violet-400">gestionar</span> tu negocio online y <span className="text-violet-600 dark:text-violet-400">escalar ventas</span>
+            Gestioná tu negocio online. Escalá tus ventas.
           </h1>
-          
-          <p className={`text-[15.5px] sm:text-[17.5px] max-w-2xl mx-auto leading-relaxed mb-10 font-medium animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400 font-medium' : 'text-zinc-550 font-semibold'}`}>
-            Centralizá tus canales de venta, automatizá la atención al cliente con IA y controlá tu rentabilidad real en tiempo real. Todo desde un panel unificado, ultrarrápido y sin planillas manuales.
+
+          <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+            Un panel unificado para tus tiendas, campañas y mensajes. Con IA que responde, analiza y optimiza por vos.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-16 animate-in fade-in slide-in-from-bottom-7 duration-1000">
@@ -1066,7 +1065,7 @@ export default function LandingPage() {
               const activeTab = showcaseTabs.find(t => t.id === activeTabShowcase);
               return activeTab ? (
                 <div className={`px-5 py-4 border-t flex items-start gap-3 text-left animate-in fade-in duration-300 ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-violet-500`} />
+                  <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-zinc-400 dark:bg-zinc-600" />
                   <div>
                     <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{activeTab.label}</p>
                     <p className={`text-[11.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>{activeTab.desc}</p>
@@ -1114,17 +1113,16 @@ export default function LandingPage() {
       <section id="interactive-demo" className="py-20 max-w-5xl mx-auto px-6 space-y-28">
         
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">DEMO EN VIVO</span>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Interactúa con nuestras soluciones</h2>
-          <p className={`text-[12.5px] mt-2 font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Probá el comportamiento de la plataforma en tiempo real con estas maquetas interactivas.</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Demo interactiva</h2>
+          <p className={`text-[13px] mt-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Probá la plataforma en tiempo real. Todo funciona de verdad.</p>
         </div>
 
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
         <div className="flex flex-col lg:flex-row items-center gap-10">
           <div className="flex-1 space-y-5 text-left">
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja de entrada <span className="text-violet-600 dark:text-violet-400">omnicanal</span> y respuestas inteligentes con <span className="text-violet-600 dark:text-violet-400">IA</span></h3>
-            <p className={`text-[13.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Centralizá todas tus conversaciones de WhatsApp, Instagram y Facebook en un solo lugar. El Cerebro de IA lee cada mensaje entrante y te sugiere respuestas exactas con stock y precios actualizados en tiempo real para cerrar ventas en segundos.
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja omnicanal con respuestas de IA</h3>
+            <p className={`text-[13.5px] leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              WhatsApp, Instagram y Facebook en un solo lugar. La IA lee cada mensaje y sugiere respuestas con stock y precios en tiempo real.
             </p>
             
             <div className="pt-1">
@@ -1244,26 +1242,25 @@ export default function LandingPage() {
 
         {/* 2. MÉTRICAS Y RENTABILIDAD DEL NEGOCIO */}
         <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
-          <div className="max-w-2xl space-y-5 text-left">
-            <h3 className="text-2xl sm:text-3xl md:text-[34px] font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
-              Toma el <strong>control absoluto</strong> de tu rentabilidad <strong>sin planillas manuales</strong>
+          <div className="max-w-2xl space-y-4 text-left">
+            <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
+              Control total de tu rentabilidad, sin planillas
             </h3>
-            <p className={`text-[15px] sm:text-[16px] leading-relaxed font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Conectamos directamente tus <strong>pasarelas de pago</strong> y <strong>cuentas publicitarias</strong> para darte el <strong>ROAS real</strong>, <strong>ticket promedio</strong>, <strong>facturación neta</strong> y <strong>costos integrados</strong> en tiempo real. Tomá decisiones basadas en <strong>datos duros</strong>, no en suposiciones.
+            <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
             </p>
-            
-            <ul className="space-y-3.5 text-[14px] sm:text-[15px] font-semibold text-zinc-650 dark:text-zinc-350">
+            <ul className="space-y-2.5 text-[13.5px] text-zinc-600 dark:text-zinc-400">
               <li className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Sincronización automatizada multitienda (<strong>Shopify y Tiendanube</strong>).</span>
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Sincronización multitienda: Shopify, Tiendanube y WooCommerce</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Atribución exacta de pauta en <strong>Meta Ads y TikTok Ads</strong>.</span>
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Atribución exacta de pauta en Meta Ads y TikTok Ads</span>
               </li>
               <li className="flex items-center gap-2.5">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Medición directa de la retención y conversión de <strong>Email Marketing</strong>.</span>
+                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span>Retención y conversión de Email Marketing vía Klaviyo</span>
               </li>
             </ul>
           </div>
@@ -1558,8 +1555,8 @@ export default function LandingPage() {
         <div className="flex flex-col gap-8 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div className="space-y-2">
-              <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con <span className="text-violet-600 dark:text-violet-400">métricas en tiempo real</span></h3>
-              <p className={`text-[13px] font-medium ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Tocá cualquier anuncio para ver el análisis de IA y moderar comentarios de compradores</p>
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con métricas en tiempo real</h3>
+              <p className={`text-[13px] ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Tocá cualquier anuncio para ver el análisis de IA y moderar comentarios</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {[
@@ -1674,101 +1671,83 @@ export default function LandingPage() {
 
       </section>
 
-      {/* Transformation Before/After Section */}
+      {/* Feature Highlights Section */}
       <section
         ref={transformRef}
         className={`py-24 px-6 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'}`}
       >
         <div className="max-w-5xl mx-auto">
-
-          {/* Header */}
           <div className="text-center mb-14">
-            <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-3">TRANSFORMACIÓN</span>
-            <h2 className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-tight font-display leading-[1.08] mb-5 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              El antes y el después<br className="hidden sm:block" /> de gestionar tu negocio
+            <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight font-display leading-tight mb-4 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+              Todo lo que necesitás, en un solo lugar
             </h2>
-            <p className={`text-[15px] sm:text-[16px] max-w-md mx-auto font-medium leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Cada minuto perdido en tareas manuales es una venta que no cerraste.
+            <p className={`text-[14.5px] max-w-lg mx-auto leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              Cada módulo está diseñado para conectarse con el siguiente. Un ecosistema completo, no una colección de herramientas.
             </p>
           </div>
 
-          {/* Desktop column headers */}
-          <div className="hidden md:grid grid-cols-[1fr_56px_1fr] mb-3">
-            <p className={`text-right text-[10px] font-black uppercase tracking-[0.18em] pr-6 ${darkMode ? 'text-rose-400/70' : 'text-rose-400'}`}>Sin Algoritmia</p>
-            <div />
-            <p className={`text-[10px] font-black uppercase tracking-[0.18em] pl-6 ${darkMode ? 'text-emerald-400/70' : 'text-emerald-500'}`}>Con Algoritmia</p>
-          </div>
-
-          {/* Comparison rows */}
-          <div className="space-y-2">
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 transition-all duration-700 ease-out ${transformVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+          >
             {[
-              { icon: '📊', before: '6+ horas por semana cargando datos en planillas', after: 'Dashboard automático con métricas de ventas y anuncios al instante' },
-              { icon: '💬', before: 'Mensajes perdidos entre Instagram, WhatsApp y Facebook', after: 'Bandeja omnicanal unificada con Cerebro de IA que cierra ventas' },
-              { icon: '📣', before: 'Sin saber qué anuncio genera ventas reales', after: 'ROAS exacto por creativo, verificado contra compras registradas' },
-              { icon: '📦', before: 'Stock desactualizado y quiebres de inventario inesperados', after: 'Inventario sincronizado en tiempo real en todos tus canales' },
-              { icon: '🤖', before: 'Consultas sin respuesta que se convierten en ventas perdidas', after: 'IA responde, modera y convierte cada interacción en venta' },
-            ].map((item, i) => (
+              {
+                icon: '📊',
+                title: 'Dashboard unificado',
+                desc: 'Ingresos, pedidos, ROAS y métricas clave de todas tus fuentes en una sola pantalla actualizada en tiempo real.',
+              },
+              {
+                icon: '💬',
+                title: 'Mensajería omnicanal',
+                desc: 'Instagram, WhatsApp y Facebook en una bandeja. La IA redacta respuestas perfectas con stock y precios actualizados.',
+              },
+              {
+                icon: '📣',
+                title: 'Control de creativos',
+                desc: 'ROAS exacto, CTR y gasto por pieza publicitaria. Analizá qué anuncio convierte de verdad y cuál pausar.',
+              },
+              {
+                icon: '📦',
+                title: 'Inventario sincronizado',
+                desc: 'Stock actualizado automáticamente en todas tus tiendas. Nunca más quiebres inesperados ni ventas sin stock.',
+              },
+              {
+                icon: '🧠',
+                title: 'Análisis de creativos con IA',
+                desc: 'Escaneo de atención, emoción y carga cognitiva en tus anuncios. Recomendaciones accionables para escalar.',
+              },
+              {
+                icon: '📧',
+                title: 'Email Marketing',
+                desc: 'Sincronización directa con Klaviyo. Atribuí cada venta a su campaña y medí retención real de clientes.',
+              },
+            ].map((feat, i) => (
               <div
                 key={i}
-                style={{ transitionDelay: `${i * 90}ms` }}
-                className={`transition-all duration-700 ease-out ${transformVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+                style={{ transitionDelay: `${i * 60}ms` }}
+                className={`p-5 rounded-2xl border transition-all duration-700 ease-out ${transformVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'} ${
+                  darkMode
+                    ? 'bg-zinc-900/40 border-white/[0.05] hover:border-white/10 hover:bg-zinc-900/60'
+                    : 'bg-white border-zinc-200/60 hover:border-zinc-300 shadow-sm hover:shadow-md'
+                }`}
               >
-                {/* Mobile */}
-                <div className={`md:hidden p-5 rounded-2xl border ${darkMode ? 'bg-zinc-900/40 border-white/[0.05]' : 'bg-white border-zinc-200/60 shadow-sm'}`}>
-                  <div className="text-2xl mb-3">{item.icon}</div>
-                  <div className="flex items-start gap-2.5 mb-3">
-                    <span className="w-5 h-5 rounded-full bg-rose-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-rose-500 text-[10px] font-black leading-none">✕</span>
-                    </span>
-                    <p className={`text-[13px] font-semibold line-through ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>{item.before}</p>
-                  </div>
-                  <div className={`h-px mb-3 ${darkMode ? 'bg-white/[0.05]' : 'bg-zinc-100'}`} />
-                  <div className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-emerald-500 text-[10px] font-black leading-none">✓</span>
-                    </span>
-                    <p className={`text-[14px] font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{item.after}</p>
-                  </div>
-                </div>
-
-                {/* Desktop */}
-                <div className={`hidden md:grid grid-cols-[1fr_56px_1fr] rounded-2xl overflow-hidden border ${darkMode ? 'border-white/[0.05]' : 'border-zinc-200/50'}`}>
-                  <div className={`px-7 py-5 flex items-center justify-end gap-4 ${darkMode ? 'bg-rose-950/[0.12]' : 'bg-rose-50/50'}`}>
-                    <p className={`text-[15px] font-semibold text-right line-through leading-snug ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>{item.before}</p>
-                    <span className="w-9 h-9 rounded-full bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-rose-500 text-[13px] font-black leading-none">✕</span>
-                    </span>
-                  </div>
-                  <div className={`flex flex-col items-center justify-center border-x ${darkMode ? 'border-white/[0.05] bg-zinc-950' : 'border-zinc-100 bg-zinc-50'}`}>
-                    <span className="text-xl leading-none">{item.icon}</span>
-                    <svg className={`w-3.5 h-3.5 mt-1.5 ${darkMode ? 'text-zinc-700' : 'text-zinc-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                  <div className={`px-7 py-5 flex items-center gap-4 ${darkMode ? 'bg-emerald-950/[0.12]' : 'bg-emerald-50/30'}`}>
-                    <span className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-emerald-500 text-[13px] font-black leading-none">✓</span>
-                    </span>
-                    <p className={`text-[16px] font-bold leading-snug ${darkMode ? 'text-zinc-100' : 'text-zinc-800'}`}>{item.after}</p>
-                  </div>
-                </div>
+                <div className="text-2xl mb-3 leading-none">{feat.icon}</div>
+                <h3 className={`text-[14px] font-bold mb-1.5 ${darkMode ? 'text-zinc-100' : 'text-zinc-900'}`}>{feat.title}</h3>
+                <p className={`text-[12.5px] leading-relaxed ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>{feat.desc}</p>
               </div>
             ))}
           </div>
 
-          {/* CTA */}
-          <div className="text-center mt-16">
+          <div className="text-center mt-12">
             <Link
               to="/login"
-              className={`inline-flex items-center gap-2.5 h-12 px-8 font-black rounded-xl text-[13px] shadow-lg transition-all hover:opacity-90 active:scale-[0.98] ${darkMode ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white shadow-zinc-900/20'}`}
+              className={`inline-flex items-center gap-2 h-11 px-7 font-bold rounded-xl text-[13px] shadow-sm transition-all hover:opacity-90 active:scale-[0.98] ${darkMode ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-zinc-900/10'}`}
             >
-              Empezar mi transformación <ArrowRight className="w-4 h-4" />
+              Comenzar gratis <ArrowRight className="w-4 h-4" />
             </Link>
-            <p className={`text-[11px] mt-3 font-medium ${darkMode ? 'text-zinc-700' : 'text-zinc-400'}`}>
+            <p className={`text-[11px] mt-3 ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>
               Sin tarjeta de crédito · Configuración en 5 minutos
             </p>
           </div>
-
         </div>
       </section>
 
@@ -1777,15 +1756,14 @@ export default function LandingPage() {
       {/* Corporate Pricing Card (Minimalist Apple style) */}
       <section id="pricing" className="py-20 max-w-xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="mb-10">
-          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">PRECIO SIMPLE</span>
-          <h2 className="text-2xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Un único plan con todo el poder de automatización</h2>
-          <p className={`text-[12.5px] font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Accedé a todas las integraciones, soporte prioritario e infraestructura sin cargos ocultos ni límites de usuarios.</p>
+          <h2 className="text-2xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Un único plan, sin sorpresas</h2>
+          <p className={`text-[13px] ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>Todas las integraciones, soporte prioritario y colaboradores ilimitados.</p>
         </div>
 
         <div className={`rounded-2xl border p-6 relative overflow-hidden text-left transition-all duration-300 ${
           darkMode ? 'bg-zinc-950/50 border-white/[0.06] shadow-[0_15px_40px_rgba(0,0,0,0.4)]' : 'bg-white border-zinc-200 shadow-lg shadow-zinc-200/5'
         }`}>
-          <div className="absolute top-0 right-0 bg-violet-600 text-white font-bold text-[8.5px] uppercase tracking-wider px-3 py-0.5 rounded-bl-lg font-display">POPULAR</div>
+          <div className={`absolute top-0 right-0 font-bold text-[8.5px] uppercase tracking-wider px-3 py-0.5 rounded-bl-lg font-display ${darkMode ? 'bg-zinc-200 text-zinc-900' : 'bg-zinc-900 text-white'}`}>POPULAR</div>
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200/50 dark:border-white/[0.04] pb-5 mb-5">
             <div>
@@ -1816,7 +1794,7 @@ export default function LandingPage() {
 
           <Link
             to="/login"
-            className="w-full h-9 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all shadow-sm shadow-violet-600/10 glow-hover"
+            className={`w-full h-9 font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all shadow-sm ${darkMode ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-zinc-900/10'}`}
           >
             Comenzar mi prueba gratuita
           </Link>
@@ -1826,7 +1804,6 @@ export default function LandingPage() {
       {/* FAQ Section (Accordion) */}
       <section id="faq" className="py-20 max-w-3xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
         <div className="text-center mb-10">
-          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">RESPUESTAS RÁPIDAS</span>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-center text-zinc-900 dark:text-white">Preguntas frecuentes</h2>
         </div>
         <div className="space-y-3">
@@ -1836,8 +1813,8 @@ export default function LandingPage() {
               <div
                 key={faq.q}
                 className={`rounded-xl border transition-all duration-300 ${
-                  isOpen 
-                    ? (darkMode ? 'bg-zinc-900/20 border-violet-500/20 shadow' : 'bg-violet-500/[0.005] border-violet-500/15 shadow-sm')
+                  isOpen
+                    ? (darkMode ? 'bg-zinc-900/40 border-white/[0.08] shadow' : 'bg-zinc-50 border-zinc-300/60 shadow-sm')
                     : (darkMode ? 'bg-[#060608]/40 border-white/[0.03] hover:bg-zinc-900/10 hover:border-white/[0.06]' : 'bg-white border-zinc-200/50 hover:bg-zinc-50/50')
                 }`}
               >
@@ -1845,8 +1822,8 @@ export default function LandingPage() {
                   onClick={() => toggleFaq(idx)}
                   className="w-full px-5 py-3.5 flex items-center justify-between gap-4 text-left"
                 >
-                  <span className={`text-[12.5px] sm:text-[13px] font-semibold tracking-tight transition-colors duration-250 ${isOpen ? 'text-violet-500 dark:text-violet-400 font-display' : 'text-zinc-800 dark:text-zinc-200'}`}>{faq.q}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-violet-500' : ''}`} />
+                  <span className={`text-[12.5px] sm:text-[13px] font-semibold tracking-tight transition-colors duration-250 ${isOpen ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-200'}`}>{faq.q}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-zinc-600 dark:text-zinc-300' : 'text-zinc-400'}`} />
                 </button>
                 {isOpen && (
                   <div className={`px-5 pb-4 text-[11.5px] sm:text-[12px] leading-relaxed font-medium border-t pt-3 animate-in fade-in duration-300 ${
@@ -1863,18 +1840,17 @@ export default function LandingPage() {
 
       {/* Call to Action Final */}
       <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[80px] pointer-events-none" />
-        <div className="max-w-3xl mx-auto px-6 relative z-10 space-y-5">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Impulsá la eficiencia y escala tu facturación hoy</h2>
-          <p className={`text-[12.5px] font-medium max-w-sm mx-auto ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
-            Comenzá en menos de 5 minutos. Conectá tus tiendas y empezá a vender de forma inteligente.
+        <div className="max-w-3xl mx-auto px-6 space-y-5">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender más inteligente hoy</h2>
+          <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+            Configuración en 5 minutos. Sin tarjeta de crédito.
           </p>
           <div className="flex justify-center pt-1">
             <Link
               to="/login"
-              className="h-9 px-6 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 shadow-sm shadow-violet-600/10 active:scale-[0.98] transition-all glow-hover"
+              className={`h-10 px-7 font-bold rounded-lg text-[12px] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all ${darkMode ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'}`}
             >
-              Crear mi cuenta <ArrowRight className="w-3.5 h-3.5" />
+              Crear mi cuenta gratis <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>

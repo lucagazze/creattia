@@ -1,99 +1,80 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PolÃ­tica de Privacidad - Algoritmia</title>
+  <title>Política de Privacidad - Algoritmia</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #0a0a0c;
-      --card-bg: #131316;
-      --primary: #8b5cf6;
-      --text: #f4f4f5;
+      --card-bg: #111113;
+      --text: #e4e4e7;
       --text-muted: #a1a1aa;
       --border: rgba(255, 255, 255, 0.06);
     }
-    
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background-color: var(--bg);
       color: var(--text);
-      font-family: 'Outfit', sans-serif;
-      line-height: 1.6;
-      padding: 40px 20px;
+      font-family: 'Inter', sans-serif;
+      line-height: 1.7;
+      padding: 48px 20px;
     }
-    
     .container {
-      max-width: 800px;
+      max-width: 780px;
       margin: 0 auto;
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 24px;
-      padding: 40px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      border-radius: 20px;
+      padding: 48px;
     }
-    
     header {
-      text-align: center;
       margin-bottom: 40px;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 24px;
+      padding-bottom: 28px;
     }
-    
-    .logo-placeholder {
-      width: 64px;
-      height: 64px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #8b5cf6, #6366f1);
-      margin: 0 auto 16px;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .brand-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #18181b;
+      border: 1px solid rgba(255,255,255,0.1);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 800;
       color: white;
-      font-size: 24px;
-      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+      font-size: 14px;
     }
-    
-    h1 {
-      font-size: 28px;
-      font-weight: 800;
-      color: white;
-      letter-spacing: -0.02em;
+    .brand-name {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
-    
+    h1 { font-size: 26px; font-weight: 800; color: white; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; color: var(--text-muted); }
     h2 {
-      font-size: 18px;
-      font-weight: 600;
+      font-size: 15px;
+      font-weight: 700;
       margin-top: 32px;
-      margin-bottom: 12px;
-      color: var(--primary);
+      margin-bottom: 10px;
+      color: white;
       letter-spacing: -0.01em;
     }
-    
-    p, li {
-      color: var(--text-muted);
-      font-size: 14.5px;
-      margin-bottom: 16px;
-    }
-    
-    ul {
-      margin-left: 20px;
-      margin-bottom: 20px;
-    }
-    
-    li {
-      margin-bottom: 8px;
-    }
-    
+    p, li { color: var(--text-muted); font-size: 14px; margin-bottom: 14px; }
+    ul { margin-left: 20px; margin-bottom: 16px; }
+    li { margin-bottom: 6px; }
+    strong { color: var(--text); font-weight: 600; }
     footer {
       text-align: center;
       margin-top: 40px;
@@ -102,62 +83,61 @@
       font-size: 12px;
       color: var(--text-muted);
     }
-    
-    a {
-      color: var(--primary);
-      text-decoration: none;
-    }
-    
-    a:hover {
-      text-decoration: underline;
-    }
+    a { color: #a78bfa; text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-
   <div class="container">
     <header>
-      <div class="logo-placeholder">C</div>
-      <h1>PolÃ­tica de Privacidad</h1>
-      <p style="margin-top: 8px; font-size: 13px;">Ãšltima actualizaciÃ³n: 30 de Mayo de 2026</p>
+      <div class="brand">
+        <div class="brand-dot">A</div>
+        <span class="brand-name">Algoritmia</span>
+      </div>
+      <h1>Política de Privacidad</h1>
+      <p class="subtitle">Última actualización: 14 de junio de 2026</p>
     </header>
 
     <main>
-      <p>La presente PolÃ­tica de Privacidad describe cÃ³mo <strong>Algoritmia</strong> (en adelante, "la AplicaciÃ³n") recopila, utiliza y protege los datos personales de los usuarios que conectan sus perfiles comerciales de Facebook e Instagram.</p>
+      <p>La presente Política de Privacidad describe cómo <strong>Algoritmia</strong> ("la Aplicación") recopila, utiliza y protege los datos personales de los usuarios que conectan sus perfiles comerciales de Facebook e Instagram.</p>
 
       <h2>1. Responsable del Tratamiento de Datos</h2>
-      <p>El responsable de los datos es la plataforma <strong>Algoritmia GestiÃ³n</strong>, con correo de contacto: <a href="mailto:lucagazze1@gmail.com">lucagazze1@gmail.com</a>.</p>
+      <p>El responsable de los datos es la plataforma <strong>Algoritmia Gestión</strong>, con correo de contacto: <a href="mailto:lucagazze1@gmail.com">lucagazze1@gmail.com</a>.</p>
 
-      <h2>2. Datos Recopilados a travÃ©s de las APIs de Meta</h2>
-      <p>Cuando vinculas tu cuenta de Facebook e Instagram, solicitamos permisos para acceder a cierta informaciÃ³n a travÃ©s de la API Graph de Meta. Los datos a los que accedemos incluyen:</p>
+      <h2>2. Datos Recopilados a través de las APIs de Meta</h2>
+      <p>Cuando vinculás tu cuenta de Facebook e Instagram, solicitamos permisos para acceder a cierta información a través de la API Graph de Meta. Los datos a los que accedemos incluyen:</p>
       <ul>
-        <li><strong>InformaciÃ³n del perfil pÃºblico:</strong> Nombre de usuario, identificador Ãºnico (ID) de la cuenta e imagen de perfil.</li>
-        <li><strong>PÃ¡ginas comerciales y cuentas de Instagram:</strong> Lista de pÃ¡ginas de Facebook que administras y sus cuentas asociadas de Instagram.</li>
-        <li><strong>MensajerÃ­a y Comentarios:</strong> Contenido de los mensajes directos (DMs) y comentarios en publicaciones orgÃ¡nicas de tus pÃ¡ginas comerciales, con el Ãºnico propÃ³sito de agruparlos en una bandeja de entrada y permitirte responder directamente desde nuestro portal.</li>
-        <li><strong>Tokens de acceso a pÃ¡ginas:</strong> Tokens de seguridad proporcionados por Facebook para autenticar y realizar acciones permitidas (como responder comentarios o mensajes) en tu nombre.</li>
+        <li><strong>Información del perfil público:</strong> Nombre de usuario, identificador único (ID) de la cuenta e imagen de perfil.</li>
+        <li><strong>Páginas comerciales y cuentas de Instagram:</strong> Lista de páginas de Facebook que administrás y sus cuentas asociadas de Instagram.</li>
+        <li><strong>Mensajería y Comentarios:</strong> Contenido de mensajes directos (DMs) y comentarios en publicaciones de tus páginas comerciales, con el único propósito de agruparlos en una bandeja de entrada y permitirte responder directamente desde el portal.</li>
+        <li><strong>Tokens de acceso a páginas:</strong> Tokens de seguridad proporcionados por Facebook para autenticar y realizar acciones en tu nombre.</li>
       </ul>
 
-      <h2>3. Uso de la InformaciÃ³n</h2>
-      <p>Toda la informaciÃ³n obtenida a travÃ©s de las integraciones de Meta se procesa estrictamente para los siguientes fines:</p>
+      <h2>3. Uso de la Información</h2>
+      <p>Toda la información obtenida a través de las integraciones de Meta se procesa estrictamente para los siguientes fines:</p>
       <ul>
-        <li>Habilitar la bandeja de entrada unificada de mensajerÃ­a (Facebook Messenger e Instagram DMs).</li>
+        <li>Habilitar la bandeja de entrada unificada de mensajería (Facebook Messenger e Instagram DMs).</li>
         <li>Permitir leer y responder comentarios de publicaciones de Facebook e Instagram.</li>
-        <li>Mostrar estadÃ­sticas de rendimiento e interacciÃ³n del canal en tu panel de control.</li>
+        <li>Mostrar estadísticas de rendimiento e interacción del canal en tu panel de control.</li>
       </ul>
-      <p><strong>Importante:</strong> La AplicaciÃ³n no vende, transfiere ni distribuye tus datos a terceros. Toda la informaciÃ³n se almacena de forma privada y segura.</p>
+      <p><strong>Importante:</strong> La Aplicación no vende, transfiere ni distribuye tus datos a terceros. Toda la información se almacena de forma privada y segura.</p>
 
       <h2>4. Almacenamiento y Seguridad de los Datos</h2>
-      <p>Los datos y tokens de acceso se almacenan en servidores cifrados mediante bases de datos seguras con polÃ­ticas estrictas de restricciÃ³n de acceso (RLS). Implementamos medidas de seguridad tÃ©cnicas y organizativas para proteger tus datos contra accesos no autorizados o pÃ©rdidas accidentales.</p>
+      <p>Los datos y tokens de acceso se almacenan en servidores cifrados mediante bases de datos seguras con políticas estrictas de restricción de acceso (RLS). Implementamos medidas de seguridad técnicas y organizativas para proteger tus datos contra accesos no autorizados o pérdidas accidentales.</p>
 
-      <h2>5. Derechos del Usuario y EliminaciÃ³n de Datos</h2>
-      <p>Puedes revocar los accesos de la aplicaciÃ³n en cualquier momento desde tu panel de configuraciÃ³n de Facebook. AdemÃ¡s, si deseas eliminar permanentemente todos tus datos del sistema de forma inmediata, puedes seguir los pasos descritos en nuestra <a href="delete-data.html">GuÃ­a de EliminaciÃ³n de Datos</a> o enviarnos una solicitud directa por correo electrÃ³nico.</p>
+      <h2>5. Derechos del Usuario y Eliminación de Datos</h2>
+      <p>Podés revocar los accesos de la aplicación en cualquier momento desde tu panel de configuración de Facebook. Además, si deseás eliminar permanentemente todos tus datos del sistema, podés enviarnos una solicitud directa por correo electrónico a <a href="mailto:lucagazze1@gmail.com">lucagazze1@gmail.com</a>.</p>
+
+      <h2>6. Retención de Datos</h2>
+      <p>Conservamos tus datos mientras tu cuenta esté activa. Si cerrás tu cuenta, eliminamos tus datos personales dentro de los 30 días siguientes a tu solicitud, salvo obligación legal de retención.</p>
+
+      <h2>7. Cambios a esta Política</h2>
+      <p>Podemos actualizar esta Política de Privacidad periódicamente. Te notificaremos por email sobre cambios significativos. El uso continuado de la Aplicación tras los cambios implica tu aceptación de la política actualizada.</p>
     </main>
 
     <footer>
-      <p>&copy; 2026 Algoritmia. Todos los derechos reservados.</p>
+      <p>&copy; 2026 Algoritmia. Todos los derechos reservados. &nbsp;·&nbsp; <a href="mailto:lucagazze1@gmail.com">Contacto</a></p>
     </footer>
   </div>
-
 </body>
 </html>
-
