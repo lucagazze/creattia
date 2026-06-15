@@ -174,7 +174,7 @@ export default function ComentariosPage() {
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
   const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
   const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
-  const [mobileTab, setMobileTab] = useState<'post' | 'comments'>('comments');
+  const [mobileTab, setMobileTab] = useState<'post' | 'comments' | 'stats' | 'analysis'>('comments');
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
@@ -1308,38 +1308,9 @@ export default function ComentariosPage() {
                   {selectedPost.platform === 'instagram' ? <Instagram className="w-4 h-4" /> : <span className="font-black text-sm">f</span>}
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
-                      <button
-                        onClick={() => handleTabChange('comments')}
-                        className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
-                          slideTab === 'comments'
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
-                            : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
-                        }`}
-                      >
-                        Comentarios
-                      </button>
-                      <button
-                        onClick={() => {
-                          const md = resolvedDetails[selectedPost.id];
-                          const imageUrl = md?.type === 'video_source' ? (md.picture || selectedPost.thumbnail || selectedPost.mediaUrl) :
-                            md?.type === 'image' ? md.url :
-                            md?.type === 'carousel' ? (md.cards?.[0]?.url || selectedPost.thumbnail) :
-                            selectedPost.thumbnail || selectedPost.mediaUrl;
-                          const isVid = md?.type === 'video_source' || selectedPost.mediaType === 'VIDEO';
-                          handleTabChange('metrics', imageUrl, isVid);
-                        }}
-                        className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
-                          slideTab === 'metrics'
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
-                            : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
-                        }`}
-                      >
-                        Análisis de Creativo
-                      </button>
-                    </div>
-                  </div>
+                  <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">
+                    {selectedPost.isAd ? 'Anuncio' : 'Publicación'}
+                  </p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] text-zinc-400 font-bold">{fmtDate(selectedPost.timestamp)}</span>
                     {comments.filter(c => isCommentPending(c, selectedPost.platform)).length > 0 && (
@@ -1376,21 +1347,21 @@ export default function ComentariosPage() {
               </div>
             </div>
 
-            {/* Mobile tab bar */}
-            <div className="md:hidden flex border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+            {/* Modal tabs */}
+            <div className="grid grid-cols-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
               <button
-                onClick={() => setMobileTab('post')}
-                className={`flex-1 py-2.5 text-[12px] font-black transition-colors ${
+                onClick={() => { setMobileTab('post'); handleTabChange('comments'); }}
+                className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
                   mobileTab === 'post'
                     ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
                     : 'text-zinc-500 dark:text-zinc-400'
                 }`}
               >
-                Publicación
+                Anuncio
               </button>
               <button
-                onClick={() => setMobileTab('comments')}
-                className={`flex-1 py-2.5 text-[12px] font-black transition-colors flex items-center justify-center gap-1.5 ${
+                onClick={() => { setMobileTab('comments'); handleTabChange('comments'); }}
+                className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${
                   mobileTab === 'comments'
                     ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
                     : 'text-zinc-500 dark:text-zinc-400'
@@ -1401,14 +1372,57 @@ export default function ComentariosPage() {
                   <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>
                 )}
               </button>
+              <button
+                onClick={() => { setMobileTab('stats'); handleTabChange('comments'); }}
+                className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
+                  mobileTab === 'stats'
+                    ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
+                    : 'text-zinc-500 dark:text-zinc-400'
+                }`}
+              >
+                Rendimiento
+              </button>
+              <button
+                onClick={() => {
+                  const md = resolvedDetails[selectedPost.id];
+                  const imageUrl = md?.type === 'video_source' ? (md.picture || selectedPost.thumbnail || selectedPost.mediaUrl) :
+                    md?.type === 'image' ? md.url :
+                    md?.type === 'carousel' ? (md.cards?.[0]?.url || selectedPost.thumbnail) :
+                    selectedPost.thumbnail || selectedPost.mediaUrl;
+                  const isVid = md?.type === 'video_source' || selectedPost.mediaType === 'VIDEO';
+                  setMobileTab('analysis');
+                  handleTabChange('metrics', imageUrl, isVid);
+                }}
+                className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
+                  mobileTab === 'analysis'
+                    ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
+                    : 'text-zinc-500 dark:text-zinc-400'
+                }`}
+              >Análisis de creativos</button>
             </div>
 
+            {mobileTab === 'stats' && (
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
+                  <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
+                  <div className="flex items-center justify-between text-[12px] font-bold">
+                    <span className="text-zinc-600 dark:text-zinc-400">Comentarios</span>
+                    <span className="text-zinc-900 dark:text-white">{comments.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[12px] font-bold">
+                    <span className="text-amber-600 dark:text-amber-400">Sin responder</span>
+                    <span className="text-amber-600 dark:text-amber-400">{comments.filter(c => isCommentPending(c, selectedPost.platform)).length}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Body: post preview + comments */}
-            <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+            <div className={`${mobileTab === 'stats' ? 'hidden' : 'flex'} flex-1 overflow-hidden flex-col md:flex-row`}>
 
               {/* Left: Post media + caption — hidden on mobile when comments tab active */}
               <div className={`${
-                mobileTab === 'comments' ? 'hidden md:flex' : 'flex'
+                mobileTab !== 'post' ? 'hidden' : 'flex'
               } md:w-[300px] flex-shrink-0 flex-col border-r border-zinc-100 dark:border-zinc-800 p-5 overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10`}>
                 {/* Media */}
                 {(() => {
@@ -1532,7 +1546,7 @@ export default function ComentariosPage() {
 
               {/* Right: Comments list — hidden on mobile when post tab active */}
               <div className={`${
-                mobileTab === 'post' ? 'hidden md:flex' : 'flex'
+                mobileTab === 'post' ? 'hidden' : 'flex'
               } flex-1 overflow-y-auto flex-col`}>
                 {slideTab === 'metrics' ? (
                   <div className="flex-1 overflow-y-auto p-5 space-y-5">

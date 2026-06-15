@@ -444,7 +444,19 @@ export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    const scrollTop = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      document.scrollingElement?.scrollTo(0, 0);
+    };
+    scrollTop();
+    requestAnimationFrame(scrollTop);
+    const t = window.setTimeout(scrollTop, 120);
+    return () => window.clearTimeout(t);
   }, []);
 
   // Redirige al panel si ya está autenticado
@@ -996,7 +1008,7 @@ export default function LandingPage() {
   const activeShowcaseIndex = Math.max(0, showcaseTabs.findIndex(t => t.id === activeTabShowcase));
   const activeShowcaseTab = showcaseTabs[activeShowcaseIndex] || showcaseTabs[0];
   return (
-    <div className={`min-h-screen font-sans selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
+    <div className={`landing-page-text-bump min-h-screen font-sans selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
       
       {/* Estilos CSS Embebidos para Animaciones Marquee e Interactivas */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -1043,6 +1055,11 @@ export default function LandingPage() {
           will-change: transform;
         }
         .hero-image-layer { will-change: opacity; transform: translateZ(0); backface-visibility: hidden; }
+        @media (min-width: 768px) {
+          .landing-page-text-bump :where(h1, h2, h3, h4, p, span, a, button, li, label):not(.faq-answer *) {
+            font-size: calc(1em + 1px);
+          }
+        }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
         <div className="max-w-6xl mx-auto px-6 h-[76px] flex items-center justify-between">
@@ -1139,7 +1156,7 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className={`font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 text-4xl sm:text-5xl md:text-[62px] lg:text-[72px] font-black leading-[1.1] ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-            Gestioná tu negocio online. Escalá tus ventas.
+            Gestioná tu negocio online. <span className="text-violet-500 dark:text-violet-400">Escalá tus ventas.</span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -1287,7 +1304,7 @@ export default function LandingPage() {
         </div>
 
         {/* 2. BANDEJA OMNICANAL */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)] gap-6 lg:gap-8 items-start border-t border-zinc-200/40 dark:border-white/[0.03] pt-20 order-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)] gap-6 lg:gap-8 items-start pt-12 order-3">
           <div className="col-span-full flex items-center justify-center gap-2">
             <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
             <span className={`text-[9px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>Mensajería Omnicanal con IA</span>
@@ -1841,7 +1858,7 @@ export default function LandingPage() {
         </div>
 
         {/* 3. CREATIVOS ACTIVOS */}
-        <div className="flex flex-col gap-8 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20 order-4">
+        <div className="flex flex-col gap-8 pt-12 order-4">
           <div className="flex items-center justify-center gap-2">
             <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
             <span className={`text-[9px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>Publicidad Activa</span>
@@ -2314,7 +2331,7 @@ export default function LandingPage() {
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-zinc-600 dark:text-zinc-300' : 'text-zinc-400'}`} />
                 </button>
                 {isOpen && (
-                  <div className={`px-5 pb-5 text-[13px] sm:text-[14px] leading-7 font-medium border-t pt-4 animate-in fade-in duration-300 [&>strong]:font-black [&>strong]:text-zinc-900 dark:[&>strong]:text-white ${
+                  <div className={`faq-answer px-5 pb-5 text-[13px] sm:text-[14px] leading-7 font-medium border-t pt-4 animate-in fade-in duration-300 [&>strong]:font-black [&>strong]:text-zinc-900 dark:[&>strong]:text-white ${
                     darkMode ? 'text-zinc-300 border-white/[0.03]' : 'text-zinc-500 border-zinc-100'
                   }`}>
                     {faq.a}
@@ -2407,24 +2424,24 @@ export default function LandingPage() {
         const zTab = showcaseTabs.find(t => t.img === zoomImage);
         return (
           <div
-            className="fixed inset-0 z-[900] bg-black/97 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden flex flex-col items-center justify-center"
+            className="fixed inset-0 z-[900] bg-black backdrop-blur-xl animate-in fade-in duration-200 overflow-hidden flex flex-col items-center justify-center px-4"
             onClick={() => setZoomImage(null)}
           >
             <button
               onClick={() => setZoomImage(null)}
-              className="fixed top-4 right-4 z-[10] w-10 h-10 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 flex items-center justify-center transition-all"
+              className="fixed top-4 right-4 z-[10] w-11 h-11 rounded-full bg-white text-zinc-950 hover:bg-zinc-100 border border-white/70 shadow-2xl flex items-center justify-center transition-all"
               aria-label="Cerrar"
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="w-full flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-6xl flex flex-col" onClick={e => e.stopPropagation()}>
               {zTab && (
                 <p className="text-[11px] font-black uppercase tracking-widest text-white mb-4 text-center px-6 drop-shadow-[0_1px_4px_rgba(0,0,0,1)]">{zTab.label}</p>
               )}
               <img
                 src={zoomImage}
                 alt={zTab?.label || 'Vista ampliada'}
-                className="w-full object-contain animate-in zoom-in-95 duration-200"
+                className="w-full object-contain animate-in zoom-in-95 duration-200 rounded-2xl border border-white/15 shadow-2xl bg-zinc-950"
                 style={{ maxHeight: '72vh' }}
               />
               {zTab && (

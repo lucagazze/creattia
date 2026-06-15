@@ -123,8 +123,17 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
   useEffect(() => {
     if (!profile?.id) return;
     try {
+      const hashQuery = window.location.hash.includes('?')
+        ? window.location.hash.slice(window.location.hash.indexOf('?'))
+        : '';
+      const params = new URLSearchParams(window.location.search || hashQuery);
+      const isFreshWelcome =
+        params.get('welcome') === '1' ||
+        sessionStorage.getItem('ag_welcome_profile_id') === profile.id;
       const groups = getIntegrationGroups(profile);
-      const nextKey = groups.length === 0
+      const nextKey = isFreshWelcome
+        ? 'base'
+        : groups.length === 0
         ? 'base'
         : groups.find(group => !localStorage.getItem(`ag_tour_${profile.id}_${group}`));
 
@@ -132,6 +141,9 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
         setVisible(false);
         setTourKey('');
         return;
+      }
+      if (isFreshWelcome) {
+        localStorage.removeItem(`ag_tour_${profile.id}_base`);
       }
       setTourKey(nextKey);
       setStep(0);
@@ -173,6 +185,7 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
   const dismiss = () => {
     setVisible(false);
     try { localStorage.setItem(doneKey, 'done'); } catch { /* ignore */ }
+    try { sessionStorage.removeItem('ag_welcome_profile_id'); } catch { /* ignore */ }
   };
 
   const next = () => {

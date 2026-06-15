@@ -361,16 +361,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         )}
 
         {/* Logo / Brand */}
-        <div className="h-[72px] flex items-center px-5 border-b border-zinc-100 dark:border-white/[0.03] flex-shrink-0">
-          <div className="flex items-center gap-2.5 group">
+        <div className="h-[76px] flex items-center px-5 border-b border-zinc-100 dark:border-white/[0.03] flex-shrink-0">
+          <div className="flex items-center gap-3.5 group">
             <img 
               src={darkMode ? "/assets/logoSinFondo.png" : "/assets/logoAlgoritmia1.webp"} 
               alt="Algoritmia" 
-              className="w-9 h-9 object-contain group-hover:scale-110 transition-transform drop-shadow-sm"
+              className="w-10 h-10 object-contain group-hover:scale-110 transition-transform drop-shadow-sm"
             />
             <div className="flex flex-col animate-in fade-in duration-200">
-              <span className="text-[13px] font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Algoritmia</span>
-              <span className="text-[9px] font-bold text-violet-500 tracking-[0.2em] mt-1 uppercase" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Gestión</span>
+              <span className="text-[15px] font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Algoritmia</span>
+              <span className="text-[9.5px] font-bold text-violet-500 tracking-[0.2em] mt-1 uppercase" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Gestión</span>
             </div>
           </div>
           

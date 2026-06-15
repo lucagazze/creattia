@@ -32,12 +32,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           // SaaS: auto-create car_clients record if first login
           if (!p) {
-            await fetch('/api/oauth?action=ensure-profile', {
+            const ensureRes = await fetch('/api/oauth?action=ensure-profile', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userId, email }),
             });
+            const ensureData = await ensureRes.json().catch(() => null);
             p = await db.profile.getByUserId(userId, email);
+            if (ensureData?.created && p?.id) {
+              try { sessionStorage.setItem('ag_welcome_profile_id', p.id); } catch { /* ignore */ }
+            }
           }
 
           setProfile(p);

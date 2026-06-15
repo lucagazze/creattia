@@ -186,7 +186,7 @@ export default function MetaAdsPage() {
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
   const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
   const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
-  const [mobileTab, setMobileTab] = useState<'post' | 'comments' | 'stats'>('post');
+  const [mobileTab, setMobileTab] = useState<'post' | 'comments' | 'stats' | 'analysis'>('post');
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
@@ -937,37 +937,7 @@ export default function MetaAdsPage() {
                       {activeCommentPlatform === 'instagram' ? <Instagram className="w-4 h-4" /> : <Facebook className="w-4 h-4" />}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
-                          <button
-                            onClick={() => handleTabChange('comments')}
-                            className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
-                              slideTab === 'comments'
-                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
-                                : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
-                            }`}
-                          >
-                            Comentarios
-                          </button>
-                          <button
-                            onClick={() => {
-                              const md = resolvedDetails[selectedAd.adId];
-                              const imageUrl = md?.type === 'video_source' ? (md.picture || thumbUrl) :
-                                md?.type === 'image' ? md.url :
-                                md?.type === 'carousel' ? (md.cards?.[0]?.url || thumbUrl) :
-                                thumbUrl;
-                              handleTabChange('metrics', imageUrl, md?.type === 'video_source');
-                            }}
-                            className={`px-2.5 py-0.5 rounded text-[10.5px] font-black transition-all ${
-                              slideTab === 'metrics'
-                                ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-sm'
-                                : 'text-zinc-450 hover:text-zinc-650 dark:hover:text-zinc-350'
-                            }`}
-                          >
-                            Análisis de Creativo
-                          </button>
-                        </div>
-                      </div>
+	                      <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Anuncio</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Anuncio activo</span>
                         {!loadingComments && pendingCount > 0 && (
@@ -996,19 +966,31 @@ export default function MetaAdsPage() {
                   </div>
                 </div>
 
-                {/* Mobile tab bar */}
-                <div className="md:hidden flex border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
-                  <button onClick={() => setMobileTab('post')} className={`flex-1 py-2.5 text-[12px] font-black transition-colors ${mobileTab === 'post' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>Anuncio</button>
-                  <button onClick={() => setMobileTab('comments')} className={`flex-1 py-2.5 text-[12px] font-black transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'comments' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                    Comentarios
-                    {!loadingComments && comments.length > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>}
-                  </button>
-                  <button onClick={() => setMobileTab('stats')} className={`flex-1 py-2.5 text-[12px] font-black transition-colors ${mobileTab === 'stats' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>Rendimiento</button>
-                </div>
+	                {/* Modal tabs */}
+	                <div className="grid grid-cols-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+	                  <button onClick={() => { setMobileTab('post'); handleTabChange('comments'); }} className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${mobileTab === 'post' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>Anuncio</button>
+	                  <button onClick={() => { setMobileTab('comments'); handleTabChange('comments'); }} className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'comments' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
+	                    Comentarios
+	                    {!loadingComments && comments.length > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>}
+	                  </button>
+	                  <button onClick={() => { setMobileTab('stats'); handleTabChange('comments'); }} className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${mobileTab === 'stats' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>Rendimiento</button>
+	                  <button
+	                    onClick={() => {
+	                      const md = resolvedDetails[selectedAd.adId];
+	                      const imageUrl = md?.type === 'video_source' ? (md.picture || thumbUrl) :
+	                        md?.type === 'image' ? md.url :
+	                        md?.type === 'carousel' ? (md.cards?.[0]?.url || thumbUrl) :
+	                        thumbUrl;
+	                      setMobileTab('analysis');
+	                      handleTabChange('metrics', imageUrl, md?.type === 'video_source');
+	                    }}
+	                    className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${mobileTab === 'analysis' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}
+	                  >Análisis de creativos</button>
+	                </div>
 
                 {/* Rendimiento pane — mobile only, stats tab */}
                 {mobileTab === 'stats' && (
-                  <div className="flex-1 md:hidden overflow-y-auto p-5 space-y-4">
+	                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
                     {insights && (
                       <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
                         <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
@@ -1057,7 +1039,7 @@ export default function MetaAdsPage() {
                 <div className={`${mobileTab === 'stats' ? 'hidden md:grid' : 'flex-1 overflow-hidden grid'} grid-cols-1 md:grid-cols-5 h-full`}>
 
                   {/* Left: creative + info (40%) */}
-                  <div className={`${mobileTab !== 'post' ? 'hidden md:flex' : 'flex'} md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 h-full`}>
+	                  <div className={`${mobileTab !== 'post' ? 'hidden' : 'flex'} md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 h-full`}>
 
                     {/* Creative */}
                     {(!mediaData || resolvingIds[selectedAd.adId]) ? (
@@ -1198,7 +1180,7 @@ export default function MetaAdsPage() {
                   </div>
 
                   {/* Right: Comments (60%) */}
-                  <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} md:col-span-3 overflow-y-auto flex-col`}>
+	                  <div className={`${mobileTab === 'post' ? 'hidden' : 'flex'} md:col-span-3 overflow-y-auto flex-col`}>
                     {slideTab === 'metrics' ? (
                       <div className="flex-1 overflow-y-auto p-5 space-y-5">
                         {analyzingTribe ? (
