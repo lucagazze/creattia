@@ -1156,7 +1156,7 @@ export default function LandingPage() {
               <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-violet-500" />
               <div className="min-w-0 flex-1">
                 <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{activeShowcaseTab.label}</p>
-                <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeShowcaseTab.desc}</p>
+                <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium line-clamp-2 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeShowcaseTab.desc}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
