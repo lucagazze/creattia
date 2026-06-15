@@ -1130,6 +1130,41 @@ export default function RedesSocialesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, fbNextCursor, loadingMoreFb, fbPageId]);
 
+  // Fallback scroll trigger: some mobile/tablet browsers do not reliably fire
+  // IntersectionObserver inside the app shell. This keeps infinite loading
+  // working when the user reaches the bottom of the page.
+  useEffect(() => {
+    const scrollRoot = document.getElementById('main-scroll-container');
+    let raf = 0;
+
+    const checkNearBottom = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const scrollTop = scrollRoot ? scrollRoot.scrollTop : window.scrollY;
+        const clientHeight = scrollRoot ? scrollRoot.clientHeight : window.innerHeight;
+        const scrollHeight = scrollRoot ? scrollRoot.scrollHeight : document.documentElement.scrollHeight;
+        const nearBottom = scrollHeight - scrollTop - clientHeight < 900;
+
+        if (!nearBottom) return;
+        if (activeTab === 'instagram' && igNextCursor && !loadingMoreIg) {
+          loadMoreIg();
+        }
+        if (activeTab === 'facebook' && fbNextCursor && !loadingMoreFb) {
+          loadMoreFb();
+        }
+      });
+    };
+
+    const target: any = scrollRoot || window;
+    target.addEventListener('scroll', checkNearBottom, { passive: true });
+    checkNearBottom();
+    return () => {
+      cancelAnimationFrame(raf);
+      target.removeEventListener('scroll', checkNearBottom);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, igNextCursor, fbNextCursor, loadingMoreIg, loadingMoreFb, igId, fbPageId]);
+
 
   const igEngagementRate = useMemo(() => {
     if (!igProfile || !igProfile.followers_count || !igMedia.length) return 0;

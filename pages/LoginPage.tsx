@@ -126,17 +126,17 @@ export default function LoginPage() {
     >
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-4 w-full">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <img
             src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'}
             alt="Algoritmia"
             className="w-7 h-7 object-contain"
           />
-          <div>
-            <span className={`text-[13px] font-black tracking-tighter leading-none uppercase block ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+          <div className="flex flex-col justify-center gap-0.5">
+            <span className={`text-[13px] font-black tracking-[-0.03em] leading-[0.9] uppercase block ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
               ALGORITMIA
             </span>
-            <span className="text-[8.5px] font-bold text-violet-500 tracking-[0.25em] uppercase">Gestión</span>
+            <span className="text-[8.5px] leading-none font-bold text-violet-500 tracking-[0.22em] uppercase">Gestión</span>
           </div>
         </div>
         <div className="flex items-center gap-3">

@@ -658,18 +658,18 @@ export default function LandingPage() {
       status: 'paused',
       platform: 'instagram' as const,
       tribeMetrics: {
-        score: 45,
-        label: 'Revisar antes de pautar',
-        colorClass: 'bg-red-500 text-white shadow-red-500/20',
-        textColor: 'text-red-500',
-        textInsight: 'La pieza presenta un rendimiento muy bajo en atención y alta sobrecarga cognitiva.',
-        attentionPct: 48,
-        attentionReason: 'Bajo contraste cromático. El producto no se distingue adecuadamente de los elementos secundarios.',
-        emotionPct: 42,
-        emotionReason: 'La paleta de colores fríos inhibe el deseo de compra impulsivo.',
-        cogLoad: 68,
-        cogLoadReason: 'Carga alta. Demasiados elementos de texto flotantes que saturan la lectura.',
-        highestRegion: 'V1 (Corteza Visual Primaria)',
+        score: 72,
+        label: 'Requiere ajustes',
+        colorClass: 'bg-amber-500 text-white shadow-amber-500/20',
+        textColor: 'text-amber-500',
+        textInsight: 'El formato video ayuda a sostener atención, pero la propuesta comercial necesita una lectura más inmediata.',
+        attentionPct: 78,
+        attentionReason: 'El movimiento inicial retiene mirada, aunque el producto y el beneficio no aparecen con suficiente jerarquía.',
+        emotionPct: 67,
+        emotionReason: 'Genera interés moderado por estética y categoría, pero le falta una señal emocional más concreta de uso o urgencia.',
+        cogLoad: 44,
+        cogLoadReason: 'Carga media. El usuario entiende la pieza, pero debe procesar demasiada información antes de llegar al beneficio.',
+        highestRegion: 'Atención visual sostenida',
         actionItems: [
           'Simplificar el fondo eliminando el texto descriptivo excesivo.',
           'Reemplazar la foto de producto sola por una de modelo luciendo la cartera.',
@@ -704,18 +704,18 @@ export default function LandingPage() {
       status: 'active',
       platform: 'instagram' as const,
       tribeMetrics: {
-        score: 92,
+        score: 84,
         label: 'Listo para escalar',
         colorClass: 'bg-emerald-500 text-white shadow-emerald-500/20',
         textColor: 'text-emerald-500',
-        textInsight: 'La pieza tiene una respuesta emocional excepcional y retención visual del producto por encima del promedio.',
-        attentionPct: 94,
-        attentionReason: 'Contraste alto y encuadre del producto claro en los primeros 3 segundos.',
-        emotionPct: 88,
-        emotionReason: 'Dispara impulsos de exclusividad y resguardo térmico.',
-        cogLoad: 24,
-        cogLoadReason: 'Composición limpia, tipografía legible sin sobrecarga informativa.',
-        highestRegion: 'Amígdala (Estímulo Emocional)',
+        textInsight: 'La pieza comunica producto y oferta con buena claridad visual. Tiene potencial para escalar si mantiene la conversión.',
+        attentionPct: 86,
+        attentionReason: 'El producto se detecta rápido y la composición dirige la mirada hacia la oferta principal.',
+        emotionPct: 82,
+        emotionReason: 'La estética de temporada y el beneficio de envío activan intención de compra concreta.',
+        cogLoad: 30,
+        cogLoadReason: 'Carga baja. La información se procesa rápido y el mensaje comercial queda claro.',
+        highestRegion: 'Producto y oferta principal',
         actionItems: [
           'Duplicar el presupuesto de esta pieza publicitaria.',
           'Crear una variante optimizada con llamada de acción por stock limitado.',
@@ -758,18 +758,18 @@ export default function LandingPage() {
       status: 'active',
       platform: 'facebook' as const,
       tribeMetrics: {
-        score: 79,
+        score: 63,
         label: 'Requiere ajustes',
         colorClass: 'bg-amber-500 text-white shadow-amber-500/20',
         textColor: 'text-amber-500',
-        textInsight: 'La respuesta atencional es buena, pero decae rápidamente a los 5 segundos de reproducción.',
-        attentionPct: 81,
-        attentionReason: 'Buen gancho inicial, pero el ritmo de edición en la segunda mitad ralentiza la atención.',
-        emotionPct: 76,
-        emotionReason: 'Mediana respuesta de deseo; la promoción resalta más que la propuesta de valor.',
-        cogLoad: 39,
-        cogLoadReason: 'Moderada; el texto del 30% OFF compite levemente con el calzado en pantalla.',
-        highestRegion: 'FFA (Reconocimiento de Formas)',
+        textInsight: 'La pieza tiene una oferta visible, pero el texto compite demasiado con el producto y reduce claridad.',
+        attentionPct: 69,
+        attentionReason: 'El descuento capta mirada, aunque desplaza parte de la atención que debería ir al producto.',
+        emotionPct: 58,
+        emotionReason: 'La promoción genera interés racional, pero no construye suficiente deseo visual.',
+        cogLoad: 52,
+        cogLoadReason: 'Carga media-alta. Hay que leer demasiado para entender valor, precio y llamada a la acción.',
+        highestRegion: 'Texto promocional',
         actionItems: [
           'Mover el texto del descuento del final al primer segundo de reproducción.',
           'Aumentar el contraste del fondo para resaltar la textura del cuero de las botas.',
@@ -1901,36 +1901,46 @@ export default function LandingPage() {
             {[
               {
                 tag: 'Meta Ads',
+                logos: [{ src: '/assets/meta (1).webp', alt: 'Meta Ads' }],
                 title: 'Campañas y creativos',
                 desc: 'Medí gasto, ROAS, CTR, compras y rendimiento por pieza para saber qué escalar y qué pausar.',
                 items: ['Anuncios activos o con gasto', 'Métricas por creativo', 'Análisis creativo con IA'],
               },
               {
                 tag: 'Instagram / Facebook',
+                logos: [{ icon: 'instagram', alt: 'Instagram' }, { icon: 'facebook', alt: 'Facebook' }],
                 title: 'Comentarios y publicaciones',
                 desc: 'Centralizá comentarios orgánicos y de anuncios para responder consultas antes de perder ventas.',
                 items: ['Comentarios pendientes', 'Respuestas con IA', 'Vista de posteos'],
               },
               {
                 tag: 'Chatwoot',
+                logos: [{ src: '/assets/chatwoot.png', alt: 'Chatwoot' }],
                 title: 'Mensajería omnicanal',
                 desc: 'Unificá WhatsApp, Instagram, Facebook y chat web en una bandeja conectada al Cerebro de IA.',
                 items: ['Filtros por canal', 'Historial del cliente', 'Borradores automáticos'],
               },
               {
                 tag: 'Shopify / Tiendanube / WooCommerce',
+                logos: [
+                  { src: '/assets/shopify-bag.webp', alt: 'Shopify' },
+                  { src: darkMode ? '/assets/tiendanube.webp' : '/assets/tiendanubeoscuro.png', alt: 'Tiendanube' },
+                  { src: '/assets/logowordpress.webp', alt: 'WooCommerce' },
+                ],
                 title: 'Ventas e inventario',
                 desc: 'Sincronizá pedidos, stock, productos y facturación para entender la rentabilidad real.',
                 items: ['Pedidos en tiempo real', 'Stock sincronizado', 'Ticket e ingresos'],
               },
               {
                 tag: 'Klaviyo',
+                logos: [{ src: '/assets/Klaviyo-Logo-Photoroom.webp', alt: 'Klaviyo' }],
                 title: 'Email marketing',
                 desc: 'Medí entregas, aperturas, clics e ingresos atribuidos a campañas y automatizaciones.',
                 items: ['Revenue por email', 'Aperturas y clics', 'Flujos de retención'],
               },
               {
                 tag: 'Google Ads',
+                logos: [{ src: '/assets/GADS.webp', alt: 'Google Ads' }],
                 title: 'Publicidad completa',
                 desc: 'Sumá inversión y retorno de Google Ads al mismo panel para comparar canales sin planillas.',
                 items: ['Inversión consolidada', 'Comparación de canales', 'Lectura de rentabilidad'],
@@ -1945,10 +1955,27 @@ export default function LandingPage() {
                     : 'bg-white border-zinc-200/60 hover:border-zinc-300 shadow-sm hover:shadow-md'
                 }`}
               >
-                <div className={`inline-flex items-center h-6 px-2.5 rounded-full text-[9px] font-black uppercase tracking-wider mb-3 ${
-                  darkMode ? 'bg-violet-500/12 text-violet-300 border border-violet-500/15' : 'bg-violet-50 text-violet-600 border border-violet-100'
-                }`}>
-                  {feat.tag}
+                <div className="flex items-center gap-2 mb-4">
+                  {feat.logos.map((logo: any) => (
+                    <div
+                      key={logo.alt}
+                      title={logo.alt}
+                      className={`w-9 h-9 rounded-xl border flex items-center justify-center ${
+                        darkMode ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-zinc-50 border-zinc-200/70'
+                      }`}
+                    >
+                      {logo.icon === 'instagram' ? (
+                        <Instagram className="w-5 h-5 text-pink-500" />
+                      ) : logo.icon === 'facebook' ? (
+                        <Facebook className="w-5 h-5 text-blue-600" />
+                      ) : (
+                        <img src={logo.src} alt={logo.alt} className="w-5 h-5 object-contain" />
+                      )}
+                    </div>
+                  ))}
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    {feat.tag}
+                  </span>
                 </div>
                 <h3 className={`text-[14px] font-bold mb-1.5 ${darkMode ? 'text-zinc-100' : 'text-zinc-900'}`}>{feat.title}</h3>
                 <p className={`text-[12.5px] leading-relaxed mb-3 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{feat.desc}</p>

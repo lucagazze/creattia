@@ -127,7 +127,7 @@ const ML_COUNTRIES = [
 
 export default function IntegracionesPage() {
   const { profile, refreshProfile } = useAuth();
-  const { viewAsProfile, isViewingAs } = useViewAs();
+  const { viewAsProfile, isViewingAs, setViewAsProfile } = useViewAs();
   const { darkMode } = useTheme();
   const { showToast } = useToast();
   const location = useLocation();
@@ -463,6 +463,9 @@ export default function IntegracionesPage() {
       if (error) throw error;
 
       setClientData((prev: any) => prev ? { ...prev, connection_statuses: updated } : null);
+      if (isViewingAs && viewAsProfile) {
+        setViewAsProfile({ ...viewAsProfile, connection_statuses: updated } as any);
+      }
     } catch (e) {
       console.error("Error updating connection status:", e);
     }
@@ -1018,7 +1021,7 @@ export default function IntegracionesPage() {
         }
         fieldsToUpdate = {
           klaviyo_api_key: klaviyoApiKey.trim(),
-          klaviyo_list_id: klaviyoListId.trim() || null
+          klaviyo_list_id: null
         };
         isConnected = await testKlaviyoConnection(klaviyoApiKey.trim());
       } else if (selectedPlatform.id === "meta") {
@@ -1125,6 +1128,7 @@ export default function IntegracionesPage() {
         chatwoot_url: null,
         chatwoot_token: null
       };
+      statusKey = "chatwoot";
     } else if (platformId === "mercadolibre") {
       fieldsToUpdate = {
         mercadolibre_access_token: null,
@@ -1159,6 +1163,9 @@ export default function IntegracionesPage() {
 
         if (error) throw error;
         setClientData((prev: any) => ({ ...prev, ...fieldsToUpdate }));
+        if (isViewingAs && viewAsProfile) {
+          setViewAsProfile({ ...viewAsProfile, ...fieldsToUpdate } as any);
+        }
       }
 
       // 2. Clear status
@@ -1167,10 +1174,22 @@ export default function IntegracionesPage() {
         extraData = { mercadolibre_country: null };
       } else if (platformId === "meta") {
         extraData = { facebook: null, instagram: null };
+      } else if (platformId === "chatwoot") {
+        extraData = { chatwoot: null, mensajeria: null };
       }
       await updateConnectionStatus(statusKey, null, extraData);
 
+      if (platformId === "chatwoot") {
+        setChatwootUrl("https://app.chatwoot.com");
+        setChatwootToken("");
+      } else if (platformId === "klaviyo") {
+        setKlaviyoApiKey("");
+        setKlaviyoListId("");
+      }
+
       showToast("Plataforma desconectada correctamente.", "success");
+      await refreshProfile();
+      await loadClientData();
       closeConfigModal();
     } catch (err: any) {
       showToast("Error al desconectar: " + err.message, "error");
@@ -1794,7 +1813,7 @@ export default function IntegracionesPage() {
                       {platform.id === "klaviyo" && (
                         <span className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                          Lista ID: {clientData.klaviyo_list_id || 'Conectado'}
+                          API Key conectada
                         </span>
                       )}
                       {platform.id === "chatwoot" && (
@@ -2444,11 +2463,6 @@ export default function IntegracionesPage() {
                         <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">Private API Key *</label>
                         <input type="password" className="apple-input" placeholder="pk_..."
                           value={klaviyoApiKey} onChange={e => setKlaviyoApiKey(e.target.value)} required disabled={savingSettings} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">List ID principal (opcional)</label>
-                        <input type="text" className="apple-input" placeholder="ej. XyZ123"
-                          value={klaviyoListId} onChange={e => setKlaviyoListId(e.target.value)} disabled={savingSettings} />
                       </div>
                     </div>
                   </div>
