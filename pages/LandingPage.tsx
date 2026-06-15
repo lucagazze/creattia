@@ -2039,52 +2039,129 @@ export default function LandingPage() {
 
 
 
-      {/* Corporate Pricing Card (Minimalist Apple style) */}
-      <section id="pricing" className="py-20 max-w-xl mx-auto px-6 text-center border-t border-zinc-200/40 dark:border-white/[0.03]">
-        <div className="mb-10">
-          <h2 className="text-2xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Un único plan, sin sorpresas</h2>
-          <p className={`text-[13px] ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>Todas las integraciones, soporte prioritario y colaboradores ilimitados.</p>
+      {/* Pricing — 3 plans */}
+      <section id="pricing" className="py-20 max-w-5xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display mb-2 text-zinc-900 dark:text-white">Planes para cada etapa</h2>
+          <p className={`text-[13px] ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>Empezá gratis y escalá según tu negocio crece.</p>
         </div>
 
-        <div className={`rounded-2xl border p-6 relative overflow-hidden text-left transition-all duration-300 ${
-          darkMode ? 'bg-zinc-950/50 border-white/[0.06] shadow-[0_15px_40px_rgba(0,0,0,0.4)]' : 'bg-white border-zinc-200 shadow-lg shadow-zinc-200/5'
-        }`}>
-          <div className={`absolute top-0 right-0 font-bold text-[8.5px] uppercase tracking-wider px-3 py-0.5 rounded-bl-lg font-display ${darkMode ? 'bg-zinc-200 text-zinc-900' : 'bg-zinc-900 text-white'}`}>POPULAR</div>
-          
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200/50 dark:border-white/[0.04] pb-5 mb-5">
-            <div>
-              <h3 className="text-[15px] font-bold font-display text-zinc-900 dark:text-white">Plan Corporativo</h3>
-              <p className="text-[11.5px] text-zinc-400 font-semibold mt-0.5">Sincronización total multitienda e IA.</p>
-            </div>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-3xl font-bold font-display text-zinc-900 dark:text-white">$ 20</span>
-              <span className="text-zinc-500 font-semibold text-[12px]">/ mes</span>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Plan Starter */}
+          {(() => {
+            const plans = [
+              {
+                name: 'Starter',
+                tagline: 'Para empezar a vender online.',
+                price: '$ 9',
+                period: '/ mes',
+                badge: null,
+                highlight: false,
+                features: [
+                  '1 tienda conectada (Shopify o Tiendanube)',
+                  'Dashboard unificado con métricas esenciales',
+                  'Monitoreo de Meta Ads (básico)',
+                  '50 sugerencias de IA por mes',
+                  '1 colaborador incluido',
+                  'Soporte por email',
+                ],
+                cta: 'Comenzar gratis',
+                ctaStyle: 'border',
+              },
+              {
+                name: 'Corporativo',
+                tagline: 'Multitienda, IA ilimitada y mensajería.',
+                price: '$ 20',
+                period: '/ mes',
+                badge: 'Más popular',
+                highlight: true,
+                features: [
+                  'Hasta 3 tiendas (Shopify, Tiendanube, WooCommerce, ML)',
+                  'Bandeja omnicanal (WhatsApp, Instagram, Facebook)',
+                  'Cerebro de IA ilimitado',
+                  'Pauta completa (Meta, TikTok y Google Ads)',
+                  'Colaboradores ilimitados',
+                  'Soporte prioritario 24/7',
+                ],
+                cta: 'Comenzar mi prueba gratuita',
+                ctaStyle: 'solid',
+              },
+              {
+                name: 'Agencia',
+                tagline: 'Para gestionar múltiples cuentas.',
+                price: 'A consultar',
+                period: null,
+                badge: null,
+                highlight: false,
+                features: [
+                  'Cuentas de clientes ilimitadas',
+                  'Todo lo incluido en Corporativo',
+                  'Panel multi-cliente centralizado',
+                  'Onboarding personalizado',
+                  'Manager de cuenta dedicado',
+                  'SLA y soporte garantizado',
+                ],
+                cta: 'Hablar con ventas',
+                ctaStyle: 'border',
+              },
+            ];
+            return plans.map((plan) => (
+              <div
+                key={plan.name}
+                className={`rounded-2xl border p-6 relative overflow-hidden text-left transition-all duration-300 flex flex-col ${
+                  plan.highlight
+                    ? (darkMode
+                        ? 'bg-violet-950/30 border-violet-500/40 shadow-[0_15px_40px_rgba(139,92,246,0.15)]'
+                        : 'bg-white border-violet-300/70 shadow-lg shadow-violet-100/60 ring-1 ring-violet-200/50')
+                    : (darkMode
+                        ? 'bg-zinc-950/50 border-white/[0.06]'
+                        : 'bg-white border-zinc-200 shadow-sm')
+                }`}
+              >
+                {plan.badge && (
+                  <div className="absolute top-0 right-0 font-bold text-[8.5px] uppercase tracking-wider px-3 py-1 rounded-bl-xl bg-violet-600 text-white">
+                    {plan.badge}
+                  </div>
+                )}
 
-          <div className="space-y-3.5 mb-6">
-            {[
-              'Sincronización en tiempo real de Shopify, Tiendanube, WooCommerce y ML',
-              'Bandeja omnicanal de mensajes (WhatsApp, Instagram y Facebook)',
-              'Sugerencias inteligentes basadas en Cerebro de IA ilimitadas',
-              'Monitoreo integral de pauta publicitaria (Meta, TikTok y Google Ads)',
-              'Agentes y colaboradores de soporte sin costos adicionales',
-              'Soporte corporativo y prioritario 24/7'
-            ].map((feature) => (
-              <div key={feature} className="flex items-start gap-2.5 text-[12px] font-medium">
-                <Check className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
-                <span>{feature}</span>
+                <div className="mb-5 pb-5 border-b border-zinc-200/50 dark:border-white/[0.05]">
+                  <h3 className={`text-[13px] font-black uppercase tracking-wider mb-1 ${plan.highlight ? 'text-violet-500' : (darkMode ? 'text-zinc-400' : 'text-zinc-500')}`}>
+                    {plan.name}
+                  </h3>
+                  <p className={`text-[11.5px] font-medium mb-4 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>{plan.tagline}</p>
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-[28px] font-black leading-none ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{plan.price}</span>
+                    {plan.period && <span className={`text-[12px] font-semibold ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{plan.period}</span>}
+                  </div>
+                </div>
+
+                <div className="space-y-3 mb-7 flex-1">
+                  {plan.features.map(f => (
+                    <div key={f} className="flex items-start gap-2.5">
+                      <Check className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${plan.highlight ? 'text-violet-500' : (darkMode ? 'text-zinc-500' : 'text-zinc-400')}`} />
+                      <span className={`text-[12px] font-medium leading-snug ${darkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Link
+                  to="/login"
+                  className={`w-full h-9 font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all ${
+                    plan.ctaStyle === 'solid'
+                      ? (darkMode ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10')
+                      : (darkMode ? 'border border-white/10 text-zinc-300 hover:bg-white/5' : 'border border-zinc-200 text-zinc-700 hover:bg-zinc-50')
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
               </div>
-            ))}
-          </div>
-
-          <Link
-            to="/login"
-            className={`w-full h-9 font-bold rounded-lg text-[11.5px] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all shadow-sm ${darkMode ? 'bg-white text-zinc-900 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-zinc-900/10'}`}
-          >
-            Comenzar mi prueba gratuita
-          </Link>
+            ));
+          })()}
         </div>
+
+        <p className={`text-center text-[11px] mt-6 ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>
+          Sin tarjeta de crédito · Cancelá cuando quieras
+        </p>
       </section>
 
       {/* FAQ Section (Accordion) */}
