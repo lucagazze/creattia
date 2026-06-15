@@ -484,6 +484,7 @@ export default function LandingPage() {
 
   // Tabbed high-fidelity screenshots switcher
   const [activeTabShowcase, setActiveTabShowcase] = useState<'inicio' | 'mensajeria' | 'comentarios' | 'pedidos' | 'inventario' | 'analisis' | 'creativos' | 'meta_ads' | 'perfil_dark'>('inicio');
+  const [autoTabCycle, setAutoTabCycle] = useState(true);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
 
   const showcaseTabs = [
@@ -535,6 +536,19 @@ export default function LandingPage() {
     }
     return () => { document.body.style.overflow = ''; };
   }, [selectedSimCreativeId]);
+
+  // Auto-cycle hero tabs to hint interactivity — stops on first user click
+  useEffect(() => {
+    if (!autoTabCycle) return;
+    const tabIds = showcaseTabs.map(t => t.id);
+    const timer = setInterval(() => {
+      setActiveTabShowcase(prev => {
+        const idx = tabIds.indexOf(prev);
+        return tabIds[(idx + 1) % tabIds.length] as any;
+      });
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [autoTabCycle]);
 
   const [simCreatives, setSimCreatives] = useState([
     {
@@ -740,13 +754,87 @@ export default function LandingPage() {
     setSimExpandedCommentId(null);
   };
 
-  const handleSimAnalyze = (id: number) => {
+  const handleSimAnalyze = async (id: number) => {
     if (simAnalyzedIds.has(id) || simAnalyzingId === id) return;
     setSimAnalyzingId(id);
-    setTimeout(() => {
-      setSimAnalyzedIds(prev => new Set(prev).add(id));
-      setSimAnalyzingId(null);
-    }, 2200);
+    const creative = simCreatives.find(c => c.id === id);
+    if (!creative) { setSimAnalyzingId(null); return; }
+
+    let analysisResult: any = null;
+    try {
+      // Extract frame from the creative image
+      let frames: string[] = [];
+      try {
+        const resp = await fetch(creative.img);
+        const blob = await resp.blob();
+        const b64 = await new Promise<string>(res => {
+          const reader = new FileReader();
+          reader.onload = e => res(e.target?.result as string);
+          reader.readAsDataURL(blob);
+        });
+        const imgEl = document.createElement('img');
+        await new Promise(res => { imgEl.onload = res; imgEl.src = b64; });
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 256 / Math.max(imgEl.width, 1));
+        canvas.width = Math.floor(imgEl.width * scale);
+        canvas.height = Math.floor(imgEl.height * scale);
+        canvas.getContext('2d')?.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+        frames = [canvas.toDataURL('image/jpeg', 0.6)];
+      } catch { /* ignore */ }
+
+      // Call AI analysis endpoint (same as CreativeTesterPage)
+      if (frames.length > 0) {
+        try {
+          const r = await fetch('/api/scrape-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'analyze-creative', frames, isVideo: false }),
+          });
+          if (r.ok) analysisResult = await r.json();
+        } catch { /* fall through to seeded fallback */ }
+      }
+    } catch { /* ignore */ }
+
+    // Seeded fallback: slight variation of pre-configured values (consistent per creative)
+    if (!analysisResult) {
+      const { tribeMetrics } = creative;
+      let s = id * 31337;
+      const rng = () => { s = ((s * 1664525) + 1013904223) & 0xffffffff; return (s >>> 0) / 4294967296; };
+      analysisResult = {
+        attentionPct: Math.max(10, Math.min(98, tribeMetrics.attentionPct + Math.round((rng() - 0.5) * 8))),
+        emotionPct: Math.max(10, Math.min(98, tribeMetrics.emotionPct + Math.round((rng() - 0.5) * 8))),
+        cogLoad: Math.max(10, Math.min(85, tribeMetrics.cogLoad + Math.round((rng() - 0.5) * 8))),
+        highestRegion: tribeMetrics.highestRegion,
+        textInsight: tribeMetrics.textInsight,
+        attentionReason: tribeMetrics.attentionReason,
+        emotionReason: tribeMetrics.emotionReason,
+        cogLoadReason: tribeMetrics.cogLoadReason,
+        actionItems: tribeMetrics.actionItems,
+      };
+    }
+
+    const finalScore = Math.floor(
+      analysisResult.attentionPct * 0.4 +
+      analysisResult.emotionPct * 0.4 +
+      (100 - analysisResult.cogLoad) * 0.2
+    );
+
+    setSimCreatives(prev => prev.map(c => {
+      if (c.id !== id) return c;
+      return {
+        ...c,
+        tribeMetrics: {
+          ...c.tribeMetrics,
+          ...analysisResult,
+          score: finalScore,
+          label: finalScore >= 80 ? 'Listo para escalar' : finalScore >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar',
+          colorClass: finalScore >= 80 ? 'bg-emerald-500 text-white shadow-emerald-500/20' : finalScore >= 60 ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-red-500 text-white shadow-red-500/20',
+          textColor: finalScore >= 80 ? 'text-emerald-500' : finalScore >= 60 ? 'text-amber-500' : 'text-red-500',
+        }
+      };
+    }));
+    setSimAnalyzedIds(prev => new Set(prev).add(id));
+    setSimAnalyzingId(null);
   };
 
   const faqs = [
@@ -796,6 +884,15 @@ export default function LandingPage() {
           0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.3); }
           70% { transform: scale(1.015); box-shadow: 0 0 0 6px rgba(139, 92, 246, 0); }
           100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        }
+        @keyframes ringPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.5), 0 0 0 0 rgba(139, 92, 246, 0.25); }
+          50% { box-shadow: 0 0 0 5px rgba(139, 92, 246, 0.15), 0 0 0 10px rgba(139, 92, 246, 0); }
+        }
+        .ring-pulse { animation: ringPulse 2s ease-in-out infinite; }
+        @keyframes tabGlow {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 1; }
         }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
@@ -897,17 +994,25 @@ export default function LandingPage() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTabShowcase(tab.id as any)}
-                    className={`h-6 px-2.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center ${
+                    onClick={() => { setAutoTabCycle(false); setActiveTabShowcase(tab.id as any); }}
+                    className={`h-6 px-2.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center relative ${
                       isActive
                         ? (darkMode ? 'bg-white/10 text-white border border-white/10' : 'bg-zinc-900 text-white shadow-sm')
                         : (darkMode ? 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]' : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100/80')
                     }`}
                   >
                     {tab.label}
+                    {isActive && autoTabCycle && (
+                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                    )}
                   </button>
                 );
               })}
+              {autoTabCycle && (
+                <span className={`ml-auto self-center text-[8.5px] font-semibold flex items-center gap-1 pr-1 ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                  <span className="animate-pulse">↑</span> Tocá para explorar
+                </span>
+              )}
             </div>
 
             {/* Screenshot */}
@@ -918,12 +1023,26 @@ export default function LandingPage() {
               <img
                 src={showcaseTabs.find(t => t.id === activeTabShowcase)?.img}
                 alt={showcaseTabs.find(t => t.id === activeTabShowcase)?.label}
-                className="w-full h-auto max-h-[580px] object-contain block mx-auto transition-all duration-300 animate-in fade-in"
+                className="w-full h-auto max-h-[520px] object-contain block mx-auto transition-all duration-300 animate-in fade-in"
               />
               <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Ampliar
               </div>
             </div>
+
+            {/* Tab description */}
+            {(() => {
+              const activeTab = showcaseTabs.find(t => t.id === activeTabShowcase);
+              return activeTab ? (
+                <div className={`px-5 py-4 border-t flex items-start gap-3 text-left animate-in fade-in duration-300 ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-violet-500`} />
+                  <div>
+                    <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>{activeTab.label}</p>
+                    <p className={`text-[11.5px] leading-relaxed font-medium ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>{activeTab.desc}</p>
+                  </div>
+                </div>
+              ) : null;
+            })()}
 
           </div>
         </div>
@@ -1141,10 +1260,10 @@ export default function LandingPage() {
                   <div className="flex justify-center">
                     <button
                       onClick={() => setExpandedMetric('s-revenue')}
-                      className={`flex items-center gap-2 text-[10px] font-bold px-4 py-2 rounded-full border transition-all duration-200 ${
+                      className={`ring-pulse flex items-center gap-2 text-[10px] font-bold px-4 py-2 rounded-full border transition-all duration-200 ${
                         darkMode
-                          ? 'bg-white/[0.03] border-white/[0.08] text-zinc-400 hover:bg-white/[0.07] hover:text-white hover:border-white/[0.18]'
-                          : 'bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 hover:border-zinc-300'
+                          ? 'bg-violet-950/20 border-violet-500/30 text-violet-300 hover:bg-violet-900/30 hover:text-white hover:border-violet-400/50'
+                          : 'bg-violet-50 border-violet-200 text-violet-600 hover:bg-violet-100 hover:text-violet-800 hover:border-violet-300'
                       }`}
                     >
                       <MousePointerClick className="w-3.5 h-3.5" />
@@ -2112,10 +2231,10 @@ export default function LandingPage() {
                                   >
                                     Responder
                                   </button>
-                                  <button 
-                                    onClick={() => handleSimGenerateDraft(comment.id, comment.user, comment.text)}
+                                  <button
+                                    onClick={() => { setSimExpandedCommentId(comment.id); handleSimGenerateDraft(comment.id, comment.user, comment.text); }}
                                     disabled={simDraftingCommentId !== null}
-                                    className="px-3 py-1 rounded-lg text-[9.5px] font-black border border-zinc-200 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/[0.02] flex items-center gap-1 transition-colors"
+                                    className="px-3 py-1 rounded-lg text-[9.5px] font-black border border-violet-200 dark:border-violet-500/20 bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 flex items-center gap-1 transition-colors"
                                   >
                                     <Sparkles className="w-3 h-3 text-violet-500" /> Asistencia IA
                                   </button>
