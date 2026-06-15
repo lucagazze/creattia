@@ -137,7 +137,7 @@ export default function LoginPage() {
               <span className={`text-[11.5px] font-bold tracking-tight uppercase leading-none block ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
                 ALGORITMIA
               </span>
-              <span className="text-[7.5px] font-bold text-emerald-600 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
+              <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
             </div>
           </div>
 
@@ -166,7 +166,7 @@ export default function LoginPage() {
                 : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
             }`}
           >
-            {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-600" />}
+            {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-500" />}
           </button>
           <button
             onClick={() => navigate('/')}

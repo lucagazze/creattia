@@ -949,7 +949,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className={`min-h-screen font-sans selection:bg-emerald-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
+    <div className={`min-h-screen font-sans selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
       
       {/* Estilos CSS Embebidos para Animaciones Marquee e Interactivas */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -1010,7 +1010,7 @@ export default function LandingPage() {
               <span className="text-[11.5px] font-bold tracking-tight uppercase leading-none block font-display">
                 ALGORITMIA
               </span>
-              <span className="text-[7.5px] font-bold text-emerald-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
+              <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
             </div>
           </div>
 
@@ -1060,7 +1060,7 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black tracking-tight max-w-4xl mx-auto leading-[1.08] mb-6 font-display text-zinc-900 dark:text-zinc-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            Gestioná tu negocio online. <span className="text-emerald-500">Escalá tus ventas.</span>
+            Gestioná tu negocio online. <span className="font-black underline decoration-violet-500 decoration-[3px] underline-offset-4">Escalá tus ventas.</span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -1105,7 +1105,7 @@ export default function LandingPage() {
                   >
                     {tab.label}
                     {isActive && autoTabCycle && (
-                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
                     )}
                   </button>
                 );
@@ -1121,7 +1121,7 @@ export default function LandingPage() {
             {autoTabCycle && (
               <div key={`${activeTabShowcase}-${heroCycleKey}`} className={`h-[4px] sm:h-[3px] overflow-hidden ${darkMode ? 'bg-white/[0.04]' : 'bg-zinc-100'}`}>
                 <div
-                  className="tab-progress-bar h-full bg-emerald-500"
+                  className="tab-progress-bar h-full bg-violet-500"
                 />
               </div>
             )}
@@ -1129,7 +1129,7 @@ export default function LandingPage() {
             {/* Screenshot — crossfade between tabs, no height jump */}
             <div
               className={`relative cursor-zoom-in group overflow-hidden ${darkMode ? 'bg-zinc-950' : 'bg-white'}`}
-              style={{ aspectRatio: '1600/757', maxHeight: 680 }}
+              style={{ aspectRatio: '1600/754' }}
               onClick={() => setZoomImage(activeShowcaseTab.img)}
             >
               {showcaseTabs.map(tab => (
@@ -1139,7 +1139,7 @@ export default function LandingPage() {
                   alt={tab.label}
                   loading="eager"
                   decoding="async"
-                  className="hero-image-layer absolute inset-0 w-full h-full object-contain object-center transition-opacity duration-500 ease-out"
+                  className="hero-image-layer absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-500 ease-out"
                   style={{
                     opacity: activeTabShowcase === tab.id ? 1 : 0,
                     zIndex: activeTabShowcase === tab.id ? 2 : 1,
@@ -1147,13 +1147,13 @@ export default function LandingPage() {
                 />
               ))}
               <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                <Sparkles className="w-2.5 h-2.5 text-emerald-400" /> Ampliar
+                <Sparkles className="w-2.5 h-2.5 text-violet-400" /> Ampliar
               </div>
             </div>
 
             {/* Tab description */}
             <div className={`px-4 sm:px-5 py-3 border-t flex items-start gap-3 text-left ${darkMode ? 'border-white/[0.05] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/60'}`}>
-              <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-emerald-500" />
+              <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-violet-500" />
               <div className="min-w-0 flex-1">
                 <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{activeShowcaseTab.label}</p>
                 <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeShowcaseTab.desc}</p>
@@ -1248,12 +1248,12 @@ export default function LandingPage() {
               </p>
             </div>
             {Object.values(inboxConvStatuses).some(s => s === 'sent') && (
-              <button onClick={handleResetChat} className="text-[10px] font-semibold text-emerald-500 hover:underline shrink-0">
+              <button onClick={handleResetChat} className="text-[10px] font-semibold text-violet-500 hover:underline shrink-0">
                 Reiniciar simulación
               </button>
             )}
             <div className={`hidden sm:block rounded-2xl border p-4 ${darkMode ? 'bg-zinc-900/50 border-white/[0.06] text-zinc-300' : 'bg-white border-zinc-200/70 text-zinc-600 shadow-sm'}`}>
-              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500 mb-2">Demo en vivo</p>
+              <p className="text-[10px] font-black uppercase tracking-wider text-violet-500 mb-2">Demo en vivo</p>
               <p className="text-[12px] leading-relaxed font-medium">Filtrá canales, abrí conversaciones y generá una respuesta con IA como dentro de la app.</p>
             </div>
           </div>
@@ -1330,7 +1330,7 @@ export default function LandingPage() {
                       }}
                       className={`flex items-start gap-2.5 p-3 text-left border-b transition-all ${
                         isSelected
-                          ? (darkMode ? 'bg-white/[0.04] border-white/[0.04]' : 'bg-emerald-50/60 border-zinc-100')
+                          ? (darkMode ? 'bg-white/[0.04] border-white/[0.04]' : 'bg-violet-50/60 border-zinc-100')
                           : (darkMode ? 'hover:bg-white/[0.02] border-white/[0.03]' : 'hover:bg-zinc-50 border-zinc-50')
                       }`}
                     >
@@ -1350,10 +1350,10 @@ export default function LandingPage() {
                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500">Pendiente</span>
                           )}
                           {displayStatus === 'Visto' && (
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500">Visto</span>
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-500">Visto</span>
                           )}
                           {displayStatus === 'Respondido' && (
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500">Respondido</span>
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-500">Respondido</span>
                           )}
                         </div>
                       </div>
@@ -1386,9 +1386,9 @@ export default function LandingPage() {
                   </div>
                   <span className={`text-[8.5px] font-bold px-2 py-0.5 rounded-full border ${
                     getInboxDisplayStatus(selectedInboxConv) === 'Respondido'
-                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      ? 'bg-violet-500/10 text-violet-500 border-violet-500/20'
                       : getInboxDisplayStatus(selectedInboxConv) === 'Visto'
-                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                        ? 'bg-violet-500/10 text-violet-500 border-violet-500/20'
                         : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
                   }`}>
                     {getInboxDisplayStatus(selectedInboxConv)}
@@ -1404,7 +1404,7 @@ export default function LandingPage() {
                     >
                       <div className={`p-2.5 rounded-xl text-[11px] font-medium leading-relaxed ${
                         msg.sender === 'ai'
-                          ? 'bg-emerald-600 text-white rounded-tr-none'
+                          ? 'bg-violet-600 text-white rounded-tr-none'
                           : (darkMode ? 'bg-zinc-800 text-zinc-300 rounded-tl-none' : 'bg-zinc-100 text-zinc-800 rounded-tl-none')
                       }`}>
                         {msg.text}
@@ -1414,14 +1414,14 @@ export default function LandingPage() {
                   ))}
                   {getConvStatus(selectedInboxConvId) === 'sending' && (
                     <div className="flex items-center gap-1 p-2.5 rounded-xl bg-zinc-900/40 max-w-[70px] ml-auto">
-                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
                   )}
                   {getConvStatus(selectedInboxConvId) === 'sent' && selectedInboxConv.aiReply && (
                     <div className="flex flex-col max-w-[82%] ml-auto items-end animate-in slide-in-from-bottom-2 duration-300">
-                      <div className="p-2.5 rounded-xl text-[11px] font-medium leading-relaxed bg-emerald-600 text-white rounded-tr-none">
+                      <div className="p-2.5 rounded-xl text-[11px] font-medium leading-relaxed bg-violet-600 text-white rounded-tr-none">
                         {selectedInboxConv.aiReply.text}
                       </div>
                       <span className="text-[8px] text-zinc-500 font-semibold mt-0.5 px-1">{selectedInboxConv.aiReply.time}</span>
@@ -1433,18 +1433,18 @@ export default function LandingPage() {
                 <div className={`p-3 border-t shrink-0 ${darkMode ? 'border-white/[0.04] bg-zinc-950/20' : 'border-zinc-100 bg-zinc-50/30'}`}>
                   {selectedInboxConv.status !== 'answered' && getConvStatus(selectedInboxConvId) === 'idle' && selectedInboxConv.aiDraft && (
                     <div className={`p-2.5 rounded-lg border mb-2.5 flex flex-col gap-1 text-left ${
-                      darkMode ? 'bg-emerald-950/10 border-emerald-500/15' : 'bg-emerald-50 border-emerald-200/50'
+                      darkMode ? 'bg-violet-950/10 border-violet-500/15' : 'bg-violet-50 border-violet-200/50'
                     }`}>
                       <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3 text-emerald-500" />
-                        <span className="text-[9px] font-bold uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">Cerebro de IA — Respuesta Sugerida</span>
+                        <Sparkles className="w-3 h-3 text-violet-500" />
+                        <span className="text-[9px] font-bold uppercase text-violet-600 dark:text-violet-400 tracking-wider">Cerebro de IA — Respuesta Sugerida</span>
                       </div>
                       <p className={`text-[10.5px] leading-relaxed font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
                         "{selectedInboxConv.aiDraft.slice(0, 60)}..."
                       </p>
                       <button
                         onClick={handleSendAiResponse}
-                        className="mt-1 self-start text-[9px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline uppercase flex items-center gap-0.5"
+                        className="mt-1 self-start text-[9px] font-bold text-violet-600 dark:text-violet-400 hover:underline uppercase flex items-center gap-0.5"
                       >
                         Aprobar y enviar <ArrowUpRight className="w-2.5 h-2.5" />
                       </button>
@@ -1462,7 +1462,7 @@ export default function LandingPage() {
                     <button
                       onClick={handleSendAiResponse}
                       disabled={getConvStatus(selectedInboxConvId) !== 'idle' || selectedInboxConv.status === 'answered'}
-                      className={`h-8 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shrink-0 transition-all disabled:opacity-50 bg-emerald-600 hover:bg-emerald-500 text-white`}
+                      className={`h-8 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shrink-0 transition-all disabled:opacity-50 bg-violet-600 hover:bg-violet-500 text-white`}
                     >
                       {getConvStatus(selectedInboxConvId) === 'sending'
                         ? <><RefreshCw className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">Generando...</span></>
@@ -1487,7 +1487,7 @@ export default function LandingPage() {
         <div className="flex flex-col gap-10 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20">
           <div className="max-w-2xl space-y-4 text-left">
             <h3 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white leading-tight">
-              Control total de tu <span className="text-emerald-500">rentabilidad</span>, sin planillas
+              Control total de tu <span className="font-black underline decoration-violet-500 decoration-[3px] underline-offset-4">rentabilidad</span>, sin planillas
             </h3>
             <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
@@ -1532,8 +1532,8 @@ export default function LandingPage() {
                       onClick={() => setExpandedMetric('s-revenue')}
                       className={`${!expandedMetric ? 'ring-pulse' : ''} flex items-center gap-2 text-[10px] font-bold px-4 py-2 rounded-full border transition-all duration-200 ${
                         darkMode
-                          ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300 hover:bg-emerald-900/30 hover:text-white hover:border-emerald-400/50'
-                          : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-800 hover:border-emerald-300'
+                          ? 'bg-violet-950/20 border-violet-500/30 text-violet-300 hover:bg-violet-900/30 hover:text-white hover:border-violet-400/50'
+                          : 'bg-violet-50 border-violet-200 text-violet-600 hover:bg-violet-100 hover:text-violet-800 hover:border-violet-300'
                       }`}
                     >
                       <MousePointerClick className="w-3.5 h-3.5" />
@@ -1548,7 +1548,7 @@ export default function LandingPage() {
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-display">Tienda Online</span>
                     <div className="flex items-center gap-1 ml-auto">
                       <span className="text-[8.5px] text-zinc-400 dark:text-zinc-500 font-semibold">Shopify & Tiendanube</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
                     </div>
                   </div>
 
@@ -1613,11 +1613,11 @@ export default function LandingPage() {
                 {/* 2. SECCIÓN: PUBLICIDAD DE META ADS */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 px-1 pt-1.5">
-                    <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M13.028 23.956C18.943 23.302 23.5 18.261 23.5 12.135c0-6.35-5.149-11.5-11.5-11.5S.5 5.785.5 12.135c0 5.73 4.172 10.486 9.668 11.368V15.63H7.445v-3.495h2.723V9.72c0-2.682 1.597-4.163 4.04-4.163 1.171 0 2.395.21 2.395.21v2.634h-1.35c-1.33 0-1.745.825-1.745 1.671v2.01h2.97l-.474 3.494h-2.496v7.873a11.554 11.554 0 0 0 1.52-.494z"/></svg>
+                    <svg className="w-4 h-4 text-violet-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M13.028 23.956C18.943 23.302 23.5 18.261 23.5 12.135c0-6.35-5.149-11.5-11.5-11.5S.5 5.785.5 12.135c0 5.73 4.172 10.486 9.668 11.368V15.63H7.445v-3.495h2.723V9.72c0-2.682 1.597-4.163 4.04-4.163 1.171 0 2.395.21 2.395.21v2.634h-1.35c-1.33 0-1.745.825-1.745 1.671v2.01h2.97l-.474 3.494h-2.496v7.873a11.554 11.554 0 0 0 1.52-.494z"/></svg>
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-display">Meta Ads</span>
                     <div className="flex items-center gap-1 ml-auto">
                       <span className="text-[8.5px] text-zinc-400 dark:text-zinc-500 font-semibold">Facebook & Instagram Ads</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
                     </div>
                   </div>
 
@@ -1708,11 +1708,11 @@ export default function LandingPage() {
                 {/* 3. SECCIÓN: EMAIL MARKETING (KLAVIYO) */}
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 px-1 pt-1.5">
-                    <Mail className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <Mail className="w-4 h-4 text-violet-500 shrink-0" />
                     <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest font-display">Email Marketing</span>
                     <div className="flex items-center gap-1 ml-auto">
                       <span className="text-[8.5px] text-zinc-400 dark:text-zinc-500 font-semibold">Sincronizado con Klaviyo</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
                     </div>
                   </div>
 
@@ -1895,8 +1895,8 @@ export default function LandingPage() {
                         onClick={() => { setSelectedSimCreativeId(creative.id); setSimModalTab('metrics'); setTimeout(() => handleSimAnalyze(creative.id), 100); }}
                         className={`flex-1 h-7 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all ${
                           simAnalyzedIds.has(creative.id)
-                            ? (darkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-200/60')
-                            : (darkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-200/60 hover:bg-emerald-100')
+                            ? (darkMode ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20' : 'bg-violet-50 text-violet-600 border border-violet-200/60')
+                            : (darkMode ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20' : 'bg-violet-50 text-violet-600 border border-violet-200/60 hover:bg-violet-100')
                         }`}
                       >
                         <Brain className="w-3 h-3" />
@@ -1920,7 +1920,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight font-display leading-tight mb-4 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-              Todo lo que necesitás, <span className="text-emerald-500">en un solo lugar</span>
+              Todo lo que necesitás, <span className="font-black underline decoration-violet-500 decoration-[3px] underline-offset-4">en un solo lugar</span>
             </h2>
             <p className={`text-[14.5px] max-w-lg mx-auto leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               Cada módulo está diseñado para conectarse con el siguiente. Un ecosistema completo, no una colección de herramientas.
@@ -2014,7 +2014,7 @@ export default function LandingPage() {
                 <div className="space-y-1.5">
                   {feat.items.map(item => (
                     <div key={item} className={`flex items-center gap-2 text-[11px] font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-600'}`}>
-                      <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                      <Check className="w-3 h-3 text-violet-500 shrink-0" />
                       <span>{item}</span>
                     </div>
                   ))}
@@ -2072,7 +2072,7 @@ export default function LandingPage() {
               'Soporte corporativo y prioritario 24/7'
             ].map((feature) => (
               <div key={feature} className="flex items-start gap-2.5 text-[12px] font-medium">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <Check className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
                 <span>{feature}</span>
               </div>
             ))}
@@ -2127,7 +2127,7 @@ export default function LandingPage() {
       {/* Call to Action Final */}
       <section className={`py-16 text-center relative overflow-hidden ${darkMode ? 'bg-zinc-950/10 border-t border-white/[0.03]' : 'bg-zinc-50 border-t border-zinc-200/40'}`}>
         <div className="max-w-3xl mx-auto px-6 space-y-5">
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender <span className="text-emerald-500">más inteligente</span> hoy</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Empezá a vender <span className="font-black underline decoration-violet-500 decoration-[3px] underline-offset-4">más inteligente</span> hoy</h2>
           <p className={`text-[13px] max-w-sm mx-auto ${darkMode ? 'text-zinc-300' : 'text-zinc-400'}`}>
             Configuración en 5 minutos. Sin tarjeta de crédito.
           </p>
@@ -2343,7 +2343,7 @@ export default function LandingPage() {
                     >
                       Comentarios
                       {selectedSimCreative.comments.filter(c => c.pending).length > 0 && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
                       )}
                     </button>
                   </div>
@@ -2370,10 +2370,10 @@ export default function LandingPage() {
                         {simAnalyzingId === selectedSimCreative.id ? (
                           <>
                             <div className="relative w-16 h-16">
-                              <div className="absolute inset-0 rounded-full border-4 border-emerald-200 dark:border-emerald-900" />
-                              <div className="absolute inset-0 rounded-full border-4 border-t-emerald-600 animate-spin" />
+                              <div className="absolute inset-0 rounded-full border-4 border-violet-200 dark:border-violet-900" />
+                              <div className="absolute inset-0 rounded-full border-4 border-t-violet-600 animate-spin" />
                               <div className="absolute inset-0 flex items-center justify-center">
-                                <Brain className="w-6 h-6 text-emerald-500" />
+                                <Brain className="w-6 h-6 text-violet-500" />
                               </div>
                             </div>
                             <p className="text-[12px] font-bold text-zinc-700 dark:text-zinc-300">Analizando respuesta visual...</p>
@@ -2385,7 +2385,7 @@ export default function LandingPage() {
                             <p className="text-[11px] text-zinc-400 max-w-[220px]">Analizará la atención, emoción y carga cognitiva de este anuncio.</p>
                             <button
                               onClick={() => handleSimAnalyze(selectedSimCreative.id)}
-                              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[12px] font-black shadow-lg shadow-emerald-200 dark:shadow-none transition-all"
+                              className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-[12px] font-black shadow-lg shadow-violet-200 dark:shadow-none transition-all"
                             >
                               <Zap className="w-4 h-4" /> Analizar creativo
                             </button>
@@ -2408,7 +2408,7 @@ export default function LandingPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[16px] font-black text-zinc-900 dark:text-white">{selectedSimCreative.tribeMetrics.label}</p>
-                        <p className="text-[10px] text-zinc-400 mt-1">Región dominante: <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedSimCreative.tribeMetrics.highestRegion}</span></p>
+                        <p className="text-[10px] text-zinc-400 mt-1">Región dominante: <span className="font-bold text-violet-600 dark:text-violet-400">{selectedSimCreative.tribeMetrics.highestRegion}</span></p>
                         <p className="text-[10px] text-zinc-400 dark:text-zinc-300 mt-1 leading-snug">{selectedSimCreative.tribeMetrics.textInsight}</p>
                       </div>
                     </div>
@@ -2418,10 +2418,10 @@ export default function LandingPage() {
                       darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'
                     }`}>
                       {[
-                        { label: 'Atención', value: selectedSimCreative.tribeMetrics.attentionPct, color: 'bg-emerald-500', reason: selectedSimCreative.tribeMetrics.attentionReason },
+                        { label: 'Atención', value: selectedSimCreative.tribeMetrics.attentionPct, color: 'bg-violet-500', reason: selectedSimCreative.tribeMetrics.attentionReason },
                         { label: 'Emoción', value: selectedSimCreative.tribeMetrics.emotionPct, color: 'bg-sky-500', reason: selectedSimCreative.tribeMetrics.emotionReason },
                         { label: 'Carga Cognitiva', value: selectedSimCreative.tribeMetrics.cogLoad,
-                          color: selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'bg-emerald-500' : selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500',
+                          color: selectedSimCreative.tribeMetrics.cogLoad <= 30 ? 'bg-violet-500' : selectedSimCreative.tribeMetrics.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500',
                           reason: selectedSimCreative.tribeMetrics.cogLoadReason },
                       ].map(m => (
                         <div key={m.label}>
@@ -2442,7 +2442,7 @@ export default function LandingPage() {
                       <div className="flex items-center justify-between">
                         <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
                         <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
-                          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
+                          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Atención</span>
                           <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-sky-500 inline-block rounded-full" />Emoción</span>
                         </div>
                       </div>
@@ -2468,7 +2468,7 @@ export default function LandingPage() {
                   <div className="space-y-4 text-left animate-in fade-in duration-200">
                     <div className="flex items-center justify-between text-[10.5px] font-bold text-zinc-400 border-b border-zinc-200/40 dark:border-white/[0.03] pb-2">
                       <span>Comentarios del Anuncio</span>
-                      <span className="text-emerald-500">
+                      <span className="text-violet-500">
                         {selectedSimCreative.comments.filter(c => c.pending).length} Pendiente{selectedSimCreative.comments.filter(c => c.pending).length !== 1 ? 's' : ''}
                       </span>
                     </div>
@@ -2479,7 +2479,7 @@ export default function LandingPage() {
                           key={comment.id}
                           className={`p-3.5 rounded-xl border space-y-3 transition-all ${
                             comment.pending
-                              ? (darkMode ? 'bg-[#0f0f13] border-emerald-500/20 shadow-sm shadow-emerald-500/5' : 'bg-emerald-50/20 border-emerald-100')
+                              ? (darkMode ? 'bg-[#0f0f13] border-violet-500/20 shadow-sm shadow-violet-500/5' : 'bg-violet-50/20 border-violet-100')
                               : (darkMode ? 'bg-[#07070a]/30 border-white/[0.03] opacity-80' : 'bg-zinc-50/50 border-zinc-200/50')
                           }`}
                         >
@@ -2487,7 +2487,7 @@ export default function LandingPage() {
                           <div className="flex items-start justify-between">
                             <div className="flex gap-2.5">
                               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase ${
-                                comment.pending ? 'bg-emerald-500 shadow-md shadow-emerald-500/10' : 'bg-zinc-400 dark:bg-zinc-700'
+                                comment.pending ? 'bg-violet-500 shadow-md shadow-violet-500/10' : 'bg-zinc-400 dark:bg-zinc-700'
                               }`}>
                                 {comment.user.slice(0, 2)}
                               </div>
@@ -2505,7 +2505,7 @@ export default function LandingPage() {
                                 Pendiente
                               </span>
                             ) : (
-                              <span className="shrink-0 text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                              <span className="shrink-0 text-[8px] font-black uppercase bg-violet-500/10 text-violet-500 border border-violet-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
                                 <Check className="w-2 h-2" /> Respondido
                               </span>
                             )}
@@ -2516,12 +2516,12 @@ export default function LandingPage() {
                             <div className="pl-6 border-l-2 border-zinc-200 dark:border-zinc-800 space-y-2 mt-2">
                               {comment.replies.map((reply, rIdx) => (
                                 <div key={rIdx} className="flex gap-2 items-start text-[10.5px]">
-                                  <div className="w-5 h-5 rounded-full bg-emerald-600/20 border border-emerald-500/25 text-emerald-500 text-[8px] font-black flex items-center justify-center shrink-0">
+                                  <div className="w-5 h-5 rounded-full bg-violet-600/20 border border-violet-500/25 text-violet-500 text-[8px] font-black flex items-center justify-center shrink-0">
                                     A
                                   </div>
                                   <div className="bg-zinc-100 dark:bg-white/[0.02] p-2 rounded-xl border border-zinc-200/50 dark:border-white/[0.04] flex-1">
                                     <p className="font-semibold text-[11px] leading-relaxed text-zinc-750 dark:text-zinc-200">
-                                      <span className="font-extrabold text-emerald-600 dark:text-emerald-400 mr-1.5">Algoritmia Store</span>
+                                      <span className="font-extrabold text-violet-600 dark:text-violet-400 mr-1.5">Algoritmia Store</span>
                                       {reply}
                                     </p>
                                   </div>
@@ -2537,22 +2537,22 @@ export default function LandingPage() {
                                 <>
                                   <button 
                                     onClick={() => setSimExpandedCommentId(comment.id)}
-                                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[9.5px] transition-colors"
+                                    className="px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-[9.5px] transition-colors"
                                   >
                                     Responder
                                   </button>
                                   <button
                                     onClick={() => { setSimExpandedCommentId(comment.id); handleSimGenerateDraft(comment.id, comment.user, comment.text); }}
                                     disabled={simDraftingCommentId !== null}
-                                    className="px-3 py-1 rounded-lg text-[9.5px] font-black border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 flex items-center gap-1 transition-colors"
+                                    className="px-3 py-1 rounded-lg text-[9.5px] font-black border border-violet-200 dark:border-violet-500/20 bg-violet-50 dark:bg-violet-950/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 flex items-center gap-1 transition-colors"
                                   >
-                                    <Sparkles className="w-3 h-3 text-emerald-500" /> Asistencia IA
+                                    <Sparkles className="w-3 h-3 text-violet-500" /> Asistencia IA
                                   </button>
                                 </>
                               ) : (
                                 <div className="w-full space-y-2.5 animate-in slide-in-from-top-1 duration-200 text-left">
                                   {simDraftingCommentId === comment.id ? (
-                                    <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-emerald-500 py-2">
+                                    <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-violet-500 py-2">
                                       <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Cerebro de IA sugiriendo borrador...
                                     </div>
                                   ) : (
@@ -2562,13 +2562,13 @@ export default function LandingPage() {
                                         onChange={(e) => setSimReplyTexts(prev => ({ ...prev, [comment.id]: e.target.value }))}
                                         placeholder="Escribí tu respuesta..."
                                         className={`w-full p-2.5 rounded-lg border text-[11px] outline-none font-medium h-16 resize-none ${
-                                          darkMode ? 'bg-black border-white/10 text-white focus:border-emerald-500/50' : 'bg-white border-zinc-350 focus:border-emerald-400'
+                                          darkMode ? 'bg-black border-white/10 text-white focus:border-violet-500/50' : 'bg-white border-zinc-350 focus:border-violet-400'
                                         }`}
                                       />
                                       <div className="flex justify-between items-center">
                                         <button 
                                           onClick={() => handleSimGenerateDraft(comment.id, comment.user, comment.text)}
-                                          className="text-[9.5px] font-black text-emerald-500 hover:underline flex items-center gap-0.5"
+                                          className="text-[9.5px] font-black text-violet-500 hover:underline flex items-center gap-0.5"
                                         >
                                           <Sparkles className="w-3 h-3" /> Generar borrador con IA
                                         </button>
@@ -2582,7 +2582,7 @@ export default function LandingPage() {
                                           <button 
                                             onClick={() => handleSimSendReply(selectedSimCreative.id, comment.id)}
                                             disabled={!(simReplyTexts[comment.id] || '').trim()}
-                                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-lg text-[9.5px] flex items-center gap-1"
+                                            className="px-3 py-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-black rounded-lg text-[9.5px] flex items-center gap-1"
                                           >
                                             <Send className="w-2.5 h-2.5" /> Enviar
                                           </button>

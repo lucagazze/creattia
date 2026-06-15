@@ -269,7 +269,7 @@ export const MainLayout = () => {
   const isFixedPage = location.pathname === '/mensajeria';
 
   return (
-    <div className="flex min-h-screen bg-[#f5f5f7] dark:bg-[#0a0a0a] text-zinc-900 dark:text-zinc-100 transition-colors duration-300 print:bg-white">
+    <div className="flex min-h-screen bg-[#f5f5f7] dark:bg-[#0a0a0a] text-zinc-900 dark:text-zinc-100 transition-colors duration-300 print:bg-white" style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <div className="print:hidden">
         <Sidebar
           isOpen={sidebarOpen}
