@@ -136,7 +136,7 @@ export default function App() {
                 <ToastProvider>
                   <ErrorBoundary>
                     <Routes>
-                      <Route path="/" element={<LandingPage />} />
+                      <Route path="/landing" element={<LandingPage />} />
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/preview" element={<EmailPreviewPublicPage />} />
                       <Route path="/oauth-simulate" element={<OAuthSimulatePage />} />

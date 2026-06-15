@@ -45,7 +45,8 @@ import {
   Facebook,
   MessageCircle,
   ChevronLeft,
-  Play
+  Play,
+  Menu
 } from 'lucide-react';
 
 // Helper components for Dashboard metrics simulation
@@ -440,6 +441,7 @@ export default function LandingPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Redirige al panel si ya está autenticado
   useEffect(() => {
@@ -1069,7 +1071,8 @@ export default function LandingPage() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Dark mode toggle — always visible */}
             <button
               onClick={toggleDarkMode}
               className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
@@ -1079,6 +1082,7 @@ export default function LandingPage() {
             >
               {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-500" />}
             </button>
+            {/* Login button — always visible */}
             <Link
               to="/login"
               className={`h-8 px-3.5 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
@@ -1087,8 +1091,39 @@ export default function LandingPage() {
             >
               Iniciar sesión
             </Link>
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              className={`md:hidden w-8 h-8 rounded-lg border flex items-center justify-center transition-all active:scale-95 ${
+                darkMode ? 'bg-white/5 border-white/8 text-zinc-300 hover:bg-white/10' : 'bg-white border-zinc-200/60 text-zinc-600 hover:bg-zinc-50 shadow-sm'
+              }`}
+              aria-label="Abrir menú"
+            >
+              {menuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile nav dropdown */}
+        {menuOpen && (
+          <div className={`md:hidden border-t ${darkMode ? 'border-white/[0.05] bg-[#030303]/95' : 'border-zinc-200/50 bg-[#fafafc]/95'} backdrop-blur-md`}>
+            <nav className="max-w-6xl mx-auto px-6 py-3 flex flex-col gap-0.5">
+              {[
+                { label: 'Demo interactiva', id: 'interactive-demo' },
+                { label: 'Precio', id: 'pricing' },
+                { label: 'Preguntas frecuentes', id: 'faq' },
+              ].map(({ label, id }) => (
+                <button
+                  key={label}
+                  onClick={() => { setMenuOpen(false); setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}
+                  className={`w-full text-left px-3 py-2.5 text-[13px] font-semibold rounded-lg transition-colors ${darkMode ? 'text-zinc-300 hover:text-white hover:bg-white/5' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
@@ -1271,7 +1306,7 @@ export default function LandingPage() {
       </section>
 
       {/* Secciones Interactivas de Demostración del Producto */}
-      <section id="interactive-demo" className="py-20 max-w-5xl mx-auto px-6 flex flex-col gap-28">
+      <section id="interactive-demo" className="pt-10 pb-20 max-w-5xl mx-auto px-6 flex flex-col gap-28">
         
         <div className="text-center max-w-2xl mx-auto mb-10 order-1">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Demo interactiva</h2>
@@ -2403,6 +2438,22 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Floating free trial pill */}
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+        <div className={`pointer-events-auto flex items-center gap-3 pl-4 pr-2 py-2 rounded-full shadow-lg border backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-500 ${darkMode ? 'bg-zinc-900/90 border-white/[0.08] text-white shadow-black/40' : 'bg-white/90 border-zinc-200/70 text-zinc-800 shadow-zinc-900/10'}`}>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+            <span className="text-[11.5px] font-semibold whitespace-nowrap">Prueba gratis de 3 días · Sin tarjeta</span>
+          </div>
+          <Link
+            to="/login"
+            className={`h-7 px-3 rounded-full text-[11px] font-black flex items-center gap-1 transition-all duration-200 flex-shrink-0 ${darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+          >
+            Comenzar <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      </div>
 
       {zoomImage && (() => {
         const zTab = showcaseTabs.find(t => t.img === zoomImage);
