@@ -56,6 +56,13 @@ const fmtSeconds = (s: number) => {
   return h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m` : `${Math.round(s)}s`;
 };
 
+const WhatsAppIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.133.558 4.133 1.535 5.867L0 24l6.335-1.507A11.924 11.924 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.647-.498-5.167-1.366l-.371-.22-3.759.894.952-3.655-.242-.38A9.944 9.944 0 012 12C2 6.478 6.478 2 12 2s10 4.478 10 10-4.478 10-10 10z" />
+  </svg>
+);
+
 const renderMessageContent = (msg: any, contactName = 'Cliente', onImageClick?: (url: string) => void, onVideoClick?: (url: string) => void) => {
   if (!msg) return null;
 
@@ -1567,6 +1574,9 @@ export default function MensajeriaPage() {
 
   const CHANNEL_ICON: Record<string, string> = { whatsapp: '📱', instagram: '📸', facebook: '📘', email: '📧', other: '💬' };
   const CHANNEL_COLOR: Record<string, string> = { whatsapp: 'bg-emerald-500', instagram: 'bg-pink-500', facebook: 'bg-blue-600', email: 'bg-violet-500', other: 'bg-zinc-500' };
+  const renderChannelIcon = (ch: string, className = ''): React.ReactNode => (
+    ch === 'whatsapp' ? <WhatsAppIcon className={className || 'w-3.5 h-3.5 text-emerald-500'} /> : CHANNEL_ICON[ch]
+  );
 
   const getAvatarGradient = (name: string) => {
     const gradients = [
@@ -1617,11 +1627,11 @@ export default function MensajeriaPage() {
           </div>
         ) : (
           <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[15px] bg-gradient-to-br ${gradient}`}>
-            {CHANNEL_ICON[ch]}
+            {renderChannelIcon(ch, 'w-4 h-4 text-white')}
           </div>
         )}
         <span className="absolute -bottom-1.5 -right-1.5 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] shadow bg-white dark:bg-zinc-900 border border-zinc-150/80 dark:border-zinc-800 select-none">
-          {CHANNEL_ICON[ch]}
+          {renderChannelIcon(ch, 'w-3 h-3 text-emerald-500')}
         </span>
       </div>
     );
@@ -1853,7 +1863,7 @@ export default function MensajeriaPage() {
 
           {[
             { key: 'all',       label: 'Todos',     icon: Inbox,         activeClass: 'bg-zinc-900 border-zinc-900 dark:bg-zinc-100 dark:border-zinc-100 text-white dark:text-zinc-900', iconColor: '' },
-            { key: 'whatsapp',  label: 'WhatsApp',  icon: MessageCircle, activeClass: 'bg-green-500 border-green-500 text-white',                                                         iconColor: 'text-green-500' },
+            { key: 'whatsapp',  label: 'WhatsApp',  icon: WhatsAppIcon,   activeClass: 'bg-green-500 border-green-500 text-white',                                                         iconColor: 'text-green-500' },
             { key: 'instagram', label: 'Instagram', icon: Instagram,     activeClass: 'bg-pink-500 border-pink-500 text-white',                                                           iconColor: 'text-pink-500' },
             { key: 'facebook',  label: 'Facebook',  icon: Facebook,      activeClass: 'bg-blue-600 border-blue-600 text-white',                                                           iconColor: 'text-blue-500' },
             { key: 'email',     label: 'Email',     icon: Mail,          activeClass: 'bg-sky-500 border-sky-500 text-white',                                                             iconColor: 'text-sky-500' },
@@ -2091,7 +2101,7 @@ export default function MensajeriaPage() {
           <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-800 flex items-stretch z-40 select-none safe-area-bottom">
             {[
               { key: 'all', icon: Inbox, label: 'Todos' },
-              { key: 'whatsapp', icon: MessageCircle, label: 'WhatsApp' },
+              { key: 'whatsapp', icon: WhatsAppIcon, label: 'WhatsApp' },
               { key: 'instagram', icon: Instagram, label: 'Instagram' },
               { key: 'facebook', icon: Facebook, label: 'Facebook' },
               { key: 'email', icon: Mail, label: 'Email' },
@@ -2172,7 +2182,7 @@ export default function MensajeriaPage() {
                 {/* DESKTOP header */}
                 <div className="hidden md:flex px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 items-center gap-3 flex-shrink-0">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-[14px] font-black flex-shrink-0 ${CHANNEL_COLOR[getChannel(selected)]}`}>
-                    {CHANNEL_ICON[getChannel(selected)]}
+                    {renderChannelIcon(getChannel(selected), 'w-4.5 h-4.5 text-white')}
                   </div>
                   <div>
                     <p className="text-[14px] font-bold text-zinc-900 dark:text-white">{contact(selected).name || `Conversación #${selected.id}`}</p>
