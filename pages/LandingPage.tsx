@@ -995,31 +995,23 @@ export default function LandingPage() {
 
   const activeShowcaseIndex = Math.max(0, showcaseTabs.findIndex(t => t.id === activeTabShowcase));
   const activeShowcaseTab = showcaseTabs[activeShowcaseIndex] || showcaseTabs[0];
-  const goShowcase = (delta: number) => {
-    const nextIndex = (activeShowcaseIndex + delta + showcaseTabs.length) % showcaseTabs.length;
-    setAutoTabCycle(false);
-    setActiveTabShowcase(showcaseTabs[nextIndex].id as any);
-    setHeroCycleKey(k => k + 1);
-  };
-
   return (
     <div className={`min-h-screen font-sans selection:bg-violet-500 selection:text-white overflow-x-hidden ${darkMode ? 'bg-[#030303] text-zinc-200' : 'bg-[#fafafc] text-zinc-800'}`}>
       
       {/* Estilos CSS Embebidos para Animaciones Marquee e Interactivas */}
       <style dangerouslySetInnerHTML={{__html: `
-        @keyframes marquee {
+        @keyframes logoMarquee {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        .animate-marquee {
+        .logo-marquee-track {
           display: flex;
           flex-wrap: nowrap;
           justify-content: flex-start;
           width: max-content;
-          animation: marquee 32s linear infinite;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .animate-marquee { animation: none; }
+          min-width: max-content;
+          animation: logoMarquee 24s linear infinite;
+          will-change: transform;
         }
         .glow-hover:hover {
           box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
@@ -1090,7 +1082,7 @@ export default function LandingPage() {
             <button
               onClick={toggleDarkMode}
               className={`w-10 h-10 rounded-lg border flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
-                darkMode ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-white border-zinc-200/60 text-zinc-500 hover:bg-zinc-50 shadow-sm'
+                darkMode ? 'bg-zinc-900/80 border-zinc-500/35 text-zinc-400 hover:bg-zinc-800/90 hover:border-zinc-400/45 hover:text-zinc-100' : 'bg-white border-zinc-200/60 text-zinc-500 hover:bg-zinc-50 shadow-sm'
               }`}
               aria-label="Cambiar tema"
             >
@@ -1109,7 +1101,7 @@ export default function LandingPage() {
             <button
               onClick={() => setMenuOpen(o => !o)}
               className={`md:hidden w-10 h-10 rounded-lg border flex items-center justify-center transition-all active:scale-95 ${
-                darkMode ? 'bg-white/5 border-white/8 text-zinc-300 hover:bg-white/10' : 'bg-white border-zinc-200/60 text-zinc-600 hover:bg-zinc-50 shadow-sm'
+                darkMode ? 'bg-zinc-900/80 border-zinc-500/35 text-zinc-300 hover:bg-zinc-800/90 hover:border-zinc-400/45' : 'bg-white border-zinc-200/60 text-zinc-600 hover:bg-zinc-50 shadow-sm'
               }`}
               aria-label="Abrir menú"
             >
@@ -1248,22 +1240,6 @@ export default function LandingPage() {
                 <p className={`text-[11px] font-black uppercase tracking-wider mb-1 ${darkMode ? 'text-zinc-200' : 'text-zinc-700'}`}>{activeShowcaseTab.label}</p>
                 <p className={`text-[11.5px] sm:text-[12px] leading-relaxed font-medium ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>{activeShowcaseTab.desc}</p>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={(e) => { e.stopPropagation(); goShowcase(-1); }}
-                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${darkMode ? 'bg-white/[0.03] border-white/[0.08] text-zinc-300 hover:bg-white/[0.08]' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
-                  aria-label="Ver sección anterior"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); goShowcase(1); }}
-                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${darkMode ? 'bg-white/[0.03] border-white/[0.08] text-zinc-300 hover:bg-white/[0.08]' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-100'}`}
-                  aria-label="Ver sección siguiente"
-                >
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
                   </div>
 
           </div>
@@ -1279,7 +1255,7 @@ export default function LandingPage() {
         <div className="relative w-full flex overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
           <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#fafafc] dark:from-[#030303] to-transparent z-10 pointer-events-none" />
-          <div className="animate-marquee py-2 gap-4 sm:gap-8 md:gap-12">
+          <div className="logo-marquee-track py-2 gap-4 sm:gap-8 md:gap-12">
             {integrations.concat(integrations).map((item, idx) => (
               <div
                 key={`${item.name}-${idx}`}
@@ -1312,6 +1288,11 @@ export default function LandingPage() {
 
         {/* 2. BANDEJA OMNICANAL */}
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.7fr)] gap-6 lg:gap-8 items-start border-t border-zinc-200/40 dark:border-white/[0.03] pt-20 order-3">
+          <div className="col-span-full flex items-center justify-center gap-2">
+            <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
+            <span className={`text-[9px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>Mensajería Omnicanal con IA</span>
+            <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
+          </div>
           <div className="space-y-4 lg:sticky lg:top-20">
             <div className="space-y-2">
               <h3 className="text-[20px] sm:text-2xl md:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Bandeja omnicanal con respuestas de IA</h3>
@@ -1571,20 +1552,6 @@ export default function LandingPage() {
             <p className={`text-[14.5px] leading-relaxed ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
               ROAS real, ticket promedio, facturación neta y costos publicitarios integrados — todo sincronizado automáticamente desde tus cuentas.
             </p>
-            <ul className="space-y-2.5 text-[13.5px] text-zinc-600 dark:text-zinc-300">
-              <li className="flex items-center gap-2.5">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Sincronización multitienda: Shopify, Tiendanube y WooCommerce</span>
-              </li>
-              <li className="flex items-center gap-2.5">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Atribución exacta de pauta en Meta Ads y TikTok Ads</span>
-              </li>
-              <li className="flex items-center gap-2.5">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>Retención y conversión de Email Marketing vía Klaviyo</span>
-              </li>
-            </ul>
           </div>
 
           {/* Simulador Interactivo de Métricas (Dashboard Real de la App) */}
@@ -1875,6 +1842,11 @@ export default function LandingPage() {
 
         {/* 3. CREATIVOS ACTIVOS */}
         <div className="flex flex-col gap-8 border-t border-zinc-200/40 dark:border-white/[0.03] pt-20 order-4">
+          <div className="flex items-center justify-center gap-2">
+            <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
+            <span className={`text-[9px] font-bold uppercase tracking-[0.18em] ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>Publicidad Activa</span>
+            <div className={`h-px flex-1 max-w-[80px] ${darkMode ? 'bg-white/[0.06]' : 'bg-zinc-200'}`} />
+          </div>
           <div className="space-y-2">
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con métricas en tiempo real</h3>
             <button className={`${!simAnalyzedIds.size ? 'ring-pulse' : ''} flex items-center gap-2 text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all duration-200 w-fit ${darkMode ? 'bg-zinc-900/50 border-white/[0.06] text-zinc-400 hover:text-zinc-200' : 'bg-white border-zinc-200 text-zinc-500 hover:text-zinc-800 shadow-sm'}`}>
@@ -2430,18 +2402,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {/* Floating free trial pill */}
-      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
-        <div className={`pointer-events-auto flex items-center p-2 rounded-full shadow-lg border backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-500 ${darkMode ? 'bg-zinc-900/90 border-white/[0.08] text-white shadow-black/40' : 'bg-white/90 border-zinc-200/70 text-zinc-800 shadow-zinc-900/10'}`}>
-          <Link
-            to="/login"
-            className={`h-7 px-3 rounded-full text-[11px] font-black flex items-center gap-1 transition-all duration-200 flex-shrink-0 ${darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
-          >
-            Comenzar <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-      </div>
 
       {zoomImage && (() => {
         const zTab = showcaseTabs.find(t => t.img === zoomImage);

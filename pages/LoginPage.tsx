@@ -155,7 +155,7 @@ export default function LoginPage() {
               onClick={toggleDarkMode}
               className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 ${
                 darkMode
-                  ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white'
+                  ? 'bg-zinc-900/80 border-zinc-500/35 text-zinc-400 hover:bg-zinc-800/90 hover:border-zinc-400/45 hover:text-zinc-100'
                   : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
               }`}
             >
