@@ -52,7 +52,7 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
 
   const doneKey = `ag_tour_${profile?.id}`;
 
-  // Trigger: show once, only after at least one integration exists on the profile
+  // Trigger: show once for new users with no integrations configured yet
   useEffect(() => {
     if (!profile?.id) return;
     try {
@@ -65,8 +65,8 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
         (profile as any).tiendanube_store_id ||
         (profile as any).woocommerce_url
       );
-      if (hasIntegration) {
-        const t = setTimeout(() => setVisible(true), 800);
+      if (!hasIntegration) {
+        const t = setTimeout(() => setVisible(true), 1200);
         return () => clearTimeout(t);
       }
     } catch { /* ignore */ }

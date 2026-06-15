@@ -34,7 +34,7 @@ import {
 interface IntegrationPlatform {
   id: string;
   name: string;
-  category: "ecommerce" | "marketing" | "ads";
+  category: "ecommerce" | "marketing" | "ads" | "mensajeria";
   description: string;
   logoUrl?: string;
   logoComponent?: React.FC<React.SVGProps<SVGSVGElement>>;
@@ -109,9 +109,9 @@ const PLATFORMS: IntegrationPlatform[] = [
   {
     id: "chatwoot",
     name: "Mensajería",
-    category: "marketing",
+    category: "mensajeria",
     description: "Unificá tus canales de WhatsApp, Instagram, Facebook y Chat Web en una sola bandeja de entrada inteligente.",
-    logoComponent: MessageSquare,
+    logoUrl: "/assets/chatwoot.png",
     isSimulated: false
   }
 ];
@@ -138,7 +138,7 @@ export default function IntegracionesPage() {
 
   const [clientData, setClientData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "ads" | "marketing">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "ads" | "marketing" | "mensajeria">("all");
 
   // Modals state
   const [selectedPlatform, setSelectedPlatform] = useState<IntegrationPlatform | null>(null);
@@ -1655,7 +1655,8 @@ export default function IntegracionesPage() {
           { id: "all", label: "Todas" },
           { id: "ecommerce", label: "Tiendas Online" },
           { id: "ads", label: "Publicidad" },
-          { id: "marketing", label: "Marketing Directo" }
+          { id: "marketing", label: "Marketing Directo" },
+          { id: "mensajeria", label: "Mensajería" }
         ].map(tab => (
           <button
             key={tab.id}

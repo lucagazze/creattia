@@ -590,6 +590,12 @@ export default function LandingPage() {
     return () => { document.body.style.overflow = ''; };
   }, [selectedSimCreativeId]);
 
+  // Force CSS animation to restart fresh after initial paint (fixes 75%→100% jump on first tab)
+  useEffect(() => {
+    const t = setTimeout(() => setTabKey(k => k + 1), 50);
+    return () => clearTimeout(t);
+  }, []);
+
   // Auto-cycle hero tabs to hint interactivity — stops on first user click
   useEffect(() => {
     if (!autoTabCycle) return;
@@ -617,6 +623,52 @@ export default function LandingPage() {
   }, []);
 
   const [simCreatives, setSimCreatives] = useState([
+    {
+      id: 3,
+      name: 'Anuncio Accesorios: Cartera Premium',
+      spent: 199,
+      ctr: 1.1,
+      roas: 3.5,
+      purchases: 0,
+      leads: 1,
+      messages: 2,
+      cpa: 99,
+      reach: 7200,
+      img: '/assets/demo_creative_3.mp4',
+      isVideo: true,
+      copy: 'Cuero argentino legítimo. El accesorio ideal para tu look.',
+      status: 'paused',
+      platform: 'instagram' as const,
+      tribeMetrics: {
+        score: 45,
+        label: 'Revisar antes de pautar',
+        colorClass: 'bg-red-500 text-white shadow-red-500/20',
+        textColor: 'text-red-500',
+        textInsight: 'La pieza presenta un rendimiento muy bajo en atención y alta sobrecarga cognitiva.',
+        attentionPct: 48,
+        attentionReason: 'Bajo contraste cromático. El producto no se distingue adecuadamente de los elementos secundarios.',
+        emotionPct: 42,
+        emotionReason: 'La paleta de colores fríos inhibe el deseo de compra impulsivo.',
+        cogLoad: 68,
+        cogLoadReason: 'Carga alta. Demasiados elementos de texto flotantes que saturan la lectura.',
+        highestRegion: 'V1 (Corteza Visual Primaria)',
+        actionItems: [
+          'Simplificar el fondo eliminando el texto descriptivo excesivo.',
+          'Reemplazar la foto de producto sola por una de modelo luciendo la cartera.',
+          'Ajustar el balance de blancos a tonos más cálidos para inducir mayor confort.'
+        ]
+      },
+      comments: [
+        {
+          id: 'sc3_1',
+          user: 'Camila_Fernandez',
+          text: '¿Hacen envíos al interior? ¿Cuánto tarda?',
+          time: 'Hace 5 min',
+          pending: true,
+          replies: [] as string[]
+        }
+      ]
+    },
     {
       id: 1,
       name: 'Anuncio Invierno: Tapado Cuero',
@@ -712,52 +764,6 @@ export default function LandingPage() {
           user: 'Valeria_Rossi',
           text: 'Hola! Tienen stock en talle 38? Y qué colores hay?',
           time: 'Hace 15 min',
-          pending: true,
-          replies: [] as string[]
-        }
-      ]
-    },
-    {
-      id: 3,
-      name: 'Anuncio Accesorios: Cartera Premium',
-      spent: 199,
-      ctr: 1.1,
-      roas: 3.5,
-      purchases: 0,
-      leads: 1,
-      messages: 2,
-      cpa: 99,
-      reach: 7200,
-      img: '/assets/demo_creative_3.mp4',
-      isVideo: true,
-      copy: 'Cuero argentino legítimo. El accesorio ideal para tu look.',
-      status: 'paused',
-      platform: 'instagram' as const,
-      tribeMetrics: {
-        score: 45,
-        label: 'Revisar antes de pautar',
-        colorClass: 'bg-red-500 text-white shadow-red-500/20',
-        textColor: 'text-red-500',
-        textInsight: 'La pieza presenta un rendimiento muy bajo en atención y alta sobrecarga cognitiva.',
-        attentionPct: 48,
-        attentionReason: 'Bajo contraste cromático. El producto no se distingue adecuadamente de los elementos secundarios.',
-        emotionPct: 42,
-        emotionReason: 'La paleta de colores fríos inhibe el deseo de compra impulsivo.',
-        cogLoad: 68,
-        cogLoadReason: 'Carga alta. Demasiados elementos de texto flotantes que saturan la lectura.',
-        highestRegion: 'V1 (Corteza Visual Primaria)',
-        actionItems: [
-          'Simplificar el fondo eliminando el texto descriptivo excesivo.',
-          'Reemplazar la foto de producto sola por una de modelo luciendo la cartera.',
-          'Ajustar el balance de blancos a tonos más cálidos para inducir mayor confort.'
-        ]
-      },
-      comments: [
-        {
-          id: 'sc3_1',
-          user: 'Camila_Fernandez',
-          text: 'Hermosa cartera! Me pasan el precio y si hacen envíos?',
-          time: 'Hace 1 día',
           pending: true,
           replies: [] as string[]
         }
@@ -1091,9 +1097,9 @@ export default function LandingPage() {
               )}
             </div>
 
-            {/* Progress bar — fills over 3s before each auto-cycle switch */}
+            {/* Progress bar — fills over 4s before each auto-cycle switch */}
             {autoTabCycle && (
-              <div key={tabKey} className={`h-[2px] overflow-hidden ${darkMode ? 'bg-white/[0.04]' : 'bg-zinc-100'}`}>
+              <div key={tabKey} className={`h-[3px] overflow-hidden ${darkMode ? 'bg-white/[0.04]' : 'bg-zinc-100'}`}>
                 <div className="tab-progress-bar h-full bg-violet-500" />
               </div>
             )}
@@ -1101,6 +1107,7 @@ export default function LandingPage() {
             {/* Screenshot */}
             <div
               className="relative cursor-zoom-in group"
+              style={{ minHeight: 420 }}
               onClick={() => setZoomImage(showcaseTabs.find(t => t.id === activeTabShowcase)?.img || null)}
             >
               <img
@@ -1134,11 +1141,9 @@ export default function LandingPage() {
 
       {/* Infinite Logo Marquee (Slider / Carousel) */}
       <section className={`py-8 border-t border-b overflow-hidden ${darkMode ? 'bg-zinc-950/30 border-white/[0.03]' : 'bg-zinc-50/30 border-zinc-200/40'}`}>
-        <div className="max-w-6xl mx-auto px-6 mb-4">
-          <p className="text-center text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] font-sans">
-            CONEXIÓN DIRECTA CON TUS PLATAFORMAS PUBLICITARIAS Y DE E-COMMERCE
-          </p>
-        </div>
+        <p className="text-center text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em] font-sans mb-4 px-6">
+          CONEXIÓN DIRECTA CON TUS PLATAFORMAS PUBLICITARIAS Y DE E-COMMERCE
+        </p>
         
         {/* Infinite Scrolling Row */}
         <div className="relative w-full flex overflow-hidden">
@@ -1193,8 +1198,15 @@ export default function LandingPage() {
             <div className={`flex items-center gap-1.5 px-3 py-2 border-b ${darkMode ? 'border-white/[0.04] bg-zinc-950/40' : 'border-zinc-100 bg-zinc-50/60'}`}>
               {(['all', 'instagram', 'facebook', 'whatsapp'] as const).map(ch => {
                 const labels = { all: 'Todos', instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp' };
-                const dots = { all: 'bg-zinc-400', instagram: 'bg-pink-500', facebook: 'bg-blue-500', whatsapp: 'bg-emerald-500' };
                 const active = inboxChannelFilter === ch;
+                const ChannelIcon = () => {
+                  if (ch === 'instagram') return <Instagram className="w-3 h-3 text-pink-500" />;
+                  if (ch === 'facebook') return <Facebook className="w-3 h-3 text-blue-500" />;
+                  if (ch === 'whatsapp') return (
+                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-emerald-500"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.133.558 4.133 1.535 5.867L0 24l6.335-1.507A11.924 11.924 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.647-.498-5.167-1.366l-.371-.22-3.759.894.952-3.655-.242-.38A9.944 9.944 0 012 12C2 6.478 6.478 2 12 2s10 4.478 10 10-4.478 10-10 10z"/></svg>
+                  );
+                  return <MessageSquare className="w-3 h-3 text-zinc-400" />;
+                };
                 return (
                   <button
                     key={ch}
@@ -1205,7 +1217,7 @@ export default function LandingPage() {
                         : (darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-700')
                     }`}
                   >
-                    <span className={`w-1.5 h-1.5 rounded-full ${dots[ch]}`} />
+                    <ChannelIcon />
                     {labels[ch]}
                   </button>
                 );
@@ -1359,12 +1371,19 @@ export default function LandingPage() {
                     <button
                       onClick={handleSendAiResponse}
                       disabled={getConvStatus(selectedInboxConvId) !== 'idle' || selectedInboxConv.status === 'answered'}
-                      className="h-8 w-8 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white flex items-center justify-center shrink-0 transition-all"
+                      className={`h-8 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shrink-0 transition-all disabled:opacity-50 bg-violet-600 hover:bg-violet-500 text-white`}
                     >
                       {getConvStatus(selectedInboxConvId) === 'sending'
-                        ? <RefreshCw className="w-3 h-3 animate-spin" />
-                        : <ArrowUpRight className="w-3.5 h-3.5" />
+                        ? <><RefreshCw className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">Generando...</span></>
+                        : <><Sparkles className="w-3 h-3" /><span className="hidden sm:inline">Generar con IA</span></>
                       }
+                    </button>
+                    <button
+                      onClick={handleSendAiResponse}
+                      disabled={getConvStatus(selectedInboxConvId) !== 'idle' || selectedInboxConv.status === 'answered'}
+                      className={`h-8 w-8 rounded-lg disabled:opacity-50 flex items-center justify-center shrink-0 transition-all ${darkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'}`}
+                    >
+                      <Send className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -2333,23 +2352,8 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Recomendaciones — action items */}
-                    {selectedSimCreative.tribeMetrics.actionItems?.length > 0 && (
-                      <div className={`border rounded-2xl p-5 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
-                        <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Recomendaciones</p>
-                        <ul className="space-y-2">
-                          {selectedSimCreative.tribeMetrics.actionItems.map((item: string, i: number) => (
-                            <li key={i} className="flex items-start gap-2.5 text-[11.5px] font-medium text-zinc-700 dark:text-zinc-300 leading-snug">
-                              <span className="w-4 h-4 rounded-full bg-violet-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span className="text-violet-500 text-[9px] font-black">{i + 1}</span>
-                              </span>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
 </>
+
                     )}
 
                   </div>
