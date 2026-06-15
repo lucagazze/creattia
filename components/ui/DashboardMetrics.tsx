@@ -252,6 +252,8 @@ const MetricDetailChartComponent = ({ label, data = [], prevData = [], color, em
       : 0;
 
   const maxVal = data.length > 0 ? Math.max(...data.map((d: any) => d.val), 0) : 0;
+  const minVal = nonZero.length > 0 ? Math.min(...nonZero) : 0;
+  const yMin = minVal > 0 ? Math.max(0, minVal * 0.75) : 0;
 
   const trend = prevAvg > 0 ? ((avg - prevAvg) / prevAvg) * 100 : 0;
   const chartColor = color;
@@ -354,10 +356,10 @@ const MetricDetailChartComponent = ({ label, data = [], prevData = [], color, em
               interval="preserveStartEnd"
             />
             <YAxis
-              domain={[0, maxVal > 0 ? maxVal * 1.25 : "auto"]}
+              domain={[yMin, maxVal > 0 ? maxVal * 1.1 : "auto"]}
               ticks={
                 maxVal > 0
-                  ? [...new Set([0, avg > 0 ? avg : null, maxVal].filter(v => v !== null) as number[])]
+                  ? [...new Set([avg > 0 ? avg : null, maxVal].filter(v => v !== null) as number[])]
                       .sort((a, b) => a - b)
                   : undefined
               }
