@@ -141,7 +141,7 @@ export default function LoginPage() {
                 className={`text-[11.5px] font-bold tracking-tight uppercase leading-none block ${darkMode ? 'text-white' : 'text-zinc-900'}`}
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
               >
-                ALGOR
+                Algoritmia
               </span>
               <span
                 className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5"
@@ -177,16 +177,6 @@ export default function LoginPage() {
             >
               {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-500" />}
             </button>
-            <button
-              onClick={() => navigate('/landing')}
-              className={`h-8 px-3.5 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
-                darkMode
-                  ? 'bg-white text-zinc-950 hover:bg-zinc-100'
-                  : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
-              }`}
-            >
-              Volver a la web
-            </button>
           </div>
         </div>
       </header>
@@ -210,7 +200,7 @@ export default function LoginPage() {
               {mode === 'login' ? 'Iniciar sesión' : mode === 'register' ? 'Crear cuenta' : 'Recuperar contraseña'}
             </h1>
             <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1.5 font-semibold">
-              Ecosistema de Algor.
+              Ecosistema de Algoritmia.
             </p>
           </div>
 

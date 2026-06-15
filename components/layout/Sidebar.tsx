@@ -369,7 +369,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
               className="w-9 h-9 object-contain group-hover:scale-110 transition-transform drop-shadow-sm"
             />
             <div className="flex flex-col animate-in fade-in duration-200">
-              <span className="text-[13px] font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>ALGOR</span>
+              <span className="text-[13px] font-black text-zinc-900 dark:text-white tracking-tighter leading-none uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Algoritmia</span>
               <span className="text-[9px] font-bold text-violet-500 tracking-[0.2em] mt-1 uppercase" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Gestión</span>
             </div>
           </div>

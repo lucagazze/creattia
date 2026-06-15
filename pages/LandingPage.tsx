@@ -443,6 +443,10 @@ export default function LandingPage() {
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
+
   // Redirige al panel si ya está autenticado
   useEffect(() => {
     if (session) {
@@ -1058,7 +1062,7 @@ export default function LandingPage() {
             />
             <div>
               <span className="text-[11.5px] font-bold tracking-tight uppercase leading-none block font-display">
-                ALGOR
+                Algoritmia
               </span>
               <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
             </div>
@@ -1099,7 +1103,7 @@ export default function LandingPage() {
                 darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
               }`}
             >
-              Iniciar sesión
+              Comenzar
             </Link>
             {/* Hamburger — mobile only */}
             <button
@@ -1158,7 +1162,7 @@ export default function LandingPage() {
                   darkMode ? 'bg-white text-zinc-950 hover:bg-zinc-100 shadow-white/10' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-zinc-900/20'
                 }`}
               >
-                Comenzar gratis <ArrowRight className="w-4 h-4" />
+                Comenzar Prueba Gratis <ArrowRight className="w-4 h-4" />
               </Link>
               <button
                 onClick={() => document.getElementById('interactive-demo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
@@ -2397,7 +2401,7 @@ export default function LandingPage() {
             <div className="col-span-2 sm:col-span-1 space-y-3">
               <div className="flex items-center gap-2">
                 <img src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'} alt="Algoritmia" className="w-5 h-5 object-contain" />
-                <span className="text-[11px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGOR</span>
+                <span className="text-[11px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">Algoritmia</span>
               </div>
               <p className="text-[10.5px] leading-relaxed">
                 Ecosistema de control y automatización omnicanal para e-commerce.
