@@ -44,7 +44,9 @@ import {
   Brain,
   Instagram,
   Facebook,
-  MessageCircle
+  MessageCircle,
+  ChevronLeft,
+  Play
 } from 'lucide-react';
 
 // Helper components for Dashboard metrics simulation
@@ -450,36 +452,76 @@ export default function LandingPage() {
   // --- Estados de las Simulaciones Interactivas ---
   
   // 1. Simulación de Inbox Omnicanal
-  const [chatStatus, setChatStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, sender: 'user', text: 'Hola! Vi el tapado de cuero en Instagram. ¿Tienen en talle S?', time: '12:04' },
-    { id: 2, sender: 'user', text: '¿Y hacen envíos a Córdoba?', time: '12:04' }
-  ]);
+  const inboxConversations = [
+    {
+      id: 'conv1', name: 'Sofía Rodríguez', channel: 'instagram' as const,
+      avatarBg: 'bg-pink-500', initials: 'SR', time: '12:04', status: 'pending' as const,
+      preview: 'Vi el tapado de cuero en Instagram...',
+      messages: [
+        { id: 1, sender: 'user', text: 'Hola! Vi el tapado de cuero en Instagram. ¿Tienen en talle S?', time: '12:04' },
+        { id: 2, sender: 'user', text: '¿Y hacen envíos a Córdoba?', time: '12:04' },
+      ],
+      aiDraft: '¡Hola Sofía! Sí, nos queda la última unidad en talle S de ese tapado. Hacemos envíos rápidos a Córdoba a través de Correo Argentino. ¿Te reservo la unidad?',
+      aiReply: { id: 3, sender: 'ai', text: '¡Hola Sofía! Sí, nos queda la última unidad en talle S de ese tapado. Hacemos envíos rápidos a Córdoba a través de Correo Argentino. ¿Te reservo la unidad?', time: '12:05' },
+    },
+    {
+      id: 'conv2', name: 'Martín López', channel: 'facebook' as const,
+      avatarBg: 'bg-blue-500', initials: 'ML', time: '11:30', status: 'pending' as const,
+      preview: '¿Hacen envíos a Mendoza? ¿Cuotas?',
+      messages: [
+        { id: 1, sender: 'user', text: 'Buenas! Me interesa el tapado de cuero marrón.', time: '11:28' },
+        { id: 2, sender: 'user', text: '¿Hacen envíos a Mendoza? ¿Tienen cuotas sin interés?', time: '11:30' },
+      ],
+      aiDraft: '¡Hola Martín! Sí, enviamos a todo el país con Correo Argentino y OCA. El tapado marrón está disponible con hasta 3 cuotas sin interés con todas las tarjetas. ¿Te gustaría que te reserve uno?',
+      aiReply: { id: 3, sender: 'ai', text: '¡Hola Martín! Sí, enviamos a todo el país con Correo Argentino y OCA. El tapado marrón está disponible con hasta 3 cuotas sin interés con todas las tarjetas. ¿Te gustaría que te reserve uno?', time: '11:31' },
+    },
+    {
+      id: 'conv3', name: 'Valentina García', channel: 'whatsapp' as const,
+      avatarBg: 'bg-emerald-500', initials: 'VG', time: '10:15', status: 'pending' as const,
+      preview: '¿Tienen stock del tapado negro M?',
+      messages: [
+        { id: 1, sender: 'user', text: 'Hola! Buenas tardes. Quería saber si tienen stock del tapado negro talle M', time: '10:15' },
+      ],
+      aiDraft: '¡Hola Valentina! Sí, tenemos stock del tapado negro en talle M. El precio es $89.990 con envío gratis hoy. ¿Te lo reservo?',
+      aiReply: { id: 2, sender: 'ai', text: '¡Hola Valentina! Sí, tenemos stock del tapado negro en talle M. El precio es $89.990 con envío gratis hoy. ¿Te lo reservo?', time: '10:16' },
+    },
+    {
+      id: 'conv4', name: 'Lucas Fernández', channel: 'instagram' as const,
+      avatarBg: 'bg-violet-500', initials: 'LF', time: 'Ayer', status: 'answered' as const,
+      preview: 'Gracias! Muy buena atención 🙌',
+      messages: [
+        { id: 1, sender: 'user', text: '¿Me pueden indicar el precio del cinturón de cuero?', time: 'Ayer' },
+        { id: 2, sender: 'ai', text: '¡Hola Lucas! El cinturón de cuero está a $24.990. Hacemos envío gratis en compras mayores a $50.000 ¿Te interesa?', time: 'Ayer' },
+        { id: 3, sender: 'user', text: 'Gracias! Muy buena atención 🙌', time: 'Ayer' },
+      ],
+      aiDraft: '',
+      aiReply: null,
+    },
+  ];
+  const [selectedInboxConvId, setSelectedInboxConvId] = useState('conv1');
+  const [inboxChannelFilter, setInboxChannelFilter] = useState<'all' | 'instagram' | 'facebook' | 'whatsapp'>('all');
+  const [inboxConvStatuses, setInboxConvStatuses] = useState<Record<string, 'idle' | 'sending' | 'sent'>>({});
+  const [inboxMobileView, setInboxMobileView] = useState<'list' | 'chat'>('list');
+
+  const getConvStatus = (id: string) => inboxConvStatuses[id] || 'idle';
+  const selectedInboxConv = inboxConversations.find(c => c.id === selectedInboxConvId)!;
+  const selectedConvStatus = getConvStatus(selectedInboxConvId);
+  const filteredInboxConvs = inboxChannelFilter === 'all'
+    ? inboxConversations
+    : inboxConversations.filter(c => c.channel === inboxChannelFilter);
 
   const handleSendAiResponse = () => {
-    if (chatStatus !== 'idle') return;
-    setChatStatus('sending');
-    
+    const conv = selectedInboxConv;
+    if (!conv || getConvStatus(conv.id) !== 'idle' || !conv.aiReply) return;
+    setInboxConvStatuses(prev => ({ ...prev, [conv.id]: 'sending' }));
     setTimeout(() => {
-      setChatMessages(prev => [
-        ...prev,
-        {
-          id: 3,
-          sender: 'ai',
-          text: '¡Hola Sofía! Sí, nos queda la última unidad en talle S de ese tapado. Hacemos envíos rápidos a Córdoba a través de Correo Argentino. ¿Te reservo la unidad?',
-          time: '12:05'
-        }
-      ]);
-      setChatStatus('sent');
+      setInboxConvStatuses(prev => ({ ...prev, [conv.id]: 'sent' }));
     }, 1200);
   };
 
+  // legacy reset (kept for compat)
   const handleResetChat = () => {
-    setChatMessages([
-      { id: 1, sender: 'user', text: 'Hola! Vi el tapado de cuero en Instagram. ¿Tienen en talle S?', time: '12:04' },
-      { id: 2, sender: 'user', text: '¿Y hacen envíos a Córdoba?', time: '12:04' }
-    ]);
-    setChatStatus('idle');
+    setInboxConvStatuses({});
   };
 
   // Tabbed high-fidelity screenshots switcher
@@ -550,7 +592,7 @@ export default function LandingPage() {
         return tabIds[(idx + 1) % tabIds.length] as any;
       });
       setTabKey(k => k + 1);
-    }, 3000);
+    }, 4000);
     return () => clearInterval(timer);
   }, [autoTabCycle]);
 
@@ -578,7 +620,8 @@ export default function LandingPage() {
       messages: 8,
       cpa: 65,
       reach: 18500,
-      img: '/assets/landing_creativos.jpg',
+      img: '/assets/demo_creative_1.jpg',
+      isVideo: false,
       copy: 'Últimas unidades en stock con envío gratis a todo el país.',
       status: 'active',
       platform: 'instagram' as const,
@@ -631,7 +674,8 @@ export default function LandingPage() {
       messages: 5,
       cpa: 58,
       reach: 12800,
-      img: '/assets/landing_analisis.jpg',
+      img: '/assets/demo_creative_2.jpg',
+      isVideo: false,
       copy: 'Botas premium con 30% OFF en nuestra tienda online.',
       status: 'active',
       platform: 'facebook' as const,
@@ -676,7 +720,8 @@ export default function LandingPage() {
       messages: 2,
       cpa: 99,
       reach: 7200,
-      img: '/assets/landing_pedidos.jpg',
+      img: '/assets/demo_creative_3.mp4',
+      isVideo: true,
       copy: 'Cuero argentino legítimo. El accesorio ideal para tu look.',
       status: 'paused',
       platform: 'instagram' as const,
@@ -1100,7 +1145,7 @@ export default function LandingPage() {
                 <img
                   src={darkMode && item.darkLogo ? item.darkLogo : item.logo}
                   alt={item.name}
-                  className="h-7 object-contain max-w-[120px]"
+                  className={`${item.name === 'TikTok Ads' ? 'h-9' : 'h-7'} object-contain max-w-[120px]`}
                 />
                 <span className="text-[12px] font-bold tracking-tight">{item.name}</span>
               </div>
@@ -1118,124 +1163,203 @@ export default function LandingPage() {
         </div>
 
         {/* 1. MAQUETA INTERACTIVA DE INBOX OMNICANAL */}
-        <div className="flex flex-col lg:flex-row items-center gap-10">
-          <div className="flex-1 space-y-5 text-left">
-            <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja omnicanal con respuestas de IA</h3>
-            <p className={`text-[13.5px] leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              WhatsApp, Instagram y Facebook en un solo lugar. La IA lee cada mensaje y sugiere respuestas con stock y precios en tiempo real.
-            </p>
-            
-            <div className="pt-1">
-              <button 
-                onClick={handleSendAiResponse}
-                disabled={chatStatus !== 'idle'}
-                className={`h-8 px-4 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-sm shadow-violet-600/10`}
-              >
-                {chatStatus === 'idle' && (
-                  <>Probar simulación de respuesta con IA <ArrowRight className="w-3.5 h-3.5" /></>
-                )}
-                {chatStatus === 'sending' && (
-                  <>IA redactando borrador... <RefreshCw className="w-3 h-3 animate-spin" /></>
-                )}
-                {chatStatus === 'sent' && (
-                  <>¡Respuesta enviada! 🎉</>
-                )}
-              </button>
-              {chatStatus === 'sent' && (
-                <button 
-                  onClick={handleResetChat}
-                  className="mt-2.5 text-[10px] font-semibold text-violet-500 hover:underline block"
-                >
-                  Reiniciar simulación
-                </button>
-              )}
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Bandeja omnicanal con respuestas de IA</h3>
+              <p className={`text-[13.5px] leading-relaxed max-w-lg ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                Instagram, WhatsApp y Facebook en un solo lugar. Filtrá por canal y respondé con IA en segundos.
+              </p>
             </div>
+            {Object.values(inboxConvStatuses).some(s => s === 'sent') && (
+              <button onClick={handleResetChat} className="text-[10px] font-semibold text-violet-500 hover:underline shrink-0">
+                Reiniciar simulación
+              </button>
+            )}
           </div>
 
-          {/* Caja Interactiva de Chat */}
-          <div className="flex-1 w-full rounded-2xl border p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/50 dark:border-white/[0.04] shadow-lg">
-            <div className={`rounded-xl border ${darkMode ? 'bg-[#060608]/90 border-white/[0.04]' : 'bg-white border-zinc-200/50'} overflow-hidden h-[330px] flex flex-col justify-between`}>
-              
-              {/* Encabezado del Chat */}
-              <div className="flex items-center justify-between p-3 border-b border-zinc-200/40 dark:border-white/[0.04] bg-zinc-50/30 dark:bg-zinc-950/30">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-pink-500 flex items-center justify-center text-white text-[11px] font-bold font-mono">SR</div>
-                  <div>
-                    <p className="text-[11px] font-bold">Sofía Rodríguez</p>
-                    <p className="text-[8.5px] text-zinc-500 flex items-center gap-1 font-semibold">
-                      <span className="w-1 h-1 rounded-full bg-pink-500" /> Instagram DM
-                    </p>
-                  </div>
-                </div>
-                <span className={`text-[8.5px] font-bold px-1.5 py-0.5 rounded ${chatStatus === 'sent' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
-                  {chatStatus === 'sent' ? 'Respondido' : 'Pendiente'}
+          {/* Full inbox widget */}
+          <div className={`rounded-2xl border overflow-hidden shadow-lg ${darkMode ? 'bg-zinc-900/60 border-white/[0.06]' : 'bg-white border-zinc-200/60'}`}>
+            {/* Top bar — channel filter */}
+            <div className={`flex items-center gap-1.5 px-3 py-2 border-b ${darkMode ? 'border-white/[0.04] bg-zinc-950/40' : 'border-zinc-100 bg-zinc-50/60'}`}>
+              {(['all', 'instagram', 'facebook', 'whatsapp'] as const).map(ch => {
+                const labels = { all: 'Todos', instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp' };
+                const dots = { all: 'bg-zinc-400', instagram: 'bg-pink-500', facebook: 'bg-blue-500', whatsapp: 'bg-emerald-500' };
+                const active = inboxChannelFilter === ch;
+                return (
+                  <button
+                    key={ch}
+                    onClick={() => setInboxChannelFilter(ch)}
+                    className={`flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[10px] font-bold transition-all ${
+                      active
+                        ? (darkMode ? 'bg-white/10 text-white border border-white/15' : 'bg-zinc-900 text-white')
+                        : (darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-700')
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${dots[ch]}`} />
+                    {labels[ch]}
+                  </button>
+                );
+              })}
+              <div className="ml-auto flex items-center gap-1.5">
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${darkMode ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-600 border border-amber-200/60'}`}>
+                  {inboxConversations.filter(c => (inboxChannelFilter === 'all' || c.channel === inboxChannelFilter) && c.status === 'pending' && getConvStatus(c.id) !== 'sent').length} pendientes
                 </span>
               </div>
+            </div>
 
-              {/* Mensajes */}
-              <div className="flex-1 p-3 space-y-2.5 overflow-y-auto">
-                {chatMessages.map(msg => (
-                  <div 
-                    key={msg.id} 
-                    className={`flex flex-col max-w-[80%] ${msg.sender === 'ai' ? 'ml-auto items-end animate-in slide-in-from-bottom-2 duration-300' : 'items-start'}`}
-                  >
-                    <div className={`p-2.5 rounded-xl text-[11px] font-medium leading-relaxed ${
-                      msg.sender === 'ai' 
-                        ? 'bg-violet-600 text-white rounded-tr-none' 
-                        : (darkMode ? 'bg-zinc-900 text-zinc-300 rounded-tl-none' : 'bg-zinc-100 text-zinc-800 rounded-tl-none')
-                    }`}>
-                      {msg.text}
-                    </div>
-                    <span className="text-[8px] text-zinc-500 font-semibold mt-0.5 px-1">{msg.time}</span>
-                  </div>
-                ))}
-
-                {chatStatus === 'sending' && (
-                  <div className="flex items-center gap-1 p-2.5 rounded-xl bg-zinc-900/40 max-w-[70px]">
-                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                )}
+            <div className="flex" style={{ height: 380 }}>
+              {/* Left panel — conversation list (hidden on xs when chat is open) */}
+              <div className={`${inboxMobileView === 'chat' ? 'hidden sm:flex' : 'flex'} flex-col w-full sm:w-[220px] sm:max-w-[220px] border-r flex-shrink-0 overflow-y-auto ${darkMode ? 'border-white/[0.04]' : 'border-zinc-100'}`}>
+                {filteredInboxConvs.map(conv => {
+                  const isSelected = conv.id === selectedInboxConvId;
+                  const convStatus = getConvStatus(conv.id);
+                  const isAnswered = conv.status === 'answered' || convStatus === 'sent';
+                  const chDot = conv.channel === 'instagram' ? 'bg-pink-500' : conv.channel === 'facebook' ? 'bg-blue-500' : 'bg-emerald-500';
+                  const chLabel = conv.channel === 'instagram' ? 'IG' : conv.channel === 'facebook' ? 'FB' : 'WA';
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => { setSelectedInboxConvId(conv.id); setInboxMobileView('chat'); }}
+                      className={`flex items-start gap-2.5 p-3 text-left border-b transition-all ${
+                        isSelected
+                          ? (darkMode ? 'bg-white/[0.04] border-white/[0.04]' : 'bg-violet-50/60 border-zinc-100')
+                          : (darkMode ? 'hover:bg-white/[0.02] border-white/[0.03]' : 'hover:bg-zinc-50 border-zinc-50')
+                      }`}
+                    >
+                      <div className={`relative w-8 h-8 rounded-full ${conv.avatarBg} flex items-center justify-center text-white text-[10px] font-black shrink-0`}>
+                        {conv.initials}
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${chDot} border-2 ${darkMode ? 'border-zinc-900' : 'border-white'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className={`text-[11px] font-bold truncate ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>{conv.name}</p>
+                          <span className="text-[8.5px] text-zinc-500 shrink-0">{conv.time}</span>
+                        </div>
+                        <p className={`text-[10px] truncate mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{conv.preview}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${chDot} bg-opacity-15 ${conv.channel === 'instagram' ? 'text-pink-500' : conv.channel === 'facebook' ? 'text-blue-500' : 'text-emerald-500'}`}>{chLabel}</span>
+                          {!isAnswered && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500">Pendiente</span>
+                          )}
+                          {isAnswered && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500">Respondido</span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Caja de Entrada + Sugerencia de IA */}
-              <div className="p-3 border-t border-zinc-200/40 dark:border-white/[0.04] bg-zinc-50/30 dark:bg-zinc-950/30">
-                {chatStatus === 'idle' && (
-                  <div className={`p-2.5 rounded-lg border mb-2.5 flex flex-col gap-1 text-left transition-all ${
-                    darkMode ? 'bg-violet-950/10 border-violet-500/15' : 'bg-violet-50 border-violet-200/50'
-                  }`}>
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-3 h-3 text-violet-500" />
-                      <span className="text-[9px] font-bold uppercase text-violet-600 dark:text-violet-400 tracking-wider">Cerebro de IA — Respuesta Sugerida</span>
-                    </div>
-                    <p className={`text-[10.5px] leading-relaxed font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
-                      "¡Hola Sofía! Sí, nos queda la última unidad en talle S de ese tapado..."
-                    </p>
-                    <button 
-                      onClick={handleSendAiResponse}
-                      className="mt-1 self-start text-[9px] font-bold text-violet-600 dark:text-violet-400 hover:underline uppercase flex items-center gap-0.5"
+              {/* Right panel — chat view */}
+              <div className={`${inboxMobileView === 'list' ? 'hidden sm:flex' : 'flex'} flex-1 flex-col min-w-0`}>
+                {/* Chat header */}
+                <div className={`flex items-center justify-between px-3 py-2 border-b shrink-0 ${darkMode ? 'border-white/[0.04] bg-zinc-950/30' : 'border-zinc-100 bg-zinc-50/40'}`}>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setInboxMobileView('list')}
+                      className={`sm:hidden p-1 rounded-lg mr-1 ${darkMode ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-400 hover:text-zinc-700'}`}
                     >
-                      Aprobar y enviar <ArrowUpRight className="w-2.5 h-2.5" />
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <div className={`w-7 h-7 rounded-full ${selectedInboxConv.avatarBg} flex items-center justify-center text-white text-[10px] font-black`}>
+                      {selectedInboxConv.initials}
+                    </div>
+                    <div>
+                      <p className={`text-[11px] font-bold ${darkMode ? 'text-zinc-200' : 'text-zinc-800'}`}>{selectedInboxConv.name}</p>
+                      <p className="text-[8.5px] text-zinc-500 flex items-center gap-1 font-semibold">
+                        <span className={`w-1.5 h-1.5 rounded-full ${selectedInboxConv.channel === 'instagram' ? 'bg-pink-500' : selectedInboxConv.channel === 'facebook' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                        {selectedInboxConv.channel === 'instagram' ? 'Instagram DM' : selectedInboxConv.channel === 'facebook' ? 'Facebook Messenger' : 'WhatsApp'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-[8.5px] font-bold px-2 py-0.5 rounded-full border ${
+                    getConvStatus(selectedInboxConvId) === 'sent' || selectedInboxConv.status === 'answered'
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                  }`}>
+                    {getConvStatus(selectedInboxConvId) === 'sent' || selectedInboxConv.status === 'answered' ? 'Respondido' : 'Pendiente'}
+                  </span>
+                </div>
+
+                {/* Messages */}
+                <div className="flex-1 p-3 space-y-2.5 overflow-y-auto">
+                  {selectedInboxConv.messages.map(msg => (
+                    <div
+                      key={msg.id}
+                      className={`flex flex-col max-w-[82%] ${msg.sender === 'ai' ? 'ml-auto items-end' : 'items-start'}`}
+                    >
+                      <div className={`p-2.5 rounded-xl text-[11px] font-medium leading-relaxed ${
+                        msg.sender === 'ai'
+                          ? 'bg-violet-600 text-white rounded-tr-none'
+                          : (darkMode ? 'bg-zinc-800 text-zinc-300 rounded-tl-none' : 'bg-zinc-100 text-zinc-800 rounded-tl-none')
+                      }`}>
+                        {msg.text}
+                      </div>
+                      <span className="text-[8px] text-zinc-500 font-semibold mt-0.5 px-1">{msg.time}</span>
+                    </div>
+                  ))}
+                  {getConvStatus(selectedInboxConvId) === 'sending' && (
+                    <div className="flex items-center gap-1 p-2.5 rounded-xl bg-zinc-900/40 max-w-[70px] ml-auto">
+                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  )}
+                  {getConvStatus(selectedInboxConvId) === 'sent' && selectedInboxConv.aiReply && (
+                    <div className="flex flex-col max-w-[82%] ml-auto items-end animate-in slide-in-from-bottom-2 duration-300">
+                      <div className="p-2.5 rounded-xl text-[11px] font-medium leading-relaxed bg-violet-600 text-white rounded-tr-none">
+                        {selectedInboxConv.aiReply.text}
+                      </div>
+                      <span className="text-[8px] text-zinc-500 font-semibold mt-0.5 px-1">{selectedInboxConv.aiReply.time}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Input + AI suggestion */}
+                <div className={`p-3 border-t shrink-0 ${darkMode ? 'border-white/[0.04] bg-zinc-950/20' : 'border-zinc-100 bg-zinc-50/30'}`}>
+                  {selectedInboxConv.status !== 'answered' && getConvStatus(selectedInboxConvId) === 'idle' && selectedInboxConv.aiDraft && (
+                    <div className={`p-2.5 rounded-lg border mb-2.5 flex flex-col gap-1 text-left ${
+                      darkMode ? 'bg-violet-950/10 border-violet-500/15' : 'bg-violet-50 border-violet-200/50'
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-violet-500" />
+                        <span className="text-[9px] font-bold uppercase text-violet-600 dark:text-violet-400 tracking-wider">Cerebro de IA — Respuesta Sugerida</span>
+                      </div>
+                      <p className={`text-[10.5px] leading-relaxed font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
+                        "{selectedInboxConv.aiDraft.slice(0, 60)}..."
+                      </p>
+                      <button
+                        onClick={handleSendAiResponse}
+                        className="mt-1 self-start text-[9px] font-bold text-violet-600 dark:text-violet-400 hover:underline uppercase flex items-center gap-0.5"
+                      >
+                        Aprobar y enviar <ArrowUpRight className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Escribí una respuesta..."
+                      readOnly
+                      className={`flex-1 h-8 px-2.5 rounded-lg text-[11px] outline-none border ${
+                        darkMode ? 'bg-zinc-900 border-white/[0.04] text-zinc-400' : 'bg-white border-zinc-200/55 text-zinc-500'
+                      }`}
+                    />
+                    <button
+                      onClick={handleSendAiResponse}
+                      disabled={getConvStatus(selectedInboxConvId) !== 'idle' || selectedInboxConv.status === 'answered'}
+                      className="h-8 w-8 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white flex items-center justify-center shrink-0 transition-all"
+                    >
+                      {getConvStatus(selectedInboxConvId) === 'sending'
+                        ? <RefreshCw className="w-3 h-3 animate-spin" />
+                        : <ArrowUpRight className="w-3.5 h-3.5" />
+                      }
                     </button>
                   </div>
-                )}
-
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    placeholder="Escribí una respuesta..." 
-                    readOnly
-                    className={`flex-1 h-8 px-2.5 rounded-lg text-[11px] outline-none border ${
-                      darkMode ? 'bg-zinc-900 border-white/[0.04] text-zinc-400' : 'bg-zinc-50 border-zinc-200/55 text-zinc-500'
-                    }`}
-                  />
-                  <button className="h-8 w-8 rounded-lg bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center shrink-0">
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
@@ -1556,7 +1680,10 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div className="space-y-2">
               <h3 className="text-xl sm:text-2xl font-bold tracking-tight font-display text-zinc-900 dark:text-white">Anuncios activos con métricas en tiempo real</h3>
-              <p className={`text-[13px] ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>Tocá cualquier anuncio para ver el análisis de IA y moderar comentarios</p>
+              <button className={`${!simAnalyzedIds.size ? 'ring-pulse' : ''} flex items-center gap-2 text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all duration-200 w-fit ${darkMode ? 'bg-zinc-900/50 border-white/[0.06] text-zinc-400 hover:text-zinc-200' : 'bg-white border-zinc-200 text-zinc-500 hover:text-zinc-800 shadow-sm'}`}>
+                <Brain className="w-3 h-3 text-violet-500" />
+                Tocá cualquier creativo para analizarlo con IA
+              </button>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {[
@@ -1592,17 +1719,27 @@ export default function LandingPage() {
                       : 'bg-white border-zinc-100 hover:border-zinc-300'
                   }`}
                 >
-                  {/* Image — exacto al diseño de la app */}
+                  {/* Image/Video — exacto al diseño de la app */}
                   <div className="relative w-full h-52 bg-zinc-100 dark:bg-zinc-800 group overflow-hidden flex-shrink-0">
-                    <>
-                      <img src={creative.img} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60" aria-hidden />
-                      <img src={creative.img} alt={creative.name} className="relative z-10 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" />
+                    {creative.isVideo ? (
+                      <>
+                        <video src={creative.img} className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60" aria-hidden muted playsInline autoPlay loop />
+                        <video src={creative.img} className="relative z-10 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" muted playsInline autoPlay loop />
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-black/60 text-white px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-sm">
+                          <Play className="w-2.5 h-2.5 fill-white" /> Video
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <img src={creative.img} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-60" aria-hidden />
+                        <img src={creative.img} alt={creative.name} className="relative z-10 w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" />
+                      </>
+                    )}
                       <div className="absolute inset-0 z-20 bg-black/0 group-hover:bg-black/30 transition-all duration-200 flex items-center justify-center">
                         <div className="flex items-center justify-center w-14 h-14 rounded-full bg-black/50 shadow-2xl opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-200">
                           <Sparkles className="w-5 h-5 text-white" />
                         </div>
                       </div>
-                    </>
                     {/* Platform badge */}
                     <div className="absolute top-2 right-2 z-30 flex items-center gap-1 bg-black/60 text-white px-2 py-0.5 rounded-full text-[9px] font-bold uppercase backdrop-blur-sm">
                       {creative.platform === 'instagram'
@@ -1651,16 +1788,19 @@ export default function LandingPage() {
                         </div>
                       ))}
                     </div>
-                    {/* Platform links footer */}
+                    {/* Analyze button footer */}
                     <div className="flex items-center gap-1.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 mt-auto" onClick={e => e.stopPropagation()}>
-                      <span className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-[#1877F2] bg-[#1877F2]/8 dark:bg-[#1877F2]/10 cursor-default">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                        FB
-                      </span>
-                      <span className="flex-1 flex items-center justify-center gap-1 h-7 rounded-lg text-[10px] font-bold text-pink-500 bg-pink-50 dark:bg-pink-500/10 cursor-default">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                        IG
-                      </span>
+                      <button
+                        onClick={() => { setSelectedSimCreativeId(creative.id); setSimModalTab('metrics'); setTimeout(() => handleSimAnalyze(creative.id), 100); }}
+                        className={`flex-1 h-7 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all ${
+                          simAnalyzedIds.has(creative.id)
+                            ? (darkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border border-emerald-200/60')
+                            : (darkMode ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20' : 'bg-violet-50 text-violet-600 border border-violet-200/60 hover:bg-violet-100')
+                        }`}
+                      >
+                        <Brain className="w-3 h-3" />
+                        {simAnalyzedIds.has(creative.id) ? 'Ver análisis IA' : 'Analizar con IA'}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1987,13 +2127,25 @@ export default function LandingPage() {
                   )}
                 </div>
 
-                {/* Imagen del Anuncio */}
+                {/* Imagen/Video del Anuncio */}
                 <div className="aspect-[4/5] rounded-xl overflow-hidden border border-zinc-250/20 dark:border-white/[0.03] bg-zinc-950 shadow-inner relative flex items-center justify-center">
-                  <img 
-                    src={selectedSimCreative.img} 
-                    alt={selectedSimCreative.name} 
-                    className="w-full h-full object-cover" 
-                  />
+                  {selectedSimCreative.isVideo ? (
+                    <video
+                      src={selectedSimCreative.img}
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      controls
+                    />
+                  ) : (
+                    <img
+                      src={selectedSimCreative.img}
+                      alt={selectedSimCreative.name}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                   
                   {/* Action Bar (Heart, Comment, etc) */}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8 flex items-center justify-between text-white">

@@ -134,7 +134,7 @@ export const TopLoadingBar: React.FC<Props> = ({ loading, color = '#8b5cf6', inl
     : 'fixed top-0 left-0 right-0 z-[9999]';
 
   return (
-    <div className={`${positionClass} h-[2.5px] bg-transparent pointer-events-none overflow-hidden`}>
+    <div className={`${positionClass} h-[3.5px] bg-transparent pointer-events-none overflow-hidden`}>
       <div
         className="h-full rounded-full"
         style={{
