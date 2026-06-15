@@ -1082,6 +1082,7 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-1.5">
             {[
               { label: 'Demo', id: 'interactive-demo' },
+              { label: 'Testimonios', id: 'testimonios' },
               { label: 'Precio', id: 'pricing' },
               { label: 'FAQ', id: 'faq' },
             ].map(({ label, id }) => (
@@ -1171,6 +1172,7 @@ export default function LandingPage() {
             </p>
             {[
               { label: 'Demo interactiva', id: 'interactive-demo' },
+              { label: 'Testimonios', id: 'testimonios' },
               { label: 'Precio', id: 'pricing' },
               { label: 'Preguntas frecuentes', id: 'faq' },
             ].map(({ label, id }) => (
@@ -1245,7 +1247,9 @@ export default function LandingPage() {
           </div>
  
           {/* High-Fidelity Showcase Gallery */}
-          <div id="platform-showcase" className={`relative max-w-5xl lg:max-w-6xl mx-auto mt-10 lg:mt-14 -mx-6 sm:mx-auto rounded-none sm:rounded-[18px] border overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-1000 ${darkMode ? 'bg-[#060608] border-white/[0.04]' : 'bg-white border-zinc-200/40'}`}>
+          <div id="platform-showcase" className="relative max-w-5xl lg:max-w-6xl mx-auto mt-10 lg:mt-14 -mx-6 sm:mx-auto animate-in fade-in zoom-in-95 duration-1000">
+            <div className="w-full rounded-none sm:rounded-[22px] border p-0 sm:p-1 bg-zinc-950/20 dark:bg-white/[0.01] border-zinc-200/35 dark:border-white/[0.035] shadow-xl">
+              <div className={`rounded-none sm:rounded-[18px] border ${darkMode ? 'bg-[#060608] border-white/[0.035]' : 'bg-white border-zinc-200/45'} overflow-hidden`}>
 
             {/* Tab Selector — responsive wrap */}
             <div className={`flex flex-wrap border-b p-1.5 gap-1 ${darkMode ? 'border-white/[0.05] bg-zinc-950/50' : 'border-zinc-200/50 bg-zinc-50/40'}`}>
@@ -1313,6 +1317,8 @@ export default function LandingPage() {
               </div>
                   </div>
 
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -1341,23 +1347,6 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-        </div>
-        <div className="max-w-5xl mx-auto px-6 pt-5 flex flex-wrap items-center justify-center gap-2.5">
-          {[
-            { label: 'Shopify Partners', logo: '/assets/shopify-bag.webp' },
-            { label: 'Tiendanube Partners', logo: darkMode ? '/assets/tiendanube.webp' : '/assets/tiendanubeoscuro.png' },
-            { label: 'Meta Ads Partners', logo: '/assets/meta (1).webp' },
-          ].map(partner => (
-            <div
-              key={partner.label}
-              className={`h-9 px-3.5 rounded-full border flex items-center gap-2 text-[10.5px] font-black tracking-tight ${
-                darkMode ? 'bg-white/[0.03] border-white/[0.07] text-zinc-300' : 'bg-white border-zinc-200/70 text-zinc-700 shadow-sm'
-              }`}
-            >
-              <img src={partner.logo} alt="" className="w-4 h-4 object-contain" />
-              {partner.label}
-            </div>
-          ))}
         </div>
       </section>
 
@@ -2237,7 +2226,7 @@ export default function LandingPage() {
           </div>
         );
         return (
-          <section className={`py-20 lg:py-28 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'} overflow-hidden`}>
+          <section id="testimonios" className={`py-20 lg:py-28 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'} overflow-hidden`}>
             <style>{`
               @keyframes marquee-left { from { transform: translateX(0); } to { transform: translateX(-50%); } }
               @keyframes marquee-right { from { transform: translateX(-50%); } to { transform: translateX(0); } }
@@ -2423,6 +2412,27 @@ export default function LandingPage() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* Partners */}
+      <section className={`py-10 border-t ${darkMode ? 'bg-zinc-950/10 border-white/[0.03]' : 'bg-white border-zinc-200/40'}`}>
+        <div className="max-w-5xl mx-auto px-6 flex flex-wrap items-center justify-center gap-2.5">
+          {[
+            { label: 'Shopify Partners', logo: '/assets/shopify-bag.webp' },
+            { label: 'Tiendanube Partners', logo: darkMode ? '/assets/tiendanube.webp' : '/assets/tiendanubeoscuro.png' },
+            { label: 'Meta Ads Partners', logo: '/assets/meta (1).webp' },
+          ].map(partner => (
+            <div
+              key={partner.label}
+              className={`h-9 px-3.5 rounded-full border flex items-center gap-2 text-[10.5px] font-black tracking-tight ${
+                darkMode ? 'bg-white/[0.03] border-white/[0.07] text-zinc-300' : 'bg-white border-zinc-200/70 text-zinc-700 shadow-sm'
+              }`}
+            >
+              <img src={partner.logo} alt="" className="w-4 h-4 object-contain" />
+              {partner.label}
+            </div>
+          ))}
         </div>
       </section>
 

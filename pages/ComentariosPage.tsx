@@ -750,6 +750,25 @@ export default function ComentariosPage() {
     });
   }, [posts, clientId, resolvedDetails, resolvingIds]);
 
+  // Follow Meta API pagination cursors to fetch all comment pages
+  const fetchAllCommentPages = async (
+    firstFn: () => Promise<any>,
+    nextFn: (after: string) => Promise<any>,
+    maxPages = 15
+  ): Promise<any[]> => {
+    const all: any[] = [];
+    let res = await firstFn();
+    all.push(...(res.data || []));
+    let page = 1;
+    while (res.paging?.next && res.paging?.cursors?.after && page < maxPages) {
+      res = await nextFn(res.paging.cursors.after);
+      if (!res.data?.length) break;
+      all.push(...res.data);
+      page++;
+    }
+    return all;
+  };
+
   // Open post slide-over — reload comments from API for freshness
   const openPost = async (post: PostItem) => {
     setSelectedPost(post);
@@ -810,20 +829,29 @@ export default function ComentariosPage() {
       });
 
       if (post.isAd) {
-        const res = await metaAds.getAdCreativeComments(post.id, post.platform, fbPageId || undefined);
-        const fresh = (res.data || [])
+        const allData = await fetchAllCommentPages(
+          () => metaAds.getAdCreativeComments(post.id, post.platform, fbPageId || undefined),
+          (after) => metaAds.getAdCreativeComments(post.id, post.platform, fbPageId || undefined, after)
+        );
+        const fresh = allData
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
         setComments(fresh);
       } else if (post.platform === 'instagram') {
-        const res = await metaAds.getInstagramMediaComments(post.id, fbPageId || undefined);
-        const fresh = (res.data || [])
+        const allData = await fetchAllCommentPages(
+          () => metaAds.getInstagramMediaComments(post.id, fbPageId || undefined),
+          (after) => metaAds.getInstagramMediaComments(post.id, fbPageId || undefined, after)
+        );
+        const fresh = allData
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
         setComments(fresh);
       } else {
-        const res = await metaAds.getFacebookPostComments(post.id);
-        const fresh = (res.data || [])
+        const allData = await fetchAllCommentPages(
+          () => metaAds.getFacebookPostComments(post.id),
+          (after) => metaAds.getFacebookPostComments(post.id, after)
+        );
+        const fresh = allData
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
         setComments(fresh);
