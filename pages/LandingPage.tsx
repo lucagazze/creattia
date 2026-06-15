@@ -1048,7 +1048,7 @@ export default function LandingPage() {
             />
             <div>
               <span className="text-[11.5px] font-bold tracking-tight uppercase leading-none block font-display">
-                ALGORITMIA
+                ALGOR.
               </span>
               <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
             </div>
@@ -1133,8 +1133,8 @@ export default function LandingPage() {
         
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
           <h1 className="font-display tracking-tight max-w-4xl mx-auto mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 space-y-1">
-            <span className="block text-2xl sm:text-3xl md:text-4xl font-bold text-zinc-400 dark:text-zinc-500 leading-snug">Gestioná tu negocio online.</span>
-            <span className="block text-4xl sm:text-5xl md:text-[64px] lg:text-[80px] font-black text-zinc-900 dark:text-white leading-[1.05]">Escalá tus ventas.</span>
+            <span className="block text-[36px] sm:text-[52px] md:text-[64px] lg:text-[72px] font-bold text-zinc-500 dark:text-zinc-400 leading-[1.05]">Gestioná tu negocio online.</span>
+            <span className="block text-[36px] sm:text-[52px] md:text-[64px] lg:text-[72px] font-black text-zinc-900 dark:text-white leading-[1.05]">Escalá tus ventas.</span>
           </h1>
 
               <p className={`text-[15.5px] sm:text-[17px] max-w-xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 ${darkMode ? 'text-zinc-300' : 'text-zinc-500'}`}>
@@ -2388,7 +2388,7 @@ export default function LandingPage() {
             <div className="col-span-2 sm:col-span-1 space-y-3">
               <div className="flex items-center gap-2">
                 <img src={darkMode ? '/assets/logoSinFondo.png' : '/assets/logoAlgoritmia1.webp'} alt="Algoritmia" className="w-5 h-5 object-contain" />
-                <span className="text-[11px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGORITMIA</span>
+                <span className="text-[11px] font-bold font-display tracking-wider text-zinc-800 dark:text-zinc-300">ALGOR.</span>
               </div>
               <p className="text-[10.5px] leading-relaxed">
                 Ecosistema de control y automatización omnicanal para e-commerce.
@@ -2469,10 +2469,10 @@ export default function LandingPage() {
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="min-h-full flex items-start justify-center py-14 px-4">
+            <div className="min-h-screen flex items-center justify-center py-14 px-4">
               <div className="w-full max-w-5xl" onClick={e => e.stopPropagation()}>
                 {zTab && (
-                  <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400 mb-3 text-center">{zTab.label}</p>
+                  <p className="text-[11px] font-black uppercase tracking-widest text-zinc-100 mb-3 text-center">{zTab.label}</p>
                 )}
                 <img
                   src={zoomImage}
@@ -2480,7 +2480,7 @@ export default function LandingPage() {
                   className="w-full rounded-xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200"
                 />
                 {zTab && (
-                  <p className="text-[13.5px] text-zinc-300 leading-relaxed mt-5 max-w-3xl mx-auto text-center">{zTab.desc}</p>
+                  <p className="text-[13.5px] text-white leading-relaxed mt-5 max-w-3xl mx-auto text-center">{zTab.desc}</p>
                 )}
               </div>
             </div>
@@ -2511,14 +2511,6 @@ export default function LandingPage() {
           <div className={`relative w-full max-w-5xl my-2 md:my-0 rounded-[20px] md:rounded-[24px] border shadow-2xl flex flex-col md:flex-row overflow-hidden max-h-none md:max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 ${
             darkMode ? 'bg-[#09090b] border-white/[0.06] text-white' : 'bg-white border-zinc-200/80 text-zinc-800'
           }`}>
-            {/* Close button — top-right of modal */}
-            <button
-              onClick={() => setSelectedSimCreativeId(null)}
-              className="absolute top-3 right-3 z-[20] w-9 h-9 rounded-full bg-zinc-900/80 dark:bg-black/60 border border-white/10 text-white hover:bg-zinc-800 flex items-center justify-center transition-all shadow-lg"
-              aria-label="Cerrar"
-            >
-              <X className="w-4 h-4" />
-            </button>
             {/* LADO IZQUIERDO — Vista Previa del Anuncio (Mockup de Red Social) */}
             <div className={`w-full md:w-[42%] md:border-r border-b md:border-b-0 p-4 md:p-5 flex flex-col gap-4 md:justify-between ${
               darkMode ? 'bg-[#0c0c10] border-white/[0.04]' : 'bg-zinc-50 border-zinc-200/60'
@@ -2545,11 +2537,11 @@ export default function LandingPage() {
                 </div>
 
                 {/* Imagen/Video del Anuncio */}
-                <div className="aspect-[4/3] sm:aspect-square md:aspect-[4/5] rounded-xl overflow-hidden border border-zinc-250/20 dark:border-white/[0.03] bg-zinc-950 shadow-inner relative flex items-center justify-center">
+                <div className="aspect-[3/4] rounded-xl overflow-hidden border border-zinc-250/20 dark:border-white/[0.03] bg-zinc-950 shadow-inner relative flex items-center justify-center">
                   {selectedSimCreative.isVideo ? (
                     <video
                       src={selectedSimCreative.img}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                       autoPlay
                       loop
                       muted
@@ -2560,7 +2552,7 @@ export default function LandingPage() {
                     <img
                       src={selectedSimCreative.img}
                       alt={selectedSimCreative.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   )}
                   
@@ -2619,7 +2611,13 @@ export default function LandingPage() {
                     </button>
                   </div>
                 </div>
-                <div className="w-9 h-9" />
+                <button
+                  onClick={() => setSelectedSimCreativeId(null)}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${darkMode ? 'bg-white/10 border border-white/25 text-white hover:bg-white/20' : 'bg-zinc-100 border border-zinc-300 text-zinc-700 hover:bg-zinc-200'}`}
+                  aria-label="Cerrar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Panel de Contenido Desplazable */}

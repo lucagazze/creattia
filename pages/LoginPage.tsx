@@ -141,7 +141,7 @@ export default function LoginPage() {
                 className={`text-[11.5px] font-bold tracking-tight uppercase leading-none block ${darkMode ? 'text-white' : 'text-zinc-900'}`}
                 style={{ fontFamily: "'Space Grotesk', sans-serif" }}
               >
-                ALGORITMIA
+                ALGOR.
               </span>
               <span
                 className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5"
@@ -210,7 +210,7 @@ export default function LoginPage() {
               {mode === 'login' ? 'Iniciar sesión' : mode === 'register' ? 'Crear cuenta' : 'Recuperar contraseña'}
             </h1>
             <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400 mt-1.5 font-semibold">
-              Ecosistema de Algoritmia
+              Ecosistema de Algor.
             </p>
           </div>
 
