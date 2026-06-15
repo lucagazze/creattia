@@ -137,10 +137,16 @@ export default function LoginPage() {
               className="w-[26px] h-[26px] object-contain"
             />
             <div>
-              <span className={`text-[11.5px] font-bold tracking-tight uppercase leading-none block ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+              <span
+                className={`text-[11.5px] font-bold tracking-tight uppercase leading-none block ${darkMode ? 'text-white' : 'text-zinc-900'}`}
+                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+              >
                 ALGORITMIA
               </span>
-              <span className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5">Gestión</span>
+              <span
+                className="text-[7.5px] font-bold text-violet-500 tracking-[0.25em] uppercase block mt-0.5"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >Gestión</span>
             </div>
           </div>
 
