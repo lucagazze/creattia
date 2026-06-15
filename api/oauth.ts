@@ -52,50 +52,6 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
   const base = getHost(req);
 
-  // ── Billing callback — Shopify redirects here after merchant accepts/declines ──
-  if (action === 'shopify-billing-callback') {
-    const chargeId = req.query.charge_id as string;
-    const shop = (req.query.shop as string || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const redirectBase = base.includes('localhost') || base.includes('127.0.0.1') || base.includes('127.0.5.1')
-      ? base
-      : 'https://app.algoritmiadesarrollos.com.ar';
-
-    if (!chargeId) {
-      // Merchant declined — let them in anyway (app is usable; billing can be retried)
-      return res.redirect(`${redirectBase}/#/integraciones?shopify=success&billing=declined`);
-    }
-
-    if (shop && SUPABASE_SERVICE_ROLE_KEY) {
-      try {
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-        const { data: client } = await supabase
-          .from('car_clients')
-          .select('id, shopify_access_token')
-          .eq('shopify_domain', shop)
-          .maybeSingle();
-
-        if (client?.shopify_access_token) {
-          const activateRes = await fetch(
-            `https://${shop}/admin/api/2026-01/recurring_application_charges/${chargeId}/activate.json`,
-            {
-              method: 'POST',
-              headers: { 'X-Shopify-Access-Token': client.shopify_access_token, 'Content-Type': 'application/json' }
-            }
-          );
-          if (activateRes.ok) {
-            await updateClientStatuses(client.id!, {}, 'shopify_billing', 'ok', { shopify_charge_id: chargeId });
-          } else {
-            console.error('[Shopify Billing Activate] Failed:', activateRes.status, await activateRes.text());
-          }
-        }
-      } catch (err: any) {
-        console.error('[Shopify Billing Callback] Error:', err.message);
-      }
-    }
-
-    return res.redirect(`${redirectBase}/#/integraciones?shopify=success`);
-  }
-
   if (action === 'shopify-install-link') {
     if (!SHOPIFY_CLIENT_ID) return res.status(503).json({ error: 'Shopify OAuth no configurado (falta SHOPIFY_CLIENT_ID).' });
     const installUrl = `https://admin.shopify.com/?organization_id=${SHOPIFY_ORGANIZATION_ID}&no_redirect=true&redirect=/oauth/redirect_from_developer_dashboard?client_id%3D${SHOPIFY_CLIENT_ID}`;
@@ -185,41 +141,6 @@ async function handleShopify(req: VercelRequest, res: VercelResponse) {
         tiendanube_store_id: null, tiendanube_access_token: null,
         wordpress_url: null, woo_consumer_key: null, woo_consumer_secret: null
       }, 'shopify', 'ok', { shopify_shop_name: shopName || undefined });
-
-      // Initiate Shopify Billing (RecurringApplicationCharge)
-      try {
-        const billingBase = base.includes('localhost') || base.includes('127.0.0.1') || base.includes('127.0.5.1')
-          ? base
-          : 'https://app.algoritmiadesarrollos.com.ar';
-        const billingReturnUrl = `${billingBase}/api/shopify-billing-callback?shop=${encodeURIComponent(cleanShop)}`;
-
-        const billingRes = await fetch(`https://${cleanShop}/admin/api/2026-01/recurring_application_charges.json`, {
-          method: 'POST',
-          headers: { 'X-Shopify-Access-Token': access_token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            recurring_application_charge: {
-              name: 'Plan Corporativo',
-              price: 20.00,
-              return_url: billingReturnUrl,
-              trial_days: 3,
-            }
-          })
-        });
-
-        if (billingRes.ok) {
-          const billingJson = await billingRes.json() as { recurring_application_charge?: { confirmation_url?: string } };
-          const confirmationUrl = billingJson.recurring_application_charge?.confirmation_url;
-          if (confirmationUrl) {
-            return res.redirect(confirmationUrl);
-          }
-        } else {
-          console.error('[Shopify Billing] Create charge failed:', billingRes.status, await billingRes.text());
-        }
-      } catch (billingErr: any) {
-        console.error('[Shopify Billing] Exception:', billingErr.message);
-      }
-
-      // Fallback if billing initiation fails — still let them in
       return res.redirect(`${redirectBase}/#/integraciones?shopify=success`);
     } catch (err: any) {
       console.error('[Shopify OAuth]', err);
