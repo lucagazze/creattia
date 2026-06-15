@@ -125,7 +125,10 @@ export default function LoginPage() {
       style={{ height: '100dvh', minHeight: '100dvh' }}
     >
       {/* Header */}
-      <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b ${darkMode ? 'bg-[#060606]/85 border-white/[0.04]' : 'bg-[#f8f9fa]/85 border-zinc-200/40'}`}>
+      <header
+        style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
+        className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b ${darkMode ? 'bg-[#060606]/85 border-white/[0.04]' : 'bg-[#f8f9fa]/85 border-zinc-200/40'}`}
+      >
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <img
@@ -158,27 +161,27 @@ export default function LoginPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-          <button
-            onClick={toggleDarkMode}
-            className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 ${
-              darkMode
-                ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white'
-                : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
-            }`}
-          >
-            {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-500" />}
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className={`h-8 px-3.5 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
-              darkMode
-                ? 'bg-white text-zinc-950 hover:bg-zinc-100'
-                : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
-            }`}
-          >
-            Volver a la web
-          </button>
-        </div>
+            <button
+              onClick={toggleDarkMode}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 ${
+                darkMode
+                  ? 'bg-white/5 border-white/8 text-zinc-400 hover:bg-white/10 hover:text-white'
+                  : 'bg-white border-zinc-200/80 text-zinc-500 hover:bg-zinc-50 shadow-sm'
+              }`}
+            >
+              {darkMode ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-zinc-500" />}
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className={`h-8 px-3.5 rounded-lg text-[11px] font-bold flex items-center transition-all duration-200 ${
+                darkMode
+                  ? 'bg-white text-zinc-950 hover:bg-zinc-100'
+                  : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm shadow-zinc-900/10'
+              }`}
+            >
+              Volver a la web
+            </button>
+          </div>
         </div>
       </header>
 
