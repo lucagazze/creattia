@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -485,7 +485,10 @@ export default function LandingPage() {
   // Tabbed high-fidelity screenshots switcher
   const [activeTabShowcase, setActiveTabShowcase] = useState<'inicio' | 'mensajeria' | 'comentarios' | 'pedidos' | 'inventario' | 'analisis' | 'creativos' | 'meta_ads' | 'perfil_dark'>('inicio');
   const [autoTabCycle, setAutoTabCycle] = useState(true);
+  const [tabKey, setTabKey] = useState(0);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
+  const [transformVisible, setTransformVisible] = useState(false);
+  const transformRef = useRef<HTMLElement>(null);
 
   const showcaseTabs = [
     { id: 'inicio', label: 'Dashboard', img: '/assets/landing_inicio.jpg', desc: 'Tu negocio al descubierto en una sola pantalla. Monitoreá ingresos acumulados, pedidos de tus canales de venta, productos estrella y métricas ejecutivas en tiempo real.' },
@@ -546,9 +549,22 @@ export default function LandingPage() {
         const idx = tabIds.indexOf(prev);
         return tabIds[(idx + 1) % tabIds.length] as any;
       });
+      setTabKey(k => k + 1);
     }, 3000);
     return () => clearInterval(timer);
   }, [autoTabCycle]);
+
+  // Scroll-triggered reveal for transformation section
+  useEffect(() => {
+    const el = transformRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setTransformVisible(true); },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const [simCreatives, setSimCreatives] = useState([
     {
@@ -894,6 +910,14 @@ export default function LandingPage() {
           0%, 100% { opacity: 0.5; }
           50% { opacity: 1; }
         }
+        @keyframes tabProgress {
+          from { transform: scaleX(0); }
+          to { transform: scaleX(1); }
+        }
+        .tab-progress-bar {
+          transform-origin: left center;
+          animation: tabProgress 3s linear forwards;
+        }
       `}} />
       <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode ? 'bg-[#030303]/85 border-white/[0.04]' : 'bg-[#fafafc]/85 border-zinc-200/40'}`}>
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -994,7 +1018,7 @@ export default function LandingPage() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => { setAutoTabCycle(false); setActiveTabShowcase(tab.id as any); }}
+                    onClick={() => { setAutoTabCycle(false); setActiveTabShowcase(tab.id as any); setTabKey(k => k + 1); }}
                     className={`h-6 px-2.5 rounded-md text-[10px] font-bold transition-all flex items-center justify-center relative ${
                       isActive
                         ? (darkMode ? 'bg-white/10 text-white border border-white/10' : 'bg-zinc-900 text-white shadow-sm')
@@ -1014,6 +1038,13 @@ export default function LandingPage() {
                 </span>
               )}
             </div>
+
+            {/* Progress bar — fills over 3s before each auto-cycle switch */}
+            {autoTabCycle && (
+              <div key={tabKey} className={`h-[2px] overflow-hidden ${darkMode ? 'bg-white/[0.04]' : 'bg-zinc-100'}`}>
+                <div className="tab-progress-bar h-full bg-violet-500" />
+              </div>
+            )}
 
             {/* Screenshot */}
             <div
@@ -1645,58 +1676,101 @@ export default function LandingPage() {
 
       </section>
 
-      {/* Problem vs Solution Section (Ultra-Minimalist) */}
-      <section className="py-20 max-w-4xl mx-auto px-6 border-t border-zinc-200/40 dark:border-white/[0.03]">
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-2">EL DESAFÍO</span>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-display leading-tight text-zinc-900 dark:text-white">Eliminá el caos operativo de tu e-commerce</h2>
-          <p className="text-[12.5px] font-medium text-zinc-500 dark:text-zinc-400 mt-1.5">Dejá atrás las planillas manuales y las ventas perdidas por falta de sincronización.</p>
-        </div>
+      {/* Transformation Before/After Section */}
+      <section
+        ref={transformRef}
+        className={`py-24 px-6 border-t ${darkMode ? 'border-white/[0.03]' : 'border-zinc-200/40'}`}
+      >
+        <div className="max-w-5xl mx-auto">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Problem Card */}
-          <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-zinc-950/30 border-red-500/10' : 'bg-white border-zinc-200/50 shadow-sm'}`}>
-            <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center mb-5">
-              <span className="text-red-500 font-bold text-[13px]">✕</span>
-            </div>
-            <h3 className="text-[14.5px] font-bold font-display mb-3 text-zinc-850 dark:text-zinc-100">El caos operativo tradicional</h3>
-            <ul className="space-y-3.5 text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
-              <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">•</span> Métricas dispersas en múltiples planillas e informes lentos.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">•</span> Chats perdidos entre Instagram, Facebook y WhatsApp.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">•</span> Falta de control del stock real y quiebres de inventario.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-red-500 mt-0.5">•</span> Incertidumbre sobre qué anuncios y creativos traen retorno real.
-              </li>
-            </ul>
+          {/* Header */}
+          <div className="text-center mb-14">
+            <span className="text-[9px] font-bold text-violet-500 uppercase tracking-[0.2em] block mb-3">TRANSFORMACIÓN</span>
+            <h2 className={`text-3xl sm:text-4xl md:text-[52px] font-black tracking-tight font-display leading-[1.08] mb-5 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+              El antes y el después<br className="hidden sm:block" /> de gestionar tu negocio
+            </h2>
+            <p className={`text-[15px] sm:text-[16px] max-w-md mx-auto font-medium leading-relaxed ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              Cada minuto perdido en tareas manuales es una venta que no cerraste.
+            </p>
           </div>
 
-          {/* Solution Card */}
-          <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-violet-950/5 border-violet-500/15' : 'bg-violet-500/[0.005] border-violet-200/40 shadow-sm'}`}>
-            <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center mb-5">
-              <Check className="w-4 h-4 text-violet-500" />
-            </div>
-            <h3 className="text-[14.5px] font-bold font-display mb-3 text-zinc-850 dark:text-zinc-100">La solución unificada de Algoritmia</h3>
-            <ul className="space-y-3.5 text-[12px] font-medium text-zinc-700 dark:text-zinc-300">
-              <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Ver todas las metricas Unificadas
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Mensajeria Unificada
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Visualizacion de pedidos y stock
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" /> Gestion de los Anuncios
-              </li>
-            </ul>
+          {/* Desktop column headers */}
+          <div className="hidden md:grid grid-cols-[1fr_56px_1fr] mb-3">
+            <p className={`text-right text-[10px] font-black uppercase tracking-[0.18em] pr-6 ${darkMode ? 'text-rose-400/70' : 'text-rose-400'}`}>Sin Algoritmia</p>
+            <div />
+            <p className={`text-[10px] font-black uppercase tracking-[0.18em] pl-6 ${darkMode ? 'text-emerald-400/70' : 'text-emerald-500'}`}>Con Algoritmia</p>
           </div>
+
+          {/* Comparison rows */}
+          <div className="space-y-2">
+            {[
+              { icon: '📊', before: '6+ horas por semana cargando datos en planillas', after: 'Dashboard automático con métricas de ventas y anuncios al instante' },
+              { icon: '💬', before: 'Mensajes perdidos entre Instagram, WhatsApp y Facebook', after: 'Bandeja omnicanal unificada con Cerebro de IA que cierra ventas' },
+              { icon: '📣', before: 'Sin saber qué anuncio genera ventas reales', after: 'ROAS exacto por creativo, verificado contra compras registradas' },
+              { icon: '📦', before: 'Stock desactualizado y quiebres de inventario inesperados', after: 'Inventario sincronizado en tiempo real en todos tus canales' },
+              { icon: '🤖', before: 'Consultas sin respuesta que se convierten en ventas perdidas', after: 'IA responde, modera y convierte cada interacción en venta' },
+            ].map((item, i) => (
+              <div
+                key={i}
+                style={{ transitionDelay: `${i * 90}ms` }}
+                className={`transition-all duration-700 ease-out ${transformVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+              >
+                {/* Mobile */}
+                <div className={`md:hidden p-5 rounded-2xl border ${darkMode ? 'bg-zinc-900/40 border-white/[0.05]' : 'bg-white border-zinc-200/60 shadow-sm'}`}>
+                  <div className="text-2xl mb-3">{item.icon}</div>
+                  <div className="flex items-start gap-2.5 mb-3">
+                    <span className="w-5 h-5 rounded-full bg-rose-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-rose-500 text-[10px] font-black leading-none">✕</span>
+                    </span>
+                    <p className={`text-[13px] font-semibold line-through ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>{item.before}</p>
+                  </div>
+                  <div className={`h-px mb-3 ${darkMode ? 'bg-white/[0.05]' : 'bg-zinc-100'}`} />
+                  <div className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-emerald-500 text-[10px] font-black leading-none">✓</span>
+                    </span>
+                    <p className={`text-[14px] font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>{item.after}</p>
+                  </div>
+                </div>
+
+                {/* Desktop */}
+                <div className={`hidden md:grid grid-cols-[1fr_56px_1fr] rounded-2xl overflow-hidden border ${darkMode ? 'border-white/[0.05]' : 'border-zinc-200/50'}`}>
+                  <div className={`px-7 py-5 flex items-center justify-end gap-4 ${darkMode ? 'bg-rose-950/[0.12]' : 'bg-rose-50/50'}`}>
+                    <p className={`text-[15px] font-semibold text-right line-through leading-snug ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>{item.before}</p>
+                    <span className="w-9 h-9 rounded-full bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-rose-500 text-[13px] font-black leading-none">✕</span>
+                    </span>
+                  </div>
+                  <div className={`flex flex-col items-center justify-center border-x ${darkMode ? 'border-white/[0.05] bg-zinc-950' : 'border-zinc-100 bg-zinc-50'}`}>
+                    <span className="text-xl leading-none">{item.icon}</span>
+                    <svg className={`w-3.5 h-3.5 mt-1.5 ${darkMode ? 'text-zinc-700' : 'text-zinc-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                  <div className={`px-7 py-5 flex items-center gap-4 ${darkMode ? 'bg-emerald-950/[0.12]' : 'bg-emerald-50/30'}`}>
+                    <span className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-emerald-500 text-[13px] font-black leading-none">✓</span>
+                    </span>
+                    <p className={`text-[16px] font-bold leading-snug ${darkMode ? 'text-zinc-100' : 'text-zinc-800'}`}>{item.after}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="text-center mt-16">
+            <Link
+              to="/login"
+              className={`inline-flex items-center gap-2.5 h-12 px-8 font-black rounded-xl text-[13px] shadow-lg transition-all hover:opacity-90 active:scale-[0.98] ${darkMode ? 'bg-white text-zinc-900' : 'bg-zinc-900 text-white shadow-zinc-900/20'}`}
+            >
+              Empezar mi transformación <ArrowRight className="w-4 h-4" />
+            </Link>
+            <p className={`text-[11px] mt-3 font-medium ${darkMode ? 'text-zinc-700' : 'text-zinc-400'}`}>
+              Sin tarjeta de crédito · Configuración en 5 minutos
+            </p>
+          </div>
+
         </div>
       </section>
 
