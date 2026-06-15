@@ -22,19 +22,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const toggleDarkMode = () => {
+    const el = document.documentElement;
+    el.classList.add('no-transition');
     const next = !darkMode;
     setDarkMode(next);
     if (next) {
-      document.documentElement.classList.add('dark');
-      try {
-        localStorage.setItem('theme', 'dark');
-      } catch (e) {}
+      el.classList.add('dark');
+      try { localStorage.setItem('theme', 'dark'); } catch (e) {}
     } else {
-      document.documentElement.classList.remove('dark');
-      try {
-        localStorage.setItem('theme', 'light');
-      } catch (e) {}
+      el.classList.remove('dark');
+      try { localStorage.setItem('theme', 'light'); } catch (e) {}
     }
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('no-transition')));
   };
 
   return (

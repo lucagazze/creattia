@@ -499,15 +499,18 @@ export default function LandingPage() {
   ];
   const [selectedInboxConvId, setSelectedInboxConvId] = useState('conv1');
   const [inboxChannelFilter, setInboxChannelFilter] = useState<'all' | 'instagram' | 'facebook' | 'whatsapp'>('all');
-  const [inboxConvStatuses, setInboxConvStatuses] = useState<Record<string, 'idle' | 'sending' | 'sent'>>({});
+  const [inboxConvStatuses, setInboxConvStatuses] = useState<Record<string, 'idle' | 'sending'>>({});
   const [inboxOpenedIds, setInboxOpenedIds] = useState<Set<string>>(() => new Set(['conv1']));
   const [inboxMobileView, setInboxMobileView] = useState<'list' | 'chat'>('list');
+  const [inboxExtraMessages, setInboxExtraMessages] = useState<Record<string, Array<{id: number, sender: string, text: string, time: string}>>>({});
+  const [inboxInputText, setInboxInputText] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const getConvStatus = (id: string) => inboxConvStatuses[id] || 'idle';
   const isInboxPending = (conv: typeof inboxConversations[number]) =>
-    conv.status === 'pending' && !inboxOpenedIds.has(conv.id) && getConvStatus(conv.id) !== 'sent';
+    conv.status === 'pending' && !inboxOpenedIds.has(conv.id) && getConvStatus(conv.id) === 'idle';
   const getInboxDisplayStatus = (conv: typeof inboxConversations[number]) => {
-    if (conv.status === 'answered' || getConvStatus(conv.id) === 'sent') return 'Respondido';
+    if (conv.status === 'answered' || (inboxExtraMessages[conv.id] || []).some(m => m.sender === 'ai')) return 'Respondido';
     if (isInboxPending(conv)) return 'Pendiente';
     return 'Visto';
   };
@@ -516,19 +519,49 @@ export default function LandingPage() {
     ? inboxConversations
     : inboxConversations.filter(c => c.channel === inboxChannelFilter);
 
-  const handleSendAiResponse = () => {
-    const conv = selectedInboxConv;
-    if (!conv || getConvStatus(conv.id) !== 'idle' || !conv.aiReply) return;
-    setInboxConvStatuses(prev => ({ ...prev, [conv.id]: 'sending' }));
-    setTimeout(() => {
-      setInboxConvStatuses(prev => ({ ...prev, [conv.id]: 'sent' }));
-    }, 1200);
+  const getAllMessages = (convId: string) => {
+    const conv = inboxConversations.find(c => c.id === convId)!;
+    return [...conv.messages, ...(inboxExtraMessages[convId] || [])];
   };
 
-  // legacy reset (kept for compat)
+  const customerReplies = [
+    '¡Genial! Muchas gracias, lo tengo en cuenta 🙌',
+    'Perfecto, te escribo más tarde entonces.',
+    '¡Gracias! Muy buena atención.',
+    'Dale, me interesa. ¿Cómo hago para comprar?',
+    '¡Buenísimo! Ya lo pago ahora.',
+    'Súper, ahora lo ordeno. Gracias!',
+  ];
+
+  const handleSendMessage = (forcedText?: string) => {
+    const conv = selectedInboxConv;
+    const msgText = (forcedText !== undefined ? forcedText : inboxInputText).trim();
+    if (!msgText || getConvStatus(conv.id) === 'sending') return;
+    const now = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    setInboxInputText('');
+    setInboxExtraMessages(prev => ({
+      ...prev,
+      [conv.id]: [...(prev[conv.id] || []), { id: Date.now(), sender: 'ai', text: msgText, time: now }],
+    }));
+    setInboxConvStatuses(prev => ({ ...prev, [conv.id]: 'sending' }));
+    const reply = customerReplies[Math.floor(Math.random() * customerReplies.length)];
+    setTimeout(() => {
+      const t = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      setInboxConvStatuses(prev => ({ ...prev, [conv.id]: 'idle' }));
+      setInboxExtraMessages(prev => ({
+        ...prev,
+        [conv.id]: [...(prev[conv.id] || []), { id: Date.now() + 1, sender: 'user', text: reply, time: t }],
+      }));
+    }, 1500);
+  };
+
+  const handleSendAiResponse = () => handleSendMessage(selectedInboxConv.aiDraft || undefined);
+
   const handleResetChat = () => {
     setInboxConvStatuses({});
     setInboxOpenedIds(new Set(['conv1']));
+    setInboxExtraMessages({});
+    setInboxInputText('');
   };
 
   // Tabbed high-fidelity screenshots switcher
@@ -578,6 +611,11 @@ export default function LandingPage() {
   const [simExpandedCommentId, setSimExpandedCommentId] = useState<string | null>(null);
   const [simAnalyzedIds, setSimAnalyzedIds] = useState<Set<number>>(new Set());
   const [simAnalyzingId, setSimAnalyzingId] = useState<number | null>(null);
+
+  // Auto-scroll chat to bottom when new messages arrive
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [inboxExtraMessages, inboxConvStatuses, selectedInboxConvId]);
 
   // Lock body scroll when creative modal is open
   useEffect(() => {
@@ -1247,7 +1285,7 @@ export default function LandingPage() {
                 Instagram, WhatsApp y Facebook en un solo lugar. Filtrá por canal y respondé con IA en segundos.
               </p>
             </div>
-            {Object.values(inboxConvStatuses).some(s => s === 'sent') && (
+            {Object.keys(inboxExtraMessages).length > 0 && (
               <button onClick={handleResetChat} className="text-[10px] font-semibold text-violet-500 hover:underline shrink-0">
                 Reiniciar simulación
               </button>
@@ -1397,10 +1435,10 @@ export default function LandingPage() {
 
                 {/* Messages */}
                 <div className="flex-1 p-3 space-y-2.5 overflow-y-auto">
-                  {selectedInboxConv.messages.map(msg => (
+                  {getAllMessages(selectedInboxConvId).map((msg, i) => (
                     <div
-                      key={msg.id}
-                      className={`flex flex-col max-w-[82%] ${msg.sender === 'ai' ? 'ml-auto items-end' : 'items-start'}`}
+                      key={`${msg.id}-${i}`}
+                      className={`flex flex-col max-w-[82%] animate-in slide-in-from-bottom-1 duration-200 ${msg.sender === 'ai' ? 'ml-auto items-end' : 'items-start'}`}
                     >
                       <div className={`p-2.5 rounded-xl text-[11px] font-medium leading-relaxed ${
                         msg.sender === 'ai'
@@ -1413,25 +1451,20 @@ export default function LandingPage() {
                     </div>
                   ))}
                   {getConvStatus(selectedInboxConvId) === 'sending' && (
-                    <div className="flex items-center gap-1 p-2.5 rounded-xl bg-zinc-900/40 max-w-[70px] ml-auto">
-                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1 h-1 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  )}
-                  {getConvStatus(selectedInboxConvId) === 'sent' && selectedInboxConv.aiReply && (
-                    <div className="flex flex-col max-w-[82%] ml-auto items-end animate-in slide-in-from-bottom-2 duration-300">
-                      <div className="p-2.5 rounded-xl text-[11px] font-medium leading-relaxed bg-violet-600 text-white rounded-tr-none">
-                        {selectedInboxConv.aiReply.text}
+                    <div className="flex items-center gap-1 p-2.5 rounded-xl max-w-[60px] items-start">
+                      <div className={`flex items-center gap-1 p-2 rounded-xl ${darkMode ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
-                      <span className="text-[8px] text-zinc-500 font-semibold mt-0.5 px-1">{selectedInboxConv.aiReply.time}</span>
                     </div>
                   )}
+                  <div ref={chatEndRef} />
                 </div>
 
                 {/* Input + AI suggestion */}
                 <div className={`p-3 border-t shrink-0 ${darkMode ? 'border-white/[0.04] bg-zinc-950/20' : 'border-zinc-100 bg-zinc-50/30'}`}>
-                  {selectedInboxConv.status !== 'answered' && getConvStatus(selectedInboxConvId) === 'idle' && selectedInboxConv.aiDraft && (
+                  {selectedInboxConv.aiDraft && getConvStatus(selectedInboxConvId) === 'idle' && !inboxInputText && !(inboxExtraMessages[selectedInboxConvId] || []).some(m => m.sender === 'ai') && (
                     <div className={`p-2.5 rounded-lg border mb-2.5 flex flex-col gap-1 text-left ${
                       darkMode ? 'bg-violet-950/10 border-violet-500/15' : 'bg-violet-50 border-violet-200/50'
                     }`}>
@@ -1442,40 +1475,52 @@ export default function LandingPage() {
                       <p className={`text-[10.5px] leading-relaxed font-semibold ${darkMode ? 'text-zinc-300' : 'text-zinc-700'}`}>
                         "{selectedInboxConv.aiDraft.slice(0, 60)}..."
                       </p>
-                      <button
-                        onClick={handleSendAiResponse}
-                        className="mt-1 self-start text-[9px] font-bold text-violet-600 dark:text-violet-400 hover:underline uppercase flex items-center gap-0.5"
-                      >
-                        Aprobar y enviar <ArrowUpRight className="w-2.5 h-2.5" />
-                      </button>
+                      <div className="flex items-center gap-3 mt-1">
+                        <button
+                          onClick={handleSendAiResponse}
+                          className="text-[9px] font-bold text-violet-600 dark:text-violet-400 hover:underline uppercase flex items-center gap-0.5"
+                        >
+                          Aprobar y enviar <ArrowUpRight className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          onClick={() => setInboxInputText(selectedInboxConv.aiDraft)}
+                          className="text-[9px] font-semibold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 uppercase"
+                        >
+                          Editar
+                        </button>
+                      </div>
                     </div>
                   )}
                   <div className="flex gap-2">
                     <input
                       type="text"
+                      value={inboxInputText}
+                      onChange={e => setInboxInputText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSendMessage(); }}
                       placeholder="Escribí una respuesta..."
-                      readOnly
-                      className={`flex-1 h-8 px-2.5 rounded-lg text-[11px] outline-none border ${
-                        darkMode ? 'bg-zinc-900 border-white/[0.04] text-zinc-400' : 'bg-white border-zinc-200/55 text-zinc-500'
+                      className={`flex-1 h-8 px-2.5 rounded-lg text-[11px] outline-none border transition-colors ${
+                        darkMode ? 'bg-zinc-900 border-white/[0.08] text-zinc-200 placeholder:text-zinc-600 focus:border-violet-500/40' : 'bg-white border-zinc-200 text-zinc-800 placeholder:text-zinc-400 focus:border-violet-400/50'
                       }`}
                     />
-                    <button
-                      onClick={handleSendAiResponse}
-                      disabled={getConvStatus(selectedInboxConvId) !== 'idle' || selectedInboxConv.status === 'answered'}
-                      className={`h-8 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shrink-0 transition-all disabled:opacity-50 bg-violet-600 hover:bg-violet-500 text-white`}
-                    >
-                      {getConvStatus(selectedInboxConvId) === 'sending'
-                        ? <><RefreshCw className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">Generando...</span></>
-                        : <><Sparkles className="w-3 h-3" /><span className="hidden sm:inline">Generar con IA</span></>
-                      }
-                    </button>
-                    <button
-                      onClick={handleSendAiResponse}
-                      disabled={getConvStatus(selectedInboxConvId) !== 'idle' || selectedInboxConv.status === 'answered'}
-                      className={`h-8 w-8 rounded-lg disabled:opacity-50 flex items-center justify-center shrink-0 transition-all ${darkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'}`}
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                    </button>
+                    {inboxInputText.trim() ? (
+                      <button
+                        onClick={() => handleSendMessage()}
+                        className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-violet-600 hover:bg-violet-500 text-white transition-all"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSendAiResponse}
+                        disabled={getConvStatus(selectedInboxConvId) === 'sending' || !selectedInboxConv.aiDraft}
+                        className="h-8 px-2.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shrink-0 transition-all disabled:opacity-40 bg-violet-600 hover:bg-violet-500 text-white"
+                      >
+                        {getConvStatus(selectedInboxConvId) === 'sending'
+                          ? <><RefreshCw className="w-3 h-3 animate-spin" /><span className="hidden sm:inline">Enviando...</span></>
+                          : <><Sparkles className="w-3 h-3" /><span className="hidden sm:inline">Usar IA</span></>
+                        }
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2164,8 +2209,8 @@ export default function LandingPage() {
               {
                 name: 'Agencia',
                 tagline: 'Para gestionar múltiples cuentas.',
-                price: 'A consultar',
-                period: null,
+                price: '$ 50',
+                period: '/ mes',
                 badge: null,
                 highlight: false,
                 features: [
@@ -2176,7 +2221,7 @@ export default function LandingPage() {
                   'Manager de cuenta dedicado',
                   'SLA y soporte garantizado',
                 ],
-                cta: 'Hablar con ventas',
+                cta: 'Comenzar ahora',
                 ctaStyle: 'border',
               },
             ];
