@@ -11,15 +11,16 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
-// Generate realistic attention/emotion curve for a ~30s creative
-const genTimeline = (attn: number, emot: number, seed: number): { t: number; attn: number; emot: number }[] => {
+// Generate realistic attention/emotion/impact curve for a ~30s creative
+const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number): { t: number; attn: number; emot: number; impact: number }[] => {
   const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
   const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
-  return attnOff.map((ao, i) => ({
-    t: Math.round(i * 30 / (attnOff.length - 1)),
-    attn: Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4))),
-    emot: Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4))),
-  }));
+  return attnOff.map((ao, i) => {
+    const a = Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4)));
+    const e = Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4)));
+    const imp = Math.max(8, Math.min(99, Math.round(a * 0.4 + e * 0.4 + (100 - cogLoad) * 0.2)));
+    return { t: Math.round(i * 30 / (attnOff.length - 1)), attn: a, emot: e, impact: imp };
+  });
 };
 
 // ── Seeded mock fallback ──────────────────────────────────────────────────────
@@ -106,11 +107,14 @@ const scoreLabel = (score: number) =>
   score >= 80 ? 'Listo para escalar' : score >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar';
 
 // ── Bar metric ────────────────────────────────────────────────────────────────
-const MetricBar = ({ label, value, color, reason }: { label: string; value: number; color: string; reason?: string }) => (
+const MetricBar = ({ label, value, color, reason, threshold }: { label: string; value: number; color: string; reason?: string; threshold?: string }) => (
   <div>
     <div className="flex items-center justify-between mb-1">
-      <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">{label}</span>
-      <span className="text-[13px] font-black text-zinc-900 dark:text-white">{value}%</span>
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">{label}</span>
+        {threshold && <span className="text-[9px] text-zinc-400 dark:text-zinc-600 font-semibold">{threshold}</span>}
+      </div>
+      <span className={`text-[13px] font-black ${color.includes('emerald') ? 'text-emerald-600 dark:text-emerald-400' : color.includes('amber') ? 'text-amber-600 dark:text-amber-400' : color.includes('red') ? 'text-red-500' : 'text-zinc-900 dark:text-white'}`}>{value}%</span>
     </div>
     <div className="h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
       <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${value}%` }} />
@@ -259,7 +263,7 @@ export default function CreativeTesterPage() {
       );
       setScore(finalScore);
       setResult(analysisResult);
-      setTimeline(genTimeline(analysisResult.attentionPct, analysisResult.emotionPct, finalScore));
+      setTimeline(genTimeline(analysisResult.attentionPct, analysisResult.emotionPct, analysisResult.cogLoad, finalScore));
       setStatus('done');
     } catch (err) {
       setStatus('error');
@@ -268,17 +272,25 @@ export default function CreativeTesterPage() {
   };
 
   const handleAnalyzeUpload = () => { if (file) analyze(file); };
-  const handleAnalyzeAd = (ad: any) => {
+
+  const handleSelectAd = (ad: any) => {
     setSelectedAd(ad);
-    const details = resolvedDetails[ad.id];
-    const thumbUrl = details?.picture || details?.url || ad.creative?.image_url;
+    setStatus('idle');
+    setResult(null);
+    setTimeline([]);
+  };
+
+  const handleAnalyzeSelectedAd = () => {
+    if (!selectedAd) return;
+    const details = resolvedDetails[selectedAd.id];
+    const thumbUrl = details?.picture || details?.url || selectedAd.creative?.image_url;
     const isVid = details?.type === 'video_source';
-    if (thumbUrl) analyze(undefined, thumbUrl, ad.name || 'anuncio');
+    if (thumbUrl) analyze(undefined, thumbUrl, selectedAd.name || 'anuncio');
     else {
-      const mockSrc = { name: ad.name || 'anuncio', size: 100000, type: 'image/jpeg', lastModified: Date.now() };
+      const mockSrc = { name: selectedAd.name || 'anuncio', size: 100000, type: 'image/jpeg', lastModified: Date.now() };
       const r = mockAnalysis(mockSrc, isVid);
       const s = Math.floor(r.attentionPct * 0.4 + r.emotionPct * 0.4 + (100 - r.cogLoad) * 0.2);
-      setScore(s); setResult(r); setUsedMock(true); setTimeline(genTimeline(r.attentionPct, r.emotionPct, s)); setStatus('done');
+      setScore(s); setResult(r); setUsedMock(true); setTimeline(genTimeline(r.attentionPct, r.emotionPct, r.cogLoad, s)); setStatus('done');
     }
   };
 
@@ -374,35 +386,45 @@ export default function CreativeTesterPage() {
                 )}
                 {adsLoading && <div className="flex items-center justify-center py-12 gap-2 text-[12px] text-zinc-400"><Loader2 className="w-4 h-4 animate-spin" />Cargando anuncios...</div>}
                 {!adsLoading && accountAds.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[480px] overflow-y-auto pr-1">
-                    {accountAds.map(ad => {
-                      const det = resolvedDetails[ad.id];
-                      const thumb = det?.picture || det?.url;
-                      const isSelected = selectedAd?.id === ad.id;
-                      return (
-                        <button
-                          key={ad.id}
-                          onClick={() => handleAnalyzeAd(ad)}
-                          className={`rounded-xl overflow-hidden border-2 transition-all text-left ${isSelected ? 'border-violet-500 ring-2 ring-violet-300 dark:ring-violet-700' : 'border-zinc-200 dark:border-zinc-700 hover:border-violet-400'}`}
-                        >
-                          <div className="aspect-square bg-zinc-100 dark:bg-zinc-800 relative flex items-center justify-center overflow-hidden">
-                            {thumb ? (
-                              <>
-                                <img src={thumb} alt="" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-40" aria-hidden />
-                                <img src={thumb} alt={ad.name} referrerPolicy="no-referrer" className="relative z-10 w-full h-full object-contain" />
-                              </>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center"><Film className="w-6 h-6 text-zinc-400" /></div>
-                            )}
-                          </div>
-                          <div className="p-2">
-                            <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 truncate">{ad.name || `Anuncio ${ad.id}`}</p>
-                            {isSelected && status === 'analyzing' && <p className="text-[9px] text-violet-500 font-bold mt-0.5">Analizando...</p>}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-1">
+                      {accountAds.map(ad => {
+                        const det = resolvedDetails[ad.id];
+                        const thumb = det?.picture || det?.url;
+                        const isSelected = selectedAd?.id === ad.id;
+                        return (
+                          <button
+                            key={ad.id}
+                            onClick={() => handleSelectAd(ad)}
+                            className={`rounded-xl overflow-hidden border-2 transition-all text-left ${isSelected ? 'border-violet-500 ring-2 ring-violet-300 dark:ring-violet-700' : 'border-zinc-200 dark:border-zinc-700 hover:border-violet-400'}`}
+                          >
+                            <div className="aspect-square bg-zinc-100 dark:bg-zinc-800 relative flex items-center justify-center overflow-hidden">
+                              {thumb ? (
+                                <>
+                                  <img src={thumb} alt="" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-40" aria-hidden />
+                                  <img src={thumb} alt={ad.name} referrerPolicy="no-referrer" className="relative z-10 w-full h-full object-contain" />
+                                </>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center"><Film className="w-6 h-6 text-zinc-400" /></div>
+                              )}
+                            </div>
+                            <div className="p-2">
+                              <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 truncate">{ad.name || `Anuncio ${ad.id}`}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selectedAd && (
+                      <button
+                        onClick={handleAnalyzeSelectedAd}
+                        disabled={status === 'analyzing'}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-[13px] font-black shadow-lg shadow-violet-200 dark:shadow-none transition-all"
+                      >
+                        {status === 'analyzing' ? <><Loader2 className="w-4 h-4 animate-spin" />{step || 'Analizando...'}</> : <><Zap className="w-4 h-4" />Analizar creativo seleccionado</>}
+                      </button>
+                    )}
+                  </>
                 )}
                 {!adsLoading && accountAds.length === 0 && (profile as any)?.meta_account_id && (
                   <div className="text-center py-8">
@@ -463,29 +485,49 @@ export default function CreativeTesterPage() {
 
                 {/* Metrics */}
                 <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
-                  <MetricBar label="Atención" value={result.attentionPct} color="bg-emerald-500" reason={result.attentionReason} />
-                  <MetricBar label="Emoción" value={result.emotionPct} color="bg-violet-500" reason={result.emotionReason} />
-                  <MetricBar label="Carga Cognitiva" value={result.cogLoad} color={result.cogLoad <= 30 ? 'bg-emerald-500' : result.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={result.cogLoadReason} />
+                  <MetricBar
+                    label="Atención"
+                    value={result.attentionPct}
+                    color={result.attentionPct >= 75 ? 'bg-emerald-500' : result.attentionPct >= 60 ? 'bg-amber-500' : 'bg-red-500'}
+                    reason={result.attentionReason}
+                    threshold="bueno ≥75%"
+                  />
+                  <MetricBar
+                    label="Emoción"
+                    value={result.emotionPct}
+                    color={result.emotionPct >= 70 ? 'bg-emerald-500' : result.emotionPct >= 50 ? 'bg-amber-500' : 'bg-red-500'}
+                    reason={result.emotionReason}
+                    threshold="bueno ≥70%"
+                  />
+                  <MetricBar
+                    label="Carga Cognitiva"
+                    value={result.cogLoad}
+                    color={result.cogLoad <= 30 ? 'bg-emerald-500' : result.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500'}
+                    reason={result.cogLoadReason}
+                    threshold="óptimo ≤30%"
+                  />
                 </div>
 
-                {/* Curva de Atención y Emoción en el tiempo */}
+                {/* Curva de Atención, Emoción e Impacto en el tiempo */}
                 {timeline.length > 0 && (
                   <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
                       <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
                         <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
                         <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
+                        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-400 inline-block rounded-full" />Impacto</span>
                       </div>
                     </div>
-                    <div className="h-[130px]">
+                    <div className="h-[150px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={timeline} margin={{ left: -15, right: 4, top: 4, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" className="dark:[stroke:rgba(255,255,255,0.04)]" />
                           <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}s`} />
                           <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}`} width={22} />
-                          <Line type="monotone" dataKey="attn" stroke="#10b981" strokeWidth={2} dot={false} />
-                          <Line type="monotone" dataKey="emot" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="attn" name="Atención" stroke="#10b981" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="emot" name="Emoción" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="impact" name="Impacto" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
