@@ -223,6 +223,7 @@ export default function RedesSocialesPage() {
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
   const [tribeResult, setTribeResult] = useState<any>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
+  const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('pending');
 
   useEffect(() => {
     if (selectedPostId) {
@@ -230,6 +231,7 @@ export default function RedesSocialesPage() {
       setAnalyzingTribe(false);
       setTribeResult(null);
       setTimeline([]);
+      setCommentFilter('pending');
     }
   }, [selectedPostId]);
 
@@ -318,25 +320,29 @@ export default function RedesSocialesPage() {
   const igId = (profile as any)?.ig_business_id;
   const igUsername = (profile as any)?.ig_username;
   const fbPageId = (profile as any)?.fb_page_id;
+  const metaAccountId = (profile as any)?.meta_account_id;
 
   // Unified loading states to prevent flashing empty/unconnected pages
   const loading = authLoading || (profile === undefined) || igLoading || fbLoading;
 
-  // Helper to determine if a comment thread is unanswered/pending
-  const isCommentPending = (comment: any) => {
-    const isFromPage = (comment.username && igUsername && comment.username.toLowerCase() === igUsername.toLowerCase()) || comment.from?.id === fbPageId;
-    if (isFromPage) return false;
-    
+  const isFromPage = useCallback((entry: any) => {
+    if (!entry) return false;
+    if (igUsername && entry.username && entry.username.toLowerCase() === igUsername.toLowerCase()) return true;
+    if (igId && entry.from?.id && String(entry.from.id) === String(igId)) return true;
+    if (fbPageId && entry.from?.id && String(entry.from.id) === String(fbPageId)) return true;
+    if (metaAccountId && entry.from?.id && String(entry.from.id) === String(metaAccountId)) return true;
+    return false;
+  }, [igUsername, igId, fbPageId, metaAccountId]);
+
+  const isCommentPending = useCallback((comment: any) => {
+    if (isFromPage(comment)) return false;
     const repliesList = comment.replies?.data || [];
     if (repliesList.length === 0) return true;
-    
-    const sortedReplies = [...repliesList].sort(
-      (a, b) => new Date(a.timestamp || a.created_time).getTime() - new Date(b.timestamp || b.created_time).getTime()
+    const sorted = [...repliesList].sort(
+      (a, b) => new Date(a.timestamp || a.created_time || 0).getTime() - new Date(b.timestamp || b.created_time || 0).getTime()
     );
-    const latestReply = sortedReplies[sortedReplies.length - 1];
-    const lastIsFromPage = (latestReply.username && igUsername && latestReply.username.toLowerCase() === igUsername.toLowerCase()) || latestReply.from?.id === fbPageId;
-    return !lastIsFromPage;
-  };
+    return !isFromPage(sorted[sorted.length - 1]);
+  }, [isFromPage]);
 
   // Bulk draft generation for all pending comments in the modal
   const handleBulkDrafts = async () => {
@@ -1827,8 +1833,13 @@ export default function RedesSocialesPage() {
               
               {/* Header */}
               <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/85 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between flex-shrink-0">
-                <div className="min-w-0">
+                <div className="min-w-0 flex items-center gap-2">
                   <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Publicación</p>
+                  {!loadingComments && comments.filter(isCommentPending).length > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 text-[10px] font-black">
+                      {comments.filter(isCommentPending).length} sin responder
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {selectedPostPermalink && (
@@ -2057,6 +2068,39 @@ export default function RedesSocialesPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+                      {/* Filter toggle + bulk draft */}
+                      {!loadingComments && comments.length > 0 && (
+                        <div className="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
+                          <button
+                            onClick={() => setCommentFilter('pending')}
+                            className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] font-black transition-all ${commentFilter === 'pending' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                          >
+                            Sin responder
+                            <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'pending' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>
+                              {comments.filter(isCommentPending).length}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setCommentFilter('all')}
+                            className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] font-black transition-all ${commentFilter === 'all' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                          >
+                            Todos
+                            <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>
+                              {comments.length}
+                            </span>
+                          </button>
+                          {comments.some(isCommentPending) && (
+                            <button
+                              onClick={handleBulkDrafts}
+                              disabled={bulkDraftsLoading}
+                              className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
+                            >
+                              {bulkDraftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                              <span className="hidden sm:inline">Borradores IA</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {/* Comments List */}
                   <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/10 dark:bg-zinc-950/5">
                     {loadingComments ? (
@@ -2069,22 +2113,10 @@ export default function RedesSocialesPage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {comments.some(isCommentPending) && (
-                          <button
-                            onClick={handleBulkDrafts}
-                            disabled={bulkDraftsLoading}
-                            className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-violet-600 hover:bg-violet-750 text-white rounded-xl text-[12.5px] font-black transition-all shadow-md shadow-violet-500/10 cursor-pointer disabled:opacity-50"
-                          >
-                            {bulkDraftsLoading ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Sparkles className="w-4 h-4" />
-                            )}
-                            Generar borradores con IA para todos ({comments.filter(isCommentPending).length})
-                          </button>
-                        )}
-
-                        {comments.map((comment: any) => {
+                        {[...comments]
+                          .filter(c => commentFilter === 'all' || isCommentPending(c))
+                          .sort((a, b) => new Date(b.timestamp || b.created_time || 0).getTime() - new Date(a.timestamp || a.created_time || 0).getTime())
+                          .map((comment: any) => {
                           const commentUser = comment.username || comment.from?.name || 'Usuario';
                           const commentText = comment.text || comment.message || '';
                           const commentDate = comment.timestamp || comment.created_time;
@@ -2173,8 +2205,7 @@ export default function RedesSocialesPage() {
                                 {replies.length > 0 && (
                                   <div className="ml-9 mt-3 space-y-2 pl-3 border-l-2 border-zinc-100 dark:border-zinc-800">
                                     {replies.map((r: any) => {
-                                      const rIsMe = (r.username && igUsername && r.username.toLowerCase() === igUsername.toLowerCase()) || 
-                                                    r.from?.id === fbPageId;
+                                      const rIsMe = isFromPage(r);
                                       return (
                                         <div key={r.id} className="space-y-0.5">
                                           <div className="flex items-center gap-1.5">
