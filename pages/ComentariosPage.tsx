@@ -690,8 +690,8 @@ export default function ComentariosPage() {
           const topTargets = uniqueTargets.slice(0, 40);
           const commentsPromises = topTargets.map(async (target) => {
             try {
-              const res = await metaAds.getAdCreativeComments(target.storyId, target.platform, fbPageId || undefined);
-              return { storyId: target.storyId, platform: target.platform, comments: res.data || [] };
+              const comments = await metaAds.getAllAdCreativeComments(target.storyId, target.platform, fbPageId || undefined);
+              return { storyId: target.storyId, platform: target.platform, comments: comments || [] };
             } catch {
               return { storyId: target.storyId, platform: target.platform, comments: [] };
             }
@@ -859,28 +859,19 @@ export default function ComentariosPage() {
       });
 
       if (post.isAd) {
-        const allData = await fetchAllCommentPages(
-          () => metaAds.getAdCreativeComments(post.id, post.platform, fbPageId || undefined),
-          (after) => metaAds.getAdCreativeComments(post.id, post.platform, fbPageId || undefined, after)
-        );
+        const allData = await metaAds.getAllAdCreativeComments(post.id, post.platform, fbPageId || undefined);
         const fresh = allData
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
         setComments(fresh);
       } else if (post.platform === 'instagram') {
-        const allData = await fetchAllCommentPages(
-          () => metaAds.getInstagramMediaComments(post.id, fbPageId || undefined),
-          (after) => metaAds.getInstagramMediaComments(post.id, fbPageId || undefined, after)
-        );
+        const allData = await metaAds.getAllInstagramMediaComments(post.id, fbPageId || undefined);
         const fresh = allData
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
         setComments(fresh);
       } else {
-        const allData = await fetchAllCommentPages(
-          () => metaAds.getFacebookPostComments(post.id),
-          (after) => metaAds.getFacebookPostComments(post.id, after)
-        );
+        const allData = await metaAds.getAllFacebookPostComments(post.id);
         const fresh = allData
           .filter((c: any) => !isFromPage(c))
           .map(normalizeComment);
@@ -1503,6 +1494,46 @@ export default function ComentariosPage() {
                         </div>
                       );
                     }
+                  }
+
+                  const socialCarousel = selectedPost.platform === 'instagram'
+                    ? ((selectedPost.raw?.children?.data || []) as any[])
+                        .map((child: any) => ({
+                          url: child.media_url || child.thumbnail_url || null,
+                          poster: child.thumbnail_url || child.media_url || null,
+                          type: child.media_type || 'IMAGE',
+                        }))
+                        .filter((child: any) => child.url || child.poster)
+                    : ((selectedPost.raw?.attachments?.data || []) as any[])
+                        .flatMap((att: any) => att.subattachments?.data?.length ? att.subattachments.data : [])
+                        .map((att: any) => ({
+                          url: att.media?.image?.src || att.media?.source || att.url || null,
+                          poster: att.media?.image?.src || null,
+                          type: String(att.type || '').toUpperCase().includes('VIDEO') ? 'VIDEO' : 'IMAGE',
+                        }))
+                        .filter((att: any) => att.url || att.poster);
+                  if (socialCarousel.length > 0) {
+                    const card = socialCarousel[panelCarouselIndex] || socialCarousel[0];
+                    return (
+                      <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-black w-full aspect-square relative flex items-center justify-center">
+                        {card.type === 'VIDEO' ? (
+                          <video src={card.url || undefined} poster={card.poster || undefined} controls preload="none" playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full h-full object-contain bg-black" />
+                        ) : (
+                          <SmoothImage src={card.url || card.poster || ''} alt="" containerClassName="w-full h-full bg-zinc-950" className="object-contain" />
+                        )}
+                        {socialCarousel.length > 1 && (
+                          <>
+                            <button onClick={(e) => { e.stopPropagation(); setPanelCarouselIndex((panelCarouselIndex - 1 + socialCarousel.length) % socialCarousel.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                            <button onClick={(e) => { e.stopPropagation(); setPanelCarouselIndex((panelCarouselIndex + 1) % socialCarousel.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronRight className="w-3.5 h-3.5" /></button>
+                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full flex gap-1">
+                              {socialCarousel.map((_: any, idx: number) => (
+                                <button key={idx} onClick={(e) => { e.stopPropagation(); setPanelCarouselIndex(idx); }} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === panelCarouselIndex ? 'bg-white scale-125' : 'bg-white/40'}`} />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
                   }
 
                   if (displayThumb || selectedPost.mediaUrl) {

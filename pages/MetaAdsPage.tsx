@@ -435,8 +435,7 @@ export default function MetaAdsPage() {
           .filter(Boolean)
       );
       setActiveAds((adsRes.data || []).filter((ad: any) => {
-        const isReallyActive = ad.status === 'ACTIVE' || ad.effective_status === 'ACTIVE';
-        return isReallyActive || spentAdIds.has(ad.id);
+        return spentAdIds.has(ad.id);
       }));
       const byAdId: Record<string, any> = {};
       (insightsRes || []).forEach((i: any) => { if (i.ad_id) byAdId[i.ad_id] = i; });
@@ -555,8 +554,8 @@ export default function MetaAdsPage() {
 
     const fetchForPlatform = async (storyId: string, platform: 'instagram' | 'facebook') => {
       try {
-        const res = await metaAds.getAdCreativeComments(storyId, platform, fbPageId || undefined);
-        const fresh = (res.data || []).filter((c: any) => !isFromPage(c)).map(normalizeComment);
+        const data = await metaAds.getAllAdCreativeComments(storyId, platform, fbPageId || undefined);
+        const fresh = (data || []).filter((c: any) => !isFromPage(c)).map(normalizeComment);
         setCommentsByPlatform(prev => ({ ...prev, [platform]: fresh }));
       } catch { /* keep empty */ } finally {
         setLoadingByPlatform(prev => ({ ...prev, [platform]: false }));

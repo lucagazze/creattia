@@ -349,6 +349,39 @@ const apiDeletePageActive = async (endpoint: string, params: Record<string, stri
   return json;
 };
 
+const collectPaginatedData = async (firstPage: any): Promise<any[]> => {
+  const all = [...(firstPage?.data || [])];
+  let nextUrl: string | null = firstPage?.paging?.next || null;
+  while (nextUrl) {
+    try {
+      const res = await fetch(nextUrl);
+      const json = await res.json();
+      if (json?.error) throw new Error(json.error.message || 'Meta API error');
+      if (json?.data) all.push(...json.data);
+      nextUrl = json?.paging?.next || null;
+    } catch {
+      break;
+    }
+  }
+  return all;
+};
+
+const collectComments = async (
+  fetchPage: (after?: string) => Promise<any>,
+  maxPages = 25
+): Promise<any[]> => {
+  const all: any[] = [];
+  let after: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const res = await fetchPage(after);
+    all.push(...(res?.data || []));
+    const nextAfter = res?.paging?.cursors?.after;
+    if (!res?.paging?.next || !nextAfter || nextAfter === after) break;
+    after = nextAfter;
+  }
+  return all;
+};
+
 export const metaAds = {
   // ── ALL AD ACCOUNTS (paginado) ─────────────────────────────
   getAllAdAccounts: async () => {
@@ -414,11 +447,13 @@ export const metaAds = {
     }),
 
   // ── ALL ADS FOR ACCOUNT ──────────────────────────────────
-  getAccountAds: (accountId = META_AD_ACCOUNT) =>
-    apiGet(`${accountId}/ads`, {
+  getAccountAds: async (accountId = META_AD_ACCOUNT) => {
+    const first = await apiGet(`${accountId}/ads`, {
       fields: 'id,name,status,effective_status,configured_status,campaign_id,preview_shareable_link,creative{id,name,body,title,thumbnail_url,image_url,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_permalink_url}',
       limit: '150',
-    }),
+    });
+    return { ...first, data: await collectPaginatedData(first) };
+  },
 
   // ── AD-LEVEL INSIGHTS for a specific adset ────────────────
   getAdInsightsForAdset: async (adsetId: string, fields: string, timeRange: TimeRange): Promise<any[]> => {
@@ -439,7 +474,7 @@ export const metaAds = {
       time_range: JSON.stringify(timeRange),
       limit: '150',
     });
-    return res?.data || [];
+    return collectPaginatedData(res);
   },
 
   // ── LIFETIME INSIGHTS FOR A SINGLE AD ───────────────────
@@ -628,7 +663,7 @@ export const metaAds = {
 
   getInstagramMedia: (igId: string, limit = 8, after?: string, fbPageId?: string) => {
     const params: Record<string, string> = {
-      fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,comments.limit(100){id,text,timestamp,username,like_count,replies.limit(100){id,text,timestamp,username,from}}',
+      fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,children{media_url,media_type,thumbnail_url,permalink},comments.limit(100){id,text,timestamp,username,like_count,replies.limit(100){id,text,timestamp,username,from}}',
       limit: String(limit),
     };
     if (after) params.after = after;
@@ -652,6 +687,9 @@ export const metaAds = {
       ? apiGetPage(fbPageId, `${mediaId}/comments`, params)
       : apiGetPageActive(`${mediaId}/comments`, params);
   },
+
+  getAllInstagramMediaComments: (mediaId: string, fbPageId?: string) =>
+    collectComments((after?: string) => metaAds.getInstagramMediaComments(mediaId, fbPageId, after)),
 
   replyToInstagramComment: async (commentId: string, message: string, fbPageId?: string) => {
     return fbPageId
@@ -683,7 +721,7 @@ export const metaAds = {
 
   getFacebookPageFeed: (pageId: string, limit = 8, after?: string) => {
     const params: Record<string, string> = {
-      fields: 'id,message,created_time,full_picture,permalink_url,likes.summary(true),comments.limit(100){id,message,created_time,from{id,name},like_count,attachment{media{image{src}},type,url},replies.limit(100){id,message,from{id,name},created_time,attachment{media{image{src}},type,url}}},attachments{media,type}',
+      fields: 'id,message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true).limit(100){id,message,created_time,from{id,name},like_count,attachment{media{image{src}},type,url},replies.limit(100){id,message,from{id,name},created_time,attachment{media{image{src}},type,url}}},attachments{media,type,url,target,subattachments{media,type,url,target}}',
       limit: String(limit),
     };
     if (after) params.after = after;
@@ -702,6 +740,9 @@ export const metaAds = {
     }
     return apiGetPageActive(`${postId}/comments`, params);
   },
+
+  getAllFacebookPostComments: (postId: string) =>
+    collectComments((after?: string) => metaAds.getFacebookPostComments(postId, after)),
 
   replyToFacebookComment: async (commentId: string, message: string) => {
     return apiPostPageActive(`${commentId}/comments`, { message });
@@ -848,6 +889,9 @@ export const metaAds = {
       ? apiGetPage(pageId, `${storyId}/comments`, params)
       : apiGetPageActive(`${storyId}/comments`, params);
   },
+
+  getAllAdCreativeComments: (storyId: string, platform: 'instagram' | 'facebook' = 'instagram', pageId?: string) =>
+    collectComments((after?: string) => metaAds.getAdCreativeComments(storyId, platform, pageId, after)),
 
   getFacebookUserName: (userId: string, pageId: string) =>
     apiGetPage(pageId, userId, { fields: 'name' }),

@@ -88,10 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const hasMeta      = !!(activeProfile?.meta_account_id);
   const hasKlaviyo   = !!(activeProfile?.klaviyo_api_key);
   const connectionStatuses = activeProfile?.connection_statuses || {};
-  const hasEcommerce = !!(
-    activeProfile?.ecommerce_platform &&
-    (connectionStatuses.shopify === 'ok' || connectionStatuses.shopify === 'connected')
-  );
+  const hasEcommerce = !!detectedPlatform;
   const hasRedes = !!(
     activeProfile?.fb_page_id ||
     (activeProfile as any)?.ig_business_id

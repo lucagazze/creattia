@@ -4,7 +4,8 @@ import { useAIGate } from '../hooks/useAIGate';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import {
   Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X,
-  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play, Send, Brain
+  ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play, Send, Brain,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -215,6 +216,7 @@ export default function RedesSocialesPage() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPostPermalink, setSelectedPostPermalink] = useState<string | null>(null);
   const [selectedPostType, setSelectedPostType] = useState<'instagram' | 'facebook'>('instagram');
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   const [comments, setComments] = useState<any[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
 
@@ -410,8 +412,7 @@ export default function RedesSocialesPage() {
       const [igResults, fbResults] = await Promise.all([
         Promise.all(igPosts.map(async (post) => {
           try {
-            const res = await metaAds.getInstagramMediaComments(post.id, fbPageId || undefined);
-            const cs = res?.data || [];
+            const cs = await metaAds.getAllInstagramMediaComments(post.id, fbPageId || undefined);
             newCache[post.id] = cs; // cache ALL comments for AI context
             return cs.filter(isCommentPending).map((c: any) => ({
               network: 'instagram' as const,
@@ -424,8 +425,7 @@ export default function RedesSocialesPage() {
         })),
         Promise.all(fbPosts.map(async (post) => {
           try {
-            const res = await metaAds.getFacebookPostComments(post.id);
-            const cs = res?.data || [];
+            const cs = await metaAds.getAllFacebookPostComments(post.id);
             newCache[post.id] = cs; // cache ALL comments for AI context
             return cs.filter(isCommentPending).map((c: any) => ({
               network: 'facebook' as const,
@@ -724,8 +724,7 @@ export default function RedesSocialesPage() {
       if (type === 'instagram') {
         let commentsData: any[] = [];
         try {
-          const res = await metaAds.getInstagramMediaComments(postId);
-          commentsData = res?.data || [];
+          commentsData = await metaAds.getAllInstagramMediaComments(postId, fbPageId || undefined);
         } catch (apiErr) {
           // Fallback: use inline comments already fetched with the media
           const cachedMedia = igMedia.find(m => m.id === postId);
@@ -734,11 +733,11 @@ export default function RedesSocialesPage() {
         }
         setComments(commentsData);
       } else {
-        const res = await metaAds.getFacebookPostComments(postId);
+        const commentsData = await metaAds.getAllFacebookPostComments(postId);
         // Normalize comments for Facebook to fit same rendering structure.
         // IMPORTANT: preserve the original `from` object so isCommentPending can
         // compare from.id against fbPageId to detect page-owned replies.
-        const normalized = (res.data || []).map((c: any, idx: number) => ({
+        const normalized = (commentsData || []).map((c: any, idx: number) => ({
           id: c.id,
           // Use from.name if available; fall back to a numbered label so comments are distinguishable
           username: c.from?.name || c.name || c.username || `Comentarista ${idx + 1}`,
@@ -760,6 +759,7 @@ export default function RedesSocialesPage() {
 
   const openCommentsModal = (postId: string, permalink: string, type: 'instagram' | 'facebook') => {
     setSelectedPostId(postId);
+    setSelectedMediaIndex(0);
     const normalizedPermalink = type === 'instagram' && permalink
       ? permalink.replace('www.instagram.com/reel/', 'www.instagram.com/p/').replace('www.instagram.com/tv/', 'www.instagram.com/p/')
       : permalink;
@@ -774,6 +774,7 @@ export default function RedesSocialesPage() {
   const closeCommentsModal = () => {
     setSelectedPostId(null);
     setSelectedPostPermalink(null);
+    setSelectedMediaIndex(0);
     setComments([]);
     setReplyingTo(null);
     setCommentInput('');
@@ -1817,6 +1818,31 @@ export default function RedesSocialesPage() {
         const activePost = selectedPostType === 'instagram'
           ? igMedia.find(m => m.id === selectedPostId)
           : fbMedia.find(m => m.id === selectedPostId);
+        const carouselItems = activePost
+          ? selectedPostType === 'instagram'
+            ? ((activePost.children?.data || []) as any[])
+                .map((child: any) => ({
+                  mediaUrl: child.media_url || child.thumbnail_url || null,
+                  thumbnailUrl: child.thumbnail_url || child.media_url || null,
+                  mediaType: child.media_type || 'IMAGE',
+                  permalink: child.permalink || activePost.permalink,
+                }))
+                .filter((child: any) => child.mediaUrl || child.thumbnailUrl)
+            : ((activePost.attachments?.data || []) as any[])
+                .flatMap((att: any) => att.subattachments?.data?.length ? att.subattachments.data : [att])
+                .map((att: any) => ({
+                  mediaUrl: att.media?.image?.src || att.media?.source || att.url || activePost.full_picture || null,
+                  thumbnailUrl: att.media?.image?.src || activePost.full_picture || null,
+                  mediaType: String(att.type || activePost.media_type || '').toUpperCase().includes('VIDEO') ? 'VIDEO' : 'IMAGE',
+                  permalink: att.target?.url || activePost.permalink_url,
+                }))
+                .filter((att: any) => att.mediaUrl || att.thumbnailUrl)
+          : [];
+        const activeMedia = carouselItems[selectedMediaIndex] || carouselItems[0] || null;
+        const activeMediaUrl = activeMedia?.mediaUrl || activePost?.media_url || activePost?.source || activePost?.full_picture || null;
+        const activePosterUrl = activeMedia?.thumbnailUrl || activePost?.thumbnail_url || activePost?.full_picture || null;
+        const activeMediaType = activeMedia?.mediaType || activePost?.media_type;
+        const hasCarousel = carouselItems.length > 1;
 
         return (
           <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
@@ -1877,8 +1903,8 @@ export default function RedesSocialesPage() {
                 </button>
                 <button
                   onClick={() => {
-                    const imageUrl = activePost?.media_url || activePost?.full_picture || activePost?.thumbnail_url || null;
-                    const isVid = activePost?.media_type === 'VIDEO' || !!activePost?.source;
+                    const imageUrl = activePosterUrl || activeMediaUrl;
+                    const isVid = activeMediaType === 'VIDEO' || !!activePost?.source;
                     handleTabChange('metrics', imageUrl, isVid);
                   }}
                   className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
@@ -1897,25 +1923,42 @@ export default function RedesSocialesPage() {
                   {activePost ? (
                     <>
                       {/* Media Player */}
-                      {activePost.media_type === 'VIDEO' || activePost.media_url?.includes('.mp4') || activePost.source ? (
+                      {activeMediaType === 'VIDEO' || activeMediaUrl?.includes('.mp4') || activePost.source ? (
                         <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
                           <video
-                            src={activePost.media_url || activePost.source}
-                            poster={activePost.thumbnail_url || activePost.full_picture}
+                            src={activeMediaUrl || activePost.source}
+                            poster={activePosterUrl || undefined}
                             controls
                             preload="none"
                             {...{ referrerPolicy: "no-referrer" }}
                             className="w-full h-full object-contain"
                           />
+                          {hasCarousel && (
+                            <>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedMediaIndex((selectedMediaIndex - 1 + carouselItems.length) % carouselItems.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronLeft className="w-4 h-4" /></button>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedMediaIndex((selectedMediaIndex + 1) % carouselItems.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronRight className="w-4 h-4" /></button>
+                            </>
+                          )}
                         </div>
-                      ) : (activePost.media_url || activePost.full_picture) ? (
+                      ) : (activeMediaUrl || activePosterUrl) ? (
                         <div className="rounded-2xl overflow-hidden bg-zinc-105 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
                           <SmoothImage
-                            src={activePost.media_url || activePost.full_picture}
+                            src={activeMediaUrl || activePosterUrl}
                             alt="Contexto"
                             containerClassName="w-full h-full"
-                            className="object-cover"
+                            className="object-contain"
                           />
+                          {hasCarousel && (
+                            <>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedMediaIndex((selectedMediaIndex - 1 + carouselItems.length) % carouselItems.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronLeft className="w-4 h-4" /></button>
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedMediaIndex((selectedMediaIndex + 1) % carouselItems.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center z-10"><ChevronRight className="w-4 h-4" /></button>
+                              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full flex gap-1.5">
+                                {carouselItems.map((_: any, idx: number) => (
+                                  <button key={idx} onClick={(e) => { e.stopPropagation(); setSelectedMediaIndex(idx); }} className={`w-1.5 h-1.5 rounded-full transition-all ${idx === selectedMediaIndex ? 'bg-white scale-125' : 'bg-white/40'}`} />
+                                ))}
+                              </div>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800 aspect-square w-full flex flex-col items-center justify-center text-zinc-400 gap-1.5 p-4 text-center">

@@ -1209,6 +1209,14 @@ export default function IntegracionesPage() {
     }
 
     try {
+      if (platformId === "chatwoot") {
+        const cacheId = activeProfileId || profile?.id || viewAsProfile?.id || 'default';
+        try {
+          sessionStorage.removeItem(`car_conv_meta_${cacheId}`);
+          sessionStorage.removeItem(`car_channel_metas_${cacheId}`);
+        } catch {}
+      }
+
       if (platformId === "meta") {
         localStorage.removeItem('active_fb_page_id');
         localStorage.removeItem('current_facebook_access_token');
@@ -1236,9 +1244,21 @@ export default function IntegracionesPage() {
       if (platformId === "mercadolibre") {
         extraData = { mercadolibre_country: null };
       } else if (platformId === "meta") {
-        extraData = { facebook: null, instagram: null };
+        extraData = {
+          facebook: null,
+          instagram: null,
+          meta_account_name: null,
+          facebook_page_name: null,
+          instagram_username: null,
+        };
       } else if (platformId === "chatwoot") {
-        extraData = { chatwoot: null, mensajeria: null };
+        extraData = {
+          chatwoot: null,
+          mensajeria: null,
+          messaging: null,
+          chatwoot_url: null,
+          chatwoot_token: null,
+        };
       }
       await updateConnectionStatus(statusKey, null, extraData);
 
