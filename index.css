@@ -71,6 +71,16 @@ input:-webkit-autofill:focus {
   font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+body.app-typography,
+body.app-typography *:not(code):not(pre):not(kbd):not(samp):not(.font-mono) {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+body.app-typography .font-display,
+body.app-typography .font-sans {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
 /* Minimal Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -354,4 +364,3 @@ html.is-printing .recharts-surface {
   /* Remove redundant page-level horizontal padding */
   .page-section { padding-left: 0 !important; padding-right: 0 !important; }
 }
-
