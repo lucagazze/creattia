@@ -406,16 +406,18 @@ export default function RedesSocialesPage() {
           }),
         });
         
-        if (res.ok) {
-          const data = await res.json();
-          if (data.draft) {
-            let draftText = data.draft;
-            if (target.id !== comment.id) {
-              const prefix = `@${usernameStr} `;
-              if (!draftText.toLowerCase().startsWith(`@${usernameStr.toLowerCase()}`)) draftText = prefix + draftText;
-            }
-            setCommentReplies(prev => ({ ...prev, [comment.id]: draftText }));
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || err.error || 'No se pudo generar el borrador.');
+        }
+        const data = await res.json();
+        if (data.draft) {
+          let draftText = data.draft;
+          if (target.id !== comment.id) {
+            const prefix = `@${usernameStr} `;
+            if (!draftText.toLowerCase().startsWith(`@${usernameStr.toLowerCase()}`)) draftText = prefix + draftText;
           }
+          setCommentReplies(prev => ({ ...prev, [comment.id]: draftText }));
         }
       } catch (err) {
         console.error(`Error generating bulk draft for comment ${comment.id}:`, err);
@@ -528,10 +530,12 @@ export default function RedesSocialesPage() {
           otherComments,
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.draft) setPendingReplies(prev => ({ ...prev, [commentId]: data.draft }));
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || 'No se pudo generar el borrador.');
       }
+      const data = await res.json();
+      if (data.draft) setPendingReplies(prev => ({ ...prev, [commentId]: data.draft }));
     } catch (err) {
       console.error('Error generating draft:', err);
     } finally {
@@ -650,7 +654,10 @@ export default function RedesSocialesPage() {
           forceLang: lang,
         }),
       });
-      if (!res.ok) throw new Error(`Draft reply error: ${res.status}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || `Draft reply error: ${res.status}`);
+      }
       const data = await res.json();
       if (data.draft) {
         let draftText = data.draft;
@@ -730,7 +737,10 @@ export default function RedesSocialesPage() {
           otherComments: otherCommentsList,
         }),
       });
-      if (!res.ok) throw new Error(`Draft reply error: ${res.status}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || `Draft reply error: ${res.status}`);
+      }
       const data = await res.json();
       if (data.draft) {
         setCommentInput(data.draft);

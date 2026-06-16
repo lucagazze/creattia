@@ -975,7 +975,10 @@ export default function ComentariosPage() {
           forceLang: lang,
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || 'No se pudo generar el borrador.');
+      }
       const data = await res.json();
       if (data.draft) {
         let draftText = data.draft;

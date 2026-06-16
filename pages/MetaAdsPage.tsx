@@ -474,7 +474,10 @@ export default function MetaAdsPage() {
     if (clientId) params.set('clientId', clientId);
     try {
       const res = await fetch(`/api/meta-video?${params}`);
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || 'No se pudo resolver el creativo.');
+      }
       const data = await res.json();
       let thumbnail: string | null = null;
       if (data.type === 'carousel' && data.cards?.[0]?.url) thumbnail = data.cards[0].url;
@@ -623,7 +626,10 @@ export default function MetaAdsPage() {
           postPlatform: activeCommentPlatform, forceLang: lang,
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || 'No se pudo generar el borrador.');
+      }
       const data = await res.json();
       if (data.draft) {
         let draftText = data.draft;

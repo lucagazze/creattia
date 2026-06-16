@@ -10,6 +10,22 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+const getFirstEnv = (...names: string[]) => {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return '';
+};
+
+const GEMINI_MODELS = [
+  process.env.GEMINI_MODEL,
+  process.env.GOOGLE_AI_MODEL,
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-1.5-flash',
+].filter(Boolean) as string[];
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const argentineTime = new Date().toLocaleString('es-AR', {
     timeZone: 'America/Argentina/Buenos_Aires',
@@ -96,14 +112,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     conversationHistory, isDM, forceLang,
   } = req.body || {};
 
-  const forcedFallbackDraft = forceLang === 'en'
-    ? "Hi! Thanks for reaching out. How can we help you?"
-    : "¡Hola! Gracias por contactarte con nosotros. ¿En qué te podemos ayudar?";
-
-  const geminiKey = process.env.GOOGLE_AI_API_KEY;
-  const openAiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = getFirstEnv('GOOGLE_AI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY');
+  const openAiKey = getFirstEnv('OPENAI_API_KEY', 'OPENAI_KEY');
   if (!geminiKey && !openAiKey) {
-    return res.status(200).json({ draft: `${forcedFallbackDraft} (Modo demostración)` });
+    return res.status(503).json({
+      error: 'AI_NOT_CONFIGURED',
+      detail: 'No hay GOOGLE_AI_API_KEY/GEMINI_API_KEY ni OPENAI_API_KEY configurada en el servidor.'
+    });
   }
 
   if (!clientId || !itemText) {
@@ -535,29 +550,38 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
       ? `${dmHistory}\n\nMensaje del cliente: "${itemText}"\nRedactá la respuesta${username ? ` para ${username}` : ''}:`
       : `${postCaption ? `Publicación: "${postCaption}"\n` : ''}${threadContext ? `\n${threadContext}\n` : ''}Comentario: @${username}: "${itemText}"\nRedactá la respuesta:`;
 
-    // 11. Call Gemini 2.5 Flash
+    // 11. Call Gemini, trying current models before falling back to OpenAI
     let draftText = '';
+    const aiErrors: string[] = [];
 
     if (geminiKey) {
-      try {
-        const geminiBody = {
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
-        };
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(geminiBody) }
-        );
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json() as any;
-          const parts = geminiData.candidates?.[0]?.content?.parts || [];
-          draftText = (parts.find((p: any) => p.text)?.text || '').trim();
-        } else {
-          console.error('[draft-reply] Gemini error:', geminiRes.status, await geminiRes.text());
+      const geminiBody = {
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+      };
+
+      for (const model of GEMINI_MODELS) {
+        try {
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(geminiBody) }
+          );
+          if (geminiRes.ok) {
+            const geminiData = await geminiRes.json() as any;
+            const parts = geminiData.candidates?.[0]?.content?.parts || [];
+            draftText = (parts.find((p: any) => p.text)?.text || '').trim();
+            if (draftText) break;
+            aiErrors.push(`Gemini ${model}: empty response`);
+          } else {
+            const errText = await geminiRes.text();
+            aiErrors.push(`Gemini ${model}: HTTP ${geminiRes.status} ${errText.slice(0, 300)}`);
+            console.error('[draft-reply] Gemini error:', model, geminiRes.status, errText);
+          }
+        } catch (e: any) {
+          aiErrors.push(`Gemini ${model}: ${e?.message || String(e)}`);
+          console.error('[draft-reply] Gemini exception:', model, e);
         }
-      } catch (e) {
-        console.error('[draft-reply] Gemini exception:', e);
       }
     }
 
@@ -578,24 +602,30 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
           draftText = (oaData.choices?.[0]?.message?.content || '').trim();
         } else {
           const errText = await oaRes.text();
-          console.warn('[draft-reply] OpenAI error, will fallback to demo reply:', oaRes.status, errText);
+          aiErrors.push(`OpenAI: HTTP ${oaRes.status} ${errText.slice(0, 300)}`);
+          console.warn('[draft-reply] OpenAI error:', oaRes.status, errText);
         }
       } catch (e: any) {
-        console.warn('[draft-reply] OpenAI exception, will fallback to demo reply:', e.message);
+        aiErrors.push(`OpenAI: ${e?.message || String(e)}`);
+        console.warn('[draft-reply] OpenAI exception:', e.message);
       }
     }
 
     if (!draftText) {
-      console.warn('[draft-reply] Falling back to default demo response due to AI failure or missing keys');
-      draftText = `${forcedFallbackDraft} (Modo demostración)`;
+      console.error('[draft-reply] All AI providers failed:', aiErrors.join(' | '));
+      return res.status(502).json({
+        error: 'AI_PROVIDER_FAILED',
+        detail: aiErrors[0] || 'No se pudo generar el borrador con IA.'
+      });
     }
 
     return res.status(200).json({ draft: draftText });
 
   } catch (err: any) {
-    console.error('[draft-reply] Unhandled error, returning fallback draft:', err);
-    return res.status(200).json({
-      draft: `${forcedFallbackDraft} (Modo demostración - Fallback de Error)`
+    console.error('[draft-reply] Unhandled error:', err);
+    return res.status(500).json({
+      error: 'DRAFT_REPLY_FAILED',
+      detail: err?.message || 'No se pudo generar el borrador con IA.'
     });
   }
 }

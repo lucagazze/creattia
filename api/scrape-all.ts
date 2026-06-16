@@ -9,6 +9,22 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+const getFirstEnv = (...names: string[]) => {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return '';
+};
+
+const GEMINI_MODELS = [
+  process.env.GEMINI_MODEL,
+  process.env.GOOGLE_AI_MODEL,
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-1.5-flash',
+].filter(Boolean) as string[];
+
 // Basic in-memory rate limiter for Gemini analysis (10 calls / 10 min per IP)
 const geminiRateMap = new Map<string, { count: number; resetAt: number }>();
 function checkGeminiRateLimit(ip: string): boolean {
@@ -255,8 +271,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── CREATIVE ANALYSIS — no auth required (landing page + app users) ─────────
   const { type: earlyType, frames: earlyFrames, isVideo: earlyIsVideo } = req.body as any;
   if (earlyType === 'analyze-creative') {
-    const geminiKey = process.env.GOOGLE_AI_API_KEY;
-    if (!geminiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY no configurada' });
+    const geminiKey = getFirstEnv('GOOGLE_AI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY');
+    if (!geminiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY/GEMINI_API_KEY no configurada' });
     if (!earlyFrames?.length) return res.status(400).json({ error: 'No frames provided' });
 
     // Rate limit: 10 Gemini calls per IP per 10 minutes
@@ -275,20 +291,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
         parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Data } });
       }
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts }],
-            generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' },
-            thinkingConfig: { thinkingBudget: 0 },
-          }),
+      let geminiData: any = null;
+      const aiErrors: string[] = [];
+      for (const model of GEMINI_MODELS) {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts }],
+              generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' },
+              thinkingConfig: { thinkingBudget: 0 },
+            }),
+          }
+        );
+        if (geminiRes.ok) {
+          geminiData = await geminiRes.json();
+          break;
         }
-      );
-      if (!geminiRes.ok) return res.status(geminiRes.status).json({ error: 'Gemini API error' });
-      const geminiData = await geminiRes.json();
+        const errText = await geminiRes.text();
+        aiErrors.push(`${model}: HTTP ${geminiRes.status} ${errText.slice(0, 300)}`);
+      }
+      if (!geminiData) return res.status(502).json({ error: 'Gemini API error', detail: aiErrors[0] || 'No se pudo analizar el creativo.' });
       const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return res.status(500).json({ error: 'Empty AI response' });
       return res.status(200).json(JSON.parse(text));

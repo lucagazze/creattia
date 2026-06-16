@@ -906,7 +906,10 @@ export default function MensajeriaPage() {
           isDM: true,
         }),
       });
-      if (!res.ok) throw new Error('Error al generar borrador');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || 'Error al generar borrador');
+      }
       const data = await res.json();
       if (data.draft && selectedRef.current?.id === selected.id) {
         setReply(data.draft);

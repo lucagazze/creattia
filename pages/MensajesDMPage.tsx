@@ -606,7 +606,10 @@ export default function MensajesDMPage() {
           isDM: true,
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.error || 'No se pudo generar el borrador.');
+      }
       const data = await res.json();
       if (data.draft) setReplyText(data.draft);
     } catch {
