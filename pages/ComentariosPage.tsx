@@ -1380,17 +1380,6 @@ export default function ComentariosPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {/* Bulk drafts — compact on mobile, full on desktop */}
-                <button
-                  onClick={bulkGenerateDrafts}
-                  disabled={bulkLoading || comments.filter(c => isCommentPending(c, selectedPost.platform)).length === 0}
-                  className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 dark:hover:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-xl text-[11px] font-black border border-violet-100/50 dark:border-violet-900/20 transition-all disabled:opacity-50"
-                  title="Generar borradores para todos los pendientes"
-                >
-                  {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  <span className="hidden md:inline">Generar borradores para todos ({comments.filter(c => isCommentPending(c, selectedPost.platform)).length})</span>
-                  <span className="md:hidden">{comments.filter(c => isCommentPending(c, selectedPost.platform)).length > 0 && <span className="text-[10px] font-black">{comments.filter(c => isCommentPending(c, selectedPost.platform)).length}</span>}</span>
-                </button>
                 {selectedPost.permalink && (
                   <a href={selectedPost.permalink} target="_blank" rel="noreferrer"
                     title={selectedPost.permalink}
@@ -1674,6 +1663,16 @@ export default function ComentariosPage() {
                         {comments.length}
                       </span>
                     </button>
+                    {comments.some(c => isCommentPending(c, selectedPost!.platform)) && (
+                      <button
+                        onClick={bulkGenerateDrafts}
+                        disabled={bulkLoading}
+                        className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
+                      >
+                        {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        <span className="hidden sm:inline">Borradores IA</span>
+                      </button>
+                    )}
                   </div>
                 )}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
