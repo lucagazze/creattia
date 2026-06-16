@@ -171,6 +171,7 @@ export default function ComentariosPage() {
 
   const [loading, setLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState('Cargando publicaciones con comentarios...');
+  const [syncingComments, setSyncingComments] = useState(false);
   const [igError, setIgError] = useState<string | null>(null);
   const [fbError, setFbError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -520,6 +521,7 @@ export default function ComentariosPage() {
     setPosts([]);
     setSelectedPost(null);
     setLoading(true);
+    setSyncingComments(false);
     setFbError(null);
     setIgError(null);
   }, [clientId]);
@@ -705,44 +707,43 @@ export default function ComentariosPage() {
 
         if (!active) return;
 
-        setLoadingMessage('Cargando todos los comentarios y respuestas...');
-
-        const hydrateOrganicComments = async () => {
-          const igMedia = [...(((igMediaRes50 as any)?.data || igMediaRes50 || []) as any[])];
-          const fbMedia = [...(((fbMediaRes50 as any)?.data || fbMediaRes50 || []) as any[])];
-
-          const hydratedIg = await mapConcurrent(igMedia, 4, async (post: any) => {
-            const expected = Number(post.comments_count || post.comments?.summary?.total_count || 0);
-            if (expected <= 0) return post;
-            try {
-              const fullComments = await metaAds.getAllInstagramMediaComments(post.id, fbPageId || undefined);
-              return { ...post, comments: { ...(post.comments || {}), data: fullComments || [] } };
-            } catch {
-              return post;
-            }
-          });
-
-          const hydratedFb = await mapConcurrent(fbMedia, 4, async (post: any) => {
-            const expected = Number(post.comments?.summary?.total_count || 0);
-            if (expected <= 0) return post;
-            try {
-              const fullComments = await metaAds.getAllFacebookPostComments(post.id);
-              return { ...post, comments: { ...(post.comments || {}), data: fullComments || [] } };
-            } catch {
-              return post;
-            }
-          });
-
-          return {
-            ig: Array.isArray((igMediaRes50 as any)?.data) ? { ...(igMediaRes50 as any), data: hydratedIg } : hydratedIg,
-            fb: Array.isArray((fbMediaRes50 as any)?.data) ? { ...(fbMediaRes50 as any), data: hydratedFb } : hydratedFb,
-          };
-        };
-
         const ads = adsRes?.data || [];
         const relevantAds = ads.filter((ad: any) => 
           ad.creative && (ad.creative.effective_object_story_id || ad.creative.effective_instagram_story_id)
         );
+
+        const igMedia = [...(((igMediaRes50 as any)?.data || igMediaRes50 || []) as any[])];
+        const fbMedia = [...(((fbMediaRes50 as any)?.data || fbMediaRes50 || []) as any[])];
+        let adsCommentsResults50: any[] = [];
+
+        const wrapIg = () => Array.isArray((igMediaRes50 as any)?.data)
+          ? { ...(igMediaRes50 as any), data: igMedia }
+          : igMedia;
+        const wrapFb = () => Array.isArray((fbMediaRes50 as any)?.data)
+          ? { ...(fbMediaRes50 as any), data: fbMedia }
+          : fbMedia;
+        const publishItems = () => {
+          if (!active) return;
+          const allItems = processMediaRes(wrapIg(), wrapFb(), relevantAds, adsCommentsResults50);
+          setPosts(allItems);
+
+          const count = allItems.reduce((sum, p) => sum + (p.pendingComments || 0), 0);
+          setPendingCommentsCount(count);
+          if (clientId) {
+            try { localStorage.setItem(`car_pending_comments_count_${clientId}`, String(count)); } catch { /* ignore */ }
+          }
+
+          if (allItems.length > 0) {
+            try { sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems })); } catch { /* quota exceeded — skip cache */ }
+          } else {
+            try { sessionStorage.removeItem(`comentarios_cache_${clientId}`); } catch { /* ignore */ }
+          }
+        };
+
+        setSyncingComments(true);
+        setLoadingMessage('Mostrando publicaciones encontradas...');
+        publishItems();
+        setLoading(false);
 
         const targets: { storyId: string; platform: 'instagram' | 'facebook' }[] = [];
         relevantAds.forEach((ad: any) => {
@@ -760,40 +761,67 @@ export default function ComentariosPage() {
         });
         const uniqueTargets = Object.values(uniqueTargetsMap);
 
-        let adsCommentsResults50: any[] = [];
-        if (uniqueTargets.length > 0) {
+        const hydrateAdsComments = async () => {
+          if (uniqueTargets.length === 0) return;
           setLoadingMessage('Cargando comentarios de anuncios...');
-          adsCommentsResults50 = await mapConcurrent(uniqueTargets, 6, async (target) => {
+          await mapConcurrent(uniqueTargets, 6, async (target) => {
             try {
               const comments = await metaAds.getAllAdCreativeComments(target.storyId, target.platform, fbPageId || undefined);
-              return { storyId: target.storyId, platform: target.platform, comments: comments || [] };
+              adsCommentsResults50 = [
+                ...adsCommentsResults50.filter(item => !(item.storyId === target.storyId && item.platform === target.platform)),
+                { storyId: target.storyId, platform: target.platform, comments: comments || [] },
+              ];
+              publishItems();
+              return null;
             } catch {
-              return { storyId: target.storyId, platform: target.platform, comments: [] };
+              adsCommentsResults50 = [
+                ...adsCommentsResults50.filter(item => !(item.storyId === target.storyId && item.platform === target.platform)),
+                { storyId: target.storyId, platform: target.platform, comments: [] },
+              ];
+              publishItems();
+              return null;
             }
           });
-        }
+        };
 
-        const { ig: hydratedIgMediaRes, fb: hydratedFbMediaRes } = await hydrateOrganicComments();
+        const hydrateOrganicComments = async () => {
+          setLoadingMessage('Cargando todos los comentarios y respuestas...');
+          await Promise.all([
+            mapConcurrent(igMedia, 4, async (post: any, index) => {
+              const expected = Number(post.comments_count || post.comments?.summary?.total_count || 0);
+              if (expected <= 0) return null;
+              try {
+                const fullComments = await metaAds.getAllInstagramMediaComments(post.id, fbPageId || undefined);
+                igMedia[index] = { ...post, comments: { ...(post.comments || {}), data: fullComments || [] } };
+                publishItems();
+              } catch { /* keep embedded comments */ }
+              return null;
+            }),
+            mapConcurrent(fbMedia, 4, async (post: any, index) => {
+              const expected = Number(post.comments?.summary?.total_count || 0);
+              if (expected <= 0) return null;
+              try {
+                const fullComments = await metaAds.getAllFacebookPostComments(post.id);
+                fbMedia[index] = { ...post, comments: { ...(post.comments || {}), data: fullComments || [] } };
+                publishItems();
+              } catch { /* keep embedded comments */ }
+              return null;
+            }),
+          ]);
+        };
+
+        await Promise.all([hydrateAdsComments(), hydrateOrganicComments()]);
         if (!active) return;
-
-        setLoadingMessage('Preparando publicaciones pendientes...');
-        const allItems = processMediaRes(hydratedIgMediaRes, hydratedFbMediaRes, relevantAds, adsCommentsResults50);
-        setPosts(allItems);
-        
-        // Update badge with final accurate count from full deep-fetch
-        const countFinal = allItems.reduce((sum, p) => sum + (p.pendingComments || 0), 0);
-        setPendingCommentsCount(countFinal);
-        if (clientId) { try { localStorage.setItem(`car_pending_comments_count_${clientId}`, String(countFinal)); } catch { /* ignore */ } }
-        if (allItems.length > 0) {
-          try { sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems })); } catch { /* quota exceeded — skip cache */ }
-        } else {
-          try { sessionStorage.removeItem(`comentarios_cache_${clientId}`); } catch { /* ignore */ }
-        }
+        setLoadingMessage('Publicaciones actualizadas.');
+        publishItems();
 
       } catch (err) {
         console.error('Error loading comments feed:', err);
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+          setSyncingComments(false);
+        }
       }
     };
 
@@ -1263,7 +1291,9 @@ export default function ComentariosPage() {
             Comentarios
           </h1>
           <p className="page-subtitle mt-1">
-            {totalPending > 0
+            {syncingComments
+              ? `${loadingMessage} El número del navbar se actualiza en vivo.`
+              : totalPending > 0
               ? `${totalPending} comentarios pendientes de respuesta en ${posts.filter(p => p.pendingComments > 0).length} publicaciones`
               : 'Todos los comentarios están respondidos'}
           </p>
@@ -1342,7 +1372,19 @@ export default function ComentariosPage() {
 
 
       {/* Content */}
-      {loading ? null : filteredPosts.length === 0 ? (
+      {loading ? null : filteredPosts.length === 0 && syncingComments ? (
+        <div className="bg-white dark:bg-zinc-900 border border-violet-200/70 dark:border-violet-900/50 rounded-3xl p-16 text-center max-w-md mx-auto space-y-4 shadow-sm">
+          <div className="w-16 h-16 bg-violet-50 dark:bg-violet-950/25 rounded-full flex items-center justify-center mx-auto">
+            <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+          </div>
+          <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">
+            Buscando comentarios pendientes
+          </h3>
+          <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
+            {loadingMessage}
+          </p>
+        </div>
+      ) : filteredPosts.length === 0 ? (
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-16 text-center max-w-md mx-auto space-y-4 shadow-sm">
           <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8 text-emerald-500" />
