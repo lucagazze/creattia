@@ -186,7 +186,6 @@ export default function ComentariosPage() {
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
   const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
   const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
-  const [mobileTab, setMobileTab] = useState<'post' | 'comments' | 'stats' | 'analysis'>('comments');
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
@@ -799,7 +798,6 @@ export default function ComentariosPage() {
     setLikedIds({});
     setPlayingVideoId(null);
     setCommentFilter('pending');
-    setMobileTab('comments'); // always land on comments tab on mobile
 
     // Always fetch fresh IG permalink and normalize to /p/ format (avoids reel player redirect)
     if (post.platform === 'instagram') {
@@ -1396,21 +1394,11 @@ export default function ComentariosPage() {
             </div>
 
             {/* Modal tabs */}
-            <div className="grid grid-cols-3 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+            <div className="grid grid-cols-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
               <button
-                onClick={() => { setMobileTab('post'); handleTabChange('comments'); }}
-                className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
-                  mobileTab === 'post'
-                    ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
-                    : 'text-zinc-500 dark:text-zinc-400'
-                }`}
-              >
-                Anuncio
-              </button>
-              <button
-                onClick={() => { setMobileTab('comments'); handleTabChange('comments'); }}
+                onClick={() => handleTabChange('comments')}
                 className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${
-                  mobileTab === 'comments'
+                  slideTab === 'comments'
                     ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
                     : 'text-zinc-500 dark:text-zinc-400'
                 }`}
@@ -1428,11 +1416,10 @@ export default function ComentariosPage() {
                     md?.type === 'carousel' ? (md.cards?.[0]?.url || selectedPost.thumbnail) :
                     selectedPost.thumbnail || selectedPost.mediaUrl;
                   const isVid = md?.type === 'video_source' || selectedPost.mediaType === 'VIDEO';
-                  setMobileTab('analysis');
                   handleTabChange('metrics', imageUrl, isVid);
                 }}
                 className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
-                  mobileTab === 'analysis'
+                  slideTab === 'metrics'
                     ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
                     : 'text-zinc-500 dark:text-zinc-400'
                 }`}
@@ -1443,10 +1430,8 @@ export default function ComentariosPage() {
             {/* Body: post preview + comments */}
             <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
 
-              {/* Left: Post media — hidden on mobile when not on Anuncio tab */}
-              <div className={`${
-                mobileTab !== 'post' ? 'hidden' : 'flex'
-              } md:w-[280px] flex-shrink-0 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10`}>
+              {/* Left: Post media — always visible */}
+              <div className="flex md:w-[280px] flex-shrink-0 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10">
                 {/* Media */}
                 {(() => {
                   const mediaData = resolvedDetails[selectedPost.id];
@@ -1545,8 +1530,8 @@ export default function ComentariosPage() {
                   return null;
                 })()}
 
-                {/* Caption + stats: mobile only (desktop gets them in the right panel) */}
-                <div className="md:hidden space-y-3">
+                {/* Caption + stats: always below the media */}
+                <div className="space-y-3">
                   {selectedPost.caption && (
                     <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
                       <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Descripción</p>
@@ -1567,30 +1552,9 @@ export default function ComentariosPage() {
                 </div>
               </div>
 
-              {/* Right: description (desktop Anuncio) | comments | analysis */}
-              <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} flex-1 overflow-hidden flex-col min-h-0`}>
-                {mobileTab === 'post' ? (
-                  // Desktop-only: description + stats for Anuncio tab
-                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                    {selectedPost.caption && (
-                      <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-2xl">
-                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Descripción del post</p>
-                        <p className="text-[13px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium whitespace-pre-wrap">{selectedPost.caption}</p>
-                      </div>
-                    )}
-                    <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-2xl space-y-2">
-                      <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Comentarios</p>
-                      <div className="flex items-center justify-between text-[13px] font-bold">
-                        <span className="text-zinc-600 dark:text-zinc-400">Total</span>
-                        <span className="text-zinc-900 dark:text-white">{comments.length}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[13px] font-bold">
-                        <span className="text-amber-600 dark:text-amber-400">Sin responder</span>
-                        <span className="text-amber-600 dark:text-amber-400">{comments.filter(c => isCommentPending(c, selectedPost.platform)).length}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : slideTab === 'metrics' ? (
+              {/* Right: comments | analysis */}
+              <div className="flex flex-1 overflow-hidden flex-col min-h-0">
+                {slideTab === 'metrics' ? (
                   <div className="flex-1 overflow-y-auto p-5 space-y-5">
                     {analyzingTribe ? (
                       <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">

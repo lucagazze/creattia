@@ -198,7 +198,6 @@ export default function MetaAdsPage() {
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
   const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
   const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
-  const [mobileTab, setMobileTab] = useState<'post' | 'comments' | 'stats' | 'analysis'>('post');
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
@@ -514,7 +513,7 @@ export default function MetaAdsPage() {
     setActiveCommentPlatform(initialPlatform);
     setLoadingByPlatform({ instagram: !!igStoryId, facebook: !!fbStoryId });
     setOpenReplies({}); setReplyTexts({}); setReplyErrors({}); setLikedIds({});
-    setCommentFilter('pending'); setMobileTab('comments');
+    setCommentFilter('pending');
     setPanelCarouselIndex(0); setPanelPlayingVideo(false);
     setLifetimeInsights(null); setLoadingLifetime(true);
     metaAds.getAdLifetimeInsights(ad.id)
@@ -986,13 +985,11 @@ export default function MetaAdsPage() {
                 </div>
 
 	                {/* Modal tabs */}
-	                <div className="grid grid-cols-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
-	                  <button onClick={() => { setMobileTab('post'); handleTabChange('comments'); }} className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${mobileTab === 'post' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>Anuncio</button>
-	                  <button onClick={() => { setMobileTab('comments'); handleTabChange('comments'); }} className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${mobileTab === 'comments' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
+	                <div className="grid grid-cols-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+	                  <button onClick={() => handleTabChange('comments')} className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${slideTab === 'comments' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
 	                    Comentarios
 	                    {!loadingComments && comments.length > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>}
 	                  </button>
-	                  <button onClick={() => { setMobileTab('stats'); handleTabChange('comments'); }} className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${mobileTab === 'stats' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>Rendimiento</button>
 	                  <button
 	                    onClick={() => {
 	                      const md = resolvedDetails[selectedAd.adId];
@@ -1000,65 +997,17 @@ export default function MetaAdsPage() {
 	                        md?.type === 'image' ? md.url :
 	                        md?.type === 'carousel' ? (md.cards?.[0]?.url || thumbUrl) :
 	                        thumbUrl;
-	                      setMobileTab('analysis');
 	                      handleTabChange('metrics', imageUrl, md?.type === 'video_source');
 	                    }}
-	                    className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${mobileTab === 'analysis' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}
+	                    className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${slideTab === 'metrics' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}
 	                  >Análisis de creativos</button>
 	                </div>
 
-                {/* Rendimiento pane — mobile only, stats tab */}
-                {mobileTab === 'stats' && (
-	                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                    {insights && (
-                      <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                        <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
-                        {[
-                          { label: 'Gasto', val: `$${adSpend.toFixed(0)}` },
-                          { label: 'Compras', val: purchases > 0 ? String(purchases) : '—', highlight: purchases > 0 },
-                          { label: 'Leads', val: leads > 0 ? String(leads) : '—', highlight: leads > 0 },
-                          { label: 'Mensajes', val: msgs > 0 ? String(msgs) : '—', highlight: msgs > 0 },
-                          { label: 'CPA', val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—' },
-                          { label: 'ROAS', val: adRoas > 0 ? `${adRoas.toFixed(1)}` : '—', highlight: adRoas > 1 },
-                          { label: 'CTR', val: adCtr > 0 ? `${adCtr.toFixed(1)}%` : '—' },
-                          { label: 'Alcance', val: fmtN(adReach) },
-                        ].map(({ label, val, highlight }: any) => (
-                          <div key={label} className="flex items-center justify-between text-[12px] font-bold">
-                            <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
-                            <span className={highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}>{val}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                      <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Comentarios</p>
-                      {selectedAd.igStoryId && (
-                        <button onClick={() => { switchCommentPlatform('instagram'); setMobileTab('comments'); }} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                          <span className="flex items-center gap-1.5 text-pink-500"><Instagram className="w-3 h-3" /> Instagram</span>
-                          <span className="flex items-center gap-1.5">
-                            {loadingByPlatform.instagram ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : <span className="text-zinc-900 dark:text-white">{igTotal}</span>}
-                            {igPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{igPending} pend.</span>}
-                          </span>
-                        </button>
-                      )}
-                      {selectedAd.fbStoryId && (
-                        <button onClick={() => { switchCommentPlatform('facebook'); setMobileTab('comments'); }} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                          <span className="flex items-center gap-1.5 text-blue-500"><Facebook className="w-3 h-3" /> Facebook</span>
-                          <span className="flex items-center gap-1.5">
-                            {loadingByPlatform.facebook ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : <span className="text-zinc-900 dark:text-white">{fbTotal}</span>}
-                            {fbPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{fbPending} pend.</span>}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Body */}
-                <div className={`${mobileTab === 'stats' ? 'hidden md:grid' : 'flex-1 overflow-hidden grid'} grid-cols-1 md:grid-cols-5 h-full`}>
+                <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-5 h-full">
 
-                  {/* Left: creative + info (40%) */}
-	                  <div className={`${mobileTab !== 'post' ? 'hidden md:flex' : 'flex'} md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 h-full`}>
+                  {/* Left: creative + info (40%) — always visible */}
+	                  <div className="flex md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 h-full">
 
                     {/* Creative */}
                     {(!mediaData || resolvingIds[selectedAd.adId]) ? (
@@ -1134,8 +1083,8 @@ export default function MetaAdsPage() {
                       </div>
                     )}
 
-                    {/* Ad name + description + performance — mobile only (desktop shows in right panel) */}
-                    <div className="md:hidden space-y-3">
+                    {/* Ad name + description + performance — always below the creative */}
+                    <div className="space-y-3">
                       <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
                         <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Nombre</p>
                         <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.name}</p>
@@ -1146,67 +1095,32 @@ export default function MetaAdsPage() {
                           <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium line-clamp-5">{selectedAd.body}</p>
                         </div>
                       )}
+                      {insights && (
+                        <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
+                          <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
+                          {[
+                            { label: 'Gasto', val: `$${adSpend.toFixed(0)}` },
+                            { label: 'Compras', val: purchases > 0 ? String(purchases) : '—', highlight: purchases > 0 },
+                            { label: 'Leads', val: leads > 0 ? String(leads) : '—', highlight: leads > 0 },
+                            { label: 'Mensajes', val: msgs > 0 ? String(msgs) : '—', highlight: msgs > 0 },
+                            { label: 'CPA', val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—' },
+                            { label: 'ROAS', val: adRoas > 0 ? `${adRoas.toFixed(1)}` : '—', highlight: adRoas > 1 },
+                            { label: 'CTR', val: adCtr > 0 ? `${adCtr.toFixed(1)}%` : '—' },
+                            { label: 'Alcance', val: fmtN(adReach) },
+                          ].map(({ label, val, highlight }: any) => (
+                            <div key={label} className="flex items-center justify-between text-[12px] font-bold">
+                              <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
+                              <span className={highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}>{val}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Right: Comments (60%) */}
-	                  <div className={`${mobileTab === 'post' ? 'hidden md:flex' : 'flex'} md:col-span-3 flex-col overflow-hidden h-full`}>
-                    {mobileTab === 'post' ? (
-                      /* Desktop-only: name + description + performance when on Anuncio tab */
-                      <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                        <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
-                          <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Nombre</p>
-                          <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.name}</p>
-                        </div>
-                        {selectedAd.body && (
-                          <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl">
-                            <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Descripción</p>
-                            <p className="text-[12.5px] text-zinc-700 dark:text-zinc-300 leading-relaxed font-medium">{selectedAd.body}</p>
-                          </div>
-                        )}
-                        {insights && (
-                          <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                            <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-2">Rendimiento</p>
-                            {[
-                              { label: 'Gasto', val: `$${adSpend.toFixed(0)}` },
-                              { label: 'Compras', val: purchases > 0 ? String(purchases) : '—', highlight: purchases > 0 },
-                              { label: 'Leads', val: leads > 0 ? String(leads) : '—', highlight: leads > 0 },
-                              { label: 'Mensajes', val: msgs > 0 ? String(msgs) : '—', highlight: msgs > 0 },
-                              { label: 'CPA', val: adCpa > 0 ? `$${adCpa.toFixed(0)}` : '—' },
-                              { label: 'ROAS', val: adRoas > 0 ? `${adRoas.toFixed(1)}` : '—', highlight: adRoas > 1 },
-                              { label: 'CTR', val: adCtr > 0 ? `${adCtr.toFixed(1)}%` : '—' },
-                              { label: 'Alcance', val: fmtN(adReach) },
-                            ].map(({ label, val, highlight }: any) => (
-                              <div key={label} className="flex items-center justify-between text-[12px] font-bold">
-                                <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
-                                <span className={highlight ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-white'}>{val}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 rounded-xl space-y-1.5">
-                          <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest mb-1">Comentarios</p>
-                          {selectedAd.igStoryId && (
-                            <button onClick={() => { switchCommentPlatform('instagram'); setMobileTab('comments'); }} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                              <span className="flex items-center gap-1.5 text-pink-500"><Instagram className="w-3 h-3" /> Instagram</span>
-                              <span className="flex items-center gap-1.5">
-                                {loadingByPlatform.instagram ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : <span className="text-zinc-900 dark:text-white">{igTotal}</span>}
-                                {igPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{igPending} pend.</span>}
-                              </span>
-                            </button>
-                          )}
-                          {selectedAd.fbStoryId && (
-                            <button onClick={() => { switchCommentPlatform('facebook'); setMobileTab('comments'); }} className={`w-full flex items-center justify-between text-[12px] font-bold rounded-lg px-2 py-1.5 transition-all ${activeCommentPlatform === 'facebook' ? 'bg-blue-50 dark:bg-blue-950/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}>
-                              <span className="flex items-center gap-1.5 text-blue-500"><Facebook className="w-3 h-3" /> Facebook</span>
-                              <span className="flex items-center gap-1.5">
-                                {loadingByPlatform.facebook ? <Loader2 className="w-3 h-3 animate-spin text-zinc-400" /> : <span className="text-zinc-900 dark:text-white">{fbTotal}</span>}
-                                {fbPending > 0 && <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{fbPending} pend.</span>}
-                              </span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ) : slideTab === 'metrics' ? (
+	                  <div className="flex md:col-span-3 flex-col overflow-hidden h-full">
+                    {slideTab === 'metrics' ? (
                       <div className="flex-1 overflow-y-auto p-5 space-y-5">
                         {analyzingTribe ? (
                           <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">

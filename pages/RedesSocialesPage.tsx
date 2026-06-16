@@ -217,7 +217,6 @@ export default function RedesSocialesPage() {
   const [selectedPostType, setSelectedPostType] = useState<'instagram' | 'facebook'>('instagram');
   const [comments, setComments] = useState<any[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'post' | 'comments' | 'stats' | 'analysis'>('comments');
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
@@ -769,7 +768,6 @@ export default function RedesSocialesPage() {
     setReplyingTo(null);
     setCommentInput('');
     setSubmitError(null);
-    setMobileTab('comments');
     fetchComments(postId, type);
   };
 
@@ -1863,21 +1861,11 @@ export default function RedesSocialesPage() {
               </div>
 
               {/* Modal tabs */}
-              <div className="grid grid-cols-3 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+              <div className="grid grid-cols-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
                 <button
-                  onClick={() => { setMobileTab('post'); handleTabChange('comments'); }}
-                  className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
-                    mobileTab === 'post'
-                      ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
-                      : 'text-zinc-500 dark:text-zinc-400'
-                  }`}
-                >
-                  Anuncio
-                </button>
-                <button
-                  onClick={() => { setMobileTab('comments'); handleTabChange('comments'); }}
+                  onClick={() => handleTabChange('comments')}
                   className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${
-                    mobileTab === 'comments'
+                    slideTab === 'comments'
                       ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
                       : 'text-zinc-500 dark:text-zinc-400'
                   }`}
@@ -1891,11 +1879,10 @@ export default function RedesSocialesPage() {
                   onClick={() => {
                     const imageUrl = activePost?.media_url || activePost?.full_picture || activePost?.thumbnail_url || null;
                     const isVid = activePost?.media_type === 'VIDEO' || !!activePost?.source;
-                    setMobileTab('analysis');
                     handleTabChange('metrics', imageUrl, isVid);
                   }}
                   className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
-                    mobileTab === 'analysis'
+                    slideTab === 'metrics'
                       ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500'
                       : 'text-zinc-500 dark:text-zinc-400'
                   }`}
@@ -1904,11 +1891,9 @@ export default function RedesSocialesPage() {
 
               {/* Split Body Container */}
               <div className="grid flex-1 overflow-hidden grid-cols-1 md:grid-cols-5 h-full">
-                
-                {/* Column 1: Post Media Context (Left Side - 40% width on md/lg, hidden on mobile) */}
-                <div className={`${
-                  mobileTab !== 'post' ? 'hidden md:flex' : 'flex'
-                } md:col-span-2 flex-col justify-start border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-5 overflow-y-auto h-full space-y-4`}>
+
+                {/* Column 1: Post Media Context (Left Side - always visible) */}
+                <div className="flex md:col-span-2 flex-col justify-start border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-5 overflow-y-auto h-full space-y-4">
                   {activePost ? (
                     <>
                       {/* Media Player */}
@@ -1939,8 +1924,8 @@ export default function RedesSocialesPage() {
                         </div>
                       )}
 
-                      {/* Post Caption/Message + Engagement — mobile only (desktop shows in right panel) */}
-                      <div className="md:hidden space-y-4">
+                      {/* Post Caption/Message + Engagement — always below the media */}
+                      <div className="space-y-4">
                         <div className="space-y-1.5">
                           <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block">Descripción del Post</span>
                           <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/80 rounded-2xl text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 font-medium whitespace-pre-wrap max-h-48 overflow-y-auto">
@@ -1968,34 +1953,8 @@ export default function RedesSocialesPage() {
                 </div>
 
                 {/* Column 2: Comments List & Inputs (Right Side - 60% width on md/lg, full width on mobile) */}
-                <div className={`${
-                  mobileTab === 'post' ? 'hidden md:flex' : 'flex'
-                } col-span-1 md:col-span-3 flex-col h-full overflow-hidden`}>
-                  {mobileTab === 'post' ? (
-                    /* Desktop-only: description + stats when on Anuncio tab */
-                    <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                      {activePost ? (
-                        <>
-                          <div className="space-y-1.5">
-                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block">Descripción del Post</span>
-                            <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800/80 rounded-2xl text-[12px] leading-relaxed text-zinc-700 dark:text-zinc-300 font-medium whitespace-pre-wrap">
-                              {activePost.caption || activePost.message || <span className="italic text-zinc-400">Sin descripción.</span>}
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
-                              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Me gusta</span>
-                              <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.like_count || activePost.likes?.summary?.total_count || 0)}</span>
-                            </div>
-                            <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
-                              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Comentarios</span>
-                              <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.comments_count || activePost.comments?.summary?.total_count || 0)}</span>
-                            </div>
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  ) : slideTab === 'metrics' ? (
+                <div className="flex col-span-1 md:col-span-3 flex-col h-full overflow-hidden">
+                  {slideTab === 'metrics' ? (
                     <div className="flex-1 overflow-y-auto p-5 space-y-5">
                       {analyzingTribe ? (
                         <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
