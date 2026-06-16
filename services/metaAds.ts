@@ -628,7 +628,7 @@ export const metaAds = {
 
   getInstagramMedia: (igId: string, limit = 8, after?: string, fbPageId?: string) => {
     const params: Record<string, string> = {
-      fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,comments.limit(100){id,text,timestamp,username,like_count,replies{id,text,timestamp,username,from}}',
+      fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,comments.limit(100){id,text,timestamp,username,like_count,replies.limit(100){id,text,timestamp,username,from}}',
       limit: String(limit),
     };
     if (after) params.after = after;
@@ -683,7 +683,7 @@ export const metaAds = {
 
   getFacebookPageFeed: (pageId: string, limit = 8, after?: string) => {
     const params: Record<string, string> = {
-      fields: 'id,message,created_time,full_picture,permalink_url,likes.summary(true),comments.limit(100){id,message,created_time,from{id,name},like_count,attachment{media{image{src}},type,url},replies{id,message,from{id,name},created_time,attachment{media{image{src}},type,url}}},attachments{media,type}',
+      fields: 'id,message,created_time,full_picture,permalink_url,likes.summary(true),comments.limit(100){id,message,created_time,from{id,name},like_count,attachment{media{image{src}},type,url},replies.limit(100){id,message,from{id,name},created_time,attachment{media{image{src}},type,url}}},attachments{media,type}',
       limit: String(limit),
     };
     if (after) params.after = after;
@@ -839,8 +839,8 @@ export const metaAds = {
   getAdCreativeComments: (storyId: string, platform: 'instagram' | 'facebook' = 'instagram', pageId?: string, after?: string) => {
     const params: Record<string, string> = {
       fields: platform === 'instagram'
-        ? 'id,text,message,timestamp,created_time,from{id,name},username,like_count,replies{id,text,message,from{id,name},username,timestamp,created_time}'
-        : 'id,message,created_time,from{id,name},like_count,replies{id,message,from{id,name},created_time}',
+        ? 'id,text,message,timestamp,created_time,from{id,name},username,like_count,replies.limit(100){id,text,message,from{id,name},username,timestamp,created_time}'
+        : 'id,message,created_time,from{id,name},like_count,replies.limit(100){id,message,from{id,name},created_time}',
       limit: '100',
     };
     if (after) params.after = after;
