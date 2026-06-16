@@ -744,9 +744,11 @@ export default function MetaAdsPage() {
           <div className="flex gap-1.5 flex-wrap" ref={datePickerRef}>
             {[
               { id: 'today', label: 'Hoy' },
+              { id: 'yesterday', label: 'Ayer' },
               { id: 'last_7d', label: 'Últimos 7 días' },
               { id: 'last_14d', label: 'Últimos 14 días' },
               { id: 'last_28d', label: 'Últimos 28 días' },
+              { id: 'last_90d', label: 'Últimos 90 días' },
             ].map(p => (
               <button
                 key={p.id}

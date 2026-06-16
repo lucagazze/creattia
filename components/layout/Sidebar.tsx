@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const navigate = useNavigate();
   const { profile, signOut, user } = useAuth();
   const { viewAsProfile, setViewAsProfile, isViewingAs } = useViewAs();
-  const { unreadCount, pendingCommentsCount, commentsLoading, unreadLoading, pendingOrdersCount, ordersLoading } = useUnread();
+  const { unreadCount, pendingCommentsCount, commentsLoading, unreadLoading, chatwootAvailable, pendingOrdersCount, ordersLoading } = useUnread();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [hasLinks, setHasLinks] = useState(false);
 
@@ -83,8 +83,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     return null;
   }, [activeProfile]);
 
-  // Channel flags — based on what the client has configured
-  const hasChatwoot  = !!(activeProfile?.chatwoot_url && activeProfile?.chatwoot_token);
+  // Channel flags — based on real configured + healthy connection state
+  const chatwootStatus = (activeProfile as any)?.connection_statuses?.chatwoot;
+  const hasChatwoot  = !!(
+    activeProfile?.chatwoot_url &&
+    activeProfile?.chatwoot_token &&
+    (chatwootStatus === 'ok' || chatwootStatus === 'connected') &&
+    chatwootAvailable !== false
+  );
   const hasMeta      = !!(activeProfile?.meta_account_id);
   const hasKlaviyo   = !!(activeProfile?.klaviyo_api_key);
   const connectionStatuses = activeProfile?.connection_statuses || {};

@@ -151,7 +151,7 @@ export const MainLayout = () => {
   const { profile, signOut, user, loading, refreshProfile } = useAuth();
   const { isViewingAs, viewAsProfile } = useViewAs();
   const activeProfile = isViewingAs ? viewAsProfile : profile;
-  const { unreadCount } = useUnread();
+  const { unreadCount, chatwootAvailable } = useUnread();
   const location = useLocation();
   const navigate = useNavigate();
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -174,6 +174,20 @@ export const MainLayout = () => {
       navigate(`/integraciones${window.location.search}`, { replace: true });
     }
   }, [location, navigate]);
+
+  useEffect(() => {
+    if (location.pathname !== '/mensajeria') return;
+    const chatwootStatus = (activeProfile as any)?.connection_statuses?.chatwoot;
+    const hasHealthyChatwoot = !!(
+      activeProfile?.chatwoot_url &&
+      activeProfile?.chatwoot_token &&
+      (chatwootStatus === 'ok' || chatwootStatus === 'connected') &&
+      chatwootAvailable !== false
+    );
+    if (!hasHealthyChatwoot) {
+      navigate('/integraciones', { replace: true });
+    }
+  }, [location.pathname, activeProfile, chatwootAvailable, navigate]);
 
   // Listen for new orders to show global notification
   useEffect(() => {

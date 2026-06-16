@@ -15,6 +15,7 @@ interface UnreadContextType {
   setPendingCommentsCount: React.Dispatch<React.SetStateAction<number>>;
   commentsLoading: boolean;
   unreadLoading: boolean;
+  chatwootAvailable: boolean | null;
   /** Unfulfilled orders count (badge on Pedidos in sidebar) */
   pendingOrdersCount: number;
   ordersLoading: boolean;
@@ -29,6 +30,7 @@ const UnreadContext = createContext<UnreadContextType>({
   setPendingCommentsCount: () => {},
   commentsLoading: false,
   unreadLoading: false,
+  chatwootAvailable: null,
   pendingOrdersCount: 0,
   ordersLoading: false,
   refresh: () => {},
@@ -51,6 +53,11 @@ const getManuallyUnreadSet = (profileId?: string): Set<number> => {
 
 const POLL_INTERVAL_MS = 5_000; // poll every 5 seconds
 
+const isChatwootConfigured = (profile: any) => {
+  const status = profile?.connection_statuses?.chatwoot;
+  return !!(profile?.chatwoot_url && profile?.chatwoot_token && (status === 'ok' || status === 'connected'));
+};
+
 export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
@@ -64,6 +71,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [unreadLoading, setUnreadLoading] = useState(true);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [chatwootAvailable, setChatwootAvailable] = useState<boolean | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isFirstCommentsFetch = useRef(true);
@@ -82,11 +90,13 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isFirstUnreadFetch.current = true;
       setCommentsLoading(true);
       setUnreadLoading(true);
+      setChatwootAvailable(isChatwootConfigured(profile) ? null : false);
     } else {
       setUnreadCount(0);
       setPendingCommentsCount(0);
       setCommentsLoading(false);
       setUnreadLoading(false);
+      setChatwootAvailable(false);
     }
     document.title = 'Portal C.A.R | Algoritmia';
   }, [profile?.id]);
@@ -103,8 +113,10 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const url = profile?.chatwoot_url;
     const token = profile?.chatwoot_token;
-    if (!url || !token) {
+    if (!isChatwootConfigured(profile)) {
       setUnreadLoading(false);
+      setUnreadCount(0);
+      setChatwootAvailable(false);
       return;
     }
 
@@ -116,6 +128,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       // 1. Fetch page 1 of open conversations to get total count
       const firstPage = await chatwoot.getConversationsPage(url, token, 'open', 1);
+      setChatwootAvailable(true);
       const allCount = firstPage.meta?.all_count ?? 0;
       const firstPayload = firstPage.payload || [];
 
@@ -178,13 +191,15 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } catch (err) {
       console.error('[UnreadContext] Error fetching count:', err);
+      setUnreadCount(0);
+      setChatwootAvailable(false);
     } finally {
       if (isFirst) {
         setUnreadLoading(false);
         isFirstUnreadFetch.current = false;
       }
     }
-  }, [profile?.id, profile?.chatwoot_url, profile?.chatwoot_token]);
+  }, [profile]);
 
   // Keep a ref to the latest fetchCount function to prevent connection churn in WebSocket
   const fetchCountRef = useRef(fetchCount);
@@ -225,7 +240,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     const url = profile?.chatwoot_url;
     const token = profile?.chatwoot_token;
-    if (!url || !token) return;
+    if (!isChatwootConfigured(profile)) return;
 
     let ws: WebSocket | null = null;
     let pingInterval: any = null;
@@ -293,16 +308,17 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       clearTimeout(reconnectTimeout);
       ws?.close();
     };
-  }, [profile?.chatwoot_url, profile?.chatwoot_token]);
+  }, [profile]);
 
   // Fallback Polling (polls at regular interval in case WebSocket misses an event)
   useEffect(() => {
     const url = profile?.chatwoot_url;
     const token = profile?.chatwoot_token;
-    if (!url || !token) {
+    if (!isChatwootConfigured(profile)) {
       if (timerRef.current) clearInterval(timerRef.current);
       // No Chatwoot = no badge, clean title
       setUnreadCount(0);
+      setChatwootAvailable(false);
       return;
     }
 
@@ -315,7 +331,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [profile?.chatwoot_url, profile?.chatwoot_token]);
+  }, [profile]);
 
   // Trigger fetchCount immediately when navigating away from /mensajeria
   // to sync the count on other pages without waiting for the next poll.
@@ -595,7 +611,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [profile?.id]);
 
   return (
-    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, setPendingCommentsCount, commentsLoading, unreadLoading, pendingOrdersCount, ordersLoading, refresh: fetchCount, markRead }}>
+    <UnreadContext.Provider value={{ unreadCount, setUnreadCount, pendingCommentsCount, setPendingCommentsCount, commentsLoading, unreadLoading, chatwootAvailable, pendingOrdersCount, ordersLoading, refresh: fetchCount, markRead }}>
       {children}
     </UnreadContext.Provider>
   );
