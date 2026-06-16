@@ -357,8 +357,13 @@ async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: false, error: 'missing_wordpress_url' });
     }
 
-    const isVerified = await verifyWooCredentials(wordpressUrl, consumerKey, consumerSecret);
-
+    // Save the credentials FIRST, immediately — before any external verification call.
+    // The frontend starts polling as soon as the browser lands back on /#/integraciones,
+    // racing against this same request. If we verified first (an external round-trip to
+    // the merchant's own site, up to several seconds) the frontend's short polling window
+    // could elapse before the row was ever written, reporting "missing" even though the
+    // real credentials were on their way in. Save now, verify after, as a best-effort
+    // status refinement that doesn't gate whether the connection is usable.
     await updateClientStatuses(clientId, {
       woo_consumer_key:    consumerKey,
       woo_consumer_secret: consumerSecret,
@@ -367,7 +372,12 @@ async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
       // Clear competing platforms
       shopify_domain: null, shopify_access_token: null,
       tiendanube_store_id: null, tiendanube_access_token: null,
-    }, 'shopify', isVerified ? 'ok' : 'error');
+    }, 'shopify', 'ok');
+
+    const isVerified = await verifyWooCredentials(wordpressUrl, consumerKey, consumerSecret);
+    if (!isVerified) {
+      await updateClientStatuses(clientId, {}, 'shopify', 'error');
+    }
 
     // WC ignores our response body — just needs a 200
     return res.status(200).json({ ok: isVerified });

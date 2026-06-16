@@ -256,7 +256,7 @@ export default function IntegracionesPage() {
 
     const confirmOAuthConnection = async (platform: "tiendanube" | "wordpress"): Promise<"ok" | "unverified" | "missing"> => {
       if (!activeProfileId) return "missing";
-      for (let attempt = 0; attempt < 8; attempt++) {
+      for (let attempt = 0; attempt < 15; attempt++) {
         const { data } = await supabase
           .from("car_clients")
           .select("ecommerce_platform,tiendanube_store_id,tiendanube_access_token,wordpress_url,woo_consumer_key,woo_consumer_secret,connection_statuses")
