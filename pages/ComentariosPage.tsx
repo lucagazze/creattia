@@ -1714,7 +1714,7 @@ export default function ComentariosPage() {
               {/* Right: comments | analysis */}
               <div className="flex flex-1 min-h-[65dvh] md:min-h-0 overflow-visible md:overflow-hidden flex-col">
                 {slideTab === 'metrics' ? (
-                  <div className="flex-1 overflow-visible md:overflow-y-auto p-4 md:p-5 space-y-5">
+                  <div className="flex-1 overflow-visible md:overflow-y-auto px-4 pt-4 pb-24 md:px-5 md:pt-5 md:pb-12 scroll-pb-24 md:scroll-pb-12 space-y-5">
                     {analyzingTribe ? (
                       <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
                         <div className="relative w-20 h-20">
@@ -1858,7 +1858,7 @@ export default function ComentariosPage() {
                     })()}
                   </div>
                 )}
-                <div className="flex-1 overflow-visible md:overflow-y-auto p-4 md:p-5 space-y-4">
+                <div className="flex-1 overflow-visible md:overflow-y-auto px-4 pt-4 pb-24 md:px-5 md:pt-5 md:pb-12 scroll-pb-24 md:scroll-pb-12 space-y-4">
                 {loadingComments ? (
                   <AppleLoader variant="table" count={4} />
                 ) : comments.length === 0 ? (
