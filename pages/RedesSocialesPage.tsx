@@ -297,6 +297,7 @@ export default function RedesSocialesPage() {
   const [commentRepliesErrors, setCommentRepliesErrors] = useState<Record<string, string | null>>({});
   const [activeReplyCommentIds, setActiveReplyCommentIds] = useState<Record<string, boolean>>({});
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
+  const [bulkDraftLang, setBulkDraftLang] = useState<'es' | 'en'>('es');
   const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
   const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
   const [bulkDraftsLoading, setBulkDraftsLoading] = useState(false);
@@ -380,6 +381,7 @@ export default function RedesSocialesPage() {
       try {
         const usernameStr = target.username || target.from?.name || 'usuario';
         const itemTextStr = target.text || target.message || '';
+        setReplyLangs(prev => ({ ...prev, [comment.id]: bulkDraftLang }));
         
         // Collect other comments in this post for context
         const otherCommentsList = comments
@@ -400,6 +402,7 @@ export default function RedesSocialesPage() {
             username: usernameStr,
             postCaption: postCaptionContext,
             otherComments: otherCommentsList,
+            forceLang: bulkDraftLang,
           }),
         });
         
@@ -2119,14 +2122,23 @@ export default function RedesSocialesPage() {
                           {(() => {
                             const suggestionsCount = comments.filter(isCommentPending).length;
                             return suggestionsCount > 0 && (
-                              <button
-                                onClick={handleBulkDrafts}
-                                disabled={bulkDraftsLoading}
-                                className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
-                              >
-                                {bulkDraftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                <span>Sugerir con Ia ({suggestionsCount})</span>
-                              </button>
+                              <div className="ml-auto flex items-center gap-1.5">
+                                <button
+                                  onClick={handleBulkDrafts}
+                                  disabled={bulkDraftsLoading}
+                                  className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
+                                >
+                                  {bulkDraftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                  <span>Sugerir con Ia ({suggestionsCount})</span>
+                                </button>
+                                <div className="flex rounded-lg bg-zinc-100 dark:bg-zinc-800 p-0.5">
+                                  {LANGS.map(l => (
+                                    <button key={l.code} type="button" onClick={() => setBulkDraftLang(l.code)} className={`px-2 py-1 text-[10px] font-black rounded-md transition-all ${bulkDraftLang === l.code ? 'bg-white dark:bg-zinc-700 text-violet-600 dark:text-violet-300 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
+                                      {l.code.toUpperCase()}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
                             );
                           })()}
                         </div>

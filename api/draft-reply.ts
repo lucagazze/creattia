@@ -89,18 +89,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const isAdmin = !!dbProfile.is_admin;
   const userClientId = dbProfile.id;
 
-  const geminiKey = process.env.GOOGLE_AI_API_KEY;
-  const openAiKey = process.env.OPENAI_API_KEY;
-  if (!geminiKey && !openAiKey) {
-    return res.status(200).json({ draft: "¡Hola! Gracias por contactarte con nosotros. ¿En qué te podemos ayudar? (Modo demostración)" });
-  }
-
   const {
     clientId, itemText, username,
     postCaption, postPlatform,
     allComments, otherComments,
     conversationHistory, isDM, forceLang,
   } = req.body || {};
+
+  const forcedFallbackDraft = forceLang === 'en'
+    ? "Hi! Thanks for reaching out. How can we help you?"
+    : "¡Hola! Gracias por contactarte con nosotros. ¿En qué te podemos ayudar?";
+
+  const geminiKey = process.env.GOOGLE_AI_API_KEY;
+  const openAiKey = process.env.OPENAI_API_KEY;
+  if (!geminiKey && !openAiKey) {
+    return res.status(200).json({ draft: `${forcedFallbackDraft} (Modo demostración)` });
+  }
 
   if (!clientId || !itemText) {
     return res.status(400).json({ error: 'Missing clientId or itemText' });
@@ -480,7 +484,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 10. System prompt
-    const systemPrompt = `⚠️ IDIOMA: ${LANG}. ${langRule}. Sin excepciones.
+    const systemPrompt = `⚠️ IDIOMA OBLIGATORIO DE LA RESPUESTA FINAL: ${LANG}. ${langRule}. Sin excepciones.
+Si el usuario eligió idioma manualmente, ignorá el idioma del comentario original y respondé únicamente en ${LANG}.
+No mezcles idiomas. No traduzcas el comentario; respondé naturalmente en ${LANG}.
 
 Hoy: ${argentineTime}. Plataforma: ${platformLabel}.
 
@@ -581,7 +587,7 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
 
     if (!draftText) {
       console.warn('[draft-reply] Falling back to default demo response due to AI failure or missing keys');
-      draftText = "¡Hola! Gracias por escribirnos. Recibimos tu mensaje y te responderemos a la brevedad. ¿Hay algo en particular sobre lo que quieras consultar? (Modo demostración)";
+      draftText = `${forcedFallbackDraft} (Modo demostración)`;
     }
 
     return res.status(200).json({ draft: draftText });
@@ -589,7 +595,7 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
   } catch (err: any) {
     console.error('[draft-reply] Unhandled error, returning fallback draft:', err);
     return res.status(200).json({
-      draft: "¡Hola! Gracias por contactarte con nosotros. En este momento estamos procesando tu solicitud de forma simplificada. ¿En qué te podemos ayudar? (Modo demostración - Fallback de Error)"
+      draft: `${forcedFallbackDraft} (Modo demostración - Fallback de Error)`
     });
   }
 }

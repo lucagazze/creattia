@@ -197,6 +197,7 @@ export default function ComentariosPage() {
   const [panelCarouselIndex, setPanelCarouselIndex] = useState(0);
   const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('pending');
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
+  const [bulkDraftLang, setBulkDraftLang] = useState<'es' | 'en'>('es');
   const [langDropdownOpen, setLangDropdownOpen] = useState<Record<string, boolean>>({});
   const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
 
@@ -1012,7 +1013,10 @@ export default function ComentariosPage() {
 
     await Promise.all(pending.map(c => {
       const target = getLatestPendingTarget(c);
-      return generateDraft(c, target.id === c.id ? undefined : target);
+      setReplyLangs(prev => ({ ...prev, [c.id]: bulkDraftLang }));
+      return target.id === c.id
+        ? generateDraft({ ...c, _forceLang: bulkDraftLang })
+        : generateDraft(c, { ...target, _forceLang: bulkDraftLang });
     }));
     setBulkLoading(false);
   };
@@ -1726,14 +1730,23 @@ export default function ComentariosPage() {
                     {(() => {
                       const suggestionsCount = comments.filter(c => isCommentPending(c, selectedPost!.platform)).length;
                       return suggestionsCount > 0 && (
-                        <button
-                          onClick={bulkGenerateDrafts}
-                          disabled={bulkLoading}
-                          className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
-                        >
-                          {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                          <span>Sugerir con Ia ({suggestionsCount})</span>
-                        </button>
+                        <div className="ml-auto flex items-center gap-1.5">
+                          <button
+                            onClick={bulkGenerateDrafts}
+                            disabled={bulkLoading}
+                            className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
+                          >
+                            {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            <span>Sugerir con Ia ({suggestionsCount})</span>
+                          </button>
+                          <div className="flex rounded-lg bg-zinc-100 dark:bg-zinc-800 p-0.5">
+                            {LANGS.map(l => (
+                              <button key={l.code} type="button" onClick={() => setBulkDraftLang(l.code)} className={`px-2 py-1 text-[10px] font-black rounded-md transition-all ${bulkDraftLang === l.code ? 'bg-white dark:bg-zinc-700 text-violet-600 dark:text-violet-300 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}>
+                                {l.code.toUpperCase()}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       );
                     })()}
                   </div>
