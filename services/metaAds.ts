@@ -43,6 +43,36 @@ function metaSetCache(key: string, data: any) {
   } catch { /* silently skip if storage full */ }
 }
 
+let activeClientCache: { userId: string; clientId: string; expiresAt: number } | null = null;
+
+async function getActiveClientId(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) return '';
+  if (activeClientCache && activeClientCache.userId === userId && activeClientCache.expiresAt > Date.now()) {
+    return activeClientCache.clientId;
+  }
+
+  const { data: direct } = await supabase
+    .from('car_clients')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  let clientId = direct?.id || '';
+
+  if (!clientId) {
+    const { data: link } = await supabase
+      .from('car_business_accounts')
+      .select('business_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    clientId = link?.business_id || '';
+  }
+
+  activeClientCache = { userId, clientId, expiresAt: Date.now() + 5 * 60 * 1000 };
+  return clientId;
+}
+
 export const META_AD_ACCOUNT = 'act_2136106490563351';
 const BASE = 'https://graph.facebook.com/v21.0';
 
@@ -218,6 +248,23 @@ const getPageAccessToken = async (pageId: string): Promise<string> => {
 
 
 const apiGet = async (endpoint: string, params: Record<string, string> = {}): Promise<any> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    const url = new URL('/api/meta', window.location.origin);
+    url.searchParams.set('path', endpoint);
+    const clientId = await getActiveClientId();
+    if (clientId) url.searchParams.set('clientId', clientId);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const json = await res.json();
+    if (json?.error) {
+      throw new Error(json.error || `Meta API error ${res.status}`);
+    }
+    return json;
+  }
+
   const url = new URL(`${BASE}/${endpoint}`);
   url.searchParams.set('access_token', getToken());
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -545,13 +592,12 @@ export const metaAds = {
     const cached = metaGetCached(cacheKey);
     if (cached) return cached;
 
-    let url = `${BASE}/${accountId}/insights?fields=${fieldsStr}&access_token=${getToken()}&limit=500`;
-    if (range) url += `&time_range={"since":"${range.since}","until":"${range.until || range.since}"}`;
-    else if (preset) url += `&date_preset=${preset}`;
-    if (timeIncrement) url += `&time_increment=${timeIncrement}`;
+    const params: Record<string, string> = { fields: fieldsStr, limit: '500' };
+    if (range) params.time_range = JSON.stringify({ since: range.since, until: range.until || range.since });
+    else if (preset) params.date_preset = preset;
+    if (timeIncrement) params.time_increment = String(timeIncrement);
 
-    const res = await fetch(url, { signal });
-    const data = await res.json();
+    const data = await apiGet(`${accountId}/insights`, params);
     
     if (data.error) throw data.error;
     

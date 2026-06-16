@@ -260,7 +260,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
         to={item.path}
         id={tourId[item.path]}
         title={isUnconfigured ? `${item.label} (no configurado)` : item.label}
-        onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+        onClick={() => window.innerWidth < 1280 && setIsOpen(false)}
         className={`group flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-[11px] md:text-[12px] font-bold transition-all duration-150 active:scale-[0.98] ${
           isActive
             ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 shadow-md shadow-black/10 dark:shadow-white/5'
@@ -331,18 +331,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       {/* Mobile backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-md z-[280] md:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-md z-[280] xl:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-[300] md:w-[220px] w-[220px]
+        fixed inset-y-0 left-0 z-[300] xl:w-[220px] w-[220px]
         bg-white dark:bg-[#09090b]
         border-r border-zinc-200 dark:border-white/[0.05]
         flex flex-col
         transform transition-all duration-300 ease-in-out
-        md:translate-x-0 md:static md:h-screen
+        xl:translate-x-0 xl:static xl:h-screen
         ${isOpen ? 'translate-x-0 shadow-[20px_0_60px_rgba(0,0,0,0.2)]' : '-translate-x-full'}
       `}>
 
@@ -380,13 +380,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
           <div className="ml-auto flex items-center gap-1">
             <button
               onClick={toggleDarkMode}
-              className="hidden md:block p-1.5 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all"
+              className="hidden xl:block p-1.5 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all"
               title="Cambiar apariencia"
             >
               {darkMode ? <Sun className="w-[18px] h-[18px] text-amber-400" /> : <Moon className="w-[18px] h-[18px]" />}
             </button>
             <button
-              className="md:hidden p-1.5 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all"
+              className="xl:hidden p-1.5 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/5 transition-all"
               onClick={() => setIsOpen(false)}
             >
               <X className="w-[18px] h-[18px]" />
@@ -449,7 +449,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
           <div className="flex items-center gap-2.5 bg-white dark:bg-[#111] p-2.5 rounded-xl border border-zinc-200 dark:border-white/[0.05] shadow-sm">
             <Link
               to="/perfil"
-              onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+              onClick={() => window.innerWidth < 1280 && setIsOpen(false)}
               className="flex items-center gap-2.5 flex-1 min-w-0 hover:opacity-85 active:scale-[0.98] transition-all"
             >
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-zinc-800 to-black dark:from-zinc-200 dark:to-white text-white dark:text-black flex items-center justify-center text-[11px] font-black shadow-inner overflow-hidden shrink-0">

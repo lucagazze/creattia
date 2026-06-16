@@ -145,6 +145,7 @@ export default function ComentariosPage() {
   const [activeReplyTargets, setActiveReplyTargets] = useState<Record<string, any>>({});
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
+  const [mobileDetailTab, setMobileDetailTab] = useState<'post' | 'comments' | 'analysis'>('post');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
   const [tribeResult, setTribeResult] = useState<any>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -153,6 +154,7 @@ export default function ComentariosPage() {
   useEffect(() => {
     if (selectedPost) {
       setSlideTab('comments');
+      setMobileDetailTab('post');
       setAnalyzingTribe(false);
       setTribeResult(null);
       setAnalysisError(null);
@@ -1225,17 +1227,40 @@ export default function ComentariosPage() {
     else if (platformFilter === 'facebook') list = list.filter(p => p.platform === 'facebook' && !p.isAd);
     else if (platformFilter === 'ads') list = list.filter(p => p.isAd);
     if (statusFilter === 'pending') list = list.filter(p => p.pendingComments > 0);
-    // Sort by most recent incoming comment (user comment only, not our replies)
+    // Sort pending posts by the latest unanswered customer message, not by already-handled activity.
     list = [...list].sort((a, b) => {
-      const lastTs = (post: PostItem) => {
-        const all = post.comments.map((c: any) => c.timestamp || c.created_time || post.timestamp).filter(Boolean);
-        const latest = all.length ? all.reduce((mx, ts) => ts > mx ? ts : mx) : post.timestamp;
-        return new Date(latest).getTime();
+      const toTime = (value: any) => {
+        const time = new Date(value || 0).getTime();
+        return Number.isFinite(time) ? time : 0;
       };
-      return sortOrder === 'newest' ? lastTs(b) - lastTs(a) : lastTs(a) - lastTs(b);
+      const latestPostActivityTs = (post: PostItem) => {
+        const commentTimes = post.comments.map((c: any) => toTime(c.timestamp || c.created_time || post.timestamp));
+        return Math.max(toTime(post.timestamp), ...commentTimes);
+      };
+      const latestPendingTs = (post: PostItem) => {
+        const pendingTimes = post.comments
+          .filter((c: any) => isCommentPending(c, post.platform))
+          .map((c: any) => {
+            const target = getLatestPendingTarget(c);
+            return toTime(target?.timestamp || target?.created_time || c.timestamp || c.created_time || post.timestamp);
+          });
+        return pendingTimes.length ? Math.max(...pendingTimes) : 0;
+      };
+
+      const pendingA = latestPendingTs(a);
+      const pendingB = latestPendingTs(b);
+      if (pendingA || pendingB) {
+        if (!pendingA) return 1;
+        if (!pendingB) return -1;
+        return sortOrder === 'newest' ? pendingB - pendingA : pendingA - pendingB;
+      }
+
+      const activityA = latestPostActivityTs(a);
+      const activityB = latestPostActivityTs(b);
+      return sortOrder === 'newest' ? activityB - activityA : activityA - activityB;
     });
     return list;
-  }, [posts, platformFilter, statusFilter, sortOrder]);
+  }, [posts, platformFilter, statusFilter, sortOrder, isCommentPending, getLatestPendingTarget]);
 
   const totalPending = platformCounts.all;
 
@@ -1390,7 +1415,7 @@ export default function ComentariosPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
           {filteredPosts.map(post => (
             <button
               key={post.id}
@@ -1513,8 +1538,45 @@ export default function ComentariosPage() {
               </div>
             </div>
 
-            {/* Modal tabs */}
-            <div className="grid grid-cols-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+            {/* Mobile detail tabs */}
+            <div className="grid grid-cols-3 md:hidden border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0 px-2 py-2 gap-1">
+              <button
+                onClick={() => setMobileDetailTab('post')}
+                className={`h-9 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${mobileDetailTab === 'post' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-800/70'}`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                Posteo
+              </button>
+              <button
+                onClick={() => { setMobileDetailTab('comments'); handleTabChange('comments'); }}
+                className={`h-9 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${mobileDetailTab === 'comments' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-800/70'}`}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Comentarios
+                {!loadingComments && comments.length > 0 && (
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-zinc-900/20">{getCommentThreadCount(comments)}</span>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  const md = resolvedDetails[selectedPost.id];
+                  const imageUrl = md?.type === 'video_source' ? (md.picture || selectedPost.thumbnail || selectedPost.mediaUrl) :
+                    md?.type === 'image' ? md.url :
+                    md?.type === 'carousel' ? (md.cards?.[0]?.url || selectedPost.thumbnail) :
+                    selectedPost.thumbnail || selectedPost.mediaUrl;
+                  const isVid = md?.type === 'video_source' || selectedPost.mediaType === 'VIDEO';
+                  setMobileDetailTab('analysis');
+                  handleTabChange('metrics', imageUrl, isVid);
+                }}
+                className={`h-9 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${mobileDetailTab === 'analysis' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-800/70'}`}
+              >
+                <Brain className="w-3.5 h-3.5" />
+                Análisis
+              </button>
+            </div>
+
+            {/* Desktop modal tabs */}
+            <div className="hidden md:grid grid-cols-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
               <button
                 onClick={() => handleTabChange('comments')}
                 className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${
@@ -1551,7 +1613,7 @@ export default function ComentariosPage() {
             <div className="flex flex-1 min-h-0 overflow-y-auto md:overflow-hidden flex-col md:flex-row">
 
               {/* Left: Post media — always visible */}
-              <div className="flex md:w-[280px] flex-shrink-0 flex-col border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-3 md:p-4 max-h-[46dvh] md:max-h-none overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10">
+              <div className={`${mobileDetailTab === 'post' ? 'flex' : 'hidden'} md:flex md:w-[280px] flex-shrink-0 flex-col border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-3 md:p-4 max-h-none overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10`}>
                 {/* Media */}
                 {(() => {
                   const mediaData = resolvedDetails[selectedPost.id];
@@ -1713,7 +1775,7 @@ export default function ComentariosPage() {
               </div>
 
               {/* Right: comments | analysis */}
-              <div className="flex flex-1 min-h-[65dvh] md:min-h-0 overflow-visible md:overflow-hidden flex-col">
+              <div className={`${mobileDetailTab === 'post' ? 'hidden' : 'flex'} md:flex flex-1 min-h-[calc(100dvh-126px)] md:min-h-0 overflow-visible md:overflow-hidden flex-col`}>
                 {slideTab === 'metrics' ? (
                   <div className="flex-1 overflow-visible md:overflow-y-auto px-4 pt-4 pb-24 md:px-5 md:pt-5 md:pb-12 scroll-pb-24 md:scroll-pb-12 space-y-5">
                     {analyzingTribe ? (

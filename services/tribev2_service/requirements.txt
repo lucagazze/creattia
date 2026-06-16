@@ -1,0 +1,6 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+pillow==11.2.1
+imageio==2.37.0
+imageio-ffmpeg==0.6.0
+git+https://github.com/facebookresearch/tribev2.git

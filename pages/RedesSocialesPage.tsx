@@ -160,6 +160,7 @@ export default function RedesSocialesPage() {
   const [loadingComments, setLoadingComments] = useState(false);
 
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
+  const [mobileDetailTab, setMobileDetailTab] = useState<'post' | 'comments' | 'analysis'>('post');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
   const [tribeResult, setTribeResult] = useState<any>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -169,6 +170,7 @@ export default function RedesSocialesPage() {
   useEffect(() => {
     if (selectedPostId) {
       setSlideTab('comments');
+      setMobileDetailTab('post');
       setAnalyzingTribe(false);
       setTribeResult(null);
       setAnalysisError(null);
@@ -1901,8 +1903,41 @@ export default function RedesSocialesPage() {
                 </div>
               </div>
 
-              {/* Modal tabs */}
-              <div className="grid grid-cols-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
+              {/* Mobile detail tabs */}
+              <div className="grid grid-cols-3 md:hidden border-b border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0 px-2 py-2 gap-1">
+                <button
+                  onClick={() => setMobileDetailTab('post')}
+                  className={`h-9 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${mobileDetailTab === 'post' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-800/70'}`}
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Posteo
+                </button>
+                <button
+                  onClick={() => { setMobileDetailTab('comments'); handleTabChange('comments'); }}
+                  className={`h-9 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${mobileDetailTab === 'comments' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-800/70'}`}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  Comentarios
+                  {!loadingComments && comments.length > 0 && (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/20 dark:bg-zinc-900/20">{getCommentThreadCount(comments)}</span>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    const imageUrl = activePosterUrl || activeMediaUrl;
+                    const isVid = activeMediaType === 'VIDEO' || !!activePost?.source;
+                    setMobileDetailTab('analysis');
+                    handleTabChange('metrics', imageUrl, isVid);
+                  }}
+                  className={`h-9 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${mobileDetailTab === 'analysis' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-800/70'}`}
+                >
+                  <Brain className="w-3.5 h-3.5" />
+                  Análisis
+                </button>
+              </div>
+
+              {/* Desktop modal tabs */}
+              <div className="hidden md:grid grid-cols-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
                 <button
                   onClick={() => handleTabChange('comments')}
                   className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${
@@ -1934,7 +1969,7 @@ export default function RedesSocialesPage() {
               <div className="grid flex-1 min-h-0 overflow-y-auto md:overflow-hidden grid-cols-1 md:grid-cols-5 auto-rows-max md:auto-rows-auto">
 
                 {/* Column 1: Post Media Context (Left Side - always visible) */}
-                <div className="flex md:col-span-2 flex-col justify-start border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-3 md:p-5 max-h-[46dvh] md:max-h-none overflow-y-auto md:h-full space-y-4">
+                <div className={`${mobileDetailTab === 'post' ? 'flex' : 'hidden'} md:flex md:col-span-2 flex-col justify-start border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-3 md:p-5 max-h-none overflow-y-auto md:h-full space-y-4`}>
                   {activePost ? (
                     <>
                       {/* Media Player */}
@@ -2011,7 +2046,7 @@ export default function RedesSocialesPage() {
                 </div>
 
                 {/* Column 2: Comments List & Inputs (Right Side - 60% width on md/lg, full width on mobile) */}
-                <div className="flex col-span-1 md:col-span-3 flex-col min-h-[65dvh] md:min-h-0 md:h-full overflow-visible md:overflow-hidden">
+                <div className={`${mobileDetailTab === 'post' ? 'hidden' : 'flex'} md:flex col-span-1 md:col-span-3 flex-col min-h-[calc(100dvh-126px)] md:min-h-0 md:h-full overflow-visible md:overflow-hidden`}>
                   {slideTab === 'metrics' ? (
                     <div className="flex-1 overflow-visible md:overflow-y-auto px-4 pt-4 pb-24 md:px-5 md:pt-5 md:pb-12 scroll-pb-24 md:scroll-pb-12 space-y-5">
                       {analyzingTribe ? (

@@ -301,8 +301,8 @@ export const MainLayout = () => {
       </div>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen relative print:overflow-visible print:h-auto">
-        {/* Mobile header — fixed so it never scrolls away */}
-        <div className="print:hidden md:hidden h-14 border-b border-black/[0.06] dark:border-white/[0.05] flex items-center justify-between px-4 bg-white/80 dark:bg-[#161618]/80 backdrop-blur-xl fixed top-0 inset-x-0 z-[200]">
+        {/* Compact header — fixed so it never scrolls away on mobile/tablet/narrow desktop */}
+        <div className="print:hidden xl:hidden h-14 border-b border-black/[0.06] dark:border-white/[0.05] flex items-center justify-between px-4 bg-white/80 dark:bg-[#161618]/80 backdrop-blur-xl fixed top-0 inset-x-0 z-[200]">
           <div className="flex items-center">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -333,15 +333,15 @@ export const MainLayout = () => {
 
         <div id="main-scroll-container" ref={scrollContainerRef} className={`flex-1 w-full print:overflow-visible print:h-auto print:p-6 ${
           location.pathname === '/mensajeria' || location.pathname === '/clientes'
-            ? 'overflow-hidden p-0 h-[calc(100dvh-56px)] md:h-screen flex flex-col'
+            ? 'overflow-hidden p-0 h-[calc(100dvh-56px)] xl:h-screen flex flex-col'
             : location.pathname === '/admin/meta'
-              ? 'overflow-x-hidden overflow-y-auto px-2 py-3 sm:px-3 sm:py-4 md:p-4 lg:p-6 pb-8'
+              ? 'overflow-x-hidden overflow-y-auto px-2 py-3 sm:px-3 sm:py-4 md:p-5 xl:p-6 pb-8'
               : isFixedPage 
-                ? 'overflow-hidden p-4 md:p-6 h-[calc(100dvh-56px)] md:h-screen flex flex-col' 
-                : 'overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:p-8 lg:p-10 pb-8'
+                ? 'overflow-hidden p-4 md:p-6 h-[calc(100dvh-56px)] xl:h-screen flex flex-col'
+                : 'overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:p-6 xl:p-8 2xl:p-10 pb-8'
         }`}>
           {/* Spacer so content starts below the fixed mobile header */}
-          <div className="h-14 md:hidden" />
+          <div className="h-14 xl:hidden" />
           {/* Onboarding guide — shows on dashboard for users with no integrations configured */}
           {activeProfile && location.pathname === '/dashboard' && (
             <WelcomeGuide profile={activeProfile} />

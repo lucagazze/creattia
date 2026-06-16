@@ -50,6 +50,61 @@ function parseJsonResponse(text: string) {
   return JSON.parse(cleaned);
 }
 
+function normalizeCreativeAnalysis(raw: any) {
+  const attentionPct = Number(raw?.attentionPct ?? raw?.attention_pct ?? raw?.attention ?? raw?.retention ?? 0);
+  const emotionPct = Number(raw?.emotionPct ?? raw?.emotion_pct ?? raw?.emotion ?? raw?.impact ?? 0);
+  const cogLoad = Number(raw?.cogLoad ?? raw?.cog_load ?? raw?.cognitive_load ?? raw?.cognitiveLoad ?? 0);
+  return {
+    attentionPct: Math.max(0, Math.min(99, Math.round(Number.isFinite(attentionPct) ? attentionPct : 0))),
+    attentionReason: String(raw?.attentionReason ?? raw?.attention_reason ?? raw?.attentionInsight ?? raw?.textInsight ?? 'Estimado con TRIBE v2.'),
+    emotionPct: Math.max(0, Math.min(99, Math.round(Number.isFinite(emotionPct) ? emotionPct : 0))),
+    emotionReason: String(raw?.emotionReason ?? raw?.emotion_reason ?? raw?.emotionInsight ?? raw?.textInsight ?? 'Estimado con TRIBE v2.'),
+    cogLoad: Math.max(0, Math.min(99, Math.round(Number.isFinite(cogLoad) ? cogLoad : 0))),
+    cogLoadReason: String(raw?.cogLoadReason ?? raw?.cog_load_reason ?? raw?.cognitiveLoadReason ?? 'Estimado con TRIBE v2.'),
+    highestRegion: String(raw?.highestRegion ?? raw?.highest_region ?? raw?.region ?? raw?.topRegion ?? 'V1'),
+    textInsight: String(raw?.textInsight ?? raw?.text_insight ?? raw?.summary ?? 'Análisis generado con TRIBE v2.'),
+    actionItems: Array.isArray(raw?.actionItems ?? raw?.action_items)
+      ? (raw.actionItems ?? raw.action_items).slice(0, 4).map((item: any) => String(item))
+      : [],
+    provider: raw?.provider ?? 'tribev2',
+  };
+}
+
+async function callTribeV2Service(input: { frames: string[]; imageUrl?: string; isVideo?: boolean }) {
+  const serviceUrl = getFirstEnv('TRIBE_V2_API_URL', 'TRIBEV2_API_URL');
+  if (!serviceUrl) return null;
+
+  const secret = getFirstEnv('TRIBE_V2_API_KEY', 'TRIBEV2_API_KEY');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (secret) headers.Authorization = `Bearer ${secret}`;
+
+  const response = await fetch(serviceUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      type: 'analyze-creative',
+      source: 'car-saas',
+      frames: input.frames,
+      imageUrl: input.imageUrl,
+      isVideo: !!input.isVideo,
+    }),
+  });
+
+  const text = await response.text();
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { text };
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.detail || data?.error || `TRIBE v2 service failed (${response.status})`);
+  }
+
+  return normalizeCreativeAnalysis(data);
+}
+
 function cleanHtml(html: string): string {
   let text = html;
   // Remove non-content sections
@@ -305,6 +360,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
     if (frames.length === 0) return res.status(400).json({ error: 'No frames provided' });
+
+    try {
+      const tribeResult = await callTribeV2Service({
+        frames,
+        imageUrl: earlyImageUrl,
+        isVideo: !!earlyIsVideo,
+      });
+      if (tribeResult) return res.status(200).json(tribeResult);
+    } catch (err: any) {
+      return res.status(502).json({
+        error: 'TRIBE v2 analysis failed',
+        detail: err?.message || 'No se pudo analizar con TRIBE v2.',
+      });
+    }
 
     // Rate limit: 10 Gemini calls per IP per 10 minutes
     const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';

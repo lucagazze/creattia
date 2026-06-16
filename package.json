@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "tribev2": "services/tribev2_service/run.sh",
     "build": "vite build",
     "preview": "vite preview"
   },
