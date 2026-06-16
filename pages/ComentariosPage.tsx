@@ -1471,7 +1471,7 @@ export default function ComentariosPage() {
         <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedPost(null)} />
 
-          <div className="relative w-full md:max-w-5xl h-full bg-white dark:bg-[#0d0d11] border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right transition-spring duration-300 z-10">
+          <div className="relative w-full md:max-w-5xl h-[100dvh] max-h-[100dvh] bg-white dark:bg-[#0d0d11] border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right transition-spring duration-300 z-10">
 
             {/* Header */}
             <div className="px-4 md:px-6 py-3 md:py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 flex items-center justify-between flex-shrink-0 gap-2">
@@ -1547,10 +1547,10 @@ export default function ComentariosPage() {
 
 
             {/* Body: post preview + comments */}
-            <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+            <div className="flex flex-1 min-h-0 overflow-y-auto md:overflow-hidden flex-col md:flex-row">
 
               {/* Left: Post media — always visible */}
-              <div className="flex md:w-[280px] flex-shrink-0 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10">
+              <div className="flex md:w-[280px] flex-shrink-0 flex-col border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-3 md:p-4 overflow-visible md:overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10">
                 {/* Media */}
                 {(() => {
                   const mediaData = resolvedDetails[selectedPost.id];
@@ -1668,10 +1668,10 @@ export default function ComentariosPage() {
                       <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-zinc-100 dark:bg-zinc-900 w-full">
                         {selectedPost.mediaType === 'VIDEO' ? (
                           playingVideoId === selectedPost.id ? (
-                            <video src={selectedPost.mediaUrl || displayThumb || ''} controls autoPlay {...{ referrerPolicy: "no-referrer" }} className="w-full max-h-64 object-contain bg-black" />
+                            <video src={selectedPost.mediaUrl || displayThumb || ''} controls autoPlay {...{ referrerPolicy: "no-referrer" }} className="w-full max-h-[38dvh] md:max-h-64 object-contain bg-black" />
                           ) : (
                             <div className="relative cursor-pointer" onClick={() => setPlayingVideoId(selectedPost.id)}>
-                              <img src={displayThumb || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-64 object-cover" />
+                              <img src={displayThumb || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-[38dvh] md:max-h-64 object-cover" />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                                 <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
                                   <Play className="w-6 h-6 fill-zinc-900 text-zinc-900 ml-1" />
@@ -1680,7 +1680,7 @@ export default function ComentariosPage() {
                             </div>
                           )
                         ) : (
-                          <img src={displayThumb || selectedPost.mediaUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-64 object-cover" loading="lazy" />
+                          <img src={displayThumb || selectedPost.mediaUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-[38dvh] md:max-h-64 object-cover" loading="lazy" />
                         )}
                       </div>
                     );
@@ -1712,9 +1712,9 @@ export default function ComentariosPage() {
               </div>
 
               {/* Right: comments | analysis */}
-              <div className="flex flex-1 overflow-hidden flex-col min-h-0">
+              <div className="flex flex-1 min-h-[65dvh] md:min-h-0 overflow-visible md:overflow-hidden flex-col">
                 {slideTab === 'metrics' ? (
-                  <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                  <div className="flex-1 overflow-visible md:overflow-y-auto p-4 md:p-5 space-y-5">
                     {analyzingTribe ? (
                       <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
                         <div className="relative w-20 h-20">
@@ -1796,10 +1796,10 @@ export default function ComentariosPage() {
                     })()}
                   </div>
                 ) : (
-                  <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+                      <div className="flex flex-col flex-1 min-h-0 overflow-visible md:overflow-hidden">
                     {/* Filter toggle */}
                 {!loadingComments && comments.length > 0 && (
-                  <div className="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
+                  <div className="flex flex-wrap md:flex-nowrap items-center gap-1 px-4 md:px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
                     <button
                       onClick={() => setCommentFilter('pending')}
                       className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] font-black transition-all ${
@@ -1837,7 +1837,7 @@ export default function ComentariosPage() {
                     {(() => {
                       const suggestionsCount = comments.filter(c => isCommentPending(c, selectedPost!.platform)).length;
                       return suggestionsCount > 0 && (
-                        <div className="ml-auto flex items-center gap-1.5">
+                        <div className="ml-0 sm:ml-auto flex flex-wrap items-center gap-1.5">
                           <button
                             onClick={bulkGenerateDrafts}
                             disabled={bulkLoading}
@@ -1858,7 +1858,7 @@ export default function ComentariosPage() {
                     })()}
                   </div>
                 )}
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="flex-1 overflow-visible md:overflow-y-auto p-4 md:p-5 space-y-4">
                 {loadingComments ? (
                   <AppleLoader variant="table" count={4} />
                 ) : comments.length === 0 ? (

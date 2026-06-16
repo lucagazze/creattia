@@ -1868,7 +1868,7 @@ export default function RedesSocialesPage() {
             />
 
             {/* Slide-over panel container */}
-            <div className="relative w-full md:max-w-4xl h-full bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right transition-spring duration-300 ease-out z-10">
+            <div className="relative w-full md:max-w-4xl h-[100dvh] max-h-[100dvh] bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right transition-spring duration-300 ease-out z-10">
               
               {/* Header */}
               <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/85 bg-zinc-50 dark:bg-zinc-900/50 flex items-center justify-between flex-shrink-0">
@@ -1931,10 +1931,10 @@ export default function RedesSocialesPage() {
               </div>
 
               {/* Split Body Container */}
-              <div className="grid flex-1 overflow-hidden grid-cols-1 md:grid-cols-5 h-full">
+              <div className="grid flex-1 min-h-0 overflow-y-auto md:overflow-hidden grid-cols-1 md:grid-cols-5 auto-rows-max md:auto-rows-auto">
 
                 {/* Column 1: Post Media Context (Left Side - always visible) */}
-                <div className="flex md:col-span-2 flex-col justify-start border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-5 overflow-y-auto h-full space-y-4">
+                <div className="flex md:col-span-2 flex-col justify-start border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-3 md:p-5 overflow-visible md:overflow-y-auto md:h-full space-y-4">
                   {activePost ? (
                     <>
                       {/* Media Player */}
@@ -2011,9 +2011,9 @@ export default function RedesSocialesPage() {
                 </div>
 
                 {/* Column 2: Comments List & Inputs (Right Side - 60% width on md/lg, full width on mobile) */}
-                <div className="flex col-span-1 md:col-span-3 flex-col h-full overflow-hidden">
+                <div className="flex col-span-1 md:col-span-3 flex-col min-h-[65dvh] md:min-h-0 md:h-full overflow-visible md:overflow-hidden">
                   {slideTab === 'metrics' ? (
-                    <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                    <div className="flex-1 overflow-visible md:overflow-y-auto p-4 md:p-5 space-y-5">
                       {analyzingTribe ? (
                         <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
                           <div className="relative w-20 h-20">
@@ -2097,10 +2097,10 @@ export default function RedesSocialesPage() {
                       })()}
                     </div>
                   ) : (
-                    <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+                    <div className="flex flex-col flex-1 min-h-0 overflow-visible md:overflow-hidden">
                       {/* Filter toggle + bulk draft */}
                       {!loadingComments && comments.length > 0 && (
-                        <div className="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
+                        <div className="flex flex-wrap md:flex-nowrap items-center gap-1 px-4 md:px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
                           <button
                             onClick={() => setCommentFilter('pending')}
                             className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] font-black transition-all ${commentFilter === 'pending' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
@@ -2122,7 +2122,7 @@ export default function RedesSocialesPage() {
                           {(() => {
                             const suggestionsCount = comments.filter(isCommentPending).length;
                             return suggestionsCount > 0 && (
-                              <div className="ml-auto flex items-center gap-1.5">
+                              <div className="ml-0 sm:ml-auto flex flex-wrap items-center gap-1.5">
                                 <button
                                   onClick={handleBulkDrafts}
                                   disabled={bulkDraftsLoading}
@@ -2144,7 +2144,7 @@ export default function RedesSocialesPage() {
                         </div>
                       )}
                       {/* Comments List */}
-                  <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/10 dark:bg-zinc-950/5">
+                  <div className="flex-1 overflow-visible md:overflow-y-auto p-4 md:p-5 space-y-4 bg-zinc-50/10 dark:bg-zinc-950/5">
                     {loadingComments ? (
                       <AppleLoader variant="table" count={3} />
                     ) : comments.length === 0 ? (

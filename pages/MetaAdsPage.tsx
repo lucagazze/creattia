@@ -974,7 +974,7 @@ export default function MetaAdsPage() {
             <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedAd(null)} />
 
-              <div className="relative w-full md:max-w-5xl h-full bg-white dark:bg-[#0d0d11] border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 z-10">
+              <div className="relative w-full md:max-w-5xl h-[100dvh] max-h-[100dvh] bg-white dark:bg-[#0d0d11] border-l border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300 z-10">
 
                 {/* Header */}
                 <div className="px-4 md:px-6 py-3 md:py-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 flex items-center justify-between flex-shrink-0 gap-2">
@@ -1023,10 +1023,10 @@ export default function MetaAdsPage() {
 	                </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-5 h-full">
+                <div className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden grid grid-cols-1 md:grid-cols-5 auto-rows-max md:auto-rows-auto">
 
                   {/* Left: creative + info (40%) — always visible */}
-	                  <div className="flex md:col-span-2 flex-col border-r border-zinc-100 dark:border-zinc-800 p-4 overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 h-full">
+	                  <div className="flex md:col-span-2 flex-col border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-3 md:p-4 overflow-visible md:overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 md:h-full">
 
                     {/* Creative */}
                     {(!mediaData || resolvingIds[selectedAd.adId]) ? (
@@ -1138,9 +1138,9 @@ export default function MetaAdsPage() {
                   </div>
 
                   {/* Right: Comments (60%) */}
-	                  <div className="flex md:col-span-3 flex-col overflow-hidden h-full">
+	                  <div className="flex md:col-span-3 flex-col min-h-[65dvh] md:min-h-0 overflow-visible md:overflow-hidden md:h-full">
                     {slideTab === 'metrics' ? (
-                      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                      <div className="flex-1 overflow-visible md:overflow-y-auto p-4 md:p-5 space-y-5">
                         {analyzingTribe ? (
                           <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
                             <div className="relative w-20 h-20">
@@ -1224,11 +1224,11 @@ export default function MetaAdsPage() {
                         })()}
                       </div>
                     ) : (
-                      <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+                      <div className="flex flex-col flex-1 min-h-0 overflow-visible md:overflow-hidden">
 
                     {/* Platform switcher (right panel header) — only when both platforms */}
                     {hasBothPlatforms && (
-                      <div className="flex items-center gap-1.5 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
+                      <div className="flex flex-wrap md:flex-nowrap items-center gap-1.5 px-4 md:px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
                         <button
                           onClick={() => switchCommentPlatform('instagram')}
                           className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[9.5px] sm:text-[11px] font-black transition-all border ${activeCommentPlatform === 'instagram' ? 'bg-pink-50 dark:bg-pink-950/20 text-pink-600 dark:text-pink-400 border-pink-200/60 dark:border-pink-800/30' : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
@@ -1256,7 +1256,7 @@ export default function MetaAdsPage() {
 
                     {/* Pending / all filter */}
                     {!loadingComments && comments.length > 0 && (
-                      <div className="flex items-center gap-1 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
+                      <div className="flex flex-wrap md:flex-nowrap items-center gap-1 px-4 md:px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800 flex-shrink-0 bg-zinc-50/50 dark:bg-zinc-900/40">
                         <button onClick={() => setCommentFilter('pending')} className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9.5px] sm:text-[11px] font-black transition-all ${commentFilter === 'pending' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                           Sin responder
                           <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'pending' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{pendingCount}</span>
@@ -1266,7 +1266,7 @@ export default function MetaAdsPage() {
                           <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{getCommentThreadCount(comments)}</span>
                         </button>
                         {pendingCount > 0 && (
-                          <div className="ml-auto flex items-center gap-1.5">
+                          <div className="ml-0 sm:ml-auto flex flex-wrap items-center gap-1.5">
                             <button
                               onClick={bulkGenerateDrafts}
                               disabled={bulkLoading}
@@ -1287,7 +1287,7 @@ export default function MetaAdsPage() {
                       </div>
                     )}
 
-                    <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    <div className="flex-1 overflow-visible md:overflow-y-auto p-4 md:p-5 space-y-4">
                       {loadingComments ? (
                         <AppleLoader variant="table" count={4} />
                       ) : comments.length === 0 ? (
