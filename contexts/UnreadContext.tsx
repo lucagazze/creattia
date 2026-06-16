@@ -386,6 +386,14 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     try {
       let total = 0;
+      let ignoredComments: Record<string, boolean> = {};
+      if (profile?.id) {
+        try {
+          ignoredComments = JSON.parse(localStorage.getItem(`car_ignored_comments_${profile.id}`) || '{}');
+        } catch {
+          ignoredComments = {};
+        }
+      }
 
       // 1. Fetch Instagram media posts with comments and replies inline
       let igPosts: any[] = [];
@@ -411,6 +419,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       // Helper to check if a comment is pending
       const isCommentPendingLocal = (comment: any, isIg: boolean) => {
+        if (ignoredComments[comment?.id]) return false;
         const isFromPage = isIg 
           ? (comment.username && igUsername && comment.username.toLowerCase() === igUsername.toLowerCase()) 
           : comment.from?.id === fbPageId;

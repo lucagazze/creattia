@@ -26,6 +26,20 @@ const GEMINI_MODELS = [
   'gemini-1.5-flash',
 ].filter(Boolean) as string[];
 
+const isProbablyTruncated = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  if (/[.!?…)"'”’🙌🙏👍👌💪🔥❤️💜💙💚🖤🤍]$/.test(trimmed)) return false;
+  if (trimmed.length < 20) return false;
+  return /(?:\b(and|or|but|because|with|for|to|the|a|an|that|which|making|including|about|de|del|la|el|los|las|que|con|para|por|y|o|pero|porque|incluyendo|sobre|haciendo)\b|[,;:]|\s-\s)$/i.test(trimmed);
+};
+
+const normalizeDraftText = (text: string) =>
+  text
+    .replace(/^["'“”]+|["'“”]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const argentineTime = new Date().toLocaleString('es-AR', {
     timeZone: 'America/Argentina/Buenos_Aires',
@@ -550,6 +564,8 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
       ? `${dmHistory}\n\nMensaje del cliente: "${itemText}"\nRedactá la respuesta${username ? ` para ${username}` : ''}:`
       : `${postCaption ? `Publicación: "${postCaption}"\n` : ''}${threadContext ? `\n${threadContext}\n` : ''}Comentario: @${username}: "${itemText}"\nRedactá la respuesta:`;
 
+    const completionGuard = `\n\nIMPORTANTE: Devolvé una respuesta COMPLETA. No la cortes a mitad de frase. Cerrá la idea con puntuación final o emoji.`;
+
     // 11. Call Gemini, trying current models before falling back to OpenAI
     let draftText = '';
     const aiErrors: string[] = [];
@@ -557,8 +573,8 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
     if (geminiKey) {
       const geminiBody = {
         system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+        contents: [{ role: 'user', parts: [{ text: userPrompt + completionGuard }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1536 },
       };
 
       for (const model of GEMINI_MODELS) {
@@ -570,9 +586,28 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
           if (geminiRes.ok) {
             const geminiData = await geminiRes.json() as any;
             const parts = geminiData.candidates?.[0]?.content?.parts || [];
-            draftText = (parts.find((p: any) => p.text)?.text || '').trim();
-            if (draftText) break;
-            aiErrors.push(`Gemini ${model}: empty response`);
+            const finishReason = geminiData.candidates?.[0]?.finishReason;
+            draftText = normalizeDraftText(parts.find((p: any) => p.text)?.text || '');
+            if (draftText && (finishReason === 'MAX_TOKENS' || isProbablyTruncated(draftText))) {
+              const retryBody = {
+                ...geminiBody,
+                contents: [{ role: 'user', parts: [{ text: `${userPrompt}${completionGuard}\n\nLa respuesta anterior quedó cortada: "${draftText}". Reescribí desde cero una versión final completa y lista para enviar.` }] }],
+                generationConfig: { temperature: 0.5, maxOutputTokens: 1536 },
+              };
+              const retryRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(retryBody) }
+              );
+              if (retryRes.ok) {
+                const retryData = await retryRes.json() as any;
+                const retryParts = retryData.candidates?.[0]?.content?.parts || [];
+                const retryText = normalizeDraftText(retryParts.find((p: any) => p.text)?.text || '');
+                if (retryText && !isProbablyTruncated(retryText)) draftText = retryText;
+              }
+            }
+            if (draftText && !isProbablyTruncated(draftText)) break;
+            aiErrors.push(`Gemini ${model}: ${draftText ? 'truncated response' : 'empty response'}`);
+            draftText = '';
           } else {
             const errText = await geminiRes.text();
             aiErrors.push(`Gemini ${model}: HTTP ${geminiRes.status} ${errText.slice(0, 300)}`);
@@ -586,20 +621,40 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
     }
 
     // 12. Fallback to OpenAI
-    if (!draftText && openAiKey) {
+    if ((!draftText || isProbablyTruncated(draftText)) && openAiKey) {
       try {
         const oaRes = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openAiKey}` },
           body: JSON.stringify({
             model: 'gpt-4o-mini',
-            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-            temperature: 0.7, max_tokens: 512,
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt + completionGuard }],
+            temperature: 0.7, max_tokens: 1536,
           }),
         });
         if (oaRes.ok) {
           const oaData = await oaRes.json() as any;
-          draftText = (oaData.choices?.[0]?.message?.content || '').trim();
+          draftText = normalizeDraftText(oaData.choices?.[0]?.message?.content || '');
+          if (draftText && (oaData.choices?.[0]?.finish_reason === 'length' || isProbablyTruncated(draftText))) {
+            const retryRes = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openAiKey}` },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: `${userPrompt}${completionGuard}\n\nLa respuesta anterior quedó cortada: "${draftText}". Reescribí desde cero una versión final completa y lista para enviar.` },
+                ],
+                temperature: 0.5,
+                max_tokens: 1536,
+              }),
+            });
+            if (retryRes.ok) {
+              const retryData = await retryRes.json() as any;
+              const retryText = normalizeDraftText(retryData.choices?.[0]?.message?.content || '');
+              if (retryText && !isProbablyTruncated(retryText)) draftText = retryText;
+            }
+          }
         } else {
           const errText = await oaRes.text();
           aiErrors.push(`OpenAI: HTTP ${oaRes.status} ${errText.slice(0, 300)}`);
@@ -611,7 +666,7 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
       }
     }
 
-    if (!draftText) {
+    if (!draftText || isProbablyTruncated(draftText)) {
       console.error('[draft-reply] All AI providers failed:', aiErrors.join(' | '));
       return res.status(502).json({
         error: 'AI_PROVIDER_FAILED',

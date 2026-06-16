@@ -14,7 +14,7 @@ import { supabase } from '../services/supabase';
 import {
   Layers, Film, X, Loader2, ImageIcon, ChevronLeft, ChevronRight, Calendar, ChevronDown,
   Instagram, MessageCircle, Heart, Send, Sparkles, ArrowUpRight, Play, Facebook,
-  Share2, Eye, MousePointerClick, Users, Brain, AlertTriangle
+  Share2, Eye, MousePointerClick, Users, Brain, AlertTriangle, EyeOff
 } from 'lucide-react';
 
 // ── AutoResizeTextarea ────────────────────────────────────────────────────────
@@ -33,67 +33,6 @@ const AutoResizeTextarea = React.forwardRef<HTMLTextAreaElement, AutoResizeTexta
   }
 );
 AutoResizeTextarea.displayName = 'AutoResizeTextarea';
-
-// ── Seeded mock fallback for objective metrics ───────────────────────────────
-function getObjectiveMetrics(seedStr: string, isVideo: boolean) {
-  let seed = 0;
-  for (let i = 0; i < seedStr.length; i++) {
-    seed = ((seed << 5) - seed) + seedStr.charCodeAt(i);
-    seed |= 0;
-  }
-  const rng = () => {
-    let t = seed += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-  const attentionPct = Math.min(97, Math.floor((isVideo ? 65 : 70) + rng() * 25));
-  const emotionPct = Math.min(97, Math.floor((isVideo ? 68 : 60) + rng() * 25));
-  const cogLoad = Math.max(12, Math.floor(20 + rng() * 30));
-  const regions = [
-    'V1 (Corteza Visual Primaria)', 
-    'FFA (Giro Fusiforme / Rostros)', 
-    'EBA (Área Corporal / Producto)', 
-    'Amígdala (Estímulo Emocional)', 
-    'A1 (Corteza Auditiva / Sonido)'
-  ];
-  const highestRegion = regions[Math.floor(rng() * regions.length)];
-  const score = Math.floor(attentionPct * 0.4 + emotionPct * 0.4 + (100 - cogLoad) * 0.2);
-  
-  const attentionReasons = [
-    'Encuadre centrado y contraste lumínico óptimo en los primeros elementos.',
-    'Gancho visual potente que detiene el scroll en menos de 0.5 segundos.',
-    'Distribución equilibrada de pesos visuales que guía la mirada eficientemente.',
-    'Puntos de contraste cromático bien definidos en zonas clave.'
-  ];
-  const emotionReasons = [
-    'Dispara impulsos de exclusividad y conexión personal con la marca.',
-    'Estimula el deseo de pertenencia mediante composición aspiracional.',
-    'Transmite dinamismo, seguridad y confort en su paleta cromática.',
-    'Resonancia moderada; conecta directamente con la necesidad de uso.'
-  ];
-  const cogLoadReasons = [
-    'Composición sumamente limpia y tipografía de lectura instantánea.',
-    'Flujo de información fluido sin elementos secundarios distractores.',
-    'Estructura simple que permite procesar el mensaje clave sin esfuerzo.',
-    'Carga cognitiva optimizada con jerarquía de texto clara.'
-  ];
-
-  const attentionReason = attentionReasons[Math.floor(rng() * attentionReasons.length)];
-  const emotionReason = emotionReasons[Math.floor(rng() * emotionReasons.length)];
-  const cogLoadReason = cogLoadReasons[Math.floor(rng() * cogLoadReasons.length)];
-
-  return {
-    score,
-    attentionPct,
-    attentionReason,
-    emotionPct,
-    emotionReason,
-    cogLoad,
-    cogLoadReason,
-    highestRegion
-  };
-}
 
 const scoreCls = (score: number) =>
   score >= 80 ? 'bg-emerald-500 text-white shadow-emerald-200 dark:shadow-none' :
@@ -194,6 +133,7 @@ export default function MetaAdsPage() {
   const [replyErrors, setReplyErrors] = useState<Record<string, string | null>>({});
   const [openReplies, setOpenReplies] = useState<Record<string, boolean>>({});
   const [likedIds, setLikedIds] = useState<Record<string, boolean>>({});
+  const [ignoredIds, setIgnoredIds] = useState<Record<string, boolean>>({});
   const [bulkLoading, setBulkLoading] = useState(false);
   const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('pending');
   const [replyLangs, setReplyLangs] = useState<Record<string, 'en' | 'es'>>({});
@@ -204,6 +144,7 @@ export default function MetaAdsPage() {
   const [slideTab, setSlideTab] = useState<'comments' | 'metrics'>('comments');
   const [analyzingTribe, setAnalyzingTribe] = useState(false);
   const [tribeResult, setTribeResult] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
 
   useEffect(() => {
@@ -211,54 +152,73 @@ export default function MetaAdsPage() {
       setSlideTab('comments');
       setAnalyzingTribe(false);
       setTribeResult(null);
+      setAnalysisError(null);
       setTimeline([]);
     }
   }, [selectedAd]);
 
-  const analyzeCreativeUrl = async (imageUrl: string | null, isVideo: boolean): Promise<any | null> => {
-    if (!imageUrl) return null;
+  useEffect(() => {
+    if (!clientId) {
+      setIgnoredIds({});
+      return;
+    }
+    try {
+      setIgnoredIds(JSON.parse(localStorage.getItem(`car_ignored_comments_${clientId}`) || '{}'));
+    } catch {
+      setIgnoredIds({});
+    }
+  }, [clientId]);
+
+  const analyzeCreativeUrl = async (imageUrl: string | null, isVideo: boolean): Promise<any> => {
+    if (!imageUrl) throw new Error('No hay imagen disponible para analizar.');
+    let frame: string | null = null;
     try {
       const r = await fetch(imageUrl);
-      if (!r.ok) return null;
-      const blob = await r.blob();
-      const b64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => resolve(e.target?.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      const canvas = document.createElement('canvas');
-      const img = document.createElement('img');
-      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = b64; });
-      const scale = Math.min(1, 256 / Math.max(img.width, 1));
-      canvas.width = Math.floor(img.width * scale);
-      canvas.height = Math.floor(img.height * scale);
-      canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const frame = canvas.toDataURL('image/jpeg', 0.6);
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
-      const res = await fetch('/api/scrape-all', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ type: 'analyze-creative', frames: [frame], isVideo }),
-      });
-      if (res.ok) return await res.json();
-    } catch {}
-    return null;
+      if (r.ok) {
+        const blob = await r.blob();
+        const b64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const canvas = document.createElement('canvas');
+        const img = document.createElement('img');
+        await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = b64; });
+        const scale = Math.min(1, 256 / Math.max(img.width, 1));
+        canvas.width = Math.floor(img.width * scale);
+        canvas.height = Math.floor(img.height * scale);
+        canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        frame = canvas.toDataURL('image/jpeg', 0.6);
+      }
+    } catch {
+      frame = null;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || '';
+    const res = await fetch('/api/scrape-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ type: 'analyze-creative', frames: frame ? [frame] : [], imageUrl, isVideo }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || data.error || 'No se pudo analizar el creativo con IA.');
+    const score = Math.max(0, Math.min(100, Math.round((Number(data.attentionPct || 0) * 0.4) + (Number(data.emotionPct || 0) * 0.4) + ((100 - Number(data.cogLoad || 0)) * 0.2))));
+    return { ...data, score };
   };
 
   const handleTabChange = (tab: 'comments' | 'metrics', imageUrl?: string, isVideo?: boolean) => {
     if (tab === 'metrics') {
       setAnalyzingTribe(true);
       setTribeResult(null);
+      setAnalysisError(null);
       setSlideTab('metrics');
       analyzeCreativeUrl(imageUrl || null, isVideo || false)
         .then(result => {
-          if (result) {
-            setTribeResult(result);
-            setTimeline(genTimeline(result.attentionPct, result.emotionPct, result.cogLoad, result.score));
-          }
+          setTribeResult(result);
+          setTimeline(genTimeline(result.attentionPct, result.emotionPct, result.cogLoad, result.score));
         })
+        .catch(err => setAnalysisError(err?.message || 'No se pudo analizar el creativo con IA.'))
         .finally(() => setAnalyzingTribe(false));
     } else {
       setSlideTab('comments');
@@ -317,6 +277,7 @@ export default function MetaAdsPage() {
   }, [igUsername, igId, fbPageId, metaAccountId]);
 
   const isCommentPending = useCallback((comment: any, _platform: 'instagram' | 'facebook') => {
+    if (comment?._ignored || ignoredIds[comment?.id]) return false;
     if (isFromPage(comment)) return false;
     const replies = comment.replies?.data || [];
     if (replies.length === 0) return true;
@@ -324,7 +285,7 @@ export default function MetaAdsPage() {
       new Date(a.timestamp || a.created_time || 0).getTime() - new Date(b.timestamp || b.created_time || 0).getTime()
     );
     return !isFromPage(sorted[sorted.length - 1]);
-  }, [isFromPage]);
+  }, [isFromPage, ignoredIds]);
 
   const getCommentThreadCount = (list: any[]) =>
     list.reduce((total, c) => total + 1 + (c.replies?.data?.length || 0), 0);
@@ -552,6 +513,7 @@ export default function MetaAdsPage() {
 
     const normalizeComment = (c: any, idx: number) => ({
       ...c,
+      _ignored: !!ignoredIds[c.id],
       username: resolveName(c, `Usuario ${idx + 1}`),
       text: c.text || c.message || '',
       timestamp: c.timestamp || c.created_time || new Date().toISOString(),
@@ -726,6 +688,24 @@ export default function MetaAdsPage() {
         updateComments(arr => arr.map(c => c.id === commentId ? { ...c, like_count: (c.like_count || 0) + 1 } : c));
       }
     } catch { /* silent */ }
+  };
+
+  const toggleIgnore = (commentId: string) => {
+    if (!clientId) return;
+    let nextIgnored = false;
+    setIgnoredIds(prev => {
+      nextIgnored = !prev[commentId];
+      const next = { ...prev, [commentId]: nextIgnored };
+      if (!nextIgnored) delete next[commentId];
+      try { localStorage.setItem(`car_ignored_comments_${clientId}`, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+    setCommentsByPlatform(prev => ({
+      ...prev,
+      [activeCommentPlatform]: prev[activeCommentPlatform].map(c => c.id === commentId ? { ...c, _ignored: nextIgnored } : c),
+    }));
+    setReplyTexts(prev => { const next = { ...prev }; delete next[commentId]; return next; });
+    setOpenReplies(prev => ({ ...prev, [commentId]: false }));
   };
 
   // ── Misc helpers ─────────────────────────────────────────────────────────────
@@ -1170,11 +1150,24 @@ export default function MetaAdsPage() {
                                 <Brain className="w-7 h-7 text-violet-500 animate-pulse" />
                               </div>
                             </div>
-                            <p className="text-[13px] font-bold text-zinc-700 dark:text-zinc-350">Analizando creativo con IA...</p>
-                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Procesando respuesta visual</p>
-                          </div>
-                        ) : (() => {
-                          const metrics = tribeResult || getObjectiveMetrics(selectedAd.adId, mediaData?.type === 'video_source');
+	                            <p className="text-[13px] font-bold text-zinc-700 dark:text-zinc-350">Analizando creativo con IA...</p>
+	                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Procesando respuesta visual</p>
+	                          </div>
+	                        ) : analysisError ? (
+	                          <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-3 text-center">
+	                            <div className="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-900/50 flex items-center justify-center">
+	                              <AlertTriangle className="w-7 h-7 text-amber-500" />
+	                            </div>
+	                            <p className="text-[13px] font-black text-zinc-800 dark:text-zinc-200">No se pudo analizar con IA</p>
+	                            <p className="max-w-sm text-[12px] text-zinc-500 dark:text-zinc-400">{analysisError}</p>
+	                          </div>
+	                        ) : !tribeResult ? (
+	                          <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-3 text-center">
+	                            <Brain className="w-8 h-8 text-violet-500" />
+	                            <p className="text-[13px] font-bold text-zinc-500 dark:text-zinc-400">Abrí el análisis para procesar este creativo con IA.</p>
+	                          </div>
+	                        ) : (() => {
+	                          const metrics = tribeResult;
                           return (
                             <div className="space-y-5 text-left animate-in fade-in duration-200">
                               {/* Score global */}
@@ -1310,8 +1303,9 @@ export default function MetaAdsPage() {
                           .filter(c => commentFilter === 'all' || isCommentPending(c, activeCommentPlatform))
                           .sort((a, b) => new Date(b.timestamp || b.created_time || 0).getTime() - new Date(a.timestamp || a.created_time || 0).getTime())
                           .map(comment => {
-                            const isPending = isCommentPending(comment, activeCommentPlatform);
-                            const liked = !!likedIds[comment.id];
+	                            const isPending = isCommentPending(comment, activeCommentPlatform);
+	                            const isIgnored = !!(comment._ignored || ignoredIds[comment.id]);
+	                            const liked = !!likedIds[comment.id];
                             const replyOpen = !!openReplies[comment.id];
                             const replies = comment.replies?.data || [];
                             return (
@@ -1328,9 +1322,11 @@ export default function MetaAdsPage() {
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1.5">
-                                      {isPending ? (
-                                        <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 uppercase">Pendiente</span>
-                                      ) : (
+	                                      {isIgnored ? (
+	                                        <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 uppercase">Ignorado</span>
+	                                      ) : isPending ? (
+	                                        <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 uppercase">Pendiente</span>
+	                                      ) : (
                                         <span className="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 uppercase">Respondido</span>
                                       )}
                                       <button onClick={() => toggleLike(comment.id)} className={`flex items-center gap-0.5 text-[11px] font-bold transition-colors ${liked ? 'text-red-500' : 'text-zinc-400 hover:text-red-500'}`}>
@@ -1371,11 +1367,15 @@ export default function MetaAdsPage() {
                                     </div>
                                   )}
 
-                                  <div className="mt-3 ml-9 flex items-center gap-2">
-                                    <button onClick={() => { const nextOpen = !replyOpen; setOpenReplies(prev => ({ ...prev, [comment.id]: nextOpen })); setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null })); setReplyTexts(prev => ({ ...prev, [comment.id]: '' })); }} className="text-[11px] font-black text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition-colors">
-                                      {replyOpen ? 'Cancelar' : 'Responder'}
-                                    </button>
-                                  </div>
+	                                  <div className="mt-3 ml-9 flex items-center gap-2">
+	                                    <button onClick={() => { const nextOpen = !replyOpen; setOpenReplies(prev => ({ ...prev, [comment.id]: nextOpen })); setActiveReplyTargets(prev => ({ ...prev, [comment.id]: null })); setReplyTexts(prev => ({ ...prev, [comment.id]: '' })); }} className="text-[11px] font-black text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition-colors">
+	                                      {replyOpen ? 'Cancelar' : 'Responder'}
+	                                    </button>
+	                                    <button type="button" onClick={() => toggleIgnore(comment.id)} className={`text-[11px] font-black transition-colors ${isIgnored ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}>
+	                                      <EyeOff className="w-3.5 h-3.5 inline mr-1" />
+	                                      {isIgnored ? 'No ignorar' : 'Ignorar'}
+	                                    </button>
+	                                  </div>
 
                                   {replyOpen && (
                                     <div className="mt-3 ml-9 space-y-2 animate-in fade-in duration-200">

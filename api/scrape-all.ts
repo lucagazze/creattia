@@ -269,11 +269,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── CREATIVE ANALYSIS — no auth required (landing page + app users) ─────────
-  const { type: earlyType, frames: earlyFrames, isVideo: earlyIsVideo } = req.body as any;
+  const { type: earlyType, frames: earlyFrames, imageUrl: earlyImageUrl, isVideo: earlyIsVideo } = req.body as any;
   if (earlyType === 'analyze-creative') {
     const geminiKey = getFirstEnv('GOOGLE_AI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY');
     if (!geminiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY/GEMINI_API_KEY no configurada' });
-    if (!earlyFrames?.length) return res.status(400).json({ error: 'No frames provided' });
+    const frames: string[] = Array.isArray(earlyFrames) ? earlyFrames.filter(Boolean) : [];
+    if (frames.length === 0 && earlyImageUrl) {
+      try {
+        const url = new URL(String(earlyImageUrl));
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          return res.status(400).json({ error: 'Invalid image URL' });
+        }
+        const imgRes = await fetch(url.toString(), {
+          headers: { 'User-Agent': 'AlgoritmiaCreativeAnalyzer/1.0' },
+        });
+        if (!imgRes.ok) return res.status(400).json({ error: 'No se pudo descargar el creativo para analizar.' });
+        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        const arr = await imgRes.arrayBuffer();
+        if (arr.byteLength > 8 * 1024 * 1024) {
+          return res.status(413).json({ error: 'El creativo es demasiado pesado para analizar.' });
+        }
+        const b64 = Buffer.from(arr).toString('base64');
+        frames.push(`data:${contentType};base64,${b64}`);
+      } catch {
+        return res.status(400).json({ error: 'No se pudo preparar el creativo para analizar.' });
+      }
+    }
+    if (frames.length === 0) return res.status(400).json({ error: 'No frames provided' });
 
     // Rate limit: 10 Gemini calls per IP per 10 minutes
     const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
@@ -282,12 +304,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const prompt = earlyIsVideo
-      ? `ERES: especialista en análisis creativo de video para redes sociales (Reels, TikTok, Facebook Ads).\n\nSE TE PASAN: ${earlyFrames.length} capturas del VIDEO completo, ~1 por segundo de inicio a fin. Analízalas EN CONJUNTO como una sola pieza.\n\nANALIZA COMO DIRECTOR CREATIVO: gancho de los primeros 3 segundos, ritmo del video, claridad del mensaje, efectividad del CTA, energía de la persona en cámara.\n\nPROHIBIDO: mencionar problemas técnicos de foto. Solo analiza el video como pieza creativa y de marketing.\nPERMITIDO SER BRUTAL: "Regrabar el video", "El gancho es inexistente", "Nadie va a ver esto más de 2 segundos".\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿El gancho detiene el scroll?\n2. Impacto Emocional (0-99): ¿Despierta curiosidad, deseo, humor o impacto?\n3. Carga Cognitiva (0-99): ¿El mensaje es claro sin esfuerzo? Ideal <30.\n4. Región Principal: "V1" (visual puro), "A1" (voz/música), "FFA" (persona/rostro), "EBA" (movimiento/cuerpo), "Amígdala" (emoción/shock).\n\nRESPONDE SOLO CON ESTE JSON (sin texto extra):\n{"attentionPct":72,"attentionReason":"Por qué la atención es ese número.","emotionPct":65,"emotionReason":"Por qué el impacto emocional es ese número.","cogLoad":28,"cogLoadReason":"Por qué la carga cognitiva es ese número.","highestRegion":"FFA","textInsight":"Diagnóstico del video en 2-3 líneas.","actionItems":["Acción 1","Acción 2","Acción 3","Acción 4"]}`
+      ? `ERES: especialista en análisis creativo de video para redes sociales (Reels, TikTok, Facebook Ads).\n\nSE TE PASAN: ${frames.length} capturas del VIDEO completo, ~1 por segundo de inicio a fin. Analízalas EN CONJUNTO como una sola pieza.\n\nANALIZA COMO DIRECTOR CREATIVO: gancho de los primeros 3 segundos, ritmo del video, claridad del mensaje, efectividad del CTA, energía de la persona en cámara.\n\nPROHIBIDO: mencionar problemas técnicos de foto. Solo analiza el video como pieza creativa y de marketing.\nPERMITIDO SER BRUTAL: "Regrabar el video", "El gancho es inexistente", "Nadie va a ver esto más de 2 segundos".\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿El gancho detiene el scroll?\n2. Impacto Emocional (0-99): ¿Despierta curiosidad, deseo, humor o impacto?\n3. Carga Cognitiva (0-99): ¿El mensaje es claro sin esfuerzo? Ideal <30.\n4. Región Principal: "V1" (visual puro), "A1" (voz/música), "FFA" (persona/rostro), "EBA" (movimiento/cuerpo), "Amígdala" (emoción/shock).\n\nRESPONDE SOLO CON ESTE JSON (sin texto extra):\n{"attentionPct":72,"attentionReason":"Por qué la atención es ese número.","emotionPct":65,"emotionReason":"Por qué el impacto emocional es ese número.","cogLoad":28,"cogLoadReason":"Por qué la carga cognitiva es ese número.","highestRegion":"FFA","textInsight":"Diagnóstico del video en 2-3 líneas.","actionItems":["Acción 1","Acción 2","Acción 3","Acción 4"]}`
       : `ERES: especialista en análisis creativo de anuncios gráficos estáticos para redes sociales.\n\nANALIZA COMO DIRECTOR DE ARTE: jerarquía visual, contraste, legibilidad del texto, efectividad del CTA, balance imagen/copy.\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿Para el scroll en 0.5 segundos?\n2. Impacto Emocional (0-99): ¿La imagen genera deseo, curiosidad o urgencia?\n3. Carga Cognitiva (0-99): ¿Se entiende en <3 segundos? Ideal <30.\n4. Región Principal: "V1" (composición), "FFA" (rostro/persona), "EBA" (producto/objeto), "Amígdala" (color/emoción), "A1" (texto dominante).\n\nRESPONDE SOLO CON ESTE JSON:\n{"attentionPct":72,"attentionReason":"Por qué.","emotionPct":65,"emotionReason":"Por qué.","cogLoad":28,"cogLoadReason":"Por qué.","highestRegion":"V1","textInsight":"Diagnóstico en 2-3 líneas.","actionItems":["Acción 1","Acción 2","Acción 3","Acción 4"]}`;
 
     try {
       const parts: any[] = [{ text: prompt }];
-      for (const b64 of earlyFrames) {
+      for (const b64 of frames) {
         const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
         parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Data } });
       }
@@ -302,7 +324,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: JSON.stringify({
               contents: [{ role: 'user', parts }],
               generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' },
-              thinkingConfig: { thinkingBudget: 0 },
             }),
           }
         );
