@@ -368,7 +368,7 @@ const collectPaginatedData = async (firstPage: any): Promise<any[]> => {
 
 const collectComments = async (
   fetchPage: (after?: string) => Promise<any>,
-  maxPages = 25
+  maxPages = 50
 ): Promise<any[]> => {
   const all: any[] = [];
   let after: string | undefined;
@@ -380,6 +380,55 @@ const collectComments = async (
     after = nextAfter;
   }
   return all;
+};
+
+const replyFieldsFor = (platform: 'instagram' | 'facebook') =>
+  platform === 'instagram'
+    ? 'id,text,message,timestamp,created_time,from{id,name},username,like_count'
+    : 'id,message,text,created_time,timestamp,from{id,name},username,like_count,attachment{media{image{src}},type,url}';
+
+const getCommentRepliesPage = (
+  commentId: string,
+  platform: 'instagram' | 'facebook',
+  pageId?: string,
+  after?: string
+) => {
+  const params: Record<string, string> = {
+    fields: replyFieldsFor(platform),
+    limit: '100',
+  };
+  if (after) params.after = after;
+  const endpoint = platform === 'instagram' ? `${commentId}/replies` : `${commentId}/comments`;
+  if (pageId) return apiGetPage(pageId, endpoint, params);
+  return apiGetPageActive(endpoint, params);
+};
+
+const hydrateCommentsWithAllReplies = async (
+  comments: any[],
+  platform: 'instagram' | 'facebook',
+  pageId?: string
+): Promise<any[]> => {
+  const hydrated: any[] = [];
+  const chunkSize = 8;
+  for (let i = 0; i < comments.length; i += chunkSize) {
+    const chunk = comments.slice(i, i + chunkSize);
+    const results = await Promise.all(chunk.map(async (comment) => {
+      try {
+        const fullReplies = await collectComments(
+          (after?: string) => getCommentRepliesPage(comment.id, platform, pageId, after),
+          50
+        );
+        const byId: Record<string, any> = {};
+        (comment.replies?.data || []).forEach((reply: any) => { if (reply?.id) byId[reply.id] = reply; });
+        fullReplies.forEach((reply: any) => { if (reply?.id) byId[reply.id] = reply; });
+        return { ...comment, replies: { data: Object.values(byId) } };
+      } catch {
+        return { ...comment, replies: comment.replies || { data: [] } };
+      }
+    }));
+    hydrated.push(...results);
+  }
+  return hydrated;
 };
 
 export const metaAds = {
@@ -672,6 +721,11 @@ export const metaAds = {
       : apiGetPageActive(`${igId}/media`, params);
   },
 
+  getAllInstagramMedia: async (igId: string, fbPageId?: string) => {
+    const first = await metaAds.getInstagramMedia(igId, 100, undefined, fbPageId);
+    return { ...first, data: await collectPaginatedData(first) };
+  },
+
   getInstagramMediaPermalink: (mediaId: string, fbPageId?: string) =>
     fbPageId
       ? apiGetPage(fbPageId, mediaId, { fields: 'permalink,shortcode' })
@@ -688,8 +742,10 @@ export const metaAds = {
       : apiGetPageActive(`${mediaId}/comments`, params);
   },
 
-  getAllInstagramMediaComments: (mediaId: string, fbPageId?: string) =>
-    collectComments((after?: string) => metaAds.getInstagramMediaComments(mediaId, fbPageId, after)),
+  getAllInstagramMediaComments: async (mediaId: string, fbPageId?: string) => {
+    const comments = await collectComments((after?: string) => metaAds.getInstagramMediaComments(mediaId, fbPageId, after));
+    return hydrateCommentsWithAllReplies(comments, 'instagram', fbPageId);
+  },
 
   replyToInstagramComment: async (commentId: string, message: string, fbPageId?: string) => {
     return fbPageId
@@ -728,6 +784,11 @@ export const metaAds = {
     return apiGetPage(pageId, `${pageId}/feed`, params);
   },
 
+  getAllFacebookPageFeed: async (pageId: string) => {
+    const first = await metaAds.getFacebookPageFeed(pageId, 100);
+    return { ...first, data: await collectPaginatedData(first) };
+  },
+
   getFacebookPostComments: (postId: string, after?: string) => {
     // Extract page ID from FB post ID format "{pageId}_{uniqueId}" to ensure page token is used.
     // Page Access Token is required for from.name — user token silently drops names (privacy).
@@ -741,8 +802,11 @@ export const metaAds = {
     return apiGetPageActive(`${postId}/comments`, params);
   },
 
-  getAllFacebookPostComments: (postId: string) =>
-    collectComments((after?: string) => metaAds.getFacebookPostComments(postId, after)),
+  getAllFacebookPostComments: async (postId: string) => {
+    const pageId = postId.includes('_') ? postId.split('_')[0] : undefined;
+    const comments = await collectComments((after?: string) => metaAds.getFacebookPostComments(postId, after));
+    return hydrateCommentsWithAllReplies(comments, 'facebook', pageId);
+  },
 
   replyToFacebookComment: async (commentId: string, message: string) => {
     return apiPostPageActive(`${commentId}/comments`, { message });
@@ -890,8 +954,11 @@ export const metaAds = {
       : apiGetPageActive(`${storyId}/comments`, params);
   },
 
-  getAllAdCreativeComments: (storyId: string, platform: 'instagram' | 'facebook' = 'instagram', pageId?: string) =>
-    collectComments((after?: string) => metaAds.getAdCreativeComments(storyId, platform, pageId, after)),
+  getAllAdCreativeComments: async (storyId: string, platform: 'instagram' | 'facebook' = 'instagram', pageId?: string) => {
+    const resolvedPageId = pageId || (platform === 'facebook' && storyId.includes('_') ? storyId.split('_')[0] : undefined);
+    const comments = await collectComments((after?: string) => metaAds.getAdCreativeComments(storyId, platform, pageId, after));
+    return hydrateCommentsWithAllReplies(comments, platform, resolvedPageId);
+  },
 
   getFacebookUserName: (userId: string, pageId: string) =>
     apiGetPage(pageId, userId, { fields: 'name' }),

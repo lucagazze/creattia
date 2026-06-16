@@ -103,6 +103,19 @@ const scoreCls = (score: number) =>
 const scoreLabel = (score: number) =>
   score >= 80 ? 'Listo para escalar' : score >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar';
 
+const mapConcurrent = async <T, R>(items: T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> => {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+};
+
 const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number) => {
   const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
   const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
@@ -649,13 +662,13 @@ export default function ComentariosPage() {
 
     const load = async () => {
       try {
-        // Unified deep fetch of 50 items + ads list
+        // Unified deep fetch of all available organic posts + all ads with story IDs
         const [igMediaRes50, fbMediaRes50, adsRes] = await Promise.all([
           igId
-            ? metaAds.getInstagramMedia(igId, 50, undefined, fbPageId || undefined).catch(err => { setIgError(err.message); return []; })
+            ? metaAds.getAllInstagramMedia(igId, fbPageId || undefined).catch(err => { setIgError(err.message); return []; })
             : Promise.resolve([]),
           fbPageId
-            ? metaAds.getFacebookPageFeed(fbPageId, 50).catch(err => { setFbError(err.message); return []; })
+            ? metaAds.getAllFacebookPageFeed(fbPageId).catch(err => { setFbError(err.message); return []; })
             : Promise.resolve([]),
           metaAccountId
             ? metaAds.getAccountAds(metaAccountId).catch(() => ({ data: [] }))
@@ -687,8 +700,7 @@ export default function ComentariosPage() {
 
         let adsCommentsResults50: any[] = [];
         if (uniqueTargets.length > 0) {
-          const topTargets = uniqueTargets.slice(0, 40);
-          const commentsPromises = topTargets.map(async (target) => {
+          adsCommentsResults50 = await mapConcurrent(uniqueTargets, 6, async (target) => {
             try {
               const comments = await metaAds.getAllAdCreativeComments(target.storyId, target.platform, fbPageId || undefined);
               return { storyId: target.storyId, platform: target.platform, comments: comments || [] };
@@ -696,7 +708,6 @@ export default function ComentariosPage() {
               return { storyId: target.storyId, platform: target.platform, comments: [] };
             }
           });
-          adsCommentsResults50 = await Promise.all(commentsPromises);
         }
 
         const allItems = processMediaRes(igMediaRes50, fbMediaRes50, relevantAds, adsCommentsResults50);
@@ -1701,7 +1712,7 @@ export default function ComentariosPage() {
                         className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
                       >
                         {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                        <span className="hidden sm:inline">Borradores IA</span>
+                        <span>Sugerir con Ia</span>
                       </button>
                     )}
                   </div>

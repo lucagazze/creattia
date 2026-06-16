@@ -2098,7 +2098,7 @@ export default function RedesSocialesPage() {
                               className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
                             >
                               {bulkDraftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                              <span className="hidden sm:inline">Borradores IA</span>
+                              <span>Sugerir con Ia</span>
                             </button>
                           )}
                         </div>

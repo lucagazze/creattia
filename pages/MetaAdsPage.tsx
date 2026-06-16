@@ -983,15 +983,6 @@ export default function MetaAdsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={bulkGenerateDrafts}
-                      disabled={bulkLoading || pendingCount === 0}
-                      className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/20 dark:hover:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-xl text-[11px] font-black border border-violet-100/50 dark:border-violet-900/20 transition-all disabled:opacity-50"
-                    >
-                      {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      <span className="hidden md:inline">Generar borradores ({pendingCount})</span>
-                      <span className="md:hidden">{pendingCount > 0 && <span className="text-[10px] font-black">{pendingCount}</span>}</span>
-                    </button>
                     {activePermalink && (
                       <a href={activePermalink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 p-1.5 md:px-3 md:py-1.5 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl text-[11px] text-zinc-600 dark:text-zinc-300 font-bold border border-zinc-200 dark:border-zinc-700 transition-all">
                         <ArrowUpRight className="w-3.5 h-3.5" />
@@ -1251,6 +1242,16 @@ export default function MetaAdsPage() {
                           Todos
                           <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{comments.length}</span>
                         </button>
+                        {pendingCount > 0 && (
+                          <button
+                            onClick={bulkGenerateDrafts}
+                            disabled={bulkLoading}
+                            className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
+                          >
+                            {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                            <span>Sugerir con Ia</span>
+                          </button>
+                        )}
                       </div>
                     )}
 
