@@ -14,7 +14,7 @@ import { supabase } from '../services/supabase';
 import {
   Layers, Film, X, Loader2, ImageIcon, ChevronLeft, ChevronRight, Calendar, ChevronDown,
   Instagram, MessageCircle, Heart, Send, Sparkles, ArrowUpRight, Play, Facebook,
-  Share2, Eye, MousePointerClick, Users, Brain
+  Share2, Eye, MousePointerClick, Users, Brain, AlertTriangle
 } from 'lucide-react';
 
 // ── AutoResizeTextarea ────────────────────────────────────────────────────────
@@ -156,6 +156,7 @@ export default function MetaAdsPage() {
   const [adInsightsMap, setAdInsightsMap] = useState<Record<string, any>>({});
   const [campaignMap, setCampaignMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [resolvedThumbnails, setResolvedThumbnails] = useState<Record<string, string>>({});
   const [resolvedDetails, setResolvedDetails] = useState<Record<string, any>>({});
@@ -414,11 +415,16 @@ export default function MetaAdsPage() {
       return;
     }
     setLoading(true);
+    setFetchError(null);
     setResolvedThumbnails({}); setResolvedDetails({}); setResolvingIds({});
     const tr = { since: since || activeSince, until: until || activeUntil };
     const adFields = 'ad_id,spend,impressions,reach,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas,video_30_sec_watched_actions,video_p100_watched_actions';
     Promise.all([
-      metaAds.getAccountAds(accountId).catch((err) => { console.error("Error fetching account ads:", err); return { data: [] }; }),
+      metaAds.getAccountAds(accountId).catch((err) => {
+        console.error("Error fetching account ads:", err);
+        setFetchError(err?.message || 'No se pudo conectar con la API de Meta.');
+        return { data: [] };
+      }),
       metaAds.getAdInsightsForAccount(accountId, adFields, tr).catch(() => []),
       metaAds.getCampaigns(accountId).catch(() => ({ data: [] })),
     ]).then(([adsRes, insightsRes, campsRes]) => {
@@ -438,7 +444,10 @@ export default function MetaAdsPage() {
       const cMap: Record<string, string> = {};
       ((campsRes as any).data || []).forEach((c: any) => { if (c.id) cMap[c.id] = c.name; });
       setCampaignMap(cMap);
-    }).catch(console.error).finally(() => setLoading(false));
+    }).catch((err) => {
+      console.error(err);
+      setFetchError(err?.message || 'No se pudo conectar con la API de Meta.');
+    }).finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchAds(activeSince, activeUntil); }, [profile?.id, activeSince, activeUntil]);
@@ -769,8 +778,18 @@ export default function MetaAdsPage() {
           </div>
         )}
 
+        {/* Fetch error */}
+        {accountId && !loading && fetchError && (
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center"><AlertTriangle className="w-7 h-7 text-red-500" /></div>
+            <p className="text-[15px] font-semibold text-red-600 dark:text-red-400">No se pudieron cargar los anuncios</p>
+            <p className="text-[13px] text-zinc-400 max-w-md">{fetchError}</p>
+            <button onClick={() => fetchAds(activeSince, activeUntil)} className="mt-2 px-4 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-[12px] font-black shadow-sm hover:opacity-90 transition-all">Reintentar</button>
+          </div>
+        )}
+
         {/* No ads */}
-        {accountId && !loading && activeAds.length === 0 && (
+        {accountId && !loading && !fetchError && activeAds.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
             <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"><Layers className="w-7 h-7 text-zinc-400" /></div>
             <p className="text-[15px] font-semibold text-zinc-500">No hay anuncios activos</p>
