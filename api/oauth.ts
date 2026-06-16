@@ -57,14 +57,16 @@ const verifyWooCredentials = async (shopUrl: string, key: string, secret: string
       }
     });
     if (res.ok) return true;
+    console.log('[WooCommerce Verify] basic-auth attempt failed', { status: res.status, shopUrl: baseUrl });
 
     const queryRes = await fetchWithTimeout(
       `${baseUrl}/wp-json/wc/v3/products?per_page=1&consumer_key=${encodeURIComponent(key)}&consumer_secret=${encodeURIComponent(secret)}`,
       { headers: { 'User-Agent': 'AlgorBot/1.0' } }
     );
+    if (!queryRes.ok) console.log('[WooCommerce Verify] query-param attempt failed', { status: queryRes.status, shopUrl: baseUrl });
     return queryRes.ok;
-  } catch (err) {
-    console.error('[WooCommerce Verify] Failed:', err);
+  } catch (err: any) {
+    console.error('[WooCommerce Verify] Failed:', err?.name === 'AbortError' ? 'timeout' : err?.message || err);
     return false;
   }
 };
@@ -326,8 +328,22 @@ async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
     const consumerKey    = body.consumer_key    as string;
     const consumerSecret = body.consumer_secret as string;
 
+    // Diagnostic log: confirms whether WooCommerce's server-to-server POST
+    // is reaching us at all, and with what shape — the only way to tell
+    // "host never sent it" apart from "sent it but we mis-parsed it".
+    console.log('[WooCommerce Callback] hit', {
+      method: req.method,
+      contentType: req.headers['content-type'],
+      bodyType: typeof req.body,
+      bodyKeys: Object.keys(body || {}),
+      queryKeys: Object.keys(req.query || {}),
+      hasClientId: !!clientId,
+      hasConsumerKey: !!consumerKey,
+      hasConsumerSecret: !!consumerSecret,
+    });
+
     if (!clientId || !consumerKey || !consumerSecret) {
-      console.error('[WooCommerce Callback] missing fields', { clientId: !!clientId, consumerKey: !!consumerKey, consumerSecret: !!consumerSecret });
+      console.error('[WooCommerce Callback] missing fields', { clientId: !!clientId, consumerKey: !!consumerKey, consumerSecret: !!consumerSecret, rawBody: body });
       if (clientId) {
         await updateClientStatuses(clientId, {
           woo_consumer_key: null,
