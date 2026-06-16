@@ -134,6 +134,7 @@ export default function TiendaPage() {
   const [data, setData] = useState<any>(null);
   const [prevData, setPrevData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const isDateReloading = loading && !!data;
   const [expandedMetric, setExpandedMetric] = useState<string | null>('s-revenue');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
@@ -185,7 +186,7 @@ export default function TiendaPage() {
         return;
       }
 
-      if (!cancelled) setLoading(true);
+      if (!cancelled) { setLoading(true); setFetchError(null); }
       const range = activePreset === 'custom' ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
       const prevRange = getPrevPeriod(range.since, range.until);
       try {
@@ -196,8 +197,9 @@ export default function TiendaPage() {
         if (cancelled) return;
         setData(res);
         setPrevData(prevRes);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
+        if (!cancelled) setFetchError(err?.message || 'No se pudo cargar la información de tu tienda.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -553,6 +555,13 @@ export default function TiendaPage() {
             )}
             </div>
           </div>
+      ) : fetchError ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center"><AlertCircle className="w-7 h-7 text-red-500" /></div>
+          <p className="text-[15px] font-semibold text-red-600 dark:text-red-400">No se pudieron cargar los datos de la tienda</p>
+          <p className="text-[13px] text-zinc-400 max-w-md">{fetchError}</p>
+          <button onClick={() => setRefreshKey(k => k + 1)} className="mt-2 px-4 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-[12px] font-black shadow-sm hover:opacity-90 transition-all">Reintentar</button>
+        </div>
       ) : null}
 
 

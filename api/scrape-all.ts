@@ -1050,13 +1050,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
         const wcHeaders = { Authorization: `Basic ${creds}` };
 
-        const [wRangeRes, wRecentRes, wHistRes] = await Promise.all([
-          fetch(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=100`, { headers: wcHeaders }),
-          fetch(`${base}/wp-json/wc/v3/orders?per_page=40`, { headers: wcHeaders }),
-          fetch(`${base}/wp-json/wc/v3/orders?per_page=100`, { headers: wcHeaders }),
-        ]);
+        let wRangeRes: Response, wRecentRes: Response, wHistRes: Response;
+        try {
+          [wRangeRes, wRecentRes, wHistRes] = await Promise.all([
+            fetch(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=100`, { headers: wcHeaders }),
+            fetch(`${base}/wp-json/wc/v3/orders?per_page=40`, { headers: wcHeaders }),
+            fetch(`${base}/wp-json/wc/v3/orders?per_page=100`, { headers: wcHeaders }),
+          ]);
+        } catch (err: any) {
+          console.error('[WooCommerce] Network error reaching store:', err);
+          return res.status(502).json({ error: `No se pudo conectar con la tienda WooCommerce en ${base}. Verificá la URL.` });
+        }
+
+        if (!wRangeRes.ok) {
+          const errBody = await wRangeRes.text().catch(() => '');
+          console.error('[WooCommerce] Error fetching orders:', wRangeRes.status, errBody);
+          const msg = wRangeRes.status === 401 || wRangeRes.status === 403
+            ? 'Credenciales de WooCommerce inválidas o sin permisos suficientes'
+            : wRangeRes.status === 404
+            ? 'No se encontró la API de WooCommerce en esa URL (verificá la URL y que el plugin WooCommerce esté activo)'
+            : `Error al conectar con WooCommerce (HTTP ${wRangeRes.status})`;
+          return res.status(502).json({ error: msg });
+        }
+
         const [wRangeData, wRecentData, wHistData] = await Promise.all([
-          wRangeRes.ok ? wRangeRes.json() : [],
+          wRangeRes.json(),
           wRecentRes.ok ? wRecentRes.json() : [],
           wHistRes.ok ? wHistRes.json() : [],
         ]);
