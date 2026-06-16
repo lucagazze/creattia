@@ -325,6 +325,19 @@ export default function MetaAdsPage() {
     return !isFromPage(sorted[sorted.length - 1]);
   }, [isFromPage]);
 
+  const getCommentThreadCount = (list: any[]) =>
+    list.reduce((total, c) => total + 1 + (c.replies?.data?.length || 0), 0);
+
+  const getLatestPendingTarget = useCallback((comment: any) => {
+    const replies = comment.replies?.data || [];
+    if (replies.length === 0) return comment;
+    const sorted = [...replies].sort((a: any, b: any) =>
+      new Date(a.timestamp || a.created_time || 0).getTime() - new Date(b.timestamp || b.created_time || 0).getTime()
+    );
+    const latest = sorted[sorted.length - 1];
+    return isFromPage(latest) ? comment : latest;
+  }, [isFromPage]);
+
   // Switch platform tab and reset reply UI
   const switchCommentPlatform = useCallback((platform: 'instagram' | 'facebook') => {
     setActiveCommentPlatform(platform);
@@ -629,10 +642,15 @@ export default function MetaAdsPage() {
   // ── Bulk generate drafts ─────────────────────────────────────────────────────
   const bulkGenerateDrafts = async () => {
     if (!selectedAd || !clientId) return;
-    setBulkLoading(true);
+    if (!aiReady) { gate(() => bulkGenerateDrafts()); return; }
     const pending = comments.filter(c => isCommentPending(c, activeCommentPlatform));
+    if (pending.length === 0) return;
+    setBulkLoading(true);
     setOpenReplies(prev => { const copy = { ...prev }; pending.forEach(c => { copy[c.id] = true; }); return copy; });
-    await Promise.all(pending.map(c => generateDraft(c)));
+    await Promise.all(pending.map(c => {
+      const target = getLatestPendingTarget(c);
+      return generateDraft(c, target.id === c.id ? undefined : target);
+    }));
     setBulkLoading(false);
   };
 
@@ -954,8 +972,8 @@ export default function MetaAdsPage() {
           const hasBothPlatforms = !!(selectedAd.igStoryId && selectedAd.fbStoryId);
           const activePermalink = activeCommentPlatform === 'instagram' ? selectedAd.igPermalink : selectedAd.fbPermalink;
 
-          const igTotal = commentsByPlatform.instagram.length;
-          const fbTotal = commentsByPlatform.facebook.length;
+          const igTotal = getCommentThreadCount(commentsByPlatform.instagram);
+          const fbTotal = getCommentThreadCount(commentsByPlatform.facebook);
           const igPending = commentsByPlatform.instagram.filter(c => isCommentPending(c, 'instagram')).length;
           const fbPending = commentsByPlatform.facebook.filter(c => isCommentPending(c, 'facebook')).length;
           const ltTotalComments = igTotal + fbTotal;
@@ -997,7 +1015,7 @@ export default function MetaAdsPage() {
 	                <div className="grid grid-cols-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/40 flex-shrink-0">
 	                  <button onClick={() => handleTabChange('comments')} className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors flex items-center justify-center gap-1.5 ${slideTab === 'comments' ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-500' : 'text-zinc-500 dark:text-zinc-400'}`}>
 	                    Comentarios
-	                    {!loadingComments && comments.length > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>}
+	                    {!loadingComments && comments.length > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{getCommentThreadCount(comments)}</span>}
 	                  </button>
 	                  <button
 	                    onClick={() => {
@@ -1240,7 +1258,7 @@ export default function MetaAdsPage() {
                         </button>
                         <button onClick={() => setCommentFilter('all')} className={`flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[9.5px] sm:text-[11px] font-black transition-all ${commentFilter === 'all' ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}>
                           Todos
-                          <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{comments.length}</span>
+                          <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>{getCommentThreadCount(comments)}</span>
                         </button>
                         {pendingCount > 0 && (
                           <button
@@ -1249,7 +1267,7 @@ export default function MetaAdsPage() {
                             className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
                           >
                             {bulkLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                            <span>Sugerir con Ia</span>
+                            <span>Sugerir con Ia ({pendingCount})</span>
                           </button>
                         )}
                       </div>

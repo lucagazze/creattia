@@ -153,6 +153,7 @@ export default function IntegracionesPage() {
 
   const [tiendanubeStoreId, setTiendanubeStoreId] = useState("");
   const [tiendanubeToken, setTiendanubeToken] = useState("");
+  const [tiendanubeDomain, setTiendanubeDomain] = useState("");
 
   const [wooUrl, setWooUrl] = useState("");
   const [wooConsumerKey, setWooConsumerKey] = useState("");
@@ -253,6 +254,26 @@ export default function IntegracionesPage() {
     const tiktok       = getQueryParam('tiktok');
     const reason       = getQueryParam('reason');
 
+    const confirmOAuthConnection = async (platform: "tiendanube" | "wordpress") => {
+      if (!activeProfileId) return false;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const { data } = await supabase
+          .from("car_clients")
+          .select("ecommerce_platform,tiendanube_store_id,tiendanube_access_token,wordpress_url,woo_consumer_key,woo_consumer_secret,connection_statuses")
+          .eq("id", activeProfileId)
+          .maybeSingle();
+
+        if (platform === "tiendanube" && data?.ecommerce_platform === "tiendanube" && data.tiendanube_store_id && data.tiendanube_access_token && data.connection_statuses?.shopify === "ok") {
+          return true;
+        }
+        if (platform === "wordpress" && data?.ecommerce_platform === "wordpress" && data.wordpress_url && data.woo_consumer_key && data.woo_consumer_secret && data.connection_statuses?.shopify === "ok") {
+          return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 900));
+      }
+      return false;
+    };
+
     if (shopify === 'success') {
       setOauthResult({ platform: 'shopify', status: 'success' });
       showToast('¡Shopify conectado exitosamente! ✓', 'success');
@@ -272,10 +293,33 @@ export default function IntegracionesPage() {
       showToast('Error al conectar Tiendanube: ' + (reason || 'desconocido'), 'error');
       window.history.replaceState({}, '', '/#/integraciones');
     } else if (woocommerce === 'success') {
-      setOauthResult({ platform: 'wordpress', status: 'success' });
-      showToast('¡WooCommerce conectado exitosamente! ✓', 'success');
       window.history.replaceState({}, '', '/#/integraciones');
-      refreshProfile().then(() => loadClientData());
+      showToast('Confirmando conexión con WooCommerce...', 'info');
+      confirmOAuthConnection("wordpress").then(async ok => {
+        await refreshProfile();
+        await loadClientData();
+        if (ok) {
+          setOauthResult({ platform: 'wordpress', status: 'success' });
+          showToast('¡WooCommerce conectado exitosamente! ✓', 'success');
+        } else {
+          setOauthResult({ platform: 'wordpress', status: 'error', reason: 'callback_missing_credentials' });
+          showToast('WooCommerce no terminó de entregar las credenciales. Volvé a conectar la tienda.', 'error');
+        }
+      });
+    } else if (woocommerce === 'pending') {
+      window.history.replaceState({}, '', '/#/integraciones');
+      showToast('Finalizando conexión con WooCommerce...', 'info');
+      confirmOAuthConnection("wordpress").then(async ok => {
+        await refreshProfile();
+        await loadClientData();
+        if (ok) {
+          setOauthResult({ platform: 'wordpress', status: 'success' });
+          showToast('¡WooCommerce conectado exitosamente! ✓', 'success');
+        } else {
+          setOauthResult({ platform: 'wordpress', status: 'error', reason: 'callback_missing_credentials' });
+          showToast('WooCommerce no terminó de entregar las credenciales. Volvé a conectar la tienda.', 'error');
+        }
+      });
     } else if (woocommerce === 'error') {
       setOauthResult({ platform: 'wordpress', status: 'error', reason: reason || '' });
       showToast('Error al conectar WooCommerce: ' + (reason || 'desconocido'), 'error');
@@ -410,6 +454,7 @@ export default function IntegracionesPage() {
         setShopifyToken(data.shopify_access_token || "");
         setTiendanubeStoreId(data.tiendanube_store_id || "");
         setTiendanubeToken(data.tiendanube_access_token || "");
+        setTiendanubeDomain(data.connection_statuses?.tiendanube_domain || data.connection_statuses?.tiendanube_requested_domain || "");
         setWooUrl(data.wordpress_url || "");
         setWooConsumerKey(data.woo_consumer_key || "");
         setWooConsumerSecret(data.woo_consumer_secret || "");
@@ -489,6 +534,7 @@ export default function IntegracionesPage() {
       } else if (platform.id === "tiendanube") {
         setTiendanubeStoreId(clientData.tiendanube_store_id || "");
         setTiendanubeToken(clientData.tiendanube_access_token || "");
+        setTiendanubeDomain(clientData.connection_statuses?.tiendanube_domain || clientData.connection_statuses?.tiendanube_requested_domain || "");
       } else if (platform.id === "wordpress") {
         setWooUrl(clientData.wordpress_url || "");
         setWooConsumerKey(clientData.woo_consumer_key || "");
@@ -563,9 +609,14 @@ export default function IntegracionesPage() {
   // ── REAL OAUTH: TiendaNube ────────────────────────────────────────────────────
   const startTiendanubeOAuth = async () => {
     if (!activeProfileId) return;
+    if (!tiendanubeDomain.trim()) {
+      showToast('Ingresá el dominio de tu TiendaNube primero', 'warning');
+      return;
+    }
     setOauthLoading(true);
     try {
-      const res = await fetch(`/api/oauth?action=tiendanube-authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+      const cleanDomain = tiendanubeDomain.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      const res = await fetch(`/api/oauth?action=tiendanube-authorize&clientId=${encodeURIComponent(activeProfileId)}&domain=${encodeURIComponent(cleanDomain)}`);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Error al iniciar OAuth');
@@ -1013,7 +1064,7 @@ export default function IntegracionesPage() {
     const candidates: string[] = [];
     if (clientData.ecommerce_platform === "shopify" && clientData.shopify_domain && clientData.shopify_access_token) candidates.push("shopify");
     if (clientData.ecommerce_platform === "tiendanube" && clientData.tiendanube_store_id && clientData.tiendanube_access_token) candidates.push("tiendanube");
-    if (clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key) candidates.push("wordpress");
+    if (clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key && clientData.woo_consumer_secret) candidates.push("wordpress");
     if (clientData.klaviyo_api_key) candidates.push("klaviyo");
     if (clientData.chatwoot_url && clientData.chatwoot_token) candidates.push("chatwoot");
 
@@ -1405,7 +1456,7 @@ export default function IntegracionesPage() {
     if (platform.id === "meta") {
       openConfigModal(platform);
     } else if (platform.id === "tiendanube") {
-      startTiendanubeOAuth();
+      openConfigModal(platform);
     } else if (platform.id === "wordpress") {
       // Open modal so user can enter the URL first, then connect automatically
       openConfigModal(platform);
@@ -1432,6 +1483,9 @@ export default function IntegracionesPage() {
       if (clientData.ecommerce_platform !== "shopify") {
         return "disconnected";
       }
+      if (!clientData.shopify_domain || !clientData.shopify_access_token) {
+        return "disconnected";
+      }
     }
 
     if (platformId === "meta") {
@@ -1448,6 +1502,12 @@ export default function IntegracionesPage() {
       key = "shopify";
       // Double check active platform matches
       if (clientData.ecommerce_platform !== platformId) {
+        return "disconnected";
+      }
+      if (platformId === "wordpress" && (!clientData.wordpress_url || !clientData.woo_consumer_key || !clientData.woo_consumer_secret)) {
+        return "disconnected";
+      }
+      if (platformId === "tiendanube" && (!clientData.tiendanube_store_id || !clientData.tiendanube_access_token)) {
         return "disconnected";
       }
     }
@@ -1859,8 +1919,8 @@ export default function IntegracionesPage() {
                         <span className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
                           {clientData.connection_statuses?.tiendanube_store_name
-                            ? `${clientData.connection_statuses.tiendanube_store_name} (${clientData.tiendanube_store_id})`
-                            : `Tienda ID: ${clientData.tiendanube_store_id || 'Conectado'}`}
+                            ? `${clientData.connection_statuses.tiendanube_store_name} (${clientData.connection_statuses?.tiendanube_domain || clientData.tiendanube_store_id})`
+                            : clientData.connection_statuses?.tiendanube_domain || `Tienda ID: ${clientData.tiendanube_store_id || 'Conectado'}`}
                         </span>
                       )}
                       {platform.id === "wordpress" && (
@@ -2171,10 +2231,25 @@ export default function IntegracionesPage() {
                           </div>
                         </div>
 
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+                            Dominio de tu TiendaNube *
+                          </label>
+                          <input
+                            type="text"
+                            className="apple-input"
+                            placeholder="mi-tienda.mitiendanube.com"
+                            value={tiendanubeDomain}
+                            onChange={e => setTiendanubeDomain(e.target.value)}
+                            disabled={oauthLoading}
+                          />
+                          <p className="text-[11px] text-zinc-400">Lo usamos para identificar qué tienda estás conectando antes de abrir la autorización.</p>
+                        </div>
+
                         <button
                           type="button"
                           onClick={startTiendanubeOAuth}
-                          disabled={oauthLoading}
+                          disabled={oauthLoading || !tiendanubeDomain.trim()}
                           className="w-full h-12 bg-[#07B3C2] hover:bg-[#069aaa] disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                         >
                           {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <img src={darkMode ? "/assets/tiendanube.webp" : "/assets/tiendanubeoscuro.png"} alt="" className="w-4 h-4 object-contain" />}

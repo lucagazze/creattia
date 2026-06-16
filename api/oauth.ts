@@ -21,6 +21,48 @@ const getHost = (req: VercelRequest) => {
   return `${proto}://${host}`;
 };
 
+const normalizeUrl = (raw: string) => {
+  let value = (raw || '').trim();
+  if (!value) return '';
+  if (!/^https?:\/\//i.test(value)) value = `https://${value}`;
+  return value.replace(/\/+$/, '');
+};
+
+const normalizeDomain = (raw: string) => normalizeUrl(raw).replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+
+const parseRequestBody = (body: any) => {
+  if (!body || typeof body !== 'string') return body || {};
+  try {
+    return JSON.parse(body);
+  } catch {
+    return Object.fromEntries(new URLSearchParams(body));
+  }
+};
+
+const verifyWooCredentials = async (shopUrl: string, key: string, secret: string) => {
+  try {
+    const baseUrl = normalizeUrl(shopUrl);
+    const url = `${baseUrl}/wp-json/wc/v3/products?per_page=1`;
+    const basic = Buffer.from(`${key}:${secret}`).toString('base64');
+    const res = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${basic}`,
+        'User-Agent': 'AlgorBot/1.0'
+      }
+    });
+    if (res.ok) return true;
+
+    const queryRes = await fetch(
+      `${baseUrl}/wp-json/wc/v3/products?per_page=1&consumer_key=${encodeURIComponent(key)}&consumer_secret=${encodeURIComponent(secret)}`,
+      { headers: { 'User-Agent': 'AlgorBot/1.0' } }
+    );
+    return queryRes.ok;
+  } catch (err) {
+    console.error('[WooCommerce Verify] Failed:', err);
+    return false;
+  }
+};
+
 async function updateClientStatuses(
   clientId: string,
   fields: Record<string, any>,
@@ -156,8 +198,10 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
 
   if (action === 'tiendanube-authorize') {
     const clientId = req.query.clientId as string;
+    const requestedDomain = normalizeDomain(req.query.domain as string || '');
     if (!TN_CLIENT_ID) return res.status(503).json({ error: 'TiendaNube OAuth no configurado (falta TIENDANUBE_CLIENT_ID).' });
-    const state = Buffer.from(JSON.stringify({ clientId })).toString('base64');
+    if (!requestedDomain) return res.status(400).json({ error: 'domain requerido' });
+    const state = Buffer.from(JSON.stringify({ clientId, requestedDomain })).toString('base64');
     const authorizeUrl =
       `https://www.tiendanube.com/apps/${TN_CLIENT_ID}/authorize` +
       `?state=${encodeURIComponent(state)}`;
@@ -170,7 +214,12 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
     if (!code) return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=missing_code`);
 
     let clientId: string | undefined;
-    try { clientId = JSON.parse(Buffer.from(stateRaw, 'base64').toString()).clientId; }
+    let requestedDomain = '';
+    try {
+      const state = JSON.parse(Buffer.from(stateRaw, 'base64').toString());
+      clientId = state.clientId;
+      requestedDomain = normalizeDomain(state.requestedDomain || '');
+    }
     catch { return res.redirect(`${base}/#/integraciones?tiendanube=error&reason=invalid_state`); }
 
     if (!TN_CLIENT_ID || !TN_CLIENT_SECRET)
@@ -186,6 +235,7 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
       const { access_token, user_id: storeId } = await tokenRes.json() as { access_token: string; user_id: number };
 
       let tnStoreName = '';
+      let tnConnectedDomain = requestedDomain;
       try {
         const tnStoreRes = await fetch(`https://api.tiendanube.com/v1/${storeId}/store`, {
           headers: {
@@ -194,10 +244,16 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
           }
         });
         if (tnStoreRes.ok) {
-          const tnStoreJson = await tnStoreRes.json() as { name?: { es?: string; pt?: string; en?: string } };
+          const tnStoreJson = await tnStoreRes.json() as {
+            name?: { es?: string; pt?: string; en?: string };
+            main_domain?: string;
+            original_domain?: string;
+            domains?: string[];
+          };
           if (tnStoreJson.name) {
             tnStoreName = tnStoreJson.name.es || tnStoreJson.name.pt || tnStoreJson.name.en || '';
           }
+          tnConnectedDomain = normalizeDomain(tnStoreJson.main_domain || tnStoreJson.original_domain || tnStoreJson.domains?.[0] || requestedDomain);
         }
       } catch (err) {
         console.error('[Tiendanube Store Details Fetch] Failed:', err);
@@ -209,7 +265,11 @@ async function handleTiendanube(req: VercelRequest, res: VercelResponse) {
         ecommerce_platform: 'tiendanube',
         shopify_domain: null, shopify_access_token: null,
         wordpress_url: null, woo_consumer_key: null, woo_consumer_secret: null
-      }, 'shopify', 'ok', { tiendanube_store_name: tnStoreName || undefined });
+      }, 'shopify', 'ok', {
+        tiendanube_store_name: tnStoreName || undefined,
+        tiendanube_requested_domain: requestedDomain || undefined,
+        tiendanube_domain: tnConnectedDomain || undefined
+      });
       return res.redirect(`${base}/#/integraciones?tiendanube=success`);
     } catch (err: any) {
       console.error('[TiendaNube OAuth]', err);
@@ -236,11 +296,10 @@ async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
     if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
 
     // Ensure https:// and strip trailing slash
-    if (!shop.startsWith('http')) shop = 'https://' + shop;
-    shop = shop.replace(/\/$/, '');
+    shop = normalizeUrl(shop);
 
     const callbackUrl = `${base}/api/oauth?action=woocommerce-callback`;
-    const returnUrl   = `${base}/#/integraciones?woocommerce=success`;
+    const returnUrl   = `${base}/#/integraciones?woocommerce=pending`;
 
     const authorizeUrl =
       `${shop}/wc-auth/v1/authorize` +
@@ -256,13 +315,20 @@ async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
   // ── STEP 2: Receive the WC POST callback with the generated keys ──────────
   if (action === 'woocommerce-callback') {
     // WC sends JSON body — not URL-encoded, so access req.body directly
-    const body = req.body || {};
+    const body = parseRequestBody(req.body);
     const clientId       = (body.user_id || req.query.user_id) as string;
     const consumerKey    = body.consumer_key    as string;
     const consumerSecret = body.consumer_secret as string;
 
     if (!clientId || !consumerKey || !consumerSecret) {
       console.error('[WooCommerce Callback] missing fields', { clientId: !!clientId, consumerKey: !!consumerKey, consumerSecret: !!consumerSecret });
+      if (clientId) {
+        await updateClientStatuses(clientId, {
+          woo_consumer_key: null,
+          woo_consumer_secret: null,
+          ecommerce_platform: null,
+        }, 'shopify', 'error');
+      }
       // Still return 200 so WC doesn't retry endlessly
       return res.status(200).json({ ok: false, error: 'missing_fields' });
     }
@@ -274,20 +340,31 @@ async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
       .select('wordpress_url')
       .eq('id', clientId)
       .maybeSingle();
+    const wordpressUrl = normalizeUrl(clientRow?.wordpress_url || '');
+
+    if (!wordpressUrl) {
+      await updateClientStatuses(clientId, {
+        woo_consumer_key: null,
+        woo_consumer_secret: null,
+        ecommerce_platform: null,
+      }, 'shopify', 'error');
+      return res.status(200).json({ ok: false, error: 'missing_wordpress_url' });
+    }
+
+    const isVerified = await verifyWooCredentials(wordpressUrl, consumerKey, consumerSecret);
 
     await updateClientStatuses(clientId, {
       woo_consumer_key:    consumerKey,
       woo_consumer_secret: consumerSecret,
       ecommerce_platform:  'wordpress',
-      // Preserve whatever wordpress_url was already stored
-      wordpress_url: clientRow?.wordpress_url || null,
+      wordpress_url: wordpressUrl,
       // Clear competing platforms
       shopify_domain: null, shopify_access_token: null,
       tiendanube_store_id: null, tiendanube_access_token: null,
-    }, 'shopify', 'ok');
+    }, 'shopify', isVerified ? 'ok' : 'error');
 
     // WC ignores our response body — just needs a 200
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: isVerified });
   }
 }
 

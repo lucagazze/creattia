@@ -345,6 +345,25 @@ export default function RedesSocialesPage() {
     return !isFromPage(sorted[sorted.length - 1]);
   }, [isFromPage]);
 
+  const getCommentThreadCount = (list: any[]) =>
+    list.reduce((total, c) => total + 1 + (c.replies?.data?.length || 0), 0);
+
+  const getMediaCommentCount = (media: any) => {
+    const inline = media?.comments?.data || [];
+    if (inline.length > 0) return getCommentThreadCount(inline);
+    return media?.comments_count || media?.comments?.summary?.total_count || 0;
+  };
+
+  const getLatestPendingTarget = useCallback((comment: any) => {
+    const repliesList = comment.replies?.data || [];
+    if (repliesList.length === 0) return comment;
+    const sorted = [...repliesList].sort(
+      (a, b) => new Date(a.timestamp || a.created_time || 0).getTime() - new Date(b.timestamp || b.created_time || 0).getTime()
+    );
+    const latest = sorted[sorted.length - 1];
+    return isFromPage(latest) ? comment : latest;
+  }, [isFromPage]);
+
   // Bulk draft generation for all pending comments in the modal
   const handleBulkDrafts = async () => {
     if (!aiReady) { gate(() => handleBulkDrafts()); return; }
@@ -356,10 +375,11 @@ export default function RedesSocialesPage() {
     const postCaptionContext = igMedia.find(m => m.id === selectedPostId)?.caption || fbMedia.find(m => m.id === selectedPostId)?.message || '';
     
     const promises = pendingComments.map(async (comment) => {
+      const target = getLatestPendingTarget(comment);
       setCommentRepliesLoadingDraft(prev => ({ ...prev, [comment.id]: true }));
       try {
-        const usernameStr = comment.username || comment.from?.name || 'usuario';
-        const itemTextStr = comment.text || comment.message || '';
+        const usernameStr = target.username || target.from?.name || 'usuario';
+        const itemTextStr = target.text || target.message || '';
         
         // Collect other comments in this post for context
         const otherCommentsList = comments
@@ -386,7 +406,12 @@ export default function RedesSocialesPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.draft) {
-            setCommentReplies(prev => ({ ...prev, [comment.id]: data.draft }));
+            let draftText = data.draft;
+            if (target.id !== comment.id) {
+              const prefix = `@${usernameStr} `;
+              if (!draftText.toLowerCase().startsWith(`@${usernameStr.toLowerCase()}`)) draftText = prefix + draftText;
+            }
+            setCommentReplies(prev => ({ ...prev, [comment.id]: draftText }));
           }
         }
       } catch (err) {
@@ -1192,7 +1217,7 @@ export default function RedesSocialesPage() {
 
   const igEngagementRate = useMemo(() => {
     if (!igProfile || !igProfile.followers_count || !igMedia.length) return 0;
-    const totalInteractions = igMedia.reduce((sum, item) => sum + (item.like_count || 0) + (item.comments_count || 0), 0);
+    const totalInteractions = igMedia.reduce((sum, item) => sum + (item.like_count || 0) + getMediaCommentCount(item), 0);
     const avgInteractionsPerPost = totalInteractions / igMedia.length;
     return (avgInteractionsPerPost / igProfile.followers_count) * 100;
   }, [igProfile, igMedia]);
@@ -1202,7 +1227,7 @@ export default function RedesSocialesPage() {
     if (!fbProfile || !(fbProfile.followers_count || fbProfile.fan_count) || !fbMedia.length) return 0;
     const totalInteractions = fbMedia.reduce((sum, item) => {
       const likesCount = item.likes?.summary?.total_count || 0;
-      const commentsCount = item.comments?.summary?.total_count || 0;
+      const commentsCount = getMediaCommentCount(item);
       return sum + likesCount + commentsCount;
     }, 0);
     const avgInteractionsPerPost = totalInteractions / fbMedia.length;
@@ -1466,7 +1491,7 @@ export default function RedesSocialesPage() {
                                           </div>
                                           <div className="flex items-center gap-1.5 text-[14px]">
                                             <MessageCircle className="w-5 h-5 fill-white text-white" />
-                                            <span>{fmtNumber(m.comments_count || 0)}</span>
+                                            <span>{fmtNumber(getMediaCommentCount(m))}</span>
                                           </div>
                                         </div>
                                       </div>
@@ -1478,7 +1503,7 @@ export default function RedesSocialesPage() {
                                         </div>
                                         <div className="flex items-center gap-1.5 text-[14px]">
                                           <MessageCircle className="w-5 h-5 fill-white text-white" />
-                                          <span>{fmtNumber(m.comments_count || 0)}</span>
+                                          <span>{fmtNumber(getMediaCommentCount(m))}</span>
                                         </div>
                                       </>
                                     )}
@@ -1521,7 +1546,7 @@ export default function RedesSocialesPage() {
                                     className="flex items-center gap-1 hover:text-pink-500 transition-colors cursor-pointer"
                                     title="Ver y responder comentarios"
                                   >
-                                    <MessageCircle className="w-3.5 h-3.5 text-zinc-450" /> {m.comments_count || 0}
+                                    <MessageCircle className="w-3.5 h-3.5 text-zinc-450" /> {getMediaCommentCount(m)}
                                   </button>
                                 </div>
                                 
@@ -1735,7 +1760,7 @@ export default function RedesSocialesPage() {
                                     </div>
                                     <div className="flex items-center gap-1.5 text-[14px]">
                                       <MessageCircle className="w-5 h-5 fill-white text-white" />
-                                      <span>{fmtNumber(m.comments?.summary?.total_count || 0)}</span>
+                                      <span>{fmtNumber(getMediaCommentCount(m))}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -1778,7 +1803,7 @@ export default function RedesSocialesPage() {
                                     className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
                                     title="Ver y responder comentarios"
                                   >
-                                    <MessageCircle className="w-3.5 h-3.5 text-zinc-450" /> {m.comments?.summary?.total_count || 0}
+                                    <MessageCircle className="w-3.5 h-3.5 text-zinc-450" /> {getMediaCommentCount(m)}
                                   </button>
                                 </div>
                                 
@@ -1898,7 +1923,7 @@ export default function RedesSocialesPage() {
                 >
                   Comentarios
                   {!loadingComments && comments.length > 0 && (
-                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{comments.length}</span>
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400">{getCommentThreadCount(comments)}</span>
                   )}
                 </button>
                 <button
@@ -1982,7 +2007,7 @@ export default function RedesSocialesPage() {
                           </div>
                           <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/60 rounded-2xl text-center">
                             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-0.5">Comentarios</span>
-                            <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(activePost.comments_count || activePost.comments?.summary?.total_count || 0)}</span>
+                            <span className="text-[14px] font-extrabold text-zinc-800 dark:text-zinc-200">{fmtNumber(getMediaCommentCount(activePost))}</span>
                           </div>
                         </div>
                       </div>
@@ -2088,19 +2113,22 @@ export default function RedesSocialesPage() {
                           >
                             Todos
                             <span className={`text-[8px] sm:text-[9px] min-w-[14px] h-[14px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full font-black flex items-center justify-center ${commentFilter === 'all' ? 'bg-white/15 dark:bg-zinc-900/20 text-white dark:text-zinc-900' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'}`}>
-                              {comments.length}
+                              {getCommentThreadCount(comments)}
                             </span>
                           </button>
-                          {comments.some(isCommentPending) && (
-                            <button
-                              onClick={handleBulkDrafts}
-                              disabled={bulkDraftsLoading}
-                              className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
-                            >
-                              {bulkDraftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                              <span>Sugerir con Ia</span>
-                            </button>
-                          )}
+                          {(() => {
+                            const suggestionsCount = comments.filter(isCommentPending).length;
+                            return suggestionsCount > 0 && (
+                              <button
+                                onClick={handleBulkDrafts}
+                                disabled={bulkDraftsLoading}
+                                className="ml-auto flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black transition-all shadow-sm shadow-violet-500/20 cursor-pointer"
+                              >
+                                {bulkDraftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                <span>Sugerir con Ia ({suggestionsCount})</span>
+                              </button>
+                            );
+                          })()}
                         </div>
                       )}
                       {/* Comments List */}
