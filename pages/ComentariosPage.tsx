@@ -731,43 +731,49 @@ export default function ComentariosPage() {
     }
   }, [loading, posts, setPendingCommentsCount, clientId]);
 
-  // Background resolver for ad thumbnails and details in ComentariosPage
+  // Resolve full ad creative details (playable video/carousel/etc.) via /api/meta-video.
+  // A thumbnail alone (almost always present on the ad creative) isn't enough to play media —
+  // this fetches the actual video/carousel source for a given post on demand.
+  const resolveAdDetails = useCallback(async (post: PostItem) => {
+    const ad = post.raw;
+    if (!ad) return;
+
+    setResolvingIds(prev => ({ ...prev, [post.id]: true }));
+
+    const params = new URLSearchParams();
+    if (ad.id) params.set('adId', ad.id);
+    if (ad.creative?.id) params.set('creativeId', ad.creative.id);
+    if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
+    if (clientId) params.set('clientId', clientId);
+
+    try {
+      const res = await fetch(`/api/meta-video?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setResolvedDetails(prev => ({ ...prev, [post.id]: data }));
+        let thumbnail: string | null = null;
+        if (data.type === 'carousel' && data.cards?.[0]?.url) thumbnail = data.cards[0].url;
+        else if ((data.type === 'video_source' || data.type === 'ad_preview') && data.picture) thumbnail = data.picture;
+        else if (data.type === 'image' && data.url) thumbnail = data.url;
+        if (thumbnail) {
+          setResolvedThumbnails(prev => ({ ...prev, [post.id]: thumbnail! }));
+        }
+      }
+    } catch (err) {
+      console.error("Error resolving ad thumbnail in ComentariosPage:", err);
+    } finally {
+      setResolvingIds(prev => { const next = { ...prev }; delete next[post.id]; return next; });
+    }
+  }, [clientId]);
+
+  // Background resolver for ad thumbnails in the list view — only for ads that don't already
+  // have one. Full creative media (video/carousel) for a specific post is resolved on open,
+  // see resolveAdDetails call in openPost().
   useEffect(() => {
     const adsToResolve = posts.filter(p => p.isAd && !p.thumbnail && !resolvedDetails[p.id] && !resolvingIds[p.id]);
     if (adsToResolve.length === 0) return;
-
-    adsToResolve.forEach(async (post) => {
-      const ad = post.raw;
-      if (!ad) return;
-      
-      setResolvingIds(prev => ({ ...prev, [post.id]: true }));
-      
-      const params = new URLSearchParams();
-      if (ad.id) params.set('adId', ad.id);
-      if (ad.creative?.id) params.set('creativeId', ad.creative.id);
-      if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
-      if (clientId) params.set('clientId', clientId);
-
-      try {
-        const res = await fetch(`/api/meta-video?${params}`);
-        if (res.ok) {
-          const data = await res.json();
-          setResolvedDetails(prev => ({ ...prev, [post.id]: data }));
-          let thumbnail: string | null = null;
-          if (data.type === 'carousel' && data.cards?.[0]?.url) thumbnail = data.cards[0].url;
-          else if ((data.type === 'video_source' || data.type === 'ad_preview') && data.picture) thumbnail = data.picture;
-          else if (data.type === 'image' && data.url) thumbnail = data.url;
-          if (thumbnail) {
-            setResolvedThumbnails(prev => ({ ...prev, [post.id]: thumbnail! }));
-          }
-        }
-      } catch (err) {
-        console.error("Error resolving ad thumbnail in ComentariosPage:", err);
-      } finally {
-        setResolvingIds(prev => { const next = { ...prev }; delete next[post.id]; return next; });
-      }
-    });
-  }, [posts, clientId, resolvedDetails, resolvingIds]);
+    adsToResolve.forEach(post => resolveAdDetails(post));
+  }, [posts, resolvedDetails, resolvingIds, resolveAdDetails]);
 
   // Follow Meta API pagination cursors to fetch all comment pages
   const fetchAllCommentPages = async (
@@ -798,6 +804,12 @@ export default function ComentariosPage() {
     setLikedIds({});
     setPlayingVideoId(null);
     setCommentFilter('pending');
+
+    // Resolve full creative media (video/carousel) immediately so it's playable in the panel,
+    // even though the list already had a static thumbnail for this ad.
+    if (post.isAd && !resolvedDetails[post.id] && !resolvingIds[post.id]) {
+      resolveAdDetails(post);
+    }
 
     // Always fetch fresh IG permalink and normalize to /p/ format (avoids reel player redirect)
     if (post.platform === 'instagram') {

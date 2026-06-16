@@ -197,6 +197,19 @@ const getPageAccessToken = async (pageId: string): Promise<string> => {
       pageTokensCache[cacheKey] = page.access_token;
       return page.access_token;
     }
+
+    // 3. Fallback: derive the token directly from the Page node. /me/accounts only works for
+    // personal user-login tokens — a System User token (Business Settings) doesn't have
+    // "accounts" in that sense, but if the Page is assigned to it as an asset, asking the Page
+    // node itself for `access_token` returns a usable Page token.
+    const directUrl = new URL(`${BASE}/${pageId}`);
+    directUrl.searchParams.set('fields', 'access_token');
+    directUrl.searchParams.set('access_token', userToken);
+    const directRes = await fetch(directUrl.toString()).then(r => r.json());
+    if (directRes?.access_token) {
+      pageTokensCache[cacheKey] = directRes.access_token;
+      return directRes.access_token;
+    }
   } catch (e) {
     console.error('Error getting page access token:', e);
   }
