@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>11 Creativos de Ads Subestimados</title>
+  <style>
+    :root {
+      --bg: #080810;
+      --card: #10101a;
+      --card2: #14141f;
+      --border: #1e1e30;
+      --border2: #2a2a40;
+      --text: #f0f0ff;
+      --muted: #7070a0;
+      --accent: #7c6fff;
+      --pink: #ff6b9d;
+      --green: #4ade80;
+      --red: #f87171;
+      --blue: #60a5fa;
+      --yellow: #fbbf24;
+      --orange: #fb923c;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      line-height: 1.6;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      text-align: center;
+      padding: 100px 24px 80px;
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, #1a1040 0%, transparent 70%),
+                  radial-gradient(ellipse 50% 40% at 80% 120%, #200a20 0%, transparent 60%);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .hero-tag {
+      display: inline-block;
+      background: rgba(124,111,255,.15);
+      border: 1px solid rgba(124,111,255,.3);
+      color: var(--accent);
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 6px 18px;
+      border-radius: 99px;
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 4rem);
+      font-weight: 900;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #fff 20%, #a89dff 60%, #ff6b9d 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 20px;
+    }
+    .hero p {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 580px;
+      margin: 0 auto 40px;
+    }
+    .hero-grid {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .hero-stat {
+      text-align: center;
+    }
+    .hero-stat strong {
+      display: block;
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-stat span {
+      font-size: .85rem;
+      color: var(--muted);
+    }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 80px 24px; }
+
+    .section-header {
+      margin-bottom: 60px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      margin-bottom: 72px;
+      overflow: hidden;
+      transition: border-color .3s;
+    }
+    .card:hover { border-color: var(--border2); }
+
+    .card-header {
+      padding: 36px 44px 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-num {
+      font-size: 5rem;
+      font-weight: 900;
+      line-height: 1;
+      min-width: 90px;
+      background: linear-gradient(135deg, var(--border2), transparent);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .card-title h2 {
+      font-size: 1.9rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: -.5px;
+    }
+    .badges { display: flex; gap: 8px; flex-wrap: wrap; }
+    .badge {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 4px 14px;
+      border-radius: 99px;
+    }
+    .badge-video { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+    .badge-static { background: rgba(96,165,250,.15); color: #60a5fa; border: 1px solid rgba(96,165,250,.3); }
+
+    .card-body {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+    }
+
+    .mockup-wrap {
+      border-right: 1px solid var(--border);
+      background: #08080f;
+      padding: 48px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 420px;
+      gap: 16px;
+    }
+    .mockup-label {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+    }
+
+    .info-wrap {
+      padding: 40px 44px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .info-block h4 {
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .info-block p { font-size: .95rem; color: #c0c0e0; }
+    .info-block.highlight {
+      background: rgba(124,111,255,.06);
+      border: 1px solid rgba(124,111,255,.15);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+    .info-block.highlight p { color: #d0cdff; }
+
+    .brands { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .brand {
+      background: var(--border);
+      border: 1px solid var(--border2);
+      color: #9090c0;
+      font-size: .78rem;
+      padding: 4px 14px;
+      border-radius: 99px;
+      font-weight: 500;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media(max-width: 760px) {
+      .card-body { grid-template-columns: 1fr; }
+      .mockup-wrap { border-right: none; border-bottom: 1px solid var(--border); }
+      .card-header { flex-direction: column; gap: 8px; }
+      .card-num { font-size: 3rem; }
+    }
+
+    /* ══════════════════════════════════════
+       MOCKUP DESIGNS
+    ══════════════════════════════════════ */
+
+    /* 1 - Llamada al Cliente */
+    .mockup-call {
+      background: #1a1a2e;
+      border-radius: 20px;
+      overflow: hidden;
+      width: 300px;
+      border: 1px solid var(--border2);
+      box-shadow: 0 20px 60px #0004;
+    }
+    .call-top {
+      background: #0d0d1e;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #2a2a40;
+    }
+    .call-top span { font-size: .75rem; color: var(--muted); }
+    .call-dur { margin-left: auto; font-size: .7rem; color: var(--green); }
+    .call-screens {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+    }
+    .call-person {
+      position: relative;
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .call-person.founder { background: #1e2a3a; }
+    .call-person.client { background: #2a1e3a; }
+    .call-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+    .call-person.founder .call-avatar { background: #2a4060; }
+    .call-person.client .call-avatar { background: #402a60; }
+    .call-pname { font-size: .65rem; color: var(--muted); }
+    .call-pip { position: absolute; bottom: 8px; right: 8px; background: var(--green); color: #000; font-size: .55rem; padding: 2px 6px; border-radius: 99px; font-weight: 700; }
+    .call-controls {
+      background: #0d0d1e;
+      padding: 14px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+    .call-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem;
+    }
+    .call-btn.end { background: #dc2626; }
+    .call-btn.mic { background: #1e293b; }
+    .call-btn.cam { background: #1e293b; }
+    .call-tag {
+      position: absolute;
+      top: 8px; left: 8px;
+      background: rgba(239,68,68,.8);
+      color: #fff;
+      font-size: .55rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    /* 2 - Mito vs Realidad */
+    .mockup-myth {
+      width: 300px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border2);
+    }
+    .myth-header {
+      background: #1a0f2e;
+      padding: 14px 20px;
+      text-align: center;
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border2);
+    }
+    .myth-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .myth-side {
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+    }
+    .myth-side.left { background: rgba(239,68,68,.08); border-right: 1px solid var(--border); }
+    .myth-side.right { background: rgba(74,222,128,.08); }
+    .myth-icon { font-size: 1.8rem; }
+    .myth-label {
+      font-size: .65rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 3px 10px;
+      border-radius: 99px;
+    }
+    .myth-label.m { background: rgba(239,68,68,.2); color: #f87171; }
+    .myth-label.r { background: rgba(74,222,128,.2); color: #4ade80; }
+    .myth-text { font-size: .75rem; color: #b0b0d0; line-height: 1.4; }
+    .myth-footer {
+      background: #1a0f2e;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-top: 1px solid var(--border);
+    }
+    .myth-logo {
+      width: 24px; height: 24px;
+      background: var(--accent);
+      border-radius: 6px;
+    }
+    .myth-brand { font-size: .75rem; font-weight: 700; }
+
+    /* 3 - Detrás de Cámaras */
+    .mockup-btc {
+      width: 280px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border2);
+      position: relative;
+    }
+    .btc-frame {
+      background: #1a1a10;
+      aspect-ratio: 16/10;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .btc-scene {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      padding: 20px;
+    }
+    .btc-worker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .btc-worker-body {
+      width: 28px; height: 40px;
+      border-radius: 4px;
+    }
+    .btc-worker-head {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+    }
+    .worker1 .btc-worker-body { background: #3a5a7a; }
+    .worker1 .btc-worker-head { background: #c0956a; }
+    .worker2 .btc-worker-body { background: #5a3a7a; }
+    .worker2 .btc-worker-head { background: #a0724a; }
+    .btc-table {
+      width: 80px; height: 30px;
+      background: #5a4a20;
+      border-radius: 4px;
+      position: relative;
+    }
+    .btc-product-box {
+      width: 20px; height: 24px;
+      background: var(--accent);
+      border-radius: 3px;
+      position: absolute;
+      top: -14px;
+      left: 10px;
+    }
+    .btc-product-box2 {
+      width: 18px; height: 20px;
+      background: var(--pink);
+      border-radius: 3px;
+      position: absolute;
+      top: -12px;
+      right: 10px;
+    }
+    .btc-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,.6) 100%);
+    }
+    .btc-tag {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(239,68,68,.85);
+      color: #fff;
+      font-size: .6rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btc-tag::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #fff;
+      display: inline-block;
+    }
+    .btc-bottom-text {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+    }
+    .btc-title { font-size: .75rem; font-weight: 700; color: #fff; }
+    .btc-sub { font-size: .6rem; color: rgba(255,255,255,.6); }
+    .btc-info {
+      background: #1a1a10;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .btc-ava {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .9rem;
+    }
+    .btc-info-text span { display: block; font-size: .7rem; color: var(--muted); }
+    .btc-info-text strong { font-size: .75rem; }
+
+    /* 4 - Con vs Sin */
+    .mockup-cvs {
+      width: 300px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border2);
+    }
+    .cvs-top {
+      background: var(--card2);
+      padding: 14px 20px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .cvs-top h3 { font-size: .85rem; font-weight: 700; color: #fff; }
+    .cvs-top p { font-size: .65rem; color: var(--muted); margin-top: 2px; }
+    .cvs-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .cvs-side {
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+    .cvs-side.without { background: rgba(239,68,68,.05); border-right: 1px solid var(--border); }
+    .cvs-side.with { background: rgba(74,222,128,.05); }
+    .cvs-face { font-size: 2.2rem; }
+    .cvs-label {
+      font-size: .65rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .cvs-side.without .cvs-label { color: #f87171; }
+    .cvs-side.with .cvs-label { color: #4ade80; }
+    .cvs-items { width: 100%; }
+    .cvs-item {
+      font-size: .68rem;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      color: #9090b0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cvs-item:last-child { border-bottom: none; }
+    .cvs-side.without .cvs-item::before { content: '✗'; color: #f87171; }
+    .cvs-side.with .cvs-item::before { content: '✓'; color: #4ade80; }
+    .cvs-footer {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--pink) 100%);
+      padding: 12px 20px;
+      text-align: center;
+    }
+    .cvs-footer p { font-size: .75rem; font-weight: 700; color: #fff; }
+
+    /* 5 - Entrevista Callejera */
+    .mockup-street {
+      width: 180px;
+      border-radius: 28px;
+      overflow: hidden;
+      border: 2px solid var(--border2);
+      background: #0a0a14;
+      box-shadow: 0 0 0 4px #1a1a2a, 0 20px 60px #0006;
+      position: relative;
+    }
+    .phone-notch {
+      width: 80px; height: 12px;
+      background: #0a0a14;
+      border-radius: 0 0 10px 10px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 2;
+    }
+    .street-video {
+      background: linear-gradient(180deg, #1a2e1a 0%, #2e1a2e 100%);
+      aspect-ratio: 9/14;
+      position: relative;
+      overflow: hidden;
+    }
+    .street-person {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .street-head {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #c0956a;
+      position: relative;
+    }
+    .street-head::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: 4px;
+      width: 24px; height: 10px;
+      background: #4a3020;
+      border-radius: 50% 50% 0 0;
+    }
+    .street-body {
+      width: 28px; height: 38px;
+      border-radius: 4px 4px 0 0;
+      background: #2a4060;
+    }
+    .street-mic {
+      position: absolute;
+      bottom: 50px;
+      right: 40px;
+      width: 8px; height: 30px;
+      background: #ddd;
+      border-radius: 4px;
+      transform: rotate(-15deg);
+    }
+    .street-mic::before {
+      content: '';
+      position: absolute;
+      top: -8px; left: -3px;
+      width: 14px; height: 16px;
+      background: #333;
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      border: 1px solid #666;
+    }
+    .street-bg-circle {
+      position: absolute;
+      border-radius: 50%;
+    }
+    .street-bg-circle.c1 {
+      width: 80px; height: 80px;
+      background: rgba(255,255,255,.03);
+      top: 20px; right: -20px;
+    }
+    .street-bg-circle.c2 {
+      width: 60px; height: 60px;
+      background: rgba(255,255,255,.02);
+      top: 60px; left: -20px;
+    }
+    .street-overlay-top {
+      position: absolute;
+      top: 12px;
+      left: 10px; right: 10px;
+      background: rgba(0,0,0,.5);
+      border-radius: 8px;
+      padding: 8px 10px;
+      backdrop-filter: blur(4px);
+    }
+    .street-q { font-size: .6rem; color: #fff; line-height: 1.4; }
+    .street-overlay-bottom {
+      position: absolute;
+      bottom: 12px;
+      left: 10px; right: 10px;
+    }
+    .street-name { font-size: .65rem; font-weight: 700; color: #fff; }
+    .street-subtitle { font-size: .55rem; color: rgba(255,255,255,.6); }
+    .street-tag {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: rgba(239,68,68,.8);
+      color: #fff;
+      font-size: .5rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .phone-home {
+      height: 20px;
+      background: #0a0a14;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .phone-home-dot {
+      width: 40px; height: 4px;
+      background: #2a2a40;
+      border-radius: 2px;
+    }
+
+    /* 6 - Problemas Tachados */
+    .mockup-strikethrough {
+      width: 280px;
+      background: var(--card2);
+      border-radius: 16px;
+      border: 1px solid var(--border2);
+      overflow: hidden;
+    }
+    .st-header {
+      background: linear-gradient(135deg, #1a0a0a, #2a0f0f);
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .st-header-q { font-size: .75rem; color: var(--red); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .st-header h3 { font-size: 1rem; font-weight: 800; }
+    .st-list { padding: 16px 24px; }
+    .st-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .82rem;
+    }
+    .st-item:last-child { border-bottom: none; }
+    .st-icon { font-size: 1rem; width: 20px; text-align: center; }
+    .st-text {
+      text-decoration: line-through;
+      color: var(--muted);
+      flex: 1;
+    }
+    .st-check {
+      width: 20px; height: 20px;
+      background: rgba(74,222,128,.15);
+      border: 1px solid rgba(74,222,128,.4);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .6rem;
+      color: var(--green);
+    }
+    .st-footer {
+      padding: 16px 24px;
+      background: rgba(74,222,128,.05);
+      border-top: 1px solid rgba(74,222,128,.15);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .st-product-dot {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .9rem;
+    }
+    .st-footer-text strong { font-size: .75rem; display: block; }
+    .st-footer-text span { font-size: .65rem; color: var(--green); }
+
+    /* 7 - Sketch dos personas */
+    .mockup-sketch {
+      width: 300px;
+      background: var(--card2);
+      border-radius: 16px;
+      border: 1px solid var(--border2);
+      overflow: hidden;
+    }
+    .sketch-scene {
+      background: #12121e;
+      padding: 24px 20px;
+      display: flex;
+      gap: 16px;
+    }
+    .sketch-person {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+    }
+    .sketch-avatar {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+    .sketch-a .sketch-avatar { background: #1e3050; }
+    .sketch-b .sketch-avatar { background: #301e50; }
+    .sketch-pname { font-size: .6rem; color: var(--muted); }
+    .sketch-dialog { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .bubble {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: .75rem;
+      line-height: 1.4;
+      position: relative;
+    }
+    .bubble.a {
+      background: #1e2a3a;
+      border-bottom-left-radius: 3px;
+      align-self: flex-start;
+      color: #c0d0e0;
+    }
+    .bubble.b {
+      background: rgba(124,111,255,.15);
+      border-bottom-right-radius: 3px;
+      align-self: flex-end;
+      color: #c0b8ff;
+      text-align: right;
+    }
+    .bubble .who {
+      display: block;
+      font-size: .55rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      opacity: .7;
+    }
+    .sketch-cta {
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      padding: 12px 20px;
+      text-align: center;
+      font-size: .75rem;
+      font-weight: 700;
+    }
+
+    /* 8 - Comparación de Gráficos */
+    .mockup-chart {
+      width: 300px;
+      background: var(--card2);
+      border-radius: 16px;
+      border: 1px solid var(--border2);
+      overflow: hidden;
+      padding: 24px;
+    }
+    .chart-title {
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 4px;
+    }
+    .chart-metric {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 20px;
+    }
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      height: 140px;
+      border-bottom: 1px solid var(--border2);
+      padding-bottom: 0;
+      margin-bottom: 12px;
+    }
+    .bar-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+    }
+    .bar {
+      width: 100%;
+      border-radius: 6px 6px 0 0;
+      position: relative;
+      display: flex;
+      justify-content: center;
+    }
+    .bar.winner { background: linear-gradient(to top, var(--accent), #a89dff); height: 120px; }
+    .bar.c1 { background: #2a2a3a; height: 60px; }
+    .bar.c2 { background: #2a2a3a; height: 45px; }
+    .bar.c3 { background: #2a2a3a; height: 35px; }
+    .bar-val {
+      position: absolute;
+      top: -20px;
+      font-size: .65rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .bar.winner .bar-val { color: #a89dff; }
+    .bar.c1 .bar-val, .bar.c2 .bar-val, .bar.c3 .bar-val { color: var(--muted); }
+    .bar-name { font-size: .6rem; color: var(--muted); text-align: center; }
+    .bar-name.winner-name { color: #a89dff; font-weight: 700; }
+    .chart-source { font-size: .6rem; color: var(--muted); }
+
+    /* 9 - Diagrama de flujo */
+    .mockup-flow {
+      width: 300px;
+      background: var(--card2);
+      border-radius: 16px;
+      border: 1px solid var(--border2);
+      overflow: hidden;
+      padding: 24px 20px;
+    }
+    .flow-title {
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .flow-node {
+      background: #1a1a2e;
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: .75rem;
+      text-align: center;
+      margin-bottom: 0;
+    }
+    .flow-node.question { border-color: var(--accent); color: #c0b8ff; }
+    .flow-node.end-yes { border-color: var(--green); color: #4ade80; background: rgba(74,222,128,.05); }
+    .flow-node.end-no { border-color: var(--pink); color: #ff6b9d; background: rgba(255,107,157,.05); }
+    .flow-node.cta { border-color: var(--accent); background: rgba(124,111,255,.1); color: #a89dff; font-weight: 700; }
+    .flow-arrow {
+      text-align: center;
+      color: var(--muted);
+      font-size: .75rem;
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .flow-arrow .label { font-size: .6rem; color: var(--muted); background: var(--card); padding: 1px 8px; border-radius: 99px; }
+    .flow-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 0;
+    }
+    .flow-mini-arrow {
+      text-align: center;
+      color: var(--muted);
+      font-size: .6rem;
+      padding: 4px 0;
+    }
+    .flow-split-node {
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: .68rem;
+      text-align: center;
+    }
+    .flow-split-node.no { background: rgba(239,68,68,.07); border: 1px solid rgba(239,68,68,.3); color: #f87171; }
+    .flow-split-node.yes { background: rgba(74,222,128,.07); border: 1px solid rgba(74,222,128,.3); color: #4ade80; }
+
+    /* 10 - AMA Instagram */
+    .mockup-ama {
+      width: 200px;
+      background: #1a0a2e;
+      border-radius: 24px;
+      border: 1px solid var(--border2);
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(124,111,255,.2);
+    }
+    .ama-story-top {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ama-progress {
+      flex: 1;
+      display: flex;
+      gap: 3px;
+    }
+    .ama-prog-bar {
+      height: 2px;
+      background: rgba(255,255,255,.3);
+      border-radius: 1px;
+      flex: 1;
+    }
+    .ama-prog-bar.active { background: #fff; }
+    .ama-story-info {
+      padding: 0 14px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ama-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .6rem;
+      font-weight: 700;
+    }
+    .ama-brand-info strong { display: block; font-size: .65rem; }
+    .ama-brand-info span { font-size: .55rem; color: rgba(255,255,255,.5); }
+    .ama-content {
+      padding: 12px 14px;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .ama-sticker {
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+    .ama-sticker-title { font-size: .65rem; font-weight: 800; color: #000; }
+    .ama-sticker-sub { font-size: .55rem; color: #666; }
+    .ama-sticker-box {
+      background: #f3f3f3;
+      border-radius: 6px;
+      padding: 5px 8px;
+      margin-top: 6px;
+      font-size: .6rem;
+      color: #999;
+    }
+    .ama-question {
+      background: rgba(255,255,255,.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,.1);
+    }
+    .ama-q-label { font-size: .55rem; color: rgba(255,255,255,.4); margin-bottom: 3px; }
+    .ama-q-text { font-size: .65rem; color: #fff; font-weight: 600; margin-bottom: 8px; }
+    .ama-answer { font-size: .6rem; color: rgba(255,255,255,.7); line-height: 1.4; }
+    .ama-product-tag {
+      display: inline-block;
+      background: rgba(124,111,255,.3);
+      border: 1px solid rgba(124,111,255,.5);
+      color: #a89dff;
+      font-size: .6rem;
+      padding: 2px 8px;
+      border-radius: 99px;
+      margin-top: 4px;
+      font-weight: 700;
+    }
+
+    /* 11 - X Razones */
+    .mockup-reasons {
+      width: 280px;
+      background: var(--card2);
+      border-radius: 16px;
+      border: 1px solid var(--border2);
+      overflow: hidden;
+    }
+    .reasons-header {
+      background: linear-gradient(135deg, #1a1040, #100a20);
+      padding: 22px 22px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .reasons-header .num { font-size: 2.5rem; font-weight: 900; color: var(--accent); line-height: 1; }
+    .reasons-header h3 { font-size: .85rem; font-weight: 700; margin-top: 2px; }
+    .reasons-header p { font-size: .65rem; color: var(--muted); margin-top: 2px; }
+    .reasons-list { padding: 8px 0; }
+    .reason-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 22px;
+      border-bottom: 1px solid var(--border);
+      transition: background .2s;
+    }
+    .reason-item:last-child { border-bottom: none; }
+    .reason-num {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: rgba(124,111,255,.15);
+      border: 1px solid rgba(124,111,255,.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .65rem;
+      font-weight: 800;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .reason-text strong { display: block; font-size: .75rem; margin-bottom: 2px; }
+    .reason-text span { font-size: .65rem; color: var(--muted); }
+    .reasons-cta {
+      padding: 14px 22px;
+      background: rgba(124,111,255,.08);
+      border-top: 1px solid rgba(124,111,255,.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .reasons-cta span { font-size: .7rem; color: var(--accent); font-weight: 600; }
+    .reasons-cta-btn {
+      background: var(--accent);
+      color: #fff;
+      font-size: .65rem;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 99px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+    footer strong { color: var(--text); }
+  </style>
+</head>
+<body>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-tag">Análisis de Creativos</div>
+    <h1>11 Formatos de Ads<br/>Subestimados que Funcionan</h1>
+    <p>Estos creativos pasan desapercibidos, pero siguen dando resultados silenciosamente para marcas en cualquier industria.</p>
+    <div class="hero-grid">
+      <div class="hero-stat"><strong>11</strong><span>Conceptos</span></div>
+      <div class="hero-stat"><strong>33+</strong><span>Marcas reales</span></div>
+      <div class="hero-stat"><strong>2</strong><span>Formatos (video / static)</span></div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- ══ 1. LLAMADA AL CLIENTE ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">01</div>
+        <div class="card-title">
+          <h2>Llamada al Cliente</h2>
+          <div class="badges">
+            <span class="badge badge-video">📹 Video</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-call">
+            <div class="call-top">
+              <span style="font-size:.7rem;">👤 Founder → Cliente</span>
+              <span class="call-dur">●&nbsp;02:34</span>
+            </div>
+            <div class="call-screens">
+              <div class="call-person founder" style="position:relative;">
+                <span class="call-tag">LIVE</span>
+                <div class="call-avatar">👨‍💼</div>
+                <span class="call-pname">Fundador</span>
+              </div>
+              <div class="call-person client">
+                <div class="call-avatar">😊</div>
+                <span class="call-pname">Sarah, cliente</span>
+                <div class="call-pip">★ 5/5</div>
+              </div>
+            </div>
+            <div style="background:#0d0d1e;padding:10px 16px;border-top:1px solid #1e1e30;">
+              <p style="font-size:.65rem;color:#60a5fa;font-style:italic;">"¡El producto me cambió la vida, de verdad..."</p>
+            </div>
+            <div class="call-controls">
+              <div class="call-btn mic">🎙️</div>
+              <div class="call-btn end">📵</div>
+              <div class="call-btn cam">📷</div>
+            </div>
+          </div>
+          <div class="mockup-label">Simulación de video call</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Un fundador o miembro del equipo llama por videollamada a un cliente real para agradecerle y preguntarle sobre su experiencia con el producto.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>Se siente personal, auténtico y sin guion. El espectador se proyecta como ese cliente que recibe reconocimiento. Es prueba social envuelta en una llamada, no en un testimonial montado.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>Que se vea cruda y real. Sin iluminación perfecta ni edición excesiva. La autenticidad es el gancho.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Three Ships</span>
+              <span class="brand">AgeMate</span>
+              <span class="brand">Blume</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 2. MITO vs REALIDAD ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">02</div>
+        <div class="card-title">
+          <h2>Mito vs. Realidad</h2>
+          <div class="badges">
+            <span class="badge badge-static">🖼 Estático</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-myth">
+            <div class="myth-header">¿Sabías que esto es un mito?</div>
+            <div class="myth-body">
+              <div class="myth-side left">
+                <div class="myth-icon">❌</div>
+                <span class="myth-label m">Mito</span>
+                <p class="myth-text">"Necesitas tomar suplementos caros para ver resultados reales"</p>
+              </div>
+              <div class="myth-side right">
+                <div class="myth-icon">✅</div>
+                <span class="myth-label r">Realidad</span>
+                <p class="myth-text">"Los ingredientes correctos en la dosis correcta son todo lo que necesitas"</p>
+              </div>
+            </div>
+            <div class="myth-footer">
+              <div class="myth-logo"></div>
+              <span class="myth-brand">BrandName →&nbsp;<span style="color:var(--accent);font-size:.7rem;">Ver más</span></span>
+            </div>
+          </div>
+          <div class="mockup-label">Formato estático — dos paneles</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Dos paneles contrastantes: uno muestra una creencia popular errónea (el mito) y el otro presenta el hecho real o la alternativa que el producto ofrece.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>A la gente le encanta que le "desenmasquen" algo. El contraste visual genera curiosidad inmediata y el cambio de creencia posiciona al producto como la solución "iluminada".</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>El mito debe sonar como algo que el target genuinamente cree. Si no hay tensión en el mito, no hay gancho.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Nutrition Geeks</span>
+              <span class="brand">Happy Mammoth</span>
+              <span class="brand">Stakt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 3. DETRÁS DE CÁMARAS ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">03</div>
+        <div class="card-title">
+          <h2>Detrás de Cámaras</h2>
+          <div class="badges">
+            <span class="badge badge-video">📹 Video</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-btc">
+            <div class="btc-frame">
+              <div class="btc-scene">
+                <div class="btc-worker worker1">
+                  <div class="btc-worker-head"></div>
+                  <div class="btc-worker-body"></div>
+                </div>
+                <div style="display:flex;flex-direction:column;justify-content:flex-end;gap:4px;">
+                  <div class="btc-table">
+                    <div class="btc-product-box"></div>
+                    <div class="btc-product-box2"></div>
+                  </div>
+                </div>
+                <div class="btc-worker worker2">
+                  <div class="btc-worker-head"></div>
+                  <div class="btc-worker-body"></div>
+                </div>
+              </div>
+              <div class="btc-bg-circle c1"></div>
+              <div class="btc-bg-circle c2"></div>
+              <div class="btc-overlay"></div>
+              <div class="btc-tag">● REC</div>
+              <div class="btc-bottom-text">
+                <div class="btc-title">Así empaquetamos cada pedido 📦</div>
+                <div class="btc-sub">Sin robots. Solo personas que se preocupan.</div>
+              </div>
+            </div>
+            <div class="btc-info">
+              <div class="btc-ava">👷</div>
+              <div class="btc-info-text">
+                <strong>La fábrica de [Brand]</strong>
+                <span>Día a día en producción</span>
+              </div>
+            </div>
+          </div>
+          <div class="mockup-label">Frame de video BTS</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Muestra el proceso real de fabricación o empaquetado del producto: el equipo trabajando, el lugar de producción, la cadena de proceso sin editar.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>Ver cómo se hace algo genera confianza automáticamente. Las marcas que se atreven a mostrar "el detrás" se perciben como más honestas, lo que baja la resistencia a comprar.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>Debe verse como grabado con el celular en el momento real. La producción pulida destruye la autenticidad que es exactamente el punto del formato.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Oats Overnight</span>
+              <span class="brand">Carpe</span>
+              <span class="brand">Made In</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 4. CON vs SIN ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">04</div>
+        <div class="card-title">
+          <h2>Con vs. Sin</h2>
+          <div class="badges">
+            <span class="badge badge-static">🖼 Estático</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-cvs">
+            <div class="cvs-top">
+              <h3>La diferencia es real</h3>
+              <p>Un día normal con y sin el producto</p>
+            </div>
+            <div class="cvs-body">
+              <div class="cvs-side without">
+                <div class="cvs-face">😩</div>
+                <span class="cvs-label">Sin producto</span>
+                <div class="cvs-items">
+                  <div class="cvs-item">Energía baja todo el día</div>
+                  <div class="cvs-item">Concentración nula</div>
+                  <div class="cvs-item">Dormir mal</div>
+                  <div class="cvs-item">Irritabilidad constante</div>
+                </div>
+              </div>
+              <div class="cvs-side with">
+                <div class="cvs-face">🤩</div>
+                <span class="cvs-label">Con producto</span>
+                <div class="cvs-items">
+                  <div class="cvs-item">Energía sostenida</div>
+                  <div class="cvs-item">Foco total</div>
+                  <div class="cvs-item">Sueño profundo</div>
+                  <div class="cvs-item">Estado de ánimo estable</div>
+                </div>
+              </div>
+            </div>
+            <div class="cvs-footer">
+              <p>¿Ya elegiste de qué lado estar? →</p>
+            </div>
+          </div>
+          <div class="mockup-label">Comparación visual lado a lado</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Una imagen dividida en dos mitades que muestra cómo se ve o funciona la vida sin el producto vs. con el producto, en el mismo contexto.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>Hace que el beneficio sea inmediatamente visible sin leer un párrafo. El cerebro procesa comparaciones visuales en milisegundos y la conclusión es obvia: quiero el lado derecho.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>El contraste tiene que ser dramático y concreto, no vago. "Energía baja" vs. "Energía alta" no vende. Escenas específicas del día a día sí venden.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Bearaby</span>
+              <span class="brand">Grüns</span>
+              <span class="brand">Heights</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 5. ENTREVISTA CALLEJERA ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">05</div>
+        <div class="card-title">
+          <h2>Entrevista Callejera</h2>
+          <div class="badges">
+            <span class="badge badge-video">📹 Video</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-street">
+            <div class="phone-notch"></div>
+            <div class="street-video">
+              <div class="street-bg-circle c1"></div>
+              <div class="street-bg-circle c2"></div>
+              <div class="street-overlay-top">
+                <p class="street-q">"¿Qué harías si te dijera que hay un producto que en 2 semanas te cambia X?"</p>
+              </div>
+              <div class="street-tag">LIVE REACTION</div>
+              <div class="street-person">
+                <div class="street-head"></div>
+                <div class="street-body"></div>
+              </div>
+              <div class="street-mic"></div>
+              <div class="street-overlay-bottom">
+                <div class="street-name">María, 28 — Buenos Aires</div>
+                <div class="street-subtitle">"¡Quiero probarlo ya!" 😂</div>
+              </div>
+            </div>
+            <div class="phone-home"><div class="phone-home-dot"></div></div>
+          </div>
+          <div class="mockup-label">Formato vertical — reacción real</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Una cámara en la calle le hace preguntas a personas reales sobre un producto o problema relacionado. Las reacciones son espontáneas y sin ensayar.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>Es la forma más cruda de prueba social posible. Sin guion, sin actores, sin marca diciendo "somos los mejores". Son personas reales validando o reaccionando con sorpresa genuina, lo cual el espectador reconoce al instante como auténtico.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>La pregunta inicial tiene que generar tensión o curiosidad. Las mejores reacciones son de sorpresa o escepticismo que se transforma en interés.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Grüns</span>
+              <span class="brand">Glossier</span>
+              <span class="brand">Ovrload</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 6. PROBLEMAS TACHADOS ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">06</div>
+        <div class="card-title">
+          <h2>Problemas Tachados</h2>
+          <div class="badges">
+            <span class="badge badge-static">🖼 Estático</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-strikethrough">
+            <div class="st-header">
+              <div class="st-header-q">¿Cansado de...?</div>
+              <h3>Ya no tienes que lidiar con esto 👋</h3>
+            </div>
+            <div class="st-list">
+              <div class="st-item">
+                <span class="st-icon">😩</span>
+                <span class="st-text">Despertarte sin energía cada mañana</span>
+                <div class="st-check">✓</div>
+              </div>
+              <div class="st-item">
+                <span class="st-icon">💸</span>
+                <span class="st-text">Gastar una fortuna en productos que no funcionan</span>
+                <div class="st-check">✓</div>
+              </div>
+              <div class="st-item">
+                <span class="st-icon">⏰</span>
+                <span class="st-text">Rutinas complicadas de 10 pasos</span>
+                <div class="st-check">✓</div>
+              </div>
+              <div class="st-item">
+                <span class="st-icon">🤯</span>
+                <span class="st-text">Resultados inconsistentes semana a semana</span>
+                <div class="st-check">✓</div>
+              </div>
+            </div>
+            <div class="st-footer">
+              <div class="st-product-dot">✨</div>
+              <div class="st-footer-text">
+                <strong>Presentamos [Producto]</strong>
+                <span>Todo resuelto, todo simple ✓</span>
+              </div>
+            </div>
+          </div>
+          <div class="mockup-label">Lista con tachado progresivo</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Una lista de dolores o problemas del target que el producto resuelve, visualmente tachados uno a uno para indicar que ya no son un problema.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>Ver cosas tachadas activa el mismo centro de recompensa del cerebro que tildar tareas en un to-do list. Es satisfactorio en un nivel casi físico. Además, el listado de dolores hace que el target se sienta visto antes de mostrar la solución.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>Los problemas deben ser hiper específicos y reconocibles. "Problemas con la piel" no funciona. "Mancharme la almohada con las cremas de noche" sí.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Jones Road</span>
+              <span class="brand">Seed</span>
+              <span class="brand">Heights</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 7. SKETCH DOS PERSONAS ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">07</div>
+        <div class="card-title">
+          <h2>Sketch de Dos Personas</h2>
+          <div class="badges">
+            <span class="badge badge-video">📹 Video</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-sketch">
+            <div class="sketch-scene">
+              <div class="sketch-person sketch-a">
+                <div class="sketch-avatar">😫</div>
+                <span class="sketch-pname">Persona A</span>
+              </div>
+              <div style="font-size:1.5rem;align-self:center;color:var(--muted);">↔️</div>
+              <div class="sketch-person sketch-b">
+                <div class="sketch-avatar">😎</div>
+                <span class="sketch-pname">Persona B</span>
+              </div>
+            </div>
+            <div class="sketch-dialog">
+              <div class="bubble a">
+                <span class="who">A —</span>
+                "Ugh, llevo semanas sin dormir bien. Probé de todo y nada funciona."
+              </div>
+              <div class="bubble b">
+                <span class="who">B —</span>
+                "¿Probaste [Producto]? A mí me cambió la vida en 3 días."
+              </div>
+              <div class="bubble a">
+                <span class="who">A —</span>
+                "¿En serio? ¿Qué hace exactamente?"
+              </div>
+              <div class="bubble b">
+                <span class="who">B —</span>
+                "Te mando el link, es lo mejor que compré este año 👇"
+              </div>
+            </div>
+            <div class="sketch-cta">💬 Conversa con nosotros — es gratis</div>
+          </div>
+          <div class="mockup-label">Diálogo problema → solución</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Un mini-sketch entre dos personas donde una tiene el problema y la otra descubrió la solución. El diálogo lleva naturalmente a presentar el producto.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>El cerebro ama escuchar conversaciones, no monólogos de marca. Es entretenido, fácil de seguir y la propuesta de valor queda clara sin sonar a un pitch de ventas. La persona con el problema es un espejo perfecto del target.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>El diálogo tiene que sonar a como habla gente real, no a copy de marca. Evitar frases como "este increíble producto que mejora tu vida".</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Harry's</span>
+              <span class="brand">Fulton Insoles</span>
+              <span class="brand">Tommy John</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 8. COMPARACIÓN DE GRÁFICOS ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">08</div>
+        <div class="card-title">
+          <h2>Comparación de Gráficos</h2>
+          <div class="badges">
+            <span class="badge badge-static">🖼 Estático</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-chart">
+            <div class="chart-title">Comparativa de mercado</div>
+            <div class="chart-metric">Proteína por porción (g)</div>
+            <div class="chart-bars">
+              <div class="bar-group">
+                <div class="bar winner">
+                  <span class="bar-val">32g</span>
+                </div>
+                <span class="bar-name winner-name">Nosotros</span>
+              </div>
+              <div class="bar-group">
+                <div class="bar c1">
+                  <span class="bar-val">18g</span>
+                </div>
+                <span class="bar-name">Marca A</span>
+              </div>
+              <div class="bar-group">
+                <div class="bar c2">
+                  <span class="bar-val">14g</span>
+                </div>
+                <span class="bar-name">Marca B</span>
+              </div>
+              <div class="bar-group">
+                <div class="bar c3">
+                  <span class="bar-val">11g</span>
+                </div>
+                <span class="bar-name">Marca C</span>
+              </div>
+            </div>
+            <div class="chart-source">* Datos basados en información pública de etiquetas</div>
+            <div style="margin-top:16px;background:rgba(124,111,255,.08);border:1px solid rgba(124,111,255,.2);border-radius:8px;padding:10px 12px;">
+              <p style="font-size:.72rem;color:#a89dff;font-weight:700;">¿Por qué conformarte con menos? →</p>
+            </div>
+          </div>
+          <div class="mockup-label">Gráfico de barras comparativo</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Un gráfico de barras simple que compara al producto con la competencia en una métrica clave donde la marca tiene una ventaja clara y medible.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>Los gráficos transmiten datos objetivos, no opiniones. El cerebro los procesa como "esto es un hecho, no marketing". Una barra más alta que las demás es visualmente irrefutable y la diferencia entra de un vistazo.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>La métrica elegida debe ser la que más importa al target, no la que más favorece a la marca. Si la métrica no le duele al cliente, el gráfico no impacta.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Surreal</span>
+              <span class="brand">Magna</span>
+              <span class="brand">Feel</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 9. DIAGRAMA DE FLUJO ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">09</div>
+        <div class="card-title">
+          <h2>El Diagrama de Flujo</h2>
+          <div class="badges">
+            <span class="badge badge-static">🖼 Estático</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-flow">
+            <div class="flow-title">¿Cuál es tu situación?</div>
+            <div class="flow-node question">¿Tenés problemas para dormir?</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-split">
+              <div>
+                <div class="flow-split-node no">NO 🎉 ¡Qué suerte!</div>
+                <div class="flow-mini-arrow">↓</div>
+                <div class="flow-split-node" style="background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.3);color:#60a5fa;font-size:.65rem;padding:8px 10px;border-radius:8px;">Igual mirá esto para cuando se te complique 👀</div>
+              </div>
+              <div>
+                <div class="flow-split-node yes">SÍ 😮</div>
+                <div class="flow-mini-arrow">↓</div>
+                <div class="flow-node question" style="font-size:.7rem;padding:8px;">¿Ya probaste [Producto]?</div>
+                <div class="flow-mini-arrow">↓</div>
+                <div class="flow-split" style="gap:4px;">
+                  <div class="flow-split-node no" style="font-size:.58rem;padding:6px 6px;">NO → ¡Empieza ya!</div>
+                  <div class="flow-split-node yes" style="font-size:.58rem;padding:6px 6px;">SÍ → Sos un crack</div>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:12px;">
+              <div class="flow-node cta" style="font-size:.75rem;padding:12px;">→ Probá [Producto] 14 días gratis</div>
+            </div>
+          </div>
+          <div class="mockup-label">Árbol de decisión lógico</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Un árbol de decisiones visual con preguntas de sí/no que guía al lector por caminos lógicos, donde prácticamente todos los caminos terminan llevando al producto.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>Una vez que empezás a leer un flowchart, el cerebro quiere terminarlo. Es casi compulsivo. Además el formato gamifica la experiencia: el usuario "interactúa" aunque sea solo con los ojos. El mensaje llega sin resistencia.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>Tiene que haber algo de humor en los caminos "incorrectos" para que no se sienta manipulador. La gracia desactiva la defensa.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Miracle</span>
+              <span class="brand">Coterie Baby</span>
+              <span class="brand">Paula's Choice</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 10. AMA ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">10</div>
+        <div class="card-title">
+          <h2>Pregúntame lo que Quieras</h2>
+          <div class="badges">
+            <span class="badge badge-static">🖼 Estático</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-ama">
+            <div class="ama-story-top">
+              <div class="ama-progress">
+                <div class="ama-prog-bar active"></div>
+                <div class="ama-prog-bar active"></div>
+                <div class="ama-prog-bar"></div>
+              </div>
+            </div>
+            <div class="ama-story-info">
+              <div class="ama-avatar">BR</div>
+              <div class="ama-brand-info">
+                <strong>@brand</strong>
+                <span>hace 2 horas</span>
+              </div>
+            </div>
+            <div class="ama-content">
+              <div class="ama-sticker">
+                <div class="ama-sticker-title">💬 Pregúntame</div>
+                <div class="ama-sticker-sub">lo que quieras</div>
+                <div class="ama-sticker-box">Enviar pregunta...</div>
+              </div>
+              <div class="ama-question">
+                <div class="ama-q-label">PREGUNTA DE @usuario_real</div>
+                <div class="ama-q-text">"¿Realmente ayuda con el dolor de rodillas o es marketing?"</div>
+                <div class="ama-answer">
+                  ¡Gran pregunta! Nosotros mismos empezamos a usarlo por eso. Lo que hace es...
+                  <span class="ama-product-tag">+ Ver beneficios →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mockup-label">Formato Instagram Stories AMA</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Un screenshot o simulación de una sesión de preguntas y respuestas al estilo Instagram Stories, donde la marca responde una pregunta real de un seguidor de manera que destaca naturalmente el producto.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>Se ve como contenido orgánico, no como publicidad. La pregunta de un "usuario real" tiene más credibilidad que cualquier claim de marca. El tono conversacional baja todas las defensas del espectador ante el mensaje de ventas.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>La pregunta elegida tiene que ser el objection más común del buyer. Responder la pregunta del escéptico en un tono humano es el movimiento ganador.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Arrae</span>
+              <span class="brand">Solawave</span>
+              <span class="brand">Lemme</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 11. X RAZONES ══ -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">11</div>
+        <div class="card-title">
+          <h2>X Razones por las que</h2>
+          <div class="badges">
+            <span class="badge badge-static">🖼 Estático</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mockup-wrap">
+          <div class="mockup-reasons">
+            <div class="reasons-header">
+              <div class="num">5</div>
+              <h3>razones por las que elegimos [Producto]</h3>
+              <p>y por qué miles hacen lo mismo</p>
+            </div>
+            <div class="reasons-list">
+              <div class="reason-item">
+                <div class="reason-num">1</div>
+                <div class="reason-text">
+                  <strong>Resultados en 7 días</strong>
+                  <span>Sin esperar semanas para ver cambios</span>
+                </div>
+              </div>
+              <div class="reason-item">
+                <div class="reason-num">2</div>
+                <div class="reason-text">
+                  <strong>Solo 3 ingredientes</strong>
+                  <span>Sin relleno, sin procesos raros</span>
+                </div>
+              </div>
+              <div class="reason-item">
+                <div class="reason-num">3</div>
+                <div class="reason-text">
+                  <strong>Certificado por dermatólogos</strong>
+                  <span>No solo "clínicamente testado"</span>
+                </div>
+              </div>
+              <div class="reason-item">
+                <div class="reason-num">4</div>
+                <div class="reason-text">
+                  <strong>Sin suscripción forzada</strong>
+                  <span>Comprás cuando vos querés</span>
+                </div>
+              </div>
+              <div class="reason-item">
+                <div class="reason-num">5</div>
+                <div class="reason-text">
+                  <strong>Devolución sin preguntas</strong>
+                  <span>Si no funciona, te devolvemos todo</span>
+                </div>
+              </div>
+            </div>
+            <div class="reasons-cta">
+              <span>¿Listo para probarlo?</span>
+              <div class="reasons-cta-btn">Ver oferta →</div>
+            </div>
+          </div>
+          <div class="mockup-label">Lista numerada de razones</div>
+        </div>
+        <div class="info-wrap">
+          <div class="info-block">
+            <h4>¿Qué es?</h4>
+            <p>Un listado visual de 3 a 5 razones concretas para elegir el producto, con cada punto siendo específico, creíble y orientado al beneficio del comprador.</p>
+          </div>
+          <div class="info-block highlight">
+            <h4>Por qué funciona</h4>
+            <p>A la gente le encantan las listas porque el cerebro las puede escanear en segundos. Cada razón es un argumento de compra comprimido. Si bien el formato se usa mucho, cuando las razones son genuinamente específicas y sorpresivas, sigue funcionando.</p>
+          </div>
+          <div class="info-block">
+            <h4>Clave de producción</h4>
+            <p>Las razones genéricas matan el formato. "Alta calidad" no es una razón. "Solo 3 ingredientes, ninguno importado" sí lo es. La especificidad es el arma.</p>
+          </div>
+          <div class="info-block">
+            <h4>Marcas ejemplo</h4>
+            <div class="brands">
+              <span class="brand">Ovrload</span>
+              <span class="brand">Arrae</span>
+              <span class="brand">Flo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+
+  <footer>
+    <strong>11 Creativos Subestimados</strong> — Análisis basado en observación directa de campañas activas.<br/>
+    <span style="font-size:.75rem;margin-top:8px;display:block;">No son trendy. No se habla mucho de ellos. Pero siguen funcionando.</span>
+  </footer>
+
+</body>
+</html>
