@@ -172,6 +172,7 @@ export default function ComentariosPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState('Cargando publicaciones con comentarios...');
   const [syncingComments, setSyncingComments] = useState(false);
+  const [commentsScanComplete, setCommentsScanComplete] = useState(false);
   const [igError, setIgError] = useState<string | null>(null);
   const [fbError, setFbError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -522,6 +523,7 @@ export default function ComentariosPage() {
     setSelectedPost(null);
     setLoading(true);
     setSyncingComments(false);
+    setCommentsScanComplete(false);
     setFbError(null);
     setIgError(null);
   }, [clientId]);
@@ -560,6 +562,7 @@ export default function ComentariosPage() {
     }
     setLoading(!hasUsableCache);
     setLoadingMessage('Cargando publicaciones con comentarios...');
+    setCommentsScanComplete(false);
     setIgError(null);
     setFbError(null);
 
@@ -722,21 +725,25 @@ export default function ComentariosPage() {
         const wrapFb = () => Array.isArray((fbMediaRes50 as any)?.data)
           ? { ...(fbMediaRes50 as any), data: fbMedia }
           : fbMedia;
-        const publishItems = () => {
+        const publishItems = ({ updateNavbarCount = false, persistCache = false } = {}) => {
           if (!active) return;
           const allItems = processMediaRes(wrapIg(), wrapFb(), relevantAds, adsCommentsResults50);
           setPosts(allItems);
 
-          const count = allItems.reduce((sum, p) => sum + (p.pendingComments || 0), 0);
-          setPendingCommentsCount(count);
-          if (clientId) {
-            try { localStorage.setItem(`car_pending_comments_count_${clientId}`, String(count)); } catch { /* ignore */ }
+          if (updateNavbarCount) {
+            const count = allItems.reduce((sum, p) => sum + (p.pendingComments || 0), 0);
+            setPendingCommentsCount(count);
+            if (clientId) {
+              try { localStorage.setItem(`car_pending_comments_count_${clientId}`, String(count)); } catch { /* ignore */ }
+            }
           }
 
-          if (allItems.length > 0) {
-            try { sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems })); } catch { /* quota exceeded — skip cache */ }
-          } else {
-            try { sessionStorage.removeItem(`comentarios_cache_${clientId}`); } catch { /* ignore */ }
+          if (persistCache) {
+            if (allItems.length > 0) {
+              try { sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems })); } catch { /* quota exceeded — skip cache */ }
+            } else {
+              try { sessionStorage.removeItem(`comentarios_cache_${clientId}`); } catch { /* ignore */ }
+            }
           }
         };
 
@@ -813,7 +820,8 @@ export default function ComentariosPage() {
         await Promise.all([hydrateAdsComments(), hydrateOrganicComments()]);
         if (!active) return;
         setLoadingMessage('Publicaciones actualizadas.');
-        publishItems();
+        publishItems({ updateNavbarCount: true, persistCache: true });
+        setCommentsScanComplete(true);
 
       } catch (err) {
         console.error('Error loading comments feed:', err);
@@ -829,17 +837,16 @@ export default function ComentariosPage() {
     return () => { active = false; };
   }, [clientId, igId, fbPageId, igUsername, metaAccountId, refreshKey, isCommentPending]);
 
-  // Sync sidebar badge when load completes — update count directly instead of a full API refetch
-  // Note: badge is also updated inline inside load() at each step for responsiveness
+  // Sync sidebar badge only when we have a complete comments scan.
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !syncingComments && commentsScanComplete) {
       const count = posts.reduce((sum, p) => sum + (p.pendingComments || 0), 0);
       setPendingCommentsCount(count);
       if (clientId) {
         try { localStorage.setItem(`car_pending_comments_count_${clientId}`, String(count)); } catch { /* ignore */ }
       }
     }
-  }, [loading, posts, setPendingCommentsCount, clientId]);
+  }, [loading, syncingComments, commentsScanComplete, posts, setPendingCommentsCount, clientId]);
 
   // Resolve full ad creative details (playable video/carousel/etc.) via /api/meta-video.
   // A thumbnail alone (almost always present on the ad creative) isn't enough to play media —
@@ -1292,7 +1299,7 @@ export default function ComentariosPage() {
           </h1>
           <p className="page-subtitle mt-1">
             {syncingComments
-              ? `${loadingMessage} El número del navbar se actualiza en vivo.`
+              ? `${loadingMessage} El total del navbar se mantiene estable hasta terminar.`
               : totalPending > 0
               ? `${totalPending} comentarios pendientes de respuesta en ${posts.filter(p => p.pendingComments > 0).length} publicaciones`
               : 'Todos los comentarios están respondidos'}
