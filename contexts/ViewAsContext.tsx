@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 
 interface ViewAsContextType {
   viewAsProfile: ClientProfile | null;
-  setViewAsProfile: (p: ClientProfile | null) => void;
+  setViewAsProfile: (p: ClientProfile | null | ((prev: ClientProfile | null) => ClientProfile | null)) => void;
   isViewingAs: boolean;
 }
 
@@ -54,7 +54,7 @@ export const ViewAsProvider = ({ children }: { children: React.ReactNode }) => {
     fetchProfile();
   }, [profile, authLoading]);
 
-  const handleSetProfile = (p: ClientProfile | null) => {
+  const handleSetProfile = (p: ClientProfile | null | ((prev: ClientProfile | null) => ClientProfile | null)) => {
     // Security check: if the active user is not an admin, block setting any view-as profile
     if (!profile || !profile.is_admin) {
       setViewAsProfile(null);
@@ -62,14 +62,18 @@ export const ViewAsProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    setViewAsProfile(p);
-    if (p) {
+    // Functional form always resolves against the LATEST state, never a stale closure value.
+    // This matters when multiple updates are queued in the same tick (e.g. disconnecting an
+    // integration triggers two sequential setViewAsProfile calls) — using a stale snapshot in
+    // the second call would silently undo the first one.
+    setViewAsProfile(prev => {
+      const next = typeof p === 'function' ? (p as (prev: ClientProfile | null) => ClientProfile | null)(prev) : p;
       try {
-        localStorage.setItem('view_as_client_id', p.id);
+        if (next) localStorage.setItem('view_as_client_id', next.id);
+        else localStorage.removeItem('view_as_client_id');
       } catch (e) {}
-    } else {
-      localStorage.removeItem('view_as_client_id');
-    }
+      return next;
+    });
   };
 
   const isViewingAs = viewAsProfile !== null && (profile?.is_admin === true);

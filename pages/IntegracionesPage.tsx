@@ -116,6 +116,10 @@ const PLATFORMS: IntegrationPlatform[] = [
   }
 ];
 
+// Platforms with a real, client-side testable API connection (used to gate the live "Verificar" action).
+// OAuth-based platforms (Meta, TikTok, Mercado Libre) manage their own token/expiration lifecycle server-side.
+const VERIFIABLE_PLATFORMS = ["shopify", "tiendanube", "wordpress", "klaviyo", "chatwoot"];
+
 const ML_COUNTRIES = [
   { code: "AR", name: "Argentina" },
   { code: "MX", name: "México" },
@@ -193,6 +197,8 @@ export default function IntegracionesPage() {
   // Loading indicator for tests & saves
   const [testingConnection, setTestingConnection] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  // Platforms currently being live-verified against their real API (auto on load + manual "Verificar")
+  const [verifyingPlatforms, setVerifyingPlatforms] = useState<Set<string>>(new Set());
 
   // Helper to extract query parameters from both standard search query and hash router query
   const getQueryParam = (key: string): string | null => {
@@ -463,8 +469,8 @@ export default function IntegracionesPage() {
       if (error) throw error;
 
       setClientData((prev: any) => prev ? { ...prev, connection_statuses: updated } : null);
-      if (isViewingAs && viewAsProfile) {
-        setViewAsProfile({ ...viewAsProfile, connection_statuses: updated } as any);
+      if (isViewingAs) {
+        setViewAsProfile(prev => prev ? ({ ...prev, connection_statuses: updated } as any) : prev);
       }
     } catch (e) {
       console.error("Error updating connection status:", e);
@@ -957,6 +963,63 @@ export default function IntegracionesPage() {
     }
   };
 
+  // ── Live re-verification: actually pings the platform's API instead of trusting "a token exists" ──
+  const verifyConnection = useCallback(async (platformId: string, silent = false) => {
+    if (!clientData || !activeProfileId) return;
+
+    let testFn: (() => Promise<boolean>) | null = null;
+    let statusKey = platformId;
+
+    if (platformId === "shopify" && clientData.ecommerce_platform === "shopify" && clientData.shopify_domain && clientData.shopify_access_token) {
+      testFn = () => testShopifyConnection(clientData.shopify_domain, clientData.shopify_access_token);
+    } else if (platformId === "tiendanube" && clientData.ecommerce_platform === "tiendanube" && clientData.tiendanube_store_id && clientData.tiendanube_access_token) {
+      testFn = () => testTiendanubeConnection(clientData.tiendanube_store_id, clientData.tiendanube_access_token);
+      statusKey = "shopify";
+    } else if (platformId === "wordpress" && clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key && clientData.woo_consumer_secret) {
+      testFn = () => testWooConnection(clientData.wordpress_url, clientData.woo_consumer_key, clientData.woo_consumer_secret);
+      statusKey = "shopify";
+    } else if (platformId === "klaviyo" && clientData.klaviyo_api_key) {
+      testFn = () => testKlaviyoConnection(clientData.klaviyo_api_key);
+    } else if (platformId === "chatwoot" && clientData.chatwoot_url && clientData.chatwoot_token) {
+      testFn = () => testChatwootConnection(clientData.chatwoot_url, clientData.chatwoot_token);
+    }
+
+    if (!testFn) return;
+
+    setVerifyingPlatforms(prev => new Set(prev).add(platformId));
+    try {
+      const ok = await testFn();
+      await updateConnectionStatus(statusKey, ok ? "ok" : "error");
+      if (!silent) {
+        const name = PLATFORMS.find(p => p.id === platformId)?.name || platformId;
+        showToast(ok ? `Conexión con ${name} verificada ✓` : `No se pudo verificar la conexión con ${name}. Revisá las credenciales.`, ok ? "success" : "error");
+      }
+    } finally {
+      setVerifyingPlatforms(prev => {
+        const next = new Set(prev);
+        next.delete(platformId);
+        return next;
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientData, activeProfileId]);
+
+  // ── Auto-verify every configured connection whenever a client's integrations are loaded ──
+  // A saved token/url is not proof the integration still works (revoked tokens, deleted stores,
+  // expired keys, leftover test data). Always confirm against the live API instead of trusting presence.
+  useEffect(() => {
+    if (loading || !clientData?.id) return;
+
+    const candidates: string[] = [];
+    if (clientData.ecommerce_platform === "shopify" && clientData.shopify_domain && clientData.shopify_access_token) candidates.push("shopify");
+    if (clientData.ecommerce_platform === "tiendanube" && clientData.tiendanube_store_id && clientData.tiendanube_access_token) candidates.push("tiendanube");
+    if (clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key) candidates.push("wordpress");
+    if (clientData.klaviyo_api_key) candidates.push("klaviyo");
+    if (clientData.chatwoot_url && clientData.chatwoot_token) candidates.push("chatwoot");
+
+    candidates.forEach(id => verifyConnection(id, true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, clientData?.id]);
 
   const handleSaveRealPlatform = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1163,8 +1226,8 @@ export default function IntegracionesPage() {
 
         if (error) throw error;
         setClientData((prev: any) => ({ ...prev, ...fieldsToUpdate }));
-        if (isViewingAs && viewAsProfile) {
-          setViewAsProfile({ ...viewAsProfile, ...fieldsToUpdate } as any);
+        if (isViewingAs) {
+          setViewAsProfile(prev => prev ? ({ ...prev, ...fieldsToUpdate } as any) : prev);
         }
       }
 
@@ -1339,7 +1402,10 @@ export default function IntegracionesPage() {
     if (!clientData) return "disconnected";
     
     if (platformId === "chatwoot") {
-      return (clientData.chatwoot_url && clientData.chatwoot_token) ? "ok" : "disconnected";
+      if (!clientData.chatwoot_url || !clientData.chatwoot_token) return "disconnected";
+      const val = clientData.connection_statuses?.chatwoot;
+      if (val === "error") return "error";
+      return val === "ok" || val === "connected" ? "ok" : "disconnected";
     }
 
     if (platformId === "shopify") {
@@ -1718,8 +1784,21 @@ export default function IntegracionesPage() {
                   </div>
 
                   {/* Status Badges */}
-                  <div>
-                    {status === "ok" ? (
+                  <div className="flex items-center gap-1.5">
+                    {VERIFIABLE_PLATFORMS.includes(platform.id) && status !== "disconnected" && !verifyingPlatforms.has(platform.id) && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); verifyConnection(platform.id); }}
+                        title="Verificar conexión ahora"
+                        className="p-1.5 rounded-full text-zinc-400 hover:text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                      </button>
+                    )}
+                    {verifyingPlatforms.has(platform.id) ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-500 bg-violet-50 dark:text-violet-400 dark:bg-violet-500/10 px-2.5 py-1 rounded-full">
+                        <RefreshCw className="w-3 h-3 stroke-[3] animate-spin" /> Verificando
+                      </span>
+                    ) : status === "ok" ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10 px-2.5 py-1 rounded-full">
                         <Check className="w-3 h-3 stroke-[3]" /> Conectado
                       </span>
