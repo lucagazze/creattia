@@ -629,7 +629,7 @@ export default function ComentariosPage() {
         items.push({
           id: storyId,
           platform: isIgAd ? 'instagram' : 'facebook',
-          thumbnail: matchingAd.creative.thumbnail_url || matchingAd.creative.image_url || null,
+          thumbnail: matchingAd.creative.image_url || matchingAd.creative.thumbnail_url || null,
           caption: matchingAd.creative.name || matchingAd.name || 'Anuncio',
           permalink: isIgAd
             ? (matchingAd.creative.instagram_permalink_url || null)
@@ -825,9 +825,10 @@ export default function ComentariosPage() {
     if (ad.creative?.id) params.set('creativeId', ad.creative.id);
     if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
     if (clientId) params.set('clientId', clientId);
+    params.set('v', '3');
 
     try {
-      const res = await fetch(`/api/meta-video?${params}`);
+      const res = await fetch(`/api/meta-video?${params}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setResolvedDetails(prev => ({ ...prev, [post.id]: data }));
@@ -1399,7 +1400,7 @@ export default function ComentariosPage() {
               {/* Thumbnail */}
               <div className="aspect-square w-full bg-zinc-100 dark:bg-zinc-800 relative overflow-hidden">
                 {(() => {
-                  const thumb = post.thumbnail || resolvedThumbnails[post.id];
+                  const thumb = resolvedThumbnails[post.id] || post.thumbnail;
                   if (thumb) {
                     return <SmoothImage src={thumb} alt="" containerClassName="w-full h-full" className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500" />;
                   }
@@ -1550,11 +1551,11 @@ export default function ComentariosPage() {
             <div className="flex flex-1 min-h-0 overflow-y-auto md:overflow-hidden flex-col md:flex-row">
 
               {/* Left: Post media — always visible */}
-              <div className="flex md:w-[280px] flex-shrink-0 flex-col border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-3 md:p-4 overflow-visible md:overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10">
+              <div className="flex md:w-[280px] flex-shrink-0 flex-col border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-3 md:p-4 max-h-[46dvh] md:max-h-none overflow-y-auto space-y-4 bg-zinc-50/30 dark:bg-zinc-950/10">
                 {/* Media */}
                 {(() => {
                   const mediaData = resolvedDetails[selectedPost.id];
-                  const displayThumb = selectedPost.thumbnail || resolvedThumbnails[selectedPost.id] || '';
+                  const displayThumb = resolvedThumbnails[selectedPost.id] || selectedPost.thumbnail || '';
 
                   if (selectedPost.isAd && mediaData) {
                     if (mediaData.type === 'video_source') {
@@ -1575,7 +1576,7 @@ export default function ComentariosPage() {
                     if (mediaData.type === 'carousel' && mediaData.cards?.length > 0) {
                       const card = mediaData.cards[panelCarouselIndex];
                       return (
-                        <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-black w-full aspect-square relative flex items-center justify-center">
+                        <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-black w-full aspect-square shrink-0 relative flex items-center justify-center">
                           {card.isVideo && card.videoSrc ? (
                             <video src={card.videoSrc} poster={card.url || undefined} controls preload="none" playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full h-full object-contain bg-black" />
                           ) : card.url ? (
@@ -1615,8 +1616,8 @@ export default function ComentariosPage() {
                           <SmoothImage
                             src={mediaData.url}
                             alt=""
-                            containerClassName="w-full h-full"
-                            className="w-full h-full object-cover"
+                            containerClassName="w-full aspect-square bg-black"
+                            className="object-contain"
                           />
                         </div>
                       );
@@ -1642,7 +1643,7 @@ export default function ComentariosPage() {
                   if (socialCarousel.length > 0) {
                     const card = socialCarousel[panelCarouselIndex] || socialCarousel[0];
                     return (
-                      <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-black w-full aspect-square relative flex items-center justify-center">
+                      <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm bg-black w-full aspect-square shrink-0 relative flex items-center justify-center">
                         {card.type === 'VIDEO' ? (
                           <video src={card.url || undefined} poster={card.poster || undefined} controls preload="none" playsInline {...{ referrerPolicy: 'no-referrer' }} className="w-full h-full object-contain bg-black" />
                         ) : (
@@ -1671,7 +1672,7 @@ export default function ComentariosPage() {
                             <video src={selectedPost.mediaUrl || displayThumb || ''} controls autoPlay {...{ referrerPolicy: "no-referrer" }} className="w-full max-h-[38dvh] md:max-h-64 object-contain bg-black" />
                           ) : (
                             <div className="relative cursor-pointer" onClick={() => setPlayingVideoId(selectedPost.id)}>
-                              <img src={displayThumb || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-[38dvh] md:max-h-64 object-cover" />
+                              <img src={displayThumb || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-[38dvh] md:max-h-64 object-contain bg-black" />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                                 <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
                                   <Play className="w-6 h-6 fill-zinc-900 text-zinc-900 ml-1" />
@@ -1680,7 +1681,7 @@ export default function ComentariosPage() {
                             </div>
                           )
                         ) : (
-                          <img src={displayThumb || selectedPost.mediaUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-[38dvh] md:max-h-64 object-cover" loading="lazy" />
+                          <img src={displayThumb || selectedPost.mediaUrl || ''} alt="" referrerPolicy="no-referrer" className="w-full max-h-[38dvh] md:max-h-64 object-contain bg-black" loading="lazy" />
                         )}
                       </div>
                     );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface Props {
   src: string;
@@ -11,6 +11,11 @@ interface Props {
 export default function SmoothImage({ src, alt = '', className = '', containerClassName = '', fallbackIcon }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setError(false);
+  }, [src]);
 
   return (
     <div className={`relative overflow-hidden ${containerClassName}`}>

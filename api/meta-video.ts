@@ -129,6 +129,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return null;
     }
 
+    async function resolveAdImageHashes(accountId: string | null | undefined, hashes: Array<string | null | undefined>) {
+      const cleanHashes = Array.from(new Set(hashes.filter(Boolean).map(String)));
+      const hashToUrlMap: Record<string, string> = {};
+      if (!accountId || cleanHashes.length === 0) return hashToUrlMap;
+      try {
+        const imagesRes = await fetch(
+          `${base}/act_${accountId}/adimages?hashes=${encodeURIComponent(JSON.stringify(cleanHashes))}&fields=url,permalink_url,hash,width,height&access_token=${token}`
+        );
+        if (imagesRes.ok) {
+          const imagesData = await imagesRes.json();
+          (imagesData?.data || []).forEach((img: any) => {
+            if (img.hash && (img.url || img.permalink_url)) {
+              hashToUrlMap[img.hash] = img.url || img.permalink_url;
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Error resolving ad image hashes:", err);
+      }
+      return hashToUrlMap;
+    }
+
+    const firstUsableUrl = (...urls: Array<string | null | undefined>): string | null =>
+      urls.find((u): u is string => typeof u === 'string' && /^https?:\/\//i.test(u)) || null;
+
     let activeToken = dbPageToken || token;
     let pageToken: string | null = null;
     let creativeData: any = null;
@@ -136,7 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Fetch creative spec first (if creativeId is provided) so we can extract Page ID & token
     if (creativeId && typeof creativeId === 'string') {
       const creativeRes = await fetch(
-        `${base}/${creativeId}?fields=video_id,object_story_spec,asset_feed_spec,object_type,image_url,thumbnail_url,account_id,effective_object_story_id,effective_instagram_story_id,object_story_id&access_token=${token}`
+        `${base}/${creativeId}?fields=id,video_id,image_hash,object_story_spec,asset_feed_spec,object_type,image_url,thumbnail_url,account_id,effective_object_story_id,effective_instagram_story_id,object_story_id&access_token=${token}`
       );
 
       if (creativeRes.ok) {
@@ -181,26 +206,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const childAttachments = creativeData.object_story_spec?.link_data?.child_attachments;
       if (Array.isArray(childAttachments) && childAttachments.length > 0) {
         const accountId = creativeData.account_id;
-        const hashToUrlMap: Record<string, string> = {};
-
-        if (accountId) {
-          const hashes = childAttachments.map((c: any) => c.image_hash).filter(Boolean);
-          if (hashes.length > 0) {
-            try {
-              const imagesRes = await fetch(
-                `${base}/act_${accountId}/adimages?hashes=${JSON.stringify(hashes)}&fields=url,hash&access_token=${activeToken}`
-              );
-              if (imagesRes.ok) {
-                const imagesData = await imagesRes.json();
-                (imagesData?.data || []).forEach((img: any) => {
-                  hashToUrlMap[img.hash] = img.url;
-                });
-              }
-            } catch (err) {
-              console.error("Error resolving carousel image hashes:", err);
-            }
-          }
-        }
+        const hashToUrlMap = await resolveAdImageHashes(accountId, childAttachments.map((c: any) => c.image_hash));
 
         const cards = await Promise.all(
           childAttachments.map(async (att: any) => {
@@ -215,8 +221,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
               }
             }
+            const cardImageUrl = firstUsableUrl(
+              hashToUrlMap[att.image_hash],
+              att.picture,
+              att.image_url,
+              att.thumbnail_url,
+              att.media?.image?.src
+            );
             return {
-              url: hashToUrlMap[att.image_hash] || att.picture || '',
+              url: cardImageUrl || '',
               isVideo: false,
               name: att.name || '',
             };
@@ -256,6 +269,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
           }
         }
+      }
+
+      // 2b-1. Resolve static ad images by image_hash before falling back to low-res thumbnail_url.
+      const linkData = creativeData.object_story_spec?.link_data;
+      const photoData = creativeData.object_story_spec?.photo_data;
+      const templateImages = Array.isArray(creativeData.asset_feed_spec?.images)
+        ? creativeData.asset_feed_spec.images
+        : [];
+      const staticImageHashes = [
+        creativeData.image_hash,
+        linkData?.image_hash,
+        photoData?.image_hash,
+        ...templateImages.map((img: any) => img.hash || img.image_hash),
+      ];
+      const staticHashMap = await resolveAdImageHashes(creativeData.account_id, staticImageHashes);
+      const hashUrl = (hash: any) => hash ? staticHashMap[String(hash)] : undefined;
+      const hashedImageUrl = firstUsableUrl(
+        hashUrl(creativeData.image_hash),
+        hashUrl(linkData?.image_hash),
+        hashUrl(photoData?.image_hash),
+        ...templateImages.map((img: any) => hashUrl(img.hash || img.image_hash) || img.url || img.permalink_url),
+        linkData?.picture,
+        photoData?.url
+      );
+      if (hashedImageUrl) {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.status(200).json({
+          type: 'image',
+          url: hashedImageUrl,
+        });
       }
 
       // 2b-2. Try resolving via effective_instagram_story_id (Instagram Reels and Posts)
@@ -390,15 +433,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      // 2c. Check if single image creative
-      const imageUrl = creativeData.image_url || creativeData.thumbnail_url;
-      if (imageUrl) {
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        return res.status(200).json({
-          type: 'image',
-          url: imageUrl,
-        });
-      }
     }
 
     // 3. Fallback to Meta Ad Previews API (on creative ID first)
@@ -437,6 +471,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
         }
       }
+    }
+
+    // 5. Last-resort static creative image. Avoid thumbnail_url here because Meta often
+    // returns 64px thumbnails that look broken when opened in the detail panel.
+    if (creativeData?.image_url) {
+      res.setHeader('Cache-Control', 'public, max-age=1800');
+      return res.status(200).json({
+        type: 'image',
+        url: creativeData.image_url,
+      });
     }
 
     res.setHeader('Cache-Control', 'no-store');

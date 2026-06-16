@@ -1934,12 +1934,12 @@ export default function RedesSocialesPage() {
               <div className="grid flex-1 min-h-0 overflow-y-auto md:overflow-hidden grid-cols-1 md:grid-cols-5 auto-rows-max md:auto-rows-auto">
 
                 {/* Column 1: Post Media Context (Left Side - always visible) */}
-                <div className="flex md:col-span-2 flex-col justify-start border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-3 md:p-5 overflow-visible md:overflow-y-auto md:h-full space-y-4">
+                <div className="flex md:col-span-2 flex-col justify-start border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/15 dark:bg-zinc-950/10 p-3 md:p-5 max-h-[46dvh] md:max-h-none overflow-y-auto md:h-full space-y-4">
                   {activePost ? (
                     <>
                       {/* Media Player */}
                       {activeMediaType === 'VIDEO' || activeMediaUrl?.includes('.mp4') || activePost.source ? (
-                        <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
+                        <div className="rounded-2xl overflow-hidden bg-black border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm mx-auto w-full aspect-square shrink-0 relative flex items-center justify-center">
                           <video
                             src={activeMediaUrl || activePost.source}
                             poster={activePosterUrl || undefined}
@@ -1956,7 +1956,7 @@ export default function RedesSocialesPage() {
                           )}
                         </div>
                       ) : (activeMediaUrl || activePosterUrl) ? (
-                        <div className="rounded-2xl overflow-hidden bg-zinc-105 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm mx-auto w-full aspect-square relative flex items-center justify-center">
+                        <div className="rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm mx-auto w-full aspect-square shrink-0 relative flex items-center justify-center">
                           <SmoothImage
                             src={activeMediaUrl || activePosterUrl}
                             alt="Contexto"
@@ -1976,7 +1976,7 @@ export default function RedesSocialesPage() {
                           )}
                         </div>
                       ) : (
-                        <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800 aspect-square w-full flex flex-col items-center justify-center text-zinc-400 gap-1.5 p-4 text-center">
+                        <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800 aspect-square w-full shrink-0 flex flex-col items-center justify-center text-zinc-400 gap-1.5 p-4 text-center">
                           <ImageIcon className="w-8 h-8" />
                           <span className="text-[11.5px] font-bold">Publicación sin imagen/video</span>
                         </div>

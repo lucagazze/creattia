@@ -41,6 +41,15 @@ function checkGeminiRateLimit(ip: string): boolean {
   return true;
 }
 
+function parseJsonResponse(text: string) {
+  const cleaned = text
+    .trim()
+    .replace(/^```(?:json)?/i, '')
+    .replace(/```$/i, '')
+    .trim();
+  return JSON.parse(cleaned);
+}
+
 function cleanHtml(html: string): string {
   let text = html;
   // Remove non-content sections
@@ -272,7 +281,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { type: earlyType, frames: earlyFrames, imageUrl: earlyImageUrl, isVideo: earlyIsVideo } = req.body as any;
   if (earlyType === 'analyze-creative') {
     const geminiKey = getFirstEnv('GOOGLE_AI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY');
-    if (!geminiKey) return res.status(500).json({ error: 'GOOGLE_AI_API_KEY/GEMINI_API_KEY no configurada' });
+    const openaiKey = getFirstEnv('OPENAI_API_KEY');
     const frames: string[] = Array.isArray(earlyFrames) ? earlyFrames.filter(Boolean) : [];
     if (frames.length === 0 && earlyImageUrl) {
       try {
@@ -313,31 +322,87 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
         parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Data } });
       }
-      let geminiData: any = null;
       const aiErrors: string[] = [];
-      for (const model of GEMINI_MODELS) {
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts }],
-              generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' },
-            }),
+
+      if (geminiKey) {
+        let geminiData: any = null;
+        for (const model of GEMINI_MODELS) {
+          const geminiRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts }],
+                generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' },
+              }),
+            }
+          );
+          if (geminiRes.ok) {
+            geminiData = await geminiRes.json();
+            break;
           }
-        );
-        if (geminiRes.ok) {
-          geminiData = await geminiRes.json();
-          break;
+          const errText = await geminiRes.text();
+          aiErrors.push(`${model}: HTTP ${geminiRes.status} ${errText.slice(0, 300)}`);
         }
-        const errText = await geminiRes.text();
-        aiErrors.push(`${model}: HTTP ${geminiRes.status} ${errText.slice(0, 300)}`);
+        if (geminiData) {
+          const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) return res.status(200).json(parseJsonResponse(text));
+          aiErrors.push('Gemini: Empty AI response');
+        }
+      } else {
+        aiErrors.push('Gemini: API key no configurada');
       }
-      if (!geminiData) return res.status(502).json({ error: 'Gemini API error', detail: aiErrors[0] || 'No se pudo analizar el creativo.' });
-      const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return res.status(500).json({ error: 'Empty AI response' });
-      return res.status(200).json(JSON.parse(text));
+
+      if (openaiKey) {
+        const openaiModel = getFirstEnv('OPENAI_VISION_MODEL', 'OPENAI_MODEL') || 'gpt-4o-mini';
+        const imageParts = frames.map((b64) => ({
+          type: 'image_url',
+          image_url: {
+            url: b64,
+            detail: 'low',
+          },
+        }));
+        const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify({
+            model: openaiModel,
+            temperature: 0,
+            max_tokens: 1024,
+            response_format: { type: 'json_object' },
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  ...imageParts,
+                ],
+              },
+            ],
+          }),
+        });
+        const openaiText = await openaiRes.text();
+        if (openaiRes.ok) {
+          const openaiData = JSON.parse(openaiText);
+          const content = openaiData.choices?.[0]?.message?.content;
+          if (content) return res.status(200).json(parseJsonResponse(content));
+          aiErrors.push('OpenAI: Empty AI response');
+        } else {
+          aiErrors.push(`OpenAI: HTTP ${openaiRes.status} ${openaiText.slice(0, 300)}`);
+        }
+      } else {
+        aiErrors.push('OpenAI: API key no configurada');
+      }
+
+      return res.status(502).json({
+        error: 'AI analysis failed',
+        detail: aiErrors[0] || 'No se pudo analizar el creativo.',
+        providers: aiErrors,
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Analysis failed' });
     }

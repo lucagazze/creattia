@@ -433,8 +433,9 @@ export default function MetaAdsPage() {
     if (ad.creative?.id) params.set('creativeId', ad.creative.id);
     if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
     if (clientId) params.set('clientId', clientId);
+    params.set('v', '3');
     try {
-      const res = await fetch(`/api/meta-video?${params}`);
+      const res = await fetch(`/api/meta-video?${params}`, { cache: 'no-store' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || err.error || 'No se pudo resolver el creativo.');
@@ -1026,7 +1027,7 @@ export default function MetaAdsPage() {
                 <div className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden grid grid-cols-1 md:grid-cols-5 auto-rows-max md:auto-rows-auto">
 
                   {/* Left: creative + info (40%) — always visible */}
-	                  <div className="flex md:col-span-2 flex-col border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-3 md:p-4 overflow-visible md:overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 md:h-full">
+	                  <div className="flex md:col-span-2 flex-col border-b md:border-b-0 md:border-r border-zinc-100 dark:border-zinc-800 p-3 md:p-4 max-h-[46dvh] md:max-h-none overflow-y-auto space-y-3 bg-zinc-50/15 dark:bg-zinc-950/10 md:h-full">
 
                     {/* Creative */}
                     {(!mediaData || resolvingIds[selectedAd.adId]) ? (

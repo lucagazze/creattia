@@ -491,14 +491,14 @@ export const metaAds = {
   // ── ADS with creative thumbnails ──────────────────────────
   getAds: (adsetId: string) =>
     apiGet(`${adsetId}/ads`, {
-      fields: 'id,name,status,preview_shareable_link,creative{id,name,thumbnail_url,image_url,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_story_id,instagram_permalink_url}',
+      fields: 'id,name,status,preview_shareable_link,creative{id,name,thumbnail_url,image_url,image_hash,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_story_id,instagram_permalink_url}',
       limit: '50',
     }),
 
   // ── ALL ADS FOR ACCOUNT ──────────────────────────────────
   getAccountAds: async (accountId = META_AD_ACCOUNT) => {
     const first = await apiGet(`${accountId}/ads`, {
-      fields: 'id,name,status,effective_status,configured_status,campaign_id,preview_shareable_link,creative{id,name,body,title,thumbnail_url,image_url,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_permalink_url}',
+      fields: 'id,name,status,effective_status,configured_status,campaign_id,preview_shareable_link,creative{id,name,body,title,thumbnail_url,image_url,image_hash,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_permalink_url}',
       limit: '150',
     });
     return { ...first, data: await collectPaginatedData(first) };
