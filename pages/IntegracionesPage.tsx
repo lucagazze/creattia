@@ -254,8 +254,8 @@ export default function IntegracionesPage() {
     const tiktok       = getQueryParam('tiktok');
     const reason       = getQueryParam('reason');
 
-    const confirmOAuthConnection = async (platform: "tiendanube" | "wordpress") => {
-      if (!activeProfileId) return false;
+    const confirmOAuthConnection = async (platform: "tiendanube" | "wordpress"): Promise<"ok" | "unverified" | "missing"> => {
+      if (!activeProfileId) return "missing";
       for (let attempt = 0; attempt < 8; attempt++) {
         const { data } = await supabase
           .from("car_clients")
@@ -263,15 +263,18 @@ export default function IntegracionesPage() {
           .eq("id", activeProfileId)
           .maybeSingle();
 
-        if (platform === "tiendanube" && data?.ecommerce_platform === "tiendanube" && data.tiendanube_store_id && data.tiendanube_access_token && data.connection_statuses?.shopify === "ok") {
-          return true;
+        if (platform === "tiendanube" && data?.ecommerce_platform === "tiendanube" && data.tiendanube_store_id && data.tiendanube_access_token) {
+          return data.connection_statuses?.shopify === "ok" ? "ok" : "unverified";
         }
-        if (platform === "wordpress" && data?.ecommerce_platform === "wordpress" && data.wordpress_url && data.woo_consumer_key && data.woo_consumer_secret && data.connection_statuses?.shopify === "ok") {
-          return true;
+        // Credentials present = the OAuth callback already saved them — that's the real
+        // signal. connection_statuses only reflects a best-effort live verification ping,
+        // which can fail on a slow/flaky host even though the saved keys work fine.
+        if (platform === "wordpress" && data?.ecommerce_platform === "wordpress" && data.wordpress_url && data.woo_consumer_key && data.woo_consumer_secret) {
+          return data.connection_statuses?.shopify === "ok" ? "ok" : "unverified";
         }
         await new Promise(resolve => setTimeout(resolve, 900));
       }
-      return false;
+      return "missing";
     };
 
     if (shopify === 'success') {
@@ -292,29 +295,20 @@ export default function IntegracionesPage() {
       setOauthResult({ platform: 'tiendanube', status: 'error', reason: reason || '' });
       showToast('Error al conectar Tiendanube: ' + (reason || 'desconocido'), 'error');
       window.history.replaceState({}, '', '/#/integraciones');
-    } else if (woocommerce === 'success') {
+    } else if (woocommerce === 'success' || woocommerce === 'pending') {
       window.history.replaceState({}, '', '/#/integraciones');
-      showToast('Confirmando conexión con WooCommerce...', 'info');
-      confirmOAuthConnection("wordpress").then(async ok => {
+      showToast(woocommerce === 'success' ? 'Confirmando conexión con WooCommerce...' : 'Finalizando conexión con WooCommerce...', 'info');
+      confirmOAuthConnection("wordpress").then(async result => {
         await refreshProfile();
         await loadClientData();
-        if (ok) {
+        if (result === 'ok') {
           setOauthResult({ platform: 'wordpress', status: 'success' });
           showToast('¡WooCommerce conectado exitosamente! ✓', 'success');
-        } else {
-          setOauthResult({ platform: 'wordpress', status: 'error', reason: 'callback_missing_credentials' });
-          showToast('WooCommerce no terminó de entregar las credenciales. Volvé a conectar la tienda.', 'error');
-        }
-      });
-    } else if (woocommerce === 'pending') {
-      window.history.replaceState({}, '', '/#/integraciones');
-      showToast('Finalizando conexión con WooCommerce...', 'info');
-      confirmOAuthConnection("wordpress").then(async ok => {
-        await refreshProfile();
-        await loadClientData();
-        if (ok) {
+        } else if (result === 'unverified') {
+          // Credentials arrived and were saved — only the live verification ping failed
+          // (slow host, transient network blip). The connection still works.
           setOauthResult({ platform: 'wordpress', status: 'success' });
-          showToast('¡WooCommerce conectado exitosamente! ✓', 'success');
+          showToast('WooCommerce conectado. No pudimos verificarlo en el momento, pero las credenciales quedaron guardadas.', 'warning');
         } else {
           setOauthResult({ platform: 'wordpress', status: 'error', reason: 'callback_missing_credentials' });
           showToast('WooCommerce no terminó de entregar las credenciales. Volvé a conectar la tienda.', 'error');

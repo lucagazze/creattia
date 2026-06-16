@@ -39,12 +39,18 @@ const parseRequestBody = (body: any) => {
   }
 };
 
+const fetchWithTimeout = (url: string, opts: any, timeoutMs = 8000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+};
+
 const verifyWooCredentials = async (shopUrl: string, key: string, secret: string) => {
   try {
     const baseUrl = normalizeUrl(shopUrl);
     const url = `${baseUrl}/wp-json/wc/v3/products?per_page=1`;
     const basic = Buffer.from(`${key}:${secret}`).toString('base64');
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: {
         'Authorization': `Basic ${basic}`,
         'User-Agent': 'AlgorBot/1.0'
@@ -52,7 +58,7 @@ const verifyWooCredentials = async (shopUrl: string, key: string, secret: string
     });
     if (res.ok) return true;
 
-    const queryRes = await fetch(
+    const queryRes = await fetchWithTimeout(
       `${baseUrl}/wp-json/wc/v3/products?per_page=1&consumer_key=${encodeURIComponent(key)}&consumer_secret=${encodeURIComponent(secret)}`,
       { headers: { 'User-Agent': 'AlgorBot/1.0' } }
     );
