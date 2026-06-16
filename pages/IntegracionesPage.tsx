@@ -111,7 +111,7 @@ const PLATFORMS: IntegrationPlatform[] = [
     name: "Mensajería",
     category: "mensajeria",
     description: "Unificá tus canales de WhatsApp, Instagram, Facebook y Chat Web en una sola bandeja de entrada inteligente.",
-    logoUrl: "/assets/chatwoot.png",
+    logoUrl: "/assets/chatwoot.svg",
     isSimulated: false
   }
 ];

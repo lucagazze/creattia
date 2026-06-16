@@ -622,7 +622,7 @@ export default function LandingPage() {
     { name: 'Meta Ads', logo: '/assets/meta (1).webp' },
     { name: 'TikTok Ads', logo: '/assets/logotiktok.png' },
     { name: 'Klaviyo', logo: '/assets/Klaviyo-Logo-Photoroom.webp' },
-    { name: 'Chatwoot', logo: '/assets/chatwoot.png' }
+    { name: 'Chatwoot', logo: '/assets/chatwoot.svg' }
   ];
 
   // --- Estados de las Simulaciones Interactivas del Dashboard ---
@@ -2087,7 +2087,7 @@ export default function LandingPage() {
               },
               {
                 tag: 'Chatwoot',
-                logos: [{ src: '/assets/chatwoot.png', alt: 'Chatwoot' }],
+                logos: [{ src: '/assets/chatwoot.svg', alt: 'Chatwoot' }],
                 title: 'Mensajería omnicanal',
                 desc: 'Unificá WhatsApp, Instagram, Facebook y chat web en una bandeja conectada al Cerebro de IA.',
                 items: ['Filtros por canal', 'Historial del cliente', 'Borradores automáticos'],
