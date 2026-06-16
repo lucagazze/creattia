@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 interface Props {
   isLoading: boolean;
   children: React.ReactNode;
+  message?: string;
 }
 
 const MESSAGES = [
@@ -43,7 +44,7 @@ const getProgressForTime = (startTime: number) => {
   }
 };
 
-export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => {
+export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children, message }) => {
   const { darkMode } = useTheme();
   const [phase, setPhase] = useState<'loading' | 'fading' | 'done'>(() => isLoading ? 'loading' : 'done');
   
@@ -198,7 +199,7 @@ export const CenteredPageLoader: React.FC<Props> = ({ isLoading, children }) => 
                 transform: msgVisible ? 'translateY(0)' : 'translateY(4px)',
               }}
             >
-              {MESSAGES[msgIdx]}
+              {message || MESSAGES[msgIdx]}
             </p>
           </div>
         </div>

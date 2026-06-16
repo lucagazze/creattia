@@ -170,6 +170,7 @@ export default function ComentariosPage() {
   const metaAccountId = (profile as any)?.meta_account_id;
 
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Cargando publicaciones con comentarios...');
   const [igError, setIgError] = useState<string | null>(null);
   const [fbError, setFbError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -531,8 +532,10 @@ export default function ComentariosPage() {
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (parsed.posts) setPosts(parsed.posts);
-        setLoading(false);
+        if (Array.isArray(parsed.posts) && parsed.posts.length > 0) {
+          setPosts(parsed.posts);
+          setLoading(false);
+        }
       } catch (e) {
         console.error('Error parsing comments cache:', e);
       }
@@ -543,8 +546,18 @@ export default function ComentariosPage() {
   useEffect(() => {
     if (!clientId || (!fbPageId && !igId)) return;
     let active = true;
-    const hasCache = sessionStorage.getItem(`comentarios_cache_${clientId}`);
-    setLoading(!hasCache);
+    const cachedRaw = sessionStorage.getItem(`comentarios_cache_${clientId}`);
+    let hasUsableCache = false;
+    if (cachedRaw) {
+      try {
+        const parsed = JSON.parse(cachedRaw);
+        hasUsableCache = Array.isArray(parsed.posts) && parsed.posts.length > 0;
+      } catch {
+        hasUsableCache = false;
+      }
+    }
+    setLoading(!hasUsableCache);
+    setLoadingMessage('Cargando publicaciones con comentarios...');
     setIgError(null);
     setFbError(null);
 
@@ -676,6 +689,7 @@ export default function ComentariosPage() {
 
     const load = async () => {
       try {
+        setLoadingMessage('Buscando publicaciones de Instagram, Facebook y anuncios...');
         // Unified deep fetch of all available organic posts + all ads with story IDs
         const [igMediaRes50, fbMediaRes50, adsRes] = await Promise.all([
           igId
@@ -690,6 +704,40 @@ export default function ComentariosPage() {
         ]);
 
         if (!active) return;
+
+        setLoadingMessage('Cargando todos los comentarios y respuestas...');
+
+        const hydrateOrganicComments = async () => {
+          const igMedia = [...(((igMediaRes50 as any)?.data || igMediaRes50 || []) as any[])];
+          const fbMedia = [...(((fbMediaRes50 as any)?.data || fbMediaRes50 || []) as any[])];
+
+          const hydratedIg = await mapConcurrent(igMedia, 4, async (post: any) => {
+            const expected = Number(post.comments_count || post.comments?.summary?.total_count || 0);
+            if (expected <= 0) return post;
+            try {
+              const fullComments = await metaAds.getAllInstagramMediaComments(post.id, fbPageId || undefined);
+              return { ...post, comments: { ...(post.comments || {}), data: fullComments || [] } };
+            } catch {
+              return post;
+            }
+          });
+
+          const hydratedFb = await mapConcurrent(fbMedia, 4, async (post: any) => {
+            const expected = Number(post.comments?.summary?.total_count || 0);
+            if (expected <= 0) return post;
+            try {
+              const fullComments = await metaAds.getAllFacebookPostComments(post.id);
+              return { ...post, comments: { ...(post.comments || {}), data: fullComments || [] } };
+            } catch {
+              return post;
+            }
+          });
+
+          return {
+            ig: Array.isArray((igMediaRes50 as any)?.data) ? { ...(igMediaRes50 as any), data: hydratedIg } : hydratedIg,
+            fb: Array.isArray((fbMediaRes50 as any)?.data) ? { ...(fbMediaRes50 as any), data: hydratedFb } : hydratedFb,
+          };
+        };
 
         const ads = adsRes?.data || [];
         const relevantAds = ads.filter((ad: any) => 
@@ -714,6 +762,7 @@ export default function ComentariosPage() {
 
         let adsCommentsResults50: any[] = [];
         if (uniqueTargets.length > 0) {
+          setLoadingMessage('Cargando comentarios de anuncios...');
           adsCommentsResults50 = await mapConcurrent(uniqueTargets, 6, async (target) => {
             try {
               const comments = await metaAds.getAllAdCreativeComments(target.storyId, target.platform, fbPageId || undefined);
@@ -724,14 +773,22 @@ export default function ComentariosPage() {
           });
         }
 
-        const allItems = processMediaRes(igMediaRes50, fbMediaRes50, relevantAds, adsCommentsResults50);
+        const { ig: hydratedIgMediaRes, fb: hydratedFbMediaRes } = await hydrateOrganicComments();
+        if (!active) return;
+
+        setLoadingMessage('Preparando publicaciones pendientes...');
+        const allItems = processMediaRes(hydratedIgMediaRes, hydratedFbMediaRes, relevantAds, adsCommentsResults50);
         setPosts(allItems);
         
         // Update badge with final accurate count from full deep-fetch
         const countFinal = allItems.reduce((sum, p) => sum + (p.pendingComments || 0), 0);
         setPendingCommentsCount(countFinal);
         if (clientId) { try { localStorage.setItem(`car_pending_comments_count_${clientId}`, String(countFinal)); } catch { /* ignore */ } }
-        try { sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems })); } catch { /* quota exceeded — skip cache */ }
+        if (allItems.length > 0) {
+          try { sessionStorage.setItem(`comentarios_cache_${clientId}`, JSON.stringify({ posts: allItems })); } catch { /* quota exceeded — skip cache */ }
+        } else {
+          try { sessionStorage.removeItem(`comentarios_cache_${clientId}`); } catch { /* ignore */ }
+        }
 
       } catch (err) {
         console.error('Error loading comments feed:', err);
@@ -1195,7 +1252,7 @@ export default function ComentariosPage() {
   }
 
   return (
-    <CenteredPageLoader isLoading={loading}>
+    <CenteredPageLoader isLoading={loading} message={loadingMessage}>
     {AIGate}
     <div className="space-y-6 w-full pt-6 px-4 md:px-6 lg:px-8 animate-in fade-in duration-300">
       {/* Header */}
