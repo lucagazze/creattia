@@ -767,7 +767,7 @@ export default function CostosPage() {
   };
 
   return (
-    <div className="w-full px-4 md:px-6 animate-fade-in pb-20 text-zinc-900 dark:text-zinc-100">
+    <div className="w-full animate-fade-in pb-20 text-zinc-900 dark:text-zinc-100">
       
       <div className="page-header mb-8">
         <div>

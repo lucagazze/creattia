@@ -158,7 +158,7 @@ export default function EntradasPage() {
   }
 
   return (
-    <div className="space-y-6 w-full p-4 md:p-6 animate-in fade-in duration-300">
+    <div className="space-y-6 w-full pt-3 md:pt-6 animate-in fade-in duration-300">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200/60 dark:border-zinc-800/60 pb-5">

@@ -391,7 +391,7 @@ export default function CreativeTesterPage() {
   return (
     <CenteredPageLoader isLoading={pageLoading || authLoading}>
       {AIGate}
-      <div className="w-full animate-fade-in pb-20 pt-4 md:pt-6 px-4 md:px-0">
+      <div className="w-full animate-fade-in pb-20 pt-3 md:pt-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">

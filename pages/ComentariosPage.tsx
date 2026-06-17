@@ -1347,7 +1347,7 @@ export default function ComentariosPage() {
   return (
     <CenteredPageLoader isLoading={loading} message={loadingMessage}>
     {AIGate}
-    <div className="space-y-6 w-full pt-6 px-4 md:px-6 lg:px-8 animate-in fade-in duration-300">
+    <div className="space-y-5 md:space-y-6 w-full pt-3 md:pt-6 animate-in fade-in duration-300">
       {/* Header */}
       <div className="page-header pb-4 border-b border-zinc-200/60 dark:border-zinc-800/60">
         <div>
@@ -1462,7 +1462,7 @@ export default function ComentariosPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
+        <div className="grid grid-cols-2 max-[380px]:grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
           {filteredPosts.map(post => (
             <button
               key={post.id}

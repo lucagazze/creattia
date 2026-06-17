@@ -765,7 +765,7 @@ export default function MetaAdsPage() {
   return (
     <CenteredPageLoader isLoading={loading || authLoading}>
       {AIGate}
-      <div className="w-full animate-fade-in pb-20 pt-6 px-2 md:px-4 lg:px-6">
+      <div className="w-full animate-fade-in pb-20 pt-3 md:pt-6">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
