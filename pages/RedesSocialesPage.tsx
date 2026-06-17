@@ -50,14 +50,57 @@ const scoreCls = (score: number) =>
 const scoreLabel = (score: number) =>
   score >= 80 ? 'Listo para escalar' : score >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar';
 
-const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number) => {
+const clampDuration = (seconds?: number | null) => {
+  const n = Number(seconds);
+  return Number.isFinite(n) && n > 0 ? Math.max(1, Math.min(900, Math.round(n))) : 30;
+};
+
+const formatDuration = (seconds?: number | null) => {
+  const total = clampDuration(seconds);
+  if (total < 60) return `${total}s`;
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${String(secs).padStart(2, '0')}`;
+};
+
+const getRemoteVideoDuration = (url?: string | null): Promise<number> => {
+  if (!url) return Promise.resolve(0);
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    let done = false;
+    const finish = (value = 0) => {
+      if (done) return;
+      done = true;
+      video.removeAttribute('src');
+      video.load();
+      resolve(value);
+    };
+    const timer = window.setTimeout(() => finish(0), 5000);
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = 'anonymous';
+    video.onloadedmetadata = () => {
+      window.clearTimeout(timer);
+      finish(Number.isFinite(video.duration) ? video.duration : 0);
+    };
+    video.onerror = () => {
+      window.clearTimeout(timer);
+      finish(0);
+    };
+    video.src = url;
+  });
+};
+
+const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number, durationSec = 30) => {
+  const duration = clampDuration(durationSec);
   const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
   const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
   return attnOff.map((ao, i) => {
     const a = Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4)));
     const e = Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4)));
     const imp = Math.max(8, Math.min(99, Math.round(a * 0.4 + e * 0.4 + (100 - cogLoad) * 0.2)));
-    return { t: Math.round(i * 30 / (attnOff.length - 1)), attn: a, emot: e, impact: imp };
+    return { t: Math.round(i * duration / (attnOff.length - 1)), attn: a, emot: e, impact: imp };
   });
 };
 
@@ -165,6 +208,7 @@ export default function RedesSocialesPage() {
   const [tribeResult, setTribeResult] = useState<any>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
+  const [analysisDurationSec, setAnalysisDurationSec] = useState(30);
   const [commentFilter, setCommentFilter] = useState<'all' | 'pending'>('pending');
 
   useEffect(() => {
@@ -175,6 +219,7 @@ export default function RedesSocialesPage() {
       setTribeResult(null);
       setAnalysisError(null);
       setTimeline([]);
+      setAnalysisDurationSec(30);
       setCommentFilter('pending');
     }
   }, [selectedPostId]);
@@ -217,16 +262,18 @@ export default function RedesSocialesPage() {
     return { ...data, score };
   };
 
-  const handleTabChange = (tab: 'comments' | 'metrics', imageUrl?: string, isVideo?: boolean) => {
+  const handleTabChange = async (tab: 'comments' | 'metrics', imageUrl?: string, isVideo?: boolean, videoUrl?: string | null) => {
     if (tab === 'metrics') {
       setAnalyzingTribe(true);
       setTribeResult(null);
       setAnalysisError(null);
       setSlideTab('metrics');
+      const durationSec = isVideo ? clampDuration(await getRemoteVideoDuration(videoUrl)) : 30;
+      setAnalysisDurationSec(durationSec);
       analyzeCreativeUrl(imageUrl || null, isVideo || false)
         .then(result => {
           setTribeResult(result);
-          setTimeline(genTimeline(result.attentionPct, result.emotionPct, result.cogLoad, result.score));
+          setTimeline(genTimeline(result.attentionPct, result.emotionPct, result.cogLoad, result.score, durationSec));
         })
         .catch(err => setAnalysisError(err?.message || 'No se pudo analizar el creativo con IA.'))
         .finally(() => setAnalyzingTribe(false));
@@ -1927,7 +1974,7 @@ export default function RedesSocialesPage() {
                     const imageUrl = activePosterUrl || activeMediaUrl;
                     const isVid = activeMediaType === 'VIDEO' || !!activePost?.source;
                     setMobileDetailTab('analysis');
-                    handleTabChange('metrics', imageUrl, isVid);
+                    handleTabChange('metrics', imageUrl, isVid, activeMediaUrl || activePost?.source);
                   }}
                   className={`h-9 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${mobileDetailTab === 'analysis' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/70 dark:bg-zinc-800/70'}`}
                 >
@@ -1955,7 +2002,7 @@ export default function RedesSocialesPage() {
                   onClick={() => {
                     const imageUrl = activePosterUrl || activeMediaUrl;
                     const isVid = activeMediaType === 'VIDEO' || !!activePost?.source;
-                    handleTabChange('metrics', imageUrl, isVid);
+                    handleTabChange('metrics', imageUrl, isVid, activeMediaUrl || activePost?.source);
                   }}
                   className={`px-1 py-2.5 text-[10px] sm:text-[12px] font-black leading-tight transition-colors ${
                     slideTab === 'metrics'
@@ -2101,11 +2148,11 @@ export default function RedesSocialesPage() {
 
                             {/* Curva de Respuesta */}
                             {(() => {
-                              const displayTimeline = timeline.length > 0 ? timeline : genTimeline(metrics.attentionPct, metrics.emotionPct, metrics.cogLoad, metrics.score);
+                              const displayTimeline = timeline.length > 0 ? timeline : genTimeline(metrics.attentionPct, metrics.emotionPct, metrics.cogLoad, metrics.score, analysisDurationSec);
                               return (
                                 <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
                                   <div className="flex items-center justify-between flex-wrap gap-2">
-                                    <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
+                                    <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta ({formatDuration(analysisDurationSec)})</p>
                                     <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
                                       <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
                                       <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>

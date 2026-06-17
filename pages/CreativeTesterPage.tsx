@@ -11,15 +11,58 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
-// Generate realistic attention/emotion/impact curve for a ~30s creative
-const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number): { t: number; attn: number; emot: number; impact: number }[] => {
+const clampDuration = (seconds?: number | null) => {
+  const n = Number(seconds);
+  return Number.isFinite(n) && n > 0 ? Math.max(1, Math.min(900, Math.round(n))) : 30;
+};
+
+const formatDuration = (seconds?: number | null) => {
+  const total = clampDuration(seconds);
+  if (total < 60) return `${total}s`;
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${String(secs).padStart(2, '0')}`;
+};
+
+const getRemoteVideoDuration = (url?: string | null): Promise<number> => {
+  if (!url) return Promise.resolve(0);
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    let done = false;
+    const finish = (value = 0) => {
+      if (done) return;
+      done = true;
+      video.removeAttribute('src');
+      video.load();
+      resolve(value);
+    };
+    const timer = window.setTimeout(() => finish(0), 5000);
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = 'anonymous';
+    video.onloadedmetadata = () => {
+      window.clearTimeout(timer);
+      finish(Number.isFinite(video.duration) ? video.duration : 0);
+    };
+    video.onerror = () => {
+      window.clearTimeout(timer);
+      finish(0);
+    };
+    video.src = url;
+  });
+};
+
+// Generate realistic attention/emotion/impact curve across the creative duration.
+const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number, durationSec = 30): { t: number; attn: number; emot: number; impact: number }[] => {
+  const duration = clampDuration(durationSec);
   const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
   const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
   return attnOff.map((ao, i) => {
     const a = Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4)));
     const e = Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4)));
     const imp = Math.max(8, Math.min(99, Math.round(a * 0.4 + e * 0.4 + (100 - cogLoad) * 0.2)));
-    return { t: Math.round(i * 30 / (attnOff.length - 1)), attn: a, emot: e, impact: imp };
+    return { t: Math.round(i * duration / (attnOff.length - 1)), attn: a, emot: e, impact: imp };
   });
 };
 
@@ -50,7 +93,7 @@ function mockAnalysis(file: { name: string; size: number; type: string; lastModi
 }
 
 // ── Frame extractor ───────────────────────────────────────────────────────────
-async function extractFrames(file: File, maxFrames = 5): Promise<string[]> {
+async function extractFrames(file: File, maxFrames = 5): Promise<{ frames: string[]; durationSec: number }> {
   const isVideo = file.type.startsWith('video');
   if (!isVideo) {
     return new Promise(resolve => {
@@ -63,7 +106,7 @@ async function extractFrames(file: File, maxFrames = 5): Promise<string[]> {
           canvas.width = Math.floor(img.width * scale);
           canvas.height = Math.floor(img.height * scale);
           canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve([canvas.toDataURL('image/jpeg', 0.6)]);
+          resolve({ frames: [canvas.toDataURL('image/jpeg', 0.6)], durationSec: 30 });
         };
         img.src = e.target?.result as string;
       };
@@ -77,7 +120,7 @@ async function extractFrames(file: File, maxFrames = 5): Promise<string[]> {
     video.playsInline = true;
     const frames: string[] = [];
     video.onloadedmetadata = () => {
-      const dur = video.duration;
+      const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 30;
       const timestamps = Array.from({ length: maxFrames }, (_, i) => (dur / maxFrames) * i + dur / maxFrames / 2);
       let idx = 0;
       video.onseeked = () => {
@@ -89,11 +132,11 @@ async function extractFrames(file: File, maxFrames = 5): Promise<string[]> {
         frames.push(canvas.toDataURL('image/jpeg', 0.6));
         idx++;
         if (idx < timestamps.length) video.currentTime = timestamps[idx];
-        else { URL.revokeObjectURL(video.src); resolve(frames); }
+        else { URL.revokeObjectURL(video.src); resolve({ frames, durationSec: dur }); }
       };
       video.currentTime = timestamps[0];
     };
-    video.onerror = () => { URL.revokeObjectURL(video.src); resolve([]); };
+    video.onerror = () => { URL.revokeObjectURL(video.src); resolve({ frames: [], durationSec: 30 }); };
   });
 }
 
@@ -146,7 +189,8 @@ export default function CreativeTesterPage() {
   const [result, setResult] = useState<any>(null);
   const [score, setScore] = useState(0);
   const [usedMock, setUsedMock] = useState(false);
-  const [timeline, setTimeline] = useState<{ t: number; attn: number; emot: number }[]>([]);
+  const [timeline, setTimeline] = useState<{ t: number; attn: number; emot: number; impact: number }[]>([]);
+  const [analysisDurationSec, setAnalysisDurationSec] = useState(30);
 
   // For account ads
   const [accountAds, setAccountAds] = useState<any[]>([]);
@@ -162,21 +206,56 @@ export default function CreativeTesterPage() {
     setAdsLoading(true);
     try {
       const res = await metaAds.getAccountAds(accountId);
-      const ads = (res.data || []).filter((a: any) => a.status === 'ACTIVE').slice(0, 24);
+      const ads = (res.data || []).filter((a: any) => (a.effective_status || a.status) === 'ACTIVE');
       setAccountAds(ads);
-      // Batch resolve thumbnails
-      ads.slice(0, 8).forEach(async (ad: any) => {
+      setAdsLoading(false);
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || '';
+      const clientId = (profile as any)?.id;
+
+      const resolveAd = async (ad: any) => {
         const params = new URLSearchParams();
         if (ad.id) params.set('adId', ad.id);
         if (ad.creative?.id) params.set('creativeId', ad.creative.id);
-        const clientId = (profile as any)?.id;
+        if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
         if (clientId) params.set('clientId', clientId);
         const r = await fetch(`/api/meta-video?${params}`).catch(() => null);
         if (r?.ok) {
           const d = await r.json();
           setResolvedDetails(prev => ({ ...prev, [ad.id]: d }));
+          return;
         }
-      });
+
+        if (ad.creative?.video_id && token) {
+          const videoParams = new URLSearchParams({
+            action: 'graph',
+            path: String(ad.creative.video_id),
+            fields: 'source,picture,format',
+          });
+          if (clientId) videoParams.set('clientId', clientId);
+          const graphRes = await fetch(`/api/meta-video?${videoParams}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => null);
+          if (graphRes?.ok) {
+            const data = await graphRes.json();
+            const formats = Array.isArray(data?.format) ? data.format : [];
+            const best = [...formats].sort((a: any, b: any) => (b.width || 0) - (a.width || 0))[0];
+            setResolvedDetails(prev => ({
+              ...prev,
+              [ad.id]: {
+                type: 'video_source',
+                source: data?.source || null,
+                picture: best?.picture || data?.picture || ad.creative?.thumbnail_url || ad.creative?.image_url || null,
+              },
+            }));
+          }
+        }
+      };
+
+      for (let i = 0; i < ads.length; i += 6) {
+        await Promise.allSettled(ads.slice(i, i + 6).map(resolveAd));
+        await new Promise(resolve => window.setTimeout(resolve, 120));
+      }
     } catch (e) { /* ignore */ }
     setAdsLoading(false);
   };
@@ -188,6 +267,8 @@ export default function CreativeTesterPage() {
     setPreviewUrl(URL.createObjectURL(f));
     setStatus('idle');
     setResult(null);
+    setTimeline([]);
+    setAnalysisDurationSec(30);
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -197,20 +278,27 @@ export default function CreativeTesterPage() {
     if (f) handleFile(f);
   }, []);
 
-  const analyze = async (sourceFile?: File, adThumbnailUrl?: string, adName?: string) => {
-    if (!aiReady) { gate(() => analyze(sourceFile, adThumbnailUrl, adName)); return; }
+  const analyze = async (sourceFile?: File, adThumbnailUrl?: string, adName?: string, options?: { isVideo?: boolean; durationSec?: number; videoUrl?: string | null }) => {
+    if (!aiReady) { gate(() => analyze(sourceFile, adThumbnailUrl, adName, options)); return; }
     setStatus('analyzing');
     setResult(null);
     setUsedMock(false);
-    const isVideo = sourceFile ? sourceFile.type.startsWith('video') : false;
+    const isVideo = sourceFile ? sourceFile.type.startsWith('video') : !!options?.isVideo;
+    let durationSec = isVideo ? clampDuration(options?.durationSec) : 30;
 
     try {
       let frames: string[] = [];
       if (sourceFile) {
         setStep('Extrayendo fotogramas...');
-        frames = await extractFrames(sourceFile);
+        const extracted = await extractFrames(sourceFile);
+        frames = extracted.frames;
+        durationSec = isVideo ? clampDuration(extracted.durationSec) : 30;
       } else if (adThumbnailUrl) {
         setStep('Cargando imagen del anuncio...');
+        if (isVideo && options?.videoUrl && !options?.durationSec) {
+          const remoteDuration = await getRemoteVideoDuration(options.videoUrl);
+          durationSec = clampDuration(remoteDuration || durationSec);
+        }
         // Fetch thumbnail as base64
         try {
           const r = await fetch(adThumbnailUrl);
@@ -263,7 +351,8 @@ export default function CreativeTesterPage() {
       );
       setScore(finalScore);
       setResult(analysisResult);
-      setTimeline(genTimeline(analysisResult.attentionPct, analysisResult.emotionPct, analysisResult.cogLoad, finalScore));
+      setAnalysisDurationSec(durationSec);
+      setTimeline(genTimeline(analysisResult.attentionPct, analysisResult.emotionPct, analysisResult.cogLoad, finalScore, durationSec));
       setStatus('done');
     } catch (err) {
       setStatus('error');
@@ -278,19 +367,24 @@ export default function CreativeTesterPage() {
     setStatus('idle');
     setResult(null);
     setTimeline([]);
+    setAnalysisDurationSec(30);
   };
 
   const handleAnalyzeSelectedAd = () => {
     if (!selectedAd) return;
     const details = resolvedDetails[selectedAd.id];
-    const thumbUrl = details?.picture || details?.url || selectedAd.creative?.image_url;
-    const isVid = details?.type === 'video_source';
-    if (thumbUrl) analyze(undefined, thumbUrl, selectedAd.name || 'anuncio');
+    const thumbUrl = details?.picture || details?.url || details?.cards?.[0]?.url || selectedAd.creative?.image_url || selectedAd.creative?.thumbnail_url;
+    const isVid = details?.type === 'video_source' || !!selectedAd.creative?.video_id;
+    if (thumbUrl) analyze(undefined, thumbUrl, selectedAd.name || 'anuncio', {
+      isVideo: isVid,
+      durationSec: details?.duration || details?.durationSec,
+      videoUrl: details?.source,
+    });
     else {
       const mockSrc = { name: selectedAd.name || 'anuncio', size: 100000, type: 'image/jpeg', lastModified: Date.now() };
       const r = mockAnalysis(mockSrc, isVid);
       const s = Math.floor(r.attentionPct * 0.4 + r.emotionPct * 0.4 + (100 - r.cogLoad) * 0.2);
-      setScore(s); setResult(r); setUsedMock(true); setTimeline(genTimeline(r.attentionPct, r.emotionPct, r.cogLoad, s)); setStatus('done');
+      setScore(s); setResult(r); setUsedMock(true); setAnalysisDurationSec(30); setTimeline(genTimeline(r.attentionPct, r.emotionPct, r.cogLoad, s, 30)); setStatus('done');
     }
   };
 
@@ -390,7 +484,7 @@ export default function CreativeTesterPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-1">
                       {accountAds.map(ad => {
                         const det = resolvedDetails[ad.id];
-                        const thumb = det?.picture || det?.url;
+                        const thumb = det?.picture || det?.url || det?.cards?.[0]?.url || ad.creative?.image_url || ad.creative?.thumbnail_url;
                         const isSelected = selectedAd?.id === ad.id;
                         return (
                           <button
@@ -512,7 +606,7 @@ export default function CreativeTesterPage() {
                 {timeline.length > 0 && (
                   <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5 space-y-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>
+                      <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta ({formatDuration(analysisDurationSec)})</p>
                       <div className="flex items-center gap-3 text-[9px] font-bold text-zinc-400">
                         <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded-full" />Atención</span>
                         <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-500 inline-block rounded-full" />Emoción</span>
@@ -534,7 +628,7 @@ export default function CreativeTesterPage() {
                   </div>
                 )}
 
-                <button onClick={() => { setStatus('idle'); setResult(null); setFile(null); setPreviewUrl(null); setSelectedAd(null); setTimeline([]); }} className="w-full text-[12px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 py-2 transition-colors">
+                <button onClick={() => { setStatus('idle'); setResult(null); setFile(null); setPreviewUrl(null); setSelectedAd(null); setTimeline([]); setAnalysisDurationSec(30); }} className="w-full text-[12px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 py-2 transition-colors">
                   Analizar otro creativo
                 </button>
               </div>
