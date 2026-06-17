@@ -1208,37 +1208,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'shipping'
         ].join(',');
 
-        let wRangeRes: Response, wRecentRes: Response, wHistRes: Response;
+        const wooOrdersUrl = (params: Record<string, string | number | undefined>) => {
+          const search = new URLSearchParams();
+          search.set('per_page', String(params.per_page ?? 100));
+          search.set('page', String(params.page ?? 1));
+          search.set('orderby', String(params.orderby ?? 'date'));
+          search.set('order', String(params.order ?? 'desc'));
+          search.set('_fields', wcOrderFields);
+          if (params.after) search.set('after', String(params.after));
+          if (params.before) search.set('before', String(params.before));
+          return `${base}/wp-json/wc/v3/orders?${search.toString()}`;
+        };
+
+        const readWooPage = async (url: string) => {
+          const response = await fetch(url, { headers: wcHeaders });
+          if (!response.ok) return { response, orders: [] as any[], totalPages: 0 };
+          const orders = await response.json();
+          const totalPages = Math.max(1, Number(response.headers.get('x-wp-totalpages') || '1'));
+          return { response, orders: Array.isArray(orders) ? orders : [], totalPages };
+        };
+
+        const fetchWooOrders = async (params: Record<string, string | number | undefined>) => {
+          const first = await readWooPage(wooOrdersUrl({ ...params, page: 1 }));
+          if (!first.response.ok) return first;
+
+          const pages = Array.from({ length: Math.max(0, first.totalPages - 1) }, (_, idx) => idx + 2);
+          const allOrders = [...first.orders];
+          const batchSize = 3;
+          for (let i = 0; i < pages.length; i += batchSize) {
+            const batch = pages.slice(i, i + batchSize);
+            const results = await Promise.all(batch.map(page => readWooPage(wooOrdersUrl({ ...params, page }))));
+            for (const result of results) {
+              if (!result.response.ok) return result;
+              allOrders.push(...result.orders);
+            }
+          }
+
+          return { response: first.response, orders: allOrders, totalPages: first.totalPages };
+        };
+
+        let wRange: Awaited<ReturnType<typeof fetchWooOrders>>;
+        let wRecent: Awaited<ReturnType<typeof fetchWooOrders>>;
         try {
-          [wRangeRes, wRecentRes, wHistRes] = await Promise.all([
-            fetch(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=50&_fields=${encodeURIComponent(wcOrderFields)}`, { headers: wcHeaders }),
-            fetch(`${base}/wp-json/wc/v3/orders?per_page=20&_fields=${encodeURIComponent(wcOrderFields)}`, { headers: wcHeaders }),
-            fetch(`${base}/wp-json/wc/v3/orders?per_page=50&_fields=${encodeURIComponent(wcOrderFields)}`, { headers: wcHeaders }),
+          [wRange, wRecent] = await Promise.all([
+            fetchWooOrders({ after: sinceIso, before: untilIso, per_page: 100 }),
+            fetchWooOrders({ per_page: 20 }),
           ]);
         } catch (err: any) {
           console.error('[WooCommerce] Network error reaching store:', err);
           return res.status(502).json({ error: `No se pudo conectar con la tienda WooCommerce en ${base}. Verificá la URL.` });
         }
 
-        if (!wRangeRes.ok) {
-          const errBody = await wRangeRes.text().catch(() => '');
-          console.error('[WooCommerce] Error fetching orders:', wRangeRes.status, errBody);
-          const msg = wRangeRes.status === 401 || wRangeRes.status === 403
+        if (!wRange.response.ok) {
+          const errBody = await wRange.response.text().catch(() => '');
+          console.error('[WooCommerce] Error fetching orders:', wRange.response.status, errBody);
+          const msg = wRange.response.status === 401 || wRange.response.status === 403
             ? 'Credenciales de WooCommerce inválidas o sin permisos suficientes'
-            : wRangeRes.status === 404
+            : wRange.response.status === 404
             ? 'No se encontró la API de WooCommerce en esa URL (verificá la URL y que el plugin WooCommerce esté activo)'
-            : `Error al conectar con WooCommerce (HTTP ${wRangeRes.status})`;
+            : `Error al conectar con WooCommerce (HTTP ${wRange.response.status})`;
           return res.status(502).json({ error: msg });
         }
 
-        const [wRangeData, wRecentData, wHistData] = await Promise.all([
-          wRangeRes.json(),
-          wRecentRes.ok ? wRecentRes.json() : [],
-          wHistRes.ok ? wHistRes.json() : [],
-        ]);
-        rawOrders = Array.isArray(wRangeData) ? wRangeData : [];
-        rawRecent = Array.isArray(wRecentData) ? wRecentData : [];
-        rawHistory = Array.isArray(wHistData) ? wHistData : [];
+        rawOrders = wRange.orders;
+        rawRecent = wRecent.response.ok ? wRecent.orders : [];
+        rawHistory = rawRecent;
       }
 
       const orders = rawOrders.map(o => normalizeOrder(o, active_platform));
