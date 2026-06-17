@@ -306,6 +306,25 @@ async function handleWooCommerce(req: VercelRequest, res: VercelResponse) {
     // Ensure https:// and strip trailing slash
     shop = normalizeUrl(shop);
 
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(500).json({ error: 'WooCommerce OAuth no configurado en el servidor.' });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { error: saveUrlError } = await supabase
+      .from('car_clients')
+      .update({ wordpress_url: shop })
+      .eq('id', clientId);
+
+    if (saveUrlError) {
+      console.error('[WooCommerce Authorize] failed to persist wordpress_url', {
+        clientId,
+        shop,
+        error: saveUrlError.message,
+      });
+      return res.status(500).json({ error: 'No se pudo preparar la conexión con WooCommerce.' });
+    }
+
     const callbackUrl = `${base}/api/oauth?action=woocommerce-callback`;
     const returnUrl   = `${base}/#/integraciones?woocommerce=pending`;
 
