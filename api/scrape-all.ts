@@ -1194,13 +1194,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
         const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
         const wcHeaders = { Authorization: `Basic ${creds}` };
+        const wcOrderFields = [
+          'id',
+          'number',
+          'status',
+          'date_created',
+          'date_modified',
+          'total',
+          'shipping_total',
+          'discount_total',
+          'total_tax',
+          'billing',
+          'shipping'
+        ].join(',');
 
         let wRangeRes: Response, wRecentRes: Response, wHistRes: Response;
         try {
           [wRangeRes, wRecentRes, wHistRes] = await Promise.all([
-            fetch(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=100`, { headers: wcHeaders }),
-            fetch(`${base}/wp-json/wc/v3/orders?per_page=40`, { headers: wcHeaders }),
-            fetch(`${base}/wp-json/wc/v3/orders?per_page=100`, { headers: wcHeaders }),
+            fetch(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=50&_fields=${encodeURIComponent(wcOrderFields)}`, { headers: wcHeaders }),
+            fetch(`${base}/wp-json/wc/v3/orders?per_page=20&_fields=${encodeURIComponent(wcOrderFields)}`, { headers: wcHeaders }),
+            fetch(`${base}/wp-json/wc/v3/orders?per_page=50&_fields=${encodeURIComponent(wcOrderFields)}`, { headers: wcHeaders }),
           ]);
         } catch (err: any) {
           console.error('[WooCommerce] Network error reaching store:', err);
