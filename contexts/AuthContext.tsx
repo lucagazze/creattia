@@ -14,6 +14,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const clearSessionCacheByPrefix = (prefixes: string[]) => {
+  try {
+    const keys = Object.keys(sessionStorage);
+    for (const key of keys) {
+      if (prefixes.some((prefix) => key.startsWith(prefix))) {
+        sessionStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // Safari private/session edge cases can block storage access.
+  }
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -103,6 +116,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
+    clearSessionCacheByPrefix(['dashboard_cache_', 'meta:', 'ec:', 'kl:']);
     localStorage.removeItem('view_as_client_id');
     localStorage.removeItem('current_facebook_access_token');
     localStorage.removeItem('active_fb_page_id');

@@ -74,6 +74,49 @@ const RED = "#ef4444";
 const PINK = "#ec4899";
 
 const MAIN_COLOR = "#3b82f6"; // Default Blue for Captación
+const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type DashboardCachePayload = {
+  currentStore?: any;
+  prevStore?: any;
+  currentMeta?: any;
+  prevMeta?: any;
+  metaDaily?: any[];
+  prevMetaDaily?: any[];
+  currentKlaviyo?: any;
+  prevKlaviyo?: any;
+};
+
+const readDashboardCache = (cacheKey: string): DashboardCachePayload | null => {
+  try {
+    const raw = sessionStorage.getItem(cacheKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+
+    // Legacy cache objects had no timestamp and could leave Safari with an
+    // incomplete dashboard for a full browser session.
+    if (!parsed?.timestamp || Date.now() - Number(parsed.timestamp) > DASHBOARD_CACHE_TTL_MS) {
+      sessionStorage.removeItem(cacheKey);
+      return null;
+    }
+
+    return parsed.data || null;
+  } catch (e) {
+    sessionStorage.removeItem(cacheKey);
+    console.error("Error parsing dashboard cache:", e);
+    return null;
+  }
+};
+
+const writeDashboardCacheValue = (cacheKey: string, key: keyof DashboardCachePayload, data: any) => {
+  try {
+    const existing = readDashboardCache(cacheKey) || {};
+    const nextData = { ...existing, [key]: data };
+    sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: nextData }));
+  } catch {
+    // Storage can be unavailable on some Safari modes; data still renders live.
+  }
+};
 
 const ensureMetaToken = async (): Promise<void> => {
   if (localStorage.getItem("meta_ads_token")) return;
@@ -900,7 +943,7 @@ export default function DashboardPage() {
     if (!profile?.id) return;
     try {
       const { data: clientRow } = await supabase
-        .from('clients')
+        .from('car_clients')
         .select('connection_statuses')
         .eq('id', profile.id)
         .single();
@@ -912,7 +955,7 @@ export default function DashboardPage() {
       };
       
       await supabase
-        .from('clients')
+        .from('car_clients')
         .update({ connection_statuses: updatedStatuses })
         .eq('id', profile.id);
     } catch (err) {
@@ -1076,22 +1119,16 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!profile?.id) return;
     const cacheKey = `dashboard_cache_${profile.id}_${activePreset}_${activeSince}_${activeUntil}`;
-    const cachedData = sessionStorage.getItem(cacheKey);
-    if (cachedData) {
-      try {
-        const parsed = JSON.parse(cachedData);
-        if (parsed.currentStore) setCurrentStore(parsed.currentStore);
-        if (parsed.prevStore) setPrevStore(parsed.prevStore);
-        if (parsed.currentMeta) setCurrentMeta(parsed.currentMeta);
-        if (parsed.prevMeta) setPrevMeta(parsed.prevMeta);
-        if (parsed.metaDaily) setMetaDaily(parsed.metaDaily);
-        if (parsed.prevMetaDaily) setPrevMetaDaily(parsed.prevMetaDaily);
-        if (parsed.currentKlaviyo) setCurrentKlaviyo(parsed.currentKlaviyo);
-        if (parsed.prevKlaviyo) setPrevKlaviyo(parsed.prevKlaviyo);
-      } catch (e) {
-        console.error("Error parsing dashboard cache:", e);
-      }
-    }
+    const cachedData = readDashboardCache(cacheKey);
+    if (!cachedData) return;
+    if (cachedData.currentStore) setCurrentStore(cachedData.currentStore);
+    if (cachedData.prevStore) setPrevStore(cachedData.prevStore);
+    if (cachedData.currentMeta) setCurrentMeta(cachedData.currentMeta);
+    if (cachedData.prevMeta) setPrevMeta(cachedData.prevMeta);
+    if (cachedData.metaDaily) setMetaDaily(cachedData.metaDaily);
+    if (cachedData.prevMetaDaily) setPrevMetaDaily(cachedData.prevMetaDaily);
+    if (cachedData.currentKlaviyo) setCurrentKlaviyo(cachedData.currentKlaviyo);
+    if (cachedData.prevKlaviyo) setPrevKlaviyo(cachedData.prevKlaviyo);
   }, [profile?.id, activePreset, activeSince, activeUntil]);
 
   // Reset all data states when client profile changes to prevent stale data leakage
@@ -1207,12 +1244,8 @@ export default function DashboardPage() {
 
     const updateCache = (key: string, data: any) => {
       if (!profile?.id) return;
-      try {
-        const cacheKey = `dashboard_cache_${profile.id}_${p}_${s}_${u}`;
-        const currentCache = JSON.parse(sessionStorage.getItem(cacheKey) || '{}');
-        currentCache[key] = data;
-        sessionStorage.setItem(cacheKey, JSON.stringify(currentCache));
-      } catch (e) {}
+      const cacheKey = `dashboard_cache_${profile.id}_${p}_${s}_${u}`;
+      writeDashboardCacheValue(cacheKey, key as keyof DashboardCachePayload, data);
     };
 
     const statuses = profile?.connection_statuses || {};
