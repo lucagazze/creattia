@@ -250,7 +250,8 @@ const getPageAccessToken = async (pageId: string): Promise<string> => {
 const apiGet = async (endpoint: string, params: Record<string, string> = {}): Promise<any> => {
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
-    const url = new URL('/api/meta', window.location.origin);
+    const url = new URL('/api/meta-video', window.location.origin);
+    url.searchParams.set('action', 'graph');
     url.searchParams.set('path', endpoint);
     const clientId = await getActiveClientId();
     if (clientId) url.searchParams.set('clientId', clientId);
