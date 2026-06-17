@@ -51,18 +51,21 @@ function normalizeGraphPath(path: unknown): string {
   return clean;
 }
 
-async function getClientMetaToken(clientId: string, bearer: string): Promise<string> {
-  if (!clientId) return '';
+async function getClientMetaTokens(clientId: string, bearer: string): Promise<{ userToken: string; pageToken: string }> {
+  if (!clientId) return { userToken: '', pageToken: '' };
   const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: { headers: { Authorization: `Bearer ${bearer}` } },
   });
   const { data } = await supabaseUser
     .from('car_clients')
-    .select('facebook_access_token')
+    .select('facebook_access_token, fb_page_access_token')
     .eq('id', clientId)
     .maybeSingle();
-  return data?.facebook_access_token || '';
+  return {
+    userToken: data?.facebook_access_token || '',
+    pageToken: data?.fb_page_access_token || '',
+  };
 }
 
 async function handleGraphProxy(req: VercelRequest, res: VercelResponse) {
@@ -80,7 +83,10 @@ async function handleGraphProxy(req: VercelRequest, res: VercelResponse) {
 
   const clientIdRaw = Array.isArray(req.query.clientId) ? req.query.clientId[0] : req.query.clientId;
   const graphClientId = typeof clientIdRaw === 'string' ? clientIdRaw.trim() : '';
-  const token = (await getClientMetaToken(graphClientId, bearer)) || await getMetaToken();
+  const clientTokens = await getClientMetaTokens(graphClientId, bearer);
+  const token = graphPath.startsWith('act_')
+    ? (clientTokens.userToken || await getMetaToken())
+    : (clientTokens.pageToken || clientTokens.userToken || await getMetaToken());
   if (!token) return res.status(500).json({ error: 'No Meta token configured' });
 
   const graphUrl = new URL(`https://graph.facebook.com/v21.0/${graphPath}`);

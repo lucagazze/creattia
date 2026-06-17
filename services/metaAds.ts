@@ -278,6 +278,9 @@ const apiGet = async (endpoint: string, params: Record<string, string> = {}): Pr
 };
 
 const apiGetPage = async (pageId: string, endpoint: string, params: Record<string, string> = {}): Promise<any> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) return apiGet(endpoint, params);
+
   const token = await getPageAccessToken(pageId);
   const url = new URL(`${BASE}/${endpoint}`);
   url.searchParams.set('access_token', token);
@@ -347,6 +350,9 @@ const getActivePageId = (): string => {
 };
 
 const apiGetPageActive = async (endpoint: string, params: Record<string, string> = {}): Promise<any> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) return apiGet(endpoint, params);
+
   const activePageId = getActivePageId();
   const token = activePageId ? await getPageAccessToken(activePageId) : getToken();
   const url = new URL(`${BASE}/${endpoint}`);

@@ -984,6 +984,12 @@ export default function DashboardPage() {
   const [selectedMetaGoal, setSelectedMetaGoal] = useState<'purchases' | 'leads' | 'messages'>('purchases');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [fulfillingOrder, setFulfillingOrder] = useState(false);
+  const chatwootStatus = (profile as any)?.connection_statuses?.chatwoot;
+  const hasChatwoot = !!(
+    (profile as any)?.chatwoot_url &&
+    (profile as any)?.chatwoot_token &&
+    (chatwootStatus === 'ok' || chatwootStatus === 'connected')
+  );
 
   const toggleFulfillment = async () => {
     if (!selectedOrder || fulfillingOrder) return;
@@ -1511,7 +1517,17 @@ export default function DashboardPage() {
     let mounted = true;
     const fetchChatwoot = async () => {
       const prof: any = profile;
-      if (!prof?.chatwoot_url || !prof?.chatwoot_token) return;
+      if (!hasChatwoot) {
+        setFetchingChatwoot(false);
+        setChatwootSummary(null);
+        setPrevChatwootSummary(null);
+        setActiveAtencMetric(null);
+        setAtencChartData([]);
+        setAtencPrevChartData([]);
+        setAtencSeriesAll({});
+        setAtencPrevSeriesAll({});
+        return;
+      }
       setFetchingChatwoot(true);
       try {
         const untilSecs = Math.floor(new Date(`${activeUntil}T23:59:59Z`).getTime() / 1000);
@@ -1532,7 +1548,7 @@ export default function DashboardPage() {
     };
     if (profile?.id) fetchChatwoot();
     return () => { mounted = false; };
-  }, [profile?.id, activeSince, activeUntil, refreshKey]);
+  }, [profile?.id, hasChatwoot, activeSince, activeUntil, refreshKey]);
 
   // Pre-fetch ALL Atención sparklines when summary loads
   useEffect(() => {
@@ -1541,7 +1557,7 @@ export default function DashboardPage() {
     const ATENC_KEYS = ['conversations_count', 'incoming_messages_count', 'outgoing_messages_count', 'avg_first_response_time'];
     const fetchAll = async () => {
       const prof: any = profile;
-      if (!prof?.chatwoot_url || !prof?.chatwoot_token) return;
+      if (!hasChatwoot) return;
       const untilSecs = Math.floor(new Date(`${activeUntil}T23:59:59Z`).getTime() / 1000);
       const sinceSecs = Math.floor(new Date(`${activeSince}T00:00:00Z`).getTime() / 1000);
       const prevRange = getPrevPeriod(activeSince, activeUntil);
@@ -1586,7 +1602,7 @@ export default function DashboardPage() {
     };
     fetchAll();
     return () => { mounted = false; };
-  }, [chatwootSummary, profile?.id, activeSince, activeUntil]);
+  }, [chatwootSummary, profile?.id, hasChatwoot, activeSince, activeUntil]);
 
   // Fetch Atención chart when a metric is clicked
   useEffect(() => {
@@ -1594,7 +1610,7 @@ export default function DashboardPage() {
     let mounted = true;
     const fetchAtencChart = async () => {
       const prof: any = profile;
-      if (!prof?.chatwoot_url || !prof?.chatwoot_token) return;
+      if (!hasChatwoot) return;
       setLoadingAtencChart(true);
       try {
         const untilSecs = Math.floor(new Date(`${activeUntil}T23:59:59Z`).getTime() / 1000);
@@ -1634,7 +1650,7 @@ export default function DashboardPage() {
     };
     fetchAtencChart();
     return () => { mounted = false; };
-  }, [activeAtencMetric, profile?.id, activeSince, activeUntil]);
+  }, [activeAtencMetric, profile?.id, hasChatwoot, activeSince, activeUntil]);
 
   const handleApply = () => {
     setActivePreset(pendingPreset);
@@ -2656,7 +2672,7 @@ export default function DashboardPage() {
         )}
 
         {/* ATENCIÓN (Chatwoot) */}
-        {(profile as any)?.chatwoot_token && (
+        {hasChatwoot && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-violet-500 shrink-0" />
