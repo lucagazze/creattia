@@ -961,6 +961,7 @@ export default function IntegracionesPage() {
     try {
       const { data: { session: freshSession } } = await supabase.auth.getSession();
       const authToken = freshSession?.access_token || "";
+      const today = new Date().toISOString().split("T")[0];
       const res = await fetch("/api/scrape-all", {
         method: "POST",
         headers: {
@@ -969,16 +970,18 @@ export default function IntegracionesPage() {
         },
         body: JSON.stringify({
           clientId: activeProfileId,
-          type: "products",
+          type: "dashboard",
           platform: "wordpress",
           wordpress_url: url,
           woo_consumer_key: key,
-          woo_consumer_secret: secret
+          woo_consumer_secret: secret,
+          since: today,
+          until: today
         })
       });
       if (!res.ok) return false;
       const data = await res.json();
-      return !!data.products;
+      return !data.error;
     } catch {
       return false;
     }
@@ -1031,7 +1034,9 @@ export default function IntegracionesPage() {
 
     if (!testFn) return;
 
-    setVerifyingPlatforms(prev => new Set(prev).add(platformId));
+    if (!silent) {
+      setVerifyingPlatforms(prev => new Set(prev).add(platformId));
+    }
     try {
       const ok = await testFn();
       await updateConnectionStatus(statusKey, ok ? "ok" : "error");
@@ -1040,11 +1045,13 @@ export default function IntegracionesPage() {
         showToast(ok ? `Conexión con ${name} verificada ✓` : `No se pudo verificar la conexión con ${name}. Revisá las credenciales.`, ok ? "success" : "error");
       }
     } finally {
-      setVerifyingPlatforms(prev => {
-        const next = new Set(prev);
-        next.delete(platformId);
-        return next;
-      });
+      if (!silent) {
+        setVerifyingPlatforms(prev => {
+          const next = new Set(prev);
+          next.delete(platformId);
+          return next;
+        });
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientData, activeProfileId]);
@@ -1056,11 +1063,13 @@ export default function IntegracionesPage() {
     if (loading || !clientData?.id) return;
 
     const candidates: string[] = [];
-    if (clientData.ecommerce_platform === "shopify" && clientData.shopify_domain && clientData.shopify_access_token) candidates.push("shopify");
-    if (clientData.ecommerce_platform === "tiendanube" && clientData.tiendanube_store_id && clientData.tiendanube_access_token) candidates.push("tiendanube");
-    if (clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key && clientData.woo_consumer_secret) candidates.push("wordpress");
-    if (clientData.klaviyo_api_key) candidates.push("klaviyo");
-    if (clientData.chatwoot_url && clientData.chatwoot_token) candidates.push("chatwoot");
+    const statuses = clientData.connection_statuses || {};
+    const isOk = (key: string) => statuses[key] === "ok" || statuses[key] === "connected";
+    if (clientData.ecommerce_platform === "shopify" && clientData.shopify_domain && clientData.shopify_access_token && !isOk("shopify")) candidates.push("shopify");
+    if (clientData.ecommerce_platform === "tiendanube" && clientData.tiendanube_store_id && clientData.tiendanube_access_token && !isOk("shopify")) candidates.push("tiendanube");
+    if (clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key && clientData.woo_consumer_secret && !isOk("shopify")) candidates.push("wordpress");
+    if (clientData.klaviyo_api_key && !isOk("klaviyo")) candidates.push("klaviyo");
+    if (clientData.chatwoot_url && clientData.chatwoot_token && !isOk("chatwoot")) candidates.push("chatwoot");
 
     candidates.forEach(id => verifyConnection(id, true));
   // eslint-disable-next-line react-hooks/exhaustive-deps
