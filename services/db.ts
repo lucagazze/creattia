@@ -1,5 +1,7 @@
 import { supabase, supabaseAdmin } from './supabase';
 
+const dbClient = () => (typeof (supabaseAdmin as any)?.from === 'function' ? (supabaseAdmin as any) : supabase);
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ClientProfile {
   id: string;
@@ -119,7 +121,7 @@ export interface MonthlyReport {
 export const db = {
   clients: {
     async getAll(): Promise<Pick<ClientProfile, 'id' | 'business_name'>[]> {
-      const client = supabaseAdmin ?? supabase;
+      const client = dbClient();
       const { data, error } = await client
         .from('car_clients')
         .select('id, business_name')
@@ -128,7 +130,7 @@ export const db = {
       return data ?? [];
     },
     async getAllWithIntegrations(): Promise<Pick<ClientProfile, 'id' | 'business_name' | 'klaviyo_api_key'>[]> {
-      const client = supabaseAdmin ?? supabase;
+      const client = dbClient();
       const { data, error } = await client
         .from('car_clients')
         .select('id, business_name, klaviyo_api_key')
@@ -137,7 +139,7 @@ export const db = {
       return data ?? [];
     },
     async updateField(clientId: string, fields: Partial<ClientProfile>) {
-      const client = supabaseAdmin ?? supabase;
+      const client = dbClient();
       const { error } = await client.from('car_clients').update(fields).eq('id', clientId);
       if (error) throw error;
     },
@@ -193,7 +195,7 @@ export const db = {
           if (errUpdate) {
             console.error("db.profile.getByUserId - Error updating user_id in business link:", errUpdate);
             // Fallback al service role si el cliente anon no pudo
-            if (supabaseAdmin) {
+            if (typeof (supabaseAdmin as any)?.from === 'function') {
               const { error: errUpdateAdmin } = await supabaseAdmin
                 .from('car_business_accounts')
                 .update({ user_id: userId })
@@ -220,7 +222,7 @@ export const db = {
       if (errBiz) {
         console.error("db.profile.getByUserId - Error fetching associated business:", errBiz);
         // Fallback al service role si RLS falló
-        if (supabaseAdmin) {
+        if (typeof (supabaseAdmin as any)?.from === 'function') {
           const { data: adminBiz, error: errAdminBiz } = await supabaseAdmin
             .from('car_clients')
             .select('*')
@@ -269,7 +271,7 @@ export const db = {
 
   links: {
     async getByClientId(clientId: string): Promise<ClientLink[]> {
-      const client = supabaseAdmin ?? supabase;
+      const client = dbClient();
       const { data, error } = await client
         .from('car_links')
         .select('*')
@@ -322,7 +324,7 @@ export const db = {
 
   emailAssignments: {
     async getAll(): Promise<EmailAssignment[]> {
-      const client = supabaseAdmin ?? supabase;
+      const client = dbClient();
       const { data, error } = await client.from('car_email_assignments').select('*').order('created_at', { ascending: false });
       if (error) { console.error(error); return []; }
       return data ?? [];
