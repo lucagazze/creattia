@@ -42,6 +42,12 @@ export interface ClientProfile {
   tiktok_content_display_name?: string;
   tiktok_content_avatar_url?: string;
   tiktok_content_expiration?: string;
+  tiktok_advertiser_id?: string;
+  youtube_access_token?: string;
+  youtube_refresh_token?: string;
+  youtube_channel_id?: string;
+  youtube_channel_title?: string;
+  youtube_expiration?: string;
   connection_statuses?: Record<string, any>;
   created_at: string;
 }

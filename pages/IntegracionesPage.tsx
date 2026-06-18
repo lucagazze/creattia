@@ -28,7 +28,8 @@ import {
   Lock,
   Key,
   Instagram,
-  MessageSquare
+  MessageSquare,
+  Youtube
 } from "lucide-react";
 
 interface IntegrationPlatform {
@@ -104,6 +105,14 @@ const PLATFORMS: IntegrationPlatform[] = [
     category: "marketing",
     description: "Conectá tu cuenta orgánica para subir videos desde el Publicador.",
     logoUrl: "/assets/logotiktok.png",
+    isSimulated: false
+  },
+  {
+    id: "youtube",
+    name: "YouTube",
+    category: "marketing",
+    description: "Conectá tu canal para ver publicaciones y subir Shorts desde el Publicador.",
+    logoComponent: Youtube,
     isSimulated: false
   },
   {
@@ -261,6 +270,7 @@ export default function IntegracionesPage() {
     const mercadolibre = getQueryParam('mercadolibre');
     const tiktok       = getQueryParam('tiktok');
     const tiktokContent = getQueryParam('tiktok_content');
+    const youtube      = getQueryParam('youtube');
     const reason       = getQueryParam('reason');
 
     const confirmOAuthConnection = async (platform: "tiendanube" | "wordpress"): Promise<"ok" | "unverified" | "missing"> => {
@@ -362,6 +372,15 @@ export default function IntegracionesPage() {
     } else if (tiktokContent === 'error') {
       setOauthResult({ platform: 'tiktok_content', status: 'error', reason: reason || '' });
       showToast('Error al conectar TikTok: ' + (reason || 'desconocido'), 'error');
+      window.history.replaceState({}, '', '/#/integraciones');
+    } else if (youtube === 'success') {
+      setOauthResult({ platform: 'youtube', status: 'success' });
+      showToast('¡YouTube conectado exitosamente! ✓', 'success');
+      window.history.replaceState({}, '', '/#/integraciones');
+      refreshProfile().then(() => loadClientData());
+    } else if (youtube === 'error') {
+      setOauthResult({ platform: 'youtube', status: 'error', reason: reason || '' });
+      showToast('Error al conectar YouTube: ' + (reason || 'desconocido'), 'error');
       window.history.replaceState({}, '', '/#/integraciones');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -695,6 +714,23 @@ export default function IntegracionesPage() {
     }
   };
 
+  const startYoutubeOAuth = async () => {
+    if (!activeProfileId) return;
+    setOauthLoading(true);
+    try {
+      const res = await fetch(`/api/oauth?action=youtube-authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al iniciar OAuth con YouTube');
+      }
+      const { authorizeUrl } = await res.json();
+      window.location.href = authorizeUrl;
+    } catch (err: any) {
+      showToast(err.message || 'Error al conectar con YouTube', 'error');
+      setOauthLoading(false);
+    }
+  };
+
   // ── REAL OAUTH: WooCommerce ───────────────────────────────────────────────────
   // WooCommerce has a built-in auth endpoint — no Partner App registration needed.
   // The backend builds the authorize URL; WC POSTs the keys to the callback automatically.
@@ -933,12 +969,24 @@ export default function IntegracionesPage() {
         delete updatedStatuses.meta_account_name;
       }
 
-      const { error } = await supabase
-        .from('car_clients')
-        .update({ ...fieldsToUpdate, connection_statuses: updatedStatuses })
-        .eq('id', clientId);
-
-      if (error) throw error;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('La sesión expiró. Volvé a iniciar sesión.');
+      const selectedAccountNameForApi = metaCombinedModal.accounts?.find(a => a.id === selectedAccountId)?.name || '';
+      const saveRes = await fetch('/api/oauth?action=meta-save-selection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          clientId,
+          selectedAccountId,
+          selectedAccountName: selectedAccountNameForApi,
+          selectedPage,
+          approveAds,
+          approveMessaging
+        })
+      });
+      const saveJson = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok) throw new Error(saveJson.error || 'No se pudo guardar Meta.');
 
       if (approveMessaging && selectedPage?.id && selectedPage?.access_token) {
         localStorage.setItem(`fb_pat_${selectedPage.id}`, selectedPage.access_token);
@@ -1305,6 +1353,14 @@ export default function IntegracionesPage() {
         tiktok_content_avatar_url: null,
         tiktok_content_expiration: null
       };
+    } else if (platformId === "youtube") {
+      fieldsToUpdate = {
+        youtube_access_token: null,
+        youtube_refresh_token: null,
+        youtube_channel_id: null,
+        youtube_channel_title: null,
+        youtube_expiration: null
+      };
     }
 
     try {
@@ -1361,6 +1417,10 @@ export default function IntegracionesPage() {
       } else if (platformId === "tiktok_content") {
         extraData = {
           tiktok_content_display_name: null,
+        };
+      } else if (platformId === "youtube") {
+        extraData = {
+          youtube_channel_title: null,
         };
       }
       await updateConnectionStatus(statusKey, null, extraData);
@@ -1543,9 +1603,18 @@ export default function IntegracionesPage() {
     if (platformId === "meta") {
       const statuses = clientData.connection_statuses || {};
       const val = statuses.meta;
-      const hasTokenOrId = !!clientData.facebook_access_token || !!clientData.fb_page_id || !!clientData.meta_account_id;
-      if (val === "ok" || val === "connected" || (hasTokenOrId && val !== "error")) return "ok";
+      const hasUsableMeta = !!clientData.fb_page_id || !!clientData.ig_business_id || !!clientData.meta_account_id;
+      if (val === "ok" || val === "connected" || (hasUsableMeta && val !== "error")) {
+        return hasUsableMeta ? "ok" : "error";
+      }
       if (val === "error") return "error";
+      return "disconnected";
+    }
+
+    if (platformId === "youtube") {
+      if (clientData.youtube_access_token || clientData.youtube_channel_id) {
+        return clientData.connection_statuses?.youtube === "error" ? "error" : "ok";
+      }
       return "disconnected";
     }
 
@@ -1574,6 +1643,10 @@ export default function IntegracionesPage() {
 
   const getPlatformErrorMessage = (platformId: string): string | null => {
     if (!clientData) return null;
+
+    if (platformId === "meta" && clientData.facebook_access_token && !clientData.fb_page_id && !clientData.meta_account_id) {
+      return "Meta autorizó el acceso, pero falta elegir la página de Facebook/Instagram y la cuenta publicitaria.";
+    }
 
     if (platformId === "shopify") {
       if (clientData.ecommerce_platform !== "shopify") {
@@ -2025,6 +2098,12 @@ export default function IntegracionesPage() {
                         <span className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
                           {clientData.tiktok_content_display_name || clientData.connection_statuses?.tiktok_content_display_name || 'Cuenta TikTok conectada'}
+                        </span>
+                      )}
+                      {platform.id === "youtube" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          {clientData.youtube_channel_title || clientData.connection_statuses?.youtube_channel_title || 'Canal de YouTube conectado'}
                         </span>
                       )}
                       {platform.id === "klaviyo" && (
@@ -2556,6 +2635,18 @@ export default function IntegracionesPage() {
                           <span>{oauthLoading ? 'Abriendo Facebook...' : 'Vincular con Facebook'}</span>
                         </button>
 
+                        {clientData?.facebook_access_token && !clientData?.fb_page_id && !clientData?.meta_account_id && (
+                          <button
+                            type="button"
+                            onClick={() => fetchMetaDataAndShowCombined(activeProfileId || '')}
+                            disabled={oauthLoading || !activeProfileId}
+                            className="w-full h-11 rounded-xl border border-[#1877f2]/25 bg-[#1877f2]/5 text-[#1877f2] text-[12.5px] font-extrabold flex items-center justify-center gap-2 hover:bg-[#1877f2]/10 transition-all"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            Terminar selección de página y cuenta
+                          </button>
+                        )}
+
                         <div className="text-center pt-1">
                           <button type="button" onClick={() => setIsManualMode(true)}
                             className="text-[12px] text-zinc-400 hover:text-violet-500 font-medium transition-colors underline underline-offset-4">
@@ -2670,6 +2761,29 @@ export default function IntegracionesPage() {
                     >
                       <img src="/assets/logotiktok.png" alt="TikTok" className="w-7 h-7 -my-1 -mx-0.5 object-contain shrink-0 invert dark:invert-0" />
                       <span>Conectar TikTok</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* YOUTUBE */}
+                {selectedPlatform.id === "youtube" && (
+                  <div className="space-y-4 py-2">
+                    <div className="p-5 rounded-2xl border border-red-200/70 dark:border-red-500/15 bg-red-50/70 dark:bg-red-500/[0.04] text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-350">
+                      <p>
+                        Conectá tu canal para traer publicaciones de YouTube y publicar Shorts desde el Publicador.
+                      </p>
+                      <p className="mt-2 font-bold text-zinc-800 dark:text-zinc-200">
+                        Usa OAuth de Google con permisos de YouTube Data API.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={startYoutubeOAuth}
+                      disabled={savingSettings || oauthLoading}
+                      className="w-full h-12 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                    >
+                      {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Youtube className="w-5 h-5" />}
+                      <span>{oauthLoading ? 'Conectando YouTube...' : 'Conectar YouTube'}</span>
                     </button>
                   </div>
                 )}
@@ -2864,7 +2978,7 @@ export default function IntegracionesPage() {
 
                 {/* Footer for OAuth-based platforms (shopify/tiendanube/meta in auto mode): just disconnect + close */}
                 {!selectedPlatform.isSimulated && !isManualMode &&
-                  ['shopify', 'tiendanube', 'meta', 'mercadolibre', 'tiktok_ads'].includes(selectedPlatform.id) && (
+                  ['shopify', 'tiendanube', 'meta', 'mercadolibre', 'tiktok_ads', 'tiktok_content', 'youtube'].includes(selectedPlatform.id) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3 justify-end">
                     {getPlatformStatus(selectedPlatform.id) !== "disconnected" && (
                       <button type="button" onClick={() => handleDisconnect(selectedPlatform.id)}

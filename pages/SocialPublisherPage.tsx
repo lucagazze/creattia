@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertCircle, CheckCircle2, Facebook, Film, Instagram, Loader2, PlayCircle,
-  Send, UploadCloud, Youtube, Zap
+  AlertCircle, CalendarDays, CheckCircle2, Clock3, Facebook, Film, Instagram,
+  Loader2, PlayCircle, Send, UploadCloud, Youtube, Zap
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -42,6 +42,9 @@ export default function SocialPublisherPage() {
   const [selectedChannels, setSelectedChannels] = useState<ChannelId[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [results, setResults] = useState<Record<string, any> | null>(null);
+  const [publishMode, setPublishMode] = useState<'now' | 'scheduled'>('now');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [scheduledItems, setScheduledItems] = useState<any[]>([]);
 
   const channels = useMemo<ChannelConfig[]>(() => {
     const p: any = profile || {};
@@ -73,8 +76,8 @@ export default function SocialPublisherPage() {
       {
         id: 'youtube',
         label: 'YouTube Shorts',
-        connected: false,
-        detail: 'Pendiente de OAuth YouTube Data API',
+        connected: !!p.youtube_access_token,
+        detail: p.youtube_channel_title || p.connection_statuses?.youtube_channel_title || 'Requiere YouTube conectado desde Integraciones',
         color: 'from-red-600 to-red-500',
         icon: <Youtube className="w-4 h-4" />
       }
@@ -84,6 +87,34 @@ export default function SocialPublisherPage() {
   const connectedCount = channels.filter(c => c.connected).length;
   const selectedConnected = selectedChannels.filter(id => channels.find(c => c.id === id)?.connected);
   const captionLength = caption.trim().length;
+  const monthDays = useMemo(() => {
+    const base = scheduledAt ? new Date(scheduledAt) : new Date();
+    const year = base.getFullYear();
+    const month = base.getMonth();
+    const first = new Date(year, month, 1);
+    const total = new Date(year, month + 1, 0).getDate();
+    const offset = (first.getDay() + 6) % 7;
+    return [
+      ...Array.from({ length: offset }, () => null),
+      ...Array.from({ length: total }, (_, index) => new Date(year, month, index + 1))
+    ];
+  }, [scheduledAt]);
+
+  React.useEffect(() => {
+    let active = true;
+    if (!profile?.id) return;
+    supabase
+      .from('car_social_publications')
+      .select('id, caption, selected_channels, status, scheduled_at, created_at')
+      .eq('client_id', profile.id)
+      .in('status', ['scheduled', 'published', 'processing'])
+      .order('scheduled_at', { ascending: true, nullsFirst: false })
+      .limit(40)
+      .then(({ data }) => {
+        if (active) setScheduledItems(data || []);
+      });
+    return () => { active = false; };
+  }, [profile?.id, results]);
 
   const handleFileChange = (file?: File | null) => {
     if (!file) return;
@@ -143,6 +174,13 @@ export default function SocialPublisherPage() {
       showToast('Elegí al menos un canal conectado.', 'warning');
       return;
     }
+    if (publishMode === 'scheduled') {
+      const target = scheduledAt ? new Date(scheduledAt) : null;
+      if (!target || Number.isNaN(target.getTime()) || target.getTime() <= Date.now() + 30 * 1000) {
+        showToast('Elegí una fecha y hora futura para programar.', 'warning');
+        return;
+      }
+    }
 
     setPublishing(true);
     setResults(null);
@@ -160,14 +198,19 @@ export default function SocialPublisherPage() {
           caption: caption.trim(),
           videoUrl: upload.publicUrl,
           videoPath: upload.path,
-          channels: selectedConnected
+          channels: selectedConnected,
+          scheduledAt: publishMode === 'scheduled' ? scheduledAt : null
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo publicar.');
       setResults(data.results || {});
       const okCount = Object.values(data.results || {}).filter((item: any) => item.status === 'published' || item.status === 'processing').length;
-      showToast(okCount > 0 ? 'Publicación enviada a los canales disponibles.' : 'No se pudo publicar en los canales elegidos.', okCount > 0 ? 'success' : 'warning');
+      if (data.scheduled) {
+        showToast('Publicación programada en el calendario.', 'success');
+      } else {
+        showToast(okCount > 0 ? 'Publicación enviada a los canales disponibles.' : 'No se pudo publicar en los canales elegidos.', okCount > 0 ? 'success' : 'warning');
+      }
     } catch (err: any) {
       showToast(err.message || 'Error al publicar.', 'error');
     } finally {
@@ -248,6 +291,49 @@ export default function SocialPublisherPage() {
               </div>
 
               <div>
+                <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Programación</p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {[
+                    { id: 'now', label: 'Ahora', icon: Send },
+                    { id: 'scheduled', label: 'Programar', icon: CalendarDays }
+                  ].map(option => {
+                    const Icon = option.icon;
+                    const active = publishMode === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setPublishMode(option.id as 'now' | 'scheduled')}
+                        className={`h-11 rounded-xl border text-[12px] font-black flex items-center justify-center gap-2 transition-all ${
+                          active
+                            ? 'border-violet-500 bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300'
+                            : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/25 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {publishMode === 'scheduled' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_150px] gap-3">
+                    <input
+                      type="datetime-local"
+                      value={scheduledAt}
+                      onChange={(e) => setScheduledAt(e.target.value)}
+                      min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                      className="h-11 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 text-[13px] font-bold text-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-violet-500/30"
+                    />
+                    <div className="h-11 rounded-xl bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-500 dark:text-zinc-400 flex items-center justify-center gap-2">
+                      <Clock3 className="w-4 h-4" />
+                      Hora local
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
                 <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Canales</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {channels.map((channel) => {
@@ -286,7 +372,7 @@ export default function SocialPublisherPage() {
                 className="w-full h-13 rounded-2xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:hover:bg-violet-600 text-white text-[14px] font-black flex items-center justify-center gap-2 shadow-lg shadow-violet-600/20 transition-all"
               >
                 {publishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                {publishing ? 'Publicando...' : 'Publicar en canales seleccionados'}
+                {publishing ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...') : (publishMode === 'scheduled' ? 'Programar publicación' : 'Publicar en canales seleccionados')}
               </button>
             </div>
           </div>
@@ -305,11 +391,76 @@ export default function SocialPublisherPage() {
                 <PlayCircle className="w-4 h-4 text-violet-500" />
                 {selectedConnected.length} canales listos seleccionados
               </div>
+              <div className="flex items-center gap-3 text-[13px] font-bold text-zinc-600 dark:text-zinc-300">
+                <CalendarDays className="w-4 h-4 text-violet-500" />
+                {publishMode === 'scheduled' && scheduledAt
+                  ? new Date(scheduledAt).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' })
+                  : 'Publicación inmediata'}
+              </div>
             </div>
             <div className="mt-5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200/70 dark:border-amber-500/20 p-4">
               <p className="text-[12px] font-bold leading-relaxed text-amber-800 dark:text-amber-200">
                 Facebook e Instagram usan tu conexión Meta. TikTok usa la conexión orgánica y puede requerir terminar la publicación desde la app de TikTok.
               </p>
+            </div>
+          </section>
+
+          <section className="rounded-[20px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Calendario</p>
+                <h2 className="mt-1 text-[18px] font-black text-zinc-950 dark:text-white">
+                  {new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
+                </h2>
+              </div>
+              <span className="h-8 px-3 rounded-full bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-500 dark:text-zinc-400 inline-flex items-center">
+                {scheduledItems.filter(item => item.status === 'scheduled').length} programadas
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-7 gap-1 text-center">
+              {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => (
+                <span key={`${day}-${index}`} className="text-[10px] font-black text-zinc-400">{day}</span>
+              ))}
+              {monthDays.map((day, index) => {
+                const iso = day ? day.toISOString().slice(0, 10) : '';
+                const count = scheduledItems.filter(item => (item.scheduled_at || item.created_at || '').slice(0, 10) === iso).length;
+                const isToday = day && day.toDateString() === new Date().toDateString();
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => {
+                      if (!day) return;
+                      const hour = scheduledAt ? scheduledAt.slice(11, 16) : '10:00';
+                      setPublishMode('scheduled');
+                      setScheduledAt(`${iso}T${hour}`);
+                    }}
+                    className={`aspect-square rounded-lg text-[11px] font-black flex flex-col items-center justify-center gap-0.5 ${
+                      day
+                        ? isToday
+                          ? 'bg-violet-600 text-white'
+                          : 'bg-zinc-50 dark:bg-zinc-950/35 text-zinc-700 dark:text-zinc-200 hover:bg-violet-50 dark:hover:bg-violet-500/10'
+                        : 'opacity-0'
+                    }`}
+                  >
+                    {day?.getDate()}
+                    {count > 0 && <span className={`w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white' : 'bg-violet-500'}`} />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-4 space-y-2">
+              {scheduledItems.filter(item => item.status === 'scheduled').slice(0, 4).map(item => (
+                <div key={item.id} className="rounded-xl border border-zinc-100 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/30 p-3">
+                  <p className="text-[12px] font-black text-zinc-800 dark:text-white truncate">{item.caption || 'Publicación sin texto'}</p>
+                  <p className="mt-1 text-[10px] font-bold text-zinc-400">
+                    {item.scheduled_at ? new Date(item.scheduled_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : 'Sin fecha'} · {(item.selected_channels || []).join(', ')}
+                  </p>
+                </div>
+              ))}
+              {scheduledItems.filter(item => item.status === 'scheduled').length === 0 && (
+                <p className="text-[12px] font-semibold text-zinc-400">Todavía no hay publicaciones programadas.</p>
+              )}
             </div>
           </section>
 

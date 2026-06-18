@@ -6,7 +6,12 @@ ALTER TABLE public.car_clients
   ADD COLUMN IF NOT EXISTS tiktok_content_open_id text,
   ADD COLUMN IF NOT EXISTS tiktok_content_display_name text,
   ADD COLUMN IF NOT EXISTS tiktok_content_avatar_url text,
-  ADD COLUMN IF NOT EXISTS tiktok_content_expiration timestamptz;
+  ADD COLUMN IF NOT EXISTS tiktok_content_expiration timestamptz,
+  ADD COLUMN IF NOT EXISTS youtube_access_token text,
+  ADD COLUMN IF NOT EXISTS youtube_refresh_token text,
+  ADD COLUMN IF NOT EXISTS youtube_channel_id text,
+  ADD COLUMN IF NOT EXISTS youtube_channel_title text,
+  ADD COLUMN IF NOT EXISTS youtube_expiration timestamptz;
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
@@ -31,9 +36,13 @@ CREATE TABLE IF NOT EXISTS public.car_social_publications (
   selected_channels TEXT[] NOT NULL DEFAULT '{}',
   results JSONB NOT NULL DEFAULT '{}'::jsonb,
   status TEXT NOT NULL DEFAULT 'draft',
+  scheduled_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   published_at TIMESTAMPTZ
 );
+
+ALTER TABLE public.car_social_publications
+  ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_car_social_publications_client_created
   ON public.car_social_publications(client_id, created_at DESC);

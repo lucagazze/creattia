@@ -5,7 +5,7 @@ import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import {
   Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X,
   ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play, Send, Brain,
-  ChevronLeft, ChevronRight, EyeOff
+  ChevronLeft, ChevronRight, EyeOff, Music2, Youtube
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -162,7 +162,7 @@ export default function RedesSocialesPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   
   // Tab State (Instagram vs Facebook)
-  const [activeTab, setActiveTab] = useState<'instagram' | 'facebook'>('instagram');
+  const [activeTab, setActiveTab] = useState<'instagram' | 'facebook' | 'tiktok' | 'youtube'>('instagram');
 
   // Loading and Error States
   const [igLoading, setIgLoading] = useState(true);
@@ -176,6 +176,10 @@ export default function RedesSocialesPage() {
   
   const [fbProfile, setFbProfile] = useState<any>(null);
   const [fbMedia, setFbMedia] = useState<any[]>([]);
+  const [youtubeProfile, setYoutubeProfile] = useState<any>(null);
+  const [youtubeMedia, setYoutubeMedia] = useState<any[]>([]);
+  const [youtubeLoading, setYoutubeLoading] = useState(false);
+  const [youtubeError, setYoutubeError] = useState<string | null>(null);
 
   // UI Filters
   const [mediaFilter, setMediaFilter] = useState<'all' | 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM'>('all');
@@ -320,9 +324,11 @@ export default function RedesSocialesPage() {
   const igUsername = (profile as any)?.ig_username;
   const fbPageId = (profile as any)?.fb_page_id;
   const metaAccountId = (profile as any)?.meta_account_id;
+  const tiktokConnected = !!((profile as any)?.tiktok_content_access_token || (profile as any)?.tiktok_advertiser_id);
+  const youtubeConnected = !!((profile as any)?.youtube_access_token || (profile as any)?.youtube_channel_id);
 
   // Unified loading states to prevent flashing empty/unconnected pages
-  const loading = authLoading || (profile === undefined) || igLoading || fbLoading;
+  const loading = authLoading || (profile === undefined) || igLoading || fbLoading || youtubeLoading;
 
   const isFromPage = useCallback((entry: any) => {
     if (!entry) return false;
@@ -1155,6 +1161,26 @@ export default function RedesSocialesPage() {
     return () => { active = false; };
   }, [clientId, fbPageId, activeTab, refreshKey, fbProfile]);
 
+  useEffect(() => {
+    if (!clientId || activeTab !== 'youtube' || !youtubeConnected) return;
+    let active = true;
+    setYoutubeLoading(true);
+    setYoutubeError(null);
+    Promise.all([
+      fetch(`/api/oauth?action=youtube-profile&clientId=${encodeURIComponent(clientId)}`).then(r => r.json()),
+      fetch(`/api/oauth?action=youtube-posts&clientId=${encodeURIComponent(clientId)}`).then(r => r.json())
+    ]).then(([profileJson, postsJson]) => {
+      if (!active) return;
+      if (profileJson.error) throw new Error(profileJson.error);
+      if (postsJson.error) throw new Error(postsJson.error);
+      setYoutubeProfile(profileJson.items?.[0] || null);
+      setYoutubeMedia(postsJson.items || []);
+    }).catch(err => {
+      if (active) setYoutubeError(err.message || 'No se pudo obtener YouTube.');
+    }).finally(() => { if (active) setYoutubeLoading(false); });
+    return () => { active = false; };
+  }, [clientId, activeTab, youtubeConnected, refreshKey]);
+
   // Filters for Instagram Feed
   const filteredMedia = useMemo(() => {
     if (mediaFilter === 'all') return igMedia;
@@ -1301,30 +1327,29 @@ export default function RedesSocialesPage() {
         <div className="flex items-center gap-2 flex-wrap justify-start md:justify-end">
           {/* Tab Selector Buttons */}
           <div className="flex items-center gap-1 bg-zinc-100/80 dark:bg-zinc-800/60 p-1 rounded-2xl border border-zinc-200/20 dark:border-zinc-700/60">
-            <button
-              onClick={() => setActiveTab('instagram')}
-              className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[10.5px] sm:text-[12px] font-black transition-all ${
-                activeTab === 'instagram'
-                  ? 'bg-pink-500 text-white shadow-md shadow-pink-500/20'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40'
-              }`}
-            >
-              <Instagram className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Instagram</span>
-              <span className="xs:hidden">IG</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('facebook')}
-              className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[10.5px] sm:text-[12px] font-black transition-all ${
-                activeTab === 'facebook'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40'
-              }`}
-            >
-              <span className="w-3.5 h-3.5 font-black flex items-center justify-center text-[15px] leading-none">f</span>
-              <span className="hidden xs:inline">Facebook</span>
-              <span className="xs:hidden">FB</span>
-            </button>
+            {[
+              { id: 'instagram', label: 'Instagram', short: 'IG', icon: Instagram, active: 'bg-pink-500 text-white shadow-md shadow-pink-500/20' },
+              { id: 'facebook', label: 'Facebook', short: 'FB', icon: null, active: 'bg-blue-600 text-white shadow-md shadow-blue-600/20' },
+              { id: 'tiktok', label: 'TikTok', short: 'TT', icon: Music2, active: 'bg-zinc-950 text-white shadow-md shadow-zinc-900/20' },
+              { id: 'youtube', label: 'YouTube', short: 'YT', icon: Youtube, active: 'bg-red-600 text-white shadow-md shadow-red-600/20' }
+            ].map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[10.5px] sm:text-[12px] font-black transition-all ${
+                    activeTab === tab.id
+                      ? tab.active
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/40'
+                  }`}
+                >
+                  {Icon ? <Icon className="w-3.5 h-3.5" /> : <span className="w-3.5 h-3.5 font-black flex items-center justify-center text-[15px] leading-none">f</span>}
+                  <span className="hidden xs:inline">{tab.label}</span>
+                  <span className="xs:hidden">{tab.short}</span>
+                </button>
+              );
+            })}
           </div>
 
 
@@ -1340,9 +1365,9 @@ export default function RedesSocialesPage() {
             <p className="text-[13px] text-red-600 dark:text-red-500 mt-1">{error}</p>
           </div>
         </div>
-      ) : (authLoading || (!clientId && !igId && !fbPageId)) ? (
+      ) : (authLoading || (!clientId && !igId && !fbPageId && !tiktokConnected && !youtubeConnected)) ? (
         <AppleLoader variant="page" />
-      ) : !igId && !fbPageId ? (
+      ) : !igId && !fbPageId && !tiktokConnected && !youtubeConnected ? (
         <div className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/60 p-8 rounded-3xl text-center max-w-lg mx-auto space-y-4 shadow-sm">
           <Instagram className="w-12 h-12 text-zinc-400 mx-auto" />
           <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">Perfiles no configurados</h3>
@@ -1873,6 +1898,156 @@ export default function RedesSocialesPage() {
                 </div>
               )}
 
+            </div>
+          )}
+
+          {/* TAB 3: TIKTOK */}
+          {activeTab === 'tiktok' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {!tiktokConnected ? (
+                <div className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/60 p-8 rounded-3xl text-center max-w-lg mx-auto space-y-4 shadow-sm">
+                  <Music2 className="w-12 h-12 text-zinc-400 mx-auto" />
+                  <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">TikTok no configurado</h3>
+                  <p className="text-[13.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+                    Conectá TikTok desde Integraciones para publicar videos y centralizar esta red en el panel.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-6 shadow-sm">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      {(profile as any)?.tiktok_content_avatar_url ? (
+                        <SmoothImage
+                          src={(profile as any).tiktok_content_avatar_url}
+                          alt={(profile as any)?.tiktok_content_display_name || 'TikTok'}
+                          containerClassName="w-16 h-16 rounded-full"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-zinc-950 flex items-center justify-center text-white">
+                          <Music2 className="w-7 h-7" />
+                        </div>
+                      )}
+                      <div>
+                        <h2 className="text-[18px] font-black text-zinc-900 dark:text-white">
+                          {(profile as any)?.tiktok_content_display_name || (profile as any)?.connection_statuses?.tiktok_content_display_name || 'TikTok conectado'}
+                        </h2>
+                        <p className="text-[12.5px] text-zinc-400 font-bold mt-0.5">Cuenta lista para usar en el Publicador</p>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 text-white px-3 py-1.5 text-[11px] font-black">
+                      <Music2 className="w-3.5 h-3.5" />
+                      TikTok
+                    </span>
+                  </div>
+                  <div className="mt-6 rounded-2xl bg-zinc-50 dark:bg-zinc-950/35 border border-zinc-100 dark:border-white/10 p-5">
+                    <p className="text-[13px] font-bold leading-relaxed text-zinc-600 dark:text-zinc-350">
+                      TikTok Content Posting permite enviar videos desde el Publicador. La API orgánica no siempre devuelve el historial completo de publicaciones para todas las apps; cuando TikTok habilite ese permiso en la app, este tab ya queda listo para mostrarlo.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: YOUTUBE */}
+          {activeTab === 'youtube' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {!youtubeConnected ? (
+                <div className="bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/60 p-8 rounded-3xl text-center max-w-lg mx-auto space-y-4 shadow-sm">
+                  <Youtube className="w-12 h-12 text-zinc-400 mx-auto" />
+                  <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">YouTube no configurado</h3>
+                  <p className="text-[13.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
+                    Conectá YouTube desde Integraciones para ver videos del canal y subir Shorts desde el Publicador.
+                  </p>
+                </div>
+              ) : youtubeError ? (
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 p-5 rounded-2xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold text-red-800 dark:text-red-400 text-[14.5px]">Error al obtener YouTube</h3>
+                    <p className="text-[13px] text-red-600 dark:text-red-500 mt-1">{youtubeError}</p>
+                  </div>
+                </div>
+              ) : youtubeLoading ? (
+                <AppleLoader variant="page" />
+              ) : (
+                <div className="space-y-6">
+                  {youtubeProfile && (
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-5">
+                      <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
+                        {youtubeProfile.snippet?.thumbnails?.default?.url ? (
+                          <SmoothImage
+                            src={youtubeProfile.snippet.thumbnails.default.url}
+                            alt={youtubeProfile.snippet?.title || 'YouTube'}
+                            containerClassName="w-16 h-16 rounded-full ring-2 ring-red-500/30"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-white">
+                            <Youtube className="w-7 h-7" />
+                          </div>
+                        )}
+                        <div>
+                          <h2 className="text-[18px] font-black text-zinc-900 dark:text-white">{youtubeProfile.snippet?.title || 'YouTube'}</h2>
+                          <p className="text-[12.5px] text-zinc-400 font-bold mt-0.5">Canal conectado</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 sm:gap-4 flex-nowrap justify-center font-semibold">
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(youtubeProfile.statistics?.subscriberCount)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Suscriptores</p>
+                        </div>
+                        <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl text-center">
+                          <p className="text-[14px] sm:text-[18px] font-black text-zinc-800 dark:text-white leading-none">{fmtNumber(youtubeProfile.statistics?.videoCount)}</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold mt-1 sm:mt-1.5 uppercase">Videos</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {youtubeMedia.length === 0 ? (
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl p-12 text-center">
+                      <Youtube className="w-10 h-10 text-zinc-300 dark:text-zinc-700 mx-auto mb-3" />
+                      <p className="text-[13.5px] font-bold text-zinc-500">No se encontraron videos</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {youtubeMedia.map((item: any) => {
+                        const thumb = item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url;
+                        const videoId = item.id?.videoId || item.id;
+                        const published = item.snippet?.publishedAt
+                          ? new Date(item.snippet.publishedAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : '';
+                        return (
+                          <a
+                            key={videoId}
+                            href={videoId ? `https://www.youtube.com/watch?v=${videoId}` : '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="group bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/60 rounded-3xl overflow-hidden shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300"
+                          >
+                            <div className="aspect-video w-full bg-zinc-100 dark:bg-zinc-950 relative overflow-hidden">
+                              {thumb ? (
+                                <SmoothImage src={thumb} alt="" containerClassName="w-full h-full" className="object-cover group-hover:scale-[1.03] transition-transform duration-500" />
+                              ) : (
+                                <Youtube className="w-10 h-10 text-zinc-300 m-auto" />
+                              )}
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                                <Play className="w-10 h-10 text-white fill-white" />
+                              </div>
+                            </div>
+                            <div className="p-4">
+                              <p className="text-[11px] font-bold text-zinc-400 mb-1">{published}</p>
+                              <h3 className="text-[13px] font-black text-zinc-850 dark:text-white leading-snug line-clamp-2">{item.snippet?.title}</h3>
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
