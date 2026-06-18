@@ -2534,14 +2534,13 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
 
   const body = parseRequestBody(req.body);
-  const clientId = String(body.clientId || '');
+  let clientId = String(body.clientId || '');
   const caption = String(body.caption || '').trim();
   const videoUrl = String(body.videoUrl || '').trim();
   const videoPath = body.videoPath ? String(body.videoPath) : null;
   const channels = Array.isArray(body.channels) ? body.channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)) as SocialChannel[] : [];
   const scheduledAt = body.scheduledAt ? String(body.scheduledAt) : '';
 
-  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
   if (!caption) return res.status(400).json({ error: 'caption requerido' });
   if (!videoUrl || !/^https:\/\//i.test(videoUrl)) return res.status(400).json({ error: 'videoUrl público HTTPS requerido' });
   if (channels.length === 0) return res.status(400).json({ error: 'Seleccioná al menos un canal' });
