@@ -151,6 +151,11 @@ export const MainLayout = () => {
   const { profile, signOut, user, loading, refreshProfile } = useAuth();
   const { isViewingAs, viewAsProfile } = useViewAs();
   const activeProfile = isViewingAs ? viewAsProfile : profile;
+  const hasEcommerce = !!(
+    ((activeProfile as any)?.ecommerce_platform === 'shopify' && (activeProfile as any)?.shopify_domain && (activeProfile as any)?.shopify_access_token) ||
+    ((activeProfile as any)?.ecommerce_platform === 'wordpress' && (activeProfile as any)?.wordpress_url && (activeProfile as any)?.woo_consumer_key && (activeProfile as any)?.woo_consumer_secret) ||
+    ((activeProfile as any)?.ecommerce_platform === 'tiendanube' && (activeProfile as any)?.tiendanube_store_id && (activeProfile as any)?.tiendanube_access_token)
+  );
   const { unreadCount, chatwootAvailable } = useUnread();
   const location = useLocation();
   const navigate = useNavigate();
@@ -376,7 +381,7 @@ export const MainLayout = () => {
               <Route path="/informes" element={<InformesPage />} />
               <Route 
                 path="/costos" 
-                element={profile?.is_admin && !isViewingAs ? <CostosPage /> : <Navigate to="/dashboard" replace />} 
+                element={hasEcommerce || profile?.is_admin ? <CostosPage /> : <Navigate to="/dashboard" replace />} 
               />
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/cliente/:email" element={<ClientePage />} />

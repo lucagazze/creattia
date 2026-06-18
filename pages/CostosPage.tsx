@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { useToast } from '../components/Toast';
 import { supabase } from '../services/supabase';
+import { ecommerce } from '../services/ecommerce';
 import { 
   ShoppingBag, Percent, CreditCard, Truck, FileText, Calendar, Plus, 
   Search, Trash2, Edit3, Save, AlertCircle, X, ChevronLeft, ChevronRight, 
@@ -34,100 +35,19 @@ interface AdditionalCostItem {
   platform: string;
 }
 
-const MOCK_CATALOG: CatalogProduct[] = [
-  {
-    id: 'prod_1',
-    title: 'Remera Algodón Premium',
-    variants: [
-      { id: 'var_1_1', title: 'Talle S / Negro', price: 15000 },
-      { id: 'var_1_2', title: 'Talle M / Negro', price: 15000 },
-      { id: 'var_1_3', title: 'Talle L / Blanco', price: 15500 }
-    ]
-  },
-  {
-    id: 'prod_2',
-    title: 'Pantalón Cargo Black',
-    variants: [
-      { id: 'var_2_1', title: 'Talle 38', price: 32000 },
-      { id: 'var_2_2', title: 'Talle 40', price: 32000 },
-      { id: 'var_2_3', title: 'Talle 42', price: 34000 }
-    ]
-  },
-  {
-    id: 'prod_3',
-    title: 'Zapatillas Urban Run',
-    variants: [
-      { id: 'var_3_1', title: 'Talle 40', price: 58000 },
-      { id: 'var_3_2', title: 'Talle 41', price: 58000 },
-      { id: 'var_3_3', title: 'Talle 42', price: 58000 }
-    ]
-  },
-  {
-    id: 'prod_4',
-    title: 'Buzo Oversize Grey',
-    variants: [
-      { id: 'var_4_1', title: 'Talle Único', price: 28000 }
-    ]
-  },
-  {
-    id: 'prod_5',
-    title: 'Campera Bomber Leather',
-    variants: [
-      { id: 'var_5_1', title: 'Talle M', price: 75000 },
-      { id: 'var_5_2', title: 'Talle L', price: 75000 }
-    ]
-  },
-  {
-    id: 'prod_6',
-    title: 'Gorra Streetwear Cap',
-    variants: [
-      { id: 'var_6_1', title: 'Negro', price: 12000 },
-      { id: 'var_6_2', title: 'Beige', price: 12000 }
-    ]
-  },
-  {
-    id: 'prod_7',
-    title: 'Medias Element Pack x3',
-    variants: [
-      { id: 'var_7_1', title: 'Pack x3', price: 8000 }
-    ]
-  },
-  {
-    id: 'prod_8',
-    title: 'Bermuda Jean Denim',
-    variants: [
-      { id: 'var_8_1', title: 'Talle 40', price: 22000 },
-      { id: 'var_8_2', title: 'Talle 42', price: 22000 }
-    ]
-  }
-];
-
-const DEFAULT_VARIANT_COSTS: Record<string, { cost: number; packagingCost: number }> = {
-  'var_1_1': { cost: 4500, packagingCost: 350 },
-  'var_1_2': { cost: 4500, packagingCost: 350 },
-  'var_1_3': { cost: 4650, packagingCost: 350 },
-  'var_2_1': { cost: 9600, packagingCost: 350 },
-  'var_2_2': { cost: 9600, packagingCost: 350 },
-  'var_2_3': { cost: 10200, packagingCost: 350 },
-  'var_3_1': { cost: 17400, packagingCost: 350 },
-  'var_3_2': { cost: 17400, packagingCost: 350 },
-  'var_3_3': { cost: 17400, packagingCost: 350 },
-  'var_4_1': { cost: 8400, packagingCost: 350 },
-  'var_5_1': { cost: 22500, packagingCost: 500 },
-  'var_5_2': { cost: 22500, packagingCost: 500 },
-  'var_6_1': { cost: 3600, packagingCost: 200 },
-  'var_6_2': { cost: 3600, packagingCost: 200 },
-  'var_7_1': { cost: 2400, packagingCost: 150 },
-  'var_8_1': { cost: 6600, packagingCost: 300 },
-  'var_8_2': { cost: 6600, packagingCost: 300 }
-};
-
 export default function CostosPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const profileId = profile?.id || 'default';
   const { showToast } = useToast();
+  const detectedPlatform = useMemo(() => {
+    const p: any = profile;
+    if (p?.ecommerce_platform === 'shopify' && p.shopify_domain && p.shopify_access_token) return 'shopify';
+    if (p?.ecommerce_platform === 'wordpress' && p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) return 'wordpress';
+    if (p?.ecommerce_platform === 'tiendanube' && p.tiendanube_store_id && p.tiendanube_access_token) return 'tiendanube';
+    return null;
+  }, [profile]);
 
   // Accordion Open/Close states
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({
@@ -183,68 +103,78 @@ export default function CostosPage() {
     otros: AdditionalCostItem[];
     campanas: AdditionalCostItem[];
   }>({
-    equipo: [
-      { id: 'eq_1', name: 'aa', startDate: '2025-09-10', endDate: '2025-09-25', cost: 213, dailyCost: 13.3, currency: 'LOCAL', adSpend: false, platform: 'Meta' }
-    ],
-    otros: [
-      { id: 'ot_1', name: 'Revenue', startDate: '2025-10-14', endDate: '2025-10-14', cost: 1000, dailyCost: 1000.0, currency: 'USD', adSpend: false, platform: '-' }
-    ],
-    campanas: [
-      { id: 'ca_1', name: 'adspend', startDate: '2025-11-04', endDate: '2025-11-04', cost: 1000, dailyCost: 1000.0, currency: 'USD', adSpend: true, platform: '-' }
-    ]
+    equipo: [],
+    otros: [],
+    campanas: []
   });
 
-  // Shopify/Tiendanube Product Catalog Fetching
+  const mapShopifyProducts = (products: any[]): CatalogProduct[] => products.map((p: any) => ({
+    id: String(p.id),
+    title: p.title || p.name || 'Producto',
+    variants: (p.variants && p.variants.length > 0 ? p.variants : [p]).map((v: any) => ({
+      id: String(v.id || p.id),
+      title: v.title && v.title !== 'Default Title' ? v.title : 'Único',
+      price: parseFloat(v.price || p.price || 0) || 0
+    }))
+  }));
+
+  const mapWooProducts = (products: any[]): CatalogProduct[] => products.map((p: any) => {
+    const variations = Array.isArray(p.variations) && p.variations.length > 0
+      ? p.variations.map((id: any, idx: number) => ({
+          id: String(id),
+          title: `Variante ${idx + 1}`,
+          price: parseFloat(p.price || p.regular_price || 0) || 0
+        }))
+      : [{
+          id: String(p.id),
+          title: 'Único',
+          price: parseFloat(p.price || p.regular_price || 0) || 0
+        }];
+    return { id: String(p.id), title: p.name || p.title || 'Producto', variants: variations };
+  });
+
+  const mapTiendaNubeProducts = (products: any[]): CatalogProduct[] => products.map((p: any) => {
+    const title = typeof p.name === 'string' ? p.name : (p.name?.es || p.name?.pt || p.name?.en || 'Producto');
+    const variants = Array.isArray(p.variants) && p.variants.length > 0 ? p.variants : [p];
+    return {
+      id: String(p.id),
+      title,
+      variants: variants.map((v: any) => ({
+        id: String(v.id || p.id),
+        title: [v.values?.[0]?.es || v.values?.[0]?.pt || v.values?.[0]?.en, v.values?.[1]?.es || v.values?.[1]?.pt || v.values?.[1]?.en].filter(Boolean).join(' / ') || 'Único',
+        price: parseFloat(v.price || p.price || 0) || 0
+      }))
+    };
+  });
+
+  // Connected store product catalog fetching
   const loadProductCatalog = useCallback(async () => {
-    const isShopify = profile?.ecommerce_platform === 'shopify' && profile?.shopify_domain && profile?.shopify_access_token;
-    if (!isShopify) {
-      setCatalogProducts(MOCK_CATALOG);
+    if (!profile || !detectedPlatform) {
+      setCatalogProducts([]);
       return;
     }
 
     setLoadingProducts(true);
     try {
-      const shopifyDomain = profile?.shopify_domain || '';
-      const cleanDomain = shopifyDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const url = `/api/shopify/products.json?limit=100`;
-      const response = await fetch(url, {
-        headers: {
-          'x-shopify-domain': cleanDomain,
-          'x-shopify-access-token': profile?.shopify_access_token || ''
-        } as Record<string, string>
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const apiProds = data?.products || [];
-        const mapped: CatalogProduct[] = apiProds.map((p: any) => {
-          const variants = p.variants && p.variants.length > 0
-            ? p.variants.map((v: any) => ({
-                id: String(v.id),
-                title: v.title,
-                price: parseFloat(v.price) || 0
-              }))
-            : [{
-                id: String(p.id),
-                title: 'Único',
-                price: parseFloat(p.price) || 0
-              }];
-          return {
-            id: String(p.id),
-            title: p.title,
-            variants
-          };
-        });
-        setCatalogProducts(mapped);
-      } else {
-        setCatalogProducts(MOCK_CATALOG);
+      const p: any = profile;
+      if (detectedPlatform === 'shopify') {
+        const products = await ecommerce.getProducts(p.shopify_domain, p.shopify_access_token);
+        setCatalogProducts(mapShopifyProducts(products));
+      } else if (detectedPlatform === 'wordpress') {
+        const products = await ecommerce.getWooCommerceProducts(p.wordpress_url, p.woo_consumer_key, p.woo_consumer_secret);
+        setCatalogProducts(mapWooProducts(products));
+      } else if (detectedPlatform === 'tiendanube') {
+        const products = await ecommerce.getTiendaNubeProducts(p.tiendanube_store_id, p.tiendanube_access_token);
+        setCatalogProducts(mapTiendaNubeProducts(products));
       }
     } catch (err) {
-      console.error('Error fetching shopify products:', err);
-      setCatalogProducts(MOCK_CATALOG);
+      console.error('Error fetching products:', err);
+      setCatalogProducts([]);
+      showToast('No se pudo cargar el catálogo de productos conectado.', 'error');
     } finally {
       setLoadingProducts(false);
     }
-  }, [profile?.shopify_domain, profile?.shopify_access_token, profile?.ecommerce_platform]);
+  }, [profile, detectedPlatform]);
 
   // Load from localStorage and Supabase
   useEffect(() => {
@@ -277,7 +207,7 @@ export default function CostosPage() {
           });
           setVariantCosts(varCostsMap);
         } else {
-          setVariantCosts(DEFAULT_VARIANT_COSTS);
+          setVariantCosts({});
         }
 
         // Fetch additional costs
@@ -336,7 +266,7 @@ export default function CostosPage() {
       } catch (err) {
         console.error('Error fetching costs from Supabase:', err);
         showToast('Error al cargar costos de la base de datos.', 'error');
-        setVariantCosts(DEFAULT_VARIANT_COSTS);
+        setVariantCosts({});
       } finally {
         setLoadingProducts(false);
       }
@@ -786,6 +716,16 @@ export default function CostosPage() {
         )}
       </div>
 
+      {!detectedPlatform ? (
+        <div className="rounded-[16px] border border-dashed border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111113] p-10 text-center">
+          <ShoppingBag className="w-10 h-10 mx-auto mb-4 text-zinc-350 dark:text-zinc-600" />
+          <h2 className="text-[16px] font-black text-zinc-900 dark:text-white mb-2">Conectá una tienda para cargar costos</h2>
+          <p className="text-[13px] text-zinc-500 dark:text-zinc-400 max-w-md mx-auto">
+            Cuando tengas Shopify, WooCommerce o Tiendanube conectado, acá van a aparecer tus productos para asignar costo unitario, embalaje, envíos y costos adicionales.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* Accordions Stack */}
       <div className="space-y-4">
         
@@ -1831,6 +1771,8 @@ export default function CostosPage() {
         </div>
 
       </div>
+      </>
+      )}
 
       {/* Modal Dialog for Adding/Editing Additional Cost Items */}
       {showAddModal && (

@@ -117,6 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
   const metricasItems = [
     { path: '/tienda',       icon: ShoppingBag,   label: 'Tienda Online', configured: hasEcommerce },
+    { path: '/costos',       icon: Coins,         label: 'Costos',        configured: hasEcommerce },
     { path: '/mercadolibre', icon: ShoppingBag,   label: 'Mercado Libre', configured: hasMercadoLibre },
     { path: '/captacion',    icon: BarChart2,     label: 'Meta Ads',     configured: hasMeta },
     { path: '/atencion',     icon: MessageCircle, label: 'Atención',      configured: hasChatwoot },
@@ -143,7 +144,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/admin/actividad',        icon: Activity,  label: 'Monitoreo Actividad' },
     { path: '/admin/emails',           icon: Library,   label: 'Email Library' },
     { path: '/admin/email-monitor',    icon: Workflow,  label: 'Email Monitor' },
-    { path: '/costos',                 icon: Coins,     label: 'Costos' },
   ];
 
   const isActivePath = (itemPath: string) => {

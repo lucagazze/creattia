@@ -52,7 +52,8 @@ import {
   Send,
   Clock,
   Loader2,
-  User
+  User,
+  Coins
 } from "lucide-react";
 import {
   AreaChart,
@@ -1007,6 +1008,7 @@ export default function DashboardPage() {
   const [atencPrevSeriesAll, setAtencPrevSeriesAll] = useState<Record<string, any[]>>({});
   const [currentStore, setCurrentStore] = useState<any>(null);
   const [prevStore, setPrevStore] = useState<any>(null);
+  const [costSummary, setCostSummary] = useState({ current: 0, previous: 0 });
   const [productImages, setProductImages] = useState<Record<string, string>>({});
   const [fetchingStore, setFetchingStore] = useState(true);
   const [shopifyError, setShopifyError] = useState<string | null>(null);
@@ -1136,6 +1138,7 @@ export default function DashboardPage() {
   useEffect(() => {
     setCurrentStore(null);
     setPrevStore(null);
+    setCostSummary({ current: 0, previous: 0 });
     setProductImages({});
     setCurrentMeta(null);
     setPrevMeta(null);
@@ -1503,6 +1506,53 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let mounted = true;
+    const calcCostForRange = (items: any[], since: string, until: string) => {
+      const start = new Date(`${since}T00:00:00-03:00`);
+      const end = new Date(`${until}T23:59:59-03:00`);
+      return items.reduce((sum, item) => {
+        const itemStart = new Date(`${item.start_date}T00:00:00-03:00`);
+        const itemEnd = new Date(`${item.end_date}T23:59:59-03:00`);
+        const overlapStart = new Date(Math.max(start.getTime(), itemStart.getTime()));
+        const overlapEnd = new Date(Math.min(end.getTime(), itemEnd.getTime()));
+        if (overlapEnd < overlapStart) return sum;
+        const overlapDays = Math.max(1, Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / 86400000) + 1);
+        const totalDays = Math.max(1, Math.floor((itemEnd.getTime() - itemStart.getTime()) / 86400000) + 1);
+        const daily = Number(item.daily_cost || 0) || (Number(item.cost || 0) / totalDays);
+        return sum + daily * overlapDays;
+      }, 0);
+    };
+
+    const loadCostSummary = async () => {
+      if (!profile?.id) {
+        setCostSummary({ current: 0, previous: 0 });
+        return;
+      }
+      const range = activePreset === "custom" ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
+      const prevRange = getPrevPeriod(range.since, range.until);
+      const { data, error } = await supabase
+        .from('car_additional_costs')
+        .select('start_date,end_date,cost,daily_cost')
+        .eq('client_id', profile.id);
+      if (error) {
+        console.error('Dashboard cost summary error:', error);
+        if (mounted) setCostSummary({ current: 0, previous: 0 });
+        return;
+      }
+      if (mounted) {
+        const items = data || [];
+        setCostSummary({
+          current: calcCostForRange(items, range.since, range.until),
+          previous: calcCostForRange(items, prevRange.since, prevRange.until)
+        });
+      }
+    };
+
+    loadCostSummary();
+    return () => { mounted = false; };
+  }, [profile?.id, activePreset, activeSince, activeUntil, refreshKey]);
+
+  useEffect(() => {
+    let mounted = true;
     const fetch90d = async () => {
       const prof: any = profile;
       if (detectedPlatform === 'wordpress') {
@@ -1721,6 +1771,14 @@ export default function DashboardPage() {
       val: spend > 0 ? d.revenue / spend : 0
     };
   }) : [];
+
+  const currentSpend = currentMeta?.spend || 0;
+  const prevSpend = prevMeta?.spend || 0;
+  const currentNetRevenue = Math.max(0, (currentStore?.revenue || 0) - costSummary.current - currentSpend);
+  const prevNetRevenue = Math.max(0, (prevStore?.revenue || 0) - costSummary.previous - prevSpend);
+  const realRoas = currentSpend > 0 ? currentNetRevenue / currentSpend : 0;
+  const prevRealRoas = prevSpend > 0 ? prevNetRevenue / prevSpend : 0;
+  const showProfitMetrics = !!currentStore && (costSummary.current > 0 || currentSpend > 0);
 
   const prevMerDaily = (prevStore && prevStore.daily) ? prevStore.daily.map((d: any, idx: number) => {
     const metaDay = prevMetaDaily?.[idx];
@@ -2059,7 +2117,7 @@ export default function DashboardPage() {
               key={`store-${activeSince}-${activeUntil}`}
               loading={fetchingStore}
               color={PINK}
-              labels={showMER ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'M.E.R. (Eficiencia)'] : ['Ticket Promedio', 'Pedidos', 'Ingresos']}
+              labels={showProfitMetrics ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'Facturación neta', 'ROAS real'] : (showMER ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'M.E.R. (Eficiencia)'] : ['Ticket Promedio', 'Pedidos', 'Ingresos'])}
               duration={500}
             >
               {currentStore ? (
@@ -2143,6 +2201,36 @@ export default function DashboardPage() {
                     }
                     info="Ingresos representa la facturación bruta total de la tienda online (ventas totales) antes de descontar costos de pauta, envíos o devoluciones."
                   />
+                  {showProfitMetrics && (
+                    <>
+                      <ShopifyMetric
+                        icon={Coins}
+                        label="Facturación neta"
+                        value={`$ ${currentNetRevenue.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`}
+                        change={getKlaviyoChange(currentNetRevenue, prevNetRevenue)}
+                        trend={currentNetRevenue >= prevNetRevenue ? "up" : "down"}
+                        data={currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))}
+                        color={PINK}
+                        loading={fetchingStore || fetchingMeta}
+                        active={expandedMetric === "s-net-revenue"}
+                        onClick={() => setExpandedMetric(expandedMetric === "s-net-revenue" ? null : "s-net-revenue")}
+                        info="Facturación neta descuenta de la facturación bruta los costos adicionales cargados en Costos y la inversión publicitaria del período. Los costos unitarios por producto quedan guardados para análisis de margen."
+                      />
+                      <ShopifyMetric
+                        icon={Zap}
+                        label="ROAS real"
+                        value={currentSpend > 0 ? `${realRoas.toFixed(2)}x` : "—"}
+                        change={prevRealRoas > 0 ? getKlaviyoChange(realRoas, prevRealRoas) : undefined}
+                        trend={realRoas >= prevRealRoas ? "up" : "down"}
+                        data={currentStore?.daily?.map((d: any) => ({ val: currentSpend > 0 ? d.revenue / currentSpend : 0, date: d.date }))}
+                        color={PINK}
+                        loading={fetchingStore || fetchingMeta}
+                        active={expandedMetric === "s-real-roas"}
+                        onClick={() => setExpandedMetric(expandedMetric === "s-real-roas" ? null : "s-real-roas")}
+                        info="ROAS real usa la facturación neta estimada dividida por la inversión publicitaria. Incluye costos adicionales cargados y pauta del período."
+                      />
+                    </>
+                  )}
                   {showMER && (
                     <ShopifyMetric
                       icon={Zap}
@@ -2168,6 +2256,10 @@ export default function DashboardPage() {
                     label={
                       expandedMetric === "mer-efficiency"
                         ? "M.E.R. (Eficiencia)"
+                        : expandedMetric === "s-net-revenue"
+                          ? "Facturación neta"
+                          : expandedMetric === "s-real-roas"
+                            ? "ROAS real"
                         : expandedMetric === "s-revenue"
                           ? "Ingresos"
                           : expandedMetric === "s-orders"
@@ -2182,6 +2274,10 @@ export default function DashboardPage() {
                     data={
                       expandedMetric === "mer-efficiency"
                         ? merDaily
+                        : expandedMetric === "s-net-revenue"
+                          ? currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))
+                        : expandedMetric === "s-real-roas"
+                          ? currentStore?.daily?.map((d: any) => ({ val: currentSpend > 0 ? d.revenue / currentSpend : 0, date: d.date }))
                         : expandedMetric === "s-revenue"
                           ? currentStore?.daily?.map((d: any) => ({
                               val: d.revenue,
@@ -2210,6 +2306,10 @@ export default function DashboardPage() {
                     prevData={
                       expandedMetric === "mer-efficiency"
                         ? prevMerDaily
+                        : expandedMetric === "s-net-revenue"
+                          ? prevStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))
+                        : expandedMetric === "s-real-roas"
+                          ? prevStore?.daily?.map((d: any) => ({ val: prevSpend > 0 ? d.revenue / prevSpend : 0, date: d.date }))
                         : expandedMetric === "s-revenue"
                           ? prevStore?.daily?.map((d: any) => ({
                               val: d.revenue,
