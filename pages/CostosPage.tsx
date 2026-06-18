@@ -7,7 +7,7 @@ import { ecommerce } from '../services/ecommerce';
 import { 
   ShoppingBag, Percent, CreditCard, Truck, FileText, Calendar, Plus, 
   Search, Trash2, Edit3, Save, AlertCircle, X, ChevronLeft, ChevronRight, 
-  Info, Coins, Sparkles, Loader2, Landmark, Check, HelpCircle
+  Info, Coins, Sparkles, Loader2, Landmark, Check, HelpCircle, Package
 } from 'lucide-react';
 import { AppleLoader } from '../components/ui/AppleLoader';
 
