@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
-import { db } from '../services/db';
 import { useToast } from '../components/Toast';
 import { supabase } from '../services/supabase';
 import {
@@ -135,13 +134,25 @@ export default function CerebroPage() {
     if (!profile) return;
     setSaving(true);
     try {
-      await db.clients.updateField(profile.id, {
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token || session?.access_token || '';
+      if (!token) throw new Error('La sesión expiró. Volvé a iniciar sesión.');
+      const res = await fetch('/api/oauth?action=brain-save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          clientId: profile.id,
         business_description: businessDescription,
         custom_instructions: JSON.stringify({ tone: toneInstructions, offers, faq }),
-        website_url: websiteUrl,
-        brain_updated_at: new Date().toISOString(),
+          website_url: websiteUrl
+        })
       });
-      setBrainUpdatedAt(new Date().toISOString());
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar el Cerebro.');
+      setBrainUpdatedAt(data.brain_updated_at || new Date().toISOString());
       setSavedOk(true);
       setTimeout(() => setSavedOk(false), 3000);
       showToast('Cerebro actualizado correctamente.', 'success');

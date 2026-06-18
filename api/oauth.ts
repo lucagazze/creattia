@@ -2487,6 +2487,43 @@ async function handleCosts(req: VercelRequest, res: VercelResponse) {
   return res.status(400).json({ error: 'costs action invalid' });
 }
 
+async function handleBrainSave(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
+
+  const authHeader = req.headers.authorization || '';
+  const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
+
+  const body = parseRequestBody(req.body);
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  let clientId = String(body.clientId || '');
+  try {
+    const access = await resolveClientAccess(supabase, accessToken, clientId);
+    clientId = access.clientId;
+  } catch (err: any) {
+    return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+  }
+
+  const customInstructions = body.custom_instructions;
+  const fields = {
+    business_description: String(body.business_description || ''),
+    custom_instructions: typeof customInstructions === 'string' ? customInstructions : JSON.stringify(customInstructions || {}),
+    website_url: String(body.website_url || ''),
+    brain_updated_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase
+    .from('car_clients')
+    .update(fields)
+    .eq('id', clientId)
+    .select('brain_updated_at')
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ ok: true, brain_updated_at: data?.brain_updated_at || fields.brain_updated_at });
+}
+
 async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
   if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
@@ -2615,6 +2652,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'social-publish') return handleSocialPublish(req, res);
   if (action === 'whatsapp-test') return handleWhatsappTest(req, res);
   if (action.startsWith('costs-')) return handleCosts(req, res);
+  if (action === 'brain-save') return handleBrainSave(req, res);
 
   // Email preview (routed from /api/preview via vercel.json rewrite)
   if (action === 'preview' || req.query.email) return handlePreview(req, res);
