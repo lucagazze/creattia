@@ -25,6 +25,10 @@
       "destination": "/api/oauth?action=tiktok-callback"
     },
     {
+      "source": "/api/tiktok-content-callback",
+      "destination": "/api/oauth?action=tiktok-content-callback"
+    },
+    {
       "source": "/api/webhook/store-redact",
       "destination": "/api/oauth?action=tiendanube-webhook&topic=store-redact"
     },
@@ -68,4 +72,3 @@
     }
   ]
 }
-

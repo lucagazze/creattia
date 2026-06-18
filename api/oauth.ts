@@ -14,6 +14,8 @@ const TN_CLIENT_SECRET = process.env.TIENDANUBE_CLIENT_SECRET || '';
 
 const META_APP_ID = process.env.META_APP_ID || '';
 const META_APP_SECRET = process.env.META_APP_SECRET || '';
+const YOUTUBE_CLIENT_ID = process.env.YOUTUBE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
+const YOUTUBE_CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '';
 
 const getHost = (req: VercelRequest) => {
   const host = req.headers.host || '';
@@ -543,6 +545,182 @@ async function handleMetaPages(req: VercelRequest, res: VercelResponse) {
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
+}
+
+async function handleMetaSaveSelection(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Server not configured' });
+
+  const authHeader = req.headers.authorization || '';
+  const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
+
+  const body = parseRequestBody(req.body);
+  const clientId = String(body.clientId || '');
+  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    await assertClientAccess(supabase, accessToken, clientId);
+  } catch (err: any) {
+    return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+  }
+
+  const selectedAccountId = body.selectedAccountId ? String(body.selectedAccountId) : null;
+  const selectedAccountName = body.selectedAccountName ? String(body.selectedAccountName) : null;
+  const selectedPage = body.selectedPage || null;
+  const approveAds = body.approveAds !== false;
+  const approveMessaging = body.approveMessaging !== false;
+
+  if (approveAds && !selectedAccountId) return res.status(400).json({ error: 'Seleccioná una cuenta publicitaria.' });
+  if (approveMessaging && !selectedPage?.id) return res.status(400).json({ error: 'Seleccioná una página de Facebook.' });
+
+  const { data: current } = await supabase
+    .from('car_clients')
+    .select('connection_statuses')
+    .eq('id', clientId)
+    .maybeSingle();
+  const currentStatuses = current?.connection_statuses || {};
+  const ig = selectedPage?.instagram_business_account || null;
+  const updatedStatuses = {
+    ...currentStatuses,
+    meta: approveAds || approveMessaging ? 'ok' : null,
+    meta_account_name: approveAds ? selectedAccountName : null,
+    facebook: approveMessaging ? 'ok' : null,
+    instagram: approveMessaging && ig?.id ? 'ok' : null,
+    facebook_page_name: approveMessaging ? selectedPage?.name : null,
+    instagram_username: approveMessaging ? ig?.username || null : null
+  };
+
+  Object.keys(updatedStatuses).forEach(key => {
+    if ((updatedStatuses as any)[key] === null || typeof (updatedStatuses as any)[key] === 'undefined') {
+      delete (updatedStatuses as any)[key];
+    }
+  });
+
+  const { error } = await supabase.from('car_clients').update({
+    meta_account_id: approveAds ? selectedAccountId : null,
+    fb_page_id: approveMessaging ? String(selectedPage.id) : null,
+    fb_page_name: approveMessaging ? String(selectedPage.name || '') : null,
+    fb_page_access_token: approveMessaging ? String(selectedPage.access_token || '') : null,
+    ig_business_id: approveMessaging ? ig?.id || null : null,
+    ig_username: approveMessaging ? ig?.username || null : null,
+    connection_statuses: updatedStatuses
+  }).eq('id', clientId);
+
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ ok: true });
+}
+
+async function handleYoutube(req: VercelRequest, res: VercelResponse) {
+  const action = req.query.action as string;
+  const base = getHost(req);
+
+  if (action === 'youtube-authorize') {
+    const clientId = req.query.clientId as string;
+    if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+    if (!YOUTUBE_CLIENT_ID) return res.status(503).json({ error: 'YouTube OAuth no configurado (falta YOUTUBE_CLIENT_ID).' });
+    const redirectUri = `${base}/api/oauth?action=youtube-callback`;
+    const state = Buffer.from(JSON.stringify({ clientId, host: base })).toString('base64');
+    const authorizeUrl =
+      `https://accounts.google.com/o/oauth2/v2/auth` +
+      `?client_id=${encodeURIComponent(YOUTUBE_CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&access_type=offline` +
+      `&prompt=consent` +
+      `&include_granted_scopes=true` +
+      `&scope=${encodeURIComponent('https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly')}` +
+      `&state=${encodeURIComponent(state)}`;
+    return res.status(200).json({ authorizeUrl });
+  }
+
+  if (action === 'youtube-callback') {
+    const code = req.query.code as string;
+    const stateRaw = req.query.state as string;
+    let clientId = '';
+    let redirectBase = base;
+    try {
+      const state = JSON.parse(Buffer.from(stateRaw || '', 'base64').toString());
+      clientId = state.clientId;
+      redirectBase = state.host || base;
+    } catch {
+      return res.redirect(`${base}/#/integraciones?youtube=error&reason=invalid_state`);
+    }
+    if (!code || !clientId) return res.redirect(`${redirectBase}/#/integraciones?youtube=error&reason=missing_code`);
+    if (!YOUTUBE_CLIENT_ID || !YOUTUBE_CLIENT_SECRET || !SUPABASE_SERVICE_ROLE_KEY) {
+      return res.redirect(`${redirectBase}/#/integraciones?youtube=error&reason=not_configured`);
+    }
+
+    try {
+      const redirectUri = `${base}/api/oauth?action=youtube-callback`;
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: YOUTUBE_CLIENT_ID,
+          client_secret: YOUTUBE_CLIENT_SECRET,
+          code,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code'
+        }).toString()
+      });
+      const tokenJson = await tokenRes.json().catch(() => ({}));
+      if (!tokenRes.ok || !tokenJson.access_token) {
+        return res.redirect(`${redirectBase}/#/integraciones?youtube=error&reason=token_exchange`);
+      }
+
+      let channelTitle = '';
+      let channelId = '';
+      try {
+        const channelRes = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', {
+          headers: { Authorization: `Bearer ${tokenJson.access_token}` }
+        });
+        const channelJson = await channelRes.json().catch(() => ({}));
+        const channel = channelJson?.items?.[0];
+        channelTitle = channel?.snippet?.title || '';
+        channelId = channel?.id || '';
+      } catch {}
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: current } = await supabase.from('car_clients').select('connection_statuses').eq('id', clientId).maybeSingle();
+      await supabase.from('car_clients').update({
+        youtube_access_token: tokenJson.access_token,
+        youtube_refresh_token: tokenJson.refresh_token || null,
+        youtube_channel_id: channelId || null,
+        youtube_channel_title: channelTitle || null,
+        youtube_expiration: new Date(Date.now() + Number(tokenJson.expires_in || 3600) * 1000).toISOString(),
+        connection_statuses: {
+          ...(current?.connection_statuses || {}),
+          youtube: 'ok',
+          youtube_channel_title: channelTitle || undefined
+        }
+      }).eq('id', clientId);
+
+      return res.redirect(`${redirectBase}/#/integraciones?youtube=success`);
+    } catch (err: any) {
+      console.error('[YouTube OAuth]', err);
+      return res.redirect(`${redirectBase}/#/integraciones?youtube=error&reason=server_error`);
+    }
+  }
+
+  if (action === 'youtube-profile' || action === 'youtube-posts') {
+    const clientId = req.query.clientId as string;
+    if (!clientId || !SUPABASE_SERVICE_ROLE_KEY) return res.status(400).json({ error: 'clientId requerido' });
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const accessToken = await getValidYoutubeToken(clientId, supabase);
+    if (!accessToken) return res.status(404).json({ error: 'YouTube no conectado' });
+    const endpoint = action === 'youtube-profile'
+      ? 'https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true'
+      : 'https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=24';
+    const ytRes = await fetch(endpoint, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const json = await ytRes.json().catch(() => ({}));
+    if (!ytRes.ok || json?.error) return res.status(400).json({ error: json?.error?.message || 'No se pudo leer YouTube.' });
+    return res.status(200).json(json);
+  }
+
+  return res.status(400).json({ error: 'youtube action invalid' });
 }
 
 // ── EMAIL PREVIEW (Open Graph redirect) ─────────────────────────────────────
@@ -1323,7 +1501,7 @@ async function handleTiktokContent(req: VercelRequest, res: VercelResponse) {
     if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
     if (!TIKTOK_CONTENT_CLIENT_KEY) return res.status(503).json({ error: 'TikTok orgánico no configurado (falta TIKTOK_CONTENT_CLIENT_KEY).' });
 
-    const redirectUri = `${base}/api/oauth?action=tiktok-content-callback`;
+    const redirectUri = `${base}/api/tiktok-content-callback`;
     const state = Buffer.from(JSON.stringify({ clientId, host: base })).toString('base64');
     const authorizeUrl =
       `https://www.tiktok.com/v2/auth/authorize/` +
@@ -1358,7 +1536,7 @@ async function handleTiktokContent(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-      const redirectUri = `${base}/api/oauth?action=tiktok-content-callback`;
+      const redirectUri = `${base}/api/tiktok-content-callback`;
       const tokenRes = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1959,6 +2137,36 @@ async function handleWhatsappTest(req: VercelRequest, res: VercelResponse) {
 
 type SocialChannel = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
 
+async function assertClientAccess(supabase: any, accessToken: string, clientId: string) {
+  const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
+  const authUserId = userData?.user?.id || '';
+  if (userErr || !authUserId) throw new Error('Sesión inválida');
+
+  const { data: client, error } = await supabase
+    .from('car_clients')
+    .select('user_id, is_admin')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (error || !client) throw new Error('Cliente no encontrado');
+
+  const ownsClient = client.user_id === authUserId;
+  const { data: adminClient } = await supabase
+    .from('car_clients')
+    .select('id')
+    .eq('user_id', authUserId)
+    .eq('is_admin', true)
+    .maybeSingle();
+  const { data: association } = await supabase
+    .from('car_business_accounts')
+    .select('id')
+    .eq('business_id', clientId)
+    .eq('user_id', authUserId)
+    .maybeSingle();
+
+  if (!ownsClient && !adminClient && !association) throw new Error('No tenés permisos para este cliente');
+  return authUserId;
+}
+
 const postGraph = async (url: string, body: Record<string, any>) => {
   const response = await fetch(url, {
     method: 'POST',
@@ -2040,6 +2248,88 @@ async function publishInstagramReel(igBusinessId: string, pageToken: string, vid
   };
 }
 
+async function getValidYoutubeToken(clientId: string, supabase: any) {
+  const { data: client } = await supabase
+    .from('car_clients')
+    .select('youtube_access_token, youtube_refresh_token, youtube_expiration')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (!client?.youtube_access_token) return null;
+  const expiration = client.youtube_expiration ? new Date(client.youtube_expiration).getTime() : 0;
+  if (!expiration || expiration > Date.now() + 120000) return client.youtube_access_token;
+  if (!client.youtube_refresh_token || !YOUTUBE_CLIENT_ID || !YOUTUBE_CLIENT_SECRET) return client.youtube_access_token;
+
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: YOUTUBE_CLIENT_ID,
+        client_secret: YOUTUBE_CLIENT_SECRET,
+        refresh_token: client.youtube_refresh_token,
+        grant_type: 'refresh_token'
+      }).toString()
+    });
+    const json = await tokenRes.json().catch(() => ({}));
+    if (!tokenRes.ok || !json.access_token) return client.youtube_access_token;
+    await supabase.from('car_clients').update({
+      youtube_access_token: json.access_token,
+      youtube_expiration: new Date(Date.now() + Number(json.expires_in || 3600) * 1000).toISOString()
+    }).eq('id', clientId);
+    return json.access_token;
+  } catch {
+    return client.youtube_access_token;
+  }
+}
+
+async function publishYoutubeShort(clientId: string, supabase: any, videoUrl: string, caption: string) {
+  const accessToken = await getValidYoutubeToken(clientId, supabase);
+  if (!accessToken) {
+    return { status: 'missing_connection', message: 'Falta conectar YouTube desde Integraciones.' };
+  }
+
+  const videoRes = await fetch(videoUrl);
+  if (!videoRes.ok) throw new Error('No se pudo descargar el video para YouTube.');
+  const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
+  const metadata = {
+    snippet: {
+      title: caption.slice(0, 90) || 'Short',
+      description: caption,
+      categoryId: '22'
+    },
+    status: {
+      privacyStatus: 'public',
+      selfDeclaredMadeForKids: false
+    }
+  };
+  const boundary = `algoritmia_${Date.now()}`;
+  const body = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`),
+    Buffer.from(`--${boundary}\r\nContent-Type: video/*\r\n\r\n`),
+    videoBuffer,
+    Buffer.from(`\r\n--${boundary}--`)
+  ]);
+
+  const uploadRes = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?part=snippet,status&uploadType=multipart', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
+      'Content-Length': String(body.length)
+    },
+    body
+  });
+  const json = await uploadRes.json().catch(() => ({}));
+  if (!uploadRes.ok || json?.error) throw new Error(json?.error?.message || 'YouTube rechazó la publicación.');
+  return {
+    status: 'published',
+    id: json.id,
+    url: json.id ? `https://www.youtube.com/shorts/${json.id}` : undefined,
+    message: 'Short enviado a YouTube.'
+  };
+}
+
 async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
   if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
@@ -2055,6 +2345,7 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   const videoUrl = String(body.videoUrl || '').trim();
   const videoPath = body.videoPath ? String(body.videoPath) : null;
   const channels = Array.isArray(body.channels) ? body.channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)) as SocialChannel[] : [];
+  const scheduledAt = body.scheduledAt ? String(body.scheduledAt) : '';
 
   if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
   if (!caption) return res.status(400).json({ error: 'caption requerido' });
@@ -2062,35 +2353,34 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (channels.length === 0) return res.status(400).json({ error: 'Seleccioná al menos un canal' });
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
-  const authUserId = userData?.user?.id || '';
-  if (userErr || !authUserId) return res.status(401).json({ error: 'Sesión inválida' });
+  let authUserId = '';
+  try {
+    authUserId = await assertClientAccess(supabase, accessToken, clientId);
+  } catch (err: any) {
+    return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+  }
 
   const { data: client, error } = await supabase
     .from('car_clients')
-    .select('user_id, is_admin, fb_page_id, fb_page_name, fb_page_access_token, ig_business_id, ig_username, tiktok_content_access_token, tiktok_content_refresh_token, tiktok_content_expiration, connection_statuses')
+    .select('user_id, is_admin, fb_page_id, fb_page_name, fb_page_access_token, ig_business_id, ig_username, tiktok_content_access_token, tiktok_content_refresh_token, tiktok_content_expiration, youtube_access_token, youtube_refresh_token, youtube_expiration, connection_statuses')
     .eq('id', clientId)
     .maybeSingle();
 
   if (error || !client) return res.status(404).json({ error: 'Cliente no encontrado' });
 
-  const ownsClient = client.user_id === authUserId;
-  const { data: adminClient } = await supabase
-    .from('car_clients')
-    .select('id')
-    .eq('user_id', authUserId)
-    .eq('is_admin', true)
-    .maybeSingle();
-  const { data: association } = await supabase
-    .from('car_business_accounts')
-    .select('id')
-    .eq('business_id', clientId)
-    .eq('user_id', authUserId)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (!ownsClient && !adminClient && !association) {
-    return res.status(403).json({ error: 'No tenés permisos para publicar en este cliente' });
+  if (scheduledAt && new Date(scheduledAt).getTime() > Date.now() + 30000) {
+    await supabase.from('car_social_publications').insert({
+      client_id: clientId,
+      user_id: authUserId,
+      caption,
+      video_url: videoUrl,
+      video_path: videoPath,
+      selected_channels: channels,
+      results: {},
+      status: 'scheduled',
+      scheduled_at: scheduledAt
+    });
+    return res.status(200).json({ ok: true, scheduled: true, results: {} });
   }
 
   const results: Record<string, any> = {};
@@ -2125,10 +2415,7 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
       }
 
       if (channel === 'youtube') {
-        results.youtube = {
-          status: 'needs_oauth',
-          message: 'YouTube Shorts requiere OAuth de YouTube Data API con permiso youtube.upload.'
-        };
+        results.youtube = await publishYoutubeShort(clientId, supabase, videoUrl, caption);
       }
     } catch (err: any) {
       results[channel] = { status: 'error', message: err?.message || 'Error al publicar.' };
@@ -2190,6 +2477,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     (req.query as any).action = 'tiktok-callback';
     return handleTiktok(req, res);
   }
+  if (!action && req.url?.includes('/api/tiktok-content-callback')) {
+    (req.query as any).action = 'tiktok-content-callback';
+    return handleTiktokContent(req, res);
+  }
 
   if (action === 'tiendanube-webhook') return handleTiendanubeWebhook(req, res);
   if (action === 'shopify-webhook') return handleShopifyWebhook(req, res);
@@ -2198,12 +2489,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (action.startsWith('tiktok-content')) return handleTiktokContent(req, res);
   if (action.startsWith('tiktok')) return handleTiktok(req, res);
+  if (action.startsWith('youtube')) return handleYoutube(req, res);
   if (action.startsWith('mercadolibre')) return handleMercadoLibre(req, res);
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
   if (action.startsWith('woocommerce')) return handleWooCommerce(req, res);
   if (action === 'meta-accounts') return handleMetaAccounts(req, res);
   if (action === 'meta-pages') return handleMetaPages(req, res);
+  if (action === 'meta-save-selection') return handleMetaSaveSelection(req, res);
 
   if (action === 'meta-status') {
     const clientId = req.query.clientId as string;
