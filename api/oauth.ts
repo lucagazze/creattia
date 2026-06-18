@@ -564,7 +564,7 @@ async function handleMetaSaveSelection(req: VercelRequest, res: VercelResponse) 
   try {
     await assertClientAccess(supabase, accessToken, clientId);
   } catch (err: any) {
-    return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+    return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
   }
 
   const selectedAccountId = body.selectedAccountId ? String(body.selectedAccountId) : null;
@@ -2137,11 +2137,13 @@ async function handleWhatsappTest(req: VercelRequest, res: VercelResponse) {
 
 type SocialChannel = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
 
+const isAuthSessionError = (err: any) => String(err?.message || '').toLowerCase().includes('sesión');
+
 async function assertClientAccess(supabase: any, accessToken: string, clientId: string) {
   const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
   const authUserId = userData?.user?.id || '';
   const authEmail = (userData?.user?.email || '').trim().toLowerCase();
-  if (userErr || !authUserId) throw new Error('Sesión inválida');
+  if (userErr || !authUserId) throw new Error('Tu sesión de Algoritmia expiró. Cerrá sesión y volvé a entrar.');
 
   const { data: client, error } = await supabase
     .from('car_clients')
@@ -2182,7 +2184,7 @@ async function resolveClientAccess(supabase: any, accessToken: string, requested
   const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
   const authUserId = userData?.user?.id || '';
   const authEmail = (userData?.user?.email || '').trim().toLowerCase();
-  if (userErr || !authUserId) throw new Error('Sesión inválida');
+  if (userErr || !authUserId) throw new Error('Tu sesión de Algoritmia expiró. Cerrá sesión y volvé a entrar.');
 
   let clientId = requestedClientId && requestedClientId !== 'default' ? requestedClientId : '';
 
@@ -2421,7 +2423,7 @@ async function handleCosts(req: VercelRequest, res: VercelResponse) {
   try {
     await assertClientAccess(supabase, accessToken, clientId);
   } catch (err: any) {
-    return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+    return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
   }
 
   if (action === 'costs-load') {
@@ -2531,7 +2533,7 @@ async function handleBrainSave(req: VercelRequest, res: VercelResponse) {
     const access = await resolveClientAccess(supabase, accessToken, clientId);
     clientId = access.clientId;
   } catch (err: any) {
-    return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+    return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
   }
 
   const customInstructions = body.custom_instructions;
@@ -2580,7 +2582,7 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
     authUserId = access.authUserId;
     clientId = access.clientId;
   } catch (err: any) {
-    return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+    return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
   }
 
   const { data: client, error } = await supabase

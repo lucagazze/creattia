@@ -169,6 +169,37 @@ export default function SocialPublisherPage() {
     return { path, publicUrl: data.publicUrl };
   };
 
+  const getFreshAccessToken = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    let accessToken = sessionData.session?.access_token || '';
+    const expiresAtMs = sessionData.session?.expires_at ? sessionData.session.expires_at * 1000 : 0;
+
+    if (!accessToken || (expiresAtMs && expiresAtMs < Date.now() + 120000)) {
+      const { data: refreshed, error } = await supabase.auth.refreshSession();
+      if (error) throw new Error('Tu sesión de Algoritmia expiró. Cerrá sesión y volvé a entrar.');
+      accessToken = refreshed.session?.access_token || '';
+    }
+
+    if (!accessToken) throw new Error('Tu sesión de Algoritmia expiró. Cerrá sesión y volvé a entrar.');
+    return accessToken;
+  };
+
+  const sendPublishRequest = async (upload: { publicUrl: string; path: string }, accessToken: string) => {
+    return fetch('/api/oauth?action=social-publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        clientId: profile?.id && profile.id !== 'default' ? profile.id : '',
+        userId: user?.id,
+        caption: caption.trim(),
+        videoUrl: upload.publicUrl,
+        videoPath: upload.path,
+        channels: selectedConnected,
+        scheduledAt: publishMode === 'scheduled' ? scheduledAt : null
+      })
+    });
+  };
+
   const handlePublish = async () => {
     if (!videoFile) {
       showToast('Primero subí un video.', 'warning');
@@ -193,23 +224,17 @@ export default function SocialPublisherPage() {
     setPublishing(true);
     setResults(null);
     try {
+      let accessToken = await getFreshAccessToken();
       const upload = await uploadVideo();
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error('La sesión expiró. Volvé a iniciar sesión.');
-      const res = await fetch('/api/oauth?action=social-publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({
-          clientId: profile?.id && profile.id !== 'default' ? profile.id : '',
-          userId: user?.id,
-          caption: caption.trim(),
-          videoUrl: upload.publicUrl,
-          videoPath: upload.path,
-          channels: selectedConnected,
-          scheduledAt: publishMode === 'scheduled' ? scheduledAt : null
-        })
-      });
+      let res = await sendPublishRequest(upload, accessToken);
+      if (res.status === 401) {
+        const { data: refreshed, error } = await supabase.auth.refreshSession();
+        if (error || !refreshed.session?.access_token) {
+          throw new Error('Tu sesión de Algoritmia expiró. Cerrá sesión y volvé a entrar.');
+        }
+        accessToken = refreshed.session.access_token;
+        res = await sendPublishRequest(upload, accessToken);
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo publicar.');
       setResults(data.results || {});
