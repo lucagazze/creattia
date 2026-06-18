@@ -247,8 +247,8 @@ export default function SocialPublisherPage() {
   };
 
   return (
-    <div className="w-full max-w-[1540px] mx-auto space-y-5">
-      <header className="rounded-[28px] border border-zinc-200/70 dark:border-white/10 bg-white/70 dark:bg-[#18181b]/80 backdrop-blur-xl shadow-sm px-4 py-4 sm:px-5 lg:px-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="w-full max-w-[1680px] mx-auto space-y-5">
+      <header className="rounded-3xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm px-4 py-4 sm:px-5 lg:px-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <div className="w-11 h-11 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-600/20 shrink-0">
             <Send className="w-5 h-5" />
@@ -281,8 +281,8 @@ export default function SocialPublisherPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_420px] gap-5">
-        <section className="rounded-[28px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] overflow-hidden shadow-sm">
+      <div className="grid grid-cols-1 gap-5">
+        <section className="rounded-3xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] overflow-hidden shadow-sm">
           <div className="p-4 sm:p-5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Contenido</p>
@@ -293,8 +293,8 @@ export default function SocialPublisherPage() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,0.86fr)_minmax(360px,1fr)] gap-4 sm:gap-5 p-4 sm:p-5">
-            <label className="group relative min-h-[320px] lg:min-h-[360px] xl:min-h-[430px] 2xl:min-h-[500px] rounded-[24px] border border-dashed border-zinc-300 dark:border-white/15 bg-[radial-gradient(circle_at_top,#faf7ff,transparent_42%),#fafafa] dark:bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.12),transparent_42%),rgba(9,9,11,0.45)] overflow-hidden flex items-center justify-center cursor-pointer">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(420px,1.08fr)_minmax(420px,0.92fr)] items-start gap-5 p-4 sm:p-5 lg:p-6">
+            <label className="group relative min-h-[340px] lg:min-h-[430px] xl:min-h-[540px] rounded-[26px] border border-dashed border-zinc-300 dark:border-white/15 bg-[radial-gradient(circle_at_top,#faf7ff,transparent_42%),#fafafa] dark:bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.12),transparent_42%),rgba(9,9,11,0.45)] overflow-hidden flex items-center justify-center cursor-pointer">
               <input
                 type="file"
                 accept="video/mp4,video/quicktime,video/webm,video/*"
@@ -319,8 +319,8 @@ export default function SocialPublisherPage() {
               )}
             </label>
 
-            <div className="space-y-4">
-              <div className="rounded-[22px] border border-zinc-200/70 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3 sm:p-4">
+            <div className="space-y-4 min-w-0">
+              <div className="rounded-[24px] border border-zinc-200/70 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-4 sm:p-5">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Texto del post</label>
                   <span className="text-[11px] font-bold text-zinc-400">{captionLength} caracteres</span>
@@ -329,11 +329,11 @@ export default function SocialPublisherPage() {
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
                   placeholder="Escribí el copy, CTA, hashtags y menciones..."
-                  className="w-full min-h-[150px] resize-y rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[14px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
+                  className="w-full min-h-[160px] resize-y rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[14px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
                 />
               </div>
 
-              <div className="rounded-[22px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-3 sm:p-4">
+              <div className="rounded-[24px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-4 sm:p-5">
                 <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Programación</p>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {[
@@ -376,19 +376,19 @@ export default function SocialPublisherPage() {
                 )}
               </div>
 
-              <div className="rounded-[22px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-3 sm:p-4">
+              <div className="rounded-[24px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Canales</p>
                   <span className="text-[11px] font-black text-zinc-400">{selectedConnected.length}/{connectedCount}</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {channels.map((channel) => {
                     const selected = selectedChannels.includes(channel.id);
                     return (
                       <button
                         key={channel.id}
                         onClick={() => toggleChannel(channel.id)}
-                        className={`text-left rounded-2xl border p-3 transition-all active:scale-[0.99] ${
+                        className={`text-left rounded-2xl border p-3.5 transition-all active:scale-[0.99] ${
                           selected
                             ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10 shadow-sm shadow-violet-500/10'
                             : 'border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/25 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
@@ -399,7 +399,7 @@ export default function SocialPublisherPage() {
                             {channel.icon}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[13px] font-black text-zinc-950 dark:text-white truncate">{channel.label}</p>
+                            <p className="text-[13.5px] font-black text-zinc-950 dark:text-white truncate">{channel.label}</p>
                             <p className="mt-0.5 text-[11px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400 line-clamp-2">{channel.detail}</p>
                           </div>
                           <span className="shrink-0 pt-0.5">
@@ -416,20 +416,25 @@ export default function SocialPublisherPage() {
                 </div>
               </div>
 
-              <button
-                onClick={handlePublish}
-                disabled={publishing}
-                className="w-full h-13 rounded-2xl bg-zinc-950 hover:bg-zinc-800 dark:bg-violet-600 dark:hover:bg-violet-500 disabled:opacity-60 disabled:hover:bg-zinc-950 text-white text-[14px] font-black flex items-center justify-center gap-2 shadow-lg shadow-zinc-900/15 dark:shadow-violet-600/20 transition-all"
-              >
-                {publishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                {publishing ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...') : (publishMode === 'scheduled' ? 'Programar publicación' : 'Publicar en canales seleccionados')}
-              </button>
+              <div className="rounded-[24px] border border-zinc-200/70 dark:border-white/10 bg-zinc-950 dark:bg-violet-600 p-2 shadow-xl shadow-zinc-900/10 dark:shadow-violet-600/20">
+                <button
+                  onClick={handlePublish}
+                  disabled={publishing}
+                  className="w-full min-h-[58px] rounded-[18px] bg-white/0 hover:bg-white/10 disabled:opacity-60 text-white text-[14px] sm:text-[15px] font-black flex items-center justify-center gap-2 transition-all"
+                >
+                  {publishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  <span>{publishing ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...') : (publishMode === 'scheduled' ? 'Programar publicación' : 'Publicar ahora')}</span>
+                </button>
+                <p className="px-3 pb-2 text-center text-[11px] font-bold text-white/70">
+                  {selectedChannelLabels.length ? `Se enviará a ${selectedChannelLabels.join(', ')}` : 'Elegí canales conectados para habilitar la publicación'}
+                </p>
+              </div>
             </div>
           </div>
         </section>
 
-        <aside className="space-y-5 2xl:sticky 2xl:top-5 self-start">
-          <section className="rounded-[28px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 sm:p-5 shadow-sm">
+        <aside className="grid grid-cols-1 xl:grid-cols-[0.82fr_1.18fr] gap-5 self-start">
+          <section className="rounded-3xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 sm:p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Estado</p>
@@ -469,7 +474,7 @@ export default function SocialPublisherPage() {
             </div>
           </section>
 
-          <section className="rounded-[28px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 sm:p-5 shadow-sm">
+          <section className="rounded-3xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 sm:p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Calendario</p>
@@ -532,7 +537,7 @@ export default function SocialPublisherPage() {
           </section>
 
           {results && (
-            <section className="rounded-[20px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-5 shadow-sm">
+            <section className="rounded-3xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-5 shadow-sm xl:col-span-2">
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Resultado</p>
               <div className="mt-4 space-y-3">
                 {Object.entries(results).map(([channel, result]: any) => (
