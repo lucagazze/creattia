@@ -74,6 +74,7 @@ const RED = "#ef4444";
 const PINK = "#ec4899";
 
 const MAIN_COLOR = "#3b82f6"; // Default Blue for Captación
+const DASHBOARD_CACHE_VERSION = "v2";
 const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type DashboardCachePayload = {
@@ -1118,7 +1119,7 @@ export default function DashboardPage() {
   // Stale-While-Revalidate Caching for Dashboard metrics
   useEffect(() => {
     if (!profile?.id) return;
-    const cacheKey = `dashboard_cache_${profile.id}_${activePreset}_${activeSince}_${activeUntil}`;
+    const cacheKey = `dashboard_cache_${DASHBOARD_CACHE_VERSION}_${profile.id}_${activePreset}_${activeSince}_${activeUntil}`;
     const cachedData = readDashboardCache(cacheKey);
     if (!cachedData) return;
     if (cachedData.currentStore) setCurrentStore(cachedData.currentStore);
@@ -1235,7 +1236,7 @@ export default function DashboardPage() {
 
     const updateCache = (key: string, data: any) => {
       if (!profile?.id) return;
-      const cacheKey = `dashboard_cache_${profile.id}_${p}_${s}_${u}`;
+      const cacheKey = `dashboard_cache_${DASHBOARD_CACHE_VERSION}_${profile.id}_${p}_${s}_${u}`;
       writeDashboardCacheValue(cacheKey, key as keyof DashboardCachePayload, data);
     };
 
