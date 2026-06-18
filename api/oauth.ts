@@ -2140,6 +2140,7 @@ type SocialChannel = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
 async function assertClientAccess(supabase: any, accessToken: string, clientId: string) {
   const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
   const authUserId = userData?.user?.id || '';
+  const authEmail = (userData?.user?.email || '').trim().toLowerCase();
   if (userErr || !authUserId) throw new Error('Sesión inválida');
 
   const { data: client, error } = await supabase
@@ -2162,14 +2163,25 @@ async function assertClientAccess(supabase: any, accessToken: string, clientId: 
     .eq('business_id', clientId)
     .eq('user_id', authUserId)
     .maybeSingle();
+  let emailAssociation = null;
+  if (!association && authEmail) {
+    const { data } = await supabase
+      .from('car_business_accounts')
+      .select('id')
+      .eq('business_id', clientId)
+      .ilike('email', authEmail)
+      .maybeSingle();
+    emailAssociation = data;
+  }
 
-  if (!ownsClient && !adminClient && !association) throw new Error('No tenés permisos para este cliente');
+  if (!ownsClient && !adminClient && !association && !emailAssociation) throw new Error('No tenés permisos para este cliente');
   return authUserId;
 }
 
 async function resolveClientAccess(supabase: any, accessToken: string, requestedClientId: string) {
   const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
   const authUserId = userData?.user?.id || '';
+  const authEmail = (userData?.user?.email || '').trim().toLowerCase();
   if (userErr || !authUserId) throw new Error('Sesión inválida');
 
   let clientId = requestedClientId && requestedClientId !== 'default' ? requestedClientId : '';
@@ -2192,7 +2204,7 @@ async function resolveClientAccess(supabase: any, accessToken: string, requested
   }
 
   if (!clientId) {
-    const [{ data: ownedClient }, { data: association }] = await Promise.all([
+    const [{ data: ownedClient }, { data: association }, { data: emailAssociation }] = await Promise.all([
       supabase
         .from('car_clients')
         .select('id')
@@ -2202,9 +2214,25 @@ async function resolveClientAccess(supabase: any, accessToken: string, requested
         .from('car_business_accounts')
         .select('business_id')
         .eq('user_id', authUserId)
-        .maybeSingle()
+        .maybeSingle(),
+      authEmail
+        ? supabase
+          .from('car_business_accounts')
+          .select('business_id')
+          .ilike('email', authEmail)
+          .maybeSingle()
+        : Promise.resolve({ data: null })
     ]);
-    clientId = ownedClient?.id || association?.business_id || '';
+    clientId = ownedClient?.id || association?.business_id || emailAssociation?.business_id || '';
+  }
+
+  if (!clientId && authEmail) {
+    const { data: emailAssociation } = await supabase
+      .from('car_business_accounts')
+      .select('business_id')
+      .ilike('email', authEmail)
+      .maybeSingle()
+    clientId = emailAssociation?.business_id || '';
   }
 
   if (!clientId) throw new Error('Cliente no encontrado');
