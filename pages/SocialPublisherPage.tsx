@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertCircle, CalendarDays, CheckCircle2, Clock3, Facebook, Film, Instagram,
-  Loader2, PlayCircle, Send, Sparkles, UploadCloud, Youtube, Zap
+  AlertCircle, CalendarDays, CheckCircle2, Clock3, Facebook, Instagram,
+  Loader2, Send, Sparkles, UploadCloud, Youtube, Zap
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -258,168 +258,125 @@ export default function SocialPublisherPage() {
   };
 
   return (
-    <div className="w-full max-w-[1480px] mx-auto space-y-4">
-      <header className="rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm px-4 py-3.5 sm:px-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-600/20 shrink-0">
+    <div className="w-full max-w-[1320px] mx-auto space-y-3">
+      <header className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm px-4 py-3 sm:px-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center shadow-sm shrink-0">
             <Send className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-[24px] sm:text-[30px] font-black tracking-tight text-zinc-950 dark:text-white leading-none">Publicador</h1>
-            <p className="mt-1.5 text-[12.5px] sm:text-[13px] font-semibold text-zinc-500 dark:text-zinc-400 max-w-2xl leading-relaxed">
-              Subí un video una sola vez, elegí canales conectados y publicalo desde Algoritmia.
+            <h1 className="text-[23px] sm:text-[28px] font-black tracking-tight text-zinc-950 dark:text-white leading-none">Publicador</h1>
+            <p className="mt-1 text-[12.5px] font-semibold text-zinc-500 dark:text-zinc-400 leading-snug">
+              Armá el contenido, elegí redes y programalo desde un solo lugar.
             </p>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
-            <span className="h-9 px-3 rounded-xl bg-zinc-100 dark:bg-white/5 text-[10.5px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center justify-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-              {connectedCount} conectados
-            </span>
-            <span className="h-9 px-3 rounded-xl bg-zinc-100 dark:bg-white/5 text-[10.5px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center justify-center gap-2">
-              <CalendarDays className="w-3.5 h-3.5 text-violet-500" />
-              {scheduledItems.filter(item => item.status === 'scheduled').length} programadas
-            </span>
-          </div>
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <span className="h-8 px-3 rounded-lg bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center gap-2 whitespace-nowrap">
+            <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+            {connectedCount} conectados
+          </span>
+          <span className="h-8 px-3 rounded-lg bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center gap-2 whitespace-nowrap">
+            <CalendarDays className="w-3.5 h-3.5 text-violet-500" />
+            {scheduledItems.filter(item => item.status === 'scheduled').length} programadas
+          </span>
           <button
             onClick={() => navigate('/integraciones')}
-            className="h-9 px-4 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11.5px] font-black flex items-center justify-center gap-2 hover:opacity-90 shadow-lg shadow-zinc-900/10"
+            className="h-8 px-3 rounded-lg bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-black flex items-center justify-center gap-2 hover:opacity-90 whitespace-nowrap"
           >
-            <Zap className="w-4 h-4" />
-            Conectar canales
+            <Zap className="w-3.5 h-3.5" />
+            Conectar
           </button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4">
-        <section className="rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-3 items-start">
+        <section className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Contenido</p>
-              <h2 className="text-[17px] font-black text-zinc-950 dark:text-white">Video y descripción</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-500">Contenido</p>
+              <h2 className="text-[16px] font-black text-zinc-950 dark:text-white">Video, copy y canales</h2>
             </div>
-            <span className="hidden sm:inline-flex h-8 px-3 rounded-full bg-violet-50 dark:bg-violet-500/10 text-[11px] font-black text-violet-600 dark:text-violet-300 items-center">
-              {publishMode === 'scheduled' ? 'Programada' : 'Lista para publicar'}
+            <span className="hidden sm:inline-flex h-7 px-3 rounded-full bg-zinc-100 dark:bg-white/5 text-[10.5px] font-black text-zinc-500 dark:text-zinc-400 items-center">
+              {videoFile ? videoFile.name : 'Sin archivo'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(360px,1.02fr)_minmax(390px,0.98fr)] items-start gap-4 p-4 lg:p-5">
-            <label className="group relative min-h-[300px] lg:min-h-[360px] xl:min-h-[430px] rounded-2xl border border-dashed border-zinc-300 dark:border-white/15 bg-[radial-gradient(circle_at_top,#faf7ff,transparent_42%),#fafafa] dark:bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.12),transparent_42%),rgba(9,9,11,0.45)] overflow-hidden flex items-center justify-center cursor-pointer">
-              <input
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm,video/*"
-                className="hidden"
-                onChange={(e) => handleFileChange(e.target.files?.[0])}
-              />
-              {videoPreview ? (
-                <video src={videoPreview} controls playsInline className="w-full h-full object-contain bg-black" />
-              ) : (
-                <div className="text-center px-8 max-w-[310px]">
-                  <div className="w-14 h-14 rounded-2xl bg-violet-600 text-white flex items-center justify-center mx-auto mb-3 shadow-xl shadow-violet-600/25 group-hover:scale-105 transition-transform">
-                    <UploadCloud className="w-7 h-7" />
+          <div className="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)] gap-4">
+            <div className="space-y-3">
+              <label className="group relative h-[240px] sm:h-[270px] lg:h-[300px] rounded-2xl border border-dashed border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-zinc-950/25 overflow-hidden flex items-center justify-center cursor-pointer">
+                <input
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm,video/*"
+                  className="hidden"
+                  onChange={(e) => handleFileChange(e.target.files?.[0])}
+                />
+                {videoPreview ? (
+                  <video src={videoPreview} controls playsInline className="w-full h-full object-contain bg-black" />
+                ) : (
+                  <div className="text-center px-6 max-w-[240px]">
+                    <div className="w-12 h-12 rounded-2xl bg-violet-600 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-violet-600/20 group-hover:scale-105 transition-transform">
+                      <UploadCloud className="w-6 h-6" />
+                    </div>
+                    <p className="text-[15px] font-black text-zinc-900 dark:text-white">Subir video</p>
+                    <p className="mt-2 text-[11.5px] font-bold leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      MP4, MOV o WEBM vertical para Reels, Shorts y TikTok.
+                    </p>
+                    <span className="mt-4 inline-flex h-8 px-3 rounded-lg bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-[10.5px] font-black text-zinc-500 dark:text-zinc-350 items-center">
+                      Hasta {MAX_VIDEO_MB} MB
+                    </span>
                   </div>
-                  <p className="text-[16px] font-black text-zinc-900 dark:text-white">Subir video</p>
-                  <p className="mt-2 text-[12px] font-bold leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    MP4, MOV o WEBM. Ideal vertical 9:16 para Reels, Shorts y TikTok.
-                  </p>
-                  <span className="mt-5 inline-flex h-9 px-4 rounded-full bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-[11px] font-black text-zinc-500 dark:text-zinc-350 items-center">
-                    Hasta {MAX_VIDEO_MB} MB
-                  </span>
-                </div>
-              )}
-            </label>
+                )}
+              </label>
 
-            <div className="space-y-3.5 min-w-0">
-              <div className="rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-4">
+              <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Texto del post</label>
-                  <span className="text-[11px] font-bold text-zinc-400">{captionLength} caracteres</span>
+                  <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
+                  <span className="text-[10.5px] font-bold text-zinc-400">{captionLength}</span>
                 </div>
                 <textarea
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
-                  placeholder="Escribí el copy, CTA, hashtags y menciones..."
-                  className="w-full min-h-[130px] resize-y rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[13.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
+                  placeholder="Copy, CTA, hashtags y menciones..."
+                  className="w-full min-h-[118px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 py-2.5 text-[13px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
                 />
               </div>
+            </div>
 
-              <div className="rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-4">
-                <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Programación</p>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  {[
-                    { id: 'now', label: 'Ahora', icon: Send },
-                    { id: 'scheduled', label: 'Programar', icon: CalendarDays }
-                  ].map(option => {
-                    const Icon = option.icon;
-                    const active = publishMode === option.id;
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => setPublishMode(option.id as 'now' | 'scheduled')}
-                        className={`h-11 rounded-xl border text-[12px] font-black flex items-center justify-center gap-2 transition-all ${
-                          active
-                            ? 'border-violet-500 bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300'
-                            : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/25 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                {publishMode === 'scheduled' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_150px] gap-3">
-                    <input
-                      type="datetime-local"
-                      value={scheduledAt}
-                      onChange={(e) => setScheduledAt(e.target.value)}
-                      min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                      className="h-11 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 text-[13px] font-bold text-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-violet-500/30"
-                    />
-                    <div className="h-11 rounded-xl bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-500 dark:text-zinc-400 flex items-center justify-center gap-2">
-                      <Clock3 className="w-4 h-4" />
-                      Hora local
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-4">
+            <div className="min-w-0 flex flex-col gap-3">
+              <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
                 <div className="flex items-center justify-between gap-3 mb-3">
-                  <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Canales</p>
-                  <span className="text-[11px] font-black text-zinc-400">{selectedConnected.length}/{connectedCount}</span>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Canales</p>
+                    <p className="text-[11px] font-semibold text-zinc-400">{selectedConnected.length} seleccionados de {connectedCount} disponibles</p>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-2.5">
                   {channels.map((channel) => {
                     const selected = selectedChannels.includes(channel.id);
                     return (
                       <button
                         key={channel.id}
                         onClick={() => toggleChannel(channel.id)}
-                        className={`text-left rounded-2xl border p-3 transition-all active:scale-[0.99] ${
+                        className={`min-h-[64px] text-left rounded-xl border p-2.5 transition-all active:scale-[0.99] ${
                           selected
-                            ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10 shadow-sm shadow-violet-500/10'
-                            : 'border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/25 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
-                        } ${!channel.connected ? 'opacity-60' : ''}`}
+                            ? 'border-violet-500 bg-white dark:bg-violet-500/10 shadow-sm shadow-violet-500/10'
+                            : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/25 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
+                        } ${!channel.connected ? 'opacity-55' : ''}`}
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-2.5">
                           <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${channel.color} text-white flex items-center justify-center shrink-0`}>
                             {channel.icon}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[13.5px] font-black text-zinc-950 dark:text-white truncate">{channel.label}</p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400 line-clamp-2">{channel.detail}</p>
+                            <p className="text-[13px] font-black text-zinc-950 dark:text-white truncate">{channel.label}</p>
+                            <p className="mt-0.5 text-[10.5px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400 truncate">{channel.detail}</p>
                           </div>
-                          <span className="shrink-0 pt-0.5">
-                            {channel.connected ? (
-                              selected ? <CheckCircle2 className="w-5 h-5 text-violet-500" /> : <span className="block w-5 h-5 rounded-full border border-zinc-300 dark:border-white/20" />
-                            ) : (
-                              <AlertCircle className="w-5 h-5 text-zinc-400" />
-                            )}
-                          </span>
+                          {channel.connected ? (
+                            selected ? <CheckCircle2 className="w-5 h-5 text-violet-500 shrink-0" /> : <span className="block w-5 h-5 rounded-full border border-zinc-300 dark:border-white/20 shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-5 h-5 text-zinc-400 shrink-0" />
+                          )}
                         </div>
                       </button>
                     );
@@ -427,79 +384,75 @@ export default function SocialPublisherPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-zinc-950 dark:bg-violet-600 p-1.5 shadow-xl shadow-zinc-900/10 dark:shadow-violet-600/20">
+              <div className="mt-auto rounded-2xl bg-zinc-950 dark:bg-violet-600 p-1.5 shadow-lg shadow-zinc-900/10 dark:shadow-violet-600/20">
                 <button
                   onClick={handlePublish}
                   disabled={publishing}
-                  className="w-full min-h-[50px] rounded-xl bg-white/0 hover:bg-white/10 disabled:opacity-60 text-white text-[13.5px] sm:text-[14px] font-black flex items-center justify-center gap-2 transition-all"
+                  className="w-full min-h-[46px] rounded-xl bg-white/0 hover:bg-white/10 disabled:opacity-60 text-white text-[13px] sm:text-[14px] font-black flex items-center justify-center gap-2 transition-all"
                 >
                   {publishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   <span>{publishing ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...') : (publishMode === 'scheduled' ? 'Programar publicación' : 'Publicar ahora')}</span>
                 </button>
-                <p className="px-3 pb-2 text-center text-[10.5px] font-bold text-white/70">
-                  {selectedChannelLabels.length ? `Se enviará a ${selectedChannelLabels.join(', ')}` : 'Elegí canales conectados para habilitar la publicación'}
+                <p className="px-3 pb-2 text-center text-[10.5px] font-bold text-white/70 truncate">
+                  {selectedChannelLabels.length ? `Se enviará a ${selectedChannelLabels.join(', ')}` : 'Elegí canales conectados para publicar'}
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        <aside className="grid grid-cols-1 xl:grid-cols-[0.82fr_1.18fr] gap-4 self-start">
-          <section className="rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Estado</p>
-                <h2 className="mt-1 text-[18px] font-black text-zinc-950 dark:text-white">Salida</h2>
-              </div>
-              <span className={`h-8 px-3 rounded-full text-[11px] font-black inline-flex items-center ${
-                publishMode === 'scheduled'
-                  ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-300'
-                  : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
-              }`}>
-                {publishMode === 'scheduled' ? 'Programar' : 'Ahora'}
+        <aside className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm p-3 sm:p-4 xl:sticky xl:top-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-500">Programación</p>
+              <h2 className="mt-1 text-[16px] font-black text-zinc-950 dark:text-white">Cuándo publicarlo</h2>
+            </div>
+            <span className={`h-7 px-3 rounded-full text-[10.5px] font-black inline-flex items-center ${
+              publishMode === 'scheduled'
+                ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-300'
+                : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+            }`}>
+              {publishMode === 'scheduled' ? 'Programado' : 'Ahora'}
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {[
+              { id: 'now', label: 'Ahora', icon: Send },
+              { id: 'scheduled', label: 'Fecha', icon: CalendarDays }
+            ].map(option => {
+              const Icon = option.icon;
+              const active = publishMode === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setPublishMode(option.id as 'now' | 'scheduled')}
+                  className={`h-10 rounded-xl border text-[12px] font-black flex items-center justify-center gap-2 transition-all ${
+                    active
+                      ? 'border-violet-500 bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300'
+                      : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/25 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/80 dark:bg-zinc-950/20 p-3">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-[14px] font-black text-zinc-950 dark:text-white">
+                {calendarBase.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
+              </h3>
+              <span className="h-7 px-2.5 rounded-lg bg-white dark:bg-white/5 text-[10.5px] font-black text-zinc-500 dark:text-zinc-400 inline-flex items-center">
+                {scheduledItems.filter(item => item.status === 'scheduled').length}
               </span>
             </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-2">
-              {[
-                { icon: Film, label: videoFile ? videoFile.name : 'Sin video cargado' },
-                { icon: PlayCircle, label: selectedChannelLabels.length ? selectedChannelLabels.join(', ') : 'Sin canales seleccionados' },
-                { icon: CalendarDays, label: scheduledLabel }
-              ].map((item, index) => {
-                const Icon = item.icon;
-                return (
-                  <div key={index} className="min-h-11 rounded-2xl bg-zinc-50 dark:bg-zinc-950/30 border border-zinc-100 dark:border-white/10 px-3 py-2.5 flex items-center gap-3">
-                    <span className="w-8 h-8 rounded-xl bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/10 flex items-center justify-center text-violet-500 shrink-0">
-                      <Icon className="w-4 h-4" />
-                    </span>
-                    <p className="text-[12.5px] font-black text-zinc-700 dark:text-zinc-200 truncate">{item.label}</p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200/70 dark:border-amber-500/20 p-3.5">
-              <p className="text-[11.5px] font-bold leading-relaxed text-amber-800 dark:text-amber-200">
-                Facebook e Instagram usan Meta. TikTok puede pedir confirmación final desde la app.
-              </p>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Calendario</p>
-                <h2 className="mt-1 text-[18px] font-black text-zinc-950 dark:text-white">
-                  {calendarBase.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
-                </h2>
-              </div>
-              <span className="h-8 px-3 rounded-full bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-500 dark:text-zinc-400 inline-flex items-center">
-                {scheduledItems.filter(item => item.status === 'scheduled').length} programadas
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-7 gap-1.5 text-center">
+            <div className="grid grid-cols-7 gap-1 text-center">
               {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => (
-                <span key={`${day}-${index}`} className="text-[10px] font-black text-zinc-400">{day}</span>
+                <span key={`${day}-${index}`} className="text-[9.5px] font-black text-zinc-400">{day}</span>
               ))}
               {monthDays.map((day, index) => {
                 const iso = day ? day.toISOString().slice(0, 10) : '';
@@ -519,13 +472,13 @@ export default function SocialPublisherPage() {
                       setPublishMode('scheduled');
                       setScheduledAt(`${iso}T${hour}`);
                     }}
-                    className={`aspect-square min-h-9 rounded-xl text-[11px] font-black flex flex-col items-center justify-center gap-0.5 transition-all ${
+                    className={`aspect-square min-h-8 rounded-lg text-[11px] font-black flex flex-col items-center justify-center gap-0.5 transition-all ${
                       day
                         ? isSelected
-                          ? 'bg-zinc-950 dark:bg-violet-500 text-white shadow-lg shadow-zinc-900/15 dark:shadow-violet-500/20 ring-2 ring-violet-300/60'
+                          ? 'bg-zinc-950 dark:bg-violet-500 text-white shadow-md shadow-zinc-900/15 ring-2 ring-violet-300/60'
                           : isToday
                             ? 'bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-200'
-                          : 'bg-zinc-50 dark:bg-zinc-950/35 text-zinc-700 dark:text-zinc-200 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300'
+                          : 'bg-white dark:bg-zinc-950/35 text-zinc-700 dark:text-zinc-200 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300'
                         : 'opacity-0'
                     }`}
                   >
@@ -535,52 +488,71 @@ export default function SocialPublisherPage() {
                 );
               })}
             </div>
-            <div className="mt-4 space-y-2">
-              {scheduledItems.filter(item => item.status === 'scheduled').slice(0, 4).map(item => (
-                <div key={item.id} className="rounded-xl border border-zinc-100 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/30 p-3">
-                  <p className="text-[12px] font-black text-zinc-800 dark:text-white truncate">{item.caption || 'Publicación sin texto'}</p>
-                  <p className="mt-1 text-[10px] font-bold text-zinc-400">
-                    {item.results?.scheduled_at ? new Date(item.results.scheduled_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : 'Sin fecha'} · {(item.selected_channels || []).join(', ')}
-                  </p>
+          </div>
+
+          {publishMode === 'scheduled' && (
+            <div className="mt-3 rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-3">
+              <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Fecha y hora</label>
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_34px] gap-2">
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                  className="h-10 min-w-0 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/40 px-3 text-[12.5px] font-bold text-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-violet-500/30"
+                />
+                <div className="h-10 rounded-xl bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 flex items-center justify-center">
+                  <Clock3 className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-3 space-y-2">
+            {scheduledItems.filter(item => item.status === 'scheduled').slice(0, 3).map(item => (
+              <div key={item.id} className="rounded-xl border border-zinc-100 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/30 p-3">
+                <p className="text-[12px] font-black text-zinc-800 dark:text-white truncate">{item.caption || 'Publicación sin texto'}</p>
+                <p className="mt-1 text-[10px] font-bold text-zinc-400">
+                  {item.results?.scheduled_at ? new Date(item.results.scheduled_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : 'Sin fecha'} · {(item.selected_channels || []).join(', ')}
+                </p>
+              </div>
+            ))}
+            {scheduledItems.filter(item => item.status === 'scheduled').length === 0 && (
+              <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-white/10 p-3 text-center">
+                <CalendarDays className="w-5 h-5 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
+                <p className="text-[11.5px] font-semibold text-zinc-400">Sin publicaciones programadas.</p>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {results && (
+          <section className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 shadow-sm xl:col-span-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-500">Resultado</p>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
+              {Object.entries(results).map(([channel, result]: any) => (
+                <div key={channel} className="rounded-xl bg-zinc-50 dark:bg-zinc-950/30 border border-zinc-100 dark:border-white/10 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="capitalize text-[12.5px] font-black text-zinc-950 dark:text-white">{channel}</p>
+                    <span className={`text-[9.5px] font-black uppercase px-2 py-1 rounded-full ${
+                      result.status === 'published' || result.status === 'processing'
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-amber-500/10 text-amber-500'
+                    }`}>
+                      {result.status}
+                    </span>
+                  </div>
+                  {result.message && <p className="mt-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{result.message}</p>}
+                  {result.url && (
+                    <a href={result.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-[11px] font-black text-violet-500 hover:underline">
+                      Ver publicación
+                    </a>
+                  )}
                 </div>
               ))}
-              {scheduledItems.filter(item => item.status === 'scheduled').length === 0 && (
-                <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-white/10 p-4 text-center">
-                  <CalendarDays className="w-5 h-5 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
-                  <p className="text-[12px] font-semibold text-zinc-400">Todavía no hay publicaciones programadas.</p>
-                </div>
-              )}
             </div>
           </section>
-
-          {results && (
-            <section className="rounded-3xl border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-5 shadow-sm xl:col-span-2">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Resultado</p>
-              <div className="mt-4 space-y-3">
-                {Object.entries(results).map(([channel, result]: any) => (
-                  <div key={channel} className="rounded-2xl bg-zinc-50 dark:bg-zinc-950/30 border border-zinc-100 dark:border-white/10 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="capitalize text-[13px] font-black text-zinc-950 dark:text-white">{channel}</p>
-                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full ${
-                        result.status === 'published' || result.status === 'processing'
-                          ? 'bg-emerald-500/10 text-emerald-500'
-                          : 'bg-amber-500/10 text-amber-500'
-                      }`}>
-                        {result.status}
-                      </span>
-                    </div>
-                    {result.message && <p className="mt-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{result.message}</p>}
-                    {result.url && (
-                      <a href={result.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-[11px] font-black text-violet-500 hover:underline">
-                        Ver publicación
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </aside>
+        )}
       </div>
     </div>
   );
