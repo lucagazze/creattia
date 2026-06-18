@@ -125,6 +125,7 @@ const EntradasPage       = lazyWithRetry(() => import('../../pages/EntradasPage'
 const ContactosPage      = lazyWithRetry(() => import('../../pages/ContactosPage'));
 const InformesPage       = lazyWithRetry(() => import('../../pages/InformesPage'));
 const CostosPage         = lazyWithRetry(() => import('../../pages/CostosPage'));
+const SocialPublisherPage = lazyWithRetry(() => import('../../pages/SocialPublisherPage'));
 const InventarioPage     = lazyWithRetry(() => import('../../pages/InventarioPage'));
 const PedidosPage        = lazyWithRetry(() => import('../../pages/PedidosPage'));
 const PerfilPage         = lazyWithRetry(() => import('../../pages/PerfilPage'));
@@ -372,6 +373,7 @@ export const MainLayout = () => {
               <Route path="/admin/emails" element={<EmailLibraryPage />} />
               <Route path="/admin/email-monitor" element={<EmailMonitorPage />} />
               <Route path="/email-marketing" element={<EmailMarketingPage />} />
+              <Route path="/publicador" element={<SocialPublisherPage />} />
               <Route path="/entradas" element={<EntradasPage />} />
               <Route path="/cerebro" element={profile?.is_admin ? <CerebroPage /> : <Navigate to="/dashboard" replace />} />
               <Route path="/pedidos" element={<PedidosPage />} />

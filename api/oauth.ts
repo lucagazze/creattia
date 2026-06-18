@@ -1742,6 +1742,204 @@ async function handleWhatsappTest(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+type SocialChannel = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
+
+const postGraph = async (url: string, body: Record<string, any>) => {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || json?.error) {
+    throw new Error(json?.error?.message || `Graph API error ${response.status}`);
+  }
+  return json;
+};
+
+const getGraph = async (url: string) => {
+  const response = await fetch(url);
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || json?.error) {
+    throw new Error(json?.error?.message || `Graph API error ${response.status}`);
+  }
+  return json;
+};
+
+async function publishFacebookVideo(pageId: string, pageToken: string, videoUrl: string, caption: string) {
+  const json = await postGraph(`https://graph.facebook.com/v21.0/${pageId}/videos`, {
+    file_url: videoUrl,
+    description: caption,
+    access_token: pageToken
+  });
+  const videoId = json?.id || '';
+  return {
+    status: 'published',
+    id: videoId,
+    url: videoId ? `https://www.facebook.com/${videoId}` : undefined,
+    message: 'Video enviado a la página de Facebook.'
+  };
+}
+
+async function publishInstagramReel(igBusinessId: string, pageToken: string, videoUrl: string, caption: string) {
+  const container = await postGraph(`https://graph.facebook.com/v21.0/${igBusinessId}/media`, {
+    media_type: 'REELS',
+    video_url: videoUrl,
+    caption,
+    share_to_feed: true,
+    access_token: pageToken
+  });
+
+  const creationId = container?.id;
+  if (!creationId) throw new Error('Instagram no devolvió creation_id.');
+
+  let statusCode = '';
+  for (let i = 0; i < 6; i++) {
+    await new Promise(resolve => setTimeout(resolve, i === 0 ? 2500 : 5000));
+    const status = await getGraph(`https://graph.facebook.com/v21.0/${creationId}?fields=status_code&access_token=${encodeURIComponent(pageToken)}`);
+    statusCode = status?.status_code || '';
+    if (statusCode === 'FINISHED') break;
+    if (statusCode === 'ERROR' || statusCode === 'EXPIRED') {
+      throw new Error(`Instagram no pudo procesar el video (${statusCode}).`);
+    }
+  }
+
+  if (statusCode !== 'FINISHED') {
+    return {
+      status: 'processing',
+      id: creationId,
+      message: 'Instagram recibió el video y sigue procesándolo. Reintentá publicar en unos minutos si no aparece.'
+    };
+  }
+
+  const published = await postGraph(`https://graph.facebook.com/v21.0/${igBusinessId}/media_publish`, {
+    creation_id: creationId,
+    access_token: pageToken
+  });
+
+  return {
+    status: 'published',
+    id: published?.id || creationId,
+    url: published?.id ? `https://www.instagram.com/p/${published.id}/` : undefined,
+    message: 'Reel enviado a Instagram.'
+  };
+}
+
+async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
+
+  const authHeader = req.headers.authorization || '';
+  const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
+
+  const body = parseRequestBody(req.body);
+  const clientId = String(body.clientId || '');
+  const caption = String(body.caption || '').trim();
+  const videoUrl = String(body.videoUrl || '').trim();
+  const videoPath = body.videoPath ? String(body.videoPath) : null;
+  const channels = Array.isArray(body.channels) ? body.channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)) as SocialChannel[] : [];
+
+  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+  if (!caption) return res.status(400).json({ error: 'caption requerido' });
+  if (!videoUrl || !/^https:\/\//i.test(videoUrl)) return res.status(400).json({ error: 'videoUrl público HTTPS requerido' });
+  if (channels.length === 0) return res.status(400).json({ error: 'Seleccioná al menos un canal' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
+  const authUserId = userData?.user?.id || '';
+  if (userErr || !authUserId) return res.status(401).json({ error: 'Sesión inválida' });
+
+  const { data: client, error } = await supabase
+    .from('car_clients')
+    .select('user_id, is_admin, fb_page_id, fb_page_name, fb_page_access_token, ig_business_id, ig_username, connection_statuses')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (error || !client) return res.status(404).json({ error: 'Cliente no encontrado' });
+
+  const ownsClient = client.user_id === authUserId;
+  const { data: adminClient } = await supabase
+    .from('car_clients')
+    .select('id')
+    .eq('user_id', authUserId)
+    .eq('is_admin', true)
+    .maybeSingle();
+  const { data: association } = await supabase
+    .from('car_business_accounts')
+    .select('id')
+    .eq('business_id', clientId)
+    .eq('user_id', authUserId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (!ownsClient && !adminClient && !association) {
+    return res.status(403).json({ error: 'No tenés permisos para publicar en este cliente' });
+  }
+
+  const results: Record<string, any> = {};
+  for (const channel of channels) {
+    try {
+      if (channel === 'facebook') {
+        if (!client.fb_page_id || !client.fb_page_access_token) {
+          results.facebook = { status: 'missing_connection', message: 'Falta conectar una página de Facebook con permiso de publicación.' };
+          continue;
+        }
+        results.facebook = await publishFacebookVideo(client.fb_page_id, client.fb_page_access_token, videoUrl, caption);
+        continue;
+      }
+
+      if (channel === 'instagram') {
+        if (!client.ig_business_id || !client.fb_page_access_token) {
+          results.instagram = { status: 'missing_connection', message: 'Falta conectar Instagram profesional desde Meta.' };
+          continue;
+        }
+        results.instagram = await publishInstagramReel(client.ig_business_id, client.fb_page_access_token, videoUrl, caption);
+        continue;
+      }
+
+      if (channel === 'tiktok') {
+        results.tiktok = {
+          status: 'needs_oauth',
+          message: 'TikTok Ads está separado de TikTok Content Posting. Para publicar videos hace falta configurar la app OAuth de publicación.'
+        };
+        continue;
+      }
+
+      if (channel === 'youtube') {
+        results.youtube = {
+          status: 'needs_oauth',
+          message: 'YouTube Shorts requiere OAuth de YouTube Data API con permiso youtube.upload.'
+        };
+      }
+    } catch (err: any) {
+      results[channel] = { status: 'error', message: err?.message || 'Error al publicar.' };
+    }
+  }
+
+  const publishedCount = Object.values(results).filter((item: any) => item.status === 'published' || item.status === 'processing').length;
+  const publicationStatus = publishedCount > 0 ? 'published' : 'failed';
+
+  try {
+    await supabase.from('car_social_publications').insert({
+      client_id: clientId,
+      user_id: authUserId,
+      caption,
+      video_url: videoUrl,
+      video_path: videoPath,
+      selected_channels: channels,
+      results,
+      status: publicationStatus,
+      published_at: publishedCount > 0 ? new Date().toISOString() : null
+    });
+  } catch (insertErr) {
+    console.error('[Social Publish] could not insert history. Did you run supabase_social_publisher.sql?', insertErr);
+  }
+
+  return res.status(200).json({ ok: publishedCount > 0, results });
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1751,6 +1949,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const action = req.query.action as string || '';
 
+  if (action === 'social-publish') return handleSocialPublish(req, res);
   if (action === 'whatsapp-test') return handleWhatsappTest(req, res);
 
   // Email preview (routed from /api/preview via vercel.json rewrite)

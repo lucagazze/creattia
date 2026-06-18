@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag,
   AlertTriangle, Activity, Library, Workflow, Instagram, MessageSquare, Brain, Users, Package,
-  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart
+  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart, UploadCloud
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -99,6 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     activeProfile?.fb_page_id ||
     (activeProfile as any)?.ig_business_id
   );
+  const hasPublisher = hasRedes || !!((activeProfile as any)?.connection_statuses?.tiktok_ads === 'ok');
 
   // Admins always see all pages (including unconfigured ones, shown dimmed)
   const isAdmin = !!(profile?.is_admin);
@@ -125,6 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   ].filter(i => isAdmin || i.configured);
 
   const activosItems = [
+    { path: '/publicador',          icon: UploadCloud, label: 'Publicador',        configured: hasPublisher },
     { path: '/analisis-productos',  icon: BarChart2,  label: 'Análisis Productos', configured: hasEcommerce },
     { path: '/admin/meta',          icon: Target,     label: 'Creativos Ads',      configured: hasMeta },
     { path: '/analisis-creativo',   icon: Brain,      label: 'Análisis Creativo',  configured: hasMeta },
