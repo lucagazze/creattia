@@ -2622,23 +2622,25 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
 
   const body = parseRequestBody(req.body);
-  let clientId = String(body.clientId || '');
+  const clientId = String(body.clientId || '');
   const caption = String(body.caption || '').trim();
   const videoUrl = String(body.videoUrl || '').trim();
   const videoPath = body.videoPath ? String(body.videoPath) : null;
   const channels = Array.isArray(body.channels) ? body.channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)) as SocialChannel[] : [];
   const scheduledAt = body.scheduledAt ? String(body.scheduledAt) : '';
 
+  if (!clientId || clientId === 'default') return res.status(400).json({ error: 'Cliente explícito requerido para publicar.' });
   if (!caption) return res.status(400).json({ error: 'caption requerido' });
   if (!videoUrl || !/^https:\/\//i.test(videoUrl)) return res.status(400).json({ error: 'videoUrl público HTTPS requerido' });
   if (channels.length === 0) return res.status(400).json({ error: 'Seleccioná al menos un canal' });
+  if (videoPath && videoPath.split('/')[1] !== clientId) {
+    return res.status(403).json({ error: 'El video no pertenece al cliente seleccionado. Volvé a cargarlo.' });
+  }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   let authUserId = '';
   try {
-    const access = await resolveClientAccess(supabase, accessToken, clientId);
-    authUserId = access.authUserId;
-    clientId = access.clientId;
+    authUserId = await assertClientAccess(supabase, accessToken, clientId);
   } catch (err: any) {
     return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
   }
@@ -2667,44 +2669,45 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true, scheduled: true, results: {} });
   }
 
-  const results: Record<string, any> = {};
-  for (const channel of channels) {
+  const publishChannel = async (channel: SocialChannel) => {
     try {
       if (channel === 'facebook') {
         if (!client.fb_page_id || !client.fb_page_access_token) {
-          results.facebook = { status: 'missing_connection', message: 'Falta conectar una página de Facebook con permiso de publicación.' };
-          continue;
+          return { channel, result: { status: 'missing_connection', message: 'Falta conectar una página de Facebook con permiso de publicación.' } };
         }
-        results.facebook = await publishFacebookVideo(client.fb_page_id, client.fb_page_access_token, videoUrl, caption);
-        continue;
+        return { channel, result: await publishFacebookVideo(client.fb_page_id, client.fb_page_access_token, videoUrl, caption) };
       }
 
       if (channel === 'instagram') {
         if (!client.ig_business_id || !client.fb_page_access_token) {
-          results.instagram = { status: 'missing_connection', message: 'Falta conectar Instagram profesional desde Meta.' };
-          continue;
+          return { channel, result: { status: 'missing_connection', message: 'Falta conectar Instagram profesional desde Meta.' } };
         }
-        results.instagram = await publishInstagramReel(client.ig_business_id, client.fb_page_access_token, videoUrl, caption);
-        continue;
+        return { channel, result: await publishInstagramReel(client.ig_business_id, client.fb_page_access_token, videoUrl, caption) };
       }
 
       if (channel === 'tiktok') {
         const tiktokToken = await getValidTiktokContentToken(clientId, supabase);
         if (!tiktokToken) {
-          results.tiktok = { status: 'missing_connection', message: 'Falta conectar TikTok orgánico desde Integraciones.' };
-          continue;
+          return { channel, result: { status: 'missing_connection', message: 'Falta conectar TikTok orgánico desde Integraciones.' } };
         }
-        results.tiktok = await publishTiktokInboxVideo(tiktokToken, videoUrl);
-        continue;
+        return { channel, result: await publishTiktokInboxVideo(tiktokToken, videoUrl) };
       }
 
       if (channel === 'youtube') {
-        results.youtube = await publishYoutubeShort(clientId, supabase, videoUrl, caption);
+        return { channel, result: await publishYoutubeShort(clientId, supabase, videoUrl, caption) };
       }
+
+      return { channel, result: { status: 'error', message: 'Canal no soportado.' } };
     } catch (err: any) {
-      results[channel] = { status: 'error', message: err?.message || 'Error al publicar.' };
+      return { channel, result: { status: 'error', message: err?.message || 'Error al publicar.' } };
     }
-  }
+  };
+
+  const channelResults = await Promise.all(channels.map(publishChannel));
+  const results = channelResults.reduce((acc, item) => {
+    acc[item.channel] = item.result;
+    return acc;
+  }, {} as Record<string, any>);
 
   const publishedCount = Object.values(results).filter((item: any) => item.status === 'published' || item.status === 'processing').length;
   const publicationStatus = publishedCount > 0 ? 'published' : 'failed';

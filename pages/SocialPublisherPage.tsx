@@ -34,6 +34,7 @@ export default function SocialPublisherPage() {
   const { profile: authProfile, user } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
+  const activeClientId = profile?.id && profile.id !== 'default' ? profile.id : '';
   const { showToast } = useToast();
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -45,6 +46,17 @@ export default function SocialPublisherPage() {
   const [publishMode, setPublishMode] = useState<'now' | 'scheduled'>('now');
   const [scheduledAt, setScheduledAt] = useState('');
   const [scheduledItems, setScheduledItems] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    setSelectedChannels([]);
+    setResults(null);
+    setScheduledItems([]);
+    setVideoFile(null);
+    setVideoPreview(prev => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, [activeClientId]);
 
   const channels = useMemo<ChannelConfig[]>(() => {
     const p: any = profile || {};
@@ -109,11 +121,11 @@ export default function SocialPublisherPage() {
 
   React.useEffect(() => {
     let active = true;
-    if (!profile?.id) return;
+    if (!activeClientId) return;
     supabase
       .from('car_social_publications')
       .select('id, caption, selected_channels, results, status, created_at')
-      .eq('client_id', profile.id)
+      .eq('client_id', activeClientId)
       .in('status', ['scheduled', 'published', 'processing'])
       .order('created_at', { ascending: false })
       .limit(40)
@@ -121,7 +133,7 @@ export default function SocialPublisherPage() {
         if (active) setScheduledItems(data || []);
       });
     return () => { active = false; };
-  }, [profile?.id, results]);
+  }, [activeClientId, results]);
 
   const handleFileChange = (file?: File | null) => {
     if (!file) return;
@@ -150,9 +162,9 @@ export default function SocialPublisherPage() {
 
   const uploadVideo = async () => {
     if (!videoFile || !user?.id) throw new Error('Falta video o sesión activa.');
+    if (!activeClientId) throw new Error('No hay un cliente seleccionado para publicar.');
     const ext = videoFile.name.includes('.') ? videoFile.name.split('.').pop() : 'mp4';
-    const clientFolder = profile?.id && profile.id !== 'default' ? profile.id : 'active-client';
-    const path = `${user.id}/${clientFolder}/${Date.now()}-${cleanFileName(videoFile.name || `video.${ext}`)}`;
+    const path = `${user.id}/${activeClientId}/${Date.now()}-${cleanFileName(videoFile.name || `video.${ext}`)}`;
     const { error } = await supabase.storage
       .from('car-social-videos')
       .upload(path, videoFile, { upsert: false, contentType: videoFile.type || 'video/mp4' });
@@ -189,7 +201,7 @@ export default function SocialPublisherPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
       body: JSON.stringify({
-        clientId: profile?.id && profile.id !== 'default' ? profile.id : '',
+        clientId: activeClientId,
         userId: user?.id,
         caption: caption.trim(),
         videoUrl: upload.publicUrl,
@@ -201,6 +213,10 @@ export default function SocialPublisherPage() {
   };
 
   const handlePublish = async () => {
+    if (!activeClientId) {
+      showToast('No hay un cliente seleccionado para publicar.', 'warning');
+      return;
+    }
     if (!videoFile) {
       showToast('Primero subí un video.', 'warning');
       return;
@@ -224,8 +240,7 @@ export default function SocialPublisherPage() {
     setPublishing(true);
     setResults(null);
     try {
-      let accessToken = await getFreshAccessToken();
-      const upload = await uploadVideo();
+      let [accessToken, upload] = await Promise.all([getFreshAccessToken(), uploadVideo()]);
       let res = await sendPublishRequest(upload, accessToken);
       if (res.status === 401) {
         const { data: refreshed, error } = await supabase.auth.refreshSession();
