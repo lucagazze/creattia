@@ -2593,17 +2593,17 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
 
   if (scheduledAt && new Date(scheduledAt).getTime() > Date.now() + 30000) {
-    await supabase.from('car_social_publications').insert({
+    const { error: scheduleInsertError } = await supabase.from('car_social_publications').insert({
       client_id: clientId,
       user_id: authUserId,
       caption,
       video_url: videoUrl,
       video_path: videoPath,
       selected_channels: channels,
-      results: {},
-      status: 'scheduled',
-      scheduled_at: scheduledAt
+      results: { scheduled_at: scheduledAt },
+      status: 'scheduled'
     });
+    if (scheduleInsertError) return res.status(500).json({ error: scheduleInsertError.message });
     return res.status(200).json({ ok: true, scheduled: true, results: {} });
   }
 

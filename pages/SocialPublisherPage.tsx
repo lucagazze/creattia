@@ -111,10 +111,10 @@ export default function SocialPublisherPage() {
     if (!profile?.id) return;
     supabase
       .from('car_social_publications')
-      .select('id, caption, selected_channels, status, scheduled_at, created_at')
+      .select('id, caption, selected_channels, results, status, created_at')
       .eq('client_id', profile.id)
       .in('status', ['scheduled', 'published', 'processing'])
-      .order('scheduled_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false })
       .limit(40)
       .then(({ data }) => {
         if (active) setScheduledItems(data || []);
@@ -471,7 +471,7 @@ export default function SocialPublisherPage() {
               ))}
               {monthDays.map((day, index) => {
                 const iso = day ? day.toISOString().slice(0, 10) : '';
-                const count = scheduledItems.filter(item => (item.scheduled_at || item.created_at || '').slice(0, 10) === iso).length;
+                const count = scheduledItems.filter(item => (item.results?.scheduled_at || item.created_at || '').slice(0, 10) === iso).length;
                 const isToday = day && day.toDateString() === new Date().toDateString();
                 return (
                   <button
@@ -502,7 +502,7 @@ export default function SocialPublisherPage() {
                 <div key={item.id} className="rounded-xl border border-zinc-100 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/30 p-3">
                   <p className="text-[12px] font-black text-zinc-800 dark:text-white truncate">{item.caption || 'Publicación sin texto'}</p>
                   <p className="mt-1 text-[10px] font-bold text-zinc-400">
-                    {item.scheduled_at ? new Date(item.scheduled_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : 'Sin fecha'} · {(item.selected_channels || []).join(', ')}
+                    {item.results?.scheduled_at ? new Date(item.results.scheduled_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : 'Sin fecha'} · {(item.selected_channels || []).join(', ')}
                   </p>
                 </div>
               ))}
