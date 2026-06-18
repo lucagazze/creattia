@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle, CalendarDays, CheckCircle2, Clock3, Facebook, Film, Instagram,
-  Loader2, PlayCircle, Send, UploadCloud, Youtube, Zap
+  Loader2, PlayCircle, Send, Sparkles, UploadCloud, Youtube, Zap
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -87,6 +87,12 @@ export default function SocialPublisherPage() {
   const connectedCount = channels.filter(c => c.connected).length;
   const selectedConnected = selectedChannels.filter(id => channels.find(c => c.id === id)?.connected);
   const captionLength = caption.trim().length;
+  const selectedChannelLabels = selectedConnected
+    .map(id => channels.find(c => c.id === id)?.label)
+    .filter(Boolean);
+  const scheduledLabel = publishMode === 'scheduled' && scheduledAt
+    ? new Date(scheduledAt).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Ahora';
   const monthDays = useMemo(() => {
     const base = scheduledAt ? new Date(scheduledAt) : new Date();
     const year = base.getFullYear();
@@ -219,42 +225,54 @@ export default function SocialPublisherPage() {
   };
 
   return (
-    <div className="w-full max-w-[1580px] mx-auto space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-violet-500/12 text-violet-500 flex items-center justify-center">
-            <Send className="w-6 h-6" />
+    <div className="w-full max-w-[1540px] mx-auto space-y-5">
+      <header className="rounded-[28px] border border-zinc-200/70 dark:border-white/10 bg-white/70 dark:bg-[#18181b]/80 backdrop-blur-xl shadow-sm px-4 py-4 sm:px-5 lg:px-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+          <div className="w-11 h-11 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-600/20 shrink-0">
+            <Send className="w-5 h-5" />
           </div>
-          <div>
-            <h1 className="text-[28px] sm:text-[34px] font-black tracking-tight text-zinc-950 dark:text-white">Publicador</h1>
-            <p className="text-[13px] sm:text-[15px] font-semibold text-zinc-500 dark:text-zinc-400 max-w-2xl">
+          <div className="min-w-0">
+            <h1 className="text-[28px] sm:text-[34px] font-black tracking-tight text-zinc-950 dark:text-white leading-none">Publicador</h1>
+            <p className="mt-2 text-[13px] sm:text-[14px] font-semibold text-zinc-500 dark:text-zinc-400 max-w-2xl leading-relaxed">
               Subí un video una sola vez, elegí canales conectados y publicalo desde Algoritmia.
             </p>
           </div>
         </div>
-        <button
-          onClick={() => navigate('/integraciones')}
-          className="h-10 px-4 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-[12px] font-black flex items-center justify-center gap-2 hover:opacity-90"
-        >
-          <Zap className="w-4 h-4" />
-          Conectar canales
-        </button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+            <span className="h-10 px-3 rounded-xl bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center justify-center gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+              {connectedCount} conectados
+            </span>
+            <span className="h-10 px-3 rounded-xl bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center justify-center gap-2">
+              <CalendarDays className="w-3.5 h-3.5 text-violet-500" />
+              {scheduledItems.filter(item => item.status === 'scheduled').length} programadas
+            </span>
+          </div>
+          <button
+            onClick={() => navigate('/integraciones')}
+            className="h-10 px-4 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[12px] font-black flex items-center justify-center gap-2 hover:opacity-90 shadow-lg shadow-zinc-900/10"
+          >
+            <Zap className="w-4 h-4" />
+            Conectar canales
+          </button>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_430px] gap-5">
-        <section className="rounded-[20px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] overflow-hidden shadow-sm">
+      <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_420px] gap-5">
+        <section className="rounded-[28px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] overflow-hidden shadow-sm">
           <div className="p-4 sm:p-5 border-b border-zinc-100 dark:border-white/10 flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Contenido</p>
               <h2 className="text-[18px] font-black text-zinc-950 dark:text-white">Video y descripción</h2>
             </div>
-            <span className="hidden sm:inline-flex h-8 px-3 rounded-full bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-500 dark:text-zinc-400 items-center">
-              {connectedCount} canales conectados
+            <span className="hidden sm:inline-flex h-8 px-3 rounded-full bg-violet-50 dark:bg-violet-500/10 text-[11px] font-black text-violet-600 dark:text-violet-300 items-center">
+              {publishMode === 'scheduled' ? 'Programada' : 'Lista para publicar'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-5 p-4 sm:p-5">
-            <label className="group relative min-h-[520px] rounded-[18px] border border-dashed border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-zinc-950/35 overflow-hidden flex items-center justify-center cursor-pointer">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,0.86fr)_minmax(360px,1fr)] gap-4 sm:gap-5 p-4 sm:p-5">
+            <label className="group relative min-h-[320px] lg:min-h-[360px] xl:min-h-[430px] 2xl:min-h-[500px] rounded-[24px] border border-dashed border-zinc-300 dark:border-white/15 bg-[radial-gradient(circle_at_top,#faf7ff,transparent_42%),#fafafa] dark:bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.12),transparent_42%),rgba(9,9,11,0.45)] overflow-hidden flex items-center justify-center cursor-pointer">
               <input
                 type="file"
                 accept="video/mp4,video/quicktime,video/webm,video/*"
@@ -264,20 +282,23 @@ export default function SocialPublisherPage() {
               {videoPreview ? (
                 <video src={videoPreview} controls playsInline className="w-full h-full object-contain bg-black" />
               ) : (
-                <div className="text-center px-8">
-                  <div className="w-16 h-16 rounded-2xl bg-violet-500 text-white flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-500/25">
+                <div className="text-center px-8 max-w-[310px]">
+                  <div className="w-16 h-16 rounded-[22px] bg-violet-600 text-white flex items-center justify-center mx-auto mb-4 shadow-xl shadow-violet-600/25 group-hover:scale-105 transition-transform">
                     <UploadCloud className="w-8 h-8" />
                   </div>
-                  <p className="text-[16px] font-black text-zinc-900 dark:text-white">Subir video</p>
-                  <p className="mt-2 text-[12px] font-semibold leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  <p className="text-[18px] font-black text-zinc-900 dark:text-white">Subir video</p>
+                  <p className="mt-2 text-[12px] font-bold leading-relaxed text-zinc-500 dark:text-zinc-400">
                     MP4, MOV o WEBM. Ideal vertical 9:16 para Reels, Shorts y TikTok.
                   </p>
+                  <span className="mt-5 inline-flex h-9 px-4 rounded-full bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-[11px] font-black text-zinc-500 dark:text-zinc-350 items-center">
+                    Hasta {MAX_VIDEO_MB} MB
+                  </span>
                 </div>
               )}
             </label>
 
-            <div className="space-y-5">
-              <div>
+            <div className="space-y-4">
+              <div className="rounded-[22px] border border-zinc-200/70 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3 sm:p-4">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Texto del post</label>
                   <span className="text-[11px] font-bold text-zinc-400">{captionLength} caracteres</span>
@@ -286,11 +307,11 @@ export default function SocialPublisherPage() {
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
                   placeholder="Escribí el copy, CTA, hashtags y menciones..."
-                  className="w-full min-h-[180px] resize-y rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[14px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
+                  className="w-full min-h-[150px] resize-y rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[14px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
                 />
               </div>
 
-              <div>
+              <div className="rounded-[22px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-3 sm:p-4">
                 <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Programación</p>
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   {[
@@ -333,33 +354,40 @@ export default function SocialPublisherPage() {
                 )}
               </div>
 
-              <div>
-                <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Canales</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-[22px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-zinc-950/15 p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <p className="text-[12px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Canales</p>
+                  <span className="text-[11px] font-black text-zinc-400">{selectedConnected.length}/{connectedCount}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {channels.map((channel) => {
                     const selected = selectedChannels.includes(channel.id);
                     return (
                       <button
                         key={channel.id}
                         onClick={() => toggleChannel(channel.id)}
-                        className={`text-left rounded-2xl border p-4 transition-all active:scale-[0.99] ${
+                        className={`text-left rounded-2xl border p-3 transition-all active:scale-[0.99] ${
                           selected
                             ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10 shadow-sm shadow-violet-500/10'
                             : 'border-zinc-200 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/25 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
                         } ${!channel.connected ? 'opacity-60' : ''}`}
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
                           <span className={`w-9 h-9 rounded-xl bg-gradient-to-br ${channel.color} text-white flex items-center justify-center shrink-0`}>
                             {channel.icon}
                           </span>
-                          {channel.connected ? (
-                            selected ? <CheckCircle2 className="w-5 h-5 text-violet-500" /> : <span className="w-5 h-5 rounded-full border border-zinc-300 dark:border-white/20" />
-                          ) : (
-                            <AlertCircle className="w-5 h-5 text-zinc-400" />
-                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-black text-zinc-950 dark:text-white truncate">{channel.label}</p>
+                            <p className="mt-0.5 text-[11px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400 line-clamp-2">{channel.detail}</p>
+                          </div>
+                          <span className="shrink-0 pt-0.5">
+                            {channel.connected ? (
+                              selected ? <CheckCircle2 className="w-5 h-5 text-violet-500" /> : <span className="block w-5 h-5 rounded-full border border-zinc-300 dark:border-white/20" />
+                            ) : (
+                              <AlertCircle className="w-5 h-5 text-zinc-400" />
+                            )}
+                          </span>
                         </div>
-                        <p className="mt-3 text-[14px] font-black text-zinc-950 dark:text-white">{channel.label}</p>
-                        <p className="mt-1 text-[11px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400">{channel.detail}</p>
                       </button>
                     );
                   })}
@@ -369,7 +397,7 @@ export default function SocialPublisherPage() {
               <button
                 onClick={handlePublish}
                 disabled={publishing}
-                className="w-full h-13 rounded-2xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:hover:bg-violet-600 text-white text-[14px] font-black flex items-center justify-center gap-2 shadow-lg shadow-violet-600/20 transition-all"
+                className="w-full h-13 rounded-2xl bg-zinc-950 hover:bg-zinc-800 dark:bg-violet-600 dark:hover:bg-violet-500 disabled:opacity-60 disabled:hover:bg-zinc-950 text-white text-[14px] font-black flex items-center justify-center gap-2 shadow-lg shadow-zinc-900/15 dark:shadow-violet-600/20 transition-all"
               >
                 {publishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 {publishing ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...') : (publishMode === 'scheduled' ? 'Programar publicación' : 'Publicar en canales seleccionados')}
@@ -378,34 +406,48 @@ export default function SocialPublisherPage() {
           </div>
         </section>
 
-        <aside className="space-y-5">
-          <section className="rounded-[20px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-5 shadow-sm">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Estado</p>
-            <h2 className="mt-1 text-[18px] font-black text-zinc-950 dark:text-white">Resumen de publicación</h2>
-            <div className="mt-5 space-y-3">
-              <div className="flex items-center gap-3 text-[13px] font-bold text-zinc-600 dark:text-zinc-300">
-                <Film className="w-4 h-4 text-violet-500" />
-                {videoFile ? videoFile.name : 'Sin video cargado'}
+        <aside className="space-y-5 2xl:sticky 2xl:top-5 self-start">
+          <section className="rounded-[28px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 sm:p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Estado</p>
+                <h2 className="mt-1 text-[18px] font-black text-zinc-950 dark:text-white">Salida</h2>
               </div>
-              <div className="flex items-center gap-3 text-[13px] font-bold text-zinc-600 dark:text-zinc-300">
-                <PlayCircle className="w-4 h-4 text-violet-500" />
-                {selectedConnected.length} canales listos seleccionados
-              </div>
-              <div className="flex items-center gap-3 text-[13px] font-bold text-zinc-600 dark:text-zinc-300">
-                <CalendarDays className="w-4 h-4 text-violet-500" />
-                {publishMode === 'scheduled' && scheduledAt
-                  ? new Date(scheduledAt).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' })
-                  : 'Publicación inmediata'}
-              </div>
+              <span className={`h-8 px-3 rounded-full text-[11px] font-black inline-flex items-center ${
+                publishMode === 'scheduled'
+                  ? 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-300'
+                  : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+              }`}>
+                {publishMode === 'scheduled' ? 'Programar' : 'Ahora'}
+              </span>
             </div>
-            <div className="mt-5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200/70 dark:border-amber-500/20 p-4">
-              <p className="text-[12px] font-bold leading-relaxed text-amber-800 dark:text-amber-200">
-                Facebook e Instagram usan tu conexión Meta. TikTok usa la conexión orgánica y puede requerir terminar la publicación desde la app de TikTok.
+
+            <div className="mt-4 grid grid-cols-1 gap-2">
+              {[
+                { icon: Film, label: videoFile ? videoFile.name : 'Sin video cargado' },
+                { icon: PlayCircle, label: selectedChannelLabels.length ? selectedChannelLabels.join(', ') : 'Sin canales seleccionados' },
+                { icon: CalendarDays, label: scheduledLabel }
+              ].map((item, index) => {
+                const Icon = item.icon;
+                return (
+                  <div key={index} className="min-h-11 rounded-2xl bg-zinc-50 dark:bg-zinc-950/30 border border-zinc-100 dark:border-white/10 px-3 py-2.5 flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-xl bg-white dark:bg-white/5 border border-zinc-100 dark:border-white/10 flex items-center justify-center text-violet-500 shrink-0">
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <p className="text-[12.5px] font-black text-zinc-700 dark:text-zinc-200 truncate">{item.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200/70 dark:border-amber-500/20 p-3.5">
+              <p className="text-[11.5px] font-bold leading-relaxed text-amber-800 dark:text-amber-200">
+                Facebook e Instagram usan Meta. TikTok puede pedir confirmación final desde la app.
               </p>
             </div>
           </section>
 
-          <section className="rounded-[20px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-5 shadow-sm">
+          <section className="rounded-[28px] border border-zinc-200/70 dark:border-white/10 bg-white dark:bg-[#18181b] p-4 sm:p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-violet-500">Calendario</p>
@@ -417,7 +459,7 @@ export default function SocialPublisherPage() {
                 {scheduledItems.filter(item => item.status === 'scheduled').length} programadas
               </span>
             </div>
-            <div className="mt-4 grid grid-cols-7 gap-1 text-center">
+            <div className="mt-4 grid grid-cols-7 gap-1.5 text-center">
               {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => (
                 <span key={`${day}-${index}`} className="text-[10px] font-black text-zinc-400">{day}</span>
               ))}
@@ -435,11 +477,11 @@ export default function SocialPublisherPage() {
                       setPublishMode('scheduled');
                       setScheduledAt(`${iso}T${hour}`);
                     }}
-                    className={`aspect-square rounded-lg text-[11px] font-black flex flex-col items-center justify-center gap-0.5 ${
+                    className={`aspect-square min-h-9 rounded-xl text-[11px] font-black flex flex-col items-center justify-center gap-0.5 transition-all ${
                       day
                         ? isToday
-                          ? 'bg-violet-600 text-white'
-                          : 'bg-zinc-50 dark:bg-zinc-950/35 text-zinc-700 dark:text-zinc-200 hover:bg-violet-50 dark:hover:bg-violet-500/10'
+                          ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20'
+                          : 'bg-zinc-50 dark:bg-zinc-950/35 text-zinc-700 dark:text-zinc-200 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300'
                         : 'opacity-0'
                     }`}
                   >
@@ -459,7 +501,10 @@ export default function SocialPublisherPage() {
                 </div>
               ))}
               {scheduledItems.filter(item => item.status === 'scheduled').length === 0 && (
-                <p className="text-[12px] font-semibold text-zinc-400">Todavía no hay publicaciones programadas.</p>
+                <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-white/10 p-4 text-center">
+                  <CalendarDays className="w-5 h-5 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
+                  <p className="text-[12px] font-semibold text-zinc-400">Todavía no hay publicaciones programadas.</p>
+                </div>
               )}
             </div>
           </section>

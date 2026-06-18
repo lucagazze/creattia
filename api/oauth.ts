@@ -2330,6 +2330,118 @@ async function publishYoutubeShort(clientId: string, supabase: any, videoUrl: st
   };
 }
 
+async function handleCosts(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
+
+  const action = req.query.action as string;
+  const authHeader = req.headers.authorization || '';
+  const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
+
+  const body = parseRequestBody(req.body);
+  const clientId = String(body.clientId || req.query.clientId || '');
+  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    await assertClientAccess(supabase, accessToken, clientId);
+  } catch (err: any) {
+    return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+  }
+
+  if (action === 'costs-load') {
+    const [variantRes, additionalRes] = await Promise.all([
+      supabase
+        .from('car_variant_costs')
+        .select('variant_id, cost, packaging_cost, updated_at')
+        .eq('client_id', clientId),
+      supabase
+        .from('car_additional_costs')
+        .select('id, category, name, start_date, end_date, cost, daily_cost, currency, ad_spend, platform, updated_at')
+        .eq('client_id', clientId)
+    ]);
+    if (variantRes.error) return res.status(500).json({ error: variantRes.error.message });
+    if (additionalRes.error) return res.status(500).json({ error: additionalRes.error.message });
+    return res.status(200).json({ variantCosts: variantRes.data || [], additionalCosts: additionalRes.data || [] });
+  }
+
+  if (action === 'costs-upsert-variants') {
+    const rowsInput = Array.isArray(body.rows) ? body.rows : (body.row ? [body.row] : []);
+    if (rowsInput.length === 0) return res.status(400).json({ error: 'rows requerido' });
+    const now = new Date().toISOString();
+    const rows = rowsInput
+      .filter((row: any) => row?.variant_id)
+      .map((row: any) => ({
+        client_id: clientId,
+        variant_id: String(row.variant_id),
+        cost: Number(row.cost) || 0,
+        packaging_cost: Number(row.packaging_cost) || 0,
+        updated_at: row.updated_at || now
+      }));
+    if (rows.length === 0) return res.status(400).json({ error: 'rows sin variant_id' });
+    const { data, error } = await supabase
+      .from('car_variant_costs')
+      .upsert(rows, { onConflict: 'client_id,variant_id' })
+      .select('variant_id, cost, packaging_cost, updated_at');
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ rows: data || [] });
+  }
+
+  if (action === 'costs-delete-variants') {
+    const variantIds = Array.isArray(body.variantIds) ? body.variantIds.map(String) : [];
+    if (variantIds.length === 0) return res.status(400).json({ error: 'variantIds requerido' });
+    const { error } = await supabase
+      .from('car_variant_costs')
+      .delete()
+      .eq('client_id', clientId)
+      .in('variant_id', variantIds);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ deleted: variantIds.length });
+  }
+
+  if (action === 'costs-save-additional') {
+    const row = body.row || {};
+    const dbRow = {
+      client_id: clientId,
+      category: String(row.category || ''),
+      name: String(row.name || ''),
+      start_date: String(row.start_date || ''),
+      end_date: String(row.end_date || ''),
+      cost: Number(row.cost) || 0,
+      daily_cost: Number(row.daily_cost) || 0,
+      currency: String(row.currency || 'LOCAL'),
+      ad_spend: !!row.ad_spend,
+      platform: String(row.platform || '-'),
+      updated_at: row.updated_at || new Date().toISOString()
+    };
+    if (!['equipo', 'otros', 'campanas'].includes(dbRow.category) || !dbRow.name || !dbRow.start_date || !dbRow.end_date) {
+      return res.status(400).json({ error: 'Datos de costo adicional incompletos' });
+    }
+    const query = row.id
+      ? supabase.from('car_additional_costs').update(dbRow).eq('client_id', clientId).eq('id', String(row.id)).select()
+      : supabase.from('car_additional_costs').insert(dbRow).select();
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ row: data?.[0] || null });
+  }
+
+  if (action === 'costs-delete-additional') {
+    const id = String(body.id || '');
+    if (!id) return res.status(400).json({ error: 'id requerido' });
+    const { error } = await supabase
+      .from('car_additional_costs')
+      .delete()
+      .eq('client_id', clientId)
+      .eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ deleted: id });
+  }
+
+  return res.status(400).json({ error: 'costs action invalid' });
+}
+
 async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
   if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
@@ -2455,6 +2567,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (action === 'social-publish') return handleSocialPublish(req, res);
   if (action === 'whatsapp-test') return handleWhatsappTest(req, res);
+  if (action.startsWith('costs-')) return handleCosts(req, res);
 
   // Email preview (routed from /api/preview via vercel.json rewrite)
   if (action === 'preview' || req.query.email) return handlePreview(req, res);

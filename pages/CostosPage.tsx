@@ -185,13 +185,8 @@ export default function CostosPage() {
     const fetchCosts = async () => {
       setLoadingProducts(true);
       try {
-        // Fetch variant costs
-        const { data: varData, error: varError } = await supabase
-          .from('car_variant_costs')
-          .select('variant_id, cost, packaging_cost, updated_at')
-          .eq('client_id', profileId);
-          
-        if (varError) throw varError;
+        const costsData = await callCostsApi('costs-load');
+        const varData = costsData.variantCosts || [];
         
         let maxTime: Date | null = null;
         const varCostsMap: Record<string, { cost: number; packagingCost: number; lastUpdated?: string }> = {};
@@ -212,13 +207,7 @@ export default function CostosPage() {
           setVariantCosts({});
         }
 
-        // Fetch additional costs
-        const { data: addData, error: addError } = await supabase
-          .from('car_additional_costs')
-          .select('id, category, name, start_date, end_date, cost, daily_cost, currency, ad_spend, platform, updated_at')
-          .eq('client_id', profileId);
-          
-        if (addError) throw addError;
+        const addData = costsData.additionalCosts || [];
         
         if (addData) {
           const equipoList: AdditionalCostItem[] = [];
@@ -304,6 +293,21 @@ export default function CostosPage() {
     } catch (e) { /* ignore quota full */ }
   };
 
+  const callCostsApi = async (action: string, payload: Record<string, any> = {}) => {
+    if (!profileId || profileId === 'default') throw new Error('Cliente no disponible.');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) throw new Error('La sesión expiró. Volvé a iniciar sesión.');
+    const res = await fetch(`/api/oauth?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ clientId: profileId, ...payload })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'No se pudo guardar en la base de datos.');
+    return data;
+  };
+
   useEffect(() => {
     loadProductCatalog();
   }, [loadProductCatalog]);
@@ -317,18 +321,14 @@ export default function CostosPage() {
     setVariantCosts(updated);
 
     try {
-      const { error } = await supabase
-        .from('car_variant_costs')
-        .upsert({
-          client_id: profileId,
+      await callCostsApi('costs-upsert-variants', {
+        row: {
           variant_id: variantId,
           cost,
           packaging_cost: packagingCost,
           updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'client_id,variant_id'
-        });
-      if (error) throw error;
+        }
+      });
       setLastUpdatedTime(new Date().toLocaleString('es-AR', {
         timeZone: 'America/Argentina/Buenos_Aires',
         day: '2-digit',
@@ -380,12 +380,7 @@ export default function CostosPage() {
     setVariantCosts(updated);
 
     try {
-      const { error } = await supabase
-        .from('car_variant_costs')
-        .upsert(upsertRows, {
-          onConflict: 'client_id,variant_id'
-        });
-      if (error) throw error;
+      await callCostsApi('costs-upsert-variants', { rows: upsertRows });
       showToast(`Se aplicó costo ${pct}% a ${upsertRows.length} variantes.`, 'success');
       setLastUpdatedTime(new Date().toLocaleString('es-AR', {
         timeZone: 'America/Argentina/Buenos_Aires',
@@ -439,8 +434,7 @@ export default function CostosPage() {
 
     setVariantCosts(updated);
     try {
-      const { error } = await supabase.from('car_variant_costs').upsert(upsertRows, { onConflict: 'client_id,variant_id' });
-      if (error) throw error;
+      await callCostsApi('costs-upsert-variants', { rows: upsertRows });
       showToast(`Se aplicó caja $${packaging.toLocaleString('es-AR')} a ${upsertRows.length} variantes.`, 'success');
       setLastUpdatedTime(new Date().toLocaleString('es-AR', {
         timeZone: 'America/Argentina/Buenos_Aires',
@@ -469,12 +463,7 @@ export default function CostosPage() {
     setVariantCosts(updated);
 
     try {
-      const { error } = await supabase
-        .from('car_variant_costs')
-        .delete()
-        .eq('client_id', profileId)
-        .in('variant_id', variantIds);
-      if (error) throw error;
+      await callCostsApi('costs-delete-variants', { variantIds });
       showToast(`Se limpiaron costos de ${variantIds.length} variantes.`, 'info');
       setLastUpdatedTime(new Date().toLocaleString('es-AR', {
         timeZone: 'America/Argentina/Buenos_Aires',
@@ -679,44 +668,24 @@ export default function CostosPage() {
 
     try {
       let savedItem: AdditionalCostItem;
+      const { row: savedRow } = await callCostsApi('costs-save-additional', {
+        row: editingCostItem ? { ...dbRow, id: editingCostItem.id } : dbRow
+      });
+      if (!savedRow) throw new Error('No se recibió el costo guardado.');
+      savedItem = {
+        id: savedRow.id,
+        name: savedRow.name,
+        startDate: savedRow.start_date,
+        endDate: savedRow.end_date,
+        cost: parseFloat(savedRow.cost),
+        dailyCost: parseFloat(savedRow.daily_cost),
+        currency: savedRow.currency,
+        adSpend: savedRow.ad_spend,
+        platform: savedRow.platform
+      };
       if (editingCostItem) {
-        // Update
-        const { data, error } = await supabase
-          .from('car_additional_costs')
-          .update(dbRow)
-          .eq('id', editingCostItem.id)
-          .select();
-        if (error) throw error;
-        savedItem = {
-          id: data[0].id,
-          name: data[0].name,
-          startDate: data[0].start_date,
-          endDate: data[0].end_date,
-          cost: parseFloat(data[0].cost),
-          dailyCost: parseFloat(data[0].daily_cost),
-          currency: data[0].currency,
-          adSpend: data[0].ad_spend,
-          platform: data[0].platform
-        };
         showToast('Costo adicional actualizado.', 'success');
       } else {
-        // Insert
-        const { data, error } = await supabase
-          .from('car_additional_costs')
-          .insert(dbRow)
-          .select();
-        if (error) throw error;
-        savedItem = {
-          id: data[0].id,
-          name: data[0].name,
-          startDate: data[0].start_date,
-          endDate: data[0].end_date,
-          cost: parseFloat(data[0].cost),
-          dailyCost: parseFloat(data[0].daily_cost),
-          currency: data[0].currency,
-          adSpend: data[0].ad_spend,
-          platform: data[0].platform
-        };
         showToast('Costo adicional agregado con éxito.', 'success');
       }
       setLastUpdatedTime(new Date().toLocaleString('es-AR', {
@@ -750,11 +719,7 @@ export default function CostosPage() {
   // Delete cost row
   const handleDeleteCostItem = async (id: string, type: 'equipo' | 'otros' | 'campanas') => {
     try {
-      const { error } = await supabase
-        .from('car_additional_costs')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
+      await callCostsApi('costs-delete-additional', { id });
 
       const updatedList = additionalCosts[type].filter(item => item.id !== id);
       setAdditionalCosts(prev => ({
