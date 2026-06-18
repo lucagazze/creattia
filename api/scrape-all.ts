@@ -1228,20 +1228,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return { response, orders: Array.isArray(orders) ? orders : [], totalPages };
         };
 
-        const fetchWooOrders = async (params: Record<string, string | number | undefined>) => {
+        const fetchWooOrders = async (params: Record<string, string | number | undefined>, maxPages = 8) => {
           const first = await readWooPage(wooOrdersUrl({ ...params, page: 1 }));
           if (!first.response.ok) return first;
 
-          const pages = Array.from({ length: Math.max(0, first.totalPages - 1) }, (_, idx) => idx + 2);
+          const totalPages = Math.min(first.totalPages, maxPages);
+          const pages = Array.from({ length: Math.max(0, totalPages - 1) }, (_, idx) => idx + 2);
           const allOrders = [...first.orders];
-          const batchSize = 3;
-          for (let i = 0; i < pages.length; i += batchSize) {
-            const batch = pages.slice(i, i + batchSize);
-            const results = await Promise.all(batch.map(page => readWooPage(wooOrdersUrl({ ...params, page }))));
-            for (const result of results) {
-              if (!result.response.ok) return result;
-              allOrders.push(...result.orders);
-            }
+          for (const page of pages) {
+            const result = await readWooPage(wooOrdersUrl({ ...params, page }));
+            if (!result.response.ok) return result;
+            allOrders.push(...result.orders);
           }
 
           return { response: first.response, orders: allOrders, totalPages: first.totalPages };
@@ -1251,8 +1248,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let wRecent: Awaited<ReturnType<typeof fetchWooOrders>>;
         try {
           [wRange, wRecent] = await Promise.all([
-            fetchWooOrders({ after: sinceIso, before: untilIso, per_page: 100 }),
-            fetchWooOrders({ per_page: 20 }),
+            fetchWooOrders({ after: sinceIso, before: untilIso, per_page: 50 }, 12),
+            fetchWooOrders({ per_page: 20 }, 1),
           ]);
         } catch (err: any) {
           console.error('[WooCommerce] Network error reaching store:', err);

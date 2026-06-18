@@ -1505,6 +1505,10 @@ export default function DashboardPage() {
     let mounted = true;
     const fetch90d = async () => {
       const prof: any = profile;
+      if (detectedPlatform === 'wordpress') {
+        if (mounted) setFetching90d(false);
+        return;
+      }
       const hasStoreConfig = detectedPlatform && (
         (detectedPlatform === 'shopify' && prof.shopify_domain && prof.shopify_access_token) ||
         (detectedPlatform === 'wordpress' && prof.wordpress_url && prof.woo_consumer_key && prof.woo_consumer_secret) ||
@@ -2788,8 +2792,8 @@ export default function DashboardPage() {
             </h2>
             {fetching90d ? (
               <div className="h-[300px] flex items-center justify-center animate-pulse bg-zinc-50 dark:bg-zinc-800/50 rounded-xl" />
-            ) : historical90d.length > 0 ? (
-              <HistoricalRevenueChart data={historical90d} color={PINK} />
+            ) : (historical90d.length > 0 || currentStore?.daily?.length > 0) ? (
+              <HistoricalRevenueChart data={historical90d.length > 0 ? historical90d : currentStore.daily} color={PINK} />
             ) : (
               <div className="h-[300px] flex flex-col items-center justify-center text-zinc-400 gap-4">
                 <BarChart2 className="w-10 h-10 opacity-20" />
