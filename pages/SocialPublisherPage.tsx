@@ -147,10 +147,31 @@ export default function SocialPublisherPage() {
     setSelectedChannels(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
 
-  const uploadVideo = async () => {
-    if (!videoFile || !profile?.id || !user?.id) throw new Error('Falta video o sesión activa.');
+  const resolveActiveClientId = async () => {
+    if (profile?.id && profile.id !== 'default') return profile.id;
+    if (!user?.id) throw new Error('Falta sesión activa.');
+
+    const { data: owned } = await supabase
+      .from('car_clients')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (owned?.id) return owned.id;
+
+    const { data: association } = await supabase
+      .from('car_business_accounts')
+      .select('business_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (association?.business_id) return association.business_id;
+
+    throw new Error('Cliente no encontrado para esta sesión.');
+  };
+
+  const uploadVideo = async (clientId: string) => {
+    if (!videoFile || !clientId || !user?.id) throw new Error('Falta video o sesión activa.');
     const ext = videoFile.name.includes('.') ? videoFile.name.split('.').pop() : 'mp4';
-    const path = `${user.id}/${profile.id}/${Date.now()}-${cleanFileName(videoFile.name || `video.${ext}`)}`;
+    const path = `${user.id}/${clientId}/${Date.now()}-${cleanFileName(videoFile.name || `video.${ext}`)}`;
     const { error } = await supabase.storage
       .from('car-social-videos')
       .upload(path, videoFile, { upsert: false, contentType: videoFile.type || 'video/mp4' });
@@ -191,7 +212,8 @@ export default function SocialPublisherPage() {
     setPublishing(true);
     setResults(null);
     try {
-      const upload = await uploadVideo();
+      const clientId = await resolveActiveClientId();
+      const upload = await uploadVideo(clientId);
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) throw new Error('La sesión expiró. Volvé a iniciar sesión.');
@@ -199,7 +221,7 @@ export default function SocialPublisherPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
         body: JSON.stringify({
-          clientId: profile?.id,
+          clientId,
           userId: user?.id,
           caption: caption.trim(),
           videoUrl: upload.publicUrl,

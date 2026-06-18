@@ -557,7 +557,7 @@ async function handleMetaSaveSelection(req: VercelRequest, res: VercelResponse) 
   if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
 
   const body = parseRequestBody(req.body);
-  const clientId = String(body.clientId || '');
+  let clientId = String(body.clientId || '');
   if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -2167,6 +2167,51 @@ async function assertClientAccess(supabase: any, accessToken: string, clientId: 
   return authUserId;
 }
 
+async function resolveClientAccess(supabase: any, accessToken: string, requestedClientId: string) {
+  const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
+  const authUserId = userData?.user?.id || '';
+  if (userErr || !authUserId) throw new Error('Sesión inválida');
+
+  let clientId = requestedClientId && requestedClientId !== 'default' ? requestedClientId : '';
+
+  if (clientId) {
+    const { data: client } = await supabase
+      .from('car_clients')
+      .select('id')
+      .eq('id', clientId)
+      .maybeSingle();
+    if (!client) {
+      const { data: associationById } = await supabase
+        .from('car_business_accounts')
+        .select('business_id')
+        .eq('id', clientId)
+        .eq('user_id', authUserId)
+        .maybeSingle();
+      clientId = associationById?.business_id || '';
+    }
+  }
+
+  if (!clientId) {
+    const [{ data: ownedClient }, { data: association }] = await Promise.all([
+      supabase
+        .from('car_clients')
+        .select('id')
+        .eq('user_id', authUserId)
+        .maybeSingle(),
+      supabase
+        .from('car_business_accounts')
+        .select('business_id')
+        .eq('user_id', authUserId)
+        .maybeSingle()
+    ]);
+    clientId = ownedClient?.id || association?.business_id || '';
+  }
+
+  if (!clientId) throw new Error('Cliente no encontrado');
+  await assertClientAccess(supabase, accessToken, clientId);
+  return { authUserId, clientId };
+}
+
 const postGraph = async (url: string, body: Record<string, any>) => {
   const response = await fetch(url, {
     method: 'POST',
@@ -2467,7 +2512,9 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   let authUserId = '';
   try {
-    authUserId = await assertClientAccess(supabase, accessToken, clientId);
+    const access = await resolveClientAccess(supabase, accessToken, clientId);
+    authUserId = access.authUserId;
+    clientId = access.clientId;
   } catch (err: any) {
     return res.status(err?.message === 'Sesión inválida' ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
   }
