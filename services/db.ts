@@ -36,6 +36,12 @@ export interface ClientProfile {
   scraped_content?: string;
   instagram_context?: string;
   brain_updated_at?: string;
+  tiktok_content_access_token?: string;
+  tiktok_content_refresh_token?: string;
+  tiktok_content_open_id?: string;
+  tiktok_content_display_name?: string;
+  tiktok_content_avatar_url?: string;
+  tiktok_content_expiration?: string;
   connection_statuses?: Record<string, any>;
   created_at: string;
 }

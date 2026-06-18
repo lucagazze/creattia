@@ -1,5 +1,13 @@
 -- Social publisher: videos uploaded once and distributed to connected channels.
 
+ALTER TABLE public.car_clients
+  ADD COLUMN IF NOT EXISTS tiktok_content_access_token text,
+  ADD COLUMN IF NOT EXISTS tiktok_content_refresh_token text,
+  ADD COLUMN IF NOT EXISTS tiktok_content_open_id text,
+  ADD COLUMN IF NOT EXISTS tiktok_content_display_name text,
+  ADD COLUMN IF NOT EXISTS tiktok_content_avatar_url text,
+  ADD COLUMN IF NOT EXISTS tiktok_content_expiration timestamptz;
+
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'car-social-videos',

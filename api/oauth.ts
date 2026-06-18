@@ -928,6 +928,8 @@ async function handleChatwootLogin(req: VercelRequest, res: VercelResponse) {
 // ── TIKTOK ADS OAuth & Proxy ──────────────────────────────────────────────────
 const TIKTOK_APP_ID = process.env.TIKTOK_APP_ID || '';
 const TIKTOK_APP_SECRET = process.env.TIKTOK_APP_SECRET || '';
+const TIKTOK_CONTENT_CLIENT_KEY = process.env.TIKTOK_CONTENT_CLIENT_KEY || process.env.TIKTOK_CLIENT_KEY || '';
+const TIKTOK_CONTENT_CLIENT_SECRET = process.env.TIKTOK_CONTENT_CLIENT_SECRET || process.env.TIKTOK_CLIENT_SECRET || '';
 
 async function getValidTiktokToken(clientId: string, supabase: any): Promise<string | null> {
   const { data: client } = await supabase
@@ -1259,6 +1261,219 @@ async function handleTiktok(req: VercelRequest, res: VercelResponse) {
       });
     }
   }
+}
+
+async function getValidTiktokContentToken(clientId: string, supabase: any): Promise<string | null> {
+  const { data: client } = await supabase
+    .from('car_clients')
+    .select('tiktok_content_access_token, tiktok_content_refresh_token, tiktok_content_expiration')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (!client?.tiktok_content_access_token) return null;
+
+  const expiration = client.tiktok_content_expiration ? new Date(client.tiktok_content_expiration).getTime() : 0;
+  if (expiration && Date.now() < expiration - 30 * 60 * 1000) {
+    return client.tiktok_content_access_token;
+  }
+
+  if (!client.tiktok_content_refresh_token || !TIKTOK_CONTENT_CLIENT_KEY || !TIKTOK_CONTENT_CLIENT_SECRET) {
+    return client.tiktok_content_access_token;
+  }
+
+  try {
+    const tokenRes = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_key: TIKTOK_CONTENT_CLIENT_KEY,
+        client_secret: TIKTOK_CONTENT_CLIENT_SECRET,
+        grant_type: 'refresh_token',
+        refresh_token: client.tiktok_content_refresh_token
+      }).toString()
+    });
+    const json = await tokenRes.json();
+    if (!tokenRes.ok || json.error) {
+      console.error('[TikTok Content Refresh] Failed:', json);
+      return client.tiktok_content_access_token;
+    }
+
+    await supabase
+      .from('car_clients')
+      .update({
+        tiktok_content_access_token: json.access_token,
+        tiktok_content_refresh_token: json.refresh_token || client.tiktok_content_refresh_token,
+        tiktok_content_expiration: new Date(Date.now() + Number(json.expires_in || 86400) * 1000).toISOString()
+      })
+      .eq('id', clientId);
+
+    return json.access_token;
+  } catch (err) {
+    console.error('[TikTok Content Refresh] Exception:', err);
+    return client.tiktok_content_access_token;
+  }
+}
+
+async function handleTiktokContent(req: VercelRequest, res: VercelResponse) {
+  const action = req.query.action as string;
+  const base = getHost(req);
+
+  if (action === 'tiktok-content-authorize') {
+    const clientId = req.query.clientId as string;
+    if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+    if (!TIKTOK_CONTENT_CLIENT_KEY) return res.status(503).json({ error: 'TikTok orgánico no configurado (falta TIKTOK_CONTENT_CLIENT_KEY).' });
+
+    const redirectUri = `${base}/api/oauth?action=tiktok-content-callback`;
+    const state = Buffer.from(JSON.stringify({ clientId, host: base })).toString('base64');
+    const authorizeUrl =
+      `https://www.tiktok.com/v2/auth/authorize/` +
+      `?client_key=${encodeURIComponent(TIKTOK_CONTENT_CLIENT_KEY)}` +
+      `&scope=${encodeURIComponent('user.info.basic,video.upload')}` +
+      `&response_type=code` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&state=${encodeURIComponent(state)}`;
+
+    return res.status(200).json({ authorizeUrl });
+  }
+
+  if (action === 'tiktok-content-callback') {
+    const code = req.query.code as string;
+    const stateRaw = req.query.state as string;
+    const error = req.query.error as string;
+
+    let clientId = '';
+    let redirectBase = base;
+    try {
+      const state = JSON.parse(Buffer.from(stateRaw || '', 'base64').toString());
+      clientId = state.clientId || '';
+      redirectBase = state.host || base;
+    } catch {
+      return res.redirect(`${base}/#/integraciones?tiktok_content=error&reason=invalid_state`);
+    }
+
+    if (error) return res.redirect(`${redirectBase}/#/integraciones?tiktok_content=error&reason=${encodeURIComponent(error)}`);
+    if (!code || !clientId) return res.redirect(`${redirectBase}/#/integraciones?tiktok_content=error&reason=missing_code`);
+    if (!TIKTOK_CONTENT_CLIENT_KEY || !TIKTOK_CONTENT_CLIENT_SECRET) {
+      return res.redirect(`${redirectBase}/#/integraciones?tiktok_content=error&reason=not_configured`);
+    }
+
+    try {
+      const redirectUri = `${base}/api/oauth?action=tiktok-content-callback`;
+      const tokenRes = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_key: TIKTOK_CONTENT_CLIENT_KEY,
+          client_secret: TIKTOK_CONTENT_CLIENT_SECRET,
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri
+        }).toString()
+      });
+      const tokenJson = await tokenRes.json();
+      if (!tokenRes.ok || tokenJson.error) {
+        console.error('[TikTok Content Token Exchange] Failed:', tokenJson);
+        return res.redirect(`${redirectBase}/#/integraciones?tiktok_content=error&reason=token_exchange`);
+      }
+
+      let displayName = '';
+      let avatarUrl = '';
+      try {
+        const userRes = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,username', {
+          headers: { Authorization: `Bearer ${tokenJson.access_token}` }
+        });
+        const userJson = await userRes.json();
+        const user = userJson?.data?.user || {};
+        displayName = user.display_name || user.username || '';
+        avatarUrl = user.avatar_url || '';
+      } catch (err) {
+        console.error('[TikTok Content User Info] Failed:', err);
+      }
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: clientRow } = await supabase
+        .from('car_clients')
+        .select('connection_statuses')
+        .eq('id', clientId)
+        .maybeSingle();
+
+      const updatedStatuses = {
+        ...(clientRow?.connection_statuses || {}),
+        tiktok_content: 'ok',
+        tiktok_content_display_name: displayName || undefined
+      };
+
+      await supabase
+        .from('car_clients')
+        .update({
+          tiktok_content_access_token: tokenJson.access_token,
+          tiktok_content_refresh_token: tokenJson.refresh_token,
+          tiktok_content_open_id: tokenJson.open_id,
+          tiktok_content_display_name: displayName,
+          tiktok_content_avatar_url: avatarUrl,
+          tiktok_content_expiration: new Date(Date.now() + Number(tokenJson.expires_in || 86400) * 1000).toISOString(),
+          connection_statuses: updatedStatuses
+        })
+        .eq('id', clientId);
+
+      return res.redirect(`${redirectBase}/#/integraciones?tiktok_content=success`);
+    } catch (err: any) {
+      console.error('[TikTok Content Callback] Error:', err);
+      return res.redirect(`${redirectBase}/#/integraciones?tiktok_content=error&reason=server_error`);
+    }
+  }
+}
+
+async function publishTiktokInboxVideo(accessToken: string, videoUrl: string) {
+  const sourceRes = await fetch(videoUrl);
+  if (!sourceRes.ok) throw new Error(`No se pudo leer el video para TikTok (${sourceRes.status}).`);
+  const contentType = sourceRes.headers.get('content-type') || 'video/mp4';
+  const videoBuffer = Buffer.from(await sourceRes.arrayBuffer());
+  const videoSize = videoBuffer.byteLength;
+  if (!videoSize) throw new Error('El video está vacío.');
+
+  const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/inbox/video/init/', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json; charset=UTF-8'
+    },
+    body: JSON.stringify({
+      source_info: {
+        source: 'FILE_UPLOAD',
+        video_size: videoSize,
+        chunk_size: videoSize,
+        total_chunk_count: 1
+      }
+    })
+  });
+  const initJson = await initRes.json().catch(() => ({}));
+  if (!initRes.ok || initJson?.error) {
+    throw new Error(initJson?.error?.message || initJson?.error_description || `TikTok init error ${initRes.status}`);
+  }
+
+  const uploadUrl = initJson?.data?.upload_url;
+  const publishId = initJson?.data?.publish_id;
+  if (!uploadUrl) throw new Error('TikTok no devolvió upload_url.');
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType.includes('video/') ? contentType : 'video/mp4',
+      'Content-Length': String(videoSize),
+      'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`
+    },
+    body: videoBuffer
+  });
+  if (!uploadRes.ok) {
+    throw new Error(`TikTok upload error ${uploadRes.status}: ${(await uploadRes.text()).slice(0, 160)}`);
+  }
+
+  return {
+    status: 'processing',
+    id: publishId,
+    message: 'Video enviado a TikTok. El usuario debe abrir la notificación/inbox en TikTok para revisar y publicar.'
+  };
 }
 
 // ── MERCADO LIBRE OAuth & Proxy ──────────────────────────────────────────────
@@ -1853,7 +2068,7 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
 
   const { data: client, error } = await supabase
     .from('car_clients')
-    .select('user_id, is_admin, fb_page_id, fb_page_name, fb_page_access_token, ig_business_id, ig_username, connection_statuses')
+    .select('user_id, is_admin, fb_page_id, fb_page_name, fb_page_access_token, ig_business_id, ig_username, tiktok_content_access_token, tiktok_content_refresh_token, tiktok_content_expiration, connection_statuses')
     .eq('id', clientId)
     .maybeSingle();
 
@@ -1900,10 +2115,12 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
       }
 
       if (channel === 'tiktok') {
-        results.tiktok = {
-          status: 'needs_oauth',
-          message: 'TikTok Ads está separado de TikTok Content Posting. Para publicar videos hace falta configurar la app OAuth de publicación.'
-        };
+        const tiktokToken = await getValidTiktokContentToken(clientId, supabase);
+        if (!tiktokToken) {
+          results.tiktok = { status: 'missing_connection', message: 'Falta conectar TikTok orgánico desde Integraciones.' };
+          continue;
+        }
+        results.tiktok = await publishTiktokInboxVideo(tiktokToken, videoUrl);
         continue;
       }
 
@@ -1979,6 +2196,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'chatwoot-register') return handleChatwootRegister(req, res);
   if (action === 'chatwoot-login') return handleChatwootLogin(req, res);
 
+  if (action.startsWith('tiktok-content')) return handleTiktokContent(req, res);
   if (action.startsWith('tiktok')) return handleTiktok(req, res);
   if (action.startsWith('mercadolibre')) return handleMercadoLibre(req, res);
   if (action.startsWith('shopify')) return handleShopify(req, res);

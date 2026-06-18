@@ -99,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     activeProfile?.fb_page_id ||
     (activeProfile as any)?.ig_business_id
   );
-  const hasPublisher = hasRedes || hasMeta || !!((activeProfile as any)?.connection_statuses?.tiktok_ads === 'ok');
+  const hasPublisher = hasRedes || hasMeta || !!((activeProfile as any)?.connection_statuses?.tiktok_content === 'ok' || (activeProfile as any)?.tiktok_content_access_token);
 
   // Admins always see all pages (including unconfigured ones, shown dimmed)
   const isAdmin = !!(profile?.is_admin);
@@ -114,11 +114,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     { path: '/pedidos',        icon: ShoppingCart,  label: 'Pedidos',         configured: hasEcommerce, badge: pendingOrdersCount, badgeLoading: ordersLoading },
     { path: '/inventario',     icon: Package,       label: 'Inventario',      configured: hasEcommerce },
     { path: '/clientes',       icon: Users,         label: 'Clientes',        configured: hasEcommerce },
+    { path: '/costos',         icon: Coins,         label: 'Costos',          configured: hasEcommerce },
   ].filter(i => isAdmin || i.configured);
 
   const metricasItems = [
     { path: '/tienda',       icon: ShoppingBag,   label: 'Tienda Online', configured: hasEcommerce },
-    { path: '/costos',       icon: Coins,         label: 'Costos',        configured: hasEcommerce },
     { path: '/mercadolibre', icon: ShoppingBag,   label: 'Mercado Libre', configured: hasMercadoLibre },
     { path: '/captacion',    icon: BarChart2,     label: 'Meta Ads',     configured: hasMeta },
     { path: '/atencion',     icon: MessageCircle, label: 'Atención',      configured: hasChatwoot },

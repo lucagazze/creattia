@@ -76,9 +76,9 @@ const PLATFORMS: IntegrationPlatform[] = [
   },
   {
     id: "meta",
-    name: "Meta Ads & Píxel",
+    name: "Meta: Facebook, Instagram & Ads",
     category: "ads",
-    description: "Seguí el rendimiento de tus campañas de publicidad y optimizá conversiones de tu píxel.",
+    description: "Conectá Facebook, Instagram, comentarios, publicaciones y métricas de campañas Meta.",
     logoUrl: "/assets/meta (1).webp",
     isSimulated: false // Supports manual setup fields or simulated oauth trigger
   },
@@ -95,6 +95,14 @@ const PLATFORMS: IntegrationPlatform[] = [
     name: "TikTok Ads",
     category: "ads",
     description: "Medí el impacto de tus creativos y campañas de video en la plataforma de mayor crecimiento.",
+    logoUrl: "/assets/logotiktok.png",
+    isSimulated: false
+  },
+  {
+    id: "tiktok_content",
+    name: "TikTok",
+    category: "marketing",
+    description: "Conectá tu cuenta orgánica para subir videos desde el Publicador.",
     logoUrl: "/assets/logotiktok.png",
     isSimulated: false
   },
@@ -252,6 +260,7 @@ export default function IntegracionesPage() {
     const meta         = getQueryParam('meta');
     const mercadolibre = getQueryParam('mercadolibre');
     const tiktok       = getQueryParam('tiktok');
+    const tiktokContent = getQueryParam('tiktok_content');
     const reason       = getQueryParam('reason');
 
     const confirmOAuthConnection = async (platform: "tiendanube" | "wordpress"): Promise<"ok" | "unverified" | "missing"> => {
@@ -344,6 +353,15 @@ export default function IntegracionesPage() {
     } else if (tiktok === 'error') {
       setOauthResult({ platform: 'tiktok_ads', status: 'error', reason: reason || '' });
       showToast('Error al conectar TikTok Ads: ' + (reason || 'desconocido'), 'error');
+      window.history.replaceState({}, '', '/#/integraciones');
+    } else if (tiktokContent === 'success') {
+      setOauthResult({ platform: 'tiktok_content', status: 'success' });
+      showToast('¡TikTok conectado exitosamente! ✓', 'success');
+      window.history.replaceState({}, '', '/#/integraciones');
+      refreshProfile().then(() => loadClientData());
+    } else if (tiktokContent === 'error') {
+      setOauthResult({ platform: 'tiktok_content', status: 'error', reason: reason || '' });
+      showToast('Error al conectar TikTok: ' + (reason || 'desconocido'), 'error');
       window.history.replaceState({}, '', '/#/integraciones');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -655,6 +673,24 @@ export default function IntegracionesPage() {
       window.location.href = authorizeUrl;
     } catch (err: any) {
       showToast(err.message || 'Error al conectar con TikTok Ads', 'error');
+      setOauthLoading(false);
+    }
+  };
+
+  // ── REAL OAUTH: TikTok Content Posting ──────────────────────────────────────
+  const startTiktokContentOAuth = async () => {
+    if (!activeProfileId) return;
+    setOauthLoading(true);
+    try {
+      const res = await fetch(`/api/oauth?action=tiktok-content-authorize&clientId=${encodeURIComponent(activeProfileId)}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al iniciar OAuth con TikTok');
+      }
+      const { authorizeUrl } = await res.json();
+      window.location.href = authorizeUrl;
+    } catch (err: any) {
+      showToast(err.message || 'Error al conectar con TikTok', 'error');
       setOauthLoading(false);
     }
   };
@@ -1260,6 +1296,15 @@ export default function IntegracionesPage() {
         tiktok_advertiser_id: null,
         tiktok_expiration: null
       };
+    } else if (platformId === "tiktok_content") {
+      fieldsToUpdate = {
+        tiktok_content_access_token: null,
+        tiktok_content_refresh_token: null,
+        tiktok_content_open_id: null,
+        tiktok_content_display_name: null,
+        tiktok_content_avatar_url: null,
+        tiktok_content_expiration: null
+      };
     }
 
     try {
@@ -1312,6 +1357,10 @@ export default function IntegracionesPage() {
           messaging: null,
           chatwoot_url: null,
           chatwoot_token: null,
+        };
+      } else if (platformId === "tiktok_content") {
+        extraData = {
+          tiktok_content_display_name: null,
         };
       }
       await updateConnectionStatus(statusKey, null, extraData);
@@ -1972,6 +2021,12 @@ export default function IntegracionesPage() {
                             : `Advertiser ID: ${clientData.tiktok_advertiser_id || 'Conectado'}`}
                         </span>
                       )}
+                      {platform.id === "tiktok_content" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          {clientData.tiktok_content_display_name || clientData.connection_statuses?.tiktok_content_display_name || 'Cuenta TikTok conectada'}
+                        </span>
+                      )}
                       {platform.id === "klaviyo" && (
                         <span className="flex items-center gap-1.5 truncate">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
@@ -2592,6 +2647,29 @@ export default function IntegracionesPage() {
                     >
                       <img src="/assets/logotiktok.png" alt="TikTok" className="w-7 h-7 -my-1 -mx-0.5 object-contain shrink-0 invert dark:invert-0" />
                       <span>Conectar con TikTok Business</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* TIKTOK ORGANIC / CONTENT POSTING */}
+                {selectedPlatform.id === "tiktok_content" && (
+                  <div className="space-y-4 py-2">
+                    <div className="p-5 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-[13px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      <p>
+                        Esta conexión es para la cuenta normal de TikTok. Permite enviar videos desde el Publicador usando TikTok Content Posting.
+                      </p>
+                      <p className="mt-2 font-bold text-zinc-700 dark:text-zinc-300">
+                        TikTok puede pedir que el usuario termine la publicación desde la notificación/inbox de la app.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={startTiktokContentOAuth}
+                      disabled={savingSettings || oauthLoading}
+                      className="w-full h-12 bg-black hover:bg-zinc-900 dark:bg-zinc-850 dark:hover:bg-zinc-750 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-[13px] flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                    >
+                      <img src="/assets/logotiktok.png" alt="TikTok" className="w-7 h-7 -my-1 -mx-0.5 object-contain shrink-0 invert dark:invert-0" />
+                      <span>Conectar TikTok</span>
                     </button>
                   </div>
                 )}

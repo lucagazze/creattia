@@ -65,8 +65,8 @@ export default function SocialPublisherPage() {
       {
         id: 'tiktok',
         label: 'TikTok',
-        connected: false,
-        detail: 'Pendiente de OAuth de publicación TikTok Content Posting',
+        connected: !!p.tiktok_content_access_token,
+        detail: p.tiktok_content_display_name || p.connection_statuses?.tiktok_content_display_name || 'Requiere TikTok conectado desde Integraciones',
         color: 'from-zinc-900 to-zinc-650',
         icon: <img src="/assets/logotiktok.png" alt="" className="w-4 h-4 object-contain invert dark:invert-0" />
       },
@@ -308,7 +308,7 @@ export default function SocialPublisherPage() {
             </div>
             <div className="mt-5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200/70 dark:border-amber-500/20 p-4">
               <p className="text-[12px] font-bold leading-relaxed text-amber-800 dark:text-amber-200">
-                Facebook e Instagram usan tu conexión Meta. TikTok y YouTube requieren sus apps OAuth de publicación aprobadas para habilitar el envío real.
+                Facebook e Instagram usan tu conexión Meta. TikTok usa la conexión orgánica y puede requerir terminar la publicación desde la app de TikTok.
               </p>
             </div>
           </section>
