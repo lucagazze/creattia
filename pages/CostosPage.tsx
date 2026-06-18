@@ -73,6 +73,8 @@ export default function CostosPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [massPercentage, setMassPercentage] = useState('30');
+  const [massPackagingCost, setMassPackagingCost] = useState('350');
+  const [massScope, setMassScope] = useState<'filtered' | 'all'>('filtered');
 
   const [platformCommissions, setPlatformCommissions] = useState({
     shopify: 2.0,
@@ -352,8 +354,9 @@ export default function CostosPage() {
     const upsertRows: any[] = [];
     const nowStr = new Date().toISOString();
     const nowShort = nowStr.split('T')[0];
+    const targetProducts = massScope === 'filtered' ? filteredCatalog : catalogProducts;
 
-    catalogProducts.forEach(prod => {
+    targetProducts.forEach(prod => {
       prod.variants.forEach(variant => {
         const calculatedCost = Math.round(variant.price * (pct / 100));
         const currentPackaging = updated[variant.id]?.packagingCost ?? 350;
@@ -383,7 +386,7 @@ export default function CostosPage() {
           onConflict: 'client_id,variant_id'
         });
       if (error) throw error;
-      showToast(`Se aplicó el costo del ${pct}% de forma masiva a todos los productos.`, 'success');
+      showToast(`Se aplicó costo ${pct}% a ${upsertRows.length} variantes.`, 'success');
       setLastUpdatedTime(new Date().toLocaleString('es-AR', {
         timeZone: 'America/Argentina/Buenos_Aires',
         day: '2-digit',
@@ -395,6 +398,95 @@ export default function CostosPage() {
     } catch (err) {
       console.error('Error mass saving variant costs to Supabase:', err);
       showToast('Error al guardar costos masivos en la base de datos.', 'error');
+    }
+  };
+
+  const handleApplyMassPackaging = async () => {
+    const packaging = parseFloat(massPackagingCost);
+    if (isNaN(packaging) || packaging < 0) {
+      showToast('Ingresá un costo de caja válido.', 'warning');
+      return;
+    }
+
+    const updated = { ...variantCosts };
+    const upsertRows: any[] = [];
+    const nowStr = new Date().toISOString();
+    const nowShort = nowStr.split('T')[0];
+    const targetProducts = massScope === 'filtered' ? filteredCatalog : catalogProducts;
+
+    targetProducts.forEach(prod => {
+      prod.variants.forEach(variant => {
+        const currentCost = updated[variant.id]?.cost ?? 0;
+        updated[variant.id] = {
+          cost: currentCost,
+          packagingCost: packaging,
+          lastUpdated: nowShort
+        };
+        upsertRows.push({
+          client_id: profileId,
+          variant_id: variant.id,
+          cost: currentCost,
+          packaging_cost: packaging,
+          updated_at: nowStr
+        });
+      });
+    });
+
+    if (upsertRows.length === 0) {
+      showToast('No hay productos para actualizar.', 'warning');
+      return;
+    }
+
+    setVariantCosts(updated);
+    try {
+      const { error } = await supabase.from('car_variant_costs').upsert(upsertRows, { onConflict: 'client_id,variant_id' });
+      if (error) throw error;
+      showToast(`Se aplicó caja $${packaging.toLocaleString('es-AR')} a ${upsertRows.length} variantes.`, 'success');
+      setLastUpdatedTime(new Date().toLocaleString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+    } catch (err) {
+      console.error('Error mass saving packaging costs:', err);
+      showToast('Error al guardar cajas masivas en la base de datos.', 'error');
+    }
+  };
+
+  const handleClearMassCosts = async () => {
+    const targetProducts = massScope === 'filtered' ? filteredCatalog : catalogProducts;
+    const variantIds = targetProducts.flatMap(prod => prod.variants.map(v => v.id));
+    if (variantIds.length === 0) {
+      showToast('No hay productos para limpiar.', 'warning');
+      return;
+    }
+
+    const updated = { ...variantCosts };
+    variantIds.forEach(id => delete updated[id]);
+    setVariantCosts(updated);
+
+    try {
+      const { error } = await supabase
+        .from('car_variant_costs')
+        .delete()
+        .eq('client_id', profileId)
+        .in('variant_id', variantIds);
+      if (error) throw error;
+      showToast(`Se limpiaron costos de ${variantIds.length} variantes.`, 'info');
+      setLastUpdatedTime(new Date().toLocaleString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+    } catch (err) {
+      console.error('Error clearing variant costs:', err);
+      showToast('Error al limpiar costos en la base de datos.', 'error');
     }
   };
 
@@ -755,39 +847,102 @@ export default function CostosPage() {
             <div className="p-6 border-t border-zinc-100 dark:border-white/[0.03] space-y-6">
               
               {/* Edición Masiva & Search Toolbar */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+              <div className="grid grid-cols-1 gap-4">
                 {/* Search bar */}
-                <div className="relative">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                  <input 
-                    type="text"
-                    placeholder="Filtrar productos por nombre..."
-                    value={catalogSearch}
-                    onChange={e => setCatalogSearch(e.target.value)}
-                    className="apple-input pl-10"
-                  />
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-center">
+                  <div className="relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                    <input 
+                      type="text"
+                      placeholder="Filtrar productos por nombre..."
+                      value={catalogSearch}
+                      onChange={e => setCatalogSearch(e.target.value)}
+                      className="apple-input pl-10"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 justify-start lg:justify-end">
+                    <div className="inline-flex h-9 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setMassScope('filtered')}
+                        className={`px-3 rounded-lg text-[11px] font-black transition-all ${massScope === 'filtered' ? 'bg-white dark:bg-zinc-750 text-zinc-950 dark:text-white shadow-sm' : 'text-zinc-500'}`}
+                      >
+                        Filtrados
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMassScope('all')}
+                        className={`px-3 rounded-lg text-[11px] font-black transition-all ${massScope === 'all' ? 'bg-white dark:bg-zinc-750 text-zinc-950 dark:text-white shadow-sm' : 'text-zinc-500'}`}
+                      >
+                        Todos
+                      </button>
+                    </div>
+                    <span className="text-[11px] font-bold text-zinc-400">
+                      {(massScope === 'filtered' ? filteredCatalog : catalogProducts).reduce((sum, p) => sum + p.variants.length, 0)} variantes
+                    </span>
+                  </div>
                 </div>
 
-                {/* Mass percentage edit */}
-                <div className="flex items-center gap-2 justify-end bg-zinc-50 dark:bg-white/[0.02] p-2 px-3 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
-                  <Sparkles className="w-3.5 h-3.5 text-violet-500 shrink-0" />
-                  <span className="text-[11.5px] font-bold text-zinc-650 dark:text-zinc-300">Costo Masivo:</span>
-                  <div className="relative">
-                    <input 
-                      type="number"
-                      placeholder="30"
-                      value={massPercentage}
-                      onChange={e => setMassPercentage(e.target.value)}
-                      className="w-16 h-8 px-2 pr-5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-[12px] font-black text-center text-zinc-900 dark:text-white outline-none focus:border-zinc-400 dark:focus:border-zinc-650 transition-colors"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 font-bold text-[10px]">%</span>
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr_auto] gap-3">
+                  <div className="flex flex-wrap items-center gap-2 bg-zinc-50 dark:bg-white/[0.02] p-2 px-3 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                    <Sparkles className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                    <span className="text-[11.5px] font-bold text-zinc-650 dark:text-zinc-300">Costo unitario</span>
+                    <div className="relative">
+                      <input 
+                        type="number"
+                        placeholder="30"
+                        value={massPercentage}
+                        onChange={e => setMassPercentage(e.target.value)}
+                        className="w-16 h-8 px-2 pr-5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-[12px] font-black text-center text-zinc-900 dark:text-white outline-none focus:border-zinc-400 dark:focus:border-zinc-650 transition-colors"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 font-bold text-[10px]">%</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-400">del precio</span>
+                    <button
+                      onClick={handleApplyMassEdit}
+                      className="h-8 px-3 bg-violet-600 hover:bg-violet-750 text-white rounded-lg text-[11.5px] font-bold shadow-md transition-all active:scale-[0.98]"
+                    >
+                      Aplicar
+                    </button>
                   </div>
-                  <span className="text-[10px] text-zinc-400">del precio</span>
+
+                  <div className="flex flex-wrap items-center gap-2 bg-zinc-50 dark:bg-white/[0.02] p-2 px-3 rounded-xl border border-zinc-100 dark:border-white/[0.04]">
+                    <Package className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-[11.5px] font-bold text-zinc-650 dark:text-zinc-300">Caja / embalaje</span>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 font-bold text-[11px]">$</span>
+                      <input 
+                        type="number"
+                        placeholder="350"
+                        value={massPackagingCost}
+                        onChange={e => setMassPackagingCost(e.target.value)}
+                        className="w-20 h-8 pl-6 pr-2 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-[12px] font-black text-center text-zinc-900 dark:text-white outline-none focus:border-zinc-400 dark:focus:border-zinc-650 transition-colors"
+                      />
+                    </div>
+                    {[0, 350, 500].map(v => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setMassPackagingCost(String(v))}
+                        className="h-7 px-2 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-[10px] font-black text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                      >
+                        ${v}
+                      </button>
+                    ))}
+                    <button
+                      onClick={handleApplyMassPackaging}
+                      className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11.5px] font-bold shadow-md transition-all active:scale-[0.98]"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+
                   <button
-                    onClick={handleApplyMassEdit}
-                    className="h-8 px-3 bg-violet-600 hover:bg-violet-750 text-white rounded-lg text-[11.5px] font-bold shadow-md transition-all active:scale-[0.98]"
+                    type="button"
+                    onClick={handleClearMassCosts}
+                    className="h-full min-h-11 px-4 rounded-xl border border-rose-200/70 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-300 text-[11px] font-black uppercase tracking-wider hover:bg-rose-100 dark:hover:bg-rose-500/15 transition-colors"
                   >
-                    Aplicar a todos
+                    Limpiar alcance
                   </button>
                 </div>
               </div>
