@@ -2585,11 +2585,12 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
 
   const { data: client, error } = await supabase
     .from('car_clients')
-    .select('user_id, is_admin, fb_page_id, fb_page_name, fb_page_access_token, ig_business_id, ig_username, tiktok_content_access_token, tiktok_content_refresh_token, tiktok_content_expiration, youtube_access_token, youtube_refresh_token, youtube_expiration, connection_statuses')
+    .select('*')
     .eq('id', clientId)
     .maybeSingle();
 
-  if (error || !client) return res.status(404).json({ error: 'Cliente no encontrado' });
+  if (error) return res.status(500).json({ error: error.message || 'No se pudo leer el cliente.' });
+  if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
 
   if (scheduledAt && new Date(scheduledAt).getTime() > Date.now() + 30000) {
     await supabase.from('car_social_publications').insert({
