@@ -613,6 +613,64 @@ async function handleMetaSaveSelection(req: VercelRequest, res: VercelResponse) 
   return res.status(200).json({ ok: true });
 }
 
+async function handleMetaDisconnect(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
+
+  const authHeader = req.headers.authorization || '';
+  const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
+
+  const body = parseRequestBody(req.body);
+  const clientId = String(body.clientId || req.query.clientId || '');
+  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    await assertClientAccess(supabase, accessToken, clientId);
+  } catch (err: any) {
+    return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+  }
+
+  const { data: current, error: readError } = await supabase
+    .from('car_clients')
+    .select('connection_statuses')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (readError) return res.status(500).json({ error: readError.message });
+
+  const connectionStatuses = { ...(current?.connection_statuses || {}) };
+  [
+    'meta',
+    'facebook',
+    'instagram',
+    'meta_account_name',
+    'facebook_page_name',
+    'instagram_username'
+  ].forEach(key => delete connectionStatuses[key]);
+
+  const { data, error } = await supabase
+    .from('car_clients')
+    .update({
+      meta_account_id: null,
+      meta_pixel_id: null,
+      facebook_access_token: null,
+      fb_page_id: null,
+      fb_page_name: null,
+      fb_page_access_token: null,
+      ig_business_id: null,
+      ig_username: null,
+      connection_statuses: connectionStatuses
+    })
+    .eq('id', clientId)
+    .select('*')
+    .maybeSingle();
+
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ ok: true, client: data });
+}
+
 async function handleYoutube(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
   const base = getHost(req);
@@ -2725,6 +2783,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'meta-accounts') return handleMetaAccounts(req, res);
   if (action === 'meta-pages') return handleMetaPages(req, res);
   if (action === 'meta-save-selection') return handleMetaSaveSelection(req, res);
+  if (action === 'meta-disconnect') return handleMetaDisconnect(req, res);
 
   if (action === 'meta-status') {
     const clientId = req.query.clientId as string;

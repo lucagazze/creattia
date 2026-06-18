@@ -1380,6 +1380,31 @@ export default function IntegracionesPage() {
         }
       }
 
+      if (platformId === "meta") {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error('Tu sesión expiró. Volvé a iniciar sesión.');
+        const res = await fetch('/api/oauth?action=meta-disconnect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+          body: JSON.stringify({ clientId: activeProfileId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo desconectar Meta.');
+        if (data.client) {
+          setClientData(data.client);
+          if (isViewingAs) setViewAsProfile(data.client as any);
+        }
+        setMetaAccountId("");
+        setMetaPixelId("");
+        setMetaToken("");
+        showToast("Meta desconectado correctamente.", "success");
+        await refreshProfile();
+        await loadClientData();
+        closeConfigModal();
+        return;
+      }
+
       // 1. Update database
       if (Object.keys(fieldsToUpdate).length > 0) {
         const { error } = await supabase
@@ -1603,7 +1628,9 @@ export default function IntegracionesPage() {
     if (platformId === "meta") {
       const statuses = clientData.connection_statuses || {};
       const val = statuses.meta;
-      const hasUsableMeta = !!clientData.fb_page_id || !!clientData.ig_business_id || !!clientData.meta_account_id;
+      const hasPublisherMeta = !!clientData.fb_page_id && !!clientData.fb_page_access_token && !!clientData.ig_business_id;
+      const hasAdsMeta = !!clientData.meta_account_id;
+      const hasUsableMeta = hasPublisherMeta || hasAdsMeta;
       if (val === "ok" || val === "connected" || (hasUsableMeta && val !== "error")) {
         return hasUsableMeta ? "ok" : "error";
       }
