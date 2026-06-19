@@ -20,6 +20,14 @@ interface ChannelConfig {
   icon: React.ReactNode;
 }
 
+interface PublishConfirmation {
+  clientId: string;
+  businessName: string;
+  channels: Array<Pick<ChannelConfig, 'id' | 'label' | 'detail' | 'color' | 'icon'>>;
+  fileName: string;
+  scheduledLabel: string;
+}
+
 const MAX_VIDEO_MB = 500;
 
 const cleanFileName = (name: string) =>
@@ -46,6 +54,8 @@ export default function SocialPublisherPage() {
   const [publishMode, setPublishMode] = useState<'now' | 'scheduled'>('now');
   const [scheduledAt, setScheduledAt] = useState('');
   const [scheduledItems, setScheduledItems] = useState<any[]>([]);
+  const [checkingPublish, setCheckingPublish] = useState(false);
+  const [confirmation, setConfirmation] = useState<PublishConfirmation | null>(null);
 
   React.useEffect(() => {
     setSelectedChannels([]);
@@ -58,8 +68,8 @@ export default function SocialPublisherPage() {
     });
   }, [activeClientId]);
 
-  const channels = useMemo<ChannelConfig[]>(() => {
-    const p: any = profile || {};
+  const buildChannelConfigs = (source: any): ChannelConfig[] => {
+    const p: any = source || {};
     return [
       {
         id: 'instagram',
@@ -94,7 +104,9 @@ export default function SocialPublisherPage() {
         icon: <Youtube className="w-4 h-4" />
       }
     ];
-  }, [profile]);
+  };
+
+  const channels = useMemo<ChannelConfig[]>(() => buildChannelConfigs(profile), [profile]);
 
   const connectedCount = channels.filter(c => c.connected).length;
   const selectedConnected = selectedChannels.filter(id => channels.find(c => c.id === id)?.connected);
@@ -196,7 +208,7 @@ export default function SocialPublisherPage() {
     return accessToken;
   };
 
-  const sendPublishRequest = async (upload: { publicUrl: string; path: string }, accessToken: string) => {
+  const sendPublishRequest = async (upload: { publicUrl: string; path: string }, accessToken: string, channelsToPublish: ChannelId[]) => {
     return fetch('/api/oauth?action=social-publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
@@ -206,7 +218,7 @@ export default function SocialPublisherPage() {
         caption: caption.trim(),
         videoUrl: upload.publicUrl,
         videoPath: upload.path,
-        channels: selectedConnected,
+        channels: channelsToPublish,
         scheduledAt: publishMode === 'scheduled' ? scheduledAt : null
       })
     });
@@ -237,21 +249,74 @@ export default function SocialPublisherPage() {
       }
     }
 
+    setCheckingPublish(true);
+    try {
+      const { data: freshClient, error } = await supabase
+        .from('car_clients')
+        .select('*')
+        .eq('id', activeClientId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!freshClient) throw new Error('No se pudo confirmar el cliente activo.');
+      if (freshClient.id !== activeClientId) throw new Error('El cliente activo cambió. Volvé a abrir el Publicador.');
+
+      const freshChannels = buildChannelConfigs(freshClient);
+      const unavailable = selectedChannels.filter(id => !freshChannels.find(channel => channel.id === id)?.connected);
+      if (unavailable.length > 0) {
+        const names = unavailable
+          .map(id => freshChannels.find(channel => channel.id === id)?.label || id)
+          .join(', ');
+        throw new Error(`${names} ya no está conectado en este cliente. Revisá Integraciones.`);
+      }
+
+      const channelsToConfirm = selectedChannels
+        .map(id => freshChannels.find(channel => channel.id === id))
+        .filter((channel): channel is ChannelConfig => !!channel && channel.connected)
+        .map(channel => ({
+          id: channel.id,
+          label: channel.label,
+          detail: channel.detail,
+          color: channel.color,
+          icon: channel.icon
+        }));
+
+      if (channelsToConfirm.length === 0) throw new Error('No hay canales conectados para este cliente.');
+
+      setConfirmation({
+        clientId: freshClient.id,
+        businessName: freshClient.business_name || freshClient.email || 'Cliente sin nombre',
+        channels: channelsToConfirm,
+        fileName: videoFile.name,
+        scheduledLabel
+      });
+    } catch (err: any) {
+      showToast(err.message || 'No se pudo confirmar la publicación.', 'error');
+    } finally {
+      setCheckingPublish(false);
+    }
+  };
+
+  const executeConfirmedPublish = async () => {
+    if (!confirmation) return;
+    const channelsToPublish = confirmation.channels.map(channel => channel.id);
+
     setPublishing(true);
     setResults(null);
     try {
       let [accessToken, upload] = await Promise.all([getFreshAccessToken(), uploadVideo()]);
-      let res = await sendPublishRequest(upload, accessToken);
+      let res = await sendPublishRequest(upload, accessToken, channelsToPublish);
       if (res.status === 401) {
         const { data: refreshed, error } = await supabase.auth.refreshSession();
         if (error || !refreshed.session?.access_token) {
           throw new Error('Tu sesión de Algoritmia expiró. Cerrá sesión y volvé a entrar.');
         }
         accessToken = refreshed.session.access_token;
-        res = await sendPublishRequest(upload, accessToken);
+        res = await sendPublishRequest(upload, accessToken, channelsToPublish);
       }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo publicar.');
+      setConfirmation(null);
       setResults(data.results || {});
       const okCount = Object.values(data.results || {}).filter((item: any) => item.status === 'published' || item.status === 'processing').length;
       const firstError = Object.values(data.results || {}).find((item: any) => item.status === 'error' || item.status === 'missing_connection') as any;
@@ -402,11 +467,17 @@ export default function SocialPublisherPage() {
               <div className="mt-auto rounded-2xl bg-zinc-950 dark:bg-violet-600 p-1.5 shadow-lg shadow-zinc-900/10 dark:shadow-violet-600/20">
                 <button
                   onClick={handlePublish}
-                  disabled={publishing}
+                  disabled={publishing || checkingPublish}
                   className="w-full min-h-[46px] rounded-xl bg-white/0 hover:bg-white/10 disabled:opacity-60 text-white text-[13px] sm:text-[14px] font-black flex items-center justify-center gap-2 transition-all"
                 >
-                  {publishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  <span>{publishing ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...') : (publishMode === 'scheduled' ? 'Programar publicación' : 'Publicar ahora')}</span>
+                  {publishing || checkingPublish ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  <span>
+                    {publishing
+                      ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...')
+                      : checkingPublish
+                        ? 'Verificando cuentas...'
+                        : (publishMode === 'scheduled' ? 'Revisar y programar' : 'Revisar y publicar')}
+                  </span>
                 </button>
                 <p className="px-3 pb-2 text-center text-[10.5px] font-bold text-white/70 truncate">
                   {selectedChannelLabels.length ? `Se enviará a ${selectedChannelLabels.join(', ')}` : 'Elegí canales conectados para publicar'}
@@ -569,6 +640,86 @@ export default function SocialPublisherPage() {
           </section>
         )}
       </div>
+
+      {confirmation && (
+        <div className="fixed inset-0 z-[80] bg-zinc-950/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-[520px] rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-500">Confirmar publicación</p>
+                <h3 className="mt-1 text-[20px] font-black text-zinc-950 dark:text-white">Revisá la cuenta antes de subir</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmation(null)}
+                disabled={publishing}
+                className="w-8 h-8 rounded-lg border border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 disabled:opacity-50"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/25 p-4">
+                <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Cliente activo</p>
+                <p className="mt-1 text-[17px] font-black text-zinc-950 dark:text-white">{confirmation.businessName}</p>
+                <p className="mt-1 text-[11px] font-bold text-zinc-400">ID: {confirmation.clientId}</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {confirmation.channels.map(channel => (
+                  <div key={channel.id} className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/20 p-3 flex items-start gap-3">
+                    <span className={`w-9 h-9 rounded-xl bg-gradient-to-br ${channel.color} text-white flex items-center justify-center shrink-0`}>
+                      {channel.icon}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-black text-zinc-950 dark:text-white">{channel.label}</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 break-words">{channel.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="rounded-xl bg-zinc-50 dark:bg-zinc-950/25 border border-zinc-100 dark:border-white/10 p-3">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Archivo</p>
+                  <p className="mt-1 text-[12px] font-bold text-zinc-800 dark:text-zinc-200 truncate">{confirmation.fileName}</p>
+                </div>
+                <div className="rounded-xl bg-zinc-50 dark:bg-zinc-950/25 border border-zinc-100 dark:border-white/10 p-3">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Cuándo</p>
+                  <p className="mt-1 text-[12px] font-bold text-zinc-800 dark:text-zinc-200">{confirmation.scheduledLabel}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-3">
+                <p className="text-[12px] font-bold leading-relaxed text-amber-800 dark:text-amber-200">
+                  Si alguna cuenta no coincide, cancelá y revisá Integraciones. La publicación sólo se enviará a las cuentas listadas acá.
+                </p>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 bg-zinc-50 dark:bg-zinc-950/25 border-t border-zinc-100 dark:border-white/10 flex flex-col sm:flex-row gap-2 sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmation(null)}
+                disabled={publishing}
+                className="h-11 px-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-[13px] font-black text-zinc-600 dark:text-zinc-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={executeConfirmedPublish}
+                disabled={publishing}
+                className="h-11 px-5 rounded-xl bg-zinc-950 dark:bg-violet-600 text-white text-[13px] font-black flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {publishMode === 'scheduled' ? 'Confirmar programación' : 'Confirmar publicación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
