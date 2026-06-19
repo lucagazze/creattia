@@ -61,7 +61,7 @@
       "destination": "/api/shopify/[...path]"
     },
     {
-      "source": "/((?!api/|meta-callback\\.html).*)",
+      "source": "/((?!api/|.*\\.html$|.*\\.txt$|assets/|email-images/|email-library/).*)",
       "destination": "/index.html"
     }
   ],

@@ -37,7 +37,7 @@ import {
 interface IntegrationPlatform {
   id: string;
   name: string;
-  category: "ecommerce" | "marketing" | "ads" | "publishing" | "mensajeria" | "social";
+  category: "ecommerce" | "marketing" | "ads" | "mensajeria" | "social";
   description: string;
   logoUrl?: string;
   logoComponent?: React.FC<React.SVGProps<SVGSVGElement>>;
@@ -123,7 +123,7 @@ const PLATFORMS: IntegrationPlatform[] = [
   {
     id: "tiktok_content",
     name: "TikTok",
-    category: "publishing",
+    category: "social",
     description: "Conectá tu cuenta orgánica para subir videos desde el Publicador.",
     logoUrl: "/assets/logotiktok.png",
     isSimulated: false
@@ -131,7 +131,7 @@ const PLATFORMS: IntegrationPlatform[] = [
   {
     id: "youtube",
     name: "YouTube",
-    category: "publishing",
+    category: "social",
     description: "Conectá tu canal para ver publicaciones y subir Shorts desde el Publicador.",
     logoComponent: Youtube,
     isSimulated: false
@@ -180,7 +180,7 @@ export default function IntegracionesPage() {
 
   const [clientData, setClientData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "social" | "ads" | "publishing" | "marketing" | "mensajeria">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "social" | "ads" | "marketing" | "mensajeria">("all");
 
   // Modals state
   const [selectedPlatform, setSelectedPlatform] = useState<IntegrationPlatform | null>(null);
@@ -2023,7 +2023,6 @@ export default function IntegracionesPage() {
           { id: "ecommerce", label: "Ventas" },
           { id: "social", label: "Redes Sociales" },
           { id: "ads", label: "Publicidad" },
-          { id: "publishing", label: "Publicación orgánica" },
           { id: "marketing", label: "Marketing Directo" },
           { id: "mensajeria", label: "Mensajería" }
         ].map(tab => (

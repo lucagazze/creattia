@@ -11,6 +11,16 @@ Use this checklist when resubmitting Algoritmia Gestion in TikTok for Developers
 - Redirect URI for TikTok Ads / Business API: `https://app.algoritmiadesarrollos.com.ar/api/tiktok-callback`
 - Redirect URI for TikTok organic / Content Posting API: `https://app.algoritmiadesarrollos.com.ar/api/tiktok-content-callback`
 
+## Login Kit settings
+
+In the TikTok Developer Portal, Product > Login Kit > Redirect URI > Web:
+
+```text
+https://app.algoritmiadesarrollos.com.ar/api/tiktok-content-callback
+```
+
+Do not use the login page, hash routes, or URLs with query params here. The app code builds the TikTok auth URL with this same callback from `/api/oauth?action=tiktok-content-authorize`.
+
 ## App details
 
 - App name: `Algoritmia Gestion`
@@ -27,11 +37,20 @@ Request only the scopes that the current integration actually uses.
 
 - Login Kit: required for TikTok organic OAuth.
 - TikTok Ads / Business API OAuth: use it only for advertising reporting and advertiser assets.
-- Display API: request `user.info.basic` and `video.list` only if the app imports TikTok account/video data.
-- Content Posting API upload flow: request `video.upload` if the app uploads drafts for the user to finish in TikTok.
-- Content Posting API direct post flow: request `video.publish` only if the app directly publishes to TikTok after explicit confirmation.
+- Display API: request `user.info.basic` for account identity. Request `video.list` only if the app imports TikTok account/video data and that flow is shown in the demo.
+- Content Posting API upload flow: request `video.upload` if the app uploads drafts for the user to finish in TikTok. This is the safest first approval path because the current implementation sends the video to TikTok inbox/upload flow.
+- Content Posting API direct post flow: request `video.publish` only if the app directly publishes to TikTok after explicit confirmation and the demo shows that exact direct-post flow.
 
 Avoid requesting TikTok Ads scopes in this app unless the TikTok Ads workflow is implemented and shown in the demo. If the current user-facing feature is organic TikTok publishing, submit for organic TikTok first.
+
+Recommended first submission:
+
+```text
+Products: Login Kit, Content Posting API
+Scopes: user.info.basic, video.upload
+```
+
+Add `video.publish`, `video.list`, or TikTok Ads/Business scopes only when the demo video clearly shows those features working end to end.
 
 ## App review text
 
@@ -86,3 +105,5 @@ Record a 60-120 second screen capture.
 - Provide the test account in the review reason if the dashboard requires login.
 - Upload a demo video of the current working integration, not just screenshots.
 - Keep requested scopes aligned with the visible demo.
+- The domain shown in the demo video must match the Website URL domain.
+- If TikTok says Website URL cannot be a landing page, use the public review page and show product sections, visible legal links and the actual secure app flow.
