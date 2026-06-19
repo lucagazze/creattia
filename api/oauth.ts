@@ -766,7 +766,16 @@ async function handleYoutube(req: VercelRequest, res: VercelResponse) {
   if (action === 'youtube-profile' || action === 'youtube-posts') {
     const clientId = req.query.clientId as string;
     if (!clientId || !SUPABASE_SERVICE_ROLE_KEY) return res.status(400).json({ error: 'clientId requerido' });
+    const authHeader = req.headers.authorization || '';
+    const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+    const sessionToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+    if (!sessionToken) return res.status(401).json({ error: 'Sesión requerida' });
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    try {
+      await assertClientAccess(supabase, sessionToken, clientId);
+    } catch (err: any) {
+      return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+    }
     const accessToken = await getValidYoutubeToken(clientId, supabase);
     if (!accessToken) return res.status(404).json({ error: 'YouTube no conectado' });
     const endpoint = action === 'youtube-profile'

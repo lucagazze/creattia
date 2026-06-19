@@ -43,14 +43,26 @@ function metaSetCache(key: string, data: any) {
   } catch { /* silently skip if storage full */ }
 }
 
-let activeClientCache: { userId: string; clientId: string; expiresAt: number } | null = null;
+let activeClientCache: { userId: string; viewAsClientId: string; clientId: string; expiresAt: number } | null = null;
 
 async function getActiveClientId(): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
   const userId = session?.user?.id;
   if (!userId) return '';
-  if (activeClientCache && activeClientCache.userId === userId && activeClientCache.expiresAt > Date.now()) {
+  const viewAsClientId = (() => {
+    try {
+      return localStorage.getItem('view_as_client_id') || '';
+    } catch {
+      return '';
+    }
+  })();
+  if (activeClientCache && activeClientCache.userId === userId && activeClientCache.viewAsClientId === viewAsClientId && activeClientCache.expiresAt > Date.now()) {
     return activeClientCache.clientId;
+  }
+
+  if (viewAsClientId) {
+    activeClientCache = { userId, viewAsClientId, clientId: viewAsClientId, expiresAt: Date.now() + 30 * 1000 };
+    return viewAsClientId;
   }
 
   const { data: direct } = await supabase
@@ -69,7 +81,7 @@ async function getActiveClientId(): Promise<string> {
     clientId = link?.business_id || '';
   }
 
-  activeClientCache = { userId, clientId, expiresAt: Date.now() + 5 * 60 * 1000 };
+  activeClientCache = { userId, viewAsClientId, clientId, expiresAt: Date.now() + 5 * 60 * 1000 };
   return clientId;
 }
 

@@ -326,6 +326,19 @@ export default function RedesSocialesPage() {
   const metaAccountId = (profile as any)?.meta_account_id;
   const tiktokConnected = !!((profile as any)?.tiktok_content_access_token || (profile as any)?.tiktok_advertiser_id);
   const youtubeConnected = !!((profile as any)?.youtube_access_token || (profile as any)?.youtube_channel_id);
+  const visibleTabs = useMemo(() => ([
+    igId ? { id: 'instagram', label: 'Instagram', short: 'IG', icon: Instagram, active: 'bg-pink-500 text-white shadow-md shadow-pink-500/20' } : null,
+    fbPageId ? { id: 'facebook', label: 'Facebook', short: 'FB', icon: null, active: 'bg-blue-600 text-white shadow-md shadow-blue-600/20' } : null,
+    tiktokConnected ? { id: 'tiktok', label: 'TikTok', short: 'TT', icon: Music2, active: 'bg-zinc-950 text-white shadow-md shadow-zinc-900/20' } : null,
+    youtubeConnected ? { id: 'youtube', label: 'YouTube', short: 'YT', icon: Youtube, active: 'bg-red-600 text-white shadow-md shadow-red-600/20' } : null,
+  ].filter(Boolean) as Array<{ id: 'instagram' | 'facebook' | 'tiktok' | 'youtube'; label: string; short: string; icon: any; active: string }>), [igId, fbPageId, tiktokConnected, youtubeConnected]);
+
+  useEffect(() => {
+    if (visibleTabs.length === 0) return;
+    if (!visibleTabs.some(tab => tab.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [activeTab, visibleTabs]);
 
   // Unified loading states to prevent flashing empty/unconnected pages
   const loading = authLoading || (profile === undefined) || igLoading || fbLoading || youtubeLoading;
@@ -1166,10 +1179,14 @@ export default function RedesSocialesPage() {
     let active = true;
     setYoutubeLoading(true);
     setYoutubeError(null);
-    Promise.all([
-      fetch(`/api/oauth?action=youtube-profile&clientId=${encodeURIComponent(clientId)}`).then(r => r.json()),
-      fetch(`/api/oauth?action=youtube-posts&clientId=${encodeURIComponent(clientId)}`).then(r => r.json())
-    ]).then(([profileJson, postsJson]) => {
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token || '';
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      return Promise.all([
+        fetch(`/api/oauth?action=youtube-profile&clientId=${encodeURIComponent(clientId)}`, { headers }).then(r => r.json()),
+        fetch(`/api/oauth?action=youtube-posts&clientId=${encodeURIComponent(clientId)}`, { headers }).then(r => r.json())
+      ]);
+    }).then(([profileJson, postsJson]) => {
       if (!active) return;
       if (profileJson.error) throw new Error(profileJson.error);
       if (postsJson.error) throw new Error(postsJson.error);
@@ -1309,7 +1326,7 @@ export default function RedesSocialesPage() {
   };
 
   return (
-    <CenteredPageLoader isLoading={loading || authLoading}>
+    <CenteredPageLoader isLoading={authLoading || profile === undefined}>
     {AIGate}
     <div className="space-y-5 md:space-y-8 w-full pt-3 md:pt-6 animate-in fade-in duration-300">
 
@@ -1327,12 +1344,7 @@ export default function RedesSocialesPage() {
         <div className="flex items-center gap-2 flex-wrap justify-start md:justify-end">
           {/* Tab Selector Buttons */}
           <div className="flex items-center gap-1 bg-zinc-100/80 dark:bg-zinc-800/60 p-1 rounded-2xl border border-zinc-200/20 dark:border-zinc-700/60">
-            {[
-              { id: 'instagram', label: 'Instagram', short: 'IG', icon: Instagram, active: 'bg-pink-500 text-white shadow-md shadow-pink-500/20' },
-              { id: 'facebook', label: 'Facebook', short: 'FB', icon: null, active: 'bg-blue-600 text-white shadow-md shadow-blue-600/20' },
-              { id: 'tiktok', label: 'TikTok', short: 'TT', icon: Music2, active: 'bg-zinc-950 text-white shadow-md shadow-zinc-900/20' },
-              { id: 'youtube', label: 'YouTube', short: 'YT', icon: Youtube, active: 'bg-red-600 text-white shadow-md shadow-red-600/20' }
-            ].map(tab => {
+            {visibleTabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button

@@ -149,6 +149,18 @@ const scoreCls = (score: number) =>
 const scoreLabel = (score: number) =>
   score >= 80 ? 'Listo para escalar' : score >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar';
 
+const firstAttachmentImage = (post: any) => {
+  const attachment = post?.attachments?.data?.[0];
+  return attachment?.media?.image?.src || attachment?.subattachments?.data?.[0]?.media?.image?.src || post?.full_picture || '';
+};
+
+const normalizeCreativeItem = (item: any) => ({
+  ...item,
+  id: String(item.id),
+  name: item.name || item.caption || item.message || item.title || `Creativo ${item.id}`,
+  platformLabel: item.platformLabel || 'Cuenta',
+});
+
 // ── Bar metric ────────────────────────────────────────────────────────────────
 const MetricBar = ({ label, value, color, reason, threshold }: { label: string; value: number; color: string; reason?: string; threshold?: string }) => (
   <div>
@@ -192,7 +204,7 @@ export default function CreativeTesterPage() {
   const [timeline, setTimeline] = useState<{ t: number; attn: number; emot: number; impact: number }[]>([]);
   const [analysisDurationSec, setAnalysisDurationSec] = useState(30);
 
-  // For account ads
+  // For account creatives
   const [accountAds, setAccountAds] = useState<any[]>([]);
   const [adsLoading, setAdsLoading] = useState(false);
   const [selectedAd, setSelectedAd] = useState<any>(null);
@@ -201,17 +213,16 @@ export default function CreativeTesterPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadAccountAds = async () => {
-    const accountId = (profile as any)?.meta_account_id;
-    if (!accountId) return;
+    const clientId = (profile as any)?.id;
+    if (!clientId) return;
     setAdsLoading(true);
     try {
-      const res = await metaAds.getAccountAds(accountId);
-      const ads = (res.data || []).filter((a: any) => (a.effective_status || a.status) === 'ACTIVE');
-      setAccountAds(ads);
-      setAdsLoading(false);
       const { data: { session: freshSession } } = await supabase.auth.getSession();
       const token = freshSession?.access_token || '';
-      const clientId = (profile as any)?.id;
+      const accountId = (profile as any)?.meta_account_id;
+      const igId = (profile as any)?.ig_business_id;
+      const fbPageId = (profile as any)?.fb_page_id;
+      const youtubeConnected = !!((profile as any)?.youtube_access_token || (profile as any)?.youtube_channel_id);
 
       const resolveAd = async (ad: any) => {
         const params = new URLSearchParams();
@@ -219,7 +230,7 @@ export default function CreativeTesterPage() {
         if (ad.creative?.id) params.set('creativeId', ad.creative.id);
         if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
         if (clientId) params.set('clientId', clientId);
-        const r = await fetch(`/api/meta-video?${params}`).catch(() => null);
+        const r = await fetch(`/api/meta-video?${params}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined).catch(() => null);
         if (r?.ok) {
           const d = await r.json();
           setResolvedDetails(prev => ({ ...prev, [ad.id]: d }));
@@ -252,6 +263,93 @@ export default function CreativeTesterPage() {
         }
       };
 
+      const loaded: any[] = [];
+
+      if (accountId) {
+        const res = await metaAds.getAccountAds(accountId);
+        loaded.push(...(res.data || [])
+          .filter((a: any) => (a.effective_status || a.status) === 'ACTIVE')
+          .map((ad: any) => normalizeCreativeItem({ ...ad, platformLabel: 'Meta Ads', sourceType: 'meta_ad' })));
+      }
+
+      if (igId) {
+        const igRes = await metaAds.getInstagramMedia(igId, 18, undefined, fbPageId || undefined).catch(() => ({ data: [] }));
+        loaded.push(...(igRes.data || []).map((post: any) => normalizeCreativeItem({
+          id: `ig_${post.id}`,
+          originalId: post.id,
+          name: post.caption || 'Post de Instagram',
+          platformLabel: 'Instagram',
+          sourceType: 'instagram_post',
+          creative: {
+            image_url: post.media_url,
+            thumbnail_url: post.thumbnail_url || post.children?.data?.[0]?.thumbnail_url || post.children?.data?.[0]?.media_url,
+          },
+          mediaUrl: post.media_url,
+          permalink: post.permalink,
+          isVideo: post.media_type === 'VIDEO' || post.media_type === 'REELS',
+        })));
+      }
+
+      if (fbPageId) {
+        const fbRes = await metaAds.getFacebookPageFeed(fbPageId, 18).catch(() => ({ data: [] }));
+        loaded.push(...(fbRes.data || []).map((post: any) => normalizeCreativeItem({
+          id: `fb_${post.id}`,
+          originalId: post.id,
+          name: post.message || 'Post de Facebook',
+          platformLabel: 'Facebook',
+          sourceType: 'facebook_post',
+          creative: {
+            image_url: firstAttachmentImage(post),
+            thumbnail_url: firstAttachmentImage(post),
+          },
+          mediaUrl: firstAttachmentImage(post),
+          permalink: post.permalink_url,
+          isVideo: post.attachments?.data?.some((a: any) => String(a.type || '').includes('video')),
+        })));
+      }
+
+      if (youtubeConnected) {
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        const ytRes = await fetch(`/api/oauth?action=youtube-posts&clientId=${encodeURIComponent(clientId)}`, { headers }).then(r => r.json()).catch(() => ({ items: [] }));
+        loaded.push(...(ytRes.items || []).map((item: any) => normalizeCreativeItem({
+          id: `yt_${item.id?.videoId || item.id || item.etag}`,
+          originalId: item.id?.videoId || item.id,
+          name: item.snippet?.title || 'YouTube Short',
+          platformLabel: 'YouTube Shorts',
+          sourceType: 'youtube_short',
+          creative: {
+            image_url: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url,
+            thumbnail_url: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url,
+          },
+          mediaUrl: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url,
+          permalink: item.id?.videoId ? `https://www.youtube.com/watch?v=${item.id.videoId}` : '',
+          isVideo: true,
+        })));
+      }
+
+      const { data: publishedRows } = await supabase
+        .from('car_social_publications')
+        .select('id, caption, video_url, selected_channels, status, published_at, created_at')
+        .eq('client_id', clientId)
+        .in('status', ['published', 'processing', 'scheduled'])
+        .order('created_at', { ascending: false })
+        .limit(24);
+      loaded.push(...(publishedRows || []).map((row: any) => normalizeCreativeItem({
+        id: `pub_${row.id}`,
+        originalId: row.id,
+        name: row.caption || 'Publicación del publicador',
+        platformLabel: Array.isArray(row.selected_channels) ? row.selected_channels.join(', ') : 'Publicador',
+        sourceType: 'published_post',
+        creative: { image_url: row.video_url, thumbnail_url: row.video_url },
+        mediaUrl: row.video_url,
+        isVideo: true,
+      })));
+
+      const unique = Array.from(new Map(loaded.filter(item => item.creative?.image_url || item.creative?.thumbnail_url || item.mediaUrl).map(item => [item.id, item])).values());
+      setAccountAds(unique);
+      setAdsLoading(false);
+
+      const ads = unique.filter((item: any) => item.sourceType === 'meta_ad');
       for (let i = 0; i < ads.length; i += 6) {
         await Promise.allSettled(ads.slice(i, i + 6).map(resolveAd));
         await new Promise(resolve => window.setTimeout(resolve, 120));
@@ -373,12 +471,12 @@ export default function CreativeTesterPage() {
   const handleAnalyzeSelectedAd = () => {
     if (!selectedAd) return;
     const details = resolvedDetails[selectedAd.id];
-    const thumbUrl = details?.picture || details?.url || details?.cards?.[0]?.url || selectedAd.creative?.image_url || selectedAd.creative?.thumbnail_url;
-    const isVid = details?.type === 'video_source' || !!selectedAd.creative?.video_id;
+    const thumbUrl = details?.picture || details?.url || details?.cards?.[0]?.url || selectedAd.creative?.image_url || selectedAd.creative?.thumbnail_url || selectedAd.mediaUrl;
+    const isVid = selectedAd.isVideo || details?.type === 'video_source' || !!selectedAd.creative?.video_id;
     if (thumbUrl) analyze(undefined, thumbUrl, selectedAd.name || 'anuncio', {
       isVideo: isVid,
       durationSec: details?.duration || details?.durationSec,
-      videoUrl: details?.source,
+      videoUrl: details?.source || selectedAd.mediaUrl,
     });
     else {
       const mockSrc = { name: selectedAd.name || 'anuncio', size: 100000, type: 'image/jpeg', lastModified: Date.now() };
@@ -475,10 +573,10 @@ export default function CreativeTesterPage() {
 
             {activeSource === 'account' && (
               <div className="space-y-3">
-                {!(profile as any)?.meta_account_id && (
-                  <div className="text-center py-8 text-[12px] text-zinc-400">No hay cuenta de Meta Ads configurada.</div>
+                {!((profile as any)?.meta_account_id || (profile as any)?.ig_business_id || (profile as any)?.fb_page_id || (profile as any)?.youtube_access_token || (profile as any)?.tiktok_content_access_token) && (
+                  <div className="text-center py-8 text-[12px] text-zinc-400">No hay cuentas sociales conectadas para traer creativos.</div>
                 )}
-                {adsLoading && <div className="flex items-center justify-center py-12 gap-2 text-[12px] text-zinc-400"><Loader2 className="w-4 h-4 animate-spin" />Cargando anuncios...</div>}
+                {adsLoading && <div className="flex items-center justify-center py-12 gap-2 text-[12px] text-zinc-400"><Loader2 className="w-4 h-4 animate-spin" />Cargando creativos...</div>}
                 {!adsLoading && accountAds.length > 0 && (
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-1">
@@ -503,6 +601,7 @@ export default function CreativeTesterPage() {
                               )}
                             </div>
                             <div className="p-2">
+                              <span className="mb-1 inline-flex max-w-full rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[9px] font-black uppercase text-zinc-500 truncate">{ad.platformLabel}</span>
                               <p className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 truncate">{ad.name || `Anuncio ${ad.id}`}</p>
                             </div>
                           </button>
@@ -520,9 +619,9 @@ export default function CreativeTesterPage() {
                     )}
                   </>
                 )}
-                {!adsLoading && accountAds.length === 0 && (profile as any)?.meta_account_id && (
+                {!adsLoading && accountAds.length === 0 && ((profile as any)?.meta_account_id || (profile as any)?.ig_business_id || (profile as any)?.fb_page_id || (profile as any)?.youtube_access_token || (profile as any)?.tiktok_content_access_token) && (
                   <div className="text-center py-8">
-                    <p className="text-[12px] text-zinc-400">Sin anuncios activos.</p>
+                    <p className="text-[12px] text-zinc-400">Sin creativos encontrados en las cuentas conectadas.</p>
                     <button onClick={loadAccountAds} className="mt-2 text-[11px] text-violet-500 hover:underline font-bold flex items-center gap-1 mx-auto"><RefreshCw className="w-3 h-3" />Recargar</button>
                   </div>
                 )}

@@ -401,8 +401,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           const res = await metaAds.getInstagramMedia(igId, 50, undefined, fbPageId);
           igPosts = res?.data || res || [];
-        } catch (e) {
-          console.error('Error fetching IG media for unread count:', e);
+        } catch {
+          igPosts = [];
         }
       }
 
@@ -412,8 +412,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           const res = await metaAds.getFacebookPageFeed(fbPageId, 50);
           fbPosts = res?.data || res || [];
-        } catch (e) {
-          console.error('Error fetching FB feed for unread count:', e);
+        } catch {
+          fbPosts = [];
         }
       }
 
@@ -504,8 +504,8 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               total += pending.length;
             });
           }
-        } catch (e) {
-          console.error('Error fetching Ads for unread count:', e);
+        } catch {
+          // Keep the global badge quiet when Meta is unavailable.
         }
       }
 

@@ -63,7 +63,6 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
 import { AppleLoader } from '../ui/AppleLoader';
 import { TopLoadingBar } from '../ui/TopLoadingBar';
-import { CenteredPageLoader } from '../ui/CenteredPageLoader';
 import { useUnread } from '../../contexts/UnreadContext';
 import { useToast } from '../Toast';
 
@@ -143,7 +142,15 @@ import { WelcomeGuide } from '../ui/WelcomeGuide';
 
 // Loader within the content area — sidebar stays visible
 const PageSkeleton = () => (
-  <CenteredPageLoader isLoading={true}>{null}</CenteredPageLoader>
+  <div className="min-h-[280px] w-full flex items-center justify-center px-4 animate-in fade-in duration-150">
+    <div className="flex items-center gap-3 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/80 px-4 py-3 shadow-sm">
+      <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+      <div>
+        <p className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 leading-tight">Cargando sección</p>
+        <p className="text-[11px] font-semibold text-zinc-400 leading-tight mt-0.5">Ya aparece la información.</p>
+      </div>
+    </div>
+  </div>
 );
 
 export const MainLayout = () => {
