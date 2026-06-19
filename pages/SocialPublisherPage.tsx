@@ -360,18 +360,18 @@ export default function SocialPublisherPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <span className="h-8 px-3 rounded-lg bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center gap-2 whitespace-nowrap">
+        <div className="w-full lg:w-auto flex flex-wrap items-center gap-2">
+          <span className="h-8 px-3 rounded-lg bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center gap-2 whitespace-nowrap flex-1 sm:flex-none justify-center">
             <Sparkles className="w-3.5 h-3.5 text-violet-500" />
             {connectedCount} conectados
           </span>
-          <span className="h-8 px-3 rounded-lg bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center gap-2 whitespace-nowrap">
+          <span className="h-8 px-3 rounded-lg bg-zinc-100 dark:bg-white/5 text-[11px] font-black text-zinc-600 dark:text-zinc-350 inline-flex items-center gap-2 whitespace-nowrap flex-1 sm:flex-none justify-center">
             <CalendarDays className="w-3.5 h-3.5 text-violet-500" />
             {scheduledItems.filter(item => item.status === 'scheduled').length} programadas
           </span>
           <button
             onClick={() => navigate('/integraciones')}
-            className="h-8 px-3 rounded-lg bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-black flex items-center justify-center gap-2 hover:opacity-90 whitespace-nowrap"
+            className="h-8 px-3 rounded-lg bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-[11px] font-black flex items-center justify-center gap-2 hover:opacity-90 whitespace-nowrap flex-1 sm:flex-none min-w-[104px]"
           >
             <Zap className="w-3.5 h-3.5" />
             Conectar

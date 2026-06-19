@@ -59,7 +59,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       const linkHeader = tnRes.headers.get('Link');
       if (linkHeader) res.setHeader('Link', linkHeader);
-      const data = await tnRes.json();
+      if (
+        req.method === 'GET' &&
+        tnRes.status === 404 &&
+        /^(products|orders)(\?|$)/.test(tnPathAndQuery)
+      ) {
+        return res.status(200).json([]);
+      }
+      const text = await tnRes.text();
+      const data = text ? JSON.parse(text) : null;
       return res.status(tnRes.status).json(data);
     } catch (err: any) {
       return res.status(502).json({ error: 'Tiendanube proxy error', detail: err.message });

@@ -47,6 +47,10 @@ ALTER TABLE public.car_social_publications
 CREATE INDEX IF NOT EXISTS idx_car_social_publications_client_created
   ON public.car_social_publications(client_id, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_car_social_publications_scheduled_due
+  ON public.car_social_publications(status, scheduled_at)
+  WHERE status = 'scheduled';
+
 ALTER TABLE public.car_social_publications ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can read their social publications" ON public.car_social_publications;

@@ -2206,6 +2206,27 @@ type SocialChannel = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
 
 const isAuthSessionError = (err: any) => String(err?.message || '').toLowerCase().includes('sesión');
 
+const validateSocialVideoOwnership = (clientId: string, videoUrl: string, videoPath: string | null) => {
+  if (!videoPath) {
+    throw new Error('videoPath requerido para publicar de forma segura. Volvé a cargar el video.');
+  }
+
+  const pathParts = videoPath.split('/').filter(Boolean);
+  if (pathParts.length < 3 || pathParts[1] !== clientId) {
+    throw new Error('El video no pertenece al cliente seleccionado. Volvé a cargarlo.');
+  }
+
+  try {
+    const decodedPathname = decodeURIComponent(new URL(videoUrl).pathname);
+    const expectedPath = `/storage/v1/object/public/car-social-videos/${videoPath}`;
+    if (!decodedPathname.endsWith(expectedPath)) {
+      throw new Error('La URL pública no coincide con el archivo validado del cliente.');
+    }
+  } catch (err: any) {
+    throw new Error(err?.message || 'URL de video inválida.');
+  }
+};
+
 async function assertClientAccess(supabase: any, accessToken: string, clientId: string) {
   const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
   const authUserId = userData?.user?.id || '';
@@ -2642,8 +2663,10 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (!caption) return res.status(400).json({ error: 'caption requerido' });
   if (!videoUrl || !/^https:\/\//i.test(videoUrl)) return res.status(400).json({ error: 'videoUrl público HTTPS requerido' });
   if (channels.length === 0) return res.status(400).json({ error: 'Seleccioná al menos un canal' });
-  if (videoPath && videoPath.split('/')[1] !== clientId) {
-    return res.status(403).json({ error: 'El video no pertenece al cliente seleccionado. Volvé a cargarlo.' });
+  try {
+    validateSocialVideoOwnership(clientId, videoUrl, videoPath);
+  } catch (err: any) {
+    return res.status(403).json({ error: err?.message || 'El video no pertenece al cliente seleccionado. Volvé a cargarlo.' });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

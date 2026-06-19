@@ -65,10 +65,29 @@
       "destination": "/index.html"
     }
   ],
+  "headers": [
+    {
+      "source": "/tiktok-review.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow"
+        }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/update-cerebro",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/publish-social",
+      "schedule": "* * * * *"
     }
   ]
 }
