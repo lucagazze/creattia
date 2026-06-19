@@ -15,6 +15,7 @@ import { supabase, supabaseAdmin } from '../services/supabase';
 import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import { PortalOverlay } from '../components/ui/PortalOverlay';
 import SmoothImage from '../components/ui/SmoothImage';
 import DOMPurify from 'dompurify';
 
@@ -398,6 +399,7 @@ export default function ComentariosPage() {
 
   const renderConnectModal = () => {
     return (
+      <PortalOverlay>
       <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowConnectModal(false)} />
         <div className="relative bg-white dark:bg-zinc-900 rounded-[24px] border border-zinc-200 dark:border-zinc-800 shadow-2xl p-6 max-w-[450px] w-full text-left flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -460,6 +462,7 @@ export default function ComentariosPage() {
           </div>
         </div>
       </div>
+      </PortalOverlay>
     );
   };
 
@@ -1541,6 +1544,7 @@ export default function ComentariosPage() {
 
       {/* === SLIDE-OVER: Comments detail (same as RedesSocialesPage) === */}
       {selectedPost && (
+        <PortalOverlay>
         <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedPost(null)} />
 
@@ -2226,6 +2230,7 @@ export default function ComentariosPage() {
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
     </div>
     </CenteredPageLoader>

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { useAIGate } from '../hooks/useAIGate';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
+import { PortalOverlay } from '../components/ui/PortalOverlay';
 import {
   Instagram, Heart, MessageCircle, Image as ImageIcon, Video, Layers, Loader2, RefreshCw, X,
   ArrowUpRight, AlertCircle, ThumbsUp, MessageSquare, Sparkles, Play, Send, Brain,
@@ -2096,6 +2097,7 @@ export default function RedesSocialesPage() {
         const hasCarousel = carouselItems.length > 1;
 
         return (
+          <PortalOverlay>
           <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
             {/* Backdrop */}
             <div
@@ -2726,11 +2728,13 @@ export default function RedesSocialesPage() {
 
             </div>
           </div>
+          </PortalOverlay>
         );
       })()}
 
       {/* ── Pending Comments Drawer ───────────────────────────────────── */}
       {showPendingPanel && (
+        <PortalOverlay>
         <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen">
           {/* Backdrop */}
           <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={() => setShowPendingPanel(false)} />
@@ -2916,6 +2920,7 @@ export default function RedesSocialesPage() {
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
       
       {/* Keyframes inyectados inline para la barra de progreso superior */}

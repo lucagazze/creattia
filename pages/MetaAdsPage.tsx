@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { AppleLoader } from '../components/ui/AppleLoader';
+import { PortalOverlay } from '../components/ui/PortalOverlay';
 import SmoothImage from '../components/ui/SmoothImage';
 import { db } from '../services/db';
 import { supabase } from '../services/supabase';
@@ -1020,6 +1021,7 @@ export default function MetaAdsPage() {
           const ltTotalComments = igTotal + fbTotal;
 
           return (
+            <PortalOverlay>
             <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen justify-end animate-in fade-in duration-200">
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedAd(null)} />
 
@@ -1520,6 +1522,7 @@ export default function MetaAdsPage() {
                 </div>
               </div>
             </div>
+            </PortalOverlay>
           );
         })()}
 

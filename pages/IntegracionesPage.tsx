@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useViewAs } from "../contexts/ViewAsContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useToast } from "../components/Toast";
+import { PortalOverlay } from "../components/ui/PortalOverlay";
 import { ecommerce } from "../services/ecommerce";
 import { klaviyo } from "../services/klaviyo";
 import {
@@ -28,6 +29,7 @@ import {
   Lock,
   Key,
   Instagram,
+  Facebook,
   MessageSquare,
   Youtube
 } from "lucide-react";
@@ -35,12 +37,15 @@ import {
 interface IntegrationPlatform {
   id: string;
   name: string;
-  category: "ecommerce" | "marketing" | "ads" | "publishing" | "mensajeria";
+  category: "ecommerce" | "marketing" | "ads" | "publishing" | "mensajeria" | "social";
   description: string;
   logoUrl?: string;
   logoComponent?: React.FC<React.SVGProps<SVGSVGElement>>;
   isSimulated: boolean;
 }
+
+const META_PLATFORM_IDS = ["meta_ads", "instagram_org", "facebook_org"];
+const isMetaPlatform = (platformId: string) => META_PLATFORM_IDS.includes(platformId) || platformId === "meta";
 
 const PLATFORMS: IntegrationPlatform[] = [
   {
@@ -76,12 +81,28 @@ const PLATFORMS: IntegrationPlatform[] = [
     isSimulated: false
   },
   {
-    id: "meta",
-    name: "Meta: Facebook, Instagram & Ads",
+    id: "meta_ads",
+    name: "Meta Ads",
     category: "ads",
-    description: "Conectá Facebook, Instagram, comentarios, publicaciones y métricas de campañas Meta.",
+    description: "Conectá tu cuenta publicitaria para métricas, campañas, ROAS y creativos de Meta.",
     logoUrl: "/assets/meta (1).webp",
     isSimulated: false // Supports manual setup fields or simulated oauth trigger
+  },
+  {
+    id: "instagram_org",
+    name: "Instagram",
+    category: "social",
+    description: "Conectá Instagram orgánico para leer posteos, comentarios y publicar contenido.",
+    logoComponent: Instagram,
+    isSimulated: false
+  },
+  {
+    id: "facebook_org",
+    name: "Facebook",
+    category: "social",
+    description: "Conectá tu página de Facebook para leer posteos, responder comentarios y publicar.",
+    logoComponent: Facebook,
+    isSimulated: false
   },
   {
     id: "google_ads",
@@ -159,7 +180,7 @@ export default function IntegracionesPage() {
 
   const [clientData, setClientData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "ads" | "publishing" | "marketing" | "mensajeria">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "social" | "ads" | "publishing" | "marketing" | "mensajeria">("all");
 
   // Modals state
   const [selectedPlatform, setSelectedPlatform] = useState<IntegrationPlatform | null>(null);
@@ -573,12 +594,12 @@ export default function IntegracionesPage() {
       } else if (platform.id === "klaviyo") {
         setKlaviyoApiKey(clientData.klaviyo_api_key || "");
         setKlaviyoListId(clientData.klaviyo_list_id || "");
-      } else if (platform.id === "meta") {
+      } else if (isMetaPlatform(platform.id)) {
         setMetaAccountId(clientData.meta_account_id || "");
         setMetaPixelId(clientData.meta_pixel_id || "");
         setMetaToken(clientData.facebook_access_token || "");
-        setMetaApproveAds(clientData.meta_account_id ? true : (clientData.fb_page_id ? false : true));
-        setMetaApproveMessaging(clientData.fb_page_id ? true : (clientData.meta_account_id ? false : true));
+        setMetaApproveAds(platform.id === "meta_ads" || (platform.id === "meta" && (clientData.meta_account_id ? true : !clientData.fb_page_id)));
+        setMetaApproveMessaging(platform.id === "instagram_org" || platform.id === "facebook_org" || (platform.id === "meta" && (clientData.fb_page_id ? true : !clientData.meta_account_id)));
       } else if (platform.id === "chatwoot") {
         setChatwootUrl(clientData.chatwoot_url || "https://app.chatwoot.com");
         setChatwootToken(clientData.chatwoot_token || "");
@@ -1225,7 +1246,7 @@ export default function IntegracionesPage() {
           klaviyo_list_id: null
         };
         isConnected = await testKlaviyoConnection(klaviyoApiKey.trim());
-      } else if (selectedPlatform.id === "meta") {
+      } else if (isMetaPlatform(selectedPlatform.id)) {
         fieldsToUpdate = {
           meta_account_id: metaAccountId.trim() || null,
           meta_pixel_id: metaPixelId.trim() || null
@@ -1260,7 +1281,7 @@ export default function IntegracionesPage() {
       setClientData((prev: any) => ({ ...prev, ...fieldsToUpdate }));
 
       // 3. Update connection_statuses in Supabase and locally
-      const statusKey = (selectedPlatform.id === "wordpress" || selectedPlatform.id === "tiendanube") ? "shopify" : selectedPlatform.id;
+      const statusKey = (selectedPlatform.id === "wordpress" || selectedPlatform.id === "tiendanube") ? "shopify" : isMetaPlatform(selectedPlatform.id) ? "meta" : selectedPlatform.id;
       await updateConnectionStatus(statusKey, isConnected ? "ok" : "error");
 
       if (isConnected) {
@@ -1313,7 +1334,7 @@ export default function IntegracionesPage() {
         klaviyo_api_key: null,
         klaviyo_list_id: null
       };
-    } else if (platformId === "meta") {
+    } else if (isMetaPlatform(platformId)) {
       fieldsToUpdate = {
         meta_account_id: null,
         meta_pixel_id: null,
@@ -1372,7 +1393,7 @@ export default function IntegracionesPage() {
         } catch {}
       }
 
-      if (platformId === "meta") {
+      if (isMetaPlatform(platformId)) {
         localStorage.removeItem('active_fb_page_id');
         localStorage.removeItem('current_facebook_access_token');
         if (clientData?.fb_page_id) {
@@ -1380,7 +1401,7 @@ export default function IntegracionesPage() {
         }
       }
 
-      if (platformId === "meta") {
+      if (isMetaPlatform(platformId)) {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
         if (!accessToken) throw new Error('Tu sesión expiró. Volvé a iniciar sesión.');
@@ -1423,7 +1444,7 @@ export default function IntegracionesPage() {
       let extraData: Record<string, any> = {};
       if (platformId === "mercadolibre") {
         extraData = { mercadolibre_country: null };
-      } else if (platformId === "meta") {
+      } else if (isMetaPlatform(platformId)) {
         extraData = {
           facebook: null,
           instagram: null,
@@ -1590,7 +1611,7 @@ export default function IntegracionesPage() {
       return;
     }
 
-    if (platform.id === "meta") {
+    if (isMetaPlatform(platform.id)) {
       openConfigModal(platform);
     } else if (platform.id === "tiendanube") {
       openConfigModal(platform);
@@ -1625,16 +1646,33 @@ export default function IntegracionesPage() {
       }
     }
 
-    if (platformId === "meta") {
+    if (platformId === "meta_ads") {
       const statuses = clientData.connection_statuses || {};
       const val = statuses.meta;
-      const hasPublisherMeta = !!clientData.fb_page_id && !!clientData.fb_page_access_token && !!clientData.ig_business_id;
       const hasAdsMeta = !!clientData.meta_account_id;
-      const hasUsableMeta = hasPublisherMeta || hasAdsMeta;
-      if (val === "ok" || val === "connected" || (hasUsableMeta && val !== "error")) {
-        return hasUsableMeta ? "ok" : "error";
-      }
       if (val === "error") return "error";
+      if (hasAdsMeta) {
+        return "ok";
+      }
+      if (clientData.facebook_access_token && !hasAdsMeta) return "error";
+      return "disconnected";
+    }
+
+    if (platformId === "instagram_org") {
+      const statuses = clientData.connection_statuses || {};
+      const hasInstagram = !!clientData.ig_business_id && !!clientData.fb_page_access_token;
+      if (statuses.meta === "error") return "error";
+      if (hasInstagram) return "ok";
+      if (clientData.facebook_access_token && !hasInstagram) return "error";
+      return "disconnected";
+    }
+
+    if (platformId === "facebook_org") {
+      const statuses = clientData.connection_statuses || {};
+      const hasFacebook = !!clientData.fb_page_id && !!clientData.fb_page_access_token;
+      if (statuses.meta === "error") return "error";
+      if (hasFacebook) return "ok";
+      if (clientData.facebook_access_token && !hasFacebook) return "error";
       return "disconnected";
     }
 
@@ -1671,8 +1709,16 @@ export default function IntegracionesPage() {
   const getPlatformErrorMessage = (platformId: string): string | null => {
     if (!clientData) return null;
 
-    if (platformId === "meta" && clientData.facebook_access_token && !clientData.fb_page_id && !clientData.meta_account_id) {
-      return "Meta autorizó el acceso, pero falta elegir la página de Facebook/Instagram y la cuenta publicitaria.";
+    if (isMetaPlatform(platformId) && clientData.facebook_access_token) {
+      if (platformId === "meta_ads" && !clientData.meta_account_id) {
+        return "Meta autorizó el acceso, pero falta elegir la cuenta publicitaria.";
+      }
+      if (platformId === "instagram_org" && !clientData.ig_business_id) {
+        return "Meta autorizó el acceso, pero falta elegir una página con Instagram profesional vinculado.";
+      }
+      if (platformId === "facebook_org" && !clientData.fb_page_id) {
+        return "Meta autorizó el acceso, pero falta elegir la página de Facebook.";
+      }
     }
 
     if (platformId === "shopify") {
@@ -1696,69 +1742,6 @@ export default function IntegracionesPage() {
     return null;
   };
 
-  const connectionHealth = (() => {
-    const data = clientData || {};
-    const statuses = data.connection_statuses || {};
-    const item = (
-      id: string,
-      title: string,
-      detail: string,
-      ok: boolean,
-      warning = '',
-      targetPlatform = id
-    ) => ({
-      id,
-      title,
-      detail,
-      targetPlatform,
-      status: ok ? 'ok' : warning ? 'warning' : 'missing',
-      message: ok ? 'Listo' : warning || 'Falta conectar',
-    });
-
-    return [
-      item(
-        'meta_ads',
-        'Meta Ads',
-        data.connection_statuses?.meta_account_name || data.meta_account_id || 'Publicidad y creativos',
-        !!data.meta_account_id && statuses.meta !== 'error',
-        statuses.meta === 'error' ? 'Requiere reconectar Meta' : '',
-        'meta'
-      ),
-      item(
-        'instagram_org',
-        'Instagram orgánico',
-        data.ig_username ? `@${data.ig_username}` : 'Posts, comentarios y publicación',
-        !!(data.ig_business_id && data.fb_page_access_token) && statuses.meta !== 'error',
-        data.facebook_access_token && !data.ig_business_id ? 'Falta elegir Instagram profesional' : '',
-        'meta'
-      ),
-      item(
-        'facebook_org',
-        'Facebook orgánico',
-        data.fb_page_name || 'Página, comentarios y publicación',
-        !!(data.fb_page_id && data.fb_page_access_token) && statuses.meta !== 'error',
-        data.facebook_access_token && !data.fb_page_id ? 'Falta elegir página' : '',
-        'meta'
-      ),
-      item(
-        'tiktok_org',
-        'TikTok orgánico',
-        data.tiktok_content_display_name || statuses.tiktok_content_display_name || 'Publicador TikTok',
-        !!data.tiktok_content_access_token && statuses.tiktok_content !== 'error',
-        statuses.tiktok_content === 'error' ? 'Token o permisos pendientes' : '',
-        'tiktok_content'
-      ),
-      item(
-        'youtube_shorts',
-        'YouTube Shorts',
-        data.youtube_channel_title || statuses.youtube_channel_title || 'Publicador y lectura de Shorts',
-        !!data.youtube_access_token && statuses.youtube !== 'error',
-        statuses.youtube === 'error' ? 'Token vencido o permisos faltantes' : '',
-        'youtube'
-      ),
-    ];
-  })();
-
   const filteredPlatforms = PLATFORMS.filter(p => {
     if (activeTab === "all") return true;
     return p.category === activeTab;
@@ -1778,14 +1761,17 @@ export default function IntegracionesPage() {
 
       {/* Loading Overlay */}
       {metaLoadingText && (
+        <PortalOverlay>
         <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen flex-col items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 max-w-xs text-center">
             <Loader2 className="w-9 h-9 text-blue-500 animate-spin" />
             <p className="text-white font-bold text-[13px]">{metaLoadingText}</p>
           </div>
         </div>
+        </PortalOverlay>
       )}      {/* Meta Combined Connection Modal — Ad Account + Page/Instagram step-by-step wizard */}
       {metaCombinedModal && (
+        <PortalOverlay>
         <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[88vh]">
 
@@ -2014,6 +2000,7 @@ export default function IntegracionesPage() {
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
 
       {/* Page Header */}
@@ -2029,50 +2016,12 @@ export default function IntegracionesPage() {
         </div>
       </div>
 
-      <section className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm p-4">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-500">Salud de conexiones</p>
-            <h2 className="mt-1 text-[18px] font-black text-zinc-950 dark:text-white">Qué puede hacer cada integración</h2>
-          </div>
-          <p className="text-[12px] font-semibold text-zinc-500 dark:text-zinc-400 max-w-xl">
-            Meta Ads, Instagram y Facebook se ven separados por uso para que se entienda qué está listo para publicar, leer contenido o analizar publicidad.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2.5">
-          {connectionHealth.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                const platform = PLATFORMS.find(p => p.id === item.targetPlatform);
-                if (platform) handleConnectClick(platform);
-              }}
-              className="text-left rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/25 p-3 hover:bg-white dark:hover:bg-white/[0.04] transition-all"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-[13px] font-black text-zinc-950 dark:text-white">{item.title}</h3>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-black ${
-                  item.status === 'ok'
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
-                    : item.status === 'warning'
-                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-300'
-                      : 'bg-zinc-200/70 dark:bg-white/10 text-zinc-500'
-                }`}>
-                  {item.message}
-                </span>
-              </div>
-              <p className="mt-2 text-[11px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400">{item.detail}</p>
-            </button>
-          ))}
-        </div>
-      </section>
-
       {/* Tabs Menu */}
       <div className="flex border-b border-zinc-200 dark:border-white/[0.06] pb-0.5 gap-6 select-none overflow-x-auto shrink-0">
         {[
           { id: "all", label: "Todas" },
           { id: "ecommerce", label: "Ventas" },
+          { id: "social", label: "Redes Sociales" },
           { id: "ads", label: "Publicidad" },
           { id: "publishing", label: "Publicación orgánica" },
           { id: "marketing", label: "Marketing Directo" },
@@ -2192,14 +2141,8 @@ export default function IntegracionesPage() {
                             : clientData.mercadolibre_user_id || 'Conectado'}
                         </span>
                       )}
-                      {platform.id === "meta" && (
+                      {platform.id === "meta_ads" && (
                         <div className="space-y-1">
-                          {clientData.fb_page_name && (
-                            <p className="flex items-center gap-1.5 truncate">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                              Página: {clientData.fb_page_name}
-                            </p>
-                          )}
                           {clientData.meta_account_id && (
                             <p className="flex items-center gap-1.5 truncate">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
@@ -2208,13 +2151,19 @@ export default function IntegracionesPage() {
                                 : clientData.meta_account_id}
                             </p>
                           )}
-                          {!clientData.fb_page_name && !clientData.meta_account_id && (
-                            <p className="flex items-center gap-1.5 truncate">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                              Conectado
-                            </p>
-                          )}
                         </div>
+                      )}
+                      {platform.id === "instagram_org" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          {clientData.ig_username ? `@${clientData.ig_username}` : 'Instagram conectado'}
+                        </span>
+                      )}
+                      {platform.id === "facebook_org" && (
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                          {clientData.fb_page_name || 'Página de Facebook conectada'}
+                        </span>
                       )}
                       {platform.id === "tiktok_ads" && (
                         <span className="flex items-center gap-1.5 truncate">
@@ -2300,6 +2249,7 @@ export default function IntegracionesPage() {
 
       {/* Modal Dialog */}
       {selectedPlatform && (
+        <PortalOverlay>
         <div className="fixed inset-0 z-[900] flex min-h-[100dvh] w-screen items-center justify-center p-4 animate-in fade-in duration-200" onClick={closeConfigModal}>
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
@@ -2312,20 +2262,23 @@ export default function IntegracionesPage() {
             {/* Header info */}
             <div className="flex items-center gap-4 mb-6 pb-5 border-b border-zinc-100 dark:border-white/[0.04]">
               <div className="w-12 h-12 rounded-2xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
-                {selectedPlatform.logoUrl && (
+                  {selectedPlatform.logoUrl && (
                   <img 
                     src={selectedPlatform.id === 'tiendanube' && darkMode ? "/assets/tiendanube.webp" : selectedPlatform.logoUrl} 
                     alt={selectedPlatform.name} 
                     className={selectedPlatform.id === 'tiktok_ads' ? "w-11 h-11 object-contain scale-[1.1]" : "w-6 h-6 object-contain"} 
                   />
                 )}
+                {!selectedPlatform.logoUrl && selectedPlatform.logoComponent && React.createElement(selectedPlatform.logoComponent, {
+                  className: `w-5 h-5 ${selectedPlatform.id === 'instagram_org' ? 'text-pink-500' : selectedPlatform.id === 'facebook_org' ? 'text-blue-600' : 'text-emerald-500'}`
+                })}
               </div>
               <div>
                 <h2 className="text-[18px] font-black text-zinc-900 dark:text-white leading-tight">
                   {getPlatformStatus(selectedPlatform.id) === "ok" ? "Configuración de" : "Conectar"} {selectedPlatform.name}
                 </h2>
                 <p className="text-[12px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-wider mt-1">
-                  {selectedPlatform.category === "ecommerce" ? "Canal de Venta" : selectedPlatform.category === "ads" ? "Canal Publicitario" : "Email Marketing"}
+                  {selectedPlatform.category === "ecommerce" ? "Canal de Venta" : selectedPlatform.category === "ads" ? "Canal Publicitario" : selectedPlatform.category === "social" ? "Red social orgánica" : "Email Marketing"}
                 </p>
               </div>
               
@@ -2693,7 +2646,7 @@ export default function IntegracionesPage() {
                 )}
 
                 {/* META ADS - Real Facebook OAuth popup */}
-                {selectedPlatform.id === "meta" && (
+                {isMetaPlatform(selectedPlatform.id) && (
                   <>
                     {/* OAUTH VIEW (default) */}
                     {!isManualMode && (
@@ -3057,10 +3010,10 @@ export default function IntegracionesPage() {
                 {/* FOOTER ACTIONS - Save / Disconnect / Close */}
                 {/* Show save button for all real platforms (manual or not) */}
                 {!selectedPlatform.isSimulated && (
-                  ['shopify', 'tiendanube', 'wordpress', 'klaviyo', 'meta', 'chatwoot'].includes(selectedPlatform.id)
+                  ['shopify', 'tiendanube', 'wordpress', 'klaviyo', 'chatwoot'].includes(selectedPlatform.id) || isMetaPlatform(selectedPlatform.id)
                 ) && (
                   // Show save/connect button only when there are real credentials to save (manual mode or woo/klaviyo/chatwoot)
-                  (isManualMode || selectedPlatform.id === 'wordpress' || selectedPlatform.id === 'klaviyo' || selectedPlatform.id === 'chatwoot' || (selectedPlatform.id === 'meta' && isManualMode))
+                  (isManualMode || selectedPlatform.id === 'wordpress' || selectedPlatform.id === 'klaviyo' || selectedPlatform.id === 'chatwoot' || (isMetaPlatform(selectedPlatform.id) && isManualMode))
                 ) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3">
                     
@@ -3108,7 +3061,7 @@ export default function IntegracionesPage() {
 
                 {/* Footer for OAuth-based platforms (shopify/tiendanube/meta in auto mode): just disconnect + close */}
                 {!selectedPlatform.isSimulated && !isManualMode &&
-                  ['shopify', 'tiendanube', 'meta', 'mercadolibre', 'tiktok_ads', 'tiktok_content', 'youtube'].includes(selectedPlatform.id) && (
+                  (['shopify', 'tiendanube', 'mercadolibre', 'tiktok_ads', 'tiktok_content', 'youtube'].includes(selectedPlatform.id) || isMetaPlatform(selectedPlatform.id)) && (
                   <div className="pt-6 border-t border-zinc-100 dark:border-white/[0.04] flex items-center gap-3 justify-end">
                     {getPlatformStatus(selectedPlatform.id) !== "disconnected" && (
                       <button type="button" onClick={() => handleDisconnect(selectedPlatform.id)}
@@ -3143,6 +3096,7 @@ export default function IntegracionesPage() {
             )}
           </div>
         </div>
+        </PortalOverlay>
       )}
     </div>
   );
