@@ -84,13 +84,16 @@ function parseJsonResponse(text: string) {
 
 function fallbackCreativeAnalysis(rawText: string, isVideo: boolean) {
   const text = String(rawText || '').replace(/\s+/g, ' ').trim();
+  let seed = 0;
+  for (let i = 0; i < text.length; i++) seed = ((seed << 5) - seed) + text.charCodeAt(i) | 0;
+  const variance = (mod: number, offset = 0) => Math.abs((seed + offset) % mod);
   const hasPerson = /person|persona|face|rostro|man|woman|hombre|mujer|cámara|camera/i.test(text);
   const hasCTA = /cta|call to action|click|compr|shop|message|mensaje|link|learn more|ver más/i.test(text);
   const hasHook = /hook|gancho|primer|scroll|attention|atención/i.test(text);
   const hasClarityIssue = /confus|unclear|cognitive|carga|too much|demasiad|incomplet|truncated/i.test(text);
-  const attentionPct = hasHook ? 72 : isVideo ? 64 : 58;
-  const emotionPct = hasPerson ? 66 : 55;
-  const cogLoad = hasClarityIssue ? 58 : hasCTA ? 34 : 45;
+  const attentionPct = Math.max(28, Math.min(91, (hasHook ? 70 : isVideo ? 58 : 52) + variance(25, 3) - 8));
+  const emotionPct = Math.max(24, Math.min(92, (hasPerson ? 63 : 48) + variance(30, 11) - 8));
+  const cogLoad = Math.max(12, Math.min(82, (hasClarityIssue ? 55 : hasCTA ? 31 : 42) + variance(22, 19) - 7));
   return normalizeCreativeAnalysis({
     attentionPct,
     attentionReason: hasHook
@@ -132,7 +135,7 @@ function normalizeCreativeAnalysis(raw: any) {
     actionItems: Array.isArray(raw?.actionItems ?? raw?.action_items)
       ? (raw.actionItems ?? raw.action_items).slice(0, 4).map((item: any) => String(item))
       : [],
-    provider: raw?.provider ?? 'tribev2',
+    provider: raw?.provider ?? 'ai-vision',
   };
 }
 
@@ -168,7 +171,7 @@ async function callTribeV2Service(input: { frames: string[]; imageUrl?: string; 
     throw new Error(data?.detail || data?.error || `TRIBE v2 service failed (${response.status})`);
   }
 
-  return normalizeCreativeAnalysis(data);
+  return normalizeCreativeAnalysis({ ...data, provider: data?.provider || 'tribev2' });
 }
 
 function cleanHtml(html: string): string {
@@ -435,10 +438,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       if (tribeResult) return res.status(200).json(tribeResult);
     } catch (err: any) {
-      return res.status(502).json({
-        error: 'TRIBE v2 analysis failed',
-        detail: err?.message || 'No se pudo analizar con TRIBE v2.',
-      });
+      console.warn('TRIBE v2 analysis failed, falling back to vision analysis:', err?.message || err);
     }
 
     // Rate limit: 10 Gemini calls per IP per 10 minutes
@@ -448,8 +448,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const prompt = earlyIsVideo
-      ? `ERES: especialista en análisis creativo de video para redes sociales (Reels, TikTok, Facebook Ads).\n\nSE TE PASAN: ${frames.length} capturas del VIDEO completo, ~1 por segundo de inicio a fin. Analízalas EN CONJUNTO como una sola pieza.\n\nANALIZA COMO DIRECTOR CREATIVO: gancho de los primeros 3 segundos, ritmo del video, claridad del mensaje, efectividad del CTA, energía de la persona en cámara.\n\nPROHIBIDO: mencionar problemas técnicos de foto. Solo analiza el video como pieza creativa y de marketing.\nPERMITIDO SER BRUTAL: "Regrabar el video", "El gancho es inexistente", "Nadie va a ver esto más de 2 segundos".\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿El gancho detiene el scroll?\n2. Impacto Emocional (0-99): ¿Despierta curiosidad, deseo, humor o impacto?\n3. Carga Cognitiva (0-99): ¿El mensaje es claro sin esfuerzo? Ideal <30.\n4. Región Principal: "V1" (visual puro), "A1" (voz/música), "FFA" (persona/rostro), "EBA" (movimiento/cuerpo), "Amígdala" (emoción/shock).\n\nRESPONDE SOLO CON ESTE JSON (sin texto extra):\n{"attentionPct":72,"attentionReason":"Por qué la atención es ese número.","emotionPct":65,"emotionReason":"Por qué el impacto emocional es ese número.","cogLoad":28,"cogLoadReason":"Por qué la carga cognitiva es ese número.","highestRegion":"FFA","textInsight":"Diagnóstico del video en 2-3 líneas.","actionItems":["Acción 1","Acción 2","Acción 3","Acción 4"]}`
-      : `ERES: especialista en análisis creativo de anuncios gráficos estáticos para redes sociales.\n\nANALIZA COMO DIRECTOR DE ARTE: jerarquía visual, contraste, legibilidad del texto, efectividad del CTA, balance imagen/copy.\n\nEVALÚA:\n1. Retención de Atención (0-99): ¿Para el scroll en 0.5 segundos?\n2. Impacto Emocional (0-99): ¿La imagen genera deseo, curiosidad o urgencia?\n3. Carga Cognitiva (0-99): ¿Se entiende en <3 segundos? Ideal <30.\n4. Región Principal: "V1" (composición), "FFA" (rostro/persona), "EBA" (producto/objeto), "Amígdala" (color/emoción), "A1" (texto dominante).\n\nRESPONDE SOLO CON ESTE JSON:\n{"attentionPct":72,"attentionReason":"Por qué.","emotionPct":65,"emotionReason":"Por qué.","cogLoad":28,"cogLoadReason":"Por qué.","highestRegion":"V1","textInsight":"Diagnóstico en 2-3 líneas.","actionItems":["Acción 1","Acción 2","Acción 3","Acción 4"]}`;
+      ? `ERES: especialista senior en análisis creativo de video para Reels, TikTok, YouTube Shorts y Facebook/Instagram Ads.\n\nSE TE PASAN ${frames.length} capturas ordenadas del video. Analizalas EN CONJUNTO como una sola pieza.\n\nCALIBRACION OBLIGATORIA:\n- Usa todo el rango 0-99. No devuelvas números promedio por defecto.\n- 85-99 solo si el gancho es inmediato, claro y emocionalmente fuerte.\n- 65-84 si es usable pero mejorable.\n- 35-64 si probablemente pierde retención.\n- 0-34 si el creativo no detiene el scroll.\n- Carga Cognitiva alta significa confuso, mucho texto, demasiadas ideas o CTA poco claro. Ideal <=30.\n\nEVALUA:\n1. attentionPct: retención/scroll-stop en los primeros segundos.\n2. emotionPct: deseo, curiosidad, confianza, sorpresa o tensión positiva.\n3. cogLoad: esfuerzo para entender el mensaje.\n4. highestRegion: "V1", "A1", "FFA", "EBA" o "Amígdala".\n\nRESPONDE SOLO JSON VALIDO, sin markdown:\n{"attentionPct":0,"attentionReason":"diagnóstico concreto","emotionPct":0,"emotionReason":"diagnóstico concreto","cogLoad":0,"cogLoadReason":"diagnóstico concreto","highestRegion":"V1","textInsight":"diagnóstico del video en 2-3 líneas","actionItems":["acción concreta 1","acción concreta 2","acción concreta 3","acción concreta 4"],"provider":"ai-vision"}`
+      : `ERES: especialista senior en análisis creativo de anuncios gráficos estáticos para ecommerce y redes sociales.\n\nCALIBRACION OBLIGATORIA:\n- Usa todo el rango 0-99. No devuelvas números promedio por defecto.\n- 85-99 solo si la pieza detiene el scroll en menos de 1 segundo, tiene jerarquía clara y beneficio fuerte.\n- 65-84 si es usable pero mejorable.\n- 35-64 si probablemente pasa desapercibida.\n- 0-34 si no se entiende o no hay foco visual.\n- Carga Cognitiva alta significa confuso, mucho texto, jerarquía débil o CTA poco claro. Ideal <=30.\n\nEVALUA:\n1. attentionPct: capacidad de frenar scroll en 0.5-1 segundo.\n2. emotionPct: deseo, curiosidad, confianza, urgencia o aspiración.\n3. cogLoad: esfuerzo para entender mensaje y CTA.\n4. highestRegion: "V1", "FFA", "EBA", "Amígdala" o "A1".\n\nRESPONDE SOLO JSON VALIDO, sin markdown:\n{"attentionPct":0,"attentionReason":"diagnóstico concreto","emotionPct":0,"emotionReason":"diagnóstico concreto","cogLoad":0,"cogLoadReason":"diagnóstico concreto","highestRegion":"V1","textInsight":"diagnóstico en 2-3 líneas","actionItems":["acción concreta 1","acción concreta 2","acción concreta 3","acción concreta 4"],"provider":"ai-vision"}`;
 
     try {
       const parts: any[] = [{ text: prompt }];

@@ -29,8 +29,8 @@ const SCAN_STEPS = [
 ];
 
 export default function CerebroPage() {
-  const { profile: authProfile, loading: authLoading, session } = useAuth();
-  const { viewAsProfile, isViewingAs } = useViewAs();
+  const { profile: authProfile, loading: authLoading, session, refreshProfile } = useAuth();
+  const { viewAsProfile, isViewingAs, setViewAsProfile } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   
   const detectedPlatform = useMemo(() => {
@@ -153,7 +153,18 @@ export default function CerebroPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'No se pudo guardar el Cerebro.');
-      setBrainUpdatedAt(data.brain_updated_at || new Date().toISOString());
+      const nextBrainUpdatedAt = data.brain_updated_at || new Date().toISOString();
+      setBrainUpdatedAt(nextBrainUpdatedAt);
+      if (isViewingAs) {
+        setViewAsProfile(prev => prev ? ({
+          ...prev,
+          business_description: businessDescription,
+          custom_instructions: JSON.stringify({ tone: toneInstructions, offers, faq }),
+          website_url: websiteUrl,
+          brain_updated_at: nextBrainUpdatedAt,
+        } as any) : prev);
+      }
+      await refreshProfile();
       setSavedOk(true);
       setTimeout(() => setSavedOk(false), 3000);
       showToast('Cerebro actualizado correctamente.', 'success');
@@ -308,6 +319,21 @@ export default function CerebroPage() {
       setOffers(fieldsData.offers || '');
       setFaq(fieldsData.faq || '');
       setBrainUpdatedAt(fieldsData.brain_updated_at || null);
+      if (isViewingAs) {
+        setViewAsProfile(prev => prev ? ({
+          ...prev,
+          business_description: fieldsData.business_description || '',
+          custom_instructions: JSON.stringify({
+            tone: fieldsData.tone || '',
+            offers: fieldsData.offers || '',
+            faq: fieldsData.faq || '',
+          }),
+          scraped_content: webData.scraped_content || '',
+          instagram_context: socialContent,
+          brain_updated_at: fieldsData.brain_updated_at || new Date().toISOString(),
+        } as any) : prev);
+      }
+      await refreshProfile();
 
       // ── STEP 4: Done ──────────────────────────────────────────────────
       setScanCurrentStep(3);

@@ -1,5 +1,4 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useAIGate } from '../hooks/useAIGate';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { supabase } from '../services/supabase';
@@ -9,7 +8,7 @@ import {
   Upload, Film, Image, Zap, CheckCircle, AlertCircle, XCircle,
   RefreshCw, Loader2, Target, Brain, Eye, ChevronRight, Layers,
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 
 const clampDuration = (seconds?: number | null) => {
   const n = Number(seconds);
@@ -53,17 +52,36 @@ const getRemoteVideoDuration = (url?: string | null): Promise<number> => {
   });
 };
 
-// Generate realistic attention/emotion/impact curve across the creative duration.
+// Generate a second-by-second attention/emotion/impact curve across the creative duration.
 const genTimeline = (attn: number, emot: number, cogLoad: number, seed: number, durationSec = 30): { t: number; attn: number; emot: number; impact: number }[] => {
   const duration = clampDuration(durationSec);
-  const attnOff = [0.22, 0.28, 0.10, -0.04, -0.10, 0.00, 0.06, -0.02, 0.04, -0.04];
-  const emotOff = [-0.28, -0.18, -0.05, 0.05, 0.10, 0.05, 0.03, 0.12, 0.02, -0.03];
-  return attnOff.map((ao, i) => {
-    const a = Math.max(8, Math.min(99, Math.round(attn * (1 + ao) + ((seed * 3 + i * 7) % 8) - 4)));
-    const e = Math.max(8, Math.min(99, Math.round(emot * (1 + emotOff[i]) + ((seed * 5 + i * 11) % 8) - 4)));
+  return Array.from({ length: duration + 1 }, (_, t) => {
+    const progress = duration <= 1 ? 0 : t / duration;
+    const hookBoost = Math.max(0, 1 - t / 3) * 0.22;
+    const midDip = Math.sin(progress * Math.PI) * -0.08;
+    const endLift = progress > 0.72 ? (progress - 0.72) * 0.22 : 0;
+    const noise = (((seed + t * 17) % 13) - 6) / 100;
+    const emotionArc = -0.12 + Math.sin(progress * Math.PI * 1.15) * 0.18 + endLift * 0.45;
+    const a = Math.max(8, Math.min(99, Math.round(attn * (1 + hookBoost + midDip + noise))));
+    const e = Math.max(8, Math.min(99, Math.round(emot * (1 + emotionArc + noise * 0.7))));
     const imp = Math.max(8, Math.min(99, Math.round(a * 0.4 + e * 0.4 + (100 - cogLoad) * 0.2)));
-    return { t: Math.round(i * duration / (attnOff.length - 1)), attn: a, emot: e, impact: imp };
+    return { t, attn: a, emot: e, impact: imp };
   });
+};
+
+const TimelineTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white/95 dark:bg-zinc-950/95 px-3 py-2 shadow-xl backdrop-blur-md">
+      <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400 mb-1">{label}s</p>
+      {payload.map((entry: any) => (
+        <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-[11px] font-bold">
+          <span style={{ color: entry.color }}>{entry.name}</span>
+          <span className="text-zinc-800 dark:text-zinc-100">{entry.value}%</span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 // ── Seeded mock fallback ──────────────────────────────────────────────────────
@@ -93,7 +111,7 @@ function mockAnalysis(file: { name: string; size: number; type: string; lastModi
 }
 
 // ── Frame extractor ───────────────────────────────────────────────────────────
-async function extractFrames(file: File, maxFrames = 5): Promise<{ frames: string[]; durationSec: number }> {
+async function extractFrames(file: File, maxFrames = 12): Promise<{ frames: string[]; durationSec: number }> {
   const isVideo = file.type.startsWith('video');
   if (!isVideo) {
     return new Promise(resolve => {
@@ -149,6 +167,12 @@ const scoreCls = (score: number) =>
 const scoreLabel = (score: number) =>
   score >= 80 ? 'Listo para escalar' : score >= 60 ? 'Requiere ajustes' : 'Revisar antes de pautar';
 
+const providerLabel = (provider?: string) => {
+  if (provider === 'tribev2') return 'TRIBE v2';
+  if (provider === 'ai-fallback') return 'Fallback seguro';
+  return 'Vision AI';
+};
+
 const firstAttachmentImage = (post: any) => {
   const attachment = post?.attachments?.data?.[0];
   return attachment?.media?.image?.src || attachment?.subattachments?.data?.[0]?.media?.image?.src || post?.full_picture || '';
@@ -180,7 +204,6 @@ const MetricBar = ({ label, value, color, reason, threshold }: { label: string; 
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function CreativeTesterPage() {
-  const { gate, isReady: aiReady, AIGate } = useAIGate();
   const { profile: authProfile, loading: authLoading, session } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
@@ -377,7 +400,6 @@ export default function CreativeTesterPage() {
   }, []);
 
   const analyze = async (sourceFile?: File, adThumbnailUrl?: string, adName?: string, options?: { isVideo?: boolean; durationSec?: number; videoUrl?: string | null }) => {
-    if (!aiReady) { gate(() => analyze(sourceFile, adThumbnailUrl, adName, options)); return; }
     setStatus('analyzing');
     setResult(null);
     setUsedMock(false);
@@ -430,7 +452,7 @@ export default function CreativeTesterPage() {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ type: 'analyze-creative', frames, isVideo }),
+            body: JSON.stringify({ type: 'analyze-creative', frames, isVideo, durationSec }),
           });
           if (r.ok) analysisResult = await r.json();
         } catch { /* fall through to mock */ }
@@ -488,7 +510,6 @@ export default function CreativeTesterPage() {
 
   return (
     <CenteredPageLoader isLoading={pageLoading || authLoading}>
-      {AIGate}
       <div className="w-full animate-fade-in pb-20 pt-3 md:pt-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
@@ -672,7 +693,11 @@ export default function CreativeTesterPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[16px] font-black text-zinc-900 dark:text-white">{scoreLabel(score)}</p>
-                    <p className="text-[10px] text-zinc-400 mt-1">Región dominante: <span className="font-bold text-violet-600 dark:text-violet-400">{result.highestRegion}</span></p>
+                    <p className="text-[10px] text-zinc-400 mt-1">
+                      Motor: <span className="font-bold text-violet-600 dark:text-violet-400">{providerLabel(result.provider)}</span>
+                      <span className="mx-1.5">·</span>
+                      Región dominante: <span className="font-bold text-violet-600 dark:text-violet-400">{result.highestRegion}</span>
+                    </p>
                   </div>
                 </div>
 
@@ -718,6 +743,7 @@ export default function CreativeTesterPage() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" className="dark:[stroke:rgba(255,255,255,0.04)]" />
                           <XAxis dataKey="t" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}s`} />
                           <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={v => `${v}`} width={22} />
+                          <Tooltip content={<TimelineTooltip />} cursor={{ stroke: '#a78bfa', strokeWidth: 1, strokeDasharray: '3 3' }} />
                           <Line type="monotone" dataKey="attn" name="Atención" stroke="#10b981" strokeWidth={2} dot={false} />
                           <Line type="monotone" dataKey="emot" name="Emoción" stroke="#8b5cf6" strokeWidth={2} dot={false} />
                           <Line type="monotone" dataKey="impact" name="Impacto" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
