@@ -84,32 +84,6 @@ const TimelineTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-// ── Seeded mock fallback ──────────────────────────────────────────────────────
-function mockAnalysis(file: { name: string; size: number; type: string; lastModified: number }, isVideo: boolean) {
-  const seedStr = file.name + file.size + file.lastModified;
-  let seed = 0;
-  for (let i = 0; i < seedStr.length; i++) { seed = ((seed << 5) - seed) + seedStr.charCodeAt(i); seed |= 0; }
-  const rng = () => { let t = seed += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  const attentionPct = Math.min(97, Math.floor((isVideo ? 65 : 70) + rng() * 25));
-  const emotionPct = Math.min(97, Math.floor((isVideo ? 68 : 60) + rng() * 25));
-  const cogLoad = Math.max(12, Math.floor(20 + rng() * 30));
-  const regions = ['V1', 'FFA', 'EBA', 'Amígdala', 'A1'];
-  const highestRegion = regions[Math.floor(rng() * regions.length)];
-  return {
-    attentionPct, attentionReason: 'Análisis simulado — conectá una API key de Gemini para análisis real.',
-    emotionPct, emotionReason: 'Análisis simulado.',
-    cogLoad, cogLoadReason: 'Análisis simulado.',
-    highestRegion,
-    textInsight: 'Análisis de base generado sin IA real. Los valores son estimaciones según el tipo y peso del archivo.',
-    actionItems: [
-      isVideo ? 'Asegurate de que el gancho sea en los primeros 3 segundos.' : 'El elemento visual principal debe detener el scroll.',
-      'Reducí la carga cognitiva limitando el texto a una sola idea central.',
-      'Incluí subtítulos si es video — el 80% se ve sin sonido.',
-      'Mostrá el producto o resultado deseado en los primeros cuadros.',
-    ],
-  };
-}
-
 // ── Frame extractor ───────────────────────────────────────────────────────────
 async function extractFrames(file: File, maxFrames = 12): Promise<{ frames: string[]; durationSec: number }> {
   const isVideo = file.type.startsWith('video');
@@ -169,8 +143,7 @@ const scoreLabel = (score: number) =>
 
 const providerLabel = (provider?: string) => {
   if (provider === 'tribev2') return 'TRIBE v2';
-  if (provider === 'ai-fallback') return 'Fallback seguro';
-  return 'Vision AI';
+  return 'TRIBE v2';
 };
 
 const firstAttachmentImage = (post: any) => {
@@ -223,7 +196,7 @@ export default function CreativeTesterPage() {
   const [step, setStep] = useState('');
   const [result, setResult] = useState<any>(null);
   const [score, setScore] = useState(0);
-  const [usedMock, setUsedMock] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
   const [timeline, setTimeline] = useState<{ t: number; attn: number; emot: number; impact: number }[]>([]);
   const [analysisDurationSec, setAnalysisDurationSec] = useState(30);
 
@@ -402,7 +375,7 @@ export default function CreativeTesterPage() {
   const analyze = async (sourceFile?: File, adThumbnailUrl?: string, adName?: string, options?: { isVideo?: boolean; durationSec?: number; videoUrl?: string | null }) => {
     setStatus('analyzing');
     setResult(null);
-    setUsedMock(false);
+    setAnalysisError('');
     const isVideo = sourceFile ? sourceFile.type.startsWith('video') : !!options?.isVideo;
     let durationSec = isVideo ? clampDuration(options?.durationSec) : 30;
 
@@ -454,14 +427,16 @@ export default function CreativeTesterPage() {
             },
             body: JSON.stringify({ type: 'analyze-creative', frames, isVideo, durationSec }),
           });
-          if (r.ok) analysisResult = await r.json();
-        } catch { /* fall through to mock */ }
+          const payload = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(payload.detail || payload.error || 'TRIBE v2 no pudo analizar el creativo.');
+          analysisResult = payload;
+        } catch (err: any) {
+          throw new Error(err?.message || 'TRIBE v2 no pudo analizar el creativo.');
+        }
       }
 
       if (!analysisResult) {
-        const mockSrc = sourceFile || { name: adName || 'ad', size: 100000, type: isVideo ? 'video/mp4' : 'image/jpeg', lastModified: Date.now() };
-        analysisResult = mockAnalysis(mockSrc as any, isVideo);
-        setUsedMock(true);
+        throw new Error('No se pudo preparar el creativo para TRIBE v2.');
       }
 
       const finalScore = Math.floor(
@@ -474,9 +449,10 @@ export default function CreativeTesterPage() {
       setAnalysisDurationSec(durationSec);
       setTimeline(genTimeline(analysisResult.attentionPct, analysisResult.emotionPct, analysisResult.cogLoad, finalScore, durationSec));
       setStatus('done');
-    } catch (err) {
+    } catch (err: any) {
       setStatus('error');
-      setStep('Error al analizar el creativo.');
+      setAnalysisError(err?.message || 'Error al analizar el creativo con TRIBE v2.');
+      setStep('TRIBE v2 no pudo completar el análisis.');
     }
   };
 
@@ -501,10 +477,10 @@ export default function CreativeTesterPage() {
       videoUrl: details?.source || selectedAd.mediaUrl,
     });
     else {
-      const mockSrc = { name: selectedAd.name || 'anuncio', size: 100000, type: 'image/jpeg', lastModified: Date.now() };
-      const r = mockAnalysis(mockSrc, isVid);
-      const s = Math.floor(r.attentionPct * 0.4 + r.emotionPct * 0.4 + (100 - r.cogLoad) * 0.2);
-      setScore(s); setResult(r); setUsedMock(true); setAnalysisDurationSec(30); setTimeline(genTimeline(r.attentionPct, r.emotionPct, r.cogLoad, s, 30)); setStatus('done');
+      setResult(null);
+      setTimeline([]);
+      setAnalysisError('Este anuncio no tiene imagen o video disponible para enviar a TRIBE v2.');
+      setStatus('error');
     }
   };
 
@@ -676,15 +652,29 @@ export default function CreativeTesterPage() {
               </div>
             )}
 
+            {status === 'error' && (
+              <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/25 border border-red-100 dark:border-red-900/50 flex items-center justify-center">
+                  <AlertCircle className="w-7 h-7 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-[14px] font-black text-zinc-900 dark:text-white">TRIBE v2 no pudo analizar este creativo</p>
+                  <p className="text-[12px] text-zinc-500 dark:text-zinc-400 max-w-sm mt-2">
+                    {analysisError || 'Revisá que TRIBE_V2_API_URL esté configurado y que el servicio esté activo.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setStatus('idle'); setAnalysisError(''); }}
+                  className="h-10 px-4 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-bold"
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+
             {status === 'done' && result && (
               <div className="space-y-5">
-                {usedMock && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl text-[11px] text-amber-700 dark:text-amber-400 font-medium">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    Análisis simulado — configurá Gemini para análisis real.
-                  </div>
-                )}
-
                 {/* Score circle */}
                 <div className="flex items-center gap-4 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-5">
                   <div className={`w-20 h-20 rounded-full flex flex-col items-center justify-center shadow-lg ${scoreCls(score)}`}>

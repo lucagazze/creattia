@@ -15,7 +15,8 @@ http://127.0.0.1:8787/analyze
 ```
 
 Set `TRIBE_V2_API_URL` to route all creative analysis requests through that
-service:
+service. Creative analysis requires TRIBE v2 and does not fall back to Gemini,
+OpenAI, mock data, or another AI provider.
 
 ```bash
 TRIBE_V2_API_URL=http://127.0.0.1:8787/analyze

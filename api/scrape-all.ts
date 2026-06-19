@@ -19,106 +19,6 @@ const getFirstEnv = (...names: string[]) => {
   return '';
 };
 
-const GEMINI_MODELS = [
-  process.env.GEMINI_MODEL,
-  process.env.GOOGLE_AI_MODEL,
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-1.5-flash',
-].filter(Boolean) as string[];
-
-// Basic in-memory rate limiter for Gemini analysis (10 calls / 10 min per IP)
-const geminiRateMap = new Map<string, { count: number; resetAt: number }>();
-function checkGeminiRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const WINDOW = 10 * 60 * 1000; // 10 minutes
-  const MAX = 10;
-  const entry = geminiRateMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    geminiRateMap.set(ip, { count: 1, resetAt: now + WINDOW });
-    return true;
-  }
-  if (entry.count >= MAX) return false;
-  entry.count++;
-  return true;
-}
-
-function parseJsonResponse(text: string) {
-  const cleaned = String(text || '')
-    .trim()
-    .replace(/^```(?:json)?/i, '')
-    .replace(/```$/i, '')
-    .trim();
-  try {
-    return normalizeCreativeAnalysis(JSON.parse(cleaned));
-  } catch {
-    const start = cleaned.indexOf('{');
-    if (start === -1) throw new Error('La IA no devolvio JSON valido.');
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-    for (let i = start; i < cleaned.length; i++) {
-      const ch = cleaned[i];
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (ch === '\\') {
-        escaped = true;
-        continue;
-      }
-      if (ch === '"') {
-        inString = !inString;
-        continue;
-      }
-      if (inString) continue;
-      if (ch === '{') depth++;
-      if (ch === '}') {
-        depth--;
-        if (depth === 0) return normalizeCreativeAnalysis(JSON.parse(cleaned.slice(start, i + 1)));
-      }
-    }
-    throw new Error('La IA devolvio JSON incompleto.');
-  }
-}
-
-function fallbackCreativeAnalysis(rawText: string, isVideo: boolean) {
-  const text = String(rawText || '').replace(/\s+/g, ' ').trim();
-  let seed = 0;
-  for (let i = 0; i < text.length; i++) seed = ((seed << 5) - seed) + text.charCodeAt(i) | 0;
-  const variance = (mod: number, offset = 0) => Math.abs((seed + offset) % mod);
-  const hasPerson = /person|persona|face|rostro|man|woman|hombre|mujer|cámara|camera/i.test(text);
-  const hasCTA = /cta|call to action|click|compr|shop|message|mensaje|link|learn more|ver más/i.test(text);
-  const hasHook = /hook|gancho|primer|scroll|attention|atención/i.test(text);
-  const hasClarityIssue = /confus|unclear|cognitive|carga|too much|demasiad|incomplet|truncated/i.test(text);
-  const attentionPct = Math.max(28, Math.min(91, (hasHook ? 70 : isVideo ? 58 : 52) + variance(25, 3) - 8));
-  const emotionPct = Math.max(24, Math.min(92, (hasPerson ? 63 : 48) + variance(30, 11) - 8));
-  const cogLoad = Math.max(12, Math.min(82, (hasClarityIssue ? 55 : hasCTA ? 31 : 42) + variance(22, 19) - 7));
-  return normalizeCreativeAnalysis({
-    attentionPct,
-    attentionReason: hasHook
-      ? 'El creativo tiene senales de gancho, pero conviene reforzar la primera frase o primer frame para frenar mejor el scroll.'
-      : 'El gancho inicial no queda suficientemente claro; necesita una apertura mas directa y especifica.',
-    emotionPct,
-    emotionReason: hasPerson
-      ? 'La presencia humana ayuda a generar confianza, aunque falta elevar tension, deseo o curiosidad.'
-      : 'El impacto emocional es moderado porque el beneficio principal no aparece con suficiente fuerza visual.',
-    cogLoad,
-    cogLoadReason: hasClarityIssue
-      ? 'El mensaje requiere demasiado esfuerzo para entenderse rapido.'
-      : 'La pieza se entiende, pero puede simplificarse para que el beneficio y el CTA sean mas inmediatos.',
-    highestRegion: hasPerson ? 'FFA' : isVideo ? 'EBA' : 'V1',
-    textInsight: text.slice(0, 260) || 'Analisis generado con fallback seguro porque la respuesta de IA vino incompleta.',
-    actionItems: [
-      'Abrir con el beneficio principal en los primeros 2 segundos.',
-      'Mostrar producto y resultado antes de agregar contexto.',
-      'Reducir texto secundario y dejar un CTA visual mas claro.',
-      'Probar una version con gancho mas directo y comparativo.',
-    ],
-    provider: 'ai-fallback',
-  });
-}
-
 function normalizeCreativeAnalysis(raw: any) {
   const attentionPct = Number(raw?.attentionPct ?? raw?.attention_pct ?? raw?.attention ?? raw?.retention ?? 0);
   const emotionPct = Number(raw?.emotionPct ?? raw?.emotion_pct ?? raw?.emotion ?? raw?.impact ?? 0);
@@ -404,8 +304,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── CREATIVE ANALYSIS — no auth required (landing page + app users) ─────────
   const { type: earlyType, frames: earlyFrames, imageUrl: earlyImageUrl, isVideo: earlyIsVideo } = req.body as any;
   if (earlyType === 'analyze-creative') {
-    const geminiKey = getFirstEnv('GOOGLE_AI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY');
-    const openaiKey = getFirstEnv('OPENAI_API_KEY');
     const frames: string[] = Array.isArray(earlyFrames) ? earlyFrames.filter(Boolean) : [];
     if (frames.length === 0 && earlyImageUrl) {
       try {
@@ -436,120 +334,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         imageUrl: earlyImageUrl,
         isVideo: !!earlyIsVideo,
       });
-      if (tribeResult) return res.status(200).json(tribeResult);
-    } catch (err: any) {
-      console.warn('TRIBE v2 analysis failed, falling back to vision analysis:', err?.message || err);
-    }
-
-    // Rate limit: 10 Gemini calls per IP per 10 minutes
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
-    if (!checkGeminiRateLimit(clientIp)) {
-      return res.status(429).json({ error: 'Demasiados análisis. Intentá de nuevo en unos minutos.' });
-    }
-
-    const prompt = earlyIsVideo
-      ? `ERES: especialista senior en análisis creativo de video para Reels, TikTok, YouTube Shorts y Facebook/Instagram Ads.\n\nSE TE PASAN ${frames.length} capturas ordenadas del video. Analizalas EN CONJUNTO como una sola pieza.\n\nCALIBRACION OBLIGATORIA:\n- Usa todo el rango 0-99. No devuelvas números promedio por defecto.\n- 85-99 solo si el gancho es inmediato, claro y emocionalmente fuerte.\n- 65-84 si es usable pero mejorable.\n- 35-64 si probablemente pierde retención.\n- 0-34 si el creativo no detiene el scroll.\n- Carga Cognitiva alta significa confuso, mucho texto, demasiadas ideas o CTA poco claro. Ideal <=30.\n\nEVALUA:\n1. attentionPct: retención/scroll-stop en los primeros segundos.\n2. emotionPct: deseo, curiosidad, confianza, sorpresa o tensión positiva.\n3. cogLoad: esfuerzo para entender el mensaje.\n4. highestRegion: "V1", "A1", "FFA", "EBA" o "Amígdala".\n\nRESPONDE SOLO JSON VALIDO, sin markdown:\n{"attentionPct":0,"attentionReason":"diagnóstico concreto","emotionPct":0,"emotionReason":"diagnóstico concreto","cogLoad":0,"cogLoadReason":"diagnóstico concreto","highestRegion":"V1","textInsight":"diagnóstico del video en 2-3 líneas","actionItems":["acción concreta 1","acción concreta 2","acción concreta 3","acción concreta 4"],"provider":"ai-vision"}`
-      : `ERES: especialista senior en análisis creativo de anuncios gráficos estáticos para ecommerce y redes sociales.\n\nCALIBRACION OBLIGATORIA:\n- Usa todo el rango 0-99. No devuelvas números promedio por defecto.\n- 85-99 solo si la pieza detiene el scroll en menos de 1 segundo, tiene jerarquía clara y beneficio fuerte.\n- 65-84 si es usable pero mejorable.\n- 35-64 si probablemente pasa desapercibida.\n- 0-34 si no se entiende o no hay foco visual.\n- Carga Cognitiva alta significa confuso, mucho texto, jerarquía débil o CTA poco claro. Ideal <=30.\n\nEVALUA:\n1. attentionPct: capacidad de frenar scroll en 0.5-1 segundo.\n2. emotionPct: deseo, curiosidad, confianza, urgencia o aspiración.\n3. cogLoad: esfuerzo para entender mensaje y CTA.\n4. highestRegion: "V1", "FFA", "EBA", "Amígdala" o "A1".\n\nRESPONDE SOLO JSON VALIDO, sin markdown:\n{"attentionPct":0,"attentionReason":"diagnóstico concreto","emotionPct":0,"emotionReason":"diagnóstico concreto","cogLoad":0,"cogLoadReason":"diagnóstico concreto","highestRegion":"V1","textInsight":"diagnóstico en 2-3 líneas","actionItems":["acción concreta 1","acción concreta 2","acción concreta 3","acción concreta 4"],"provider":"ai-vision"}`;
-
-    try {
-      const parts: any[] = [{ text: prompt }];
-      for (const b64 of frames) {
-        const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
-        parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Data } });
-      }
-      const aiErrors: string[] = [];
-
-      if (geminiKey) {
-        let geminiData: any = null;
-        for (const model of GEMINI_MODELS) {
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ role: 'user', parts }],
-                generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: 'application/json' },
-              }),
-            }
-          );
-          if (geminiRes.ok) {
-            geminiData = await geminiRes.json();
-            break;
-          }
-          const errText = await geminiRes.text();
-          aiErrors.push(`${model}: HTTP ${geminiRes.status} ${errText.slice(0, 300)}`);
-        }
-        if (geminiData) {
-          const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            try {
-              return res.status(200).json(parseJsonResponse(text));
-            } catch (parseErr: any) {
-              aiErrors.push(`Gemini JSON: ${parseErr?.message || 'respuesta invalida'}`);
-              return res.status(200).json(fallbackCreativeAnalysis(text, !!earlyIsVideo));
-            }
-          }
-          aiErrors.push('Gemini: Empty AI response');
-        }
-      } else {
-        aiErrors.push('Gemini: API key no configurada');
-      }
-
-      if (openaiKey) {
-        const openaiModel = getFirstEnv('OPENAI_VISION_MODEL', 'OPENAI_MODEL') || 'gpt-4o-mini';
-        const imageParts = frames.map((b64) => ({
-          type: 'image_url',
-          image_url: {
-            url: b64,
-            detail: 'low',
-          },
-        }));
-        const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${openaiKey}`,
-          },
-          body: JSON.stringify({
-            model: openaiModel,
-            temperature: 0,
-            max_tokens: 1024,
-            response_format: { type: 'json_object' },
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: prompt },
-                  ...imageParts,
-                ],
-              },
-            ],
-          }),
+      if (!tribeResult) {
+        return res.status(503).json({
+          error: 'TRIBE v2 no está configurado',
+          detail: 'Configurá TRIBE_V2_API_URL para analizar creativos. No se usan Gemini, ChatGPT ni fallback de IA.',
         });
-        const openaiText = await openaiRes.text();
-        if (openaiRes.ok) {
-          const openaiData = JSON.parse(openaiText);
-          const content = openaiData.choices?.[0]?.message?.content;
-          if (content) {
-            try {
-              return res.status(200).json(parseJsonResponse(content));
-            } catch (parseErr: any) {
-              aiErrors.push(`OpenAI JSON: ${parseErr?.message || 'respuesta invalida'}`);
-              return res.status(200).json(fallbackCreativeAnalysis(content, !!earlyIsVideo));
-            }
-          }
-          aiErrors.push('OpenAI: Empty AI response');
-        } else {
-          aiErrors.push(`OpenAI: HTTP ${openaiRes.status} ${openaiText.slice(0, 300)}`);
-        }
-      } else {
-        aiErrors.push('OpenAI: API key no configurada');
       }
-
-      return res.status(200).json(fallbackCreativeAnalysis(aiErrors.join(' '), !!earlyIsVideo));
+      return res.status(200).json(tribeResult);
     } catch (err: any) {
-      return res.status(500).json({ error: err.message || 'Analysis failed' });
+      console.warn('TRIBE v2 analysis failed:', err?.message || err);
+      return res.status(502).json({
+        error: 'TRIBE v2 no pudo analizar el creativo',
+        detail: err?.message || 'Revisá que el servicio TRIBE v2 esté activo y accesible desde TRIBE_V2_API_URL.',
+      });
     }
   }
 
