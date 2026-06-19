@@ -35,7 +35,7 @@ import {
 interface IntegrationPlatform {
   id: string;
   name: string;
-  category: "ecommerce" | "marketing" | "ads" | "mensajeria";
+  category: "ecommerce" | "marketing" | "ads" | "publishing" | "mensajeria";
   description: string;
   logoUrl?: string;
   logoComponent?: React.FC<React.SVGProps<SVGSVGElement>>;
@@ -102,7 +102,7 @@ const PLATFORMS: IntegrationPlatform[] = [
   {
     id: "tiktok_content",
     name: "TikTok",
-    category: "marketing",
+    category: "publishing",
     description: "Conectá tu cuenta orgánica para subir videos desde el Publicador.",
     logoUrl: "/assets/logotiktok.png",
     isSimulated: false
@@ -110,7 +110,7 @@ const PLATFORMS: IntegrationPlatform[] = [
   {
     id: "youtube",
     name: "YouTube",
-    category: "marketing",
+    category: "publishing",
     description: "Conectá tu canal para ver publicaciones y subir Shorts desde el Publicador.",
     logoComponent: Youtube,
     isSimulated: false
@@ -159,7 +159,7 @@ export default function IntegracionesPage() {
 
   const [clientData, setClientData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "ads" | "marketing" | "mensajeria">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "ads" | "publishing" | "marketing" | "mensajeria">("all");
 
   // Modals state
   const [selectedPlatform, setSelectedPlatform] = useState<IntegrationPlatform | null>(null);
@@ -1696,6 +1696,69 @@ export default function IntegracionesPage() {
     return null;
   };
 
+  const connectionHealth = (() => {
+    const data = clientData || {};
+    const statuses = data.connection_statuses || {};
+    const item = (
+      id: string,
+      title: string,
+      detail: string,
+      ok: boolean,
+      warning = '',
+      targetPlatform = id
+    ) => ({
+      id,
+      title,
+      detail,
+      targetPlatform,
+      status: ok ? 'ok' : warning ? 'warning' : 'missing',
+      message: ok ? 'Listo' : warning || 'Falta conectar',
+    });
+
+    return [
+      item(
+        'meta_ads',
+        'Meta Ads',
+        data.connection_statuses?.meta_account_name || data.meta_account_id || 'Publicidad y creativos',
+        !!data.meta_account_id && statuses.meta !== 'error',
+        statuses.meta === 'error' ? 'Requiere reconectar Meta' : '',
+        'meta'
+      ),
+      item(
+        'instagram_org',
+        'Instagram orgánico',
+        data.ig_username ? `@${data.ig_username}` : 'Posts, comentarios y publicación',
+        !!(data.ig_business_id && data.fb_page_access_token) && statuses.meta !== 'error',
+        data.facebook_access_token && !data.ig_business_id ? 'Falta elegir Instagram profesional' : '',
+        'meta'
+      ),
+      item(
+        'facebook_org',
+        'Facebook orgánico',
+        data.fb_page_name || 'Página, comentarios y publicación',
+        !!(data.fb_page_id && data.fb_page_access_token) && statuses.meta !== 'error',
+        data.facebook_access_token && !data.fb_page_id ? 'Falta elegir página' : '',
+        'meta'
+      ),
+      item(
+        'tiktok_org',
+        'TikTok orgánico',
+        data.tiktok_content_display_name || statuses.tiktok_content_display_name || 'Publicador TikTok',
+        !!data.tiktok_content_access_token && statuses.tiktok_content !== 'error',
+        statuses.tiktok_content === 'error' ? 'Token o permisos pendientes' : '',
+        'tiktok_content'
+      ),
+      item(
+        'youtube_shorts',
+        'YouTube Shorts',
+        data.youtube_channel_title || statuses.youtube_channel_title || 'Publicador y lectura de Shorts',
+        !!data.youtube_access_token && statuses.youtube !== 'error',
+        statuses.youtube === 'error' ? 'Token vencido o permisos faltantes' : '',
+        'youtube'
+      ),
+    ];
+  })();
+
   const filteredPlatforms = PLATFORMS.filter(p => {
     if (activeTab === "all") return true;
     return p.category === activeTab;
@@ -1966,12 +2029,52 @@ export default function IntegracionesPage() {
         </div>
       </div>
 
+      <section className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm p-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-500">Salud de conexiones</p>
+            <h2 className="mt-1 text-[18px] font-black text-zinc-950 dark:text-white">Qué puede hacer cada integración</h2>
+          </div>
+          <p className="text-[12px] font-semibold text-zinc-500 dark:text-zinc-400 max-w-xl">
+            Meta Ads, Instagram y Facebook se ven separados por uso para que se entienda qué está listo para publicar, leer contenido o analizar publicidad.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2.5">
+          {connectionHealth.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                const platform = PLATFORMS.find(p => p.id === item.targetPlatform);
+                if (platform) handleConnectClick(platform);
+              }}
+              className="text-left rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/25 p-3 hover:bg-white dark:hover:bg-white/[0.04] transition-all"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="text-[13px] font-black text-zinc-950 dark:text-white">{item.title}</h3>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-black ${
+                  item.status === 'ok'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+                    : item.status === 'warning'
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-300'
+                      : 'bg-zinc-200/70 dark:bg-white/10 text-zinc-500'
+                }`}>
+                  {item.message}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400">{item.detail}</p>
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Tabs Menu */}
       <div className="flex border-b border-zinc-200 dark:border-white/[0.06] pb-0.5 gap-6 select-none overflow-x-auto shrink-0">
         {[
           { id: "all", label: "Todas" },
-          { id: "ecommerce", label: "Tiendas Online" },
+          { id: "ecommerce", label: "Ventas" },
           { id: "ads", label: "Publicidad" },
+          { id: "publishing", label: "Publicación orgánica" },
           { id: "marketing", label: "Marketing Directo" },
           { id: "mensajeria", label: "Mensajería" }
         ].map(tab => (

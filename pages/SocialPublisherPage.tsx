@@ -16,6 +16,8 @@ interface ChannelConfig {
   label: string;
   connected: boolean;
   detail: string;
+  accountId?: string;
+  avatarUrl?: string;
   color: string;
   icon: React.ReactNode;
 }
@@ -23,7 +25,7 @@ interface ChannelConfig {
 interface PublishConfirmation {
   clientId: string;
   businessName: string;
-  channels: Array<Pick<ChannelConfig, 'id' | 'label' | 'detail' | 'color' | 'icon'>>;
+  channels: Array<Pick<ChannelConfig, 'id' | 'label' | 'detail' | 'accountId' | 'avatarUrl' | 'color' | 'icon'>>;
   fileName: string;
   scheduledLabel: string;
 }
@@ -76,6 +78,7 @@ export default function SocialPublisherPage() {
         label: 'Instagram',
         connected: !!(p.ig_business_id && p.fb_page_access_token),
         detail: p.ig_username ? `@${p.ig_username}` : 'Requiere Instagram profesional conectado a Meta',
+        accountId: p.ig_business_id,
         color: 'from-pink-500 to-orange-400',
         icon: <Instagram className="w-4 h-4" />
       },
@@ -84,6 +87,7 @@ export default function SocialPublisherPage() {
         label: 'Facebook',
         connected: !!(p.fb_page_id && p.fb_page_access_token),
         detail: p.fb_page_name || 'Requiere página de Facebook conectada',
+        accountId: p.fb_page_id,
         color: 'from-blue-600 to-sky-500',
         icon: <Facebook className="w-4 h-4" />
       },
@@ -92,6 +96,8 @@ export default function SocialPublisherPage() {
         label: 'TikTok',
         connected: !!p.tiktok_content_access_token,
         detail: p.tiktok_content_display_name || p.connection_statuses?.tiktok_content_display_name || 'Requiere TikTok conectado desde Integraciones',
+        accountId: p.tiktok_content_open_id,
+        avatarUrl: p.tiktok_content_avatar_url,
         color: 'from-zinc-900 to-zinc-650',
         icon: <img src="/assets/logotiktok.png" alt="" className="w-4 h-4 object-contain invert dark:invert-0" />
       },
@@ -100,6 +106,7 @@ export default function SocialPublisherPage() {
         label: 'YouTube Shorts',
         connected: !!p.youtube_access_token,
         detail: p.youtube_channel_title || p.connection_statuses?.youtube_channel_title || 'Requiere YouTube conectado desde Integraciones',
+        accountId: p.youtube_channel_id,
         color: 'from-red-600 to-red-500',
         icon: <Youtube className="w-4 h-4" />
       }
@@ -277,6 +284,8 @@ export default function SocialPublisherPage() {
           id: channel.id,
           label: channel.label,
           detail: channel.detail,
+          accountId: channel.accountId,
+          avatarUrl: channel.avatarUrl,
           color: channel.color,
           icon: channel.icon
         }));
@@ -670,11 +679,16 @@ export default function SocialPublisherPage() {
                 {confirmation.channels.map(channel => (
                   <div key={channel.id} className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/20 p-3 flex items-start gap-3">
                     <span className={`w-9 h-9 rounded-xl bg-gradient-to-br ${channel.color} text-white flex items-center justify-center shrink-0`}>
-                      {channel.icon}
+                      {channel.avatarUrl ? <img src={channel.avatarUrl} alt="" className="w-full h-full rounded-xl object-cover" /> : channel.icon}
                     </span>
                     <div className="min-w-0">
                       <p className="text-[13px] font-black text-zinc-950 dark:text-white">{channel.label}</p>
                       <p className="mt-0.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 break-words">{channel.detail}</p>
+                      {channel.accountId && (
+                        <p className="mt-1 text-[9.5px] font-black uppercase tracking-wider text-zinc-350 dark:text-zinc-600 break-all">
+                          ID cuenta: {channel.accountId}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -693,7 +707,7 @@ export default function SocialPublisherPage() {
 
               <div className="rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-3">
                 <p className="text-[12px] font-bold leading-relaxed text-amber-800 dark:text-amber-200">
-                  Si alguna cuenta no coincide, cancelá y revisá Integraciones. La publicación sólo se enviará a las cuentas listadas acá.
+                  Vas a publicar únicamente en las cuentas listadas arriba para el cliente {confirmation.businessName}. Si alguna cuenta no coincide, cancelá y revisá Integraciones.
                 </p>
               </div>
             </div>

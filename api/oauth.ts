@@ -2663,6 +2663,38 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (error) return res.status(500).json({ error: error.message || 'No se pudo leer el cliente.' });
   if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
 
+  const accountSnapshot: Record<string, any> = {
+    client: {
+      id: clientId,
+      business_name: client.business_name || client.email || '',
+    },
+    requested_channels: channels,
+    accounts: {
+      instagram: client.ig_business_id ? {
+        platform: 'instagram',
+        account_id: client.ig_business_id,
+        username: client.ig_username || '',
+        page_id: client.fb_page_id || '',
+        page_name: client.fb_page_name || '',
+      } : null,
+      facebook: client.fb_page_id ? {
+        platform: 'facebook',
+        page_id: client.fb_page_id,
+        page_name: client.fb_page_name || '',
+      } : null,
+      tiktok: (client.tiktok_content_open_id || client.tiktok_content_display_name) ? {
+        platform: 'tiktok',
+        open_id: client.tiktok_content_open_id || '',
+        display_name: client.tiktok_content_display_name || client.connection_statuses?.tiktok_content_display_name || '',
+      } : null,
+      youtube: (client.youtube_channel_id || client.youtube_channel_title) ? {
+        platform: 'youtube',
+        channel_id: client.youtube_channel_id || '',
+        channel_title: client.youtube_channel_title || client.connection_statuses?.youtube_channel_title || '',
+      } : null,
+    },
+  };
+
   if (scheduledAt && new Date(scheduledAt).getTime() > Date.now() + 30000) {
     const { error: scheduleInsertError } = await supabase.from('car_social_publications').insert({
       client_id: clientId,
@@ -2671,7 +2703,8 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
       video_url: videoUrl,
       video_path: videoPath,
       selected_channels: channels,
-      results: { scheduled_at: scheduledAt },
+      results: { scheduled_at: scheduledAt, audit: accountSnapshot },
+      scheduled_at: scheduledAt,
       status: 'scheduled'
     });
     if (scheduleInsertError) return res.status(500).json({ error: scheduleInsertError.message });
@@ -2682,28 +2715,28 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
     try {
       if (channel === 'facebook') {
         if (!client.fb_page_id || !client.fb_page_access_token) {
-          return { channel, result: { status: 'missing_connection', message: 'Falta conectar una página de Facebook con permiso de publicación.' } };
+          return { channel, result: { status: 'missing_connection', account: accountSnapshot.accounts.facebook, message: 'Falta conectar una página de Facebook con permiso de publicación.' } };
         }
-        return { channel, result: await publishFacebookVideo(client.fb_page_id, client.fb_page_access_token, videoUrl, caption) };
+        return { channel, result: { ...(await publishFacebookVideo(client.fb_page_id, client.fb_page_access_token, videoUrl, caption)), account: accountSnapshot.accounts.facebook } };
       }
 
       if (channel === 'instagram') {
         if (!client.ig_business_id || !client.fb_page_access_token) {
-          return { channel, result: { status: 'missing_connection', message: 'Falta conectar Instagram profesional desde Meta.' } };
+          return { channel, result: { status: 'missing_connection', account: accountSnapshot.accounts.instagram, message: 'Falta conectar Instagram profesional desde Meta.' } };
         }
-        return { channel, result: await publishInstagramReel(client.ig_business_id, client.fb_page_access_token, videoUrl, caption) };
+        return { channel, result: { ...(await publishInstagramReel(client.ig_business_id, client.fb_page_access_token, videoUrl, caption)), account: accountSnapshot.accounts.instagram } };
       }
 
       if (channel === 'tiktok') {
         const tiktokToken = await getValidTiktokContentToken(clientId, supabase);
         if (!tiktokToken) {
-          return { channel, result: { status: 'missing_connection', message: 'Falta conectar TikTok orgánico desde Integraciones.' } };
+          return { channel, result: { status: 'missing_connection', account: accountSnapshot.accounts.tiktok, message: 'Falta conectar TikTok orgánico desde Integraciones.' } };
         }
-        return { channel, result: await publishTiktokInboxVideo(tiktokToken, videoUrl) };
+        return { channel, result: { ...(await publishTiktokInboxVideo(tiktokToken, videoUrl)), account: accountSnapshot.accounts.tiktok } };
       }
 
       if (channel === 'youtube') {
-        return { channel, result: await publishYoutubeShort(clientId, supabase, videoUrl, caption) };
+        return { channel, result: { ...(await publishYoutubeShort(clientId, supabase, videoUrl, caption)), account: accountSnapshot.accounts.youtube } };
       }
 
       return { channel, result: { status: 'error', message: 'Canal no soportado.' } };
@@ -2729,7 +2762,7 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
       video_url: videoUrl,
       video_path: videoPath,
       selected_channels: channels,
-      results,
+      results: { ...results, audit: accountSnapshot },
       status: publicationStatus,
       published_at: publishedCount > 0 ? new Date().toISOString() : null
     });

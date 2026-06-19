@@ -125,6 +125,7 @@ const ContactosPage      = lazyWithRetry(() => import('../../pages/ContactosPage
 const InformesPage       = lazyWithRetry(() => import('../../pages/InformesPage'));
 const CostosPage         = lazyWithRetry(() => import('../../pages/CostosPage'));
 const SocialPublisherPage = lazyWithRetry(() => import('../../pages/SocialPublisherPage'));
+const PublicacionesPage = lazyWithRetry(() => import('../../pages/PublicacionesPage'));
 const InventarioPage     = lazyWithRetry(() => import('../../pages/InventarioPage'));
 const PedidosPage        = lazyWithRetry(() => import('../../pages/PedidosPage'));
 const PerfilPage         = lazyWithRetry(() => import('../../pages/PerfilPage'));
@@ -355,8 +356,8 @@ export const MainLayout = () => {
         }`}>
           {/* Spacer so content starts below the fixed mobile header */}
           <div className="h-14 xl:hidden" />
-          {/* Onboarding guide — shows on dashboard for users with no integrations configured */}
-          {activeProfile && location.pathname === '/dashboard' && (
+          {/* Feature announcements only appear after a new integration activates app sections. */}
+          {activeProfile && (
             <WelcomeGuide profile={activeProfile} />
           )}
           <RouteErrorBoundary key={location.pathname}>
@@ -381,6 +382,7 @@ export const MainLayout = () => {
               <Route path="/admin/email-monitor" element={<EmailMonitorPage />} />
               <Route path="/email-marketing" element={<EmailMarketingPage />} />
               <Route path="/publicador" element={<SocialPublisherPage />} />
+              <Route path="/publicaciones" element={<PublicacionesPage />} />
               <Route path="/entradas" element={<EntradasPage />} />
               <Route path="/cerebro" element={<CerebroPage />} />
               <Route path="/pedidos" element={<PedidosPage />} />

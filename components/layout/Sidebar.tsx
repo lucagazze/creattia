@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag,
   AlertTriangle, Activity, Library, Workflow, Instagram, MessageSquare, Brain, Users, Package,
-  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart, UploadCloud
+  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart, UploadCloud, History
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -127,6 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
 
   const activosItems = [
     { path: '/publicador',          icon: UploadCloud, label: 'Publicador',        configured: hasPublisher },
+    { path: '/publicaciones',       icon: History,     label: 'Historial Public.', configured: hasPublisher },
     { path: '/analisis-productos',  icon: BarChart2,  label: 'Análisis Productos', configured: hasEcommerce },
     { path: '/admin/meta',          icon: Target,     label: 'Creativos Ads',      configured: hasMeta },
     { path: '/analisis-creativo',   icon: Brain,      label: 'Análisis Creativo',  configured: true },
@@ -248,10 +249,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     const tourId: Record<string, string> = {
       '/dashboard': 'tour-dashboard',
       '/mensajeria': 'tour-mensajeria',
+      '/redes-sociales': 'tour-redes-sociales',
+      '/publicador': 'tour-publicador',
+      '/publicaciones': 'tour-publicaciones',
       '/admin/meta': 'tour-creativos',
+      '/captacion': 'tour-meta-ads',
       '/comentarios': 'tour-comentarios',
       '/pedidos': 'tour-pedidos',
       '/inventario': 'tour-inventario',
+      '/analisis-creativo': 'tour-analisis-creativo',
       '/integraciones': 'tour-integraciones',
       '/perfil': 'tour-perfil',
     };

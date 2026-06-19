@@ -1,178 +1,150 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '../../contexts/ThemeContext';
-import { ChevronRight, ChevronLeft, X, Zap } from 'lucide-react';
+import { ArrowRight, CheckCircle2, X } from 'lucide-react';
 
 interface WelcomeGuideProps {
   profile: any;
 }
 
-const BASE_STEPS = [
-  {
-    targetId: 'tour-integraciones',
-    emoji: '⚡',
-    title: 'Primero: conectá tus APIs',
-    desc: 'Para ver datos reales, conectá tu tienda online (Shopify, Tiendanube), Meta Ads y mensajería en Integraciones. Son los pasos que activan todo el poder de Algoritmia.',
-    isFinal: false,
-  },
-  {
-    targetId: 'tour-dashboard',
-    emoji: '📊',
-    title: 'Dashboard unificado',
-    desc: 'Todo tu negocio en una sola pantalla. Métricas de ventas, pedidos, campañas publicitarias y comportamiento de clientes — actualizados en tiempo real.',
-    isFinal: false,
-  },
-  {
-    targetId: 'tour-perfil',
-    emoji: '👤',
-    title: 'Mi Perfil',
-    desc: 'Configurá tu cuenta, preferencias y opciones de acceso. Desde aquí también podés gestionar el acceso de colaboradores.',
-    isFinal: true,
-    ctaPath: '/integraciones',
-    ctaLabel: 'Ir a Integraciones',
-  },
-];
+type FeatureKey = 'meta' | 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'publisher' | 'creative';
 
-const META_STEPS = [
-  {
-    targetId: 'tour-creativos',
-    emoji: '📣',
-    title: 'Creativos y Meta Ads',
-    desc: 'Controlá el rendimiento de cada pieza publicitaria. ROAS exacto, CTR y gasto real por creativo en un solo panel.',
-    isFinal: false,
-  },
-  {
-    targetId: 'tour-comentarios',
-    emoji: '💭',
-    title: 'Comentarios',
-    desc: 'Moderá comentarios de tus publicaciones orgánicas y anuncios. Respondé con IA y canalizá consultas hacia la venta.',
-    isFinal: true,
-    ctaPath: '/comentarios',
-    ctaLabel: 'Ir a Comentarios',
-  },
-];
-
-const MESSAGING_STEPS = [
-  {
-    targetId: 'tour-mensajeria',
-    emoji: '💬',
-    title: 'Mensajería omnicanal',
-    desc: 'Con Chatwoot conectado, tus conversaciones de WhatsApp, Instagram, Facebook y chat web viven en una misma bandeja con respuestas asistidas por IA.',
-    isFinal: true,
-    ctaPath: '/mensajeria',
-    ctaLabel: 'Ir a Mensajería',
-  },
-];
-
-const ECOM_STEPS = [
-  {
-    targetId: 'tour-pedidos',
-    emoji: '📦',
-    title: 'Pedidos en tiempo real',
-    desc: 'Seguimiento de cada venta y estado de envío desde todas tus tiendas conectadas en una sola vista.',
-    isFinal: false,
-  },
-  {
-    targetId: 'tour-inventario',
-    emoji: '🗃️',
-    title: 'Inventario sincronizado',
-    desc: 'Stock actualizado automáticamente en todas tus tiendas. Nunca más quiebres inesperados ni ventas sin stock.',
-    isFinal: true,
-    ctaPath: '/pedidos',
-    ctaLabel: 'Ver Pedidos',
-  },
-];
-
-function getIntegrationGroups(profile: any): string[] {
-  const groups: string[] = [];
-  const hasMessaging = !!(profile.chatwoot_url && profile.chatwoot_token);
-  const hasMeta = !!(
-    (profile as any).meta_access_token ||
-    profile.fb_page_id ||
-    profile.ig_business_id
-  );
-  const hasEcom = !!(
-    profile.shopify_domain ||
-    (profile as any).tiendanube_store_id ||
-    (profile as any).woocommerce_url
-  );
-  if (hasMessaging) groups.push('messaging');
-  if (hasMeta) groups.push('meta');
-  if (hasEcom) groups.push('ec');
-  return groups;
+interface FeatureAnnouncement {
+  key: FeatureKey;
+  targetId: string;
+  title: string;
+  desc: string;
+  ctaPath: string;
+  ctaLabel: string;
 }
 
-function getStepsForKey(key: string) {
-  if (key === 'base') return BASE_STEPS;
-  if (key === 'messaging') return MESSAGING_STEPS;
-  if (key === 'meta') return META_STEPS;
-  if (key === 'ec') return ECOM_STEPS;
-  return [];
-}
+const FEATURE_COPY: Record<FeatureKey, Omit<FeatureAnnouncement, 'key'>> = {
+  meta: {
+    targetId: 'tour-meta-ads',
+    title: 'Meta Ads listo',
+    desc: 'Ya podés ver campañas, anuncios y creativos publicitarios de la cuenta conectada.',
+    ctaPath: '/captacion',
+    ctaLabel: 'Ver Meta Ads',
+  },
+  instagram: {
+    targetId: 'tour-redes-sociales',
+    title: 'Instagram conectado',
+    desc: 'Se activan posts orgánicos, comentarios, métricas y publicación desde el Publicador.',
+    ctaPath: '/redes-sociales',
+    ctaLabel: 'Ver Instagram',
+  },
+  facebook: {
+    targetId: 'tour-redes-sociales',
+    title: 'Facebook conectado',
+    desc: 'Se activan página, comentarios, publicaciones orgánicas y publicación desde el Publicador.',
+    ctaPath: '/redes-sociales',
+    ctaLabel: 'Ver Facebook',
+  },
+  tiktok: {
+    targetId: 'tour-publicador',
+    title: 'TikTok orgánico conectado',
+    desc: 'Ya podés enviar videos al flujo orgánico de TikTok desde el Publicador.',
+    ctaPath: '/publicador',
+    ctaLabel: 'Ir al Publicador',
+  },
+  youtube: {
+    targetId: 'tour-publicador',
+    title: 'YouTube Shorts conectado',
+    desc: 'Ya podés traer Shorts al análisis creativo y publicar videos desde el Publicador.',
+    ctaPath: '/publicador',
+    ctaLabel: 'Publicar Short',
+  },
+  publisher: {
+    targetId: 'tour-publicador',
+    title: 'Publicador activado',
+    desc: 'Subí un video una sola vez, confirmá las cuentas exactas y programá por canal.',
+    ctaPath: '/publicador',
+    ctaLabel: 'Abrir Publicador',
+  },
+  creative: {
+    targetId: 'tour-analisis-creativo',
+    title: 'Análisis creativo disponible',
+    desc: 'Podés analizar archivos o traer creativos desde tus cuentas conectadas.',
+    ctaPath: '/analisis-creativo',
+    ctaLabel: 'Analizar creativo',
+  },
+};
+
+const getEnabledFeatures = (profile: any): FeatureKey[] => {
+  if (!profile?.id) return [];
+  const features = new Set<FeatureKey>();
+  if (profile.meta_account_id) features.add('meta');
+  if (profile.ig_business_id) {
+    features.add('instagram');
+    features.add('publisher');
+    features.add('creative');
+  }
+  if (profile.fb_page_id) {
+    features.add('facebook');
+    features.add('publisher');
+    features.add('creative');
+  }
+  if (profile.tiktok_content_access_token) {
+    features.add('tiktok');
+    features.add('publisher');
+  }
+  if (profile.youtube_access_token || profile.youtube_channel_id) {
+    features.add('youtube');
+    features.add('publisher');
+    features.add('creative');
+  }
+  return Array.from(features);
+};
 
 export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
-  const { darkMode } = useTheme();
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
+  const enabledFeatures = useMemo(() => getEnabledFeatures(profile), [profile]);
   const [visible, setVisible] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [features, setFeatures] = useState<FeatureAnnouncement[]>([]);
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const [tourKey, setTourKey] = useState<string>('');
-
-  const doneKey = `ag_tour_${profile?.id}_${tourKey}`;
 
   useEffect(() => {
     if (!profile?.id) return;
-    try {
-      const hashQuery = window.location.hash.includes('?')
-        ? window.location.hash.slice(window.location.hash.indexOf('?'))
-        : '';
-      const params = new URLSearchParams(window.location.search || hashQuery);
-      const isFreshWelcome =
-        params.get('welcome') === '1' ||
-        sessionStorage.getItem('ag_welcome_profile_id') === profile.id;
-      const groups = getIntegrationGroups(profile);
-      const nextKey = isFreshWelcome
-        ? 'base'
-        : groups.length === 0
-        ? 'base'
-        : groups.find(group => !localStorage.getItem(`ag_tour_${profile.id}_${group}`));
+    const seenKey = `ag_seen_features_${profile.id}`;
+    const current = enabledFeatures;
 
-      if (!nextKey) {
-        setVisible(false);
-        setTourKey('');
+    try {
+      const storedRaw = localStorage.getItem(seenKey);
+      if (!storedRaw) {
+        localStorage.setItem(seenKey, JSON.stringify(current));
         return;
       }
-      if (isFreshWelcome) {
-        localStorage.removeItem(`ag_tour_${profile.id}_base`);
+
+      const seen = new Set<string>(JSON.parse(storedRaw));
+      const newlyEnabled = current.filter(key => !seen.has(key));
+      localStorage.setItem(seenKey, JSON.stringify(current));
+
+      if (newlyEnabled.length === 0) {
+        setVisible(false);
+        setFeatures([]);
+        return;
       }
-      setTourKey(nextKey);
-      setStep(0);
-      const t = setTimeout(() => setVisible(true), 1200);
-      return () => clearTimeout(t);
-    } catch { /* ignore */ }
-  }, [
-    profile?.id,
-    profile?.shopify_domain,
-    profile?.fb_page_id,
-    profile?.ig_business_id,
-    profile?.chatwoot_url,
-    profile?.chatwoot_token,
-    (profile as any)?.meta_access_token,
-    (profile as any)?.tiendanube_store_id,
-    (profile as any)?.woocommerce_url,
-  ]);
 
-  const TOUR_STEPS = getStepsForKey(tourKey);
+      setFeatures(newlyEnabled.map(key => ({ key, ...FEATURE_COPY[key] })));
+      setIndex(0);
+      const timer = window.setTimeout(() => setVisible(true), 500);
+      return () => window.clearTimeout(timer);
+    } catch {
+      try { localStorage.setItem(seenKey, JSON.stringify(current)); } catch { /* ignore */ }
+    }
+  }, [profile?.id, enabledFeatures.join('|')]);
 
-  // Spotlight: position around current step's target element
+  const current = features[index];
+
   useEffect(() => {
-    if (!visible) return;
-    const current = TOUR_STEPS[step];
-    if (!current) return;
-    const el = document.getElementById(current.targetId);
-    if (!el) { setRect(null); return; }
+    if (!visible || !current) return;
+    const target = document.getElementById(current.targetId);
+    if (!target) {
+      setRect(null);
+      return;
+    }
 
-    const update = () => setRect(el.getBoundingClientRect());
+    const update = () => setRect(target.getBoundingClientRect());
     update();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
@@ -180,127 +152,85 @@ export const WelcomeGuide: React.FC<WelcomeGuideProps> = ({ profile }) => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [visible, step, TOUR_STEPS]);
+  }, [visible, current]);
 
-  const dismiss = () => {
+  const close = () => {
     setVisible(false);
-    try { localStorage.setItem(doneKey, 'done'); } catch { /* ignore */ }
-    try { sessionStorage.removeItem('ag_welcome_profile_id'); } catch { /* ignore */ }
+    setFeatures([]);
   };
 
   const next = () => {
-    if (step < TOUR_STEPS.length - 1) setStep(s => s + 1);
-    else dismiss();
+    if (index < features.length - 1) setIndex(value => value + 1);
+    else close();
   };
 
-  const prev = () => { if (step > 0) setStep(s => s - 1); };
-
-  if (!visible || !profile || TOUR_STEPS.length === 0) return null;
-
-  const current = TOUR_STEPS[step];
-  if (!current) return null;
-  const GUTTER = 6;
+  if (!visible || !current) return null;
 
   return (
     <>
-      {/* Spotlight box-shadow overlay */}
+      <div className="fixed inset-0 z-[9980] bg-zinc-950/70 backdrop-blur-[2px]" />
       {rect && (
         <div
-          className="fixed z-[9991] rounded-xl pointer-events-none transition-all duration-300"
+          className="fixed z-[9981] rounded-xl pointer-events-none transition-all duration-300"
           style={{
-            top: rect.top - GUTTER,
-            left: rect.left - GUTTER,
-            width: rect.width + GUTTER * 2,
-            height: rect.height + GUTTER * 2,
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.65)',
-            border: '2px solid rgba(139, 92, 246, 0.8)',
+            top: rect.top - 7,
+            left: rect.left - 7,
+            width: rect.width + 14,
+            height: rect.height + 14,
+            boxShadow: '0 0 0 9999px rgba(9,9,11,0.30), 0 0 0 2px rgba(139,92,246,0.95), 0 18px 44px rgba(139,92,246,0.35)',
           }}
         />
       )}
-      {!rect && (
-        <div className="fixed inset-0 z-[9991] pointer-events-none bg-black/65" />
-      )}
-
-      {/* Click-away trap */}
-      <div className="fixed inset-0 z-[9992] cursor-default" onClick={dismiss} />
-
-      {/* Tooltip — fixed bottom-right, never clipped */}
-      <div
-        onClick={e => e.stopPropagation()}
-        className={`fixed z-[9993] bottom-6 right-6 w-[300px] rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-250 ${
-          darkMode
-            ? 'bg-[#0d0d18] border-violet-500/30 text-white'
-            : 'bg-white border-zinc-200 text-zinc-900'
-        }`}
-      >
-        {/* Progress bar */}
-        <div className={`h-[3px] rounded-t-2xl overflow-hidden ${darkMode ? 'bg-white/5' : 'bg-zinc-100'}`}>
-          <div
-            className="h-full bg-violet-500 transition-all duration-300"
-            style={{ width: `${((step + 1) / TOUR_STEPS.length) * 100}%` }}
-          />
-        </div>
-
-        <div className="p-5">
-          {/* Header row */}
-          <div className="flex items-center justify-between mb-3">
-            <span className={`text-[9px] font-black uppercase tracking-[0.18em] ${darkMode ? 'text-zinc-600' : 'text-zinc-400'}`}>
-              {step + 1} / {TOUR_STEPS.length}
-            </span>
-            <div className="flex items-center gap-2">
+      <div className="fixed inset-0 z-[9982] flex items-center justify-center p-4">
+        <div className="w-full max-w-[500px] rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-2xl overflow-hidden">
+          <div className="h-1 bg-zinc-100 dark:bg-white/5">
+            <div className="h-full bg-violet-500 transition-all duration-300" style={{ width: `${((index + 1) / features.length) * 100}%` }} />
+          </div>
+          <div className="p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="w-11 h-11 rounded-2xl bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-300 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
               <button
-                onClick={dismiss}
-                className={`text-[9px] font-bold underline transition-colors ${darkMode ? 'text-zinc-600 hover:text-zinc-400' : 'text-zinc-300 hover:text-zinc-500'}`}
+                type="button"
+                onClick={close}
+                className="w-8 h-8 rounded-xl border border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 flex items-center justify-center"
+                aria-label="Cerrar novedades"
               >
-                Saltar todo
-              </button>
-              <button
-                onClick={dismiss}
-                className={`p-1 rounded-lg transition-colors ${darkMode ? 'text-zinc-600 hover:text-zinc-400 hover:bg-white/5' : 'text-zinc-300 hover:text-zinc-500 hover:bg-zinc-100'}`}
-              >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
+
+            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-violet-500">
+              Nuevo apartado activado · {index + 1}/{features.length}
+            </p>
+            <h2 className="mt-2 text-[24px] sm:text-[28px] font-black tracking-tight text-zinc-950 dark:text-white">
+              {current.title}
+            </h2>
+            <p className="mt-3 text-[14px] font-semibold leading-relaxed text-zinc-500 dark:text-zinc-400">
+              {current.desc}
+            </p>
           </div>
 
-          {/* Content */}
-          <div className="text-2xl mb-2 leading-none">{current.emoji}</div>
-          <h3 className={`text-[15px] font-black mb-2 ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-            {current.title}
-          </h3>
-          <p className={`text-[12px] font-medium leading-relaxed mb-4 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-            {current.desc}
-          </p>
-
-          {/* Navigation */}
-          <div className="flex items-center gap-2">
-            {step > 0 && (
-              <button
-                onClick={prev}
-                className={`flex items-center gap-1 h-8 px-3 rounded-lg text-[11px] font-bold border transition-all ${
-                  darkMode ? 'border-white/10 text-zinc-400 hover:text-white hover:bg-white/5' : 'border-zinc-200 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50'
-                }`}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <div className="flex-1">
-              {current.isFinal ? (
-                <button
-                  onClick={() => { dismiss(); if (current.ctaPath) navigate(current.ctaPath); }}
-                  className="w-full h-8 flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-[11px] font-black transition-all shadow-lg shadow-violet-200 dark:shadow-none"
-                >
-                  <Zap className="w-3 h-3" /> {current.ctaLabel || 'Continuar'}
-                </button>
-              ) : (
-                <button
-                  onClick={next}
-                  className="w-full h-8 flex items-center justify-center gap-1.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg text-[11px] font-black transition-all hover:opacity-90"
-                >
-                  Siguiente <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          <div className="px-5 sm:px-6 py-4 bg-zinc-50 dark:bg-zinc-950/30 border-t border-zinc-100 dark:border-white/10 flex flex-col sm:flex-row gap-2 sm:justify-end">
+            <button
+              type="button"
+              onClick={next}
+              className="h-11 px-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-[13px] font-black text-zinc-600 dark:text-zinc-200"
+            >
+              {index < features.length - 1 ? 'Siguiente' : 'Cerrar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                navigate(current.ctaPath);
+              }}
+              className="h-11 px-5 rounded-xl bg-zinc-950 dark:bg-violet-600 text-white text-[13px] font-black flex items-center justify-center gap-2"
+            >
+              {current.ctaLabel}
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
