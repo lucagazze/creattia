@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, ChevronUp, CornerDownLeft, X, Loader2, RotateCcw, Database } from 'lucide-react';
+import { Mic, ChevronUp, CornerDownLeft, X, Loader2, RotateCcw, Database, Brain, ArrowRight, CheckCircle2, LockKeyhole } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../services/supabase';
+import { AI_BRAIN_STEPS, isAIBrainReady } from '../utils/aiReadiness';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -372,10 +373,12 @@ export const AIChatFloat = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  const activeClientId = isViewingAs ? viewAsProfile?.id : profile?.id;
-  const activeBusinessName = isViewingAs ? viewAsProfile?.business_name : profile?.business_name;
-  const activeKlaviyoKey = isViewingAs ? (viewAsProfile as any)?.klaviyo_api_key : profile?.klaviyo_api_key;
-  const activeMetaAccountId = isViewingAs ? (viewAsProfile as any)?.meta_account_id : profile?.meta_account_id;
+  const activeProfile = isViewingAs ? viewAsProfile : profile;
+  const activeClientId = activeProfile?.id;
+  const activeBusinessName = activeProfile?.business_name;
+  const activeKlaviyoKey = (activeProfile as any)?.klaviyo_api_key;
+  const activeMetaAccountId = (activeProfile as any)?.meta_account_id;
+  const aiReady = isAIBrainReady(activeProfile);
 
   // Auto-scroll
   useEffect(() => {
@@ -409,6 +412,12 @@ export const AIChatFloat = () => {
   const handleSend = async (textOverride?: string) => {
     const text = (textOverride ?? input).trim();
     if (!text || isThinking) return;
+    if (!aiReady) {
+      setIsOpen(true);
+      setMessages([]);
+      setInput('');
+      return;
+    }
 
     // Voice navigation routing command parser
     const lowerText = text.toLowerCase();
@@ -524,6 +533,10 @@ export const AIChatFloat = () => {
     });
 
   const startRecording = async () => {
+    if (!aiReady) {
+      setIsOpen(true);
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       let mimeType = 'audio/webm';
@@ -570,6 +583,10 @@ export const AIChatFloat = () => {
 
   const handleMicClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!aiReady) {
+      setIsOpen(true);
+      return;
+    }
     if (isRecording) stopRecording();
     else if (input.trim()) handleSend();
     else startRecording();
@@ -606,7 +623,9 @@ export const AIChatFloat = () => {
               </div>
               <div>
                 <p className="text-[13.5px] md:text-[13px] font-black text-zinc-800 dark:text-zinc-200 leading-none">Algor IA</p>
-                <p className="text-[9.5px] md:text-[9px] text-emerald-500 font-bold mt-1 tracking-wider leading-none">CONECTADA</p>
+                <p className={`text-[9.5px] md:text-[9px] font-bold mt-1 tracking-wider leading-none ${aiReady ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  {aiReady ? 'LISTA' : 'PENDIENTE'}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2 md:gap-1.5">
@@ -627,7 +646,42 @@ export const AIChatFloat = () => {
 
           {/* Messages */}
           <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50/50 dark:bg-zinc-950">
-            {messages.length === 0 && (
+            {messages.length === 0 && !aiReady && (
+              <div className="flex flex-col justify-center h-full px-2 py-6 select-none">
+                <div className="rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/80 dark:bg-amber-500/10 p-4 shadow-sm">
+                  <div className="w-11 h-11 rounded-xl bg-white/80 dark:bg-zinc-950/60 border border-amber-200 dark:border-amber-500/20 flex items-center justify-center mb-4">
+                    <LockKeyhole className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <p className="text-[15px] font-black text-zinc-900 dark:text-zinc-100">
+                    Primero completá el análisis de IA
+                  </p>
+                  <p className="text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400 mt-2">
+                    La IA necesita tener el Cerebro entrenado para responder con información real de este negocio. Completalo una vez y después vas a poder usar el chat y las respuestas con IA.
+                  </p>
+
+                  <div className="mt-4 space-y-2">
+                    {AI_BRAIN_STEPS.map((step) => (
+                      <div key={step} className="flex items-start gap-2 text-[12px] font-semibold text-zinc-700 dark:text-zinc-300">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                        <span>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleNavigate('/cerebro')}
+                    className="mt-5 w-full h-10 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[12px] font-black flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                  >
+                    <Brain className="w-3.5 h-3.5" />
+                    Ir a Cerebro IA
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {messages.length === 0 && aiReady && (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-3 py-6 select-none">
                 <div className="text-center mb-2">
                   <p className="text-[15px] font-black text-zinc-800 dark:text-zinc-100">¿En qué puedo ayudarte hoy?</p>
@@ -759,11 +813,12 @@ export const AIChatFloat = () => {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
               onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && !isThinking && !isTranscribing && handleSend()}
               placeholder={
-                isRecording ? 'Escuchando...'
+                !aiReady ? 'Completá Cerebro IA para usar la IA'
+                : isRecording ? 'Escuchando...'
                 : isTranscribing ? 'Transcribiendo...'
                 : 'Escribí tu mensaje...'
               }
-              disabled={isRecording || isTranscribing || isThinking}
+              disabled={!aiReady || isRecording || isTranscribing || isThinking}
               className="flex-1 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/80 rounded-xl px-3.5 py-1.5 text-[12.5px] text-zinc-800 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-violet-400/50 focus:border-violet-400/50 transition-all font-semibold min-w-0"
               autoComplete="off"
             />
@@ -776,7 +831,7 @@ export const AIChatFloat = () => {
         <div
           onClick={() => {
             setIsOpen(true);
-            setTimeout(() => inputRef.current?.focus(), 150);
+            if (aiReady) setTimeout(() => inputRef.current?.focus(), 150);
           }}
           className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 z-[310] select-none hover:scale-110 active:scale-95 bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-500 text-white shadow-violet-500/20 shadow-lg p-[2px]"
         >
