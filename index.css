@@ -19,6 +19,26 @@ body {
   overflow-x: hidden;
 }
 
+.portal-overlay-root {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9990 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  overflow: hidden !important;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.portal-overlay-root > * {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  min-height: 100% !important;
+  pointer-events: auto;
+}
+
 .no-transition,
 .no-transition * {
   transition: none !important;
