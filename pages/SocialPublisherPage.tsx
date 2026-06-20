@@ -26,6 +26,7 @@ interface PublishConfirmation {
   clientId: string;
   businessName: string;
   channels: Array<Pick<ChannelConfig, 'id' | 'label' | 'detail' | 'accountId' | 'avatarUrl' | 'color' | 'icon'>>;
+  expectedAccounts: Partial<Record<ChannelId, string>>;
   fileName: string;
   scheduledLabel: string;
 }
@@ -39,6 +40,9 @@ const cleanFileName = (name: string) =>
     .replace(/[^a-z0-9.\-_]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+
+const getExpectedAccountId = (channel: Pick<ChannelConfig, 'accountId'>) =>
+  channel.accountId ? String(channel.accountId) : '';
 
 export default function SocialPublisherPage() {
   const navigate = useNavigate();
@@ -97,8 +101,8 @@ export default function SocialPublisherPage() {
       {
         id: 'tiktok',
         label: 'TikTok',
-        connected: !!p.tiktok_content_access_token,
-        detail: p.tiktok_content_display_name || p.connection_statuses?.tiktok_content_display_name || 'Requiere TikTok conectado desde Integraciones',
+        connected: !!(p.tiktok_content_access_token && p.tiktok_content_open_id),
+        detail: p.tiktok_content_display_name || p.connection_statuses?.tiktok_content_display_name || 'Requiere reconectar TikTok desde Integraciones',
         accountId: p.tiktok_content_open_id,
         avatarUrl: p.tiktok_content_avatar_url,
         color: 'from-zinc-900 to-zinc-650',
@@ -107,8 +111,8 @@ export default function SocialPublisherPage() {
       {
         id: 'youtube',
         label: 'YouTube Shorts',
-        connected: !!p.youtube_access_token,
-        detail: p.youtube_channel_title || p.connection_statuses?.youtube_channel_title || 'Requiere YouTube conectado desde Integraciones',
+        connected: !!(p.youtube_access_token && p.youtube_channel_id),
+        detail: p.youtube_channel_title || p.connection_statuses?.youtube_channel_title || 'Requiere reconectar YouTube desde Integraciones',
         accountId: p.youtube_channel_id,
         color: 'from-red-600 to-red-500',
         icon: <Youtube className="w-4 h-4" />
@@ -273,7 +277,12 @@ export default function SocialPublisherPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeClientId]);
 
-  const sendPublishRequest = async (upload: { publicUrl: string; path: string }, accessToken: string, channelsToPublish: ChannelId[]) => {
+  const sendPublishRequest = async (
+    upload: { publicUrl: string; path: string },
+    accessToken: string,
+    channelsToPublish: ChannelId[],
+    expectedAccounts: Partial<Record<ChannelId, string>>
+  ) => {
     return fetch('/api/oauth?action=social-publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
@@ -284,6 +293,7 @@ export default function SocialPublisherPage() {
         videoUrl: upload.publicUrl,
         videoPath: upload.path,
         channels: channelsToPublish,
+        expectedAccounts,
         scheduledAt: publishMode === 'scheduled' ? scheduledAt : null
       })
     });
@@ -359,6 +369,10 @@ export default function SocialPublisherPage() {
         clientId: freshClient.id,
         businessName: freshClient.business_name || freshClient.email || 'Cliente sin nombre',
         channels: channelsToConfirm,
+        expectedAccounts: channelsToConfirm.reduce((acc, channel) => {
+          acc[channel.id] = getExpectedAccountId(channel);
+          return acc;
+        }, {} as Partial<Record<ChannelId, string>>),
         fileName: videoFile.name,
         scheduledLabel
       });
@@ -377,14 +391,14 @@ export default function SocialPublisherPage() {
     setResults(null);
     try {
       let [accessToken, upload] = await Promise.all([getFreshAccessToken(), uploadVideo()]);
-      let res = await sendPublishRequest(upload, accessToken, channelsToPublish);
+      let res = await sendPublishRequest(upload, accessToken, channelsToPublish, confirmation.expectedAccounts);
       if (res.status === 401) {
         const { data: refreshed, error } = await supabase.auth.refreshSession();
         if (error || !refreshed.session?.access_token) {
           throw new Error('Tu sesión de Algoritmia expiró. Cerrá sesión y volvé a entrar.');
         }
         accessToken = refreshed.session.access_token;
-        res = await sendPublishRequest(upload, accessToken, channelsToPublish);
+        res = await sendPublishRequest(upload, accessToken, channelsToPublish, confirmation.expectedAccounts);
       }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo publicar.');
@@ -410,7 +424,7 @@ export default function SocialPublisherPage() {
   };
 
   return (
-    <div className="w-full max-w-[1320px] mx-auto space-y-3">
+    <div className="w-full max-w-[1400px] mx-auto space-y-3">
       <header className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm px-4 py-3 sm:px-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center shadow-sm shrink-0">

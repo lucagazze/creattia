@@ -113,7 +113,7 @@ export default function PublicacionesPage() {
   }, [items, statusFilter, channelFilter, query]);
 
   return (
-    <div className="w-full max-w-[1320px] mx-auto space-y-4 animate-in fade-in duration-200">
+    <div className="w-full max-w-[1400px] mx-auto space-y-4 animate-in fade-in duration-200">
       <header className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-sm px-4 py-4 sm:px-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center shadow-sm shrink-0">

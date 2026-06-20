@@ -2544,6 +2544,22 @@ const getChangedScheduledAccounts = (scheduledAudit: any, currentAudit: any, cha
   });
 };
 
+const assertExpectedSocialAccounts = (
+  accountSnapshot: ReturnType<typeof buildSocialAccountSnapshot>,
+  channels: SocialChannel[],
+  expectedAccounts: Record<string, any>
+) => {
+  const mismatches = channels.filter(channel => {
+    const expected = String(expectedAccounts?.[channel] || '').trim();
+    const current = getAccountFingerprint(accountSnapshot.accounts?.[channel], channel);
+    return !expected || !current || expected !== current;
+  });
+
+  if (mismatches.length > 0) {
+    throw new Error(`La cuenta conectada no coincide con la confirmación (${mismatches.join(', ')}). Se bloqueó para evitar publicar en otra cuenta.`);
+  }
+};
+
 async function publishSocialChannel(
   channel: SocialChannel,
   clientId: string,
@@ -2774,7 +2790,10 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   const caption = String(body.caption || '').trim();
   const videoUrl = String(body.videoUrl || '').trim();
   const videoPath = body.videoPath ? String(body.videoPath) : null;
-  const channels = Array.isArray(body.channels) ? body.channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)) as SocialChannel[] : [];
+  const channels = Array.isArray(body.channels)
+    ? Array.from(new Set(body.channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)))) as SocialChannel[]
+    : [];
+  const expectedAccounts = body.expectedAccounts && typeof body.expectedAccounts === 'object' ? body.expectedAccounts : {};
   const scheduledAt = body.scheduledAt ? String(body.scheduledAt) : '';
 
   if (!clientId || clientId === 'default') return res.status(400).json({ error: 'Cliente explícito requerido para publicar.' });
@@ -2805,6 +2824,11 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
 
   const accountSnapshot = buildSocialAccountSnapshot(clientId, client, channels);
+  try {
+    assertExpectedSocialAccounts(accountSnapshot, channels, expectedAccounts);
+  } catch (err: any) {
+    return res.status(409).json({ error: err?.message || 'La cuenta conectada no coincide con la confirmación.' });
+  }
 
   if (scheduledAt && new Date(scheduledAt).getTime() > Date.now() + 30000) {
     const { error: scheduleInsertError } = await supabase.from('car_social_publications').insert({
@@ -2894,7 +2918,7 @@ async function handleSocialPublishDue(req: VercelRequest, res: VercelResponse) {
         .eq('status', 'scheduled');
 
       const channels = Array.isArray(job.selected_channels)
-        ? job.selected_channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)) as SocialChannel[]
+        ? Array.from(new Set(job.selected_channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)))) as SocialChannel[]
         : [];
       if (channels.length === 0) throw new Error('La publicación programada no tiene canales válidos.');
       if (!job.video_url || !/^https:\/\//i.test(job.video_url)) throw new Error('videoUrl público HTTPS requerido.');
