@@ -2815,7 +2815,6 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
       video_path: videoPath,
       selected_channels: channels,
       results: { scheduled_at: scheduledAt, audit: accountSnapshot },
-      scheduled_at: scheduledAt,
       status: 'scheduled'
     });
     if (scheduleInsertError) return res.status(500).json({ error: scheduleInsertError.message });
@@ -2868,18 +2867,24 @@ async function handleSocialPublishDue(req: VercelRequest, res: VercelResponse) {
 
   const { data: jobs, error } = await supabase
     .from('car_social_publications')
-    .select('id, client_id, caption, video_url, video_path, selected_channels, results, scheduled_at')
+    .select('id, client_id, caption, video_url, video_path, selected_channels, results, created_at')
     .eq('client_id', clientId)
     .eq('status', 'scheduled')
-    .lte('scheduled_at', new Date().toISOString())
-    .order('scheduled_at', { ascending: true })
+    .order('created_at', { ascending: true })
     .limit(3);
 
   if (error) return res.status(500).json({ error: error.message });
   if (!jobs?.length) return res.status(200).json({ ok: true, processed: 0, jobs: [] });
 
   const processed: any[] = [];
-  for (const job of jobs) {
+  const dueJobs = jobs.filter((job: any) => {
+    const scheduledAt = job.results?.scheduled_at;
+    return scheduledAt && new Date(scheduledAt).getTime() <= Date.now();
+  });
+
+  if (!dueJobs.length) return res.status(200).json({ ok: true, processed: 0, jobs: [] });
+
+  for (const job of dueJobs) {
     const previousResults = job.results && typeof job.results === 'object' ? job.results : {};
     try {
       await supabase
@@ -2917,7 +2922,7 @@ async function handleSocialPublishDue(req: VercelRequest, res: VercelResponse) {
         .from('car_social_publications')
         .update({
           status: finalStatus,
-          results: { ...results, audit: accountSnapshot, scheduled_at: job.scheduled_at, processed_at: new Date().toISOString() },
+          results: { ...results, audit: accountSnapshot, scheduled_at: job.results?.scheduled_at, processed_at: new Date().toISOString() },
           published_at: publishedCount > 0 ? new Date().toISOString() : null
         })
         .eq('id', job.id);

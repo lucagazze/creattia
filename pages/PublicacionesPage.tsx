@@ -58,7 +58,7 @@ export default function PublicacionesPage() {
     setLoading(true);
     supabase
       .from('car_social_publications')
-      .select('id, client_id, user_id, caption, video_url, video_path, selected_channels, results, status, scheduled_at, created_at, published_at')
+      .select('id, client_id, user_id, caption, video_url, video_path, selected_channels, results, status, created_at, published_at')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
       .limit(120)
@@ -238,7 +238,7 @@ export default function PublicacionesPage() {
                     <div className="rounded-xl bg-zinc-50 dark:bg-zinc-950/20 border border-zinc-100 dark:border-white/10 p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                       <p><span className="font-black text-zinc-400 uppercase">Cliente:</span> <span className="font-bold text-zinc-700 dark:text-zinc-300">{item.results?.audit?.client?.business_name || profile?.business_name || item.client_id}</span></p>
                       <p><span className="font-black text-zinc-400 uppercase">Usuario:</span> <span className="font-bold text-zinc-700 dark:text-zinc-300">{item.user_id || user?.id || 'No registrado'}</span></p>
-                      <p><span className="font-black text-zinc-400 uppercase">Fecha salida:</span> <span className="font-bold text-zinc-700 dark:text-zinc-300">{fmtDate(item.published_at || item.scheduled_at || item.results?.scheduled_at)}</span></p>
+                      <p><span className="font-black text-zinc-400 uppercase">Fecha salida:</span> <span className="font-bold text-zinc-700 dark:text-zinc-300">{fmtDate(item.published_at || item.results?.scheduled_at)}</span></p>
                     </div>
                   </div>
                 </div>
