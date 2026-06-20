@@ -31,6 +31,7 @@ interface PublishConfirmation {
 }
 
 const MAX_VIDEO_MB = 500;
+type VideoMeta = { duration: number; width: number; height: number };
 
 const cleanFileName = (name: string) =>
   name
@@ -58,12 +59,14 @@ export default function SocialPublisherPage() {
   const [scheduledItems, setScheduledItems] = useState<any[]>([]);
   const [checkingPublish, setCheckingPublish] = useState(false);
   const [confirmation, setConfirmation] = useState<PublishConfirmation | null>(null);
+  const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
 
   React.useEffect(() => {
     setSelectedChannels([]);
     setResults(null);
     setScheduledItems([]);
     setVideoFile(null);
+    setVideoMeta(null);
     setVideoPreview(prev => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -154,6 +157,31 @@ export default function SocialPublisherPage() {
     return () => { active = false; };
   }, [activeClientId, results]);
 
+  const readVideoMeta = (url: string): Promise<VideoMeta> => new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => resolve({ duration: video.duration || 0, width: video.videoWidth || 0, height: video.videoHeight || 0 });
+    video.onerror = () => reject(new Error('No se pudo leer la metadata del video.'));
+    video.src = url;
+  });
+
+  const validateVideoForChannels = (channelIds: ChannelId[]) => {
+    if (!videoFile) return 'Primero subí un video.';
+    if (!videoFile.type.startsWith('video/')) return 'El archivo debe ser un video.';
+    if (videoFile.size > MAX_VIDEO_MB * 1024 * 1024) return `El video no puede superar ${MAX_VIDEO_MB} MB.`;
+    if (!videoMeta) return null;
+    const verticalOrSquare = videoMeta.height >= videoMeta.width;
+    if (channelIds.includes('youtube') && videoMeta.duration > 180) return 'YouTube Shorts admite videos cortos. Usá un video de hasta 3 minutos.';
+    if ((channelIds.includes('instagram') || channelIds.includes('facebook') || channelIds.includes('tiktok')) && videoMeta.duration > 15 * 60) {
+      return 'Para Reels/TikTok usá un video de hasta 15 minutos.';
+    }
+    if ((channelIds.includes('instagram') || channelIds.includes('tiktok') || channelIds.includes('youtube')) && !verticalOrSquare) {
+      return 'Para Reels, TikTok y Shorts el video tiene que ser vertical o cuadrado.';
+    }
+    if (videoMeta.width < 360 || videoMeta.height < 360) return 'El video es demasiado chico. Usá al menos 360px de ancho y alto.';
+    return null;
+  };
+
   const handleFileChange = (file?: File | null) => {
     if (!file) return;
     if (!file.type.startsWith('video/')) {
@@ -165,8 +193,13 @@ export default function SocialPublisherPage() {
       return;
     }
     if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideoMeta(null);
     setVideoFile(file);
-    setVideoPreview(URL.createObjectURL(file));
+    const nextPreview = URL.createObjectURL(file);
+    setVideoPreview(nextPreview);
+    readVideoMeta(nextPreview)
+      .then(setVideoMeta)
+      .catch(() => showToast('No pude leer duración/dimensiones del video. Igual podés intentar subirlo.', 'warning'));
     setResults(null);
   };
 
@@ -215,6 +248,31 @@ export default function SocialPublisherPage() {
     return accessToken;
   };
 
+  const processDuePublications = async () => {
+    if (!activeClientId) return;
+    try {
+      const accessToken = await getFreshAccessToken();
+      const res = await fetch('/api/oauth?action=social-publish-due', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ clientId: activeClientId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.processed > 0) {
+        setResults({ scheduled: { status: 'processing', message: `${data.processed} publicación programada procesada.` } });
+        showToast(`${data.processed} publicación programada fue procesada.`, 'success');
+      }
+    } catch (err) {
+      console.warn('[Social Publisher] due publish check failed', err);
+    }
+  };
+
+  React.useEffect(() => {
+    if (!activeClientId) return;
+    processDuePublications();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClientId]);
+
   const sendPublishRequest = async (upload: { publicUrl: string; path: string }, accessToken: string, channelsToPublish: ChannelId[]) => {
     return fetch('/api/oauth?action=social-publish', {
       method: 'POST',
@@ -246,6 +304,11 @@ export default function SocialPublisherPage() {
     }
     if (selectedConnected.length === 0) {
       showToast('Elegí al menos un canal conectado.', 'warning');
+      return;
+    }
+    const validationError = validateVideoForChannels(selectedConnected);
+    if (validationError) {
+      showToast(validationError, 'warning');
       return;
     }
     if (publishMode === 'scheduled') {

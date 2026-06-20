@@ -1783,7 +1783,13 @@ export default function IntegracionesPage() {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-white font-bold text-[15px] leading-tight">Configurar Meta Ads</h2>
+                <h2 className="text-white font-bold text-[15px] leading-tight">
+                  {!metaCombinedModal.approveAds
+                    ? 'Conectar Instagram y Facebook'
+                    : !metaCombinedModal.approveMessaging
+                    ? 'Configurar Meta Ads'
+                    : 'Configurar Meta'}
+                </h2>
                 <p className="text-zinc-500 text-xs mt-0.5">
                   {!metaCombinedModal.approveAds 
                     ? 'Seleccioná tu página para comentarios y publicaciones'
@@ -1992,8 +1998,8 @@ export default function IntegracionesPage() {
                     {savingMetaCombined ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>  
                     ) : (
-                      <><Check className="w-4 h-4 stroke-[2.5]" /> Conectar Meta Ads</>  
-                    )}
+                  <><Check className="w-4 h-4 stroke-[2.5]" /> {!metaCombinedModal.approveAds ? 'Conectar redes sociales' : !metaCombinedModal.approveMessaging ? 'Conectar Meta Ads' : 'Guardar conexión Meta'}</>  
+                )}
                   </button>
                 </div>
               )}

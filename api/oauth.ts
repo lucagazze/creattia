@@ -2493,6 +2493,124 @@ async function publishYoutubeShort(clientId: string, supabase: any, videoUrl: st
   };
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const buildSocialAccountSnapshot = (clientId: string, client: any, channels: SocialChannel[]) => ({
+  client: {
+    id: clientId,
+    business_name: client.business_name || client.email || '',
+  },
+  requested_channels: channels,
+  accounts: {
+    instagram: client.ig_business_id ? {
+      platform: 'instagram',
+      account_id: client.ig_business_id,
+      username: client.ig_username || '',
+      page_id: client.fb_page_id || '',
+      page_name: client.fb_page_name || '',
+    } : null,
+    facebook: client.fb_page_id ? {
+      platform: 'facebook',
+      page_id: client.fb_page_id,
+      page_name: client.fb_page_name || '',
+    } : null,
+    tiktok: (client.tiktok_content_open_id || client.tiktok_content_display_name) ? {
+      platform: 'tiktok',
+      open_id: client.tiktok_content_open_id || '',
+      display_name: client.tiktok_content_display_name || client.connection_statuses?.tiktok_content_display_name || '',
+    } : null,
+    youtube: (client.youtube_channel_id || client.youtube_channel_title) ? {
+      platform: 'youtube',
+      channel_id: client.youtube_channel_id || '',
+      channel_title: client.youtube_channel_title || client.connection_statuses?.youtube_channel_title || '',
+    } : null,
+  },
+});
+
+const getAccountFingerprint = (account: any, channel: SocialChannel) => {
+  if (!account) return '';
+  if (channel === 'instagram') return String(account.account_id || '');
+  if (channel === 'facebook') return String(account.page_id || '');
+  if (channel === 'tiktok') return String(account.open_id || '');
+  if (channel === 'youtube') return String(account.channel_id || '');
+  return '';
+};
+
+const getChangedScheduledAccounts = (scheduledAudit: any, currentAudit: any, channels: SocialChannel[]) => {
+  return channels.filter(channel => {
+    const scheduled = getAccountFingerprint(scheduledAudit?.accounts?.[channel], channel);
+    const current = getAccountFingerprint(currentAudit?.accounts?.[channel], channel);
+    return !!scheduled && !!current && scheduled !== current;
+  });
+};
+
+async function publishSocialChannel(
+  channel: SocialChannel,
+  clientId: string,
+  client: any,
+  supabase: any,
+  videoUrl: string,
+  caption: string,
+  accountSnapshot: Record<string, any>
+) {
+  if (channel === 'facebook') {
+    if (!client.fb_page_id || !client.fb_page_access_token) {
+      return { status: 'missing_connection', account: accountSnapshot.accounts.facebook, message: 'Falta conectar una página de Facebook con permiso de publicación.' };
+    }
+    return { ...(await publishFacebookVideo(client.fb_page_id, client.fb_page_access_token, videoUrl, caption)), account: accountSnapshot.accounts.facebook };
+  }
+
+  if (channel === 'instagram') {
+    if (!client.ig_business_id || !client.fb_page_access_token) {
+      return { status: 'missing_connection', account: accountSnapshot.accounts.instagram, message: 'Falta conectar Instagram profesional desde Meta.' };
+    }
+    return { ...(await publishInstagramReel(client.ig_business_id, client.fb_page_access_token, videoUrl, caption)), account: accountSnapshot.accounts.instagram };
+  }
+
+  if (channel === 'tiktok') {
+    const tiktokToken = await getValidTiktokContentToken(clientId, supabase);
+    if (!tiktokToken) {
+      return { status: 'missing_connection', account: accountSnapshot.accounts.tiktok, message: 'Falta conectar TikTok orgánico desde Integraciones.' };
+    }
+    return { ...(await publishTiktokInboxVideo(tiktokToken, videoUrl)), account: accountSnapshot.accounts.tiktok };
+  }
+
+  if (channel === 'youtube') {
+    return { ...(await publishYoutubeShort(clientId, supabase, videoUrl, caption)), account: accountSnapshot.accounts.youtube };
+  }
+
+  return { status: 'error', message: 'Canal no soportado.' };
+}
+
+async function publishSocialChannelsWithRetries(
+  channels: SocialChannel[],
+  clientId: string,
+  client: any,
+  supabase: any,
+  videoUrl: string,
+  caption: string,
+  accountSnapshot: Record<string, any>
+) {
+  const channelResults = await Promise.all(channels.map(async channel => {
+    let lastMessage = 'Error al publicar.';
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await publishSocialChannel(channel, clientId, client, supabase, videoUrl, caption, accountSnapshot);
+        return { channel, result: { ...result, attempts: attempt } };
+      } catch (err: any) {
+        lastMessage = err?.message || lastMessage;
+        if (attempt < 3) await sleep(1500 * attempt);
+      }
+    }
+    return { channel, result: { status: 'error', message: lastMessage, attempts: 3 } };
+  }));
+
+  return channelResults.reduce((acc, item) => {
+    acc[item.channel] = item.result;
+    return acc;
+  }, {} as Record<string, any>);
+}
+
 async function handleCosts(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
   if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
@@ -2686,37 +2804,7 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   if (error) return res.status(500).json({ error: error.message || 'No se pudo leer el cliente.' });
   if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
 
-  const accountSnapshot: Record<string, any> = {
-    client: {
-      id: clientId,
-      business_name: client.business_name || client.email || '',
-    },
-    requested_channels: channels,
-    accounts: {
-      instagram: client.ig_business_id ? {
-        platform: 'instagram',
-        account_id: client.ig_business_id,
-        username: client.ig_username || '',
-        page_id: client.fb_page_id || '',
-        page_name: client.fb_page_name || '',
-      } : null,
-      facebook: client.fb_page_id ? {
-        platform: 'facebook',
-        page_id: client.fb_page_id,
-        page_name: client.fb_page_name || '',
-      } : null,
-      tiktok: (client.tiktok_content_open_id || client.tiktok_content_display_name) ? {
-        platform: 'tiktok',
-        open_id: client.tiktok_content_open_id || '',
-        display_name: client.tiktok_content_display_name || client.connection_statuses?.tiktok_content_display_name || '',
-      } : null,
-      youtube: (client.youtube_channel_id || client.youtube_channel_title) ? {
-        platform: 'youtube',
-        channel_id: client.youtube_channel_id || '',
-        channel_title: client.youtube_channel_title || client.connection_statuses?.youtube_channel_title || '',
-      } : null,
-    },
-  };
+  const accountSnapshot = buildSocialAccountSnapshot(clientId, client, channels);
 
   if (scheduledAt && new Date(scheduledAt).getTime() > Date.now() + 30000) {
     const { error: scheduleInsertError } = await supabase.from('car_social_publications').insert({
@@ -2734,45 +2822,7 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true, scheduled: true, results: {} });
   }
 
-  const publishChannel = async (channel: SocialChannel) => {
-    try {
-      if (channel === 'facebook') {
-        if (!client.fb_page_id || !client.fb_page_access_token) {
-          return { channel, result: { status: 'missing_connection', account: accountSnapshot.accounts.facebook, message: 'Falta conectar una página de Facebook con permiso de publicación.' } };
-        }
-        return { channel, result: { ...(await publishFacebookVideo(client.fb_page_id, client.fb_page_access_token, videoUrl, caption)), account: accountSnapshot.accounts.facebook } };
-      }
-
-      if (channel === 'instagram') {
-        if (!client.ig_business_id || !client.fb_page_access_token) {
-          return { channel, result: { status: 'missing_connection', account: accountSnapshot.accounts.instagram, message: 'Falta conectar Instagram profesional desde Meta.' } };
-        }
-        return { channel, result: { ...(await publishInstagramReel(client.ig_business_id, client.fb_page_access_token, videoUrl, caption)), account: accountSnapshot.accounts.instagram } };
-      }
-
-      if (channel === 'tiktok') {
-        const tiktokToken = await getValidTiktokContentToken(clientId, supabase);
-        if (!tiktokToken) {
-          return { channel, result: { status: 'missing_connection', account: accountSnapshot.accounts.tiktok, message: 'Falta conectar TikTok orgánico desde Integraciones.' } };
-        }
-        return { channel, result: { ...(await publishTiktokInboxVideo(tiktokToken, videoUrl)), account: accountSnapshot.accounts.tiktok } };
-      }
-
-      if (channel === 'youtube') {
-        return { channel, result: { ...(await publishYoutubeShort(clientId, supabase, videoUrl, caption)), account: accountSnapshot.accounts.youtube } };
-      }
-
-      return { channel, result: { status: 'error', message: 'Canal no soportado.' } };
-    } catch (err: any) {
-      return { channel, result: { status: 'error', message: err?.message || 'Error al publicar.' } };
-    }
-  };
-
-  const channelResults = await Promise.all(channels.map(publishChannel));
-  const results = channelResults.reduce((acc, item) => {
-    acc[item.channel] = item.result;
-    return acc;
-  }, {} as Record<string, any>);
+  const results = await publishSocialChannelsWithRetries(channels, clientId, client, supabase, videoUrl, caption, accountSnapshot);
 
   const publishedCount = Object.values(results).filter((item: any) => item.status === 'published' || item.status === 'processing').length;
   const publicationStatus = publishedCount > 0 ? 'published' : 'failed';
@@ -2796,6 +2846,97 @@ async function handleSocialPublish(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok: publishedCount > 0, results });
 }
 
+async function handleSocialPublishDue(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
+
+  const authHeader = req.headers.authorization || '';
+  const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
+
+  const body = parseRequestBody(req.body);
+  const clientId = String(body.clientId || '');
+  if (!clientId || clientId === 'default') return res.status(400).json({ error: 'clientId requerido' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    await assertClientAccess(supabase, accessToken, clientId);
+  } catch (err: any) {
+    return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+  }
+
+  const { data: jobs, error } = await supabase
+    .from('car_social_publications')
+    .select('id, client_id, caption, video_url, video_path, selected_channels, results, scheduled_at')
+    .eq('client_id', clientId)
+    .eq('status', 'scheduled')
+    .lte('scheduled_at', new Date().toISOString())
+    .order('scheduled_at', { ascending: true })
+    .limit(3);
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!jobs?.length) return res.status(200).json({ ok: true, processed: 0, jobs: [] });
+
+  const processed: any[] = [];
+  for (const job of jobs) {
+    const previousResults = job.results && typeof job.results === 'object' ? job.results : {};
+    try {
+      await supabase
+        .from('car_social_publications')
+        .update({ status: 'processing', results: { ...previousResults, processing_at: new Date().toISOString() } })
+        .eq('id', job.id)
+        .eq('status', 'scheduled');
+
+      const channels = Array.isArray(job.selected_channels)
+        ? job.selected_channels.filter((c: string) => ['instagram', 'facebook', 'tiktok', 'youtube'].includes(c)) as SocialChannel[]
+        : [];
+      if (channels.length === 0) throw new Error('La publicación programada no tiene canales válidos.');
+      if (!job.video_url || !/^https:\/\//i.test(job.video_url)) throw new Error('videoUrl público HTTPS requerido.');
+      validateSocialVideoOwnership(clientId, job.video_url, job.video_path || null);
+
+      const { data: client, error: clientError } = await supabase
+        .from('car_clients')
+        .select('*')
+        .eq('id', clientId)
+        .maybeSingle();
+      if (clientError) throw clientError;
+      if (!client) throw new Error('Cliente no encontrado.');
+
+      const accountSnapshot = buildSocialAccountSnapshot(clientId, client, channels);
+      const changedAccounts = getChangedScheduledAccounts(previousResults?.audit, accountSnapshot, channels);
+      if (changedAccounts.length > 0) {
+        throw new Error(`La cuenta conectada cambió desde que se programó: ${changedAccounts.join(', ')}. Se bloqueó para evitar publicar en otra cuenta.`);
+      }
+
+      const results = await publishSocialChannelsWithRetries(channels, clientId, client, supabase, job.video_url, job.caption || '', accountSnapshot);
+      const publishedCount = Object.values(results).filter((item: any) => item.status === 'published' || item.status === 'processing').length;
+      const finalStatus = publishedCount > 0 ? 'published' : 'failed';
+
+      await supabase
+        .from('car_social_publications')
+        .update({
+          status: finalStatus,
+          results: { ...results, audit: accountSnapshot, scheduled_at: job.scheduled_at, processed_at: new Date().toISOString() },
+          published_at: publishedCount > 0 ? new Date().toISOString() : null
+        })
+        .eq('id', job.id);
+      processed.push({ id: job.id, status: finalStatus });
+    } catch (err: any) {
+      await supabase
+        .from('car_social_publications')
+        .update({
+          status: 'failed',
+          results: { ...previousResults, error: err?.message || 'Error al publicar programación.', processed_at: new Date().toISOString() }
+        })
+        .eq('id', job.id);
+      processed.push({ id: job.id, status: 'failed', error: err?.message || 'Error al publicar programación.' });
+    }
+  }
+
+  return res.status(200).json({ ok: true, processed: processed.length, jobs: processed });
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -2806,6 +2947,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string || '';
 
   if (action === 'social-publish') return handleSocialPublish(req, res);
+  if (action === 'social-publish-due') return handleSocialPublishDue(req, res);
   if (action === 'whatsapp-test') return handleWhatsappTest(req, res);
   if (action.startsWith('costs-')) return handleCosts(req, res);
   if (action === 'brain-save') return handleBrainSave(req, res);

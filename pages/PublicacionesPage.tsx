@@ -50,6 +50,7 @@ export default function PublicacionesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('all');
   const [query, setQuery] = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -70,6 +71,34 @@ export default function PublicacionesPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
+  }, [clientId, refreshTick]);
+
+  const processDuePublications = async () => {
+    if (!clientId) return;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      let accessToken = sessionData.session?.access_token || '';
+      const expiresAtMs = sessionData.session?.expires_at ? sessionData.session.expires_at * 1000 : 0;
+      if (!accessToken || (expiresAtMs && expiresAtMs < Date.now() + 120000)) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        accessToken = refreshed.session?.access_token || '';
+      }
+      if (!accessToken) return;
+      const res = await fetch('/api/oauth?action=social-publish-due', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ clientId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.processed > 0) setRefreshTick(tick => tick + 1);
+    } catch (err) {
+      console.warn('[Publication History] due publish check failed', err);
+    }
+  };
+
+  useEffect(() => {
+    processDuePublications();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
   const filtered = useMemo(() => {
@@ -192,10 +221,19 @@ export default function PublicacionesPage() {
                                 Ver publicación
                               </a>
                             )}
+                            {result.attempts && (
+                              <p className="mt-1 text-[10px] font-bold text-zinc-400">Intentos: {result.attempts}</p>
+                            )}
                           </div>
                         );
                       })}
                     </div>
+
+                    {(item.results?.error || Object.values(item.results || {}).some((result: any) => result?.message && (result.status === 'error' || result.status === 'missing_connection'))) && (
+                      <div className="rounded-xl border border-red-100 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-3 text-[11px] font-bold text-red-700 dark:text-red-300">
+                        {item.results?.error || Object.values(item.results || {}).map((result: any) => result?.message).filter(Boolean)[0]}
+                      </div>
+                    )}
 
                     <div className="rounded-xl bg-zinc-50 dark:bg-zinc-950/20 border border-zinc-100 dark:border-white/10 p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
                       <p><span className="font-black text-zinc-400 uppercase">Cliente:</span> <span className="font-bold text-zinc-700 dark:text-zinc-300">{item.results?.audit?.client?.business_name || profile?.business_name || item.client_id}</span></p>
