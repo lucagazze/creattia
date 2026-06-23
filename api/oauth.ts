@@ -2978,6 +2978,7 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
   const body = parseRequestBody(req.body);
   const clientId = String(body.clientId || '');
   const creativeDescription = String(body.creativeDescription || '');
+  const videoFocus = String(body.videoFocus || '');
   const postGoal = String(body.postGoal || 'viral');
   const postTone = String(body.postTone || 'default');
   const productMode = String(body.productMode || 'none');
@@ -2995,7 +2996,7 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
   // 1. Fetch client details from database
   const { data: client, error } = await supabase
     .from('car_clients')
-    .select('business_name, business_description, custom_instructions, scraped_content, website_url')
+    .select('business_name, business_description, custom_instructions, scraped_content, website_url, instagram_context')
     .eq('id', clientId)
     .maybeSingle();
 
@@ -3069,22 +3070,33 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
     toneOverride = `Tono: Basate en las instrucciones de tono predeterminadas de la marca: ${toneInstructions || 'Natural y dinámico'}.`;
   }
 
+  // Build Cerebro Context block
+  const cerebroContext = [
+    client.business_description && `DESCRIPCIÓN GENERAL:\n${client.business_description}`,
+    client.scraped_content && `CONTENIDO WEB / CEREBRO:\n${client.scraped_content}`,
+    client.instagram_context && `CONTEXTO DE REDES SOCIALES:\n${client.instagram_context}`,
+    toneInstructions && `ESTILO / TONO VIGENTE:\n${toneInstructions}`,
+    offersContext && `OFERTAS ACTIVAS:\n${offersContext}`,
+    faqContext && `FAQ:\n${faqContext}`,
+  ].filter(Boolean).join('\n\n---\n\n');
+
   // 4. Formulate System & User Prompt
   const systemPrompt = `Sos un experto en marketing digital, copywriting y redes sociales. Tu tarea es redactar un excelente pie de página ('caption' o 'copy') para publicar en redes sociales (Instagram, Facebook, TikTok o YouTube Shorts) para un negocio.`;
 
   const userPrompt = `Escribí un copy enganchador, persuasivo y nativo de redes sociales para un creativo.
 
-Detalles del creativo / video (lo que muestra el video o de qué trata):
-${creativeDescription ? `- Contenido del creativo: ${creativeDescription}` : '— (No se especificó detalle de video, basate en el objetivo)'}
+Detalles del creativo / video:
+${creativeDescription ? `- ¿De qué trata el video?: ${creativeDescription}` : '— (No se especificó detalle de video, basate en el objetivo)'}
+${videoFocus ? `- Cómo enfocar la publicación / video: ${videoFocus}` : ''}
 ${productContext}
 
-Información del negocio:
+Información del negocio (Cerebro de la marca):
 - Nombre: ${client.business_name || 'Mi Negocio'}
-- Descripción: ${client.business_description || '—'}
-- Ofertas vigentes: ${offersContext || '—'}
-- Preguntas Frecuentes/Información Adicional: ${faqContext || '—'}
 - Sitio web: ${client.website_url || '—'}
 ${linksStr}
+
+Contexto y conocimiento de la marca (Cerebro de la marca):
+${cerebroContext || '— (No hay datos en el cerebro, basate en la descripción general)'}
 
 Enfoque de redacción solicitado:
 - Objetivo de la publicación: ${goalInstructions}

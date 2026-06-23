@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { useToast } from '../components/Toast';
 import { supabase } from '../services/supabase';
+import { ecommerce } from '../services/ecommerce';
 
 type ChannelId = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
 
@@ -123,6 +124,10 @@ export default function SocialPublisherPage() {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [productMode, setProductMode] = useState<'single' | 'multiple' | 'none'>('none');
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [manualProductName, setManualProductName] = useState('');
+  const [manualProductPrice, setManualProductPrice] = useState('');
+  const [manualProductUrl, setManualProductUrl] = useState('');
+  const [videoFocus, setVideoFocus] = useState('');
   const [postGoal, setPostGoal] = useState<'promo' | 'sales' | 'viral' | 'edu' | 'interactive'>('viral');
   const [postTone, setPostTone] = useState<'default' | 'casual' | 'energetic' | 'professional' | 'direct' | 'storytelling'>('default');
   const [catalog, setCatalog] = useState<any[]>([]);
@@ -138,7 +143,11 @@ export default function SocialPublisherPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token || '';
 
-      const selectedProduct = productMode === 'single' ? catalog.find((p: any) => (p.id || p.title) === selectedProductId) : null;
+      const selectedProduct = productMode === 'single'
+        ? (selectedProductId === 'manual' || !selectedProductId
+          ? { title: manualProductName, price: manualProductPrice, url: manualProductUrl }
+          : catalog.find((p: any) => (p.id || p.title) === selectedProductId))
+        : null;
       
       const res = await fetch('/api/oauth?action=social-draft-caption', {
         method: 'POST',
@@ -149,6 +158,7 @@ export default function SocialPublisherPage() {
         body: JSON.stringify({
           clientId: activeClientId,
           creativeDescription,
+          videoFocus,
           postGoal,
           postTone,
           productMode,
@@ -192,27 +202,67 @@ export default function SocialPublisherPage() {
     setProductMode('none');
     setPostGoal('viral');
     setPostTone('default');
+    setManualProductName('');
+    setManualProductPrice('');
+    setManualProductUrl('');
+    setVideoFocus('');
 
     if (activeClientId) {
       setLoadingCatalog(true);
       supabase
         .from('car_clients')
-        .select('products_catalog')
+        .select('*')
         .eq('id', activeClientId)
         .maybeSingle()
-        .then(({ data, error }) => {
-          if (!error && data?.products_catalog) {
+        .then(async ({ data: clientData, error }) => {
+          if (error || !clientData) {
+            console.error('Error fetching client details:', error);
+            setLoadingCatalog(false);
+            return;
+          }
+
+          let parsedCatalog: any[] = [];
+          if (clientData.products_catalog) {
             try {
-              const parsed = typeof data.products_catalog === 'string'
-                ? JSON.parse(data.products_catalog)
-                : data.products_catalog;
+              const parsed = typeof clientData.products_catalog === 'string'
+                ? JSON.parse(clientData.products_catalog)
+                : clientData.products_catalog;
               if (Array.isArray(parsed)) {
-                setCatalog(parsed);
+                parsedCatalog = parsed;
               }
             } catch (e) {
               console.error('Error parsing products_catalog:', e);
             }
           }
+
+          // If the cached database catalog is empty, trigger the backend sync-catalog as fallback!
+          if (parsedCatalog.length === 0) {
+            try {
+              console.log('[SocialPublisherPage] Database catalog is empty, calling sync-catalog backend API...');
+              const { data: sessionData } = await supabase.auth.getSession();
+              const token = sessionData.session?.access_token || '';
+
+              const r = await fetch('/api/scrape-all', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ clientId: activeClientId, action: 'sync-catalog' })
+              });
+              if (r.ok) {
+                const syncRes = await r.json();
+                if (syncRes.catalog && Array.isArray(syncRes.catalog)) {
+                  parsedCatalog = syncRes.catalog;
+                  console.log('[SocialPublisherPage] Successfully synced catalog from backend:', parsedCatalog.length);
+                }
+              }
+            } catch (fetchErr) {
+              console.error('[SocialPublisherPage] Live catalog sync failed:', fetchErr);
+            }
+          }
+
+          setCatalog(parsedCatalog);
           setLoadingCatalog(false);
         });
     }
@@ -639,25 +689,25 @@ export default function SocialPublisherPage() {
 
               <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!activeClientId) {
-                          showToast('Seleccioná un cliente primero.', 'warning');
-                          return;
-                        }
-                        setIsAiModalOpen(true);
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-violet-100 hover:bg-violet-200 dark:bg-violet-500/10 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 text-[10px] font-black uppercase tracking-wider transition-all"
-                    >
-                      <Sparkles className="w-2.5 h-2.5" />
-                      <span>Generar con IA</span>
-                    </button>
-                  </div>
+                  <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
                   <span className="text-[10.5px] font-bold text-zinc-400">{captionLength}</span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!activeClientId) {
+                      showToast('Seleccioná un cliente primero.', 'warning');
+                      return;
+                    }
+                    setIsAiModalOpen(true);
+                  }}
+                  className="w-full mb-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-[12.5px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-violet-500/20 hover:shadow-lg hover:shadow-violet-500/30 hover:scale-[1.01] active:scale-[0.99] transition-all"
+                >
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                  <span>Generar pie de foto con IA</span>
+                </button>
+
                 <textarea
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
@@ -1035,38 +1085,85 @@ export default function SocialPublisherPage() {
                 </div>
 
                 {productMode === 'single' && (
-                  <div className="mt-3 space-y-1.5 animate-in slide-in-from-top-2 duration-150">
-                    <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400">
-                      Seleccionar producto del catálogo
-                    </label>
-                    <div className="relative">
-                      {loadingCatalog ? (
-                        <div className="h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/40 px-3 text-[12px] text-zinc-400 flex items-center gap-2">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Cargando catálogo...</span>
-                        </div>
-                      ) : catalog.length === 0 ? (
-                        <div className="h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/40 px-3 text-[12px] text-zinc-400 flex items-center">
-                          El cliente no tiene productos cargados en su catálogo.
-                        </div>
-                      ) : (
-                        <select
-                          value={selectedProductId}
-                          onChange={(e) => setSelectedProductId(e.target.value)}
-                          className="w-full h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 pr-8 text-[12.5px] font-bold text-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
-                        >
-                          <option value="">-- Elegir producto --</option>
-                          {catalog.map((p: any) => (
-                            <option key={p.id || p.title} value={p.id || p.title}>
-                              {p.title} {p.price ? `(${p.price})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      {!loadingCatalog && catalog.length > 0 && (
-                        <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-3 pointer-events-none" />
-                      )}
+                  <div className="mt-3 space-y-3 animate-in slide-in-from-top-2 duration-150">
+                    <div className="space-y-1.5">
+                      <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400">
+                        Seleccionar producto del catálogo
+                      </label>
+                      <div className="relative">
+                        {loadingCatalog ? (
+                          <div className="h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-950 text-white px-3 text-[12px] flex items-center gap-2" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Cargando catálogo...</span>
+                          </div>
+                        ) : (
+                          <select
+                            value={selectedProductId}
+                            onChange={(e) => {
+                              setSelectedProductId(e.target.value);
+                              if (e.target.value !== 'manual') {
+                                setManualProductName('');
+                                setManualProductPrice('');
+                                setManualProductUrl('');
+                              }
+                            }}
+                            className="w-full h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 pr-8 text-[12.5px] font-bold outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
+                            style={{ backgroundColor: '#18181b', color: '#ffffff' }}
+                          >
+                            <option value="" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>-- Elegir del catálogo --</option>
+                            <option value="manual" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>✍ Escribir producto manualmente...</option>
+                            {catalog.map((p: any) => (
+                              <option key={p.id || p.title} value={p.id || p.title} style={{ backgroundColor: '#18181b', color: '#ffffff' }}>
+                                {p.title} {p.price ? `(${p.price})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {!loadingCatalog && (
+                          <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-3 pointer-events-none" />
+                        )}
+                      </div>
                     </div>
+
+                    {(selectedProductId === 'manual' || catalog.length === 0) && (
+                      <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-zinc-950/30 space-y-3 mt-2 animate-in slide-in-from-top-1">
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="space-y-1">
+                            <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400">Nombre del producto</label>
+                            <input
+                              type="text"
+                              value={manualProductName}
+                              onChange={(e) => setManualProductName(e.target.value)}
+                              placeholder="Ej: Crema Hidratante"
+                              className="w-full h-9 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 text-[12px] font-semibold placeholder:text-zinc-500 outline-none focus:ring-2 focus:ring-violet-500/30"
+                              style={{ backgroundColor: '#18181b', color: '#ffffff' }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400">Precio (opcional)</label>
+                            <input
+                              type="text"
+                              value={manualProductPrice}
+                              onChange={(e) => setManualProductPrice(e.target.value)}
+                              placeholder="Ej: $4500"
+                              className="w-full h-9 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 text-[12px] font-semibold placeholder:text-zinc-500 outline-none focus:ring-2 focus:ring-violet-500/30"
+                              style={{ backgroundColor: '#18181b', color: '#ffffff' }}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400">Enlace de compra (opcional)</label>
+                          <input
+                            type="text"
+                            value={manualProductUrl}
+                            onChange={(e) => setManualProductUrl(e.target.value)}
+                            placeholder="https://mitienda.com/productos/crema"
+                            className="w-full h-9 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 text-[12px] font-semibold placeholder:text-zinc-500 outline-none focus:ring-2 focus:ring-violet-500/30"
+                            style={{ backgroundColor: '#18181b', color: '#ffffff' }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1119,14 +1216,15 @@ export default function SocialPublisherPage() {
                   <select
                     value={postTone}
                     onChange={(e) => setPostTone(e.target.value as any)}
-                    className="w-full h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 pr-8 text-[12.5px] font-bold text-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
+                    className="w-full h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 pr-8 text-[12.5px] font-bold outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
+                    style={{ backgroundColor: '#18181b', color: '#ffffff' }}
                   >
-                    <option value="default">Por defecto (usar tono del negocio)</option>
-                    <option value="casual">Casual (cercano, divertido, directo)</option>
-                    <option value="energetic">Enérgico (motivador, entusiasta, persuasivo)</option>
-                    <option value="professional">Profesional (educado, serio, formal)</option>
-                    <option value="direct">Directo al grano (minimalista, limpio)</option>
-                    <option value="storytelling">Storytelling (narrativo, enfocado en anécdota)</option>
+                    <option value="default" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Por defecto (usar tono del negocio)</option>
+                    <option value="casual" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Casual (cercano, divertido, directo)</option>
+                    <option value="energetic" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Enérgico (motivador, entusiasta, persuasivo)</option>
+                    <option value="professional" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Profesional (educado, serio, formal)</option>
+                    <option value="direct" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Directo al grano (minimalista, limpio)</option>
+                    <option value="storytelling" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Storytelling (narrativo, enfocado en anécdota)</option>
                   </select>
                   <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-3 pointer-events-none" />
                 </div>
@@ -1135,13 +1233,28 @@ export default function SocialPublisherPage() {
               {/* 4. CREATIVE DESCRIPTION */}
               <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  ¿De qué trata tu creativo / video? (Detalles adicionales)
+                  ¿De qué trata el video?
                 </label>
                 <textarea
                   value={creativeDescription}
                   onChange={(e) => setCreativeDescription(e.target.value)}
                   placeholder="Ej: Un video mostrando los pasos para aplicar la mascarilla de noche y el brillo hidratado de la piel al despertar..."
-                  className="w-full min-h-[76px] max-h-[140px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 py-2 text-[12.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
+                  className="w-full min-h-[76px] max-h-[140px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 py-2 text-[12.5px] font-semibold placeholder:text-zinc-500 outline-none focus:ring-2 focus:ring-violet-500/30"
+                  style={{ backgroundColor: '#18181b', color: '#ffffff' }}
+                />
+              </div>
+
+              {/* 5. COPY FOCUS */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  ¿Cómo quieres que se enfoque el copy / video?
+                </label>
+                <textarea
+                  value={videoFocus}
+                  onChange={(e) => setVideoFocus(e.target.value)}
+                  placeholder="Ej: Enfocarse en los ingredientes naturales, en los resultados rápidos o en el descuento del 15%..."
+                  className="w-full min-h-[76px] max-h-[140px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 py-2 text-[12.5px] font-semibold placeholder:text-zinc-500 outline-none focus:ring-2 focus:ring-violet-500/30"
+                  style={{ backgroundColor: '#18181b', color: '#ffffff' }}
                 />
               </div>
             </div>
@@ -1158,7 +1271,7 @@ export default function SocialPublisherPage() {
               <button
                 type="button"
                 onClick={handleGenerateAiCaption}
-                disabled={generatingCaption || (productMode === 'single' && !selectedProductId)}
+                disabled={generatingCaption || (productMode === 'single' && !selectedProductId && !manualProductName.trim())}
                 className="h-11 px-5 rounded-xl bg-zinc-950 dark:bg-violet-600 text-white text-[13px] font-black flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {generatingCaption ? (
