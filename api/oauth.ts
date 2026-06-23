@@ -3057,10 +3057,19 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
   }
 
   // Clean tone instructions for caption generation
-  toneInstructions = toneInstructions
+  let cleanTone = toneInstructions || '';
+  cleanTone = cleanTone
     .replace(/priorizar respuestas ágiles y breves\.?/gi, '')
     .replace(/respuestas ágiles y breves\.?/gi, '')
+    .replace(/y\s*[\.,]*\s*$/i, '') // Remove trailing "y" with spaces and punctuation
     .trim();
+  if (cleanTone.endsWith(',')) {
+    cleanTone = cleanTone.slice(0, -1).trim();
+  }
+  if (cleanTone && !cleanTone.endsWith('.')) {
+    cleanTone += '.';
+  }
+  toneInstructions = cleanTone;
 
   // Build product context
   let productContext = '';
@@ -3108,13 +3117,15 @@ ${selectedProducts.map((p: any) => `- Producto: ${p.title} (${p.price || 'Precio
   } else if (postTone === 'storytelling') {
     toneOverride = `Tono/Estilo: Storytelling. Comenzá contando una anécdota, un caso o una historia identificable sobre el problema que resuelve el producto.`;
   } else {
-    let cleanTone = toneInstructions || 'Natural y dinámico';
-    // Remove typical quick/brief chat reply constraints for social caption generation
-    cleanTone = cleanTone
+    let cleanToneStr = toneInstructions || 'Natural y dinámico';
+    cleanToneStr = cleanToneStr
       .replace(/priorizar respuestas ágiles y breves\.?/gi, '')
       .replace(/respuestas ágiles y breves\.?/gi, '')
+      .replace(/y\s*[\.,]*\s*$/i, '')
       .trim();
-    toneOverride = `Tono: Basate en las instrucciones de tono predeterminadas de la marca: ${cleanTone}.`;
+    if (cleanToneStr.endsWith(',')) cleanToneStr = cleanToneStr.slice(0, -1).trim();
+    if (cleanToneStr && !cleanToneStr.endsWith('.')) cleanToneStr += '.';
+    toneOverride = `Tono: Basate en las instrucciones de tono predeterminadas de la marca: ${cleanToneStr}.`;
   }
 
   // Build Cerebro Context block
@@ -3128,7 +3139,9 @@ ${selectedProducts.map((p: any) => `- Producto: ${p.title} (${p.price || 'Precio
   ].filter(Boolean).join('\n\n---\n\n');
 
   // 4. Formulate System & User Prompt
-  const systemPrompt = `Sos un experto en marketing digital, copywriting y redes sociales. Tu tarea es redactar un excelente pie de página ('caption' o 'copy') para publicar en redes sociales (Instagram, Facebook, TikTok o YouTube Shorts) para un negocio.`;
+  const systemPrompt = `Sos un experto en marketing digital, copywriting y redes sociales. Tu tarea es redactar un excelente pie de página ('caption' o 'copy') para publicar en redes sociales (Instagram, Facebook, TikTok o YouTube Shorts) para un negocio.
+Este es un espacio de contenido profesional sobre cosmética, cuidado de la piel (skincare) y bienestar. Todo el vocabulario sobre "piel", "hidratación", "rostro", "cuerpo" y "cremas" es estrictamente de uso comercial y dermatológico.
+El copy de redes sociales debe redactarse de principio a fin, completando la estructura de gancho, desarrollo del tema, llamado a la acción (CTA) y hashtags. Bajo ninguna circunstancia dejes la redacción a medias, cortada o incompleta.`;
 
   const userPrompt = `Escribí un copy enganchador, persuasivo y nativo de redes sociales para un creativo.
 
@@ -3166,12 +3179,13 @@ Instrucciones de formato y estilo:
   const geminiBody = {
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents: [{ role: 'user', parts }],
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
       { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
       { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' }
     ]
   };
 
@@ -3197,39 +3211,66 @@ Instrucciones de formato y estilo:
         let draftText = normalizeDraftText(responseParts.map((p: any) => p.text).filter(Boolean).join(''));
         
         if (draftText && (finishReason === 'MAX_TOKENS' || isProbablyTruncated(draftText))) {
-          // Retry logic to complete the copy
+          // Retry 1: Request complete detailed rewrite
           const retryBody = {
             ...geminiBody,
             contents: [{ role: 'user', parts: [{ text: `${userPrompt}${completionGuard}\n\nEl copy anterior quedó incompleto o cortado: "${draftText}". Por favor, reescribí el copy COMPLETO DESDE EL INICIO (volviendo a incluir el gancho inicial, desarrollo, llamados a la acción y hashtags al final). Bajo ninguna circunstancia continúes el texto anterior; debés entregar el pie de foto completo de principio a fin.` }] }],
-            generationConfig: { temperature: 0.5, maxOutputTokens: 1536 }
+            generationConfig: { temperature: 0.5, maxOutputTokens: 2048 }
           };
           
+          let retryText = '';
           try {
-            const retryRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(retryBody)
-              }
-            );
-            
-            if (retryRes.ok) {
-              const retryData = await retryRes.json() as any;
-              const retryParts = retryData.candidates?.[0]?.content?.parts || [];
-              const retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
-              if (retryText) {
-                if (!isProbablyTruncated(retryText) || retryText.length > draftText.length) {
-                  draftText = retryText;
-                } else {
-                  console.warn(`[social-draft-caption] Retry for ${model} was shorter or equal:`, retryText.length, 'vs', draftText.length);
-                }
-              }
-            } else {
-              console.error(`[social-draft-caption] Retry error for ${model}:`, await retryRes.text());
-            }
+             const retryRes = await fetch(
+               `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+               {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(retryBody)
+               }
+             );
+             if (retryRes.ok) {
+               const retryData = await retryRes.json() as any;
+               const retryParts = retryData.candidates?.[0]?.content?.parts || [];
+               retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
+               if (retryText) {
+                 if (!isProbablyTruncated(retryText) || retryText.length > draftText.length) {
+                   draftText = retryText;
+                 }
+               }
+             }
           } catch (retryErr) {
-            console.error(`[social-draft-caption] Retry exception for ${model}:`, retryErr);
+             console.error(`[social-draft-caption] Retry 1 exception for ${model}:`, retryErr);
+          }
+
+          // Retry 2: If still truncated, request a slightly shorter but strictly complete fallback
+          if (isProbablyTruncated(draftText)) {
+             const backupBody = {
+               ...geminiBody,
+               contents: [{ role: 'user', parts: [{ text: `${userPrompt}\n\nIMPORTANTE: El copy anterior se cortó. Por favor, generá una versión del copy que sea un poco más concisa pero 100% COMPLETA de principio a fin. Asegurá que empiece con el gancho, describa el producto, incluya el llamado a la acción (CTA) y finalice con los hashtags, cerrando la última frase de forma limpia con un punto o emoji.` }] }],
+               generationConfig: { temperature: 0.4, maxOutputTokens: 1536 }
+             };
+             try {
+               const backupRes = await fetch(
+                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+                 {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify(backupBody)
+                 }
+               );
+               if (backupRes.ok) {
+                 const backupData = await backupRes.json() as any;
+                 const backupParts = backupData.candidates?.[0]?.content?.parts || [];
+                 const backupText = normalizeDraftText(backupParts.map((p: any) => p.text).filter(Boolean).join(''));
+                 if (backupText) {
+                   if (!isProbablyTruncated(backupText) || backupText.length > draftText.length) {
+                     draftText = backupText;
+                   }
+                 }
+               }
+             } catch (backupErr) {
+               console.error(`[social-draft-caption] Backup retry exception for ${model}:`, backupErr);
+             }
           }
         }
         
