@@ -29,9 +29,22 @@ const GEMINI_MODELS = [
 const isProbablyTruncated = (text: string) => {
   const trimmed = text.trim();
   if (!trimmed) return true;
-  if (/[.!?…)"'”’🙌🙏👍👌💪🔥❤️💜💙💚🖤🤍]$/.test(trimmed)) return false;
-  if (trimmed.length < 20) return false;
-  return /(?:\b(and|or|but|because|with|for|to|the|a|an|that|which|making|including|about|de|del|la|el|los|las|que|con|para|por|y|o|pero|porque|incluyendo|sobre|haciendo)\b|[,;:]|\s-\s)$/i.test(trimmed);
+
+  // If it ends with punctuation or common closing characters
+  if (/[.!?…)"'”’\]\-\*]$/.test(trimmed)) return false;
+
+  // If it ends with a hashtag (e.g. #skincare)
+  if (/#\w+$/.test(trimmed)) return false;
+
+  // If it ends with an emoji
+  try {
+    if (/\p{Emoji}/u.test(trimmed.slice(-2)) && !/[\d#\*]/.test(trimmed.slice(-1))) return false;
+  } catch (e) {
+    if (/[🙌🙏👍👌💪🔥❤️💜💙💚🖤🤍✨🎉🌟🥳👏😍💖😎📸💄🛍️💅💆‍♀️✨💥🌿🎯👇]$/.test(trimmed)) return false;
+  }
+
+  // Otherwise, it is probably truncated
+  return true;
 };
 
 const normalizeDraftText = (text: string) =>
@@ -575,6 +588,12 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: userPrompt + completionGuard }] }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 1536 },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+        ]
       };
 
       for (const model of GEMINI_MODELS) {

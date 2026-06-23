@@ -99,7 +99,34 @@ async function updateClientStatuses(
   if (updateErr) console.error(`[updateClientStatuses] clientId=${clientId} statusKey=${statusKey}`, updateErr);
 }
 
+const isProbablyTruncated = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+
+  // If it ends with punctuation or common closing characters
+  if (/[.!?…)"'”’\]\-\*]$/.test(trimmed)) return false;
+
+  // If it ends with a hashtag (e.g. #skincare)
+  if (/#\w+$/.test(trimmed)) return false;
+
+  // If it ends with an emoji
+  try {
+    if (/\p{Emoji}/u.test(trimmed.slice(-2)) && !/[\d#\*]/.test(trimmed.slice(-1))) return false;
+  } catch (e) {
+    if (/[🙌🙏👍👌💪🔥❤️💜💙💚🖤🤍✨🎉🌟🥳👏😍💖😎📸💄🛍️💅💆‍♀️✨💥🌿🎯👇]$/.test(trimmed)) return false;
+  }
+
+  // Otherwise, it is probably truncated
+  return true;
+};
+
+const normalizeDraftText = (text: string) =>
+  text
+    .replace(/^["'“”]+|["'“”]+$/g, '')
+    .trim();
+
 // ── SHOPIFY OAuth ─────────────────────────────────────────────────────────────
+
 async function handleShopify(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
   const base = getHost(req);
@@ -3118,13 +3145,21 @@ Instrucciones de formato y estilo:
 5. Colocá al final una sección de hashtags relevantes (entre 5 y 10).
 6. Devolvé únicamente el texto del copy redactado, sin ningún comentario tuyo, ni comillas iniciales/finales, ni markdown adicional.`;
 
+  const completionGuard = `\n\nIMPORTANTE: Devolvé el copy COMPLETO de principio a fin. Bajo ninguna circunstancia dejes el texto cortado, inconcluso o a mitad de una frase. Asegurá que termine con su respectivo CTA y hashtags.`;
+
   // Build Gemini parts
-  const parts: any[] = [{ text: userPrompt }];
+  const parts: any[] = [{ text: userPrompt + completionGuard }];
 
   const geminiBody = {
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents: [{ role: 'user', parts }],
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+    generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+    ]
   };
 
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
@@ -3145,8 +3180,42 @@ Instrucciones de formato y estilo:
       if (geminiRes.ok) {
         const geminiData = await geminiRes.json() as any;
         const responseParts = geminiData.candidates?.[0]?.content?.parts || [];
-        caption = responseParts.map((p: any) => p.text).filter(Boolean).join('');
-        if (caption) break;
+        const finishReason = geminiData.candidates?.[0]?.finishReason;
+        let draftText = normalizeDraftText(responseParts.map((p: any) => p.text).filter(Boolean).join(''));
+        
+        if (draftText && (finishReason === 'MAX_TOKENS' || isProbablyTruncated(draftText))) {
+          // Retry logic to complete the copy
+          const retryBody = {
+            ...geminiBody,
+            contents: [{ role: 'user', parts: [{ text: `${userPrompt}${completionGuard}\n\nEl copy anterior quedó incompleto o cortado: "${draftText}". Redactá desde cero una versión nueva completa, de principio a fin, asegurando terminar con el llamado a la acción (CTA) y hashtags.` }] }],
+            generationConfig: { temperature: 0.5, maxOutputTokens: 1536 }
+          };
+          
+          const retryRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(retryBody)
+            }
+          );
+          
+          if (retryRes.ok) {
+            const retryData = await retryRes.json() as any;
+            const retryParts = retryData.candidates?.[0]?.content?.parts || [];
+            const retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
+            if (retryText && !isProbablyTruncated(retryText)) {
+              draftText = retryText;
+            }
+          }
+        }
+        
+        if (draftText && !isProbablyTruncated(draftText)) {
+          caption = draftText;
+          break;
+        } else if (draftText) {
+          caption = draftText;
+        }
         attempts.push({ model, error: 'Respuesta de IA vacía o incompleta.' });
       } else {
         const errText = await geminiRes.text();
