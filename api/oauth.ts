@@ -2983,6 +2983,7 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
   const postTone = String(body.postTone || 'default');
   const productMode = String(body.productMode || 'none');
   const selectedProduct = body.selectedProduct as any;
+  const selectedProducts = body.selectedProducts as any[] || [];
 
   if (!clientId || clientId === 'default') return res.status(400).json({ error: 'clientId requerido' });
 
@@ -3037,7 +3038,14 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
 - Enlace directo de compra: ${selectedProduct.url || '—'}
 (Si mencionás el producto, hacé referencia a sus detalles e incluí su link de compra de manera atractiva en la llamada a la acción).`;
   } else if (productMode === 'multiple') {
-    productContext = `\nEste post muestra o menciona varios productos del catálogo general. Enfocá el copy en invitar a conocer toda la variedad disponible en la tienda.`;
+    const selectedProducts = body.selectedProducts || [];
+    if (selectedProducts.length > 0) {
+      productContext = `\nEste post promociona los siguientes productos específicos del catálogo:
+${selectedProducts.map((p: any) => `- Producto: ${p.title} (${p.price || 'Precio a consultar'}) ${p.url ? `- Enlace: ${p.url}` : ''}`).join('\n')}
+(Enfocá el copy en destacar estos productos, comparar sus beneficios de forma rápida, e invitar a conocerlos en la tienda).`;
+    } else {
+      productContext = `\nEste post muestra o menciona varios productos del catálogo general. Enfocá el copy en invitar a conocer toda la variedad disponible en la tienda.`;
+    }
   }
 
   // Build goal instructions

@@ -125,6 +125,7 @@ export default function SocialPublisherPage() {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [productMode, setProductMode] = useState<'single' | 'multiple' | 'none'>('none');
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [manualProductName, setManualProductName] = useState('');
   const [manualProductPrice, setManualProductPrice] = useState('');
   const [manualProductUrl, setManualProductUrl] = useState('');
@@ -183,6 +184,10 @@ export default function SocialPublisherPage() {
           ? { title: manualProductName, price: manualProductPrice, url: manualProductUrl }
           : catalog.find((p: any) => (p.id || p.title) === selectedProductId))
         : null;
+
+      const selectedProducts = productMode === 'multiple'
+        ? selectedProductIds.map(id => catalog.find((p: any) => (p.id || p.title) === id)).filter(Boolean)
+        : [];
       
       const res = await fetch('/api/oauth?action=social-draft-caption', {
         method: 'POST',
@@ -197,7 +202,8 @@ export default function SocialPublisherPage() {
           postGoal,
           postTone,
           productMode,
-          selectedProduct
+          selectedProduct,
+          selectedProducts
         })
       });
       const data = await res.json();
@@ -234,6 +240,7 @@ export default function SocialPublisherPage() {
 
     setCatalog([]);
     setSelectedProductId('');
+    setSelectedProductIds([]);
     setProductMode('none');
     setPostGoal('viral');
     setPostTone('default');
@@ -1102,6 +1109,9 @@ export default function SocialPublisherPage() {
                         onClick={() => {
                           setProductMode(opt.id as any);
                           if (opt.id !== 'single') setSelectedProductId('');
+                          if (opt.id !== 'multiple') setSelectedProductIds([]);
+                          setShowProductDropdown(false);
+                          setProductSearchTerm('');
                         }}
                         className={`p-3 rounded-xl border text-left flex flex-col gap-2 transition-all active:scale-[0.99] ${
                           active
@@ -1336,6 +1346,154 @@ export default function SocialPublisherPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {productMode === 'multiple' && (
+                  <div className="mt-3 space-y-3 animate-in slide-in-from-top-2 duration-150">
+                    <div className="space-y-1.5">
+                      <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400 flex items-center justify-between w-full">
+                        <span>Seleccionar productos del catálogo ({selectedProductIds.length})</span>
+                        <button
+                          type="button"
+                          onClick={handleForceSyncCatalog}
+                          disabled={syncingCatalog || loadingCatalog}
+                          className="text-[10px] text-violet-400 hover:text-violet-300 font-black flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {syncingCatalog ? (
+                            <>
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              <span>Sincronizando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-2.5 h-2.5" />
+                              <span>Sincronizar</span>
+                            </>
+                          )}
+                        </button>
+                      </label>
+
+                      <div className="relative">
+                        {loadingCatalog ? (
+                          <div className="h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-950 text-white px-3 text-[12px] flex items-center gap-2" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Cargando catálogo...</span>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            {/* Trigger Button */}
+                            <button
+                              type="button"
+                              onClick={() => setShowProductDropdown(!showProductDropdown)}
+                              className="w-full min-h-[48px] rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 py-2 pr-10 text-[12.5px] font-bold flex flex-wrap items-center gap-2 outline-none focus:ring-2 focus:ring-violet-500/30 cursor-pointer text-left"
+                              style={{ backgroundColor: '#18181b', color: '#ffffff' }}
+                            >
+                              {selectedProductIds.length === 0 ? (
+                                <>
+                                  <div className="w-7 h-7 rounded bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+                                    <ShoppingBag className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span className="text-zinc-400 font-bold">-- Elegir productos --</span>
+                                </>
+                              ) : (
+                                <div className="flex flex-wrap gap-1.5 py-0.5">
+                                  {selectedProductIds.map(id => {
+                                    const prod = catalog.find(p => (p.id || p.title) === id);
+                                    if (!prod) return null;
+                                    return (
+                                      <div key={id} className="flex items-center gap-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg pl-1.5 pr-1 py-0.5 text-[11px] font-bold animate-in zoom-in-95">
+                                        {prod.image && <img src={prod.image} alt="" className="w-4 h-4 rounded-sm object-cover bg-white" />}
+                                        <span className="max-w-[120px] truncate">{prod.title}</span>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedProductIds(prev => prev.filter(x => x !== id));
+                                          }}
+                                          className="w-4 h-4 rounded-full hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white"
+                                        >
+                                          <X className="w-2.5 h-2.5" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-4 pointer-events-none" />
+                            </button>
+
+                            {/* Dropdown Panel */}
+                            {showProductDropdown && (
+                              <div className="absolute left-0 right-0 mt-1.5 z-50 rounded-xl border border-zinc-200 dark:border-white/10 bg-[#18181b] shadow-2xl p-2 max-h-[300px] flex flex-col animate-in fade-in slide-in-from-top-2 duration-100" style={{ backgroundColor: '#18181b' }}>
+                                {/* Search box */}
+                                <div className="relative mb-2">
+                                  <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-2.5" />
+                                  <input
+                                    type="text"
+                                    placeholder="Buscar producto..."
+                                    value={productSearchTerm}
+                                    onChange={(e) => setProductSearchTerm(e.target.value)}
+                                    className="w-full h-9 pl-9 pr-8 rounded-lg bg-zinc-900 border border-zinc-200 dark:border-white/10 text-white text-[12px] font-semibold outline-none focus:ring-1 focus:ring-violet-500/30"
+                                    style={{ backgroundColor: '#09090b', color: '#ffffff' }}
+                                  />
+                                  {productSearchTerm && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setProductSearchTerm('')}
+                                      className="absolute right-2.5 top-2.5 text-zinc-400 hover:text-white"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Scrollable list */}
+                                <div className="overflow-y-auto flex-1 space-y-1 pr-1 custom-scrollbar">
+                                  {catalog
+                                    .filter(p => !productSearchTerm || p.title.toLowerCase().includes(productSearchTerm.toLowerCase()))
+                                    .map((p) => {
+                                      const pId = p.id || p.title;
+                                      const isSel = selectedProductIds.includes(pId);
+                                      return (
+                                        <button
+                                          key={pId}
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedProductIds(prev =>
+                                              prev.includes(pId)
+                                                ? prev.filter(id => id !== pId)
+                                                : [...prev, pId]
+                                            );
+                                          }}
+                                          className={`w-full p-2 rounded-lg text-left text-[12px] font-bold flex items-center gap-2.5 hover:bg-zinc-900 transition-colors ${isSel ? 'bg-zinc-900 text-violet-400' : 'text-zinc-300'}`}
+                                        >
+                                          {p.image ? (
+                                            <img src={p.image} alt="" className="w-7 h-7 rounded object-cover shrink-0 bg-white" />
+                                          ) : (
+                                            <div className="w-7 h-7 rounded bg-zinc-900 flex items-center justify-center shrink-0 text-zinc-500 border border-zinc-800">
+                                              <ShoppingBag className="w-3.5 h-3.5" />
+                                            </div>
+                                          )}
+                                          <div className="truncate flex-1 min-w-0">
+                                            <p className="truncate font-black">{p.title}</p>
+                                            {p.price && <p className="text-[10px] text-emerald-400 leading-none mt-0.5">{p.price}</p>}
+                                          </div>
+                                          {isSel && <Check className="w-4 h-4 text-violet-400 shrink-0" />}
+                                        </button>
+                                      );
+                                    })}
+
+                                  {catalog.filter(p => !productSearchTerm || p.title.toLowerCase().includes(productSearchTerm.toLowerCase())).length === 0 && productSearchTerm && (
+                                    <p className="text-[11px] text-zinc-500 text-center py-4">No se encontraron productos.</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
