@@ -3056,6 +3056,12 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
     toneInstructions = client.custom_instructions || '';
   }
 
+  // Clean tone instructions for caption generation
+  toneInstructions = toneInstructions
+    .replace(/priorizar respuestas ágiles y breves\.?/gi, '')
+    .replace(/respuestas ágiles y breves\.?/gi, '')
+    .trim();
+
   // Build product context
   let productContext = '';
   if (productMode === 'single' && selectedProduct) {
@@ -3194,7 +3200,7 @@ Instrucciones de formato y estilo:
           // Retry logic to complete the copy
           const retryBody = {
             ...geminiBody,
-            contents: [{ role: 'user', parts: [{ text: `${userPrompt}${completionGuard}\n\nEl copy anterior quedó incompleto o cortado: "${draftText}". Redactá desde cero una versión nueva completa, de principio a fin, asegurando terminar con el llamado a la acción (CTA) y hashtags.` }] }],
+            contents: [{ role: 'user', parts: [{ text: `${userPrompt}${completionGuard}\n\nEl copy anterior quedó incompleto o cortado: "${draftText}". Por favor, reescribí el copy COMPLETO DESDE EL INICIO (volviendo a incluir el gancho inicial, desarrollo, llamados a la acción y hashtags al final). Bajo ninguna circunstancia continúes el texto anterior; debés entregar el pie de foto completo de principio a fin.` }] }],
             generationConfig: { temperature: 0.5, maxOutputTokens: 1536 }
           };
           
@@ -3212,10 +3218,12 @@ Instrucciones de formato y estilo:
               const retryData = await retryRes.json() as any;
               const retryParts = retryData.candidates?.[0]?.content?.parts || [];
               const retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
-              if (retryText && !isProbablyTruncated(retryText)) {
-                draftText = retryText;
-              } else {
-                console.warn(`[social-draft-caption] Retry for ${model} returned truncated text again:`, retryText?.slice(-100));
+              if (retryText) {
+                if (!isProbablyTruncated(retryText) || retryText.length > draftText.length) {
+                  draftText = retryText;
+                } else {
+                  console.warn(`[social-draft-caption] Retry for ${model} was shorter or equal:`, retryText.length, 'vs', draftText.length);
+                }
               }
             } else {
               console.error(`[social-draft-caption] Retry error for ${model}:`, await retryRes.text());
