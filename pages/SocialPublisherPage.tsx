@@ -824,7 +824,7 @@ export default function SocialPublisherPage() {
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 placeholder="Copy, CTA, hashtags y menciones..."
-                className="w-full min-h-[160px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[13.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30 leading-relaxed"
+                className="w-full min-h-[380px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[13.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30 leading-relaxed"
               />
             </div>
           </div>
