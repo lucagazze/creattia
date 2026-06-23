@@ -84,6 +84,8 @@ function cleanHtml(html: string): string {
   text = text.replace(/<footer[\s\S]*?<\/footer>/gi, '');
   text = text.replace(/<header[\s\S]*?<\/header>/gi, '');
   text = text.replace(/<aside[\s\S]*?<\/aside>/gi, '');
+  // Remove elements with style="display: none" or similar hidden attributes
+  text = text.replace(/<([a-z0-9]+)[^>]*style=["'][^"']*(display:\s*none|visibility:\s*hidden)[^"']*["'][^>]*>([\s\S]*?)<\/\1>/gi, '');
   // Remove all HTML tags
   text = text.replace(/<[^>]+>/g, ' ');
   // Decode common HTML entities
@@ -1338,6 +1340,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── GENERATE FIELDS — AI extracts tone/offers/faq from scraped content ───
   if (action === 'generate-fields') {
     if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
+    let fallbackDesc = 'Somos el negocio, una tienda especializada en ofrecer la mejor calidad y servicio.';
+    let fallbackTone = 'Tono informal, amigable y muy cercano. Usar voseo argentino de manera natural.';
+    let fallbackOffers = '';
+    let fallbackFaq = '';
     try {
       const { data: cl } = await supabase
         .from('car_clients')
@@ -1352,29 +1358,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!webCtx) return res.status(400).json({ error: 'Primero escaneá el sitio web' });
 
-      if (!openAiKey) {
-        const desc = `Somos ${bName}, una tienda especializada en ofrecer la mejor calidad y servicio. Hacemos envíos a nivel nacional y admitimos múltiples modalidades de pago para mayor comodidad.`;
-        const tone = `Tono informal, amigable y muy cercano. Usar voseo argentino (vos, tenés, mirá) de manera natural. Emplear algunos emojis y priorizar respuestas ágiles y breves.`;
-        const offersVal = `Envío sin cargo en compras a partir de $50000. 10% de beneficio por pago en transferencia.`;
-        const faqVal = `P: ¿Tienen envíos?\nR: Sí, llegamos a todo el país por correo y Andreani.\n\nP: ¿Cómo se puede pagar?\nR: Aceptamos transferencias, tarjetas de débito/crédito y Mercado Pago.\n\n`;
+      const geminiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || '';
 
+      fallbackDesc = `Somos ${bName}, una tienda especializada en ofrecer la mejor calidad y servicio.`;
+      fallbackTone = `Tono informal, amigable y muy cercano. Usar voseo argentino de manera natural.`;
+      fallbackOffers = ``;
+      fallbackFaq = ``;
+
+      if (!geminiKey) {
+        console.warn('[AI Generate Fields] Gemini key not configured, using safe fallbacks');
         const nowTs = new Date().toISOString();
         await supabase.from('car_clients').update({
-          business_description: desc,
-          custom_instructions: JSON.stringify({ tone, offers: offersVal, faq: faqVal }),
+          business_description: fallbackDesc,
+          custom_instructions: JSON.stringify({ tone: fallbackTone, offers: fallbackOffers, faq: fallbackFaq }),
           brain_updated_at: nowTs
         }).eq('id', clientId);
 
         return res.status(200).json({
           success: true,
-          business_description: desc,
-          tone,
-          offers: offersVal,
-          faq: faqVal,
+          business_description: fallbackDesc,
+          tone: fallbackTone,
+          offers: fallbackOffers,
+          faq: fallbackFaq,
           brain_updated_at: nowTs
         });
       }
-
 
       const fieldsPrompt = `Sos un extractor de información ESTRICTO. Analizás el texto RAW extraído del sitio web de "${bName}" y extraés 4 campos en JSON. Tu único trabajo es COPIAR lo que está escrito. Jamás inventás, inferís ni completás con suposiciones.
 
@@ -1388,7 +1396,7 @@ CAMPO 3 — "offers":
 FUENTE: SOLO el TEXTO DEL SITIO WEB. Las redes sociales NO son fuente válida para este campo.
 TIPO DE DESCUENTO: SOLO promociones GENERALES o TRANSVERSALES del negocio (ej: "10% OFF en toda la tienda este mes", "envío gratis en compras mayores a $X", "5% de descuento para estudiantes de diseño", "Cuotas sin interés", "Descuento por pago en efectivo").
 NO incluir descuentos de productos individuales (ej: "-33% en Voile", "-8% en Gabardina"). Esos descuentos ya los tiene el catálogo y no deben repetirse acá.
-Si no encontras ninguna promoción GENERAL en el sitio web → el campo DEBE ser exactamente: ""
+Si no encontras ninguna promoción GENERAL en el sitio web o no está explícitamente escrita en el texto → el campo DEBE ser exactamente: ""
 Ante cualquier duda → ""
 
 CAMPO 4 — "faq":
@@ -1399,7 +1407,7 @@ Si el texto no contiene ninguna pregunta/respuesta → ""
 IMPORTANTE: Si encontras 10 FAQs, copiá las 10. Si encontras 20, copiá las 20. No truncar.
 
 PROHIBICION TOTAL: No inventar nada. Si no está en el texto → no existe.
-RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
+RESPONDÉ SOLO CON JSON VALIDO.`;
 
       let desc = '';
       let tone = '';
@@ -1407,37 +1415,43 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
       let faqVal = '';
 
       try {
-        const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` },
-          body: JSON.stringify({
-            model: 'gpt-4o',
-            messages: [
-              { role: 'system', content: fieldsPrompt },
-              { role: 'user', content: `TEXTO COMPLETO DEL SITIO WEB (fuente para todos los campos):\n${webCtx.slice(0, 50000)}\n\n---\nINFORMACIÓN REDES SOCIALES (usar SOLO para inferir tono de comunicación, NO para offers):\n${socialCtx.slice(0, 8000)}` }
-            ],
-            temperature: 0,
-            max_tokens: 4000,
-            response_format: { type: 'json_object' }
-          }),
-        });
+        const geminiBody = {
+          system_instruction: { parts: [{ text: fieldsPrompt }] },
+          contents: [{ 
+            role: 'user', 
+            parts: [{ text: `TEXTO COMPLETO DEL SITIO WEB (fuente para todos los campos):\n${webCtx.slice(0, 40000)}\n\n---\nINFORMACIÓN REDES SOCIALES (usar SOLO para inferir tono de comunicación, NO para offers):\n${socialCtx.slice(0, 6000)}` }] 
+          }],
+          generationConfig: { 
+            temperature: 0.1,
+            responseMimeType: "application/json"
+          }
+        };
 
-        if (!aiRes.ok) throw new Error(`OpenAI error ${aiRes.status}`);
+        const aiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(geminiBody)
+          }
+        );
+
+        if (!aiRes.ok) throw new Error(`Gemini error ${aiRes.status}`);
         const aiJson = await aiRes.json();
-        const parsed = JSON.parse(aiJson.choices?.[0]?.message?.content || '{}');
+        const responseText = aiJson.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const parsed = JSON.parse(responseText);
 
         desc = parsed.business_description || '';
         tone = parsed.tone || '';
-        // Only keep offers if it's a non-empty string with actual content (not just whitespace/dashes)
         const rawOffers: string = parsed.offers || '';
         offersVal = rawOffers.replace(/^[-\s]+$/, '').trim();
         faqVal = parsed.faq || '';
       } catch (apiErr: any) {
-        console.warn('[AI Generate Fields] OpenAI call failed, falling back to default values:', apiErr.message);
-        desc = `Somos ${bName}, una tienda especializada en ofrecer la mejor calidad y servicio. Hacemos envíos a nivel nacional y admitimos múltiples modalidades de pago para mayor comodidad.`;
-        tone = `Tono informal, amigable y muy cercano. Usar voseo argentino (vos, tenés, mirá) de manera natural. Emplear algunos emojis y priorizar respuestas ágiles y breves.`;
-        offersVal = `Envío sin cargo en compras a partir de $50000. 10% de beneficio por pago en transferencia.`;
-        faqVal = `P: ¿Tienen envíos?\nR: Sí, llegamos a todo el país por correo y Andreani.\n\nP: ¿Cómo se puede pagar?\nR: Aceptamos transferencias, tarjetas de débito/crédito y Mercado Pago.\n\n`;
+        console.warn('[AI Generate Fields] Gemini call failed, falling back to safe default values:', apiErr.message);
+        desc = fallbackDesc;
+        tone = fallbackTone;
+        offersVal = fallbackOffers;
+        faqVal = fallbackFaq;
       }
 
       const nowTs = new Date().toISOString();
@@ -1457,17 +1471,20 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
       });
     } catch (err: any) {
       console.error('[AI Generate Fields] Unhandled error:', err);
-      const fallbackDesc = `Somos el negocio, una tienda especializada en ofrecer la mejor calidad y servicio. Hacemos envíos a nivel nacional y admitimos múltiples modalidades de pago para mayor comodidad.`;
-      const fallbackTone = `Tono informal, amigable y muy cercano. Usar voseo argentino (vos, tenés, mirá) de manera natural. Emplear algunos emojis y priorizar respuestas ágiles y breves.`;
-      const fallbackOffers = `Envío sin cargo en compras a partir de $50000. 10% de beneficio por pago en transferencia.`;
-      const fallbackFaq = `P: ¿Tienen envíos?\nR: Sí, llegamos a todo el país por correo y Andreani.\n\nP: ¿Cómo se puede pagar?\nR: Aceptamos transferencias, tarjetas de débito/crédito y Mercado Pago.\n\n`;
+      const nowTs = new Date().toISOString();
+      await supabase.from('car_clients').update({
+        business_description: fallbackDesc,
+        custom_instructions: JSON.stringify({ tone: fallbackTone, offers: fallbackOffers, faq: fallbackFaq }),
+        brain_updated_at: nowTs
+      }).eq('id', clientId);
+
       return res.status(200).json({
         success: true,
         business_description: fallbackDesc,
         tone: fallbackTone,
         offers: fallbackOffers,
         faq: fallbackFaq,
-        brain_updated_at: new Date().toISOString()
+        brain_updated_at: nowTs
       });
     }
   }
@@ -2057,37 +2074,40 @@ Sé exhaustivo. Si el sitio tiene precios, incluilos. Si tiene horarios, incluil
       facebookRawContent ? `--- PUBLICACIONES DE FACEBOOK ---\n${facebookRawContent}` : ''
     ].filter(Boolean).join('\n\n');
 
-    if (compiledSocial && openAiKey) {
-      try {
-        const openaiSocialRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openAiKey}`
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              {
-                role: 'system',
-                content: `Analiza las descripciones de posts de Instagram y Facebook de la marca "${business_name}".
-Crea un resumen en español súper práctico centrado en:
-1. PRODUCTOS DESTACADOS / LANZAMIENTOS (Mencionados en redes)
-2. PRECIOS Y PROMOCIONES ACTIVAS (Descuentos, sorteos, envíos gratis)
-3. ESTILO DE COMUNICACIÓN Y HASHTAGS (Tono informal, alegre, modismos)`
-              },
-              { role: 'user', content: compiledSocial.slice(0, 30000) }
-            ],
-            temperature: 0.3,
-            max_tokens: 1000,
-          }),
-        });
+    const geminiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || '';
 
-        if (openaiSocialRes.ok) {
-          const socialResJson = await openaiSocialRes.json();
-          socialSummary = socialResJson.choices?.[0]?.message?.content?.trim() || '';
+    if (compiledSocial && geminiKey) {
+      try {
+        const systemPrompt = `You are an expert social media analyst. Summarize this business's social media presence in Spanish into 3 brief sections:
+1. PRODUCTOS MAS DESTACADOS (Lista corta de productos recurrentes o promocionados)
+2. PRECIOS Y PROMOCIONES ACTIVAS (Descuentos, cuotas, envíos gratis)
+3. ESTILO DE COMUNICACIÓN Y HASHTAGS (Tono informal, alegre, modismos)`;
+
+        const geminiBody = {
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ 
+            role: 'user', 
+            parts: [{ text: compiledSocial.slice(0, 24000) }] 
+          }],
+          generationConfig: { 
+            temperature: 0.3
+          }
+        };
+
+        const geminiSocialRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(geminiBody)
+          }
+        );
+
+        if (geminiSocialRes.ok) {
+          const geminiData = await geminiSocialRes.json();
+          socialSummary = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
         } else {
-          console.warn('[Unified Scraper] Social summary API error status:', openaiSocialRes.status);
+          console.warn('[Unified Scraper] Social summary API error status:', geminiSocialRes.status);
         }
       } catch (socialSumErr) {
         console.error('[Unified Scraper] Social summary failed:', socialSumErr);
@@ -2107,7 +2127,7 @@ Crea un resumen en español súper práctico centrado en:
     let autoCatalog = '';
     let autoInstructions = '';
     
-    if (openAiKey) {
+    if (geminiKey) {
       try {
         const systemPrompt = `You are a professional business strategist and AI prompt engineer.
 Your task is to take the extracted knowledge of website and social media of "${business_name}" and generate optimal content for two settings fields:
@@ -2118,41 +2138,37 @@ Your task is to take the extracted knowledge of website and social media of "${b
 2. "custom_instructions" (Tone & Style Rules):
    CRITICAL REQUIREMENT: Write optimal tone guidelines explicitly mandating friendly, informal, warm and cheerful support using Argentine Spanish voseo ("vos", "tenés", "mirá", "comprá", "escribinos", "dejame", etc.). Include guidelines for using moderate emojis, keeping responses short/concise (max 1-2 paragraphs), and being highly helpful. Avoid sounding robotic. Limit to 120 words.
 
-CRITICAL: Return your output ONLY as a raw JSON object with the keys "business_description" and "custom_instructions". Do not include Markdown blocks, quotes, or conversational explanations.
-Example output:
-{
-  "business_description": "...",
-  "custom_instructions": "..."
-}`;
+CRITICAL: Return your output ONLY as a raw JSON object with the keys "business_description" and "custom_instructions".`;
 
-        const openaiFieldsRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openAiKey}`
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { 
-                role: 'user', 
-                content: `INFORMACIÓN SITIO WEB:\n${finalWebSummary}\n\nINFORMACIÓN REDES SOCIALES:\n${finalSocialSummary}` 
-              }
-            ],
-            temperature: 0.4,
-            max_tokens: 1200,
-            response_format: { type: 'json_object' }
-          }),
-        });
+        const geminiBody = {
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ 
+            role: 'user', 
+            parts: [{ text: `INFORMACIÓN SITIO WEB:\n${finalWebSummary.slice(0, 40000)}\n\nINFORMACIÓN REDES SOCIALES:\n${finalSocialSummary.slice(0, 8000)}` }] 
+          }],
+          generationConfig: { 
+            temperature: 0.3,
+            responseMimeType: "application/json"
+          }
+        };
 
-        if (openaiFieldsRes.ok) {
-          const fieldsJson = await openaiFieldsRes.json();
-          const parsed = JSON.parse(fieldsJson.choices?.[0]?.message?.content || '{}');
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(geminiBody)
+          }
+        );
+
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          const parsed = JSON.parse(responseText);
           autoCatalog = parsed.business_description || '';
           autoInstructions = parsed.custom_instructions || '';
         } else {
-          console.warn('[Unified Scraper] AI fields API error status:', openaiFieldsRes.status);
+          console.warn('[Unified Scraper] AI fields API error status:', geminiRes.status);
         }
       } catch (fieldsErr) {
         console.error('[Unified Scraper] AI fields generation failed:', fieldsErr);
