@@ -44,6 +44,58 @@ const cleanFileName = (name: string) =>
 const getExpectedAccountId = (channel: Pick<ChannelConfig, 'accountId'>) =>
   channel.accountId ? String(channel.accountId) : '';
 
+const clampDuration = (seconds?: number | null) => {
+  const n = Number(seconds);
+  return Number.isFinite(n) && n > 0 ? Math.max(1, Math.min(900, Math.round(n))) : 30;
+};
+
+async function extractFrames(file: File, maxFrames = 4): Promise<{ frames: string[]; durationSec: number }> {
+  const isVideo = file.type.startsWith('video');
+  if (!isVideo) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.createElement('img');
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const scale = Math.min(1, 256 / Math.max(img.width, img.height));
+          canvas.width = Math.floor(img.width * scale);
+          canvas.height = Math.floor(img.height * scale);
+          canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve({ frames: [canvas.toDataURL('image/jpeg', 0.6)], durationSec: 30 });
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.playsInline = true;
+    const frames: string[] = [];
+    video.onloadedmetadata = () => {
+      const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 30;
+      const timestamps = Array.from({ length: maxFrames }, (_, i) => (dur / maxFrames) * i + dur / maxFrames / 2);
+      let idx = 0;
+      video.onseeked = () => {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 256 / Math.max(video.videoWidth, 1));
+        canvas.width = Math.floor(video.videoWidth * scale);
+        canvas.height = Math.floor(video.videoHeight * scale);
+        canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        frames.push(canvas.toDataURL('image/jpeg', 0.6));
+        idx++;
+        if (idx < timestamps.length) video.currentTime = timestamps[idx];
+        else { URL.revokeObjectURL(video.src); resolve({ frames, durationSec: dur }); }
+      };
+      video.currentTime = timestamps[0];
+    };
+    video.onerror = () => { URL.revokeObjectURL(video.src); resolve({ frames: [], durationSec: 30 }); };
+  });
+}
+
 export default function SocialPublisherPage() {
   const navigate = useNavigate();
   const { profile: authProfile, user } = useAuth();
@@ -64,6 +116,49 @@ export default function SocialPublisherPage() {
   const [checkingPublish, setCheckingPublish] = useState(false);
   const [confirmation, setConfirmation] = useState<PublishConfirmation | null>(null);
   const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
+  const [generatingCaption, setGeneratingCaption] = useState(false);
+
+  const handleGenerateAiCaption = async () => {
+    if (!activeClientId) {
+      showToast('Seleccioná un cliente primero.', 'warning');
+      return;
+    }
+    setGeneratingCaption(true);
+    try {
+      let frames: string[] = [];
+      if (videoFile) {
+        const extracted = await extractFrames(videoFile, 4);
+        frames = extracted.frames;
+      }
+      
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token || '';
+      
+      const res = await fetch('/api/oauth?action=social-draft-caption', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          clientId: activeClientId,
+          frames
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo generar el pie de foto.');
+      if (data.caption) {
+        setCaption(data.caption);
+        showToast('Pie de foto generado con IA ✓', 'success');
+      } else {
+        throw new Error('La IA devolvió un pie de foto vacío.');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Error al generar el pie de foto.', 'error');
+    } finally {
+      setGeneratingCaption(false);
+    }
+  };
 
   React.useEffect(() => {
     setSelectedChannels([]);
@@ -71,6 +166,10 @@ export default function SocialPublisherPage() {
     setScheduledItems([]);
     setVideoFile(null);
     setVideoMeta(null);
+    setCaption('');
+    setConfirmation(null);
+    setPublishMode('now');
+    setScheduledAt('');
     setVideoPreview(prev => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -216,11 +315,11 @@ export default function SocialPublisherPage() {
     setSelectedChannels(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
 
-  const uploadVideo = async () => {
+  const uploadVideo = async (targetClientId: string) => {
     if (!videoFile || !user?.id) throw new Error('Falta video o sesión activa.');
-    if (!activeClientId) throw new Error('No hay un cliente seleccionado para publicar.');
+    if (!targetClientId) throw new Error('No hay un cliente seleccionado para publicar.');
     const ext = videoFile.name.includes('.') ? videoFile.name.split('.').pop() : 'mp4';
-    const path = `${user.id}/${activeClientId}/${Date.now()}-${cleanFileName(videoFile.name || `video.${ext}`)}`;
+    const path = `${user.id}/${targetClientId}/${Date.now()}-${cleanFileName(videoFile.name || `video.${ext}`)}`;
     const { error } = await supabase.storage
       .from('car-social-videos')
       .upload(path, videoFile, { upsert: false, contentType: videoFile.type || 'video/mp4' });
@@ -278,6 +377,7 @@ export default function SocialPublisherPage() {
   }, [activeClientId]);
 
   const sendPublishRequest = async (
+    targetClientId: string,
     upload: { publicUrl: string; path: string },
     accessToken: string,
     channelsToPublish: ChannelId[],
@@ -287,7 +387,7 @@ export default function SocialPublisherPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
       body: JSON.stringify({
-        clientId: activeClientId,
+        clientId: targetClientId,
         userId: user?.id,
         caption: caption.trim(),
         videoUrl: upload.publicUrl,
@@ -390,15 +490,15 @@ export default function SocialPublisherPage() {
     setPublishing(true);
     setResults(null);
     try {
-      let [accessToken, upload] = await Promise.all([getFreshAccessToken(), uploadVideo()]);
-      let res = await sendPublishRequest(upload, accessToken, channelsToPublish, confirmation.expectedAccounts);
+      let [accessToken, upload] = await Promise.all([getFreshAccessToken(), uploadVideo(confirmation.clientId)]);
+      let res = await sendPublishRequest(confirmation.clientId, upload, accessToken, channelsToPublish, confirmation.expectedAccounts);
       if (res.status === 401) {
         const { data: refreshed, error } = await supabase.auth.refreshSession();
         if (error || !refreshed.session?.access_token) {
           throw new Error('Tu sesión de Algoritmia expiró. Cerrá sesión y volvé a entrar.');
         }
         accessToken = refreshed.session.access_token;
-        res = await sendPublishRequest(upload, accessToken, channelsToPublish, confirmation.expectedAccounts);
+        res = await sendPublishRequest(confirmation.clientId, upload, accessToken, channelsToPublish, confirmation.expectedAccounts);
       }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo publicar.');
@@ -497,7 +597,27 @@ export default function SocialPublisherPage() {
 
               <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateAiCaption}
+                      disabled={generatingCaption}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-violet-100 hover:bg-violet-200 dark:bg-violet-500/10 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50"
+                    >
+                      {generatingCaption ? (
+                        <>
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          <span>Generando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-2.5 h-2.5" />
+                          <span>Generar con IA</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <span className="text-[10.5px] font-bold text-zinc-400">{captionLength}</span>
                 </div>
                 <textarea

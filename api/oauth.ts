@@ -2218,8 +2218,8 @@ const validateSocialVideoOwnership = (clientId: string, videoUrl: string, videoP
 
   try {
     const decodedPathname = decodeURIComponent(new URL(videoUrl).pathname);
-    const expectedPath = `/storage/v1/object/public/car-social-videos/${videoPath}`;
-    if (!decodedPathname.endsWith(expectedPath)) {
+    const expectedSuffix = `car-social-videos/${videoPath}`;
+    if (!decodedPathname.endsWith(expectedSuffix)) {
       throw new Error('La URL pública no coincide con el archivo validado del cliente.');
     }
   } catch (err: any) {
@@ -2966,6 +2966,153 @@ async function handleSocialPublishDue(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok: true, processed: processed.length, jobs: processed });
 }
 
+async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
+
+  const authHeader = req.headers.authorization || '';
+  const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
+
+  const body = parseRequestBody(req.body);
+  const clientId = String(body.clientId || '');
+  const frames = Array.isArray(body.frames) ? body.frames.filter(Boolean) : [];
+
+  if (!clientId || clientId === 'default') return res.status(400).json({ error: 'clientId requerido' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    await assertClientAccess(supabase, accessToken, clientId);
+  } catch (err: any) {
+    return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+  }
+
+  // 1. Fetch client details from database
+  const { data: client, error } = await supabase
+    .from('car_clients')
+    .select('business_name, business_description, custom_instructions, scraped_content, website_url')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (error || !client) return res.status(404).json({ error: error?.message || 'Cliente no encontrado' });
+
+  // 2. Fetch client links
+  let linksStr = '';
+  try {
+    const { data: links } = await supabase.from('car_links').select('title, url').eq('client_id', clientId);
+    if (links && links.length > 0) {
+      linksStr = '\nEnlaces importantes que podés mencionar o incluir:\n' + links.map(l => `- ${l.title}: ${l.url}`).join('\n');
+    }
+  } catch {}
+
+  // 3. Prepare AI variables
+  const geminiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || '';
+  if (!geminiKey) {
+    return res.status(503).json({ error: 'Servicio de IA no configurado en el servidor (falta GEMINI_API_KEY).' });
+  }
+
+  // Parse custom instructions
+  let toneInstructions = '', offersContext = '', faqContext = '';
+  try {
+    const ci = JSON.parse(client.custom_instructions || '{}');
+    toneInstructions = ci.tone || '';
+    offersContext = ci.offers || '';
+    faqContext = ci.faq || '';
+  } catch {
+    toneInstructions = client.custom_instructions || '';
+  }
+
+  // 4. Formulate System & User Prompt
+  const systemPrompt = `Sos un experto en marketing digital, copywriting y redes sociales. Tu tarea es analizar el creativo (imágenes/fotogramas de video) de un negocio y redactar un excelente pie de página ('caption' o 'copy') para publicar en redes sociales (Instagram, Facebook, TikTok o YouTube Shorts).`;
+
+  const userPrompt = `Escribí un copy enganchador, persuasivo y nativo de redes sociales para un creativo.
+
+Información del negocio:
+- Nombre: ${client.business_name || 'Mi Negocio'}
+- Descripción: ${client.business_description || '—'}
+- Instrucciones de Tono/Estilo: ${toneInstructions || '—'}
+- Ofertas vigentes: ${offersContext || '—'}
+- Preguntas Frecuentes/Información Adicional: ${faqContext || '—'}
+- Sitio web: ${client.website_url || '—'}
+${linksStr}
+
+Instrucciones de redacción:
+1. El tono debe ser natural, dinámico y adaptado a las instrucciones de tono del negocio.
+2. Usar saltos de línea para que sea fácil de leer.
+3. Usar emojis con moderación para destacar puntos clave.
+4. Incluir llamados a la acción (CTA) claros dirigidos a visitar la tienda, consultar por mensaje o entrar al enlace.
+5. Colocar al final una sección de hashtags relevantes (entre 5 y 10).
+6. Si recibiste imágenes/fotogramas del video, describí lo que ves e integralo en el copy para que sea sumamente relevante a lo visual.
+7. Devolvé únicamente el texto del copy redactado, sin ningún comentario tuyo, ni comillas iniciales/finales, ni markdown adicional.`;
+
+  // Build Gemini parts
+  const parts: any[] = [{ text: userPrompt }];
+
+  // Add frames if provided
+  frames.forEach((frameB64: string) => {
+    // Strip header prefix if present (e.g. data:image/jpeg;base64,)
+    let mimeType = 'image/jpeg';
+    let rawData = frameB64;
+    if (frameB64.startsWith('data:')) {
+      const match = frameB64.match(/^data:([^;]+);base64,(.*)$/);
+      if (match) {
+        mimeType = match[1];
+        rawData = match[2];
+      }
+    }
+    parts.push({
+      inlineData: {
+        mimeType,
+        data: rawData
+      }
+    });
+  });
+
+  const geminiBody = {
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: 'user', parts }],
+    generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+  };
+
+  const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+  let caption = '';
+
+  for (const model of models) {
+    try {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(geminiBody)
+        }
+      );
+
+      if (geminiRes.ok) {
+        const geminiData = await geminiRes.json() as any;
+        const responseParts = geminiData.candidates?.[0]?.content?.parts || [];
+        caption = responseParts.find((p: any) => p.text)?.text || '';
+        if (caption) break;
+      } else {
+        const errText = await geminiRes.text();
+        console.error(`[social-draft-caption] Gemini error with model ${model}:`, errText);
+      }
+    } catch (e) {
+      console.error(`[social-draft-caption] Gemini exception with model ${model}:`, e);
+    }
+  }
+
+  if (!caption) {
+    return res.status(502).json({ error: 'No se pudo generar el caption usando la IA.' });
+  }
+
+  // Clean caption
+  caption = caption.trim().replace(/^["']|["']$/g, '');
+
+  return res.status(200).json({ caption });
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -2977,6 +3124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (action === 'social-publish') return handleSocialPublish(req, res);
   if (action === 'social-publish-due') return handleSocialPublishDue(req, res);
+  if (action === 'social-draft-caption') return handleSocialDraftCaption(req, res);
   if (action === 'whatsapp-test') return handleWhatsappTest(req, res);
   if (action.startsWith('costs-')) return handleCosts(req, res);
   if (action === 'brain-save') return handleBrainSave(req, res);
