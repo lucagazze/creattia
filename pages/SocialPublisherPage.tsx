@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle, CalendarDays, CheckCircle2, Clock3, Facebook, Instagram,
-  Loader2, Send, Sparkles, UploadCloud, Youtube, Zap
+  Loader2, Send, Sparkles, UploadCloud, Youtube, Zap,
+  X, ShoppingBag, BookOpen, Award, Tag, ChevronDown, Check, HelpCircle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -119,6 +120,14 @@ export default function SocialPublisherPage() {
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [creativeDescription, setCreativeDescription] = useState('');
 
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [productMode, setProductMode] = useState<'single' | 'multiple' | 'none'>('none');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [postGoal, setPostGoal] = useState<'promo' | 'sales' | 'viral' | 'edu' | 'interactive'>('viral');
+  const [postTone, setPostTone] = useState<'default' | 'casual' | 'energetic' | 'professional' | 'direct' | 'storytelling'>('default');
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+
   const handleGenerateAiCaption = async () => {
     if (!activeClientId) {
       showToast('Seleccioná un cliente primero.', 'warning');
@@ -128,6 +137,8 @@ export default function SocialPublisherPage() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token || '';
+
+      const selectedProduct = productMode === 'single' ? catalog.find((p: any) => (p.id || p.title) === selectedProductId) : null;
       
       const res = await fetch('/api/oauth?action=social-draft-caption', {
         method: 'POST',
@@ -137,13 +148,18 @@ export default function SocialPublisherPage() {
         },
         body: JSON.stringify({
           clientId: activeClientId,
-          creativeDescription
+          creativeDescription,
+          postGoal,
+          postTone,
+          productMode,
+          selectedProduct
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo generar el pie de foto.');
       if (data.caption) {
         setCaption(data.caption);
+        setIsAiModalOpen(false);
         showToast('Pie de foto generado con IA ✓', 'success');
       } else {
         throw new Error('La IA devolvió un pie de foto vacío.');
@@ -170,6 +186,36 @@ export default function SocialPublisherPage() {
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
+
+    setCatalog([]);
+    setSelectedProductId('');
+    setProductMode('none');
+    setPostGoal('viral');
+    setPostTone('default');
+
+    if (activeClientId) {
+      setLoadingCatalog(true);
+      supabase
+        .from('car_clients')
+        .select('products_catalog')
+        .eq('id', activeClientId)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (!error && data?.products_catalog) {
+            try {
+              const parsed = typeof data.products_catalog === 'string'
+                ? JSON.parse(data.products_catalog)
+                : data.products_catalog;
+              if (Array.isArray(parsed)) {
+                setCatalog(parsed);
+              }
+            } catch (e) {
+              console.error('Error parsing products_catalog:', e);
+            }
+          }
+          setLoadingCatalog(false);
+        });
+    }
   }, [activeClientId]);
 
   const buildChannelConfigs = (source: any): ChannelConfig[] => {
@@ -592,36 +638,22 @@ export default function SocialPublisherPage() {
               </label>
 
               <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
-                <div className="mb-3.5">
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">¿De qué trata tu creativo / video?</label>
-                  <textarea
-                    value={creativeDescription}
-                    onChange={(e) => setCreativeDescription(e.target.value)}
-                    placeholder="Ej: Un video mostrando los pasos para aplicar la mascarilla de noche y el brillo hidratado de la piel al despertar..."
-                    className="w-full min-h-[64px] max-h-[120px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 py-2 text-[12.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-450 outline-none focus:ring-2 focus:ring-violet-500/30"
-                  />
-                </div>
-
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
                     <button
                       type="button"
-                      onClick={handleGenerateAiCaption}
-                      disabled={generatingCaption}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-violet-100 hover:bg-violet-200 dark:bg-violet-500/10 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50"
+                      onClick={() => {
+                        if (!activeClientId) {
+                          showToast('Seleccioná un cliente primero.', 'warning');
+                          return;
+                        }
+                        setIsAiModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-violet-100 hover:bg-violet-200 dark:bg-violet-500/10 dark:hover:bg-violet-500/20 text-violet-700 dark:text-violet-300 text-[10px] font-black uppercase tracking-wider transition-all"
                     >
-                      {generatingCaption ? (
-                        <>
-                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                          <span>Generando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-2.5 h-2.5" />
-                          <span>Generar con IA</span>
-                        </>
-                      )}
+                      <Sparkles className="w-2.5 h-2.5" />
+                      <span>Generar con IA</span>
                     </button>
                   </div>
                   <span className="text-[10.5px] font-bold text-zinc-400">{captionLength}</span>
@@ -932,6 +964,214 @@ export default function SocialPublisherPage() {
               >
                 {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 {publishMode === 'scheduled' ? 'Confirmar programación' : 'Confirmar publicación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAiModalOpen && (
+        <div className="fixed inset-0 z-[80] bg-zinc-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-[620px] rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-violet-600/10 text-violet-600 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-[18px] font-black text-zinc-950 dark:text-white leading-none">Asistente de Copys con IA</h3>
+                  <p className="mt-1.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                    Definí el enfoque para redactar un pie de foto optimizado.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(false)}
+                className="w-8 h-8 rounded-lg border border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 flex items-center justify-center transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5 overflow-y-auto flex-1 text-left">
+              {/* 1. PRODUCT MODE SELECTION */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  ¿De qué trata el post?
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { id: 'none', label: 'General / Negocio', icon: HelpCircle, desc: 'Usa la descripción general de tu negocio.' },
+                    { id: 'single', label: 'Un Producto', icon: ShoppingBag, desc: 'Menciona y enlaza a un producto específico.' },
+                    { id: 'multiple', label: 'Varios Productos', icon: Tag, desc: 'Muestra múltiples productos del catálogo.' }
+                  ].map(opt => {
+                    const Icon = opt.icon;
+                    const active = productMode === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setProductMode(opt.id as any);
+                          if (opt.id !== 'single') setSelectedProductId('');
+                        }}
+                        className={`p-3 rounded-xl border text-left flex flex-col gap-2 transition-all active:scale-[0.99] ${
+                          active
+                            ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10 shadow-sm shadow-violet-500/5'
+                            : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/20 hover:bg-zinc-50 dark:hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${active ? 'bg-violet-500 text-white' : 'bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400'}`}>
+                          <Icon className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <p className={`text-[12px] font-black ${active ? 'text-violet-600 dark:text-violet-300' : 'text-zinc-800 dark:text-zinc-200'}`}>{opt.label}</p>
+                          <p className="mt-0.5 text-[9.5px] font-semibold leading-tight text-zinc-400 dark:text-zinc-500">{opt.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {productMode === 'single' && (
+                  <div className="mt-3 space-y-1.5 animate-in slide-in-from-top-2 duration-150">
+                    <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400">
+                      Seleccionar producto del catálogo
+                    </label>
+                    <div className="relative">
+                      {loadingCatalog ? (
+                        <div className="h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/40 px-3 text-[12px] text-zinc-400 flex items-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Cargando catálogo...</span>
+                        </div>
+                      ) : catalog.length === 0 ? (
+                        <div className="h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-950/40 px-3 text-[12px] text-zinc-400 flex items-center">
+                          El cliente no tiene productos cargados en su catálogo.
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedProductId}
+                          onChange={(e) => setSelectedProductId(e.target.value)}
+                          className="w-full h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 pr-8 text-[12.5px] font-bold text-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
+                        >
+                          <option value="">-- Elegir producto --</option>
+                          {catalog.map((p: any) => (
+                            <option key={p.id || p.title} value={p.id || p.title}>
+                              {p.title} {p.price ? `(${p.price})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {!loadingCatalog && catalog.length > 0 && (
+                        <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-3 pointer-events-none" />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. POST GOAL */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Objetivo de la publicación
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { id: 'viral', label: 'Viral / Interacción', icon: Sparkles, desc: 'Enganchar rápido, viralizar y compartir.' },
+                    { id: 'sales', label: 'Venta Directa', icon: ShoppingBag, desc: 'Llamado a la acción directo de compra.' },
+                    { id: 'edu', label: 'Educativo / Valor', icon: BookOpen, desc: 'Tutoriales, tips, beneficios y cómo usar.' },
+                    { id: 'promo', label: 'Promocional', icon: Tag, desc: 'Destacar ofertas, descuentos o ventajas.' },
+                    { id: 'interactive', label: 'Interacción / Sorteo', icon: Award, desc: 'Generar comentarios, sorteos, preguntas.' }
+                  ].map(opt => {
+                    const Icon = opt.icon;
+                    const active = postGoal === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setPostGoal(opt.id as any)}
+                        className={`p-2.5 rounded-xl border text-left flex gap-2.5 items-start transition-all active:scale-[0.99] ${
+                          active
+                            ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10 shadow-sm shadow-violet-500/5'
+                            : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/20 hover:bg-zinc-50 dark:hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${active ? 'bg-violet-500 text-white' : 'bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400'}`}>
+                          <Icon className="w-3.5 h-3.5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className={`text-[12.5px] font-black leading-tight truncate ${active ? 'text-violet-600 dark:text-violet-300' : 'text-zinc-800 dark:text-zinc-200'}`}>{opt.label}</p>
+                          <p className="mt-0.5 text-[9px] font-semibold leading-snug text-zinc-400 dark:text-zinc-500 line-clamp-2">{opt.desc}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. POST TONE */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Tono del Post
+                </label>
+                <div className="relative">
+                  <select
+                    value={postTone}
+                    onChange={(e) => setPostTone(e.target.value as any)}
+                    className="w-full h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 pr-8 text-[12.5px] font-bold text-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
+                  >
+                    <option value="default">Por defecto (usar tono del negocio)</option>
+                    <option value="casual">Casual (cercano, divertido, directo)</option>
+                    <option value="energetic">Enérgico (motivador, entusiasta, persuasivo)</option>
+                    <option value="professional">Profesional (educado, serio, formal)</option>
+                    <option value="direct">Directo al grano (minimalista, limpio)</option>
+                    <option value="storytelling">Storytelling (narrativo, enfocado en anécdota)</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-3 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* 4. CREATIVE DESCRIPTION */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  ¿De qué trata tu creativo / video? (Detalles adicionales)
+                </label>
+                <textarea
+                  value={creativeDescription}
+                  onChange={(e) => setCreativeDescription(e.target.value)}
+                  placeholder="Ej: Un video mostrando los pasos para aplicar la mascarilla de noche y el brillo hidratado de la piel al despertar..."
+                  className="w-full min-h-[76px] max-h-[140px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 py-2 text-[12.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
+                />
+              </div>
+            </div>
+
+            <div className="px-5 py-4 bg-zinc-50 dark:bg-zinc-950/25 border-t border-zinc-100 dark:border-white/10 flex flex-col sm:flex-row gap-2 sm:justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(false)}
+                disabled={generatingCaption}
+                className="h-11 px-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-[13px] font-black text-zinc-600 dark:text-zinc-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateAiCaption}
+                disabled={generatingCaption || (productMode === 'single' && !selectedProductId)}
+                className="h-11 px-5 rounded-xl bg-zinc-950 dark:bg-violet-600 text-white text-[13px] font-black flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {generatingCaption ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Generando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Generar Copy</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

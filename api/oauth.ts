@@ -2978,6 +2978,10 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
   const body = parseRequestBody(req.body);
   const clientId = String(body.clientId || '');
   const creativeDescription = String(body.creativeDescription || '');
+  const postGoal = String(body.postGoal || 'viral');
+  const postTone = String(body.postTone || 'default');
+  const productMode = String(body.productMode || 'none');
+  const selectedProduct = body.selectedProduct as any;
 
   if (!clientId || clientId === 'default') return res.status(400).json({ error: 'clientId requerido' });
 
@@ -3023,31 +3027,76 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
     toneInstructions = client.custom_instructions || '';
   }
 
+  // Build product context
+  let productContext = '';
+  if (productMode === 'single' && selectedProduct) {
+    productContext = `\nEste post promociona un producto específico del catálogo:
+- Producto: ${selectedProduct.title}
+- Precio: ${selectedProduct.price || '—'}
+- Enlace directo de compra: ${selectedProduct.url || '—'}
+(Si mencionás el producto, hacé referencia a sus detalles e incluí su link de compra de manera atractiva en la llamada a la acción).`;
+  } else if (productMode === 'multiple') {
+    productContext = `\nEste post muestra o menciona varios productos del catálogo general. Enfocá el copy en invitar a conocer toda la variedad disponible en la tienda.`;
+  }
+
+  // Build goal instructions
+  let goalInstructions = '';
+  if (postGoal === 'viral') {
+    goalInstructions = `El objetivo es alcance viral y engagement. Creá un gancho inicial sumamente intrépido o polémico en la primera línea. Usá humor, curiosidad o intriga. Invitá al usuario a guardar o compartir el video.`;
+  } else if (postGoal === 'sales') {
+    goalInstructions = `El objetivo es la conversión y venta directa. Destacá el beneficio principal del producto, apelá a la urgencia (ej: "compralo antes de que se agote", "envíos a todo el país") y sumá un CTA directo a comprar.`;
+  } else if (postGoal === 'promo') {
+    goalInstructions = `El objetivo es promocional. Enfocate en destacar ofertas, descuentos vigentes, envíos gratis u oportunidades limitadas de ahorro.`;
+  } else if (postGoal === 'edu') {
+    goalInstructions = `El objetivo es educativo y dar valor. Explicá cómo usar el producto, compartí un tutorial paso a paso o listá 3 beneficios prácticos. Transmití autoridad y conocimiento.`;
+  } else if (postGoal === 'interactive') {
+    goalInstructions = `El objetivo es generar comentarios y respuestas. Concluí con una pregunta abierta sumamente fácil y atractiva para que el usuario comente, o incentiva a participar (ej. comentando una palabra clave).`;
+  }
+
+  // Build tone instructions override
+  let toneOverride = '';
+  if (postTone === 'casual') {
+    toneOverride = `Tono: Casual, cercano, fresco y divertido (como un amigo recomendándole algo a otro).`;
+  } else if (postTone === 'energetic') {
+    toneOverride = `Tono: Muy enérgico, motivador, entusiasta y vendedor.`;
+  } else if (postTone === 'professional') {
+    toneOverride = `Tono: Profesional, educado, claro y corporativo.`;
+  } else if (postTone === 'direct') {
+    toneOverride = `Tono: Directo al grano, limpio, minimalista, sin rodeos.`;
+  } else if (postTone === 'storytelling') {
+    toneOverride = `Tono/Estilo: Storytelling. Comenzá contando una anécdota, un caso o una historia identificable sobre el problema que resuelve el producto.`;
+  } else {
+    toneOverride = `Tono: Basate en las instrucciones de tono predeterminadas de la marca: ${toneInstructions || 'Natural y dinámico'}.`;
+  }
+
   // 4. Formulate System & User Prompt
   const systemPrompt = `Sos un experto en marketing digital, copywriting y redes sociales. Tu tarea es redactar un excelente pie de página ('caption' o 'copy') para publicar en redes sociales (Instagram, Facebook, TikTok o YouTube Shorts) para un negocio.`;
 
   const userPrompt = `Escribí un copy enganchador, persuasivo y nativo de redes sociales para un creativo.
 
 Detalles del creativo / video (lo que muestra el video o de qué trata):
-${creativeDescription ? `- Contenido del creativo: ${creativeDescription}` : '— (No se especificó detalle de video, basate en la descripción general del negocio)'}
+${creativeDescription ? `- Contenido del creativo: ${creativeDescription}` : '— (No se especificó detalle de video, basate en el objetivo)'}
+${productContext}
 
 Información del negocio:
 - Nombre: ${client.business_name || 'Mi Negocio'}
 - Descripción: ${client.business_description || '—'}
-- Instrucciones de Tono/Estilo: ${toneInstructions || '—'}
 - Ofertas vigentes: ${offersContext || '—'}
 - Preguntas Frecuentes/Información Adicional: ${faqContext || '—'}
 - Sitio web: ${client.website_url || '—'}
 ${linksStr}
 
-Instrucciones de redacción:
-1. El tono debe ser natural, dinámico y adaptado a las instrucciones de tono del negocio.
-2. Usar saltos de línea para que sea fácil de leer.
-3. Usar emojis con moderación para destacar puntos clave.
-4. Incluir llamados a la acción (CTA) claros dirigidos a visitar la tienda, consultar por mensaje o entrar al enlace.
-5. Colocar al final una sección de hashtags relevantes (entre 5 y 10).
-6. Si hay descripción del creativo / video, adaptá el copy exactamente para que tenga total sentido con el contenido del video.
-7. Devolvé únicamente el texto del copy redactado, sin ningún comentario tuyo, ni comillas iniciales/finales, ni markdown adicional.`;
+Enfoque de redacción solicitado:
+- Objetivo de la publicación: ${goalInstructions}
+- Tono a emplear: ${toneOverride}
+
+Instrucciones de formato y estilo:
+1. El copy debe sonar totalmente humano, dinámico y adaptado al enfoque solicitado.
+2. Usá saltos de línea para que sea fácil de leer (separando gancho, desarrollo y CTA).
+3. Usá emojis de manera inteligente para destacar puntos clave, sin abusar.
+4. Incluí llamados a la acción (CTA) claros dirigidos a entrar al enlace, enviar mensaje o visitar la tienda.
+5. Colocá al final una sección de hashtags relevantes (entre 5 y 10).
+6. Devolvé únicamente el texto del copy redactado, sin ningún comentario tuyo, ni comillas iniciales/finales, ni markdown adicional.`;
 
   // Build Gemini parts
   const parts: any[] = [{ text: userPrompt }];
