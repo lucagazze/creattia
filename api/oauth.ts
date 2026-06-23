@@ -3102,7 +3102,13 @@ ${selectedProducts.map((p: any) => `- Producto: ${p.title} (${p.price || 'Precio
   } else if (postTone === 'storytelling') {
     toneOverride = `Tono/Estilo: Storytelling. Comenzá contando una anécdota, un caso o una historia identificable sobre el problema que resuelve el producto.`;
   } else {
-    toneOverride = `Tono: Basate en las instrucciones de tono predeterminadas de la marca: ${toneInstructions || 'Natural y dinámico'}.`;
+    let cleanTone = toneInstructions || 'Natural y dinámico';
+    // Remove typical quick/brief chat reply constraints for social caption generation
+    cleanTone = cleanTone
+      .replace(/priorizar respuestas ágiles y breves\.?/gi, '')
+      .replace(/respuestas ágiles y breves\.?/gi, '')
+      .trim();
+    toneOverride = `Tono: Basate en las instrucciones de tono predeterminadas de la marca: ${cleanTone}.`;
   }
 
   // Build Cerebro Context block
@@ -3143,9 +3149,10 @@ Instrucciones de formato y estilo:
 3. Usá emojis de manera inteligente para destacar puntos clave, sin abusar.
 4. Incluí llamados a la acción (CTA) claros dirigidos a entrar al enlace, enviar mensaje o visitar la tienda.
 5. Colocá al final una sección de hashtags relevantes (entre 5 y 10).
-6. Devolvé únicamente el texto del copy redactado, sin ningún comentario tuyo, ni comillas iniciales/finales, ni markdown adicional.`;
+6. Devolvé únicamente el texto del copy redactado, sin ningún comentario tuyo, ni comillas iniciales/finales, ni markdown adicional.
+7. IMPORTANTE: Ignorá cualquier directiva del cerebro de la marca que solicite respuestas cortas, breves o rápidas. Este es un pie de foto (caption) completo y detallado para redes sociales. Debe ser persuasivo, enganchador y extenderse todo lo necesario para cumplir con el gancho, el desarrollo, el llamado a la acción (CTA) y los hashtags.`;
 
-  const completionGuard = `\n\nIMPORTANTE: Devolvé el copy COMPLETO de principio a fin. Bajo ninguna circunstancia dejes el texto cortado, inconcluso o a mitad de una frase. Asegurá que termine con su respectivo CTA y hashtags.`;
+  const completionGuard = `\n\nIMPORTANTE: Devolvé el copy COMPLETO de principio a fin. No importa lo largo que sea, genera todo el texto del pie de foto con su respectivo CTA y hashtags al final sin cortarlo nunca.`;
 
   // Build Gemini parts
   const parts: any[] = [{ text: userPrompt + completionGuard }];
@@ -3162,7 +3169,7 @@ Instrucciones de formato y estilo:
     ]
   };
 
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+  const models = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'];
   let caption = '';
   const attempts: { model: string; error?: string; status?: number }[] = [];
 
@@ -3191,22 +3198,30 @@ Instrucciones de formato y estilo:
             generationConfig: { temperature: 0.5, maxOutputTokens: 1536 }
           };
           
-          const retryRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(retryBody)
+          try {
+            const retryRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(retryBody)
+              }
+            );
+            
+            if (retryRes.ok) {
+              const retryData = await retryRes.json() as any;
+              const retryParts = retryData.candidates?.[0]?.content?.parts || [];
+              const retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
+              if (retryText && !isProbablyTruncated(retryText)) {
+                draftText = retryText;
+              } else {
+                console.warn(`[social-draft-caption] Retry for ${model} returned truncated text again:`, retryText?.slice(-100));
+              }
+            } else {
+              console.error(`[social-draft-caption] Retry error for ${model}:`, await retryRes.text());
             }
-          );
-          
-          if (retryRes.ok) {
-            const retryData = await retryRes.json() as any;
-            const retryParts = retryData.candidates?.[0]?.content?.parts || [];
-            const retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
-            if (retryText && !isProbablyTruncated(retryText)) {
-              draftText = retryText;
-            }
+          } catch (retryErr) {
+            console.error(`[social-draft-caption] Retry exception for ${model}:`, retryErr);
           }
         }
         

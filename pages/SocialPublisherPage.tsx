@@ -1071,7 +1071,7 @@ export default function SocialPublisherPage() {
 
       {isAiModalOpen && (
         <div className="fixed inset-0 z-[80] bg-zinc-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-[620px] rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+          <div className="w-full max-w-[820px] rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#18181b] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
             <div className="px-5 py-4 border-b border-zinc-100 dark:border-white/10 flex items-start justify-between gap-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-violet-600/10 text-violet-600 flex items-center justify-center">

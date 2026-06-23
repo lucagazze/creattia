@@ -22,8 +22,8 @@ const GEMINI_MODELS = [
   process.env.GEMINI_MODEL,
   process.env.GOOGLE_AI_MODEL,
   'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-1.5-flash',
+  'gemini-2.5-pro',
+  'gemini-2.5-flash-lite'
 ].filter(Boolean) as string[];
 
 const isProbablyTruncated = (text: string) => {
