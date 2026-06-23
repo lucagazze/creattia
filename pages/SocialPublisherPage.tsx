@@ -798,7 +798,7 @@ export default function SocialPublisherPage() {
             </div>
 
             {/* Bottom row: Full-width Pie de foto (Wide & tall) */}
-            <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-4">
+            <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
                   <label className="text-[11.5px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
@@ -824,7 +824,9 @@ export default function SocialPublisherPage() {
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 placeholder="Copy, CTA, hashtags y menciones..."
-                className="w-full min-h-[380px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[13.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30 leading-relaxed"
+                rows={24}
+                className="w-full min-h-[550px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[13.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30 leading-relaxed"
+                style={{ minHeight: '550px' }}
               />
             </div>
           </div>
