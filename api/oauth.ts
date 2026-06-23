@@ -3077,6 +3077,7 @@ Instrucciones de redacción:
 
   const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
   let caption = '';
+  const attempts: { model: string; error?: string; status?: number }[] = [];
 
   for (const model of models) {
     try {
@@ -3094,17 +3095,21 @@ Instrucciones de redacción:
         const responseParts = geminiData.candidates?.[0]?.content?.parts || [];
         caption = responseParts.find((p: any) => p.text)?.text || '';
         if (caption) break;
+        attempts.push({ model, error: 'Respuesta de IA vacía o incompleta.' });
       } else {
         const errText = await geminiRes.text();
         console.error(`[social-draft-caption] Gemini error with model ${model}:`, errText);
+        attempts.push({ model, status: geminiRes.status, error: errText.slice(0, 200) });
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(`[social-draft-caption] Gemini exception with model ${model}:`, e);
+      attempts.push({ model, error: e?.message || String(e) });
     }
   }
 
   if (!caption) {
-    return res.status(502).json({ error: 'No se pudo generar el caption usando la IA.' });
+    const detailStr = attempts.map(a => `${a.model}: ${a.status ? `HTTP ${a.status} ` : ''}${a.error || ''}`).join(' | ');
+    return res.status(502).json({ error: `No se pudo generar el caption usando la IA. Detalle: ${detailStr}` });
   }
 
   // Clean caption
