@@ -1179,7 +1179,7 @@ export default function SocialPublisherPage() {
                             >
                               {selectedProductId === 'manual' ? (
                                 <>
-                                  <span className="w-7 h-7 rounded bg-violet-900/40 text-violet-400 flex items-center justify-center shrink-0">✍</span>
+                                  <span className="w-9 h-9 rounded-lg bg-violet-900/40 text-violet-400 flex items-center justify-center shrink-0 text-[15px] font-black">✍</span>
                                   <span className="truncate">✍ Escribir producto manualmente...</span>
                                 </>
                               ) : selectedProductId ? (
@@ -1188,10 +1188,10 @@ export default function SocialPublisherPage() {
                                   return (
                                     <>
                                       {prod?.image ? (
-                                        <img src={prod.image} alt="" className="w-7 h-7 rounded object-cover shrink-0 bg-white" />
+                                        <img src={prod.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0 bg-white" />
                                       ) : (
-                                        <div className="w-7 h-7 rounded bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
-                                          <ShoppingBag className="w-3.5 h-3.5" />
+                                        <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+                                          <ShoppingBag className="w-4 h-4" />
                                         </div>
                                       )}
                                       <div className="truncate flex-1 min-w-0">
@@ -1203,8 +1203,8 @@ export default function SocialPublisherPage() {
                                 })()
                               ) : (
                                 <>
-                                  <div className="w-7 h-7 rounded bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
-                                    <ShoppingBag className="w-3.5 h-3.5" />
+                                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+                                    <ShoppingBag className="w-4 h-4" />
                                   </div>
                                   <span className="text-zinc-400 font-bold">-- Elegir del catálogo --</span>
                                 </>
@@ -1214,7 +1214,7 @@ export default function SocialPublisherPage() {
 
                             {/* Dropdown Panel */}
                             {showProductDropdown && (
-                              <div className="absolute left-0 right-0 mt-1.5 z-50 rounded-xl border border-zinc-200 dark:border-white/10 bg-[#18181b] shadow-2xl p-2 max-h-[300px] flex flex-col animate-in fade-in slide-in-from-top-2 duration-100" style={{ backgroundColor: '#18181b' }}>
+                              <div className="absolute left-0 right-0 mt-1.5 z-50 rounded-xl border border-zinc-200 dark:border-white/10 bg-[#18181b] shadow-2xl p-2 max-h-[480px] flex flex-col animate-in fade-in slide-in-from-top-2 duration-100" style={{ backgroundColor: '#18181b' }}>
                                 {/* Search box */}
                                 <div className="relative mb-2">
                                   <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-2.5" />
@@ -1251,8 +1251,8 @@ export default function SocialPublisherPage() {
                                     }}
                                     className={`w-full p-2 rounded-lg text-left text-[12px] font-bold flex items-center gap-2.5 hover:bg-zinc-900 transition-colors ${!selectedProductId ? 'bg-zinc-900 text-violet-400' : 'text-zinc-300'}`}
                                   >
-                                    <div className="w-7 h-7 rounded bg-zinc-900 flex items-center justify-center shrink-0 border border-dashed border-zinc-700 text-zinc-500">
-                                      <X className="w-3.5 h-3.5" />
+                                    <div className="w-11 h-11 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0 border border-dashed border-zinc-700 text-zinc-500">
+                                      <X className="w-5 h-5" />
                                     </div>
                                     <span>Ninguno / Deseleccionar</span>
                                   </button>
@@ -1266,7 +1266,7 @@ export default function SocialPublisherPage() {
                                     }}
                                     className={`w-full p-2 rounded-lg text-left text-[12px] font-bold flex items-center gap-2.5 hover:bg-zinc-900 transition-colors ${selectedProductId === 'manual' ? 'bg-zinc-900 text-violet-400' : 'text-zinc-300'}`}
                                   >
-                                    <div className="w-7 h-7 rounded bg-zinc-900 flex items-center justify-center shrink-0 border border-dashed border-zinc-700 text-zinc-400 font-bold">
+                                    <div className="w-11 h-11 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0 border border-dashed border-zinc-700 text-zinc-400 text-[18px] font-bold">
                                       ✍
                                     </div>
                                     <span>✍ Escribir producto manualmente...</span>
@@ -1288,15 +1288,15 @@ export default function SocialPublisherPage() {
                                           className={`w-full p-2 rounded-lg text-left text-[12px] font-bold flex items-center gap-2.5 hover:bg-zinc-900 transition-colors ${isSel ? 'bg-zinc-900 text-violet-400' : 'text-zinc-300'}`}
                                         >
                                           {p.image ? (
-                                            <img src={p.image} alt="" className="w-7 h-7 rounded object-cover shrink-0 bg-white" />
+                                            <img src={p.image} alt="" className="w-11 h-11 rounded-lg object-cover shrink-0 bg-white" />
                                           ) : (
-                                            <div className="w-7 h-7 rounded bg-zinc-900 flex items-center justify-center shrink-0 text-zinc-500 border border-zinc-800">
-                                              <ShoppingBag className="w-3.5 h-3.5" />
+                                            <div className="w-11 h-11 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0 text-zinc-500 border border-zinc-800">
+                                              <ShoppingBag className="w-5 h-5" />
                                             </div>
                                           )}
                                           <div className="truncate flex-1 min-w-0">
-                                            <p className="truncate font-black">{p.title}</p>
-                                            {p.price && <p className="text-[10px] text-emerald-400 leading-none mt-0.5">{p.price}</p>}
+                                            <p className="truncate font-black text-[13px]">{p.title}</p>
+                                            {p.price && <p className="text-[11px] text-emerald-400 leading-none mt-1">{p.price}</p>}
                                           </div>
                                           {isSel && <Check className="w-4 h-4 text-violet-400 shrink-0" />}
                                         </button>
@@ -1398,8 +1398,8 @@ export default function SocialPublisherPage() {
                             >
                               {selectedProductIds.length === 0 ? (
                                 <>
-                                  <div className="w-7 h-7 rounded bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
-                                    <ShoppingBag className="w-3.5 h-3.5" />
+                                  <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+                                    <ShoppingBag className="w-4 h-4" />
                                   </div>
                                   <span className="text-zinc-400 font-bold">-- Elegir productos --</span>
                                 </>
@@ -1432,7 +1432,7 @@ export default function SocialPublisherPage() {
 
                             {/* Dropdown Panel */}
                             {showProductDropdown && (
-                              <div className="absolute left-0 right-0 mt-1.5 z-50 rounded-xl border border-zinc-200 dark:border-white/10 bg-[#18181b] shadow-2xl p-2 max-h-[300px] flex flex-col animate-in fade-in slide-in-from-top-2 duration-100" style={{ backgroundColor: '#18181b' }}>
+                              <div className="absolute left-0 right-0 mt-1.5 z-50 rounded-xl border border-zinc-200 dark:border-white/10 bg-[#18181b] shadow-2xl p-2 max-h-[480px] flex flex-col animate-in fade-in slide-in-from-top-2 duration-100" style={{ backgroundColor: '#18181b' }}>
                                 {/* Search box */}
                                 <div className="relative mb-2">
                                   <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-2.5" />
@@ -1476,15 +1476,15 @@ export default function SocialPublisherPage() {
                                           className={`w-full p-2 rounded-lg text-left text-[12px] font-bold flex items-center gap-2.5 hover:bg-zinc-900 transition-colors ${isSel ? 'bg-zinc-900 text-violet-400' : 'text-zinc-300'}`}
                                         >
                                           {p.image ? (
-                                            <img src={p.image} alt="" className="w-7 h-7 rounded object-cover shrink-0 bg-white" />
+                                            <img src={p.image} alt="" className="w-11 h-11 rounded-lg object-cover shrink-0 bg-white" />
                                           ) : (
-                                            <div className="w-7 h-7 rounded bg-zinc-900 flex items-center justify-center shrink-0 text-zinc-500 border border-zinc-800">
-                                              <ShoppingBag className="w-3.5 h-3.5" />
+                                            <div className="w-11 h-11 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0 text-zinc-500 border border-zinc-800">
+                                              <ShoppingBag className="w-5 h-5" />
                                             </div>
                                           )}
                                           <div className="truncate flex-1 min-w-0">
-                                            <p className="truncate font-black">{p.title}</p>
-                                            {p.price && <p className="text-[10px] text-emerald-400 leading-none mt-0.5">{p.price}</p>}
+                                            <p className="truncate font-black text-[13px]">{p.title}</p>
+                                            {p.price && <p className="text-[11px] text-emerald-400 leading-none mt-1">{p.price}</p>}
                                           </div>
                                           {isSel && <Check className="w-4 h-4 text-violet-400 shrink-0" />}
                                         </button>
