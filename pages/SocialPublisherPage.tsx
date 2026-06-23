@@ -117,6 +117,7 @@ export default function SocialPublisherPage() {
   const [confirmation, setConfirmation] = useState<PublishConfirmation | null>(null);
   const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
   const [generatingCaption, setGeneratingCaption] = useState(false);
+  const [creativeDescription, setCreativeDescription] = useState('');
 
   const handleGenerateAiCaption = async () => {
     if (!activeClientId) {
@@ -125,12 +126,6 @@ export default function SocialPublisherPage() {
     }
     setGeneratingCaption(true);
     try {
-      let frames: string[] = [];
-      if (videoFile) {
-        const extracted = await extractFrames(videoFile, 4);
-        frames = extracted.frames;
-      }
-      
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token || '';
       
@@ -142,7 +137,7 @@ export default function SocialPublisherPage() {
         },
         body: JSON.stringify({
           clientId: activeClientId,
-          frames
+          creativeDescription
         })
       });
       const data = await res.json();
@@ -167,6 +162,7 @@ export default function SocialPublisherPage() {
     setVideoFile(null);
     setVideoMeta(null);
     setCaption('');
+    setCreativeDescription('');
     setConfirmation(null);
     setPublishMode('now');
     setScheduledAt('');
@@ -596,6 +592,16 @@ export default function SocialPublisherPage() {
               </label>
 
               <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
+                <div className="mb-3.5">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">¿De qué trata tu creativo / video?</label>
+                  <textarea
+                    value={creativeDescription}
+                    onChange={(e) => setCreativeDescription(e.target.value)}
+                    placeholder="Ej: Un video mostrando los pasos para aplicar la mascarilla de noche y el brillo hidratado de la piel al despertar..."
+                    className="w-full min-h-[64px] max-h-[120px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 py-2 text-[12.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-450 outline-none focus:ring-2 focus:ring-violet-500/30"
+                  />
+                </div>
+
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>

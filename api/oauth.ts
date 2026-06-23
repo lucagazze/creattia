@@ -2977,7 +2977,7 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
 
   const body = parseRequestBody(req.body);
   const clientId = String(body.clientId || '');
-  const frames = Array.isArray(body.frames) ? body.frames.filter(Boolean) : [];
+  const creativeDescription = String(body.creativeDescription || '');
 
   if (!clientId || clientId === 'default') return res.status(400).json({ error: 'clientId requerido' });
 
@@ -3024,9 +3024,12 @@ async function handleSocialDraftCaption(req: VercelRequest, res: VercelResponse)
   }
 
   // 4. Formulate System & User Prompt
-  const systemPrompt = `Sos un experto en marketing digital, copywriting y redes sociales. Tu tarea es analizar el creativo (imágenes/fotogramas de video) de un negocio y redactar un excelente pie de página ('caption' o 'copy') para publicar en redes sociales (Instagram, Facebook, TikTok o YouTube Shorts).`;
+  const systemPrompt = `Sos un experto en marketing digital, copywriting y redes sociales. Tu tarea es redactar un excelente pie de página ('caption' o 'copy') para publicar en redes sociales (Instagram, Facebook, TikTok o YouTube Shorts) para un negocio.`;
 
   const userPrompt = `Escribí un copy enganchador, persuasivo y nativo de redes sociales para un creativo.
+
+Detalles del creativo / video (lo que muestra el video o de qué trata):
+${creativeDescription ? `- Contenido del creativo: ${creativeDescription}` : '— (No se especificó detalle de video, basate en la descripción general del negocio)'}
 
 Información del negocio:
 - Nombre: ${client.business_name || 'Mi Negocio'}
@@ -3043,31 +3046,11 @@ Instrucciones de redacción:
 3. Usar emojis con moderación para destacar puntos clave.
 4. Incluir llamados a la acción (CTA) claros dirigidos a visitar la tienda, consultar por mensaje o entrar al enlace.
 5. Colocar al final una sección de hashtags relevantes (entre 5 y 10).
-6. Si recibiste imágenes/fotogramas del video, describí lo que ves e integralo en el copy para que sea sumamente relevante a lo visual.
+6. Si hay descripción del creativo / video, adaptá el copy exactamente para que tenga total sentido con el contenido del video.
 7. Devolvé únicamente el texto del copy redactado, sin ningún comentario tuyo, ni comillas iniciales/finales, ni markdown adicional.`;
 
   // Build Gemini parts
   const parts: any[] = [{ text: userPrompt }];
-
-  // Add frames if provided
-  frames.forEach((frameB64: string) => {
-    // Strip header prefix if present (e.g. data:image/jpeg;base64,)
-    let mimeType = 'image/jpeg';
-    let rawData = frameB64;
-    if (frameB64.startsWith('data:')) {
-      const match = frameB64.match(/^data:([^;]+);base64,(.*)$/);
-      if (match) {
-        mimeType = match[1];
-        rawData = match[2];
-      }
-    }
-    parts.push({
-      inlineData: {
-        mimeType,
-        data: rawData
-      }
-    });
-  });
 
   const geminiBody = {
     system_instruction: { parts: [{ text: systemPrompt }] },
@@ -3075,7 +3058,7 @@ Instrucciones de redacción:
     generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
   };
 
-  const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
   let caption = '';
   const attempts: { model: string; error?: string; status?: number }[] = [];
 
