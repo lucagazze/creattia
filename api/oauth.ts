@@ -3189,14 +3189,46 @@ Instrucciones de formato y estilo:
     ]
   };
 
-  const models = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'];
   let caption = '';
   const attempts: { model: string; error?: string; status?: number }[] = [];
 
-  for (const model of models) {
+  // Step 1: Quick attempt with gemini-2.5-flash (takes ~1.5 - 2.5s)
+  const model1 = 'gemini-2.5-flash';
+  try {
+    const res1 = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model1}:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiBody)
+      }
+    );
+
+    if (res1.ok) {
+      const data1 = await res1.json() as any;
+      const parts1 = data1.candidates?.[0]?.content?.parts || [];
+      const finishReason1 = data1.candidates?.[0]?.finishReason;
+      let text1 = normalizeDraftText(parts1.map((p: any) => p.text).filter(Boolean).join(''));
+      
+      if (text1 && finishReason1 !== 'MAX_TOKENS' && !isProbablyTruncated(text1)) {
+        caption = text1;
+      } else {
+        if (text1) attempts.push({ model: model1, error: 'Truncado o incompleto en primer intento.' });
+      }
+    } else {
+      attempts.push({ model: model1, status: res1.status, error: 'Fallo HTTP al llamar a Flash.' });
+    }
+  } catch (e: any) {
+    attempts.push({ model: model1, error: e?.message || String(e) });
+  }
+
+  // Step 2: Fallback to smarter gemini-2.5-pro if Flash was truncated/failed (rarely truncates on first try, takes ~3.5s)
+  if (!caption) {
+    const model2 = 'gemini-2.5-pro';
+    console.log(`[social-draft-caption] Quick model truncated or failed. Falling back to smarter model: ${model2}`);
     try {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+      const res2 = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model2}:generateContent?key=${geminiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3204,91 +3236,99 @@ Instrucciones de formato y estilo:
         }
       );
 
-      if (geminiRes.ok) {
-        const geminiData = await geminiRes.json() as any;
-        const responseParts = geminiData.candidates?.[0]?.content?.parts || [];
-        const finishReason = geminiData.candidates?.[0]?.finishReason;
-        let draftText = normalizeDraftText(responseParts.map((p: any) => p.text).filter(Boolean).join(''));
-        
-        if (draftText && (finishReason === 'MAX_TOKENS' || isProbablyTruncated(draftText))) {
-          // Retry 1: Request complete detailed rewrite
+      if (res2.ok) {
+        const data2 = await res2.json() as any;
+        const parts2 = data2.candidates?.[0]?.content?.parts || [];
+        const finishReason2 = data2.candidates?.[0]?.finishReason;
+        let text2 = normalizeDraftText(parts2.map((p: any) => p.text).filter(Boolean).join(''));
+
+        if (text2 && finishReason2 !== 'MAX_TOKENS' && !isProbablyTruncated(text2)) {
+          caption = text2;
+        } else if (text2) {
+          // Retry 2.1: Pro model rewrite for complete copy
+          console.log(`[social-draft-caption] Pro model also truncated. Running Pro completion retry...`);
           const retryBody = {
             ...geminiBody,
-            contents: [{ role: 'user', parts: [{ text: `${userPrompt}${completionGuard}\n\nEl copy anterior quedó incompleto o cortado: "${draftText}". Por favor, reescribí el copy COMPLETO DESDE EL INICIO (volviendo a incluir el gancho inicial, desarrollo, llamados a la acción y hashtags al final). Bajo ninguna circunstancia continúes el texto anterior; debés entregar el pie de foto completo de principio a fin.` }] }],
-            generationConfig: { temperature: 0.5, maxOutputTokens: 2048 }
+            contents: [{ role: 'user', parts: [{ text: `${userPrompt}${completionGuard}\n\nEl copy anterior quedó incompleto o cortado: "${text2}". Por favor, reescribí el copy COMPLETO DESDE EL INICIO (volviendo a incluir el gancho inicial, desarrollo, llamados a la acción y hashtags al final). debés entregar el pie de foto completo de principio a fin.` }] }],
+            generationConfig: { ...geminiBody.generationConfig, temperature: 0.5 }
           };
           
-          let retryText = '';
           try {
-             const retryRes = await fetch(
-               `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-               {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify(retryBody)
-               }
-             );
-             if (retryRes.ok) {
-               const retryData = await retryRes.json() as any;
-               const retryParts = retryData.candidates?.[0]?.content?.parts || [];
-               retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
-               if (retryText) {
-                 if (!isProbablyTruncated(retryText) || retryText.length > draftText.length) {
-                   draftText = retryText;
-                 }
-               }
-             }
+            const retryRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model2}:generateContent?key=${geminiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(retryBody)
+              }
+            );
+            if (retryRes.ok) {
+              const retryData = await retryRes.json() as any;
+              const retryParts = retryData.candidates?.[0]?.content?.parts || [];
+              const retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
+              if (retryText && !isProbablyTruncated(retryText)) {
+                caption = retryText;
+              } else if (retryText) {
+                // Final retry 2.2: Concise fallback
+                console.log(`[social-draft-caption] Pro retry truncated. Running concise fallback...`);
+                const backupBody = {
+                  ...geminiBody,
+                  contents: [{ role: 'user', parts: [{ text: `${userPrompt}\n\nIMPORTANTE: El copy anterior se cortó. Por favor, generá una versión del copy que sea un poco más concisa pero 100% COMPLETA de principio a fin. Asegurá que empiece con el gancho, describa el producto, incluya el llamado a la acción (CTA) y finalice con los hashtags, cerrando la última frase de forma limpia con un punto o emoji.` }] }],
+                  generationConfig: { temperature: 0.4, maxOutputTokens: 1536 }
+                };
+                const backupRes = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/${model2}:generateContent?key=${geminiKey}`,
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(backupBody)
+                  }
+                );
+                if (backupRes.ok) {
+                  const backupData = await backupRes.json() as any;
+                  const backupParts = backupData.candidates?.[0]?.content?.parts || [];
+                  const backupText = normalizeDraftText(backupParts.map((p: any) => p.text).filter(Boolean).join(''));
+                  if (backupText) {
+                    caption = backupText;
+                  }
+                }
+              }
+            }
           } catch (retryErr) {
-             console.error(`[social-draft-caption] Retry 1 exception for ${model}:`, retryErr);
+            console.error(`[social-draft-caption] Pro retry exception:`, retryErr);
           }
-
-          // Retry 2: If still truncated, request a slightly shorter but strictly complete fallback
-          if (isProbablyTruncated(draftText)) {
-             const backupBody = {
-               ...geminiBody,
-               contents: [{ role: 'user', parts: [{ text: `${userPrompt}\n\nIMPORTANTE: El copy anterior se cortó. Por favor, generá una versión del copy que sea un poco más concisa pero 100% COMPLETA de principio a fin. Asegurá que empiece con el gancho, describa el producto, incluya el llamado a la acción (CTA) y finalice con los hashtags, cerrando la última frase de forma limpia con un punto o emoji.` }] }],
-               generationConfig: { temperature: 0.4, maxOutputTokens: 1536 }
-             };
-             try {
-               const backupRes = await fetch(
-                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-                 {
-                   method: 'POST',
-                   headers: { 'Content-Type': 'application/json' },
-                   body: JSON.stringify(backupBody)
-                 }
-               );
-               if (backupRes.ok) {
-                 const backupData = await backupRes.json() as any;
-                 const backupParts = backupData.candidates?.[0]?.content?.parts || [];
-                 const backupText = normalizeDraftText(backupParts.map((p: any) => p.text).filter(Boolean).join(''));
-                 if (backupText) {
-                   if (!isProbablyTruncated(backupText) || backupText.length > draftText.length) {
-                     draftText = backupText;
-                   }
-                 }
-               }
-             } catch (backupErr) {
-               console.error(`[social-draft-caption] Backup retry exception for ${model}:`, backupErr);
-             }
+          
+          if (!caption && text2) {
+            caption = text2; // Last resort fallback
           }
         }
-        
-        if (draftText && !isProbablyTruncated(draftText)) {
-          caption = draftText;
-          break;
-        } else if (draftText) {
-          caption = draftText;
-        }
-        attempts.push({ model, error: 'Respuesta de IA vacía o incompleta.' });
       } else {
-        const errText = await geminiRes.text();
-        console.error(`[social-draft-caption] Gemini error with model ${model}:`, errText);
-        attempts.push({ model, status: geminiRes.status, error: errText.slice(0, 200) });
+        attempts.push({ model: model2, status: res2.status, error: 'Fallo HTTP al llamar a Pro.' });
       }
     } catch (e: any) {
-      console.error(`[social-draft-caption] Gemini exception with model ${model}:`, e);
-      attempts.push({ model, error: e?.message || String(e) });
+      attempts.push({ model: model2, error: e?.message || String(e) });
+    }
+  }
+
+  // Step 3: If everything else failed, use gemini-2.5-flash-lite as final backup
+  if (!caption) {
+    const model3 = 'gemini-2.5-flash-lite';
+    try {
+      const res3 = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model3}:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(geminiBody)
+        }
+      );
+      if (res3.ok) {
+        const data3 = await res3.json() as any;
+        const parts3 = data3.candidates?.[0]?.content?.parts || [];
+        caption = normalizeDraftText(parts3.map((p: any) => p.text).filter(Boolean).join(''));
+      }
+    } catch (e: any) {
+      attempts.push({ model: model3, error: e?.message || String(e) });
     }
   }
 
