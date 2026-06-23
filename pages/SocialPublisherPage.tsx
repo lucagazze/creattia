@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle, CalendarDays, CheckCircle2, Clock3, Facebook, Instagram,
   Loader2, Send, Sparkles, UploadCloud, Youtube, Zap,
-  X, ShoppingBag, BookOpen, Award, Tag, ChevronDown, Check, HelpCircle
+  X, ShoppingBag, BookOpen, Award, Tag, ChevronDown, Check, HelpCircle,
+  Search, RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
@@ -128,10 +129,44 @@ export default function SocialPublisherPage() {
   const [manualProductPrice, setManualProductPrice] = useState('');
   const [manualProductUrl, setManualProductUrl] = useState('');
   const [videoFocus, setVideoFocus] = useState('');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
   const [postGoal, setPostGoal] = useState<'promo' | 'sales' | 'viral' | 'edu' | 'interactive'>('viral');
   const [postTone, setPostTone] = useState<'default' | 'casual' | 'energetic' | 'professional' | 'direct' | 'storytelling'>('default');
   const [catalog, setCatalog] = useState<any[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [syncingCatalog, setSyncingCatalog] = useState(false);
+
+  const handleForceSyncCatalog = async () => {
+    if (!activeClientId) return;
+    setSyncingCatalog(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token || '';
+
+      const r = await fetch('/api/scrape-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ clientId: activeClientId, action: 'sync-catalog' })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Error al sincronizar el catálogo.');
+      
+      if (data.catalog && Array.isArray(data.catalog)) {
+        setCatalog(data.catalog);
+        showToast(`Catálogo sincronizado: ${data.catalog.length} productos.`, 'success');
+      } else {
+        throw new Error('El backend no devolvió ningún catálogo válido.');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Error al sincronizar el catálogo.', 'error');
+    } finally {
+      setSyncingCatalog(false);
+    }
+  };
 
   const handleGenerateAiCaption = async () => {
     if (!activeClientId) {
@@ -206,6 +241,8 @@ export default function SocialPublisherPage() {
     setManualProductPrice('');
     setManualProductUrl('');
     setVideoFocus('');
+    setShowProductDropdown(false);
+    setProductSearchTerm('');
 
     if (activeClientId) {
       setLoadingCatalog(true);
@@ -702,10 +739,10 @@ export default function SocialPublisherPage() {
                     }
                     setIsAiModalOpen(true);
                   }}
-                  className="w-full mb-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-[12.5px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-violet-500/20 hover:shadow-lg hover:shadow-violet-500/30 hover:scale-[1.01] active:scale-[0.99] transition-all"
+                  className="w-full mb-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 hover:from-violet-500 hover:via-fuchsia-500 hover:to-pink-500 text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-violet-500/10 hover:shadow-lg hover:shadow-violet-500/25 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 whitespace-nowrap cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  <span>Generar pie de foto con IA</span>
+                  <Sparkles className="w-4 h-4 text-violet-200" />
+                  <span>Generar con IA</span>
                 </button>
 
                 <textarea
@@ -1087,8 +1124,26 @@ export default function SocialPublisherPage() {
                 {productMode === 'single' && (
                   <div className="mt-3 space-y-3 animate-in slide-in-from-top-2 duration-150">
                     <div className="space-y-1.5">
-                      <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400">
-                        Seleccionar producto del catálogo
+                      <label className="text-[10.5px] font-bold text-zinc-500 dark:text-zinc-400 flex items-center justify-between w-full">
+                        <span>Seleccionar producto del catálogo</span>
+                        <button
+                          type="button"
+                          onClick={handleForceSyncCatalog}
+                          disabled={syncingCatalog || loadingCatalog}
+                          className="text-[10px] text-violet-400 hover:text-violet-300 font-black flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {syncingCatalog ? (
+                            <>
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              <span>Sincronizando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-2.5 h-2.5" />
+                              <span>Sincronizar</span>
+                            </>
+                          )}
+                        </button>
                       </label>
                       <div className="relative">
                         {loadingCatalog ? (
@@ -1097,30 +1152,147 @@ export default function SocialPublisherPage() {
                             <span>Cargando catálogo...</span>
                           </div>
                         ) : (
-                          <select
-                            value={selectedProductId}
-                            onChange={(e) => {
-                              setSelectedProductId(e.target.value);
-                              if (e.target.value !== 'manual') {
-                                setManualProductName('');
-                                setManualProductPrice('');
-                                setManualProductUrl('');
-                              }
-                            }}
-                            className="w-full h-10 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 pr-8 text-[12.5px] font-bold outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
-                            style={{ backgroundColor: '#18181b', color: '#ffffff' }}
-                          >
-                            <option value="" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>-- Elegir del catálogo --</option>
-                            <option value="manual" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>✍ Escribir producto manualmente...</option>
-                            {catalog.map((p: any) => (
-                              <option key={p.id || p.title} value={p.id || p.title} style={{ backgroundColor: '#18181b', color: '#ffffff' }}>
-                                {p.title} {p.price ? `(${p.price})` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        {!loadingCatalog && (
-                          <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-3 pointer-events-none" />
+                          <div className="relative">
+                            {/* Trigger Button */}
+                            <button
+                              type="button"
+                              onClick={() => setShowProductDropdown(!showProductDropdown)}
+                              className="w-full h-12 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-900 text-white px-3 pr-10 text-[12.5px] font-bold flex items-center gap-2.5 outline-none focus:ring-2 focus:ring-violet-500/30 cursor-pointer text-left"
+                              style={{ backgroundColor: '#18181b', color: '#ffffff' }}
+                            >
+                              {selectedProductId === 'manual' ? (
+                                <>
+                                  <span className="w-7 h-7 rounded bg-violet-900/40 text-violet-400 flex items-center justify-center shrink-0">✍</span>
+                                  <span className="truncate">✍ Escribir producto manualmente...</span>
+                                </>
+                              ) : selectedProductId ? (
+                                (() => {
+                                  const prod = catalog.find(p => (p.id || p.title) === selectedProductId);
+                                  return (
+                                    <>
+                                      {prod?.image ? (
+                                        <img src={prod.image} alt="" className="w-7 h-7 rounded object-cover shrink-0 bg-white" />
+                                      ) : (
+                                        <div className="w-7 h-7 rounded bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+                                          <ShoppingBag className="w-3.5 h-3.5" />
+                                        </div>
+                                      )}
+                                      <div className="truncate flex-1 min-w-0">
+                                        <p className="truncate font-black">{prod?.title}</p>
+                                        {prod?.price && <p className="text-[10px] text-emerald-400 leading-none mt-0.5">{prod.price}</p>}
+                                      </div>
+                                    </>
+                                  );
+                                })()
+                              ) : (
+                                <>
+                                  <div className="w-7 h-7 rounded bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-400">
+                                    <ShoppingBag className="w-3.5 h-3.5" />
+                                  </div>
+                                  <span className="text-zinc-400 font-bold">-- Elegir del catálogo --</span>
+                                </>
+                              )}
+                              <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-4 pointer-events-none" />
+                            </button>
+
+                            {/* Dropdown Panel */}
+                            {showProductDropdown && (
+                              <div className="absolute left-0 right-0 mt-1.5 z-50 rounded-xl border border-zinc-200 dark:border-white/10 bg-[#18181b] shadow-2xl p-2 max-h-[300px] flex flex-col animate-in fade-in slide-in-from-top-2 duration-100" style={{ backgroundColor: '#18181b' }}>
+                                {/* Search box */}
+                                <div className="relative mb-2">
+                                  <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-2.5" />
+                                  <input
+                                    type="text"
+                                    placeholder="Buscar producto..."
+                                    value={productSearchTerm}
+                                    onChange={(e) => setProductSearchTerm(e.target.value)}
+                                    className="w-full h-9 pl-9 pr-8 rounded-lg bg-zinc-900 border border-zinc-200 dark:border-white/10 text-white text-[12px] font-semibold outline-none focus:ring-1 focus:ring-violet-500/30"
+                                    style={{ backgroundColor: '#09090b', color: '#ffffff' }}
+                                  />
+                                  {productSearchTerm && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setProductSearchTerm('')}
+                                      className="absolute right-2.5 top-2.5 text-zinc-400 hover:text-white"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Scrollable list */}
+                                <div className="overflow-y-auto flex-1 space-y-1 pr-1 custom-scrollbar">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedProductId('');
+                                      setShowProductDropdown(false);
+                                      setProductSearchTerm('');
+                                      setManualProductName('');
+                                      setManualProductPrice('');
+                                      setManualProductUrl('');
+                                    }}
+                                    className={`w-full p-2 rounded-lg text-left text-[12px] font-bold flex items-center gap-2.5 hover:bg-zinc-900 transition-colors ${!selectedProductId ? 'bg-zinc-900 text-violet-400' : 'text-zinc-300'}`}
+                                  >
+                                    <div className="w-7 h-7 rounded bg-zinc-900 flex items-center justify-center shrink-0 border border-dashed border-zinc-700 text-zinc-500">
+                                      <X className="w-3.5 h-3.5" />
+                                    </div>
+                                    <span>Ninguno / Deseleccionar</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedProductId('manual');
+                                      setShowProductDropdown(false);
+                                      setProductSearchTerm('');
+                                    }}
+                                    className={`w-full p-2 rounded-lg text-left text-[12px] font-bold flex items-center gap-2.5 hover:bg-zinc-900 transition-colors ${selectedProductId === 'manual' ? 'bg-zinc-900 text-violet-400' : 'text-zinc-300'}`}
+                                  >
+                                    <div className="w-7 h-7 rounded bg-zinc-900 flex items-center justify-center shrink-0 border border-dashed border-zinc-700 text-zinc-400 font-bold">
+                                      ✍
+                                    </div>
+                                    <span>✍ Escribir producto manualmente...</span>
+                                  </button>
+
+                                  {catalog
+                                    .filter(p => !productSearchTerm || p.title.toLowerCase().includes(productSearchTerm.toLowerCase()))
+                                    .map((p) => {
+                                      const isSel = selectedProductId === (p.id || p.title);
+                                      return (
+                                        <button
+                                          key={p.id || p.title}
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedProductId(p.id || p.title);
+                                            setShowProductDropdown(false);
+                                            setProductSearchTerm('');
+                                          }}
+                                          className={`w-full p-2 rounded-lg text-left text-[12px] font-bold flex items-center gap-2.5 hover:bg-zinc-900 transition-colors ${isSel ? 'bg-zinc-900 text-violet-400' : 'text-zinc-300'}`}
+                                        >
+                                          {p.image ? (
+                                            <img src={p.image} alt="" className="w-7 h-7 rounded object-cover shrink-0 bg-white" />
+                                          ) : (
+                                            <div className="w-7 h-7 rounded bg-zinc-900 flex items-center justify-center shrink-0 text-zinc-500 border border-zinc-800">
+                                              <ShoppingBag className="w-3.5 h-3.5" />
+                                            </div>
+                                          )}
+                                          <div className="truncate flex-1 min-w-0">
+                                            <p className="truncate font-black">{p.title}</p>
+                                            {p.price && <p className="text-[10px] text-emerald-400 leading-none mt-0.5">{p.price}</p>}
+                                          </div>
+                                          {isSel && <Check className="w-4 h-4 text-violet-400 shrink-0" />}
+                                        </button>
+                                      );
+                                    })}
+
+                                  {catalog.filter(p => !productSearchTerm || p.title.toLowerCase().includes(productSearchTerm.toLowerCase())).length === 0 && productSearchTerm && (
+                                    <p className="text-[11px] text-zinc-500 text-center py-4">No se encontraron productos.</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

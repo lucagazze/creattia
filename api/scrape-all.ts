@@ -1515,7 +1515,7 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
             const priceNum = priceRaw.replace(/[^0-9.]/g, '');
             const currency = priceRaw.replace(/[0-9. ]/g, '').trim();
             const priceStr = priceNum ? `${currency || '$'}${parseFloat(priceNum).toFixed(2)}` : 'Consultar';
-            return { id: p.id || p.retailer_id || '', title: p.name || '', handle: '', type: p.product_type || '', tags: '', price: priceStr, variants: [], source: 'meta', url: p.url || '' };
+            return { id: p.id || p.retailer_id || '', title: p.name || '', handle: '', type: p.product_type || '', tags: '', price: priceStr, variants: [], source: 'meta', url: p.url || '', image: p.image_url || null };
           });
           source = `Meta Catalog: ${best.name} (${catalog.length} productos)`;
         }
@@ -1526,7 +1526,7 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
       try {
         const domain = cl.shopify_domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
         let allP: any[] = [];
-        let pageUrl: string | null = `https://${domain}/admin/api/2026-01/products.json?limit=250&fields=id,title,handle,status,variants,product_type,tags`;
+        let pageUrl: string | null = `https://${domain}/admin/api/2026-01/products.json?limit=250&fields=id,title,handle,status,variants,product_type,tags,images`;
         while (pageUrl) {
           const sRes: Response = await fetch(pageUrl, { headers: { 'X-Shopify-Access-Token': cl.shopify_access_token, 'Accept': 'application/json' } });
           if (!sRes.ok) break;
@@ -1540,7 +1540,7 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
           const vs = p.variants || [];
           const prices = [...new Set(vs.map((v: any) => v.price).filter(Boolean))];
           const priceStr = prices.length === 1 ? `$${prices[0]}` : prices.length > 1 ? `$${Math.min(...prices.map(Number))}-$${Math.max(...prices.map(Number))}` : 'Consultar';
-          return { id: p.id, title: p.title, handle: p.handle, type: p.product_type || '', tags: p.tags || '', price: priceStr, variants: vs.map((v: any) => v.title).filter((t: string) => t && t !== 'Default Title'), source: 'shopify', url: '' };
+          return { id: p.id, title: p.title, handle: p.handle, type: p.product_type || '', tags: p.tags || '', price: priceStr, variants: vs.map((v: any) => v.title).filter((t: string) => t && t !== 'Default Title'), source: 'shopify', url: '', image: p.images?.[0]?.src || null };
         });
         source = `Shopify (${catalog.length} productos activos)`;
       } catch (e) { console.error('[sync-catalog] Shopify failed:', e); }
@@ -1570,7 +1570,8 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
             price: wp.price || wp.regular_price ? `$${wp.price || wp.regular_price}` : 'Consultar',
             variants: [],
             source: 'woocommerce',
-            url: wp.permalink || ''
+            url: wp.permalink || '',
+            image: wp.images?.[0]?.src || null
           };
         });
         source = `WooCommerce (${catalog.length} productos publicados)`;
@@ -1599,7 +1600,8 @@ RESPONDÉ SOLO CON JSON VALIDO. Sin markdown, sin texto fuera del JSON.`;
             price: p.variants?.[0]?.price ? `$${p.variants[0].price}` : 'Consultar',
             variants: (p.variants || []).map((v: any) => v.values?.map((val: any) => val.es || val.en).join(' / ') || '').filter(Boolean),
             source: 'tiendanube',
-            url: p.canonical_url || ''
+            url: p.canonical_url || '',
+            image: p.images?.[0]?.src || null
           };
         });
         source = `Tiendanube (${catalog.length} productos)`;
