@@ -704,8 +704,10 @@ export default function SocialPublisherPage() {
             </span>
           </div>
 
-          <div className="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)] gap-4">
-            <div className="space-y-3">
+          <div className="p-3 sm:p-4 space-y-4">
+            {/* Top row: Video + Canales + Button */}
+            <div className="grid grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)] gap-4">
+              {/* Left Column: Video */}
               <label className="group relative h-[240px] sm:h-[270px] lg:h-[300px] rounded-2xl border border-dashed border-zinc-300 dark:border-white/15 bg-zinc-50 dark:bg-zinc-950/25 overflow-hidden flex items-center justify-center cursor-pointer">
                 <input
                   type="file"
@@ -731,12 +733,77 @@ export default function SocialPublisherPage() {
                 )}
               </label>
 
-              <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
-                  <span className="text-[10.5px] font-bold text-zinc-400">{captionLength}</span>
+              {/* Right Column: Canales + Button */}
+              <div className="min-w-0 flex flex-col gap-3 justify-between">
+                <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Canales</p>
+                      <p className="text-[11px] font-semibold text-zinc-400">{selectedConnected.length} seleccionados de {connectedCount} disponibles</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 2xl:grid-cols-2 gap-2.5">
+                    {channels.map((channel) => {
+                      const selected = selectedChannels.includes(channel.id);
+                      return (
+                        <button
+                          key={channel.id}
+                          onClick={() => toggleChannel(channel.id)}
+                          className={`min-h-[64px] text-left rounded-xl border p-2.5 transition-all active:scale-[0.99] ${
+                            selected
+                              ? 'border-violet-500 bg-white dark:bg-violet-500/10 shadow-sm shadow-violet-500/10'
+                              : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/25 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
+                          } ${!channel.connected ? 'opacity-55' : ''}`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${channel.color} text-white flex items-center justify-center shrink-0`}>
+                              {channel.icon}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-black text-zinc-950 dark:text-white truncate">{channel.label}</p>
+                              <p className="mt-0.5 text-[10.5px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400 truncate">{channel.detail}</p>
+                            </div>
+                            {channel.connected ? (
+                              selected ? <CheckCircle2 className="w-5 h-5 text-violet-500 shrink-0" /> : <span className="block w-5 h-5 rounded-full border border-zinc-300 dark:border-white/20 shrink-0" />
+                            ) : (
+                              <AlertCircle className="w-5 h-5 text-zinc-400 shrink-0" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={handlePublish}
+                    disabled={publishing || checkingPublish}
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-[13px] font-black flex items-center justify-center gap-2 shadow-md shadow-violet-500/10 hover:shadow-lg hover:shadow-violet-500/20 active:scale-[0.99] transition-all disabled:opacity-60 cursor-pointer"
+                  >
+                    {publishing || checkingPublish ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    <span>
+                      {publishing
+                        ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...')
+                        : checkingPublish
+                          ? 'Verificando cuentas...'
+                          : (publishMode === 'scheduled' ? 'Revisar y programar' : 'Revisar y publicar')}
+                    </span>
+                  </button>
+                  <p className="text-center text-[10.5px] font-semibold text-zinc-400 dark:text-zinc-500 truncate">
+                    {selectedChannelLabels.length ? `Se enviará a ${selectedChannelLabels.join(', ')}` : 'Elegí canales conectados para publicar'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom row: Full-width Pie de foto (Wide & tall) */}
+            <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-[11.5px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Pie de foto</label>
+                  <span className="text-[11px] font-bold text-zinc-450">({captionLength} caracteres)</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -746,81 +813,19 @@ export default function SocialPublisherPage() {
                     }
                     setIsAiModalOpen(true);
                   }}
-                  className="w-full mb-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 hover:from-violet-500 hover:via-fuchsia-500 hover:to-pink-500 text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-violet-500/10 hover:shadow-lg hover:shadow-violet-500/25 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 whitespace-nowrap cursor-pointer"
+                  className="py-1.5 px-3.5 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 hover:from-violet-500 hover:via-fuchsia-500 hover:to-pink-500 text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-violet-500/10 hover:shadow-lg hover:shadow-violet-500/25 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 whitespace-nowrap cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4 text-violet-200" />
                   <span>Generar con IA</span>
                 </button>
-
-                <textarea
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder="Copy, CTA, hashtags y menciones..."
-                  className="w-full min-h-[118px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-3 py-2.5 text-[13px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30"
-                />
-              </div>
-            </div>
-
-            <div className="min-w-0 flex flex-col gap-3">
-              <div className="rounded-2xl border border-zinc-200/80 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/20 p-3">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Canales</p>
-                    <p className="text-[11px] font-semibold text-zinc-400">{selectedConnected.length} seleccionados de {connectedCount} disponibles</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-2.5">
-                  {channels.map((channel) => {
-                    const selected = selectedChannels.includes(channel.id);
-                    return (
-                      <button
-                        key={channel.id}
-                        onClick={() => toggleChannel(channel.id)}
-                        className={`min-h-[64px] text-left rounded-xl border p-2.5 transition-all active:scale-[0.99] ${
-                          selected
-                            ? 'border-violet-500 bg-white dark:bg-violet-500/10 shadow-sm shadow-violet-500/10'
-                            : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/25 hover:bg-zinc-100 dark:hover:bg-white/[0.04]'
-                        } ${!channel.connected ? 'opacity-55' : ''}`}
-                      >
-                        <div className="flex items-start gap-2.5">
-                          <span className={`w-8 h-8 rounded-xl bg-gradient-to-br ${channel.color} text-white flex items-center justify-center shrink-0`}>
-                            {channel.icon}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[13px] font-black text-zinc-950 dark:text-white truncate">{channel.label}</p>
-                            <p className="mt-0.5 text-[10.5px] font-semibold leading-snug text-zinc-500 dark:text-zinc-400 truncate">{channel.detail}</p>
-                          </div>
-                          {channel.connected ? (
-                            selected ? <CheckCircle2 className="w-5 h-5 text-violet-500 shrink-0" /> : <span className="block w-5 h-5 rounded-full border border-zinc-300 dark:border-white/20 shrink-0" />
-                          ) : (
-                            <AlertCircle className="w-5 h-5 text-zinc-400 shrink-0" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
-              <div className="mt-auto rounded-2xl bg-zinc-950 dark:bg-violet-600 p-1.5 shadow-lg shadow-zinc-900/10 dark:shadow-violet-600/20">
-                <button
-                  onClick={handlePublish}
-                  disabled={publishing || checkingPublish}
-                  className="w-full min-h-[46px] rounded-xl bg-white/0 hover:bg-white/10 disabled:opacity-60 text-white text-[13px] sm:text-[14px] font-black flex items-center justify-center gap-2 transition-all"
-                >
-                  {publishing || checkingPublish ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  <span>
-                    {publishing
-                      ? (publishMode === 'scheduled' ? 'Programando...' : 'Publicando...')
-                      : checkingPublish
-                        ? 'Verificando cuentas...'
-                        : (publishMode === 'scheduled' ? 'Revisar y programar' : 'Revisar y publicar')}
-                  </span>
-                </button>
-                <p className="px-3 pb-2 text-center text-[10.5px] font-bold text-white/70 truncate">
-                  {selectedChannelLabels.length ? `Se enviará a ${selectedChannelLabels.join(', ')}` : 'Elegí canales conectados para publicar'}
-                </p>
-              </div>
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Copy, CTA, hashtags y menciones..."
+                className="w-full min-h-[160px] resize-y rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950/40 px-4 py-3 text-[13.5px] font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-violet-500/30 leading-relaxed"
+              />
             </div>
           </div>
         </section>
