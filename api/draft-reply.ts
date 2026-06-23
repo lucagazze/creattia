@@ -587,7 +587,7 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
             const geminiData = await geminiRes.json() as any;
             const parts = geminiData.candidates?.[0]?.content?.parts || [];
             const finishReason = geminiData.candidates?.[0]?.finishReason;
-            draftText = normalizeDraftText(parts.find((p: any) => p.text)?.text || '');
+            draftText = normalizeDraftText(parts.map((p: any) => p.text).filter(Boolean).join(''));
             if (draftText && (finishReason === 'MAX_TOKENS' || isProbablyTruncated(draftText))) {
               const retryBody = {
                 ...geminiBody,
@@ -600,8 +600,8 @@ FORMATO: Solo el texto listo para enviar. Sin comillas, sin "Borrador:", sin mar
               );
               if (retryRes.ok) {
                 const retryData = await retryRes.json() as any;
-                const retryParts = retryData.candidates?.[0]?.content?.parts || [];
-                const retryText = normalizeDraftText(retryParts.find((p: any) => p.text)?.text || '');
+                 const retryParts = retryData.candidates?.[0]?.content?.parts || [];
+                 const retryText = normalizeDraftText(retryParts.map((p: any) => p.text).filter(Boolean).join(''));
                 if (retryText && !isProbablyTruncated(retryText)) draftText = retryText;
               }
             }

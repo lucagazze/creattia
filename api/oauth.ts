@@ -3145,7 +3145,7 @@ Instrucciones de formato y estilo:
       if (geminiRes.ok) {
         const geminiData = await geminiRes.json() as any;
         const responseParts = geminiData.candidates?.[0]?.content?.parts || [];
-        caption = responseParts.find((p: any) => p.text)?.text || '';
+        caption = responseParts.map((p: any) => p.text).filter(Boolean).join('');
         if (caption) break;
         attempts.push({ model, error: 'Respuesta de IA vacía o incompleta.' });
       } else {
