@@ -55,14 +55,12 @@ class RouteErrorBoundary extends React.Component<{ children: React.ReactNode }, 
     return this.props.children;
   }
 }
-import { Menu, Sun, Moon, AlertCircle, Globe, Check, Loader2 } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import { AIChatFloat } from '../AIChatFloat';
 import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
-import { AppleLoader } from '../ui/AppleLoader';
-import { TopLoadingBar } from '../ui/TopLoadingBar';
 import { CenteredPageLoader } from '../ui/CenteredPageLoader';
 import { useUnread } from '../../contexts/UnreadContext';
 import { useToast } from '../Toast';
