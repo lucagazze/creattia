@@ -2333,7 +2333,7 @@ export default function DashboardPage() {
                         trend={currentNetRevenue >= prevNetRevenue ? "up" : "down"}
                         data={netRevenueDaily}
                         color={PINK}
-                        loading={fetchingStore || fetchingMeta}
+                        loading={fetchingStore}
                         active={expandedMetric === "s-net-revenue"}
                         onClick={() => setExpandedMetric(expandedMetric === "s-net-revenue" ? null : "s-net-revenue")}
                         info="Facturación neta descuenta de la facturación bruta costos unitarios de productos, caja/embalaje, costos adicionales, comisiones de plataforma, comisiones de pago, envíos configurados y pauta del período."
@@ -2346,7 +2346,7 @@ export default function DashboardPage() {
                         trend={realRoas >= prevRealRoas ? "up" : "down"}
                         data={realRoasDaily}
                         color={PINK}
-                        loading={fetchingStore || fetchingMeta}
+                        loading={fetchingStore}
                         active={expandedMetric === "s-real-roas"}
                         onClick={() => setExpandedMetric(expandedMetric === "s-real-roas" ? null : "s-real-roas")}
                         info="ROAS real usa la facturación neta estimada dividida por la inversión publicitaria. Incluye costos de productos, caja/embalaje, costos adicionales, comisiones, envíos configurados y pauta del período."
