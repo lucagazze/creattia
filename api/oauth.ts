@@ -2702,7 +2702,8 @@ async function handleCosts(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       variantCosts: variantRes.data || [],
       additionalCosts: additionalRows.filter((row: any) => row.name !== COST_SETTINGS_ROW_NAME),
-      costSettings
+      costSettings,
+      costSettingsUpdatedAt: settingsRow?.updated_at || null
     });
   }
 

@@ -58,8 +58,10 @@ const DEFAULT_COST_SETTINGS = {
   } as Record<string, 'configured' | 'pending'>,
   shipping: {
     type: 'custom' as 'order' | 'custom',
-    customShippingCost: 1500
-  }
+    customShippingCost: 0,
+    configured: false
+  },
+  updatedSections: {} as Record<string, string>
 };
 
 const parseCostSettings = (raw: any) => {
@@ -81,8 +83,10 @@ const parseCostSettings = (raw: any) => {
       },
       shipping: {
         ...DEFAULT_COST_SETTINGS.shipping,
-        ...(parsed.shipping || {})
-      }
+        ...(parsed.shipping || {}),
+        configured: Boolean(parsed.shipping?.configured || parsed.updatedSections?.shipping)
+      },
+      updatedSections: parsed.updatedSections || {}
     };
   } catch {
     return null;
@@ -135,6 +139,7 @@ export default function CostosPage() {
   const [gateways, setGateways] = useState<Record<string, 'configured' | 'pending'>>(DEFAULT_COST_SETTINGS.gateways);
   const [shipping, setShipping] = useState(DEFAULT_COST_SETTINGS.shipping);
   const [savingSettings, setSavingSettings] = useState<string | null>(null);
+  const [sectionSavedAt, setSectionSavedAt] = useState<Record<string, string>>({});
 
   // Additional costs lists
   const [additionalCosts, setAdditionalCosts] = useState<{
@@ -250,6 +255,11 @@ export default function CostosPage() {
           setPaymentFees(settingsFromDb.paymentFees);
           setGateways(settingsFromDb.gateways);
           setShipping(settingsFromDb.shipping);
+          const settingsUpdated = costsData.costSettingsUpdatedAt;
+          setSectionSavedAt({
+            ...(settingsUpdated ? { platform: settingsUpdated, payment: settingsUpdated } : {}),
+            ...(settingsFromDb.updatedSections || {})
+          });
           saveToLocalStorage(settingsFromDb);
         }
 
@@ -259,6 +269,7 @@ export default function CostosPage() {
           const equipoList: AdditionalCostItem[] = [];
           const otrosList: AdditionalCostItem[] = [];
           const campanasList: AdditionalCostItem[] = [];
+          let additionalMaxTime: Date | null = null;
           
           addData.forEach((row: any) => {
             const mappedItem: AdditionalCostItem = {
@@ -279,6 +290,7 @@ export default function CostosPage() {
             if (row.updated_at) {
               const d = new Date(row.updated_at);
               if (!maxTime || d > maxTime) maxTime = d;
+              if (!additionalMaxTime || d > additionalMaxTime) additionalMaxTime = d;
             }
           });
           
@@ -287,6 +299,9 @@ export default function CostosPage() {
             otros: otrosList,
             campanas: campanasList
           });
+          if (additionalMaxTime) {
+            setSectionSavedAt(prev => ({ ...prev, additional: (additionalMaxTime as Date).toISOString() }));
+          }
         }
 
         if (maxTime) {
@@ -332,6 +347,7 @@ export default function CostosPage() {
       paymentFees,
       gateways,
       shipping,
+      updatedSections: sectionSavedAt,
       ...updatedData
     };
     try {
@@ -340,17 +356,24 @@ export default function CostosPage() {
   };
 
   const saveCostSettings = async (updatedData: any, successMessage: string, key: string) => {
+    const savedAtIso = new Date().toISOString();
+    const updatedSections = {
+      ...sectionSavedAt,
+      [key]: savedAtIso
+    };
     const mergedSettings = {
       platformCommissions,
       paymentFees,
       gateways,
       shipping,
+      updatedSections,
       ...updatedData
     };
     saveToLocalStorage(mergedSettings);
     setSavingSettings(key);
     try {
       await callCostsApi('costs-save-settings', { settings: mergedSettings });
+      setSectionSavedAt(updatedSections);
       setLastUpdatedTime(new Date().toLocaleString('es-AR', {
         timeZone: 'America/Argentina/Buenos_Aires',
         day: '2-digit',
@@ -576,6 +599,28 @@ export default function CostosPage() {
     return maxDate || null;
   }, [variantCosts]);
 
+  const formatSavedDate = (value?: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  const savedBadge = (key: string) => {
+    const saved = formatSavedDate(sectionSavedAt[key]);
+    if (!saved) return null;
+    return (
+      <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold ml-1">
+        Guardado: {saved}
+      </span>
+    );
+  };
+
   // ─── SECTION 2: PLATFORM COMMISSIONS ──────────────────────────────────
   const handleSavePlatformCommissions = () => {
     saveCostSettings({ platformCommissions }, 'Comisiones de plataforma guardadas con éxito.', 'platform');
@@ -598,7 +643,7 @@ export default function CostosPage() {
 
   // ─── SECTION 4: SHIPPING COSTS ────────────────────────────────────────
   const handleSaveShipping = () => {
-    saveCostSettings({ shipping }, 'Costos de envíos configurados con éxito.', 'shipping');
+    saveCostSettings({ shipping: { ...shipping, configured: true } }, 'Costos de envíos configurados con éxito.', 'shipping');
   };
 
   // ─── SECTION 5: ADDITIONAL COSTS ──────────────────────────────────────
@@ -767,6 +812,7 @@ export default function CostosPage() {
         hour: '2-digit',
         minute: '2-digit'
       }));
+      setSectionSavedAt(prev => ({ ...prev, additional: new Date().toISOString() }));
 
       // Update UI state
       let listCopy = [...additionalCosts[category]];
@@ -806,6 +852,7 @@ export default function CostosPage() {
         hour: '2-digit',
         minute: '2-digit'
       }));
+      setSectionSavedAt(prev => ({ ...prev, additional: new Date().toISOString() }));
     } catch (err) {
       console.error('Error deleting additional cost from Supabase:', err);
       showToast('Error al eliminar costo de la base de datos.', 'error');
@@ -1111,8 +1158,9 @@ export default function CostosPage() {
               <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-500">
                 <Percent className="w-4 h-4" />
               </div>
-              <span className="text-[15px] font-bold text-zinc-900 dark:text-white">
+              <span className="text-[15px] font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 Comisiones de plataforma
+                {savedBadge('platform')}
               </span>
             </div>
             <ChevronLeft className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${openAccordions.plataforma ? '-rotate-90' : ''}`} />
@@ -1224,8 +1272,9 @@ export default function CostosPage() {
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
                 <Landmark className="w-4 h-4" />
               </div>
-              <span className="text-[15px] font-bold text-zinc-900 dark:text-white">
+              <span className="text-[15px] font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 Comisiones de pago
+                {savedBadge('payment')}
               </span>
             </div>
             <ChevronLeft className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${openAccordions.pago ? '-rotate-90' : ''}`} />
@@ -1436,8 +1485,9 @@ export default function CostosPage() {
               <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
                 <Truck className="w-4 h-4" />
               </div>
-              <span className="text-[15px] font-bold text-zinc-900 dark:text-white">
+              <span className="text-[15px] font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 Costos de Envíos
+                {savedBadge('shipping')}
               </span>
             </div>
             <ChevronLeft className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${openAccordions.envios ? '-rotate-90' : ''}`} />
@@ -1541,8 +1591,9 @@ export default function CostosPage() {
               <div className="w-8 h-8 rounded-lg bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-500">
                 <FileText className="w-4 h-4" />
               </div>
-              <span className="text-[15px] font-bold text-zinc-900 dark:text-white">
+              <span className="text-[15px] font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 Costos Adicionales
+                {savedBadge('additional')}
               </span>
             </div>
             <ChevronLeft className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${openAccordions.adicionales ? '-rotate-90' : ''}`} />

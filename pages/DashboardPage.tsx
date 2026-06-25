@@ -93,8 +93,10 @@ const DEFAULT_COST_SETTINGS = {
   },
   shipping: {
     type: "custom" as "order" | "custom",
-    customShippingCost: 1500,
+    customShippingCost: 0,
+    configured: false,
   },
+  updatedSections: {} as Record<string, string>,
 };
 
 const parseStoredCostSettings = (raw: any) => {
@@ -113,7 +115,9 @@ const parseStoredCostSettings = (raw: any) => {
       shipping: {
         ...DEFAULT_COST_SETTINGS.shipping,
         ...(parsed.shipping || {}),
+        configured: Boolean(parsed.shipping?.configured || parsed.updatedSections?.shipping),
       },
+      updatedSections: parsed.updatedSections || {},
     };
   } catch {
     return DEFAULT_COST_SETTINGS;
@@ -1861,7 +1865,8 @@ export default function DashboardPage() {
       (Number(costSettings.paymentFees.tiendanubeCPT) || 0) +
       (Number(costSettings.paymentFees.shopifyFees) || 0) +
       (Number(costSettings.paymentFees.iibb) || 0);
-    const shippingCost = costSettings.shipping.type === "custom"
+    const hasConfiguredShipping = Boolean((costSettings.shipping as any).configured);
+    const shippingCost = hasConfiguredShipping && costSettings.shipping.type === "custom"
       ? (Number(costSettings.shipping.customShippingCost) || 0) * orders
       : 0;
     return {
