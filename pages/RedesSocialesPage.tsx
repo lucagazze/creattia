@@ -1945,7 +1945,7 @@ export default function RedesSocialesPage() {
                         <h2 className="text-[18px] font-black text-zinc-900 dark:text-white">
                           {(profile as any)?.tiktok_content_display_name || (profile as any)?.connection_statuses?.tiktok_content_display_name || 'TikTok conectado'}
                         </h2>
-                        <p className="text-[12.5px] text-zinc-400 font-bold mt-0.5">Cuenta lista para usar en el Publicador</p>
+                        <p className="text-[12.5px] text-zinc-400 font-bold mt-0.5">Cuenta orgánica conectada</p>
                       </div>
                     </div>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 text-white px-3 py-1.5 text-[11px] font-black">
@@ -1955,7 +1955,7 @@ export default function RedesSocialesPage() {
                   </div>
                   <div className="mt-6 rounded-2xl bg-zinc-50 dark:bg-zinc-950/35 border border-zinc-100 dark:border-white/10 p-5">
                     <p className="text-[13px] font-bold leading-relaxed text-zinc-600 dark:text-zinc-350">
-                      TikTok Content Posting permite enviar videos desde el Publicador. La API orgánica no siempre devuelve el historial completo de publicaciones para todas las apps; cuando TikTok habilite ese permiso en la app, este tab ya queda listo para mostrarlo.
+                      La API orgánica de TikTok no siempre devuelve el historial completo de publicaciones para todas las apps; cuando TikTok habilite ese permiso en la app, este tab ya queda listo para mostrarlo.
                     </p>
                   </div>
                 </div>
@@ -1971,7 +1971,7 @@ export default function RedesSocialesPage() {
                   <Youtube className="w-12 h-12 text-zinc-400 mx-auto" />
                   <h3 className="font-black text-zinc-800 dark:text-zinc-200 text-[18px]">YouTube no configurado</h3>
                   <p className="text-[13.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold">
-                    Conectá YouTube desde Integraciones para ver videos del canal y subir Shorts desde el Publicador.
+                    Conectá YouTube desde Integraciones para ver videos del canal y analizar Shorts.
                   </p>
                 </div>
               ) : youtubeError ? (

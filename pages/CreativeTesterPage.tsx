@@ -333,8 +333,8 @@ export default function CreativeTesterPage() {
       loaded.push(...(publishedRows || []).map((row: any) => normalizeCreativeItem({
         id: `pub_${row.id}`,
         originalId: row.id,
-        name: row.caption || 'Publicación del publicador',
-        platformLabel: Array.isArray(row.selected_channels) ? row.selected_channels.join(', ') : 'Publicador',
+        name: row.caption || 'Publicación orgánica',
+        platformLabel: Array.isArray(row.selected_channels) ? row.selected_channels.join(', ') : 'Redes sociales',
         sourceType: 'published_post',
         creative: { image_url: row.video_url, thumbnail_url: row.video_url },
         mediaUrl: row.video_url,

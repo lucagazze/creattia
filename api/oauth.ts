@@ -3386,9 +3386,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const action = req.query.action as string || '';
 
-  if (action === 'social-publish') return handleSocialPublish(req, res);
-  if (action === 'social-publish-due') return handleSocialPublishDue(req, res);
-  if (action === 'social-draft-caption') return handleSocialDraftCaption(req, res);
+  if (['social-publish', 'social-publish-due', 'social-draft-caption'].includes(action)) {
+    return res.status(410).json({ error: 'El Publicador fue retirado de la aplicación.' });
+  }
   if (action === 'whatsapp-test') return handleWhatsappTest(req, res);
   if (action.startsWith('costs-')) return handleCosts(req, res);
   if (action === 'brain-save') return handleBrainSave(req, res);

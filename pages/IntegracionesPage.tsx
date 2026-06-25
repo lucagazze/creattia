@@ -124,7 +124,7 @@ const PLATFORMS: IntegrationPlatform[] = [
     id: "tiktok_content",
     name: "TikTok",
     category: "social",
-    description: "Conectá tu cuenta orgánica para subir videos desde el Publicador.",
+    description: "Conectá tu cuenta orgánica para centralizar el canal y sus datos.",
     logoUrl: "/assets/logotiktok.png",
     isSimulated: false
   },
@@ -132,7 +132,7 @@ const PLATFORMS: IntegrationPlatform[] = [
     id: "youtube",
     name: "YouTube",
     category: "social",
-    description: "Conectá tu canal para ver publicaciones y subir Shorts desde el Publicador.",
+    description: "Conectá tu canal para ver publicaciones y analizar Shorts.",
     logoComponent: Youtube,
     isSimulated: false
   },
@@ -2835,7 +2835,7 @@ export default function IntegracionesPage() {
                   <div className="space-y-4 py-2">
                     <div className="p-5 rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-[13px] leading-relaxed text-zinc-500 dark:text-zinc-400">
                       <p>
-                        Esta conexión es para la cuenta normal de TikTok. Permite enviar videos desde el Publicador usando TikTok Content Posting.
+                        Esta conexión es para la cuenta normal de TikTok y permite centralizar datos orgánicos cuando TikTok habilite el acceso correspondiente.
                       </p>
                       <p className="mt-2 font-bold text-zinc-700 dark:text-zinc-300">
                         TikTok puede pedir que el usuario termine la publicación desde la notificación/inbox de la app.
@@ -2858,7 +2858,7 @@ export default function IntegracionesPage() {
                   <div className="space-y-4 py-2">
                     <div className="p-5 rounded-2xl border border-red-200/70 dark:border-red-500/15 bg-red-50/70 dark:bg-red-500/[0.04] text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-350">
                       <p>
-                        Conectá tu canal para traer publicaciones de YouTube y publicar Shorts desde el Publicador.
+                        Conectá tu canal para traer publicaciones de YouTube y analizar Shorts.
                       </p>
                       <p className="mt-2 font-bold text-zinc-800 dark:text-zinc-200">
                         Usa OAuth de Google con permisos de YouTube Data API.

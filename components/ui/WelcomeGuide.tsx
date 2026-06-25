@@ -6,7 +6,7 @@ interface WelcomeGuideProps {
   profile: any;
 }
 
-type FeatureKey = 'meta' | 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'publisher' | 'creative';
+type FeatureKey = 'meta' | 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'creative';
 
 interface FeatureAnnouncement {
   key: FeatureKey;
@@ -28,37 +28,30 @@ const FEATURE_COPY: Record<FeatureKey, Omit<FeatureAnnouncement, 'key'>> = {
   instagram: {
     targetId: 'tour-redes-sociales',
     title: 'Instagram conectado',
-    desc: 'Se activan posts orgánicos, comentarios, métricas y publicación desde el Publicador.',
+    desc: 'Se activan posts orgánicos, comentarios y métricas de la cuenta conectada.',
     ctaPath: '/redes-sociales',
     ctaLabel: 'Ver Instagram',
   },
   facebook: {
     targetId: 'tour-redes-sociales',
     title: 'Facebook conectado',
-    desc: 'Se activan página, comentarios, publicaciones orgánicas y publicación desde el Publicador.',
+    desc: 'Se activan página, comentarios y publicaciones orgánicas de la cuenta conectada.',
     ctaPath: '/redes-sociales',
     ctaLabel: 'Ver Facebook',
   },
   tiktok: {
-    targetId: 'tour-publicador',
+    targetId: 'tour-redes-sociales',
     title: 'TikTok orgánico conectado',
-    desc: 'Ya podés enviar videos al flujo orgánico de TikTok desde el Publicador.',
-    ctaPath: '/publicador',
-    ctaLabel: 'Ir al Publicador',
+    desc: 'Ya podés centralizar la cuenta orgánica de TikTok en redes sociales.',
+    ctaPath: '/redes-sociales',
+    ctaLabel: 'Ver TikTok',
   },
   youtube: {
-    targetId: 'tour-publicador',
+    targetId: 'tour-analisis-creativo',
     title: 'YouTube Shorts conectado',
-    desc: 'Ya podés traer Shorts al análisis creativo y publicar videos desde el Publicador.',
-    ctaPath: '/publicador',
-    ctaLabel: 'Publicar Short',
-  },
-  publisher: {
-    targetId: 'tour-publicador',
-    title: 'Publicador activado',
-    desc: 'Subí un video una sola vez, confirmá las cuentas exactas y programá por canal.',
-    ctaPath: '/publicador',
-    ctaLabel: 'Abrir Publicador',
+    desc: 'Ya podés traer Shorts al análisis creativo cuando la cuenta esté conectada.',
+    ctaPath: '/analisis-creativo',
+    ctaLabel: 'Analizar Shorts',
   },
   creative: {
     targetId: 'tour-analisis-creativo',
@@ -75,21 +68,17 @@ const getEnabledFeatures = (profile: any): FeatureKey[] => {
   if (profile.meta_account_id) features.add('meta');
   if (profile.ig_business_id) {
     features.add('instagram');
-    features.add('publisher');
     features.add('creative');
   }
   if (profile.fb_page_id) {
     features.add('facebook');
-    features.add('publisher');
     features.add('creative');
   }
   if (profile.tiktok_content_access_token) {
     features.add('tiktok');
-    features.add('publisher');
   }
   if (profile.youtube_access_token || profile.youtube_channel_id) {
     features.add('youtube');
-    features.add('publisher');
     features.add('creative');
   }
   return Array.from(features);

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag,
   AlertTriangle, Activity, Library, Workflow, Instagram, MessageSquare, Brain, Users, Package,
-  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart, UploadCloud, History
+  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -99,8 +99,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
     activeProfile?.fb_page_id ||
     (activeProfile as any)?.ig_business_id
   );
-  const hasPublisher = hasRedes || hasMeta || !!((activeProfile as any)?.connection_statuses?.tiktok_content === 'ok' || (activeProfile as any)?.tiktok_content_access_token);
-
   // Admins always see all pages (including unconfigured ones, shown dimmed)
   const isAdmin = !!(profile?.is_admin);
   const hasMercadoLibre = (activeProfile as any)?.connection_statuses?.mercadolibre === 'ok';
@@ -126,8 +124,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   ].filter(i => isAdmin || i.configured);
 
   const activosItems = [
-    { path: '/publicador',          icon: UploadCloud, label: 'Publicador',        configured: hasPublisher },
-    { path: '/publicaciones',       icon: History,     label: 'Historial Public.', configured: hasPublisher },
     { path: '/analisis-productos',  icon: BarChart2,  label: 'Análisis Productos', configured: hasEcommerce },
     { path: '/admin/meta',          icon: Target,     label: 'Creativos Ads',      configured: hasMeta },
     { path: '/analisis-creativo',   icon: Brain,      label: 'Análisis Creativo',  configured: true },
@@ -250,8 +246,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
       '/dashboard': 'tour-dashboard',
       '/mensajeria': 'tour-mensajeria',
       '/redes-sociales': 'tour-redes-sociales',
-      '/publicador': 'tour-publicador',
-      '/publicaciones': 'tour-publicaciones',
       '/admin/meta': 'tour-creativos',
       '/captacion': 'tour-meta-ads',
       '/comentarios': 'tour-comentarios',
