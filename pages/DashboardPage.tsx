@@ -77,8 +77,6 @@ const PINK = "#ec4899";
 const MAIN_COLOR = "#3b82f6"; // Default Blue for Captación
 const DASHBOARD_CACHE_VERSION = "v2";
 const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
-const COST_SETTINGS_ROW_NAME = "__car_cost_settings__";
-
 const DEFAULT_COST_SETTINGS = {
   platformCommissions: {
     shopify: 2,
@@ -1579,37 +1577,38 @@ export default function DashboardPage() {
       }
       const range = activePreset === "custom" ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
       const prevRange = getPrevPeriod(range.since, range.until);
-      const [additionalRes, variantRes] = await Promise.all([
-        supabase
-          .from('car_additional_costs')
-          .select('name,start_date,end_date,cost,daily_cost,platform')
-          .eq('client_id', profile.id),
-        supabase
-          .from('car_variant_costs')
-          .select('variant_id,cost,packaging_cost')
-          .eq('client_id', profile.id)
-      ]);
-      if (additionalRes.error || variantRes.error) {
-        console.error('Dashboard cost summary error:', additionalRes.error || variantRes.error);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        setCostSummary({ current: 0, previous: 0 });
+        return;
+      }
+      const costsRes = await fetch('/api/oauth?action=costs-load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ clientId: profile.id })
+      });
+      if (!costsRes.ok) {
+        const errData = await costsRes.json().catch(() => ({}));
+        console.error('Dashboard cost summary error:', errData.error || costsRes.status);
         if (mounted) setCostSummary({ current: 0, previous: 0 });
         return;
       }
+      const costsData = await costsRes.json();
       if (mounted) {
-        const rows = additionalRes.data || [];
-        const settingsRow = rows.find((item: any) => item.name === COST_SETTINGS_ROW_NAME);
-        setCostSettings(parseStoredCostSettings(settingsRow?.platform));
+        const rows = costsData.additionalCosts || [];
+        setCostSettings(parseStoredCostSettings(costsData.costSettings));
         const variants: Record<string, { cost: number; packagingCost: number }> = {};
-        (variantRes.data || []).forEach((row: any) => {
+        (costsData.variantCosts || []).forEach((row: any) => {
           variants[String(row.variant_id)] = {
             cost: Number(row.cost) || 0,
             packagingCost: Number(row.packaging_cost) || 0,
           };
         });
         setVariantCostMap(variants);
-        const items = rows.filter((item: any) => item.name !== COST_SETTINGS_ROW_NAME);
         setCostSummary({
-          current: calcCostForRange(items, range.since, range.until),
-          previous: calcCostForRange(items, prevRange.since, prevRange.until)
+          current: calcCostForRange(rows, range.since, range.until),
+          previous: calcCostForRange(rows, prevRange.since, prevRange.until)
         });
       }
     };
