@@ -109,7 +109,7 @@ export default function CostosPage() {
 
   // Accordion Open/Close states
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({
-    productos: true,
+    productos: false,
     plataforma: false,
     pago: false,
     envios: false,
