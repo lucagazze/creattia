@@ -933,7 +933,7 @@ export default function LandingPage() {
         frames = [canvas.toDataURL('image/jpeg', 0.6)];
       } catch { /* ignore */ }
 
-      // Call AI analysis endpoint (same as CreativeTesterPage)
+      // Call the same TRIBE_V2-backed analysis endpoint used by ad/social previews.
       if (frames.length > 0) {
         try {
           const r = await fetch('/api/scrape-all', {
@@ -2657,7 +2657,7 @@ export default function LandingPage() {
                           : (darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-700')
                       }`}
                     >
-                      Análisis Creativo
+                      Lectura del anuncio
                     </button>
                     <button
                       onClick={() => setSimModalTab('comments')}
@@ -2706,20 +2706,20 @@ export default function LandingPage() {
                           </>
                         ) : (
                           <>
-                            <p className="text-[13px] font-semibold text-zinc-700 dark:text-zinc-300">Análisis Creativo</p>
+                            <p className="text-[13px] font-semibold text-zinc-700 dark:text-zinc-300">Lectura del anuncio</p>
                             <p className="text-[11px] text-zinc-400 max-w-[220px]">Analizará la atención, emoción y carga cognitiva de este anuncio.</p>
                             <button
                               onClick={() => handleSimAnalyze(selectedSimCreative.id)}
                               className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-[12px] font-black shadow-lg shadow-violet-200 dark:shadow-none transition-all"
                             >
-                              <Zap className="w-4 h-4" /> Analizar creativo
+                              <Zap className="w-4 h-4" /> Ver métricas
                             </button>
                           </>
                         )}
                       </div>
                     ) : (
                     <>
-                    {/* Score — igual al CreativeTesterPage */}
+                    {/* Score de respuesta visual */}
                     <div className={`flex items-center gap-4 border rounded-2xl p-5 ${
                       darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'
                     }`}>
@@ -2738,7 +2738,7 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Barras de Métricas — igual al CreativeTesterPage */}
+                    {/* Barras de métricas */}
                     <div className={`border rounded-2xl p-5 space-y-4 ${
                       darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'
                     }`}>
@@ -2762,7 +2762,7 @@ export default function LandingPage() {
                       ))}
                     </div>
 
-                    {/* Curva Atención/Emoción — igual al CreativeTesterPage */}
+                    {/* Curva Atención/Emoción */}
                     <div className={`border rounded-2xl p-5 space-y-3 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-100'}`}>
                       <div className="flex items-center justify-between">
                         <p className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Curva de Respuesta (30s)</p>

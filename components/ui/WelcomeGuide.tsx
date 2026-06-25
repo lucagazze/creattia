@@ -6,7 +6,7 @@ interface WelcomeGuideProps {
   profile: any;
 }
 
-type FeatureKey = 'meta' | 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'creative';
+type FeatureKey = 'meta' | 'instagram' | 'facebook' | 'tiktok' | 'youtube';
 
 interface FeatureAnnouncement {
   key: FeatureKey;
@@ -47,18 +47,11 @@ const FEATURE_COPY: Record<FeatureKey, Omit<FeatureAnnouncement, 'key'>> = {
     ctaLabel: 'Ver TikTok',
   },
   youtube: {
-    targetId: 'tour-analisis-creativo',
+    targetId: 'tour-redes-sociales',
     title: 'YouTube Shorts conectado',
-    desc: 'Ya podés traer Shorts al análisis creativo cuando la cuenta esté conectada.',
-    ctaPath: '/analisis-creativo',
-    ctaLabel: 'Analizar Shorts',
-  },
-  creative: {
-    targetId: 'tour-analisis-creativo',
-    title: 'Análisis creativo disponible',
-    desc: 'Podés analizar archivos o traer creativos desde tus cuentas conectadas.',
-    ctaPath: '/analisis-creativo',
-    ctaLabel: 'Analizar creativo',
+    desc: 'Ya podés centralizar el canal de YouTube desde redes sociales cuando la cuenta esté conectada.',
+    ctaPath: '/redes-sociales',
+    ctaLabel: 'Ver YouTube',
   },
 };
 
@@ -68,18 +61,15 @@ const getEnabledFeatures = (profile: any): FeatureKey[] => {
   if (profile.meta_account_id) features.add('meta');
   if (profile.ig_business_id) {
     features.add('instagram');
-    features.add('creative');
   }
   if (profile.fb_page_id) {
     features.add('facebook');
-    features.add('creative');
   }
   if (profile.tiktok_content_access_token) {
     features.add('tiktok');
   }
   if (profile.youtube_access_token || profile.youtube_channel_id) {
     features.add('youtube');
-    features.add('creative');
   }
   return Array.from(features);
 };
