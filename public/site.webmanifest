@@ -1,7 +1,7 @@
 {
   "name": "Algoritmia Gestión",
   "short_name": "Algoritmia",
-  "description": "Gestión, publicador y análisis para equipos de e-commerce.",
+  "description": "Gestión y análisis para equipos de e-commerce.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
