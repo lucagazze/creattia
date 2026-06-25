@@ -1052,6 +1052,7 @@ export default function DashboardPage() {
   const [prevStore, setPrevStore] = useState<any>(null);
   const [costSummary, setCostSummary] = useState({ current: 0, previous: 0 });
   const [costSettings, setCostSettings] = useState(DEFAULT_COST_SETTINGS);
+  const [variantCostMap, setVariantCostMap] = useState<Record<string, { cost: number; packagingCost: number }>>({});
   const [productImages, setProductImages] = useState<Record<string, string>>({});
   const [fetchingStore, setFetchingStore] = useState(true);
   const [shopifyError, setShopifyError] = useState<string | null>(null);
@@ -1183,6 +1184,7 @@ export default function DashboardPage() {
     setPrevStore(null);
     setCostSummary({ current: 0, previous: 0 });
     setCostSettings(DEFAULT_COST_SETTINGS);
+    setVariantCostMap({});
     setProductImages({});
     setCurrentMeta(null);
     setPrevMeta(null);
@@ -1573,19 +1575,33 @@ export default function DashboardPage() {
       }
       const range = activePreset === "custom" ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
       const prevRange = getPrevPeriod(range.since, range.until);
-      const { data, error } = await supabase
-        .from('car_additional_costs')
-        .select('name,start_date,end_date,cost,daily_cost,platform')
-        .eq('client_id', profile.id);
-      if (error) {
-        console.error('Dashboard cost summary error:', error);
+      const [additionalRes, variantRes] = await Promise.all([
+        supabase
+          .from('car_additional_costs')
+          .select('name,start_date,end_date,cost,daily_cost,platform')
+          .eq('client_id', profile.id),
+        supabase
+          .from('car_variant_costs')
+          .select('variant_id,cost,packaging_cost')
+          .eq('client_id', profile.id)
+      ]);
+      if (additionalRes.error || variantRes.error) {
+        console.error('Dashboard cost summary error:', additionalRes.error || variantRes.error);
         if (mounted) setCostSummary({ current: 0, previous: 0 });
         return;
       }
       if (mounted) {
-        const rows = data || [];
+        const rows = additionalRes.data || [];
         const settingsRow = rows.find((item: any) => item.name === COST_SETTINGS_ROW_NAME);
         setCostSettings(parseStoredCostSettings(settingsRow?.platform));
+        const variants: Record<string, { cost: number; packagingCost: number }> = {};
+        (variantRes.data || []).forEach((row: any) => {
+          variants[String(row.variant_id)] = {
+            cost: Number(row.cost) || 0,
+            packagingCost: Number(row.packaging_cost) || 0,
+          };
+        });
+        setVariantCostMap(variants);
         const items = rows.filter((item: any) => item.name !== COST_SETTINGS_ROW_NAME);
         setCostSummary({
           current: calcCostForRange(items, range.since, range.until),
@@ -1821,6 +1837,14 @@ export default function DashboardPage() {
 
   const currentSpend = currentMeta?.spend || 0;
   const prevSpend = prevMeta?.spend || 0;
+  const getProductCosts = (store: any) => {
+    const variantOrders = store?.variantOrders || {};
+    return Object.entries(variantOrders).reduce((sum, [variantId, qty]) => {
+      const savedCost = variantCostMap[String(variantId)];
+      if (!savedCost) return sum;
+      return sum + (Number(qty) || 0) * ((Number(savedCost.cost) || 0) + (Number(savedCost.packagingCost) || 0));
+    }, 0);
+  };
   const getVariableStoreCosts = (store: any) => {
     const revenue = Number(store?.revenue || 0);
     const orders = Number(store?.orders || 0);
@@ -1849,20 +1873,23 @@ export default function DashboardPage() {
   };
   const currentVariableCosts = getVariableStoreCosts(currentStore);
   const prevVariableCosts = getVariableStoreCosts(prevStore);
-  const currentTotalCosts = costSummary.current + currentVariableCosts.total + currentSpend;
-  const prevTotalCosts = costSummary.previous + prevVariableCosts.total + prevSpend;
+  const currentProductCosts = getProductCosts(currentStore);
+  const prevProductCosts = getProductCosts(prevStore);
+  const currentTotalCosts = costSummary.current + currentVariableCosts.total + currentProductCosts + currentSpend;
+  const prevTotalCosts = costSummary.previous + prevVariableCosts.total + prevProductCosts + prevSpend;
   const currentNetRevenue = Math.max(0, (currentStore?.revenue || 0) - currentTotalCosts);
   const prevNetRevenue = Math.max(0, (prevStore?.revenue || 0) - prevTotalCosts);
   const realRoas = currentSpend > 0 ? currentNetRevenue / currentSpend : 0;
   const prevRealRoas = prevSpend > 0 ? prevNetRevenue / prevSpend : 0;
-  const showProfitMetrics = !!currentStore && (costSummary.current > 0 || currentVariableCosts.total > 0 || currentSpend > 0);
+  const showProfitMetrics = !!currentStore;
   const currentDaysCount = Math.max(1, currentStore?.daily?.length || 1);
   const netRevenueDaily = currentStore?.daily?.map((d: any, idx: number) => {
     const dayVariableCosts = getVariableStoreCosts({ revenue: d.revenue, orders: d.orders });
     const daySpend = metaDaily?.[idx]?.spend || 0;
     const dayFixedCosts = costSummary.current / currentDaysCount;
+    const dayProductCosts = currentProductCosts / currentDaysCount;
     return {
-      val: Math.max(0, Number(d.revenue || 0) - dayVariableCosts.total - daySpend - dayFixedCosts),
+      val: Math.max(0, Number(d.revenue || 0) - dayVariableCosts.total - daySpend - dayFixedCosts - dayProductCosts),
       date: d.date,
     };
   }) || [];
@@ -2212,7 +2239,7 @@ export default function DashboardPage() {
               key={`store-${activeSince}-${activeUntil}`}
               loading={fetchingStore}
               color={PINK}
-              labels={showProfitMetrics ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'Facturación neta', 'ROAS real'] : (showMER ? ['Ticket Promedio', 'Pedidos', 'Ingresos', 'M.E.R. (Eficiencia)'] : ['Ticket Promedio', 'Pedidos', 'Ingresos'])}
+              labels={['Ticket Promedio', 'Pedidos', 'Ingresos', 'Facturación neta', 'ROAS real']}
               duration={500}
             >
               {currentStore ? (
@@ -2309,12 +2336,12 @@ export default function DashboardPage() {
                         loading={fetchingStore || fetchingMeta}
                         active={expandedMetric === "s-net-revenue"}
                         onClick={() => setExpandedMetric(expandedMetric === "s-net-revenue" ? null : "s-net-revenue")}
-                        info="Facturación neta descuenta de la facturación bruta los costos adicionales, comisiones de plataforma, comisiones de pago, envíos configurados y la inversión publicitaria del período."
+                        info="Facturación neta descuenta de la facturación bruta costos unitarios de productos, caja/embalaje, costos adicionales, comisiones de plataforma, comisiones de pago, envíos configurados y pauta del período."
                       />
                       <ShopifyMetric
                         icon={Zap}
                         label="ROAS real"
-                        value={currentSpend > 0 ? `${realRoas.toFixed(2)}x` : "—"}
+                        value={`${realRoas.toFixed(2)}x`}
                         change={prevRealRoas > 0 ? getKlaviyoChange(realRoas, prevRealRoas) : undefined}
                         trend={realRoas >= prevRealRoas ? "up" : "down"}
                         data={realRoasDaily}
@@ -2322,7 +2349,7 @@ export default function DashboardPage() {
                         loading={fetchingStore || fetchingMeta}
                         active={expandedMetric === "s-real-roas"}
                         onClick={() => setExpandedMetric(expandedMetric === "s-real-roas" ? null : "s-real-roas")}
-                        info="ROAS real usa la facturación neta estimada dividida por la inversión publicitaria. Incluye costos adicionales, comisiones, envíos configurados y pauta del período."
+                        info="ROAS real usa la facturación neta estimada dividida por la inversión publicitaria. Incluye costos de productos, caja/embalaje, costos adicionales, comisiones, envíos configurados y pauta del período."
                       />
                     </>
                   )}
