@@ -63,6 +63,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { metaAds } from '../../services/metaAds';
 import { AppleLoader } from '../ui/AppleLoader';
 import { TopLoadingBar } from '../ui/TopLoadingBar';
+import { CenteredPageLoader } from '../ui/CenteredPageLoader';
 import { useUnread } from '../../contexts/UnreadContext';
 import { useToast } from '../Toast';
 
@@ -137,19 +138,6 @@ const NotFoundPage          = lazyWithRetry(() => import('../../pages/NotFoundPa
 
 import { useViewAs } from '../../contexts/ViewAsContext';
 import { WelcomeGuide } from '../ui/WelcomeGuide';
-
-// Loader within the content area — sidebar stays visible
-const PageSkeleton = () => (
-  <div className="min-h-[280px] w-full flex items-center justify-center px-4 animate-in fade-in duration-150">
-    <div className="flex items-center gap-3 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/80 px-4 py-3 shadow-sm">
-      <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
-      <div>
-        <p className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 leading-tight">Cargando sección</p>
-        <p className="text-[11px] font-semibold text-zinc-400 leading-tight mt-0.5">Ya aparece la información.</p>
-      </div>
-    </div>
-  </div>
-);
 
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -289,12 +277,9 @@ export const MainLayout = () => {
   // Guard: if profile is null, show loading while auto-creating via ensure-profile
   if (!profile) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#080808]' : 'bg-[#f2f2f7]'}`}>
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
-          <p className="text-[13px] text-zinc-500 font-medium">Preparando tu cuenta...</p>
-        </div>
-      </div>
+      <CenteredPageLoader isLoading={true} message="Preparando tu cuenta...">
+        <div />
+      </CenteredPageLoader>
     );
   }
 
@@ -358,7 +343,7 @@ export const MainLayout = () => {
             <WelcomeGuide profile={activeProfile} />
           )}
           <RouteErrorBoundary key={location.pathname}>
-          <Suspense fallback={<PageSkeleton />}>
+          <Suspense fallback={<CenteredPageLoader isLoading={true} message="Cargando sección..."><div /></CenteredPageLoader>}>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />

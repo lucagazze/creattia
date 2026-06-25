@@ -35,6 +35,60 @@ interface AdditionalCostItem {
   platform: string;
 }
 
+const COST_SETTINGS_ROW_NAME = '__car_cost_settings__';
+
+const DEFAULT_COST_SETTINGS = {
+  platformCommissions: {
+    shopify: 2.0,
+    tiendanube: 1.5,
+    mercadolibre: 10.0,
+    custom: 0.0
+  },
+  paymentFees: {
+    tiendanubeCPT: 0,
+    shopifyFees: 1,
+    iibb: 0
+  },
+  gateways: {
+    pagonube: 'configured',
+    mercadopago: 'configured',
+    gocuotas: 'pending',
+    ualabis: 'pending',
+    modo: 'pending'
+  } as Record<string, 'configured' | 'pending'>,
+  shipping: {
+    type: 'custom' as 'order' | 'custom',
+    customShippingCost: 1500
+  }
+};
+
+const parseCostSettings = (raw: any) => {
+  if (!raw) return null;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return {
+      platformCommissions: {
+        ...DEFAULT_COST_SETTINGS.platformCommissions,
+        ...(parsed.platformCommissions || {})
+      },
+      paymentFees: {
+        ...DEFAULT_COST_SETTINGS.paymentFees,
+        ...(parsed.paymentFees || {})
+      },
+      gateways: {
+        ...DEFAULT_COST_SETTINGS.gateways,
+        ...(parsed.gateways || {})
+      },
+      shipping: {
+        ...DEFAULT_COST_SETTINGS.shipping,
+        ...(parsed.shipping || {})
+      }
+    };
+  } catch {
+    return null;
+  }
+};
+
 export default function CostosPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
@@ -76,28 +130,11 @@ export default function CostosPage() {
   const [massPackagingCost, setMassPackagingCost] = useState('350');
   const [massScope, setMassScope] = useState<'filtered' | 'all'>('filtered');
 
-  const [platformCommissions, setPlatformCommissions] = useState({
-    shopify: 2.0,
-    tiendanube: 1.5,
-    mercadolibre: 10.0,
-    custom: 0.0
-  });
-  const [paymentFees, setPaymentFees] = useState({
-    tiendanubeCPT: 0,
-    shopifyFees: 1,
-    iibb: 0
-  });
-  const [gateways, setGateways] = useState<Record<string, 'configured' | 'pending'>>({
-    pagonube: 'configured',
-    mercadopago: 'configured',
-    gocuotas: 'pending',
-    ualabis: 'pending',
-    modo: 'pending'
-  });
-  const [shipping, setShipping] = useState({
-    type: 'custom' as 'order' | 'custom',
-    customShippingCost: 1500
-  });
+  const [platformCommissions, setPlatformCommissions] = useState(DEFAULT_COST_SETTINGS.platformCommissions);
+  const [paymentFees, setPaymentFees] = useState(DEFAULT_COST_SETTINGS.paymentFees);
+  const [gateways, setGateways] = useState<Record<string, 'configured' | 'pending'>>(DEFAULT_COST_SETTINGS.gateways);
+  const [shipping, setShipping] = useState(DEFAULT_COST_SETTINGS.shipping);
+  const [savingSettings, setSavingSettings] = useState<string | null>(null);
 
   // Additional costs lists
   const [additionalCosts, setAdditionalCosts] = useState<{
@@ -207,7 +244,16 @@ export default function CostosPage() {
           setVariantCosts({});
         }
 
-        const addData = costsData.additionalCosts || [];
+        const settingsFromDb = parseCostSettings(costsData.costSettings);
+        if (settingsFromDb) {
+          setPlatformCommissions(settingsFromDb.platformCommissions);
+          setPaymentFees(settingsFromDb.paymentFees);
+          setGateways(settingsFromDb.gateways);
+          setShipping(settingsFromDb.shipping);
+          saveToLocalStorage(settingsFromDb);
+        }
+
+        const addData = (costsData.additionalCosts || []).filter((row: any) => row.name !== COST_SETTINGS_ROW_NAME);
         
         if (addData) {
           const equipoList: AdditionalCostItem[] = [];
@@ -291,6 +337,35 @@ export default function CostosPage() {
     try {
       localStorage.setItem(`car_costs_${profileId}`, JSON.stringify(currentData));
     } catch (e) { /* ignore quota full */ }
+  };
+
+  const saveCostSettings = async (updatedData: any, successMessage: string, key: string) => {
+    const mergedSettings = {
+      platformCommissions,
+      paymentFees,
+      gateways,
+      shipping,
+      ...updatedData
+    };
+    saveToLocalStorage(mergedSettings);
+    setSavingSettings(key);
+    try {
+      await callCostsApi('costs-save-settings', { settings: mergedSettings });
+      setLastUpdatedTime(new Date().toLocaleString('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+      showToast(successMessage, 'success');
+    } catch (err) {
+      console.error('Error saving cost settings:', err);
+      showToast('Error al guardar la configuración de costos en la base de datos.', 'error');
+    } finally {
+      setSavingSettings(null);
+    }
   };
 
   const callCostsApi = async (action: string, payload: Record<string, any> = {}) => {
@@ -503,14 +578,12 @@ export default function CostosPage() {
 
   // ─── SECTION 2: PLATFORM COMMISSIONS ──────────────────────────────────
   const handleSavePlatformCommissions = () => {
-    saveToLocalStorage({ platformCommissions });
-    showToast('Comisiones de plataforma guardadas con éxito.', 'success');
+    saveCostSettings({ platformCommissions }, 'Comisiones de plataforma guardadas con éxito.', 'platform');
   };
 
   // ─── SECTION 3: PAYMENT GATEWAYS ──────────────────────────────────────
   const handleSavePaymentFees = () => {
-    saveToLocalStorage({ paymentFees });
-    showToast('Tasas de comisiones de pago guardadas con éxito.', 'success');
+    saveCostSettings({ paymentFees, gateways }, 'Tasas de comisiones de pago guardadas con éxito.', 'payment');
   };
 
   const toggleGatewayStatus = (gatewayKey: string) => {
@@ -520,14 +593,12 @@ export default function CostosPage() {
       [gatewayKey]: nextStatus
     };
     setGateways(updatedGateways);
-    saveToLocalStorage({ gateways: updatedGateways });
-    showToast(`${gatewayKey.toUpperCase()} cambiado a ${nextStatus === 'configured' ? 'Configurado' : 'Pendiente'}.`, 'success');
+    saveCostSettings({ gateways: updatedGateways }, `${gatewayKey.toUpperCase()} cambiado a ${nextStatus === 'configured' ? 'Configurado' : 'Pendiente'}.`, `gateway-${gatewayKey}`);
   };
 
   // ─── SECTION 4: SHIPPING COSTS ────────────────────────────────────────
   const handleSaveShipping = () => {
-    saveToLocalStorage({ shipping });
-    showToast('Costos de envíos configurados con éxito.', 'success');
+    saveCostSettings({ shipping }, 'Costos de envíos configurados con éxito.', 'shipping');
   };
 
   // ─── SECTION 5: ADDITIONAL COSTS ──────────────────────────────────────
@@ -1132,10 +1203,11 @@ export default function CostosPage() {
               <div className="flex justify-end">
                 <button
                   onClick={handleSavePlatformCommissions}
-                  className="h-9 px-6 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 flex items-center gap-2"
+                  disabled={savingSettings === 'platform'}
+                  className="h-9 px-6 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 disabled:opacity-60 flex items-center gap-2"
                 >
-                  <Save className="w-4 h-4" />
-                  Guardar Comisiones
+                  {savingSettings === 'platform' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {savingSettings === 'platform' ? 'Guardando...' : 'Guardar Comisiones'}
                 </button>
               </div>
             </div>
@@ -1185,7 +1257,7 @@ export default function CostosPage() {
                       onChange={e => setPaymentFees(prev => ({ ...prev, tiendanubeCPT: parseFloat(e.target.value) || 0 }))}
                       className="w-20 h-9 px-3 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 text-[12px] font-bold text-right outline-none focus:border-zinc-400 dark:focus:border-zinc-650 focus:bg-white dark:focus:bg-zinc-900 transition-all"
                     />
-                    <button onClick={handleSavePaymentFees} className="px-4 h-9 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90">Guardar</button>
+                    <button onClick={handleSavePaymentFees} disabled={savingSettings === 'payment'} className="px-4 h-9 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5">{savingSettings === 'payment' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}{savingSettings === 'payment' ? 'Guardando...' : 'Guardar'}</button>
                   </div>
                 </div>
 
@@ -1210,7 +1282,7 @@ export default function CostosPage() {
                       onChange={e => setPaymentFees(prev => ({ ...prev, shopifyFees: parseFloat(e.target.value) || 0 }))}
                       className="w-20 h-9 px-3 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 text-[12px] font-bold text-right outline-none focus:border-zinc-400 dark:focus:border-zinc-650 focus:bg-white dark:focus:bg-zinc-900 transition-all"
                     />
-                    <button onClick={handleSavePaymentFees} className="px-4 h-9 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90">Guardar</button>
+                    <button onClick={handleSavePaymentFees} disabled={savingSettings === 'payment'} className="px-4 h-9 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5">{savingSettings === 'payment' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}{savingSettings === 'payment' ? 'Guardando...' : 'Guardar'}</button>
                   </div>
                 </div>
 
@@ -1235,7 +1307,7 @@ export default function CostosPage() {
                       onChange={e => setPaymentFees(prev => ({ ...prev, iibb: parseFloat(e.target.value) || 0 }))}
                       className="w-20 h-9 px-3 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 text-[12px] font-bold text-right outline-none focus:border-zinc-400 dark:focus:border-zinc-650 focus:bg-white dark:focus:bg-zinc-900 transition-all"
                     />
-                    <button onClick={handleSavePaymentFees} className="px-4 h-9 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90">Guardar</button>
+                    <button onClick={handleSavePaymentFees} disabled={savingSettings === 'payment'} className="px-4 h-9 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 disabled:opacity-60 flex items-center gap-1.5">{savingSettings === 'payment' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}{savingSettings === 'payment' ? 'Guardando...' : 'Guardar'}</button>
                   </div>
                 </div>
               </div>
@@ -1257,12 +1329,13 @@ export default function CostosPage() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${gateways.pagonube === 'configured' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'}`}>
                         {gateways.pagonube === 'configured' ? 'Configurado' : 'Pendiente'}
                       </span>
-                      <button 
-                        onClick={() => toggleGatewayStatus('pagonube')} 
-                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors"
-                      >
-                        Editar
-                      </button>
+	                      <button 
+	                        onClick={() => toggleGatewayStatus('pagonube')} 
+	                        disabled={savingSettings === 'gateway-pagonube'}
+	                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors disabled:opacity-50"
+	                      >
+	                        {savingSettings === 'gateway-pagonube' ? 'Guardando...' : 'Editar'}
+	                      </button>
                     </div>
                   </div>
 
@@ -1276,12 +1349,13 @@ export default function CostosPage() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${gateways.mercadopago === 'configured' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'}`}>
                         {gateways.mercadopago === 'configured' ? 'Configurado' : 'Pendiente'}
                       </span>
-                      <button 
-                        onClick={() => toggleGatewayStatus('mercadopago')} 
-                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors"
-                      >
-                        Editar
-                      </button>
+	                      <button 
+	                        onClick={() => toggleGatewayStatus('mercadopago')} 
+	                        disabled={savingSettings === 'gateway-mercadopago'}
+	                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors disabled:opacity-50"
+	                      >
+	                        {savingSettings === 'gateway-mercadopago' ? 'Guardando...' : 'Editar'}
+	                      </button>
                     </div>
                   </div>
 
@@ -1295,12 +1369,13 @@ export default function CostosPage() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${gateways.gocuotas === 'configured' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'}`}>
                         {gateways.gocuotas === 'configured' ? 'Configurado' : 'Pendiente'}
                       </span>
-                      <button 
-                        onClick={() => toggleGatewayStatus('gocuotas')} 
-                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors"
-                      >
-                        Editar
-                      </button>
+	                      <button 
+	                        onClick={() => toggleGatewayStatus('gocuotas')} 
+	                        disabled={savingSettings === 'gateway-gocuotas'}
+	                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors disabled:opacity-50"
+	                      >
+	                        {savingSettings === 'gateway-gocuotas' ? 'Guardando...' : 'Editar'}
+	                      </button>
                     </div>
                   </div>
 
@@ -1314,12 +1389,13 @@ export default function CostosPage() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${gateways.ualabis === 'configured' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'}`}>
                         {gateways.ualabis === 'configured' ? 'Configurado' : 'Pendiente'}
                       </span>
-                      <button 
-                        onClick={() => toggleGatewayStatus('ualabis')} 
-                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors"
-                      >
-                        Editar
-                      </button>
+	                      <button 
+	                        onClick={() => toggleGatewayStatus('ualabis')} 
+	                        disabled={savingSettings === 'gateway-ualabis'}
+	                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors disabled:opacity-50"
+	                      >
+	                        {savingSettings === 'gateway-ualabis' ? 'Guardando...' : 'Editar'}
+	                      </button>
                     </div>
                   </div>
 
@@ -1333,12 +1409,13 @@ export default function CostosPage() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${gateways.modo === 'configured' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'}`}>
                         {gateways.modo === 'configured' ? 'Configurado' : 'Pendiente'}
                       </span>
-                      <button 
-                        onClick={() => toggleGatewayStatus('modo')} 
-                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors"
-                      >
-                        Editar
-                      </button>
+	                      <button 
+	                        onClick={() => toggleGatewayStatus('modo')} 
+	                        disabled={savingSettings === 'gateway-modo'}
+	                        className="px-3 py-1 bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 rounded-lg text-[11px] font-bold text-zinc-700 dark:text-zinc-300 transition-colors disabled:opacity-50"
+	                      >
+	                        {savingSettings === 'gateway-modo' ? 'Guardando...' : 'Editar'}
+	                      </button>
                     </div>
                   </div>
 
@@ -1440,12 +1517,14 @@ export default function CostosPage() {
 
               {/* Save */}
               <div className="pt-2 flex justify-center">
-                <button
-                  onClick={handleSaveShipping}
-                  className="w-full sm:w-[320px] h-9 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 flex items-center justify-center gap-1.5"
-                >
-                  Guardar
-                </button>
+	                <button
+	                  onClick={handleSaveShipping}
+	                  disabled={savingSettings === 'shipping'}
+	                  className="w-full sm:w-[320px] h-9 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99] hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-1.5"
+	                >
+                    {savingSettings === 'shipping' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+	                  {savingSettings === 'shipping' ? 'Guardando...' : 'Guardar'}
+	                </button>
               </div>
 
             </div>

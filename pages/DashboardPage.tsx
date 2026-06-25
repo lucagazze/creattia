@@ -77,6 +77,48 @@ const PINK = "#ec4899";
 const MAIN_COLOR = "#3b82f6"; // Default Blue for Captación
 const DASHBOARD_CACHE_VERSION = "v2";
 const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
+const COST_SETTINGS_ROW_NAME = "__car_cost_settings__";
+
+const DEFAULT_COST_SETTINGS = {
+  platformCommissions: {
+    shopify: 2,
+    tiendanube: 1.5,
+    mercadolibre: 10,
+    custom: 0,
+  },
+  paymentFees: {
+    tiendanubeCPT: 0,
+    shopifyFees: 1,
+    iibb: 0,
+  },
+  shipping: {
+    type: "custom" as "order" | "custom",
+    customShippingCost: 1500,
+  },
+};
+
+const parseStoredCostSettings = (raw: any) => {
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== "object") return DEFAULT_COST_SETTINGS;
+    return {
+      platformCommissions: {
+        ...DEFAULT_COST_SETTINGS.platformCommissions,
+        ...(parsed.platformCommissions || {}),
+      },
+      paymentFees: {
+        ...DEFAULT_COST_SETTINGS.paymentFees,
+        ...(parsed.paymentFees || {}),
+      },
+      shipping: {
+        ...DEFAULT_COST_SETTINGS.shipping,
+        ...(parsed.shipping || {}),
+      },
+    };
+  } catch {
+    return DEFAULT_COST_SETTINGS;
+  }
+};
 
 type DashboardCachePayload = {
   currentStore?: any;
@@ -1009,6 +1051,7 @@ export default function DashboardPage() {
   const [currentStore, setCurrentStore] = useState<any>(null);
   const [prevStore, setPrevStore] = useState<any>(null);
   const [costSummary, setCostSummary] = useState({ current: 0, previous: 0 });
+  const [costSettings, setCostSettings] = useState(DEFAULT_COST_SETTINGS);
   const [productImages, setProductImages] = useState<Record<string, string>>({});
   const [fetchingStore, setFetchingStore] = useState(true);
   const [shopifyError, setShopifyError] = useState<string | null>(null);
@@ -1139,6 +1182,7 @@ export default function DashboardPage() {
     setCurrentStore(null);
     setPrevStore(null);
     setCostSummary({ current: 0, previous: 0 });
+    setCostSettings(DEFAULT_COST_SETTINGS);
     setProductImages({});
     setCurrentMeta(null);
     setPrevMeta(null);
@@ -1531,7 +1575,7 @@ export default function DashboardPage() {
       const prevRange = getPrevPeriod(range.since, range.until);
       const { data, error } = await supabase
         .from('car_additional_costs')
-        .select('start_date,end_date,cost,daily_cost')
+        .select('name,start_date,end_date,cost,daily_cost,platform')
         .eq('client_id', profile.id);
       if (error) {
         console.error('Dashboard cost summary error:', error);
@@ -1539,7 +1583,10 @@ export default function DashboardPage() {
         return;
       }
       if (mounted) {
-        const items = data || [];
+        const rows = data || [];
+        const settingsRow = rows.find((item: any) => item.name === COST_SETTINGS_ROW_NAME);
+        setCostSettings(parseStoredCostSettings(settingsRow?.platform));
+        const items = rows.filter((item: any) => item.name !== COST_SETTINGS_ROW_NAME);
         setCostSummary({
           current: calcCostForRange(items, range.since, range.until),
           previous: calcCostForRange(items, prevRange.since, prevRange.until)
@@ -1774,11 +1821,59 @@ export default function DashboardPage() {
 
   const currentSpend = currentMeta?.spend || 0;
   const prevSpend = prevMeta?.spend || 0;
-  const currentNetRevenue = Math.max(0, (currentStore?.revenue || 0) - costSummary.current - currentSpend);
-  const prevNetRevenue = Math.max(0, (prevStore?.revenue || 0) - costSummary.previous - prevSpend);
+  const getVariableStoreCosts = (store: any) => {
+    const revenue = Number(store?.revenue || 0);
+    const orders = Number(store?.orders || 0);
+    const platformRate = Number(
+      detectedPlatform === "shopify"
+        ? costSettings.platformCommissions.shopify
+        : detectedPlatform === "tiendanube"
+          ? costSettings.platformCommissions.tiendanube
+          : detectedPlatform === "mercadolibre"
+            ? costSettings.platformCommissions.mercadolibre
+            : costSettings.platformCommissions.custom
+    ) || 0;
+    const paymentRate =
+      (Number(costSettings.paymentFees.tiendanubeCPT) || 0) +
+      (Number(costSettings.paymentFees.shopifyFees) || 0) +
+      (Number(costSettings.paymentFees.iibb) || 0);
+    const shippingCost = costSettings.shipping.type === "custom"
+      ? (Number(costSettings.shipping.customShippingCost) || 0) * orders
+      : 0;
+    return {
+      platform: revenue * (platformRate / 100),
+      payment: revenue * (paymentRate / 100),
+      shipping: shippingCost,
+      total: revenue * ((platformRate + paymentRate) / 100) + shippingCost,
+    };
+  };
+  const currentVariableCosts = getVariableStoreCosts(currentStore);
+  const prevVariableCosts = getVariableStoreCosts(prevStore);
+  const currentTotalCosts = costSummary.current + currentVariableCosts.total + currentSpend;
+  const prevTotalCosts = costSummary.previous + prevVariableCosts.total + prevSpend;
+  const currentNetRevenue = Math.max(0, (currentStore?.revenue || 0) - currentTotalCosts);
+  const prevNetRevenue = Math.max(0, (prevStore?.revenue || 0) - prevTotalCosts);
   const realRoas = currentSpend > 0 ? currentNetRevenue / currentSpend : 0;
   const prevRealRoas = prevSpend > 0 ? prevNetRevenue / prevSpend : 0;
-  const showProfitMetrics = !!currentStore && (costSummary.current > 0 || currentSpend > 0);
+  const showProfitMetrics = !!currentStore && (costSummary.current > 0 || currentVariableCosts.total > 0 || currentSpend > 0);
+  const currentDaysCount = Math.max(1, currentStore?.daily?.length || 1);
+  const netRevenueDaily = currentStore?.daily?.map((d: any, idx: number) => {
+    const dayVariableCosts = getVariableStoreCosts({ revenue: d.revenue, orders: d.orders });
+    const daySpend = metaDaily?.[idx]?.spend || 0;
+    const dayFixedCosts = costSummary.current / currentDaysCount;
+    return {
+      val: Math.max(0, Number(d.revenue || 0) - dayVariableCosts.total - daySpend - dayFixedCosts),
+      date: d.date,
+    };
+  }) || [];
+  const realRoasDaily = currentStore?.daily?.map((d: any, idx: number) => {
+    const daySpend = metaDaily?.[idx]?.spend || 0;
+    const netDay = netRevenueDaily[idx]?.val || 0;
+    return {
+      val: daySpend > 0 ? netDay / daySpend : 0,
+      date: d.date,
+    };
+  }) || [];
 
   const prevMerDaily = (prevStore && prevStore.daily) ? prevStore.daily.map((d: any, idx: number) => {
     const metaDay = prevMetaDaily?.[idx];
@@ -2209,12 +2304,12 @@ export default function DashboardPage() {
                         value={`$ ${currentNetRevenue.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`}
                         change={getKlaviyoChange(currentNetRevenue, prevNetRevenue)}
                         trend={currentNetRevenue >= prevNetRevenue ? "up" : "down"}
-                        data={currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))}
+                        data={netRevenueDaily}
                         color={PINK}
                         loading={fetchingStore || fetchingMeta}
                         active={expandedMetric === "s-net-revenue"}
                         onClick={() => setExpandedMetric(expandedMetric === "s-net-revenue" ? null : "s-net-revenue")}
-                        info="Facturación neta descuenta de la facturación bruta los costos adicionales cargados en Costos y la inversión publicitaria del período. Los costos unitarios por producto quedan guardados para análisis de margen."
+                        info="Facturación neta descuenta de la facturación bruta los costos adicionales, comisiones de plataforma, comisiones de pago, envíos configurados y la inversión publicitaria del período."
                       />
                       <ShopifyMetric
                         icon={Zap}
@@ -2222,12 +2317,12 @@ export default function DashboardPage() {
                         value={currentSpend > 0 ? `${realRoas.toFixed(2)}x` : "—"}
                         change={prevRealRoas > 0 ? getKlaviyoChange(realRoas, prevRealRoas) : undefined}
                         trend={realRoas >= prevRealRoas ? "up" : "down"}
-                        data={currentStore?.daily?.map((d: any) => ({ val: currentSpend > 0 ? d.revenue / currentSpend : 0, date: d.date }))}
+                        data={realRoasDaily}
                         color={PINK}
                         loading={fetchingStore || fetchingMeta}
                         active={expandedMetric === "s-real-roas"}
                         onClick={() => setExpandedMetric(expandedMetric === "s-real-roas" ? null : "s-real-roas")}
-                        info="ROAS real usa la facturación neta estimada dividida por la inversión publicitaria. Incluye costos adicionales cargados y pauta del período."
+                        info="ROAS real usa la facturación neta estimada dividida por la inversión publicitaria. Incluye costos adicionales, comisiones, envíos configurados y pauta del período."
                       />
                     </>
                   )}
