@@ -1882,8 +1882,8 @@ export default function DashboardPage() {
   const prevProductCosts = getProductCosts(prevStore);
   const currentTotalCosts = costSummary.current + currentVariableCosts.total + currentProductCosts + currentSpend;
   const prevTotalCosts = costSummary.previous + prevVariableCosts.total + prevProductCosts + prevSpend;
-  const currentNetRevenue = Math.max(0, (currentStore?.revenue || 0) - currentTotalCosts);
-  const prevNetRevenue = Math.max(0, (prevStore?.revenue || 0) - prevTotalCosts);
+  const currentNetRevenue = (currentStore?.revenue || 0) - currentTotalCosts;
+  const prevNetRevenue = (prevStore?.revenue || 0) - prevTotalCosts;
   const realRoas = currentSpend > 0 ? currentNetRevenue / currentSpend : 0;
   const prevRealRoas = prevSpend > 0 ? prevNetRevenue / prevSpend : 0;
   const showProfitMetrics = !!currentStore;
@@ -1894,7 +1894,7 @@ export default function DashboardPage() {
     const dayFixedCosts = costSummary.current / currentDaysCount;
     const dayProductCosts = currentProductCosts / currentDaysCount;
     return {
-      val: Math.max(0, Number(d.revenue || 0) - dayVariableCosts.total - daySpend - dayFixedCosts - dayProductCosts),
+      val: Number(d.revenue || 0) - dayVariableCosts.total - daySpend - dayFixedCosts - dayProductCosts,
       date: d.date,
     };
   }) || [];
