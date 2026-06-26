@@ -312,91 +312,93 @@ export default function MonedaPage() {
           </div>
         </section>
 
-        <section className="rounded-[22px] bg-white dark:bg-zinc-950 border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden">
-          <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-start gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
-              <Table2 className="w-5 h-5" />
+        <div className="space-y-5">
+          <section className="rounded-[22px] bg-white dark:bg-zinc-950 border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden">
+            <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                <Table2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-500">Tabla de conversión</p>
+                <h2 className="text-xl font-black">Cotizaciones usadas</h2>
+                <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                  Se actualizan automáticamente cada hora desde {settings.rateProvider || "la API de cotizaciones"}.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-500">Tabla de conversión</p>
-              <h2 className="text-xl font-black">Cotizaciones usadas</h2>
-              <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
-                Se actualizan automáticamente cada hora desde {settings.rateProvider || "la API de cotizaciones"}.
-              </p>
-            </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
-              <thead className="bg-zinc-50 dark:bg-white/[0.03] text-[11px] uppercase tracking-widest text-zinc-400">
-                <tr>
-                  <th className="px-5 py-4 font-black">Métrica</th>
-                  <th className="px-5 py-4 font-black">Precio moneda 1</th>
-                  <th className="px-5 py-4 font-black">Precio moneda 2</th>
-                  <th className="px-5 py-4 font-black">Conversión</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {rateRows.map((row) => (
-                  <tr key={row.key} className="text-sm">
-                    <td className="px-5 py-4">
-                      <p className="font-black text-zinc-950 dark:text-white">{row.title}</p>
-                      <p className="text-xs font-semibold text-zinc-400 mt-0.5">Se convierte al dashboard</p>
-                    </td>
-                    <td className="px-5 py-4 font-black">1 {row.from}</td>
-                    <td className="px-5 py-4 font-black">{formatCurrencyValue(row.rate, row.to, 4)} {row.to}</td>
-                    <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 font-semibold">
-                      {row.from === row.to ? "Sin conversión" : `${row.from} -> ${row.to}`}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left">
+                <thead className="bg-zinc-50 dark:bg-white/[0.03] text-[11px] uppercase tracking-widest text-zinc-400">
+                  <tr>
+                    <th className="px-5 py-4 font-black">Métrica</th>
+                    <th className="px-5 py-4 font-black">Precio moneda 1</th>
+                    <th className="px-5 py-4 font-black">Precio moneda 2</th>
+                    <th className="px-5 py-4 font-black">Conversión</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-
-      <section className="mt-5 rounded-[22px] bg-white dark:bg-zinc-950 border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden">
-        <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-500">Relación de monedas</p>
-            <h2 className="text-xl font-black mt-1">Tabla completa de equivalencias</h2>
-            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
-              Muestra cómo se relacionan las monedas configuradas entre sí. USD y ARS quedan siempre disponibles.
-            </p>
-          </div>
-          {refreshingRates && (
-            <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 dark:bg-blue-500/10 px-3 py-2 text-xs font-black text-blue-600 dark:text-blue-300">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Actualizando
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {rateRows.map((row) => (
+                    <tr key={row.key} className="text-sm">
+                      <td className="px-5 py-4">
+                        <p className="font-black text-zinc-950 dark:text-white">{row.title}</p>
+                        <p className="text-xs font-semibold text-zinc-400 mt-0.5">Se convierte al dashboard</p>
+                      </td>
+                      <td className="px-5 py-4 font-black">1 {row.from}</td>
+                      <td className="px-5 py-4 font-black">{formatCurrencyValue(row.rate, row.to, 4)} {row.to}</td>
+                      <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 font-semibold">
+                        {row.from === row.to ? "Sin conversión" : `${row.from} -> ${row.to}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+          </section>
+
+          <section className="rounded-[22px] bg-white dark:bg-zinc-950 border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden">
+            <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-500">Relación de monedas</p>
+                <h2 className="text-xl font-black mt-1">Tabla completa de equivalencias</h2>
+                <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                  Muestra cómo se relacionan las monedas configuradas entre sí. USD y ARS quedan siempre disponibles.
+                </p>
+              </div>
+              {refreshingRates && (
+                <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 dark:bg-blue-500/10 px-3 py-2 text-xs font-black text-blue-600 dark:text-blue-300">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Actualizando
+                </div>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px] text-left">
+                <thead className="bg-zinc-50 dark:bg-white/[0.03] text-[11px] uppercase tracking-widest text-zinc-400">
+                  <tr>
+                    <th className="px-5 py-4 font-black">Moneda 1</th>
+                    <th className="px-5 py-4 font-black">Moneda 2</th>
+                    <th className="px-5 py-4 font-black">Relación</th>
+                    <th className="px-5 py-4 font-black">Actualizado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {relationshipRows.map((row) => (
+                    <tr key={`${row.from}-${row.to}`} className="text-sm">
+                      <td className="px-5 py-4 font-black">1 {row.from}</td>
+                      <td className="px-5 py-4 font-black">{formatCurrencyValue(row.rate, row.to, 4)} {row.to}</td>
+                      <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 font-semibold">{`${row.from} -> ${row.to}`}</td>
+                      <td className="px-5 py-4 text-zinc-400 font-semibold">
+                        {settings.rateUpdatedAt ? new Date(settings.rateUpdatedAt).toLocaleString("es-AR") : "Pendiente"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left">
-            <thead className="bg-zinc-50 dark:bg-white/[0.03] text-[11px] uppercase tracking-widest text-zinc-400">
-              <tr>
-                <th className="px-5 py-4 font-black">Moneda 1</th>
-                <th className="px-5 py-4 font-black">Moneda 2</th>
-                <th className="px-5 py-4 font-black">Relación</th>
-                <th className="px-5 py-4 font-black">Actualizado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {relationshipRows.map((row) => (
-                <tr key={`${row.from}-${row.to}`} className="text-sm">
-                  <td className="px-5 py-4 font-black">1 {row.from}</td>
-                  <td className="px-5 py-4 font-black">{formatCurrencyValue(row.rate, row.to, 4)} {row.to}</td>
-                  <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 font-semibold">{`${row.from} -> ${row.to}`}</td>
-                  <td className="px-5 py-4 text-zinc-400 font-semibold">
-                    {settings.rateUpdatedAt ? new Date(settings.rateUpdatedAt).toLocaleString("es-AR") : "Pendiente"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }
