@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, BarChart2, Mail, Link2, FileText, Sun, Moon, X, LogOut, MessageCircle, Shield, ShoppingBag,
   AlertTriangle, Activity, Library, Workflow, Instagram, MessageSquare, Brain, Users, Package,
-  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart
+  Calculator, Coins, Target, Send, Zap, Building2, Loader2, User, ShoppingCart, ArrowRightLeft
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -132,6 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, darkMode, t
   const configuracionItems = [
     { path: '/perfil',           icon: User,   label: 'Mi Perfil',      configured: true },
     { path: '/links',            icon: Link2,  label: 'Mis Accesos',    configured: hasLinks },
+    { path: '/moneda',           icon: ArrowRightLeft, label: 'Moneda',  configured: true },
     { path: '/integraciones',    icon: Workflow, label: 'Integraciones',  configured: true },
     { path: '/cerebro',          icon: Brain,  label: 'Cerebro IA',      configured: true },
   ].filter(i => (!i.adminOnly || isAdmin) && (isAdmin || i.configured));

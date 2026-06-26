@@ -4,6 +4,7 @@ import { useViewAs } from '../contexts/ViewAsContext';
 import { useToast } from '../components/Toast';
 import { supabase } from '../services/supabase';
 import { ecommerce } from '../services/ecommerce';
+import { DEFAULT_CURRENCY_SETTINGS, normalizeCurrencySettings } from '../utils/currencySettings';
 import { 
   ShoppingBag, Percent, CreditCard, Truck, FileText, Calendar, Plus, 
   Search, Trash2, Edit3, Save, AlertCircle, X, ChevronLeft, ChevronRight, 
@@ -61,7 +62,8 @@ const DEFAULT_COST_SETTINGS = {
     customShippingCost: 0,
     configured: false
   },
-  updatedSections: {} as Record<string, string>
+  updatedSections: {} as Record<string, string>,
+  currency: DEFAULT_CURRENCY_SETTINGS
 };
 
 const parseCostSettings = (raw: any) => {
@@ -86,7 +88,8 @@ const parseCostSettings = (raw: any) => {
         ...(parsed.shipping || {}),
         configured: Boolean(parsed.shipping?.configured || parsed.updatedSections?.shipping)
       },
-      updatedSections: parsed.updatedSections || {}
+      updatedSections: parsed.updatedSections || {},
+      currency: normalizeCurrencySettings(parsed)
     };
   } catch {
     return null;
@@ -361,12 +364,20 @@ export default function CostosPage() {
       ...sectionSavedAt,
       [key]: savedAtIso
     };
+    let existingCurrency = DEFAULT_CURRENCY_SETTINGS;
+    try {
+      const saved = localStorage.getItem(`car_costs_${profileId}`);
+      if (saved) existingCurrency = normalizeCurrencySettings(JSON.parse(saved));
+    } catch {
+      existingCurrency = DEFAULT_CURRENCY_SETTINGS;
+    }
     const mergedSettings = {
       platformCommissions,
       paymentFees,
       gateways,
       shipping,
       updatedSections,
+      currency: existingCurrency,
       ...updatedData
     };
     saveToLocalStorage(mergedSettings);

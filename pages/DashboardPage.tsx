@@ -67,6 +67,13 @@ import {
 } from "recharts";
 import EmailLoader from "../components/ui/EmailLoader";
 import { CenteredPageLoader } from "../components/ui/CenteredPageLoader";
+import {
+  DEFAULT_CURRENCY_SETTINGS,
+  convertCurrency,
+  convertMetaToBase,
+  formatCurrencyValue,
+  normalizeCurrencySettings,
+} from "../utils/currencySettings";
 
 
 const BLUE = "#3b82f6";
@@ -95,6 +102,7 @@ const DEFAULT_COST_SETTINGS = {
     configured: false,
   },
   updatedSections: {} as Record<string, string>,
+  currency: DEFAULT_CURRENCY_SETTINGS,
 };
 
 const parseStoredCostSettings = (raw: any) => {
@@ -116,14 +124,15 @@ const parseStoredCostSettings = (raw: any) => {
         configured: Boolean(parsed.shipping?.configured || parsed.updatedSections?.shipping),
       },
       updatedSections: parsed.updatedSections || {},
+      currency: normalizeCurrencySettings(parsed),
     };
   } catch {
     return DEFAULT_COST_SETTINGS;
   }
 };
 
-const formatDashboardMoney = (value: number) =>
-  `$ ${Number(value || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+const formatDashboardMoney = (value: number, currency?: string) =>
+  formatCurrencyValue(value, currency);
 
 type DashboardCachePayload = {
   currentStore?: any;
@@ -798,15 +807,15 @@ const NetRevenueBreakdown = ({ summary }: any) => {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 min-w-0 lg:min-w-[420px]">
             <div className="rounded-2xl bg-zinc-50 dark:bg-white/[0.03] p-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Ingresos</p>
-              <p className="text-base font-black text-zinc-950 dark:text-white">{formatDashboardMoney(summary.grossRevenue)}</p>
+              <p className="text-base font-black text-zinc-950 dark:text-white">{formatDashboardMoney(summary.grossRevenue, summary.currency)}</p>
             </div>
             <div className="rounded-2xl bg-rose-50 dark:bg-rose-500/10 p-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Descuentos</p>
-              <p className="text-base font-black text-rose-600 dark:text-rose-300">-{formatDashboardMoney(summary.totalCosts)}</p>
+              <p className="text-base font-black text-rose-600 dark:text-rose-300">-{formatDashboardMoney(summary.totalCosts, summary.currency)}</p>
             </div>
             <div className="col-span-2 sm:col-span-1 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 p-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Neto</p>
-              <p className="text-base font-black text-emerald-700 dark:text-emerald-300">{formatDashboardMoney(summary.netRevenue)}</p>
+              <p className="text-base font-black text-emerald-700 dark:text-emerald-300">{formatDashboardMoney(summary.netRevenue, summary.currency)}</p>
             </div>
           </div>
         </div>
@@ -819,7 +828,7 @@ const NetRevenueBreakdown = ({ summary }: any) => {
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{row.description}</p>
             </div>
             <p className="text-sm font-black text-rose-600 dark:text-rose-300 sm:text-right">
-              -{formatDashboardMoney(row.value)}
+              -{formatDashboardMoney(row.value, summary.currency)}
             </p>
           </div>
         ))}
@@ -1150,6 +1159,7 @@ export default function DashboardPage() {
   const [prevStore, setPrevStore] = useState<any>(null);
   const [costSummary, setCostSummary] = useState({ current: 0, previous: 0 });
   const [costSettings, setCostSettings] = useState(DEFAULT_COST_SETTINGS);
+  const [currencySettings, setCurrencySettings] = useState(DEFAULT_CURRENCY_SETTINGS);
   const [variantCostMap, setVariantCostMap] = useState<Record<string, { cost: number; packagingCost: number }>>({});
   const [productImages, setProductImages] = useState<Record<string, string>>({});
   const [fetchingStore, setFetchingStore] = useState(true);
@@ -1693,7 +1703,9 @@ export default function DashboardPage() {
       const costsData = await costsRes.json();
       if (mounted) {
         const rows = costsData.additionalCosts || [];
-        setCostSettings(parseStoredCostSettings(costsData.costSettings));
+        const parsedCostSettings = parseStoredCostSettings(costsData.costSettings);
+        setCostSettings(parsedCostSettings);
+        setCurrencySettings(parsedCostSettings.currency || DEFAULT_CURRENCY_SETTINGS);
         const variants: Record<string, { cost: number; packagingCost: number }> = {};
         (costsData.variantCosts || []).forEach((row: any) => {
           variants[String(row.variant_id)] = {
@@ -1915,27 +1927,47 @@ export default function DashboardPage() {
   const activePrevRange = getPrevPeriod(activeRange.since, activeRange.until);
 
   const showMER = false;
-  const currentMER = (currentStore && currentMeta && currentMeta.spend > 0)
-    ? currentStore.revenue / currentMeta.spend
+  const convertStoreToDashboard = (amount: number) =>
+    convertCurrency(amount, currencySettings.storeCurrency, currencySettings.baseCurrency, currencySettings);
+  const convertMetaToDashboard = (amount: number) => convertMetaToBase(amount, currencySettings);
+  const currentStoreRevenue = convertStoreToDashboard(currentStore?.revenue || 0);
+  const prevStoreRevenue = convertStoreToDashboard(prevStore?.revenue || 0);
+  const currentMetaSpend = convertMetaToDashboard(currentMeta?.spend || 0);
+  const prevMetaSpend = convertMetaToDashboard(prevMeta?.spend || 0);
+  const currentMetaReturn = convertMetaToDashboard(currentMeta?.purchase_value || 0);
+  const prevMetaReturn = convertMetaToDashboard(prevMeta?.purchase_value || 0);
+  const metaDailyBase = metaDaily?.map((d: any) => ({
+    ...d,
+    spend: convertMetaToDashboard(d.spend || 0),
+    purchase_value: convertMetaToDashboard(d.purchase_value || 0),
+  })) || [];
+  const prevMetaDailyBase = prevMetaDaily?.map((d: any) => ({
+    ...d,
+    spend: convertMetaToDashboard(d.spend || 0),
+    purchase_value: convertMetaToDashboard(d.purchase_value || 0),
+  })) || [];
+
+  const currentMER = (currentStore && currentMeta && currentMetaSpend > 0)
+    ? currentStoreRevenue / currentMetaSpend
     : 0;
-  const prevMER = (prevStore && prevMeta && prevMeta.spend > 0)
-    ? prevStore.revenue / prevMeta.spend
+  const prevMER = (prevStore && prevMeta && prevMetaSpend > 0)
+    ? prevStoreRevenue / prevMetaSpend
     : 0;
   const merChange = (currentMER > 0 && prevMER > 0)
     ? ((currentMER - prevMER) / prevMER) * 100
     : undefined;
 
   const merDaily = (currentStore && currentStore.daily) ? currentStore.daily.map((d: any) => {
-    const metaDay = metaDaily?.find((md: any) => md.date === d.date);
+    const metaDay = metaDailyBase?.find((md: any) => md.date === d.date);
     const spend = metaDay ? metaDay.spend : 0;
     return {
       date: d.date,
-      val: spend > 0 ? d.revenue / spend : 0
+      val: spend > 0 ? convertStoreToDashboard(d.revenue || 0) / spend : 0
     };
   }) : [];
 
-  const currentSpend = currentMeta?.spend || 0;
-  const prevSpend = prevMeta?.spend || 0;
+  const currentSpend = currentMetaSpend;
+  const prevSpend = prevMetaSpend;
   const getProductCosts = (store: any) => {
     const variantOrders = store?.variantOrders || {};
     return Object.entries(variantOrders).reduce((sum, [variantId, qty]) => {
@@ -1958,13 +1990,13 @@ export default function DashboardPage() {
     (Number(costSettings.paymentFees.shopifyFees) || 0) +
     (Number(costSettings.paymentFees.iibb) || 0);
   const getVariableStoreCosts = (store: any) => {
-    const revenue = Number(store?.revenue || 0);
+    const revenue = convertStoreToDashboard(Number(store?.revenue || 0));
     const orders = Number(store?.orders || 0);
     const platformRate = getPlatformRate();
     const paymentRate = getPaymentRate();
     const hasConfiguredShipping = Boolean((costSettings.shipping as any).configured);
     const shippingCost = hasConfiguredShipping && costSettings.shipping.type === "custom"
-      ? (Number(costSettings.shipping.customShippingCost) || 0) * orders
+      ? convertStoreToDashboard((Number(costSettings.shipping.customShippingCost) || 0) * orders)
       : 0;
     return {
       platform: revenue * (platformRate / 100),
@@ -1975,16 +2007,19 @@ export default function DashboardPage() {
   };
   const currentVariableCosts = getVariableStoreCosts(currentStore);
   const prevVariableCosts = getVariableStoreCosts(prevStore);
-  const currentProductCosts = getProductCosts(currentStore);
-  const prevProductCosts = getProductCosts(prevStore);
-  const currentTotalCosts = costSummary.current + currentVariableCosts.total + currentProductCosts + currentSpend;
-  const prevTotalCosts = costSummary.previous + prevVariableCosts.total + prevProductCosts + prevSpend;
-  const currentNetRevenue = (currentStore?.revenue || 0) - currentTotalCosts;
-  const prevNetRevenue = (prevStore?.revenue || 0) - prevTotalCosts;
+  const currentProductCosts = convertStoreToDashboard(getProductCosts(currentStore));
+  const prevProductCosts = convertStoreToDashboard(getProductCosts(prevStore));
+  const currentFixedCosts = convertStoreToDashboard(costSummary.current);
+  const prevFixedCosts = convertStoreToDashboard(costSummary.previous);
+  const currentTotalCosts = currentFixedCosts + currentVariableCosts.total + currentProductCosts + currentSpend;
+  const prevTotalCosts = prevFixedCosts + prevVariableCosts.total + prevProductCosts + prevSpend;
+  const currentNetRevenue = currentStoreRevenue - currentTotalCosts;
+  const prevNetRevenue = prevStoreRevenue - prevTotalCosts;
   const netRevenueBreakdown = {
-    grossRevenue: Number(currentStore?.revenue || 0),
+    currency: currencySettings.baseCurrency,
+    grossRevenue: currentStoreRevenue,
     productCosts: currentProductCosts,
-    fixedCosts: costSummary.current,
+    fixedCosts: currentFixedCosts,
     platformCosts: currentVariableCosts.platform,
     platformRate: getPlatformRate(),
     paymentCosts: currentVariableCosts.payment,
@@ -2002,26 +2037,26 @@ export default function DashboardPage() {
   const prevDaysCount = Math.max(1, prevStore?.daily?.length || 1);
   const netRevenueDaily = currentStore?.daily?.map((d: any, idx: number) => {
     const dayVariableCosts = getVariableStoreCosts({ revenue: d.revenue, orders: d.orders });
-    const daySpend = metaDaily?.[idx]?.spend || 0;
-    const dayFixedCosts = costSummary.current / currentDaysCount;
+    const daySpend = metaDailyBase?.[idx]?.spend || 0;
+    const dayFixedCosts = currentFixedCosts / currentDaysCount;
     const dayProductCosts = currentProductCosts / currentDaysCount;
     return {
-      val: Number(d.revenue || 0) - dayVariableCosts.total - daySpend - dayFixedCosts - dayProductCosts,
+      val: convertStoreToDashboard(Number(d.revenue || 0)) - dayVariableCosts.total - daySpend - dayFixedCosts - dayProductCosts,
       date: d.date,
     };
   }) || [];
   const prevNetRevenueDaily = prevStore?.daily?.map((d: any, idx: number) => {
     const dayVariableCosts = getVariableStoreCosts({ revenue: d.revenue, orders: d.orders });
-    const daySpend = prevMetaDaily?.[idx]?.spend || 0;
-    const dayFixedCosts = costSummary.previous / prevDaysCount;
+    const daySpend = prevMetaDailyBase?.[idx]?.spend || 0;
+    const dayFixedCosts = prevFixedCosts / prevDaysCount;
     const dayProductCosts = prevProductCosts / prevDaysCount;
     return {
-      val: Number(d.revenue || 0) - dayVariableCosts.total - daySpend - dayFixedCosts - dayProductCosts,
+      val: convertStoreToDashboard(Number(d.revenue || 0)) - dayVariableCosts.total - daySpend - dayFixedCosts - dayProductCosts,
       date: d.date,
     };
   }) || [];
   const realRoasDaily = currentStore?.daily?.map((d: any, idx: number) => {
-    const daySpend = metaDaily?.[idx]?.spend || 0;
+    const daySpend = metaDailyBase?.[idx]?.spend || 0;
     const netDay = netRevenueDaily[idx]?.val || 0;
     return {
       val: daySpend > 0 ? netDay / daySpend : 0,
@@ -2029,7 +2064,7 @@ export default function DashboardPage() {
     };
   }) || [];
   const prevRealRoasDaily = prevStore?.daily?.map((d: any, idx: number) => {
-    const daySpend = prevMetaDaily?.[idx]?.spend || 0;
+    const daySpend = prevMetaDailyBase?.[idx]?.spend || 0;
     const netDay = prevNetRevenueDaily[idx]?.val || 0;
     return {
       val: daySpend > 0 ? netDay / daySpend : 0,
@@ -2038,11 +2073,11 @@ export default function DashboardPage() {
   }) || [];
 
   const prevMerDaily = (prevStore && prevStore.daily) ? prevStore.daily.map((d: any, idx: number) => {
-    const metaDay = prevMetaDaily?.[idx];
+    const metaDay = prevMetaDailyBase?.[idx];
     const spend = metaDay ? metaDay.spend : 0;
     return {
       date: d.date,
-      val: spend > 0 ? d.revenue / spend : 0
+      val: spend > 0 ? convertStoreToDashboard(d.revenue || 0) / spend : 0
     };
   }) : [];
 
@@ -2383,15 +2418,15 @@ export default function DashboardPage() {
                   <ShopifyMetric
                     icon={Receipt}
                     label="Ticket Promedio"
-                    value={`$ ${currentStore.aov?.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`}
-                    change={getKlaviyoChange(currentStore?.aov, prevStore?.aov)}
+                    value={formatCurrencyValue(convertStoreToDashboard(currentStore.aov || 0), currencySettings.baseCurrency)}
+                    change={getKlaviyoChange(convertStoreToDashboard(currentStore?.aov || 0), convertStoreToDashboard(prevStore?.aov || 0))}
                     trend={
-                      (currentStore?.aov || 0) >= (prevStore?.aov || 0)
+                      convertStoreToDashboard(currentStore?.aov || 0) >= convertStoreToDashboard(prevStore?.aov || 0)
                         ? "up"
                         : "down"
                     }
                     data={currentStore?.daily?.map((d: any) => ({
-                      val: d.aov,
+                      val: convertStoreToDashboard(d.aov || 0),
                       date: d.date,
                     }))}
                     color={PINK}
@@ -2434,18 +2469,18 @@ export default function DashboardPage() {
                   <ShopifyMetric
                     icon={DollarSign}
                     label="Ingresos"
-                    value={`$ ${currentStore.revenue?.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`}
+                    value={formatCurrencyValue(currentStoreRevenue, currencySettings.baseCurrency)}
                     change={getKlaviyoChange(
-                      currentStore?.revenue,
-                      prevStore?.revenue,
+                      currentStoreRevenue,
+                      prevStoreRevenue,
                     )}
                     trend={
-                      (currentStore?.revenue || 0) >= (prevStore?.revenue || 0)
+                      currentStoreRevenue >= prevStoreRevenue
                         ? "up"
                         : "down"
                     }
                     data={currentStore?.daily?.map((d: any) => ({
-                      val: d.revenue,
+                      val: convertStoreToDashboard(d.revenue || 0),
                       date: d.date,
                     }))}
                     color={PINK}
@@ -2463,7 +2498,7 @@ export default function DashboardPage() {
                       <ShopifyMetric
                         icon={Coins}
                         label="Facturación neta"
-                        value={`$ ${currentNetRevenue.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`}
+                        value={formatCurrencyValue(currentNetRevenue, currencySettings.baseCurrency)}
                         change={getKlaviyoChange(currentNetRevenue, prevNetRevenue)}
                         trend={currentNetRevenue >= prevNetRevenue ? "up" : "down"}
                         data={netRevenueDaily}
@@ -2538,7 +2573,7 @@ export default function DashboardPage() {
                             ? realRoasDaily
                           : expandedMetric === "s-revenue"
                             ? currentStore?.daily?.map((d: any) => ({
-                                val: d.revenue,
+                                val: convertStoreToDashboard(d.revenue || 0),
                                 date: d.date,
                               }))
                             : expandedMetric === "s-orders"
@@ -2548,7 +2583,7 @@ export default function DashboardPage() {
                                 }))
                               : expandedMetric === "s-aov"
                                 ? currentStore?.daily?.map((d: any) => ({
-                                    val: d.aov,
+                                    val: convertStoreToDashboard(d.aov || 0),
                                     date: d.date,
                                   }))
                                 : expandedMetric === "s-sessions"
@@ -2570,7 +2605,7 @@ export default function DashboardPage() {
                             ? prevRealRoasDaily
                           : expandedMetric === "s-revenue"
                             ? prevStore?.daily?.map((d: any) => ({
-                                val: d.revenue,
+                                val: convertStoreToDashboard(d.revenue || 0),
                                 date: d.date,
                               }))
                             : expandedMetric === "s-orders"
@@ -2580,7 +2615,7 @@ export default function DashboardPage() {
                                 }))
                               : expandedMetric === "s-aov"
                                 ? prevStore?.daily?.map((d: any) => ({
-                                    val: d.aov,
+                                    val: convertStoreToDashboard(d.aov || 0),
                                     date: d.date,
                                   }))
                                 : expandedMetric === "s-sessions"
@@ -2643,14 +2678,14 @@ export default function DashboardPage() {
                   <ShopifyMetric
                     icon={DollarSign}
                     label="Inversión"
-                    value={`$ ${currentMeta.spend?.toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
-                    change={getMetaChange(currentMeta?.spend, prevMeta?.spend)}
+                    value={formatCurrencyValue(currentSpend, currencySettings.baseCurrency)}
+                    change={getMetaChange(currentSpend, prevSpend)}
                     trend={
-                      (currentMeta?.spend || 0) >= (prevMeta?.spend || 0)
+                      currentSpend >= prevSpend
                         ? "up"
                         : "down"
                     }
-                    data={metaDaily?.map((d: any) => ({
+                    data={metaDailyBase?.map((d: any) => ({
                       val: d.spend,
                       date: d.date,
                     }))}
@@ -2720,10 +2755,10 @@ export default function DashboardPage() {
                       <ShopifyMetric
                         icon={DollarSign}
                         label="Retorno"
-                        value={`$ ${currentMeta.purchase_value?.toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
-                        change={getMetaChange(currentMeta?.purchase_value, prevMeta?.purchase_value)}
-                        trend={(currentMeta?.purchase_value || 0) >= (prevMeta?.purchase_value || 0) ? "up" : "down"}
-                        data={metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))}
+                        value={formatCurrencyValue(currentMetaReturn, currencySettings.baseCurrency)}
+                        change={getMetaChange(currentMetaReturn, prevMetaReturn)}
+                        trend={currentMetaReturn >= prevMetaReturn ? "up" : "down"}
+                        data={metaDailyBase?.map((d: any) => ({ val: d.purchase_value, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-roas-v"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-roas-v" ? null : "meta-roas-v")}
                         info="Retorno es el valor monetario (ingresos) generado por las compras que son atribuidas directamente a tus campañas de anuncios en Meta."
@@ -2747,13 +2782,13 @@ export default function DashboardPage() {
                       <ShopifyMetric
                         icon={DollarSign}
                         label="CPL"
-                        value={`$ ${((currentMeta.leads ? currentMeta.spend / currentMeta.leads : 0)).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 0}`}
+                        value={formatCurrencyValue(currentMeta.leads ? currentSpend / currentMeta.leads : 0, currencySettings.baseCurrency, 2)}
                         change={getMetaChange(
-                          currentMeta?.leads ? currentMeta.spend / currentMeta.leads : 0, 
-                          prevMeta?.leads ? prevMeta.spend / prevMeta.leads : 0
+                          currentMeta?.leads ? currentSpend / currentMeta.leads : 0,
+                          prevMeta?.leads ? prevSpend / prevMeta.leads : 0
                         )}
-                        trend={(currentMeta?.leads ? currentMeta.spend / currentMeta.leads : 0) <= (prevMeta?.leads ? prevMeta.spend / prevMeta.leads : 0) ? "up" : "down"}
-                        data={metaDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))}
+                        trend={(currentMeta?.leads ? currentSpend / currentMeta.leads : 0) <= (prevMeta?.leads ? prevSpend / prevMeta.leads : 0) ? "up" : "down"}
+                        data={metaDailyBase?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-cpl"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-cpl" ? null : "meta-cpl")}
                         info="Costo por Lead (CPL) representa el valor promedio invertido para capturar a cada cliente potencial (Inversión total dividida por número de Leads)."
@@ -2777,13 +2812,13 @@ export default function DashboardPage() {
                       <ShopifyMetric
                         icon={DollarSign}
                         label="Costo x Msj"
-                        value={`$ ${((currentMeta.messages ? currentMeta.spend / currentMeta.messages : 0)).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 0}`}
+                        value={formatCurrencyValue(currentMeta.messages ? currentSpend / currentMeta.messages : 0, currencySettings.baseCurrency, 2)}
                         change={getMetaChange(
-                          currentMeta?.messages ? currentMeta.spend / currentMeta.messages : 0, 
-                          prevMeta?.messages ? prevMeta.spend / prevMeta.messages : 0
+                          currentMeta?.messages ? currentSpend / currentMeta.messages : 0,
+                          prevMeta?.messages ? prevSpend / prevMeta.messages : 0
                         )}
-                        trend={(currentMeta?.messages ? currentMeta.spend / currentMeta.messages : 0) <= (prevMeta?.messages ? prevMeta.spend / prevMeta.messages : 0) ? "up" : "down"}
-                        data={metaDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))}
+                        trend={(currentMeta?.messages ? currentSpend / currentMeta.messages : 0) <= (prevMeta?.messages ? prevSpend / prevMeta.messages : 0) ? "up" : "down"}
+                        data={metaDailyBase?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))}
                         color={MAIN_COLOR} loading={fetchingMeta} active={expandedMetric === "meta-cpm"}
                         onClick={() => setExpandedMetric(expandedMetric === "meta-cpm" ? null : "meta-cpm")}
                         info="Costo por Mensaje es el valor promedio invertido para que un usuario inicie una nueva conversación desde tus anuncios (Inversión / Mensajes)."
@@ -2806,27 +2841,27 @@ export default function DashboardPage() {
                     }
                     color={MAIN_COLOR}
                     data={
-                      expandedMetric === "meta-inversion" ? metaDaily?.map((d: any) => ({ val: d.spend, date: d.date }))
+                      expandedMetric === "meta-inversion" ? metaDailyBase?.map((d: any) => ({ val: d.spend, date: d.date }))
                         : expandedMetric === "meta-alcance" ? metaDaily?.map((d: any) => ({ val: d.reach, date: d.date }))
                         : expandedMetric === "meta-purchases" ? metaDaily?.map((d: any) => ({ val: d.purchases, date: d.date }))
                         : expandedMetric === "meta-roas" ? metaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))
-                        : expandedMetric === "meta-roas-v" ? metaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))
+                        : expandedMetric === "meta-roas-v" ? metaDailyBase?.map((d: any) => ({ val: d.purchase_value, date: d.date }))
                         : expandedMetric === "meta-leads" ? metaDaily?.map((d: any) => ({ val: d.leads, date: d.date }))
-                        : expandedMetric === "meta-cpl" ? metaDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))
+                        : expandedMetric === "meta-cpl" ? metaDailyBase?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))
                         : expandedMetric === "meta-messages" ? metaDaily?.map((d: any) => ({ val: d.messages, date: d.date }))
-                        : expandedMetric === "meta-cpm" ? metaDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))
+                        : expandedMetric === "meta-cpm" ? metaDailyBase?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))
                         : []
                     }
                     prevData={
-                      expandedMetric === "meta-inversion" ? prevMetaDaily?.map((d: any) => ({ val: d.spend, date: d.date }))
+                      expandedMetric === "meta-inversion" ? prevMetaDailyBase?.map((d: any) => ({ val: d.spend, date: d.date }))
                         : expandedMetric === "meta-alcance" ? prevMetaDaily?.map((d: any) => ({ val: d.reach, date: d.date }))
                         : expandedMetric === "meta-purchases" ? prevMetaDaily?.map((d: any) => ({ val: d.purchases, date: d.date }))
                         : expandedMetric === "meta-roas" ? prevMetaDaily?.map((d: any) => ({ val: d.roas, date: d.date }))
-                        : expandedMetric === "meta-roas-v" ? prevMetaDaily?.map((d: any) => ({ val: d.purchase_value, date: d.date }))
+                        : expandedMetric === "meta-roas-v" ? prevMetaDailyBase?.map((d: any) => ({ val: d.purchase_value, date: d.date }))
                         : expandedMetric === "meta-leads" ? prevMetaDaily?.map((d: any) => ({ val: d.leads, date: d.date }))
-                        : expandedMetric === "meta-cpl" ? prevMetaDaily?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))
+                        : expandedMetric === "meta-cpl" ? prevMetaDailyBase?.map((d: any) => ({ val: d.leads ? d.spend / d.leads : 0, date: d.date }))
                         : expandedMetric === "meta-messages" ? prevMetaDaily?.map((d: any) => ({ val: d.messages, date: d.date }))
-                        : expandedMetric === "meta-cpm" ? prevMetaDaily?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))
+                        : expandedMetric === "meta-cpm" ? prevMetaDailyBase?.map((d: any) => ({ val: d.messages ? d.spend / d.messages : 0, date: d.date }))
                         : []
                     }
                   />

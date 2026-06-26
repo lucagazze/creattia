@@ -132,6 +132,7 @@ const IntegracionesPage  = lazyWithRetry(() => import('../../pages/Integraciones
 const PrivacidadPage     = lazyWithRetry(() => import('../../pages/PrivacidadPage'));
 const SoportePage        = lazyWithRetry(() => import('../../pages/SoportePage'));
 const MercadoLibrePage      = lazyWithRetry(() => import('../../pages/MercadoLibrePage'));
+const MonedaPage            = lazyWithRetry(() => import('../../pages/MonedaPage'));
 const NotFoundPage          = lazyWithRetry(() => import('../../pages/NotFoundPage'));
 
 import { useViewAs } from '../../contexts/ViewAsContext';
@@ -377,6 +378,7 @@ export const MainLayout = () => {
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/cliente/:email" element={<ClientePage />} />
               <Route path="/integraciones" element={<IntegracionesPage />} />
+              <Route path="/moneda" element={<MonedaPage />} />
               <Route path="/mercadolibre" element={<MercadoLibrePage />} />
               <Route path="/analisis-creativo" element={<Navigate to="/dashboard" replace />} />
               <Route path="/privacidad" element={<PrivacidadPage />} />
