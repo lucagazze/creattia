@@ -133,6 +133,8 @@ export default function CostosPage() {
   const [variantCosts, setVariantCosts] = useState<Record<string, { cost: number; packagingCost: number; lastUpdated?: string; vcLastUpdated?: string }>>({});
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string | null>(null);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [catalogLoadAttempted, setCatalogLoadAttempted] = useState(false);
+  const [catalogLoadError, setCatalogLoadError] = useState<string | null>(null);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [massPercentage, setMassPercentage] = useState('30');
   const [massPackagingCost, setMassPackagingCost] = useState('350');
@@ -224,6 +226,8 @@ export default function CostosPage() {
       return;
     }
 
+    setCatalogLoadAttempted(false);
+    setCatalogLoadError(null);
     setLoadingProducts(true);
     try {
       const p: any = profile;
@@ -246,6 +250,9 @@ export default function CostosPage() {
               setCatalogProducts(mapNormalizedProducts(backendProducts));
               return;
             }
+          } else {
+            const backendData = await backendRes.json().catch(() => ({}));
+            if (backendData?.error) setCatalogLoadError(backendData.error);
           }
         }
       }
@@ -266,8 +273,10 @@ export default function CostosPage() {
     } catch (err) {
       console.error('Error fetching products:', err);
       setCatalogProducts([]);
+      setCatalogLoadError(err instanceof Error ? err.message : 'No se pudo cargar el catálogo.');
       showToast('No se pudo cargar el catálogo de productos conectado.', 'error');
     } finally {
+      setCatalogLoadAttempted(true);
       setLoadingProducts(false);
     }
   }, [profile, profileId, detectedPlatform]);
@@ -277,7 +286,6 @@ export default function CostosPage() {
     if (!profileId) return;
 
     const fetchCosts = async () => {
-      setLoadingProducts(true);
       try {
         const costsData = await callCostsApi('costs-load');
         const varData = costsData.variantCosts || [];
@@ -372,7 +380,6 @@ export default function CostosPage() {
         showToast('Error al cargar costos de la base de datos.', 'error');
         setVariantCosts({});
       } finally {
-        setLoadingProducts(false);
       }
     };
 
@@ -648,6 +655,10 @@ export default function CostosPage() {
       p.title.toLowerCase().includes(catalogSearch.toLowerCase())
     );
   }, [catalogProducts, catalogSearch]);
+  const visibleVariantCount = useMemo(() => (
+    (massScope === 'filtered' ? filteredCatalog : catalogProducts).reduce((sum, p) => sum + p.variants.length, 0)
+  ), [massScope, filteredCatalog, catalogProducts]);
+  const isCatalogLoading = loadingProducts || (!catalogLoadAttempted && detectedPlatform && catalogProducts.length === 0);
 
   const lastCatalogUpdate = useMemo(() => {
     let maxDate = '';
@@ -1020,8 +1031,8 @@ export default function CostosPage() {
                         Todos
                       </button>
                     </div>
-                    <span className="text-[11px] font-bold text-zinc-400">
-                      {(massScope === 'filtered' ? filteredCatalog : catalogProducts).reduce((sum, p) => sum + p.variants.length, 0)} variantes
+                    <span className="text-[11px] font-bold text-zinc-400 min-w-[86px] text-right">
+                      {isCatalogLoading ? 'Cargando...' : `${visibleVariantCount} variantes`}
                     </span>
                   </div>
                 </div>
@@ -1092,11 +1103,20 @@ export default function CostosPage() {
 
               {/* Table / List */}
               <div className="space-y-4">
-                {loadingProducts ? (
-                  <AppleLoader variant="table" count={5} />
-                ) : filteredCatalog.length === 0 ? (
+                {isCatalogLoading ? (
+                  <div className="rounded-2xl border border-zinc-100 dark:border-white/[0.05] bg-white dark:bg-[#111113] p-6">
+                    <div className="flex items-center justify-center gap-3 py-8 text-zinc-500 dark:text-zinc-400">
+                      <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
+                      <div className="text-left">
+                        <p className="text-[13px] font-black text-zinc-700 dark:text-zinc-200">Cargando productos de WooCommerce...</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">Estamos trayendo productos y variantes para cargar costos.</p>
+                      </div>
+                    </div>
+                    <AppleLoader variant="table" count={5} />
+                  </div>
+                ) : catalogLoadAttempted && filteredCatalog.length === 0 ? (
                   <div className="py-12 text-center text-zinc-400 text-[12px]">
-                    No se encontraron productos en el catálogo.
+                    {catalogLoadError || 'No se encontraron productos en el catálogo.'}
                   </div>
                 ) : (
                   <div className="overflow-x-auto border border-zinc-100 dark:border-white/[0.05] rounded-2xl bg-white dark:bg-[#111113]">
