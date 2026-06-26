@@ -1,6 +1,15 @@
 
 // Meta Marketing API — READ ONLY. Never call POST/PATCH/DELETE endpoints.
 import { supabase } from './supabase';
+import {
+  DEMO_FB_PAGE_ID,
+  DEMO_IG_ID,
+  demoSocial,
+  getDemoMetaBreakdown,
+  getDemoMetaCampaignInsights,
+  getDemoMetaDaily,
+  isDemoMetaAccount,
+} from '../utils/demoData';
 
 // Loads token from Supabase into localStorage cache (called once on app start)
 export const initMetaToken = async (): Promise<void> => {
@@ -522,19 +531,28 @@ export const metaAds = {
 
   // ── AD ACCOUNT ────────────────────────────────────────────
   getAccount: (accountId = META_AD_ACCOUNT) =>
-    apiGet(accountId, {
+    isDemoMetaAccount(accountId)
+      ? Promise.resolve({ id: accountId, name: 'Demo Meta Ads', currency: 'USD', timezone_name: 'America/Argentina/Buenos_Aires', account_status: 1, amount_spent: '132500', balance: '0' })
+      : apiGet(accountId, {
       fields: 'name,currency,timezone_name,account_status,amount_spent,balance',
     }),
 
   // ── CAMPAIGNS ─────────────────────────────────────────────
   getCampaigns: (accountId = META_AD_ACCOUNT) =>
-    apiGet(`${accountId}/campaigns`, {
+    isDemoMetaAccount(accountId)
+      ? Promise.resolve({ data: [
+        { id: 'demo_cmp_1', name: 'Demo Prospecting Advantage+', status: 'ACTIVE', objective: 'OUTCOME_SALES', buying_type: 'AUCTION', daily_budget: '8500', bid_strategy: 'LOWEST_COST_WITHOUT_CAP' },
+        { id: 'demo_cmp_2', name: 'Demo Remarketing Warm', status: 'ACTIVE', objective: 'OUTCOME_SALES', buying_type: 'AUCTION', daily_budget: '4200', bid_strategy: 'LOWEST_COST_WITHOUT_CAP' },
+        { id: 'demo_cmp_3', name: 'Demo Leads WhatsApp', status: 'PAUSED', objective: 'OUTCOME_LEADS', buying_type: 'AUCTION', daily_budget: '2500', bid_strategy: 'LOWEST_COST_WITHOUT_CAP' },
+      ] })
+      : apiGet(`${accountId}/campaigns`, {
       fields: 'id,name,status,objective,buying_type,daily_budget,lifetime_budget,start_time,stop_time,bid_strategy',
       limit: '100',
     }),
 
   // ── CHECK if account has spend in the last 15 days ────────
   hasRecentSpend: async (accountId: string): Promise<boolean> => {
+    if (isDemoMetaAccount(accountId)) return true;
     const since = new Date();
     since.setDate(since.getDate() - 15);
     const sinceStr = since.toISOString().split('T')[0];
@@ -563,6 +581,12 @@ export const metaAds = {
 
   // ── ALL ADS FOR ACCOUNT ──────────────────────────────────
   getAccountAds: async (accountId = META_AD_ACCOUNT) => {
+    if (isDemoMetaAccount(accountId)) {
+      return { data: [
+        { id: 'demo_ad_1', name: 'UGC Rutina Glow - Reel', status: 'ACTIVE', effective_status: 'ACTIVE', configured_status: 'ACTIVE', campaign_id: 'demo_cmp_1', creative: { id: 'demo_creative_1', name: 'Reel demostracion', body: 'Rutina simple para una piel luminosa.', title: 'Kit Glow', thumbnail_url: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=600&q=80', object_type: 'VIDEO', effective_instagram_story_id: 'demo_ig_media_1' } },
+        { id: 'demo_ad_2', name: 'Carrusel Protector Solar', status: 'ACTIVE', effective_status: 'ACTIVE', configured_status: 'ACTIVE', campaign_id: 'demo_cmp_2', creative: { id: 'demo_creative_2', name: 'Carrusel SPF', body: 'SPF50 liviano para todos los dias.', title: 'Protector Solar', thumbnail_url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=600&q=80', object_type: 'PHOTO', effective_object_story_id: `${DEMO_FB_PAGE_ID}_post_2` } },
+      ] };
+    }
     const first = await apiGet(`${accountId}/ads`, {
       fields: 'id,name,status,effective_status,configured_status,campaign_id,preview_shareable_link,creative{id,name,body,title,thumbnail_url,image_url,image_hash,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_permalink_url}',
       limit: '150',
@@ -583,6 +607,14 @@ export const metaAds = {
 
   // ── AD-LEVEL INSIGHTS FOR ACCOUNT ────────────────────────
   getAdInsightsForAccount: async (accountId: string, fields: string, timeRange: TimeRange): Promise<any[]> => {
+    if (isDemoMetaAccount(accountId)) return getDemoMetaCampaignInsights().map((row, idx) => ({
+      ...row,
+      ad_id: `demo_ad_${idx + 1}`,
+      ad_name: idx === 0 ? 'UGC Rutina Glow - Reel' : idx === 1 ? 'Carrusel Protector Solar' : 'Story Leads WhatsApp',
+      campaign_id: row.campaign_id,
+      campaign_name: row.campaign_name,
+    }));
+
     const res = await apiGet(`${accountId}/insights`, {
       fields,
       level: 'ad',
@@ -594,6 +626,8 @@ export const metaAds = {
 
   // ── LIFETIME INSIGHTS FOR A SINGLE AD ───────────────────
   getAdLifetimeInsights: async (adId: string): Promise<any | null> => {
+    if (adId.startsWith('demo_ad_')) return getDemoMetaCampaignInsights()[adId.endsWith('2') ? 1 : 0];
+
     const fields = 'spend,impressions,reach,inline_link_clicks,inline_link_click_ctr,actions,purchase_roas,video_30_sec_watched_actions,video_p100_watched_actions,cost_per_action_type,action_values';
     const res = await apiGet(`${adId}/insights`, {
       fields,
@@ -605,6 +639,16 @@ export const metaAds = {
 
   // ── INSIGHTS ──────────────────────────────────────────────
   getInsights: async (accountId: string, fields: string[] | string, preset?: DatePreset, range?: { since: string, until: string }, timeIncrement?: number, signal?: AbortSignal) => {
+    if (isDemoMetaAccount(accountId)) {
+      const daily = getDemoMetaDaily(range);
+      if (timeIncrement === 1) return daily;
+      const spend = daily.reduce((s, d) => s + Number(d.spend || 0), 0);
+      const reach = daily.reduce((s, d) => s + Number(d.reach || 0), 0);
+      const purchaseValue = daily.reduce((s, d) => s + Number(d.purchase_value || 0), 0);
+      const results = daily.reduce((s, d) => s + Number(d.results || 0), 0);
+      return { spend, reach, impressions: daily.reduce((s, d) => s + Number(d.impressions || 0), 0), results, purchase_value: purchaseValue, roas: spend ? purchaseValue / spend : 0, actions: [{ action_type: 'purchase', value: String(results) }], action_values: [{ action_type: 'purchase', value: String(purchaseValue) }], purchase_roas: [{ value: String(spend ? purchaseValue / spend : 0) }] };
+    }
+
     const fieldsStr = Array.isArray(fields) ? fields.join(',') : fields;
     const rangeKey = range ? `${range.since}_${range.until}` : (preset || '');
     const cacheKey = `insights:${accountId}:${fieldsStr}:${rangeKey}:${timeIncrement || ''}`;
@@ -683,6 +727,10 @@ export const metaAds = {
     timeRange?: TimeRange,
     datePreset?: DatePreset
   ) => {
+    if (isDemoMetaAccount(accountId)) return [
+      { adset_id: 'demo_adset_1', adset_name: 'Lookalike compradores demo', campaign_id: 'demo_cmp_1', spend: '430', reach: '24600', actions: [{ action_type: 'purchase', value: '24' }] },
+      { adset_id: 'demo_adset_2', adset_name: 'Engagers Instagram demo', campaign_id: 'demo_cmp_2', spend: '260', reach: '9800', actions: [{ action_type: 'purchase', value: '18' }] },
+    ];
     const params: Record<string, string> = { fields, level: 'adset', limit: '200' };
     if (timeRange) {
       params.time_range = JSON.stringify(timeRange);
@@ -700,6 +748,7 @@ export const metaAds = {
     timeRange?: TimeRange,
     datePreset?: DatePreset
   ) => {
+    if (isDemoMetaAccount(accountId)) return getDemoMetaCampaignInsights();
     const params: Record<string, string> = { fields, level: 'campaign', limit: '200' };
     if (timeRange) {
       params.time_range = JSON.stringify(timeRange);
@@ -712,7 +761,12 @@ export const metaAds = {
 
   // ── ALL ADSETS FOR ACCOUNT (for optimization_goal lookup) ─
   getAccountAdsets: (accountId: string) =>
-    apiGet(`${accountId}/adsets`, {
+    isDemoMetaAccount(accountId)
+      ? Promise.resolve({ data: [
+        { id: 'demo_adset_1', name: 'Lookalike compradores demo', campaign_id: 'demo_cmp_1', optimization_goal: 'OFFSITE_CONVERSIONS', status: 'ACTIVE', daily_budget: '4200' },
+        { id: 'demo_adset_2', name: 'Engagers Instagram demo', campaign_id: 'demo_cmp_2', optimization_goal: 'OFFSITE_CONVERSIONS', status: 'ACTIVE', daily_budget: '2500' },
+      ] })
+      : apiGet(`${accountId}/adsets`, {
       fields: 'id,name,campaign_id,optimization_goal,targeting,status,daily_budget,lifetime_budget',
       limit: '200',
     }),
@@ -724,6 +778,7 @@ export const metaAds = {
     timeRange?: TimeRange,
     datePreset?: DatePreset
   ) => {
+    if (isDemoMetaAccount(accountId)) return getDemoMetaBreakdown(breakdown);
     const fields = 'spend,impressions,reach,cpm,cpc,inline_link_clicks,inline_link_click_ctr,actions,action_values';
     const params: Record<string, string> = { fields, breakdowns: breakdown, limit: '100' };
     if (timeRange) {
@@ -767,7 +822,9 @@ export const metaAds = {
   },
 
   getInstagramProfile: (igId: string, fbPageId?: string) =>
-    fbPageId
+    igId === DEMO_IG_ID
+      ? Promise.resolve(demoSocial.instagramProfile)
+      : fbPageId
       ? apiGetPage(fbPageId, igId, {
           fields: 'id,username,name,biography,followers_count,follows_count,media_count,profile_picture_url,website',
         })
@@ -776,6 +833,13 @@ export const metaAds = {
         }),
 
   getInstagramMedia: (igId: string, limit = 8, after?: string, fbPageId?: string) => {
+    if (igId === DEMO_IG_ID) {
+      const posts = [
+        { id: 'demo_ig_media_1', caption: 'Rutina glow demo para mostrar comentarios y performance.', media_type: 'IMAGE', timestamp: new Date(Date.now() - 2 * 86400000).toISOString(), like_count: 842, comments_count: 18, permalink: 'https://instagram.com/p/demo1', media_url: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=900&q=80', comments: { data: [{ id: 'demo_ig_c1', text: 'Me encanto el kit!', timestamp: new Date().toISOString(), username: 'cliente.demo', like_count: 3 }] } },
+        { id: 'demo_ig_media_2', caption: 'Protector solar demo con alto guardado.', media_type: 'IMAGE', timestamp: new Date(Date.now() - 5 * 86400000).toISOString(), like_count: 610, comments_count: 11, permalink: 'https://instagram.com/p/demo2', media_url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80', comments: { data: [{ id: 'demo_ig_c2', text: 'Tienen stock?', timestamp: new Date().toISOString(), username: 'compradora.demo', like_count: 1 }] } },
+      ];
+      return Promise.resolve({ data: posts.slice(0, limit), paging: {} });
+    }
     const params: Record<string, string> = {
       fields: 'id,caption,media_type,timestamp,like_count,comments_count,permalink,thumbnail_url,media_url,children{media_url,media_type,thumbnail_url,permalink},comments.limit(100){id,text,timestamp,username,like_count,replies.limit(100){id,text,timestamp,username,from}}',
       limit: String(limit),
@@ -797,6 +861,10 @@ export const metaAds = {
       : apiGetPageActive(mediaId, { fields: 'permalink,shortcode' }),
 
   getInstagramMediaComments: (mediaId: string, fbPageId?: string, after?: string) => {
+    if (mediaId.startsWith('demo_ig_media')) return Promise.resolve({ data: [
+      { id: `${mediaId}_comment_1`, text: 'Me pasan precio?', timestamp: new Date().toISOString(), username: 'cliente.demo', like_count: 2, replies: { data: [] } },
+      { id: `${mediaId}_comment_2`, text: 'Lo quiero para regalo', timestamp: new Date().toISOString(), username: 'maria.demo', like_count: 1, replies: { data: [] } },
+    ] });
     const params: Record<string, string> = {
       fields: 'id,text,timestamp,username,like_count,replies.limit(100){id,text,timestamp,username,from}',
       limit: '100',
@@ -836,11 +904,18 @@ export const metaAds = {
 
   // ── FACEBOOK ORGANIC ──────────────────────────────────────
   getFacebookPageInfo: (pageId: string) =>
-    apiGetPage(pageId, pageId, {
+    pageId === DEMO_FB_PAGE_ID
+      ? Promise.resolve(demoSocial.facebookPage)
+      : apiGetPage(pageId, pageId, {
       fields: 'id,name,fan_count,followers_count,picture{url},about',
     }),
 
   getFacebookPageFeed: (pageId: string, limit = 8, after?: string) => {
+    if (pageId === DEMO_FB_PAGE_ID) return Promise.resolve({ data: [
+      { id: `${DEMO_FB_PAGE_ID}_post_1`, message: 'Demo lanzamiento Kit Rutina Glow', created_time: new Date(Date.now() - 3 * 86400000).toISOString(), full_picture: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=900&q=80', permalink_url: 'https://facebook.com/demo/post1', likes: { summary: { total_count: 320 } }, comments: { summary: { total_count: 9 }, data: [{ id: 'demo_fb_c1', message: 'Excelente demo', created_time: new Date().toISOString(), from: { id: 'u1', name: 'Cliente Demo' }, like_count: 2 }] } },
+      { id: `${DEMO_FB_PAGE_ID}_post_2`, message: 'Demo protector solar SPF50', created_time: new Date(Date.now() - 7 * 86400000).toISOString(), full_picture: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=80', permalink_url: 'https://facebook.com/demo/post2', likes: { summary: { total_count: 214 } }, comments: { summary: { total_count: 6 }, data: [] } },
+    ].slice(0, limit), paging: {} });
+
     const params: Record<string, string> = {
       fields: 'id,message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true).limit(100){id,message,created_time,from{id,name},like_count,attachment{media{image{src}},type,url},replies.limit(100){id,message,from{id,name},created_time,attachment{media{image{src}},type,url}}},attachments{media,type,url,target,subattachments{media,type,url,target}}',
       limit: String(limit),
@@ -855,6 +930,11 @@ export const metaAds = {
   },
 
   getFacebookPostComments: (postId: string, after?: string) => {
+    if (postId.startsWith(DEMO_FB_PAGE_ID)) return Promise.resolve({ data: [
+      { id: `${postId}_comment_1`, message: 'Tienen envio a Cordoba?', created_time: new Date().toISOString(), from: { id: 'demo_user_1', name: 'Lucia Demo' }, like_count: 1, replies: { data: [] } },
+      { id: `${postId}_comment_2`, message: 'Buenisimo para mostrar la app', created_time: new Date().toISOString(), from: { id: 'demo_user_2', name: 'Sofia Demo' }, like_count: 0, replies: { data: [] } },
+    ] });
+
     // Extract page ID from FB post ID format "{pageId}_{uniqueId}" to ensure page token is used.
     // Page Access Token is required for from.name — user token silently drops names (privacy).
     const pageId = postId.includes('_') ? postId.split('_')[0] : '';
@@ -1007,6 +1087,9 @@ export const metaAds = {
       : apiGetPageActive(fbPostId, { fields: 'instagram_story{id}' }),
 
   getAdCreativeComments: (storyId: string, platform: 'instagram' | 'facebook' = 'instagram', pageId?: string, after?: string) => {
+    if (storyId.startsWith('demo_') || storyId.startsWith(DEMO_FB_PAGE_ID)) return Promise.resolve({ data: [
+      { id: `${storyId}_ad_comment_1`, text: 'Consulta demo desde anuncio', message: 'Consulta demo desde anuncio', timestamp: new Date().toISOString(), created_time: new Date().toISOString(), from: { id: 'demo_u_1', name: 'Usuario Demo' }, username: 'usuario.demo', like_count: 2, replies: { data: [] } },
+    ] });
     const params: Record<string, string> = {
       fields: platform === 'instagram'
         ? 'id,text,message,timestamp,created_time,from{id,name},username,like_count,replies.limit(100){id,text,message,from{id,name},username,timestamp,created_time}'

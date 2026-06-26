@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast';
 import { supabase } from '../services/supabase';
 import { ecommerce } from '../services/ecommerce';
 import { DEFAULT_CURRENCY_SETTINGS, normalizeCurrencySettings } from '../utils/currencySettings';
+import { demoProducts, getDemoCostsPayload, isDemoProfile } from '../utils/demoData';
 import { 
   ShoppingBag, Percent, CreditCard, Truck, FileText, Calendar, Plus, 
   Search, Trash2, Edit3, Save, AlertCircle, X, ChevronLeft, ChevronRight, 
@@ -231,6 +232,11 @@ export default function CostosPage() {
     setLoadingProducts(true);
     try {
       const p: any = profile;
+      if (isDemoProfile(p)) {
+        setCatalogProducts(mapNormalizedProducts(demoProducts));
+        return;
+      }
+
       if (profileId && profileId !== 'default') {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
@@ -459,6 +465,13 @@ export default function CostosPage() {
   };
 
   const callCostsApi = async (action: string, payload: Record<string, any> = {}) => {
+    if (isDemoProfile(profile)) {
+      if (action === 'costs-load') return getDemoCostsPayload();
+      if (action === 'costs-save-additional') return { row: { id: `demo-cost-${Date.now()}`, ...payload } };
+      if (action === 'costs-upsert-variants') return { rows: payload.rows || (payload.row ? [payload.row] : []) };
+      if (action === 'costs-delete-variants' || action === 'costs-delete-additional' || action === 'costs-save-settings') return { ok: true };
+    }
+
     if (!profileId || profileId === 'default') throw new Error('Cliente no disponible.');
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;

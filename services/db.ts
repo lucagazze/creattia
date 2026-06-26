@@ -1,4 +1,5 @@
 import { supabase, supabaseAdmin } from './supabase';
+import { isDemoEmail, withDemoProfileDefaults } from '../utils/demoData';
 
 const dbClient = () => (typeof (supabaseAdmin as any)?.from === 'function' ? (supabaseAdmin as any) : supabase);
 
@@ -169,7 +170,7 @@ export const db = {
       if (errClient) {
         console.error("db.profile.getByUserId - Error checking direct owner:", errClient);
       }
-      if (data) return data;
+      if (data) return withDemoProfileDefaults(data, email, userId);
 
       // 2. Cuenta asociada: buscar el business_id en car_business_accounts (usando el cliente standard con RLS)
       const { data: link, error: errLink } = await supabase
@@ -222,7 +223,7 @@ export const db = {
         }
       }
 
-      if (!activeLink) return null;
+      if (!activeLink) return isDemoEmail(email) ? withDemoProfileDefaults(null, email, userId) : null;
 
       // 3. Leer el negocio con el cliente standard (RLS ahora permite leer negocios asociados)
       const { data: business, error: errBiz } = await supabase
@@ -241,11 +242,11 @@ export const db = {
             .eq('id', activeLink.business_id)
             .maybeSingle();
           if (errAdminBiz) console.error("db.profile.getByUserId - Fallback admin fetch business failed:", errAdminBiz);
-          return adminBiz ?? null;
+          return withDemoProfileDefaults(adminBiz ?? null, email, userId);
         }
       }
 
-      return business ?? null;
+      return withDemoProfileDefaults(business ?? null, email, userId);
     },
   },
 

@@ -1,3 +1,4 @@
+import { getDemoKlaviyoDashboard, isDemoKlaviyoKey } from '../utils/demoData';
 
 const REVISION = '2024-10-15';
 const BASE = '/api/klaviyo';
@@ -158,6 +159,15 @@ const dailyAttributed = (res: any): { date: string; val: number }[] => {
 
 export const klaviyo = {
   getMetrics: async (apiKey: string) => {
+    if (isDemoKlaviyoKey(apiKey)) {
+      return { data: [
+        { id: 'demo_metric_revenue', attributes: { name: 'Placed Order' } },
+        { id: 'demo_metric_open', attributes: { name: 'Opened Email' } },
+        { id: 'demo_metric_click', attributes: { name: 'Clicked Email' } },
+        { id: 'demo_metric_sent', attributes: { name: 'Received Email' } },
+      ] };
+    }
+
     if (metricIdCache[apiKey]) return metricIdCache[apiKey];
     const res = await apiGet(apiKey, 'metrics');
     if (res) metricIdCache[apiKey] = res;
@@ -174,6 +184,8 @@ export const klaviyo = {
   ) => enqueue(() => apiPost(apiKey, 'metric-aggregates', buildAggBody(metricId, since, until, measurements, by))),
 
   getDashboardData: async (apiKey: string, since: string, until: string) => {
+    if (isDemoKlaviyoKey(apiKey)) return getDemoKlaviyoDashboard(since, until);
+
     const cacheKey = `dashboard:${apiKey}:${since}:${until}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
@@ -244,6 +256,14 @@ export const klaviyo = {
 
   // Returns sent/opens/clicks per campaign or flow message name for the date range
   getStatsByName: async (apiKey: string, since: string, until: string): Promise<Record<string, { sent: number; opens: number; clicks: number }>> => {
+    if (isDemoKlaviyoKey(apiKey)) {
+      return {
+        'Newsletter demo semanal': { sent: 4820, opens: 2760, clicks: 410 },
+        'Flow demo carrito abandonado': { sent: 920, opens: 588, clicks: 124 },
+        'Post compra demo': { sent: 760, opens: 506, clicks: 88 },
+      };
+    }
+
     const cacheKey = `stats-by-name:${apiKey}:${since}:${until}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
@@ -306,6 +326,12 @@ export const klaviyo = {
   },
 
   getFlows: async (apiKey: string) => {
+    if (isDemoKlaviyoKey(apiKey)) return [
+      { id: 'demo_flow_1', attributes: { name: 'Flow demo carrito abandonado', status: 'live', updated_at: new Date().toISOString() } },
+      { id: 'demo_flow_2', attributes: { name: 'Flow demo post compra', status: 'live', updated_at: new Date().toISOString() } },
+      { id: 'demo_flow_3', attributes: { name: 'Flow demo bienvenida', status: 'live', updated_at: new Date().toISOString() } },
+    ];
+
     const cacheKey = `flows:${apiKey}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
@@ -321,6 +347,12 @@ export const klaviyo = {
   },
 
   getCampaigns: async (apiKey: string) => {
+    if (isDemoKlaviyoKey(apiKey)) return [
+      { id: 'demo_campaign_1', attributes: { name: 'Newsletter demo semanal', updated_at: new Date().toISOString(), status: 'Sent' }, subject: 'Nuevos favoritos de la semana' },
+      { id: 'demo_campaign_2', attributes: { name: 'Promo demo rutina glow', updated_at: new Date(Date.now() - 3 * 86400000).toISOString(), status: 'Sent' }, subject: 'Tu rutina glow en 3 pasos' },
+      { id: 'demo_campaign_3', attributes: { name: 'Back in stock demo', updated_at: new Date(Date.now() - 7 * 86400000).toISOString(), status: 'Sent' }, subject: 'Volvio el producto mas pedido' },
+    ];
+
     const cacheKey = `campaigns:v4:${apiKey}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
@@ -356,6 +388,31 @@ export const klaviyo = {
     msgEngagement:  Record<string, { sent: number; opens: number; clicks: number }>;
     flowEngagement: Record<string, { sent: number; opens: number; clicks: number }>;
   }> => {
+    if (isDemoKlaviyoKey(apiKey)) {
+      return {
+        campaigns: {
+          'Newsletter demo semanal': { sent: 4820, opens: 2760, clicks: 410 },
+          'Promo demo rutina glow': { sent: 3950, opens: 2210, clicks: 380 },
+        },
+        msgRevenue: {
+          'Newsletter demo semanal': { revenue: 142000, orders: 18 },
+          'Promo demo rutina glow': { revenue: 188000, orders: 22 },
+        },
+        flowRevenue: {
+          'Flow demo carrito abandonado': { revenue: 96000, orders: 12 },
+          'Flow demo post compra': { revenue: 53000, orders: 7 },
+        },
+        msgEngagement: {
+          'Newsletter demo semanal': { sent: 4820, opens: 2760, clicks: 410 },
+          'Promo demo rutina glow': { sent: 3950, opens: 2210, clicks: 380 },
+        },
+        flowEngagement: {
+          'Flow demo carrito abandonado': { sent: 920, opens: 588, clicks: 124 },
+          'Flow demo post compra': { sent: 760, opens: 506, clicks: 88 },
+        },
+      };
+    }
+
     const cacheKey = `detailed6:${apiKey}:${since}:${until}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;

@@ -6,6 +6,7 @@ import { Package, ShoppingBag, ArrowUpRight, AlertTriangle, Search, ChevronDown,
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
 import { ecommerce } from '../services/ecommerce';
 import { presetToRange } from '../services/metaAds';
+import { demoProducts, isDemoProfile } from '../utils/demoData';
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -90,6 +91,11 @@ export default function InventarioPage() {
 
     const fetchProducts = async () => {
       try {
+        if (isDemoProfile(profile)) {
+          setProducts(demoProducts as unknown as Product[]);
+          return;
+        }
+
         const { data: { session: freshSession } } = await supabase.auth.getSession();
         const token = freshSession?.access_token || '';
         const res = await fetch('/api/scrape-all', {

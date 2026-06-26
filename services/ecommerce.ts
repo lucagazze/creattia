@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { demoProducts, getDemoOrders, getDemoStoreDashboard, isDemoShop } from '../utils/demoData';
 // ─── sessionStorage result cache — survives page refreshes, cleared on tab close ───
 const EC_PREFIX = 'ec:';
 const DASHBOARD_CACHE_VERSION = 'v2';
@@ -194,6 +195,8 @@ function applySequentialWithLifetime(
 
 export const ecommerce = {
   getShopifyOrders: async (domain: string, token: string, since: string, until: string) => {
+    if (isDemoShop(domain, token)) return getDemoOrders(since, until);
+
     const cacheKey = `orders_v2:${domain}:${since}:${until}`;
     const cached = ecGetCached(cacheKey);
     if (cached) return cached;
@@ -320,6 +323,8 @@ export const ecommerce = {
   },
 
   getShopifyRecentOrders: async (domain: string, token: string, limit: number = 20) => {
+    if (isDemoShop(domain, token)) return getDemoOrders('2026-01-01', new Date().toISOString().slice(0, 10)).slice(0, limit);
+
     const cacheKey = `recent_orders:${domain}:${limit}`;
     const cached = ecGetCached(cacheKey);
     if (cached) return cached;
@@ -396,6 +401,20 @@ export const ecommerce = {
   },
 
   analyzeProducts: async (domain: string, token: string, forceRefresh = false): Promise<any[]> => {
+    if (isDemoShop(domain, token)) {
+      return demoProducts.map((p, idx) => ({
+        name: p.title,
+        totalOrders: 28 - idx * 3,
+        firstPurchases: 15 - idx,
+        entryPointPct: 48 + idx * 4,
+        secondPurchasePct: 31 + idx * 3,
+        repurchaseDays: 21 + idx * 4,
+        avgPrice: Number(p.variants[0]?.price || 0),
+        combinedAOV: Number(p.variants[0]?.price || 0) * 1.35,
+        crossSell: demoProducts.filter(x => x.id !== p.id).slice(0, 2).map((x, i) => ({ name: x.title, count: 8 - i, pct: 18 - i * 3 })),
+      }));
+    }
+
     const cacheKey = `pa:${domain}`;
     if (!forceRefresh) {
       try {
@@ -479,6 +498,8 @@ export const ecommerce = {
   },
 
   getDashboardData: async (platform: string, domain: string, token: string, since: string, until: string, clientId?: string) => {
+    if (isDemoShop(domain, token)) return getDemoStoreDashboard(since, until);
+
     if (clientId || platform !== 'shopify') {
       const cacheKey = `dashboard:${DASHBOARD_CACHE_VERSION}:${clientId || domain}:${since}:${until}`;
       const cached = ecGetCached(cacheKey);
@@ -690,6 +711,8 @@ export const ecommerce = {
   },
 
   getUnfulfilledCount: async (domain: string, token: string): Promise<number> => {
+    if (isDemoShop(domain, token)) return 9;
+
     const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
     try {
@@ -941,6 +964,8 @@ export const ecommerce = {
   },
 
   getProducts: async (domain: string, token: string): Promise<any[]> => {
+    if (isDemoShop(domain, token)) return demoProducts;
+
     const cacheKey = `products:${domain}`;
     const cached = ecGetCached(cacheKey);
     if (cached) return cached;
