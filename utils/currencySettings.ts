@@ -4,9 +4,15 @@ export type CurrencySettings = {
   baseCurrency: CurrencyCode;
   storeCurrency: CurrencyCode;
   metaCurrency: CurrencyCode;
+  emailCurrency: CurrencyCode;
+  costsCurrency: CurrencyCode;
   rates: Record<string, number>;
   updatedAt?: string;
+  rateUpdatedAt?: string;
+  rateProvider?: string;
 };
+
+export type CurrencySource = "store" | "meta" | "email" | "costs";
 
 export const CURRENCY_OPTIONS: Array<{ code: CurrencyCode; label: string; symbol: string }> = [
   { code: "ARS", label: "Peso argentino", symbol: "$" },
@@ -24,6 +30,8 @@ export const DEFAULT_CURRENCY_SETTINGS: CurrencySettings = {
   baseCurrency: "ARS",
   storeCurrency: "ARS",
   metaCurrency: "USD",
+  emailCurrency: "ARS",
+  costsCurrency: "ARS",
   rates: {
     "USD:ARS": 1200,
   },
@@ -68,3 +76,10 @@ export const convertMetaToBase = (amount: number, settings: CurrencySettings) =>
 
 export const convertStoreToBase = (amount: number, settings: CurrencySettings) =>
   convertCurrency(amount, settings.storeCurrency, settings.baseCurrency, settings);
+
+export const getSourceCurrency = (source: CurrencySource, settings: CurrencySettings) => {
+  if (source === "meta") return settings.metaCurrency;
+  if (source === "email") return settings.emailCurrency;
+  if (source === "costs") return settings.costsCurrency;
+  return settings.storeCurrency;
+};

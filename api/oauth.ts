@@ -3425,6 +3425,62 @@ Instrucciones de formato y estilo:
   return res.status(200).json({ caption });
 }
 
+const RATE_CURRENCIES = new Set(['ARS', 'USD', 'EUR', 'BRL', 'CLP', 'COP', 'MXN', 'UYU']);
+
+const parseRateCurrencies = (raw: unknown) => {
+  const value = Array.isArray(raw) ? raw.join(',') : String(raw || '');
+  return Array.from(new Set(
+    value
+      .split(',')
+      .map((item) => item.trim().toUpperCase())
+      .filter((item) => RATE_CURRENCIES.has(item))
+  ));
+};
+
+const fetchExchangeRates = async (base: string) => {
+  const response = await fetch(`https://open.er-api.com/v6/latest/${encodeURIComponent(base)}`, {
+    headers: { Accept: 'application/json' },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.result === 'error' || !data?.rates) {
+    throw new Error(data?.['error-type'] || `rate_fetch_failed_${base}`);
+  }
+  return data.rates as Record<string, number>;
+};
+
+async function handleCurrencyRates(req: VercelRequest, res: VercelResponse) {
+  try {
+    const currencies = parseRateCurrencies(req.query.currencies);
+    if (currencies.length < 2) {
+      return res.status(400).json({ error: 'Se necesitan al menos dos monedas.' });
+    }
+
+    const rates: Record<string, number> = {};
+    await Promise.all(currencies.map(async (from) => {
+      const latest = await fetchExchangeRates(from);
+      currencies.forEach((to) => {
+        if (from === to) {
+          rates[`${from}:${to}`] = 1;
+          return;
+        }
+        const value = Number(latest[to]);
+        if (value > 0) rates[`${from}:${to}`] = value;
+      });
+    }));
+
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=900');
+    return res.status(200).json({
+      provider: 'open.er-api.com',
+      updatedAt: new Date().toISOString(),
+      currencies,
+      rates,
+    });
+  } catch (err: any) {
+    console.error('[currency-rates]', err?.message || err);
+    return res.status(502).json({ error: 'No se pudieron actualizar las cotizaciones.' });
+  }
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -3437,6 +3493,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (['social-publish', 'social-publish-due', 'social-draft-caption'].includes(action)) {
     return res.status(410).json({ error: 'El Publicador fue retirado de la aplicación.' });
   }
+  if (action === 'currency-rates') return handleCurrencyRates(req, res);
   if (action === 'whatsapp-test') return handleWhatsappTest(req, res);
   if (action.startsWith('costs-')) return handleCosts(req, res);
   if (action === 'brain-save') return handleBrainSave(req, res);

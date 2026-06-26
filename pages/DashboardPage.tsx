@@ -70,7 +70,6 @@ import { CenteredPageLoader } from "../components/ui/CenteredPageLoader";
 import {
   DEFAULT_CURRENCY_SETTINGS,
   convertCurrency,
-  convertMetaToBase,
   formatCurrencyValue,
   normalizeCurrencySettings,
 } from "../utils/currencySettings";
@@ -1929,7 +1928,12 @@ export default function DashboardPage() {
   const showMER = false;
   const convertStoreToDashboard = (amount: number) =>
     convertCurrency(amount, currencySettings.storeCurrency, currencySettings.baseCurrency, currencySettings);
-  const convertMetaToDashboard = (amount: number) => convertMetaToBase(amount, currencySettings);
+  const convertMetaToDashboard = (amount: number) =>
+    convertCurrency(amount, currencySettings.metaCurrency, currencySettings.baseCurrency, currencySettings);
+  const convertEmailToDashboard = (amount: number) =>
+    convertCurrency(amount, currencySettings.emailCurrency, currencySettings.baseCurrency, currencySettings);
+  const convertCostToDashboard = (amount: number) =>
+    convertCurrency(amount, currencySettings.costsCurrency, currencySettings.baseCurrency, currencySettings);
   const currentStoreRevenue = convertStoreToDashboard(currentStore?.revenue || 0);
   const prevStoreRevenue = convertStoreToDashboard(prevStore?.revenue || 0);
   const currentMetaSpend = convertMetaToDashboard(currentMeta?.spend || 0);
@@ -1996,7 +2000,7 @@ export default function DashboardPage() {
     const paymentRate = getPaymentRate();
     const hasConfiguredShipping = Boolean((costSettings.shipping as any).configured);
     const shippingCost = hasConfiguredShipping && costSettings.shipping.type === "custom"
-      ? convertStoreToDashboard((Number(costSettings.shipping.customShippingCost) || 0) * orders)
+      ? convertCostToDashboard((Number(costSettings.shipping.customShippingCost) || 0) * orders)
       : 0;
     return {
       platform: revenue * (platformRate / 100),
@@ -2007,10 +2011,10 @@ export default function DashboardPage() {
   };
   const currentVariableCosts = getVariableStoreCosts(currentStore);
   const prevVariableCosts = getVariableStoreCosts(prevStore);
-  const currentProductCosts = convertStoreToDashboard(getProductCosts(currentStore));
-  const prevProductCosts = convertStoreToDashboard(getProductCosts(prevStore));
-  const currentFixedCosts = convertStoreToDashboard(costSummary.current);
-  const prevFixedCosts = convertStoreToDashboard(costSummary.previous);
+  const currentProductCosts = convertCostToDashboard(getProductCosts(currentStore));
+  const prevProductCosts = convertCostToDashboard(getProductCosts(prevStore));
+  const currentFixedCosts = convertCostToDashboard(costSummary.current);
+  const prevFixedCosts = convertCostToDashboard(costSummary.previous);
   const currentTotalCosts = currentFixedCosts + currentVariableCosts.total + currentProductCosts + currentSpend;
   const prevTotalCosts = prevFixedCosts + prevVariableCosts.total + prevProductCosts + prevSpend;
   const currentNetRevenue = currentStoreRevenue - currentTotalCosts;
@@ -2996,18 +3000,18 @@ export default function DashboardPage() {
                   {isEcommerce && <ShopifyMetric
                     icon={DollarSign}
                     label="Ingresos Email"
-                    value={`$ ${currentKlaviyo.attributed?.toLocaleString("es-AR", { maximumFractionDigits: 0 }) || 0}`}
+                    value={formatCurrencyValue(convertEmailToDashboard(currentKlaviyo.attributed || 0), currencySettings.baseCurrency)}
                     change={getKlaviyoChange(
-                      currentKlaviyo?.attributed ?? 0,
-                      prevKlaviyo?.attributed ?? 0,
+                      convertEmailToDashboard(currentKlaviyo?.attributed ?? 0),
+                      convertEmailToDashboard(prevKlaviyo?.attributed ?? 0),
                     )}
                     trend={
-                      (currentKlaviyo?.attributed || 0) >=
-                      (prevKlaviyo?.attributed || 0)
+                      convertEmailToDashboard(currentKlaviyo?.attributed || 0) >=
+                      convertEmailToDashboard(prevKlaviyo?.attributed || 0)
                         ? "up"
                         : "down"
                     }
-                    data={currentKlaviyo?.dailyAttributed || []}
+                    data={currentKlaviyo?.dailyAttributed?.map((d: any) => ({ ...d, val: convertEmailToDashboard(d.val || 0) })) || []}
                     color={GREEN}
                     loading={fetchingKlaviyo}
                     active={expandedMetric === "k-attr"}
@@ -3035,9 +3039,9 @@ export default function DashboardPage() {
                     color={GREEN}
                     data={
                       expandedMetric === "k-revenue"
-                        ? currentKlaviyo?.dailyRevenue || []
+                        ? currentKlaviyo?.dailyRevenue?.map((d: any) => ({ ...d, val: convertEmailToDashboard(d.val || 0) })) || []
                         : expandedMetric === "k-attr"
-                          ? currentKlaviyo?.dailyAttributed || []
+                          ? currentKlaviyo?.dailyAttributed?.map((d: any) => ({ ...d, val: convertEmailToDashboard(d.val || 0) })) || []
                           : expandedMetric === "k-sent"
                             ? currentKlaviyo?.dailySent || []
                             : expandedMetric === "k-click-rate"
@@ -3064,9 +3068,9 @@ export default function DashboardPage() {
                     }
                     prevData={
                       expandedMetric === "k-revenue"
-                        ? prevKlaviyo?.dailyRevenue || []
+                        ? prevKlaviyo?.dailyRevenue?.map((d: any) => ({ ...d, val: convertEmailToDashboard(d.val || 0) })) || []
                         : expandedMetric === "k-attr"
-                          ? prevKlaviyo?.dailyAttributed || []
+                          ? prevKlaviyo?.dailyAttributed?.map((d: any) => ({ ...d, val: convertEmailToDashboard(d.val || 0) })) || []
                           : expandedMetric === "k-sent"
                             ? prevKlaviyo?.dailySent || []
                             : expandedMetric === "k-click-rate"
