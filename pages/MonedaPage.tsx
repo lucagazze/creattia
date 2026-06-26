@@ -43,6 +43,13 @@ const isRateStale = (updatedAt?: string) => {
   return !Number.isFinite(time) || Date.now() - time >= AUTO_REFRESH_MS;
 };
 
+const currencyName = (code: string) => CURRENCY_OPTIONS.find((item) => item.code === code)?.label || code;
+
+const formatRate = (value: number, currency: string) => {
+  const digits = Math.abs(value) < 1 ? 4 : 2;
+  return formatCurrencyValue(value, currency, digits);
+};
+
 export default function MonedaPage() {
   const { profile: authProfile } = useAuth();
   const { viewAsProfile, isViewingAs } = useViewAs();
@@ -341,12 +348,12 @@ export default function MonedaPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left">
+              <table className="w-full min-w-[760px] text-left">
                 <thead className="bg-zinc-50 dark:bg-white/[0.03] text-[11px] uppercase tracking-widest text-zinc-400">
                   <tr>
                     <th className="px-5 py-4 font-black">Métrica</th>
-                    <th className="px-5 py-4 font-black">Precio moneda 1</th>
-                    <th className="px-5 py-4 font-black">Precio moneda 2</th>
+                    <th className="px-5 py-4 font-black">Moneda origen</th>
+                    <th className="px-5 py-4 font-black">Valor convertido</th>
                     <th className="px-5 py-4 font-black">Conversión</th>
                   </tr>
                 </thead>
@@ -357,10 +364,20 @@ export default function MonedaPage() {
                         <p className="font-black text-zinc-950 dark:text-white">{row.title}</p>
                         <p className="text-xs font-semibold text-zinc-400 mt-0.5">Se convierte al dashboard</p>
                       </td>
-                      <td className="px-5 py-4 font-black">1 {row.from}</td>
-                      <td className="px-5 py-4 font-black">{formatCurrencyValue(row.rate, row.to, 4)} {row.to}</td>
-                      <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 font-semibold">
-                        {row.from === row.to ? "Sin conversión" : `${row.from} -> ${row.to}`}
+                      <td className="px-5 py-4">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-white/[0.06] px-3 py-1.5">
+                          <span className="text-sm font-black">{row.from}</span>
+                          <span className="text-xs font-bold text-zinc-400">{currencyName(row.from)}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="text-base font-black text-zinc-950 dark:text-white">1 {row.from} = {formatRate(row.rate, row.to)}</p>
+                        <p className="text-xs font-semibold text-zinc-400 mt-0.5">Moneda base: {row.to}</p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-black ${row.from === row.to ? "bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-300" : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`}>
+                          {row.from === row.to ? "Sin conversión" : `${row.from} -> ${row.to}`}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -373,9 +390,9 @@ export default function MonedaPage() {
             <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-500">Relación de monedas</p>
-                <h2 className="text-xl font-black mt-1">Tabla completa de equivalencias</h2>
+                <h2 className="text-xl font-black mt-1">Equivalencias principales</h2>
                 <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
-                  Muestra cómo se relacionan las monedas configuradas entre sí. USD y ARS quedan siempre disponibles.
+                  Vista rápida de las conversiones disponibles. USD y ARS quedan siempre visibles.
                 </p>
               </div>
               {refreshingRates && (
@@ -389,19 +406,21 @@ export default function MonedaPage() {
               <table className="w-full min-w-[680px] text-left">
                 <thead className="bg-zinc-50 dark:bg-white/[0.03] text-[11px] uppercase tracking-widest text-zinc-400">
                   <tr>
-                    <th className="px-5 py-4 font-black">Moneda 1</th>
-                    <th className="px-5 py-4 font-black">Moneda 2</th>
+                    <th className="px-5 py-4 font-black">Desde</th>
+                    <th className="px-5 py-4 font-black">Hasta</th>
                     <th className="px-5 py-4 font-black">Relación</th>
                     <th className="px-5 py-4 font-black">Actualizado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                  {relationshipRows.map((row) => (
-                    <tr key={`${row.from}-${row.to}`} className="text-sm">
-                      <td className="px-5 py-4 font-black">1 {row.from}</td>
-                      <td className="px-5 py-4 font-black">{formatCurrencyValue(row.rate, row.to, 4)} {row.to}</td>
+                {relationshipRows.map((row) => (
+                  <tr key={`${row.from}-${row.to}`} className="text-sm">
+                      <td className="px-5 py-4">
+                        <span className="inline-flex items-center rounded-full bg-zinc-100 dark:bg-white/[0.06] px-3 py-1 text-xs font-black">1 {row.from}</span>
+                      </td>
+                      <td className="px-5 py-4 font-black">{formatRate(row.rate, row.to)}</td>
                       <td className="px-5 py-4 text-zinc-500 dark:text-zinc-400 font-semibold">{`${row.from} -> ${row.to}`}</td>
-                      <td className="px-5 py-4 text-zinc-400 font-semibold">
+                      <td className="px-5 py-4 text-zinc-400 font-semibold whitespace-nowrap">
                         {settings.rateUpdatedAt ? new Date(settings.rateUpdatedAt).toLocaleString("es-AR") : "Pendiente"}
                       </td>
                     </tr>
