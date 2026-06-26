@@ -122,6 +122,9 @@ const parseStoredCostSettings = (raw: any) => {
   }
 };
 
+const formatDashboardMoney = (value: number) =>
+  `$ ${Number(value || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+
 type DashboardCachePayload = {
   currentStore?: any;
   prevStore?: any;
@@ -406,7 +409,8 @@ const MetricDetailChartComponent = ({ label, data = [], prevData = [], color }: 
   }));
 
   const vals = (data || []).map((d: any) => d.val);
-  const nonZero = vals.filter((v: number) => v > 0);
+  const numericVals = vals.filter((v: number) => typeof v === "number" && !isNaN(v));
+  const nonZero = numericVals.filter((v: number) => v > 0);
   const avg =
     nonZero.length > 0
       ? nonZero.reduce((a: number, b: number) => a + b, 0) / nonZero.length
@@ -420,9 +424,10 @@ const MetricDetailChartComponent = ({ label, data = [], prevData = [], color }: 
         prevNonZero.length
       : 0;
 
-  const maxVal = Math.max(...data.map((d: any) => d.val), 0);
-  const minVal = nonZero.length > 0 ? Math.min(...nonZero) : 0;
-  const yMin = minVal > 0 ? Math.max(0, minVal * 0.75) : 0;
+  const maxVal = Math.max(...numericVals, 0);
+  const minVal = Math.min(...numericVals, 0);
+  const minPositiveVal = nonZero.length > 0 ? Math.min(...nonZero) : 0;
+  const yMin = minVal < 0 ? minVal * 1.1 : minPositiveVal > 0 ? Math.max(0, minPositiveVal * 0.75) : 0;
 
   const trend = prevAvg > 0 ? ((avg - prevAvg) / prevAvg) * 100 : 0;
   const chartColor = color || (trend > 5 ? GREEN : trend < -5 ? RED : BLUE);
@@ -431,6 +436,8 @@ const MetricDetailChartComponent = ({ label, data = [], prevData = [], color }: 
   const isPercentLabel = label.toLowerCase().includes("tasa");
   const isMoneyLabel =
     label.toLowerCase().includes("ingreso") ||
+    label.toLowerCase().includes("facturación") ||
+    label.toLowerCase().includes("facturacion") ||
     label.toLowerCase().includes("inversión") ||
     label.toLowerCase().includes("retorno");
   const isCostLabel =
@@ -558,12 +565,13 @@ const MetricDetailChartComponent = ({ label, data = [], prevData = [], color }: 
                 maxVal > 0
                   ? Array.from(
                       new Set([
+                        Math.round(minVal),
                         Math.round(avg),
                         Math.round(prevAvg),
                         Math.round(maxVal),
                       ]),
                     )
-                      .filter((v) => v > 0)
+                      .filter((v) => v !== 0 || minVal < 0)
                       .sort((a, b) => a - b)
                   : undefined
               }
@@ -579,6 +587,8 @@ const MetricDetailChartComponent = ({ label, data = [], prevData = [], color }: 
                   const curr = payload.find((p: any) => p.dataKey === "val");
                   const isMoney =
                     label.toLowerCase().includes("ingreso") ||
+                    label.toLowerCase().includes("facturación") ||
+                    label.toLowerCase().includes("facturacion") ||
                     label.toLowerCase().includes("inversión") ||
                     label.toLowerCase().includes("retorno");
                   const isCost =
@@ -698,7 +708,7 @@ const MetricDetailChartComponent = ({ label, data = [], prevData = [], color }: 
               fillOpacity={0}
               fill="none"
               dot={(p: any) =>
-                p.value > 0 ? (
+                typeof p.value === "number" && !isNaN(p.value) ? (
                   <circle
                     key={`dot-${p.index}-${p.cx}`}
                     cx={p.cx}
@@ -731,6 +741,92 @@ const MetricDetailChart = React.memo(MetricDetailChartComponent, (prev: any, nex
     isArrayOfObjectsEqual(prev.prevData, next.prevData)
   );
 });
+
+const NetRevenueBreakdown = ({ summary }: any) => {
+  if (!summary) return null;
+
+  const rows = [
+    {
+      label: "Costos de productos y cajas",
+      value: summary.productCosts,
+      description: "Costo unitario + caja/embalaje guardado por variante vendida.",
+    },
+    {
+      label: "Costos adicionales / fijos",
+      value: summary.fixedCosts,
+      description: "Costos cargados en el panel de costos adicionales.",
+    },
+    {
+      label: "Comisiones de plataforma",
+      value: summary.platformCosts,
+      description: `${summary.platformRate.toLocaleString("es-AR", { maximumFractionDigits: 2 })}% sobre ingresos.`,
+    },
+    {
+      label: "Comisiones de pago",
+      value: summary.paymentCosts,
+      description: `${summary.paymentRate.toLocaleString("es-AR", { maximumFractionDigits: 2 })}% sobre ingresos.`,
+    },
+    {
+      label: "Costos de envíos",
+      value: summary.shippingCosts,
+      description: summary.shippingConfigured
+        ? "Envío configurado multiplicado por pedidos."
+        : "No se descuenta si no está configurado.",
+    },
+    {
+      label: "Inversión publicitaria",
+      value: summary.adSpend,
+      description: "Gasto de Meta Ads del período seleccionado.",
+    },
+  ];
+
+  return (
+    <div className="mt-4 rounded-[20px] border border-black/[0.06] dark:border-white/[0.06] bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+      <div className="p-4 sm:p-6 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-pink-500 mb-2">
+              Desglose de cálculo
+            </p>
+            <h3 className="text-xl sm:text-2xl font-black text-zinc-950 dark:text-white">
+              Facturación neta
+            </h3>
+            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+              Ingresos brutos menos todos los costos configurados y la pauta del período.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 min-w-0 lg:min-w-[420px]">
+            <div className="rounded-2xl bg-zinc-50 dark:bg-white/[0.03] p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Ingresos</p>
+              <p className="text-base font-black text-zinc-950 dark:text-white">{formatDashboardMoney(summary.grossRevenue)}</p>
+            </div>
+            <div className="rounded-2xl bg-rose-50 dark:bg-rose-500/10 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400">Descuentos</p>
+              <p className="text-base font-black text-rose-600 dark:text-rose-300">-{formatDashboardMoney(summary.totalCosts)}</p>
+            </div>
+            <div className="col-span-2 sm:col-span-1 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Neto</p>
+              <p className="text-base font-black text-emerald-700 dark:text-emerald-300">{formatDashboardMoney(summary.netRevenue)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {rows.map((row) => (
+          <div key={row.label} className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-1 sm:gap-4 px-4 sm:px-6 py-3">
+            <div>
+              <p className="text-sm font-bold text-zinc-800 dark:text-zinc-100">{row.label}</p>
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{row.description}</p>
+            </div>
+            <p className="text-sm font-black text-rose-600 dark:text-rose-300 sm:text-right">
+              -{formatDashboardMoney(row.value)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const HistoricalRevenueChartComponent = ({ data, color }: any) => {
   return (
@@ -1848,22 +1944,24 @@ export default function DashboardPage() {
       return sum + (Number(qty) || 0) * ((Number(savedCost.cost) || 0) + (Number(savedCost.packagingCost) || 0));
     }, 0);
   };
+  const getPlatformRate = () => Number(
+    detectedPlatform === "shopify"
+      ? costSettings.platformCommissions.shopify
+      : detectedPlatform === "tiendanube"
+        ? costSettings.platformCommissions.tiendanube
+        : detectedPlatform === "mercadolibre"
+          ? costSettings.platformCommissions.mercadolibre
+          : costSettings.platformCommissions.custom
+  ) || 0;
+  const getPaymentRate = () =>
+    (Number(costSettings.paymentFees.tiendanubeCPT) || 0) +
+    (Number(costSettings.paymentFees.shopifyFees) || 0) +
+    (Number(costSettings.paymentFees.iibb) || 0);
   const getVariableStoreCosts = (store: any) => {
     const revenue = Number(store?.revenue || 0);
     const orders = Number(store?.orders || 0);
-    const platformRate = Number(
-      detectedPlatform === "shopify"
-        ? costSettings.platformCommissions.shopify
-        : detectedPlatform === "tiendanube"
-          ? costSettings.platformCommissions.tiendanube
-          : detectedPlatform === "mercadolibre"
-            ? costSettings.platformCommissions.mercadolibre
-            : costSettings.platformCommissions.custom
-    ) || 0;
-    const paymentRate =
-      (Number(costSettings.paymentFees.tiendanubeCPT) || 0) +
-      (Number(costSettings.paymentFees.shopifyFees) || 0) +
-      (Number(costSettings.paymentFees.iibb) || 0);
+    const platformRate = getPlatformRate();
+    const paymentRate = getPaymentRate();
     const hasConfiguredShipping = Boolean((costSettings.shipping as any).configured);
     const shippingCost = hasConfiguredShipping && costSettings.shipping.type === "custom"
       ? (Number(costSettings.shipping.customShippingCost) || 0) * orders
@@ -1883,10 +1981,25 @@ export default function DashboardPage() {
   const prevTotalCosts = costSummary.previous + prevVariableCosts.total + prevProductCosts + prevSpend;
   const currentNetRevenue = (currentStore?.revenue || 0) - currentTotalCosts;
   const prevNetRevenue = (prevStore?.revenue || 0) - prevTotalCosts;
+  const netRevenueBreakdown = {
+    grossRevenue: Number(currentStore?.revenue || 0),
+    productCosts: currentProductCosts,
+    fixedCosts: costSummary.current,
+    platformCosts: currentVariableCosts.platform,
+    platformRate: getPlatformRate(),
+    paymentCosts: currentVariableCosts.payment,
+    paymentRate: getPaymentRate(),
+    shippingCosts: currentVariableCosts.shipping,
+    shippingConfigured: Boolean((costSettings.shipping as any).configured),
+    adSpend: currentSpend,
+    totalCosts: currentTotalCosts,
+    netRevenue: currentNetRevenue,
+  };
   const realRoas = currentSpend > 0 ? currentNetRevenue / currentSpend : 0;
   const prevRealRoas = prevSpend > 0 ? prevNetRevenue / prevSpend : 0;
   const showProfitMetrics = !!currentStore;
   const currentDaysCount = Math.max(1, currentStore?.daily?.length || 1);
+  const prevDaysCount = Math.max(1, prevStore?.daily?.length || 1);
   const netRevenueDaily = currentStore?.daily?.map((d: any, idx: number) => {
     const dayVariableCosts = getVariableStoreCosts({ revenue: d.revenue, orders: d.orders });
     const daySpend = metaDaily?.[idx]?.spend || 0;
@@ -1897,9 +2010,27 @@ export default function DashboardPage() {
       date: d.date,
     };
   }) || [];
+  const prevNetRevenueDaily = prevStore?.daily?.map((d: any, idx: number) => {
+    const dayVariableCosts = getVariableStoreCosts({ revenue: d.revenue, orders: d.orders });
+    const daySpend = prevMetaDaily?.[idx]?.spend || 0;
+    const dayFixedCosts = costSummary.previous / prevDaysCount;
+    const dayProductCosts = prevProductCosts / prevDaysCount;
+    return {
+      val: Number(d.revenue || 0) - dayVariableCosts.total - daySpend - dayFixedCosts - dayProductCosts,
+      date: d.date,
+    };
+  }) || [];
   const realRoasDaily = currentStore?.daily?.map((d: any, idx: number) => {
     const daySpend = metaDaily?.[idx]?.spend || 0;
     const netDay = netRevenueDaily[idx]?.val || 0;
+    return {
+      val: daySpend > 0 ? netDay / daySpend : 0,
+      date: d.date,
+    };
+  }) || [];
+  const prevRealRoasDaily = prevStore?.daily?.map((d: any, idx: number) => {
+    const daySpend = prevMetaDaily?.[idx]?.spend || 0;
+    const netDay = prevNetRevenueDaily[idx]?.val || 0;
     return {
       val: daySpend > 0 ? netDay / daySpend : 0,
       date: d.date,
@@ -2378,90 +2509,95 @@ export default function DashboardPage() {
                   )}
                 </div>
                 {(expandedMetric?.startsWith("s-") || expandedMetric === "mer-efficiency") && !(expandedMetric === "mer-efficiency" ? (fetchingStore || fetchingMeta) : fetchingStore) && (
-                  <MetricDetailChart
-                    label={
-                      expandedMetric === "mer-efficiency"
-                        ? "M.E.R. (Eficiencia)"
-                        : expandedMetric === "s-net-revenue"
-                          ? "Facturación neta"
+                  <>
+                    <MetricDetailChart
+                      label={
+                        expandedMetric === "mer-efficiency"
+                          ? "M.E.R. (Eficiencia)"
+                          : expandedMetric === "s-net-revenue"
+                            ? "Facturación neta"
+                            : expandedMetric === "s-real-roas"
+                              ? "ROAS real"
+                          : expandedMetric === "s-revenue"
+                            ? "Ingresos"
+                            : expandedMetric === "s-orders"
+                              ? "Pedidos"
+                              : expandedMetric === "s-aov"
+                                ? "Ticket Promedio"
+                                : expandedMetric === "s-sessions"
+                                  ? "Sesiones"
+                                  : "Tasa de Conversión"
+                      }
+                      color={PINK}
+                      data={
+                        expandedMetric === "mer-efficiency"
+                          ? merDaily
+                          : expandedMetric === "s-net-revenue"
+                            ? netRevenueDaily
                           : expandedMetric === "s-real-roas"
-                            ? "ROAS real"
-                        : expandedMetric === "s-revenue"
-                          ? "Ingresos"
-                          : expandedMetric === "s-orders"
-                            ? "Pedidos"
-                            : expandedMetric === "s-aov"
-                              ? "Ticket Promedio"
-                              : expandedMetric === "s-sessions"
-                                ? "Sesiones"
-                                : "Tasa de Conversión"
-                    }
-                    color={PINK}
-                    data={
-                      expandedMetric === "mer-efficiency"
-                        ? merDaily
-                        : expandedMetric === "s-net-revenue"
-                          ? currentStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))
-                        : expandedMetric === "s-real-roas"
-                          ? currentStore?.daily?.map((d: any) => ({ val: currentSpend > 0 ? d.revenue / currentSpend : 0, date: d.date }))
-                        : expandedMetric === "s-revenue"
-                          ? currentStore?.daily?.map((d: any) => ({
-                              val: d.revenue,
-                              date: d.date,
-                            }))
-                          : expandedMetric === "s-orders"
+                            ? realRoasDaily
+                          : expandedMetric === "s-revenue"
                             ? currentStore?.daily?.map((d: any) => ({
-                                val: d.orders,
+                                val: d.revenue,
                                 date: d.date,
                               }))
-                            : expandedMetric === "s-aov"
+                            : expandedMetric === "s-orders"
                               ? currentStore?.daily?.map((d: any) => ({
-                                  val: d.aov,
+                                  val: d.orders,
                                   date: d.date,
                                 }))
-                              : expandedMetric === "s-sessions"
+                              : expandedMetric === "s-aov"
                                 ? currentStore?.daily?.map((d: any) => ({
-                                    val: d.sessions,
+                                    val: d.aov,
                                     date: d.date,
                                   }))
-                                : currentStore?.daily?.map((d: any) => ({
-                                    val: d.conversionRate,
-                                    date: d.date,
-                                  })) || []
-                    }
-                    prevData={
-                      expandedMetric === "mer-efficiency"
-                        ? prevMerDaily
-                        : expandedMetric === "s-net-revenue"
-                          ? prevStore?.daily?.map((d: any) => ({ val: d.revenue, date: d.date }))
-                        : expandedMetric === "s-real-roas"
-                          ? prevStore?.daily?.map((d: any) => ({ val: prevSpend > 0 ? d.revenue / prevSpend : 0, date: d.date }))
-                        : expandedMetric === "s-revenue"
-                          ? prevStore?.daily?.map((d: any) => ({
-                              val: d.revenue,
-                              date: d.date,
-                            }))
-                          : expandedMetric === "s-orders"
+                                : expandedMetric === "s-sessions"
+                                  ? currentStore?.daily?.map((d: any) => ({
+                                      val: d.sessions,
+                                      date: d.date,
+                                    }))
+                                  : currentStore?.daily?.map((d: any) => ({
+                                      val: d.conversionRate,
+                                      date: d.date,
+                                    })) || []
+                      }
+                      prevData={
+                        expandedMetric === "mer-efficiency"
+                          ? prevMerDaily
+                          : expandedMetric === "s-net-revenue"
+                            ? prevNetRevenueDaily
+                          : expandedMetric === "s-real-roas"
+                            ? prevRealRoasDaily
+                          : expandedMetric === "s-revenue"
                             ? prevStore?.daily?.map((d: any) => ({
-                                val: d.orders,
+                                val: d.revenue,
                                 date: d.date,
                               }))
-                            : expandedMetric === "s-aov"
+                            : expandedMetric === "s-orders"
                               ? prevStore?.daily?.map((d: any) => ({
-                                  val: d.aov,
+                                  val: d.orders,
                                   date: d.date,
                                 }))
-                              : expandedMetric === "s-sessions"
+                              : expandedMetric === "s-aov"
                                 ? prevStore?.daily?.map((d: any) => ({
-                                    val: d.sessions,
+                                    val: d.aov,
                                     date: d.date,
                                   }))
-                                : prevStore?.daily?.map((d: any) => ({
-                                    val: d.conversionRate,
-                                    date: d.date,
-                                  })) || []
-                    }
-                  />
+                                : expandedMetric === "s-sessions"
+                                  ? prevStore?.daily?.map((d: any) => ({
+                                      val: d.sessions,
+                                      date: d.date,
+                                    }))
+                                  : prevStore?.daily?.map((d: any) => ({
+                                      val: d.conversionRate,
+                                      date: d.date,
+                                    })) || []
+                      }
+                    />
+                    {expandedMetric === "s-net-revenue" && (
+                      <NetRevenueBreakdown summary={netRevenueBreakdown} />
+                    )}
+                  </>
                 )}
               </>
             ) : null}
