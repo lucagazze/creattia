@@ -247,71 +247,84 @@ export default function MonedaPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-5">
-        <section className="rounded-[22px] bg-white dark:bg-zinc-950 border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden">
-          <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-800">
+      <section className="rounded-[22px] bg-white dark:bg-zinc-950 border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden">
+        <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+          <div>
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-violet-500 mb-2">Configuración</p>
             <h2 className="text-2xl font-black">Moneda base y fuentes</h2>
-            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
-              Todo se convierte a la moneda base para calcular facturación neta, ROAS real y métricas monetarias.
+            <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1 max-w-3xl">
+              Definí en qué moneda llega cada métrica. La app convierte todo a la moneda base para calcular facturación neta, ROAS real y métricas monetarias.
             </p>
           </div>
+          {!loading && (
+            <div className="w-full xl:w-[320px] shrink-0">
+              <CurrencySelect
+                label="Ver todo el dashboard en"
+                value={settings.baseCurrency}
+                onChange={(value) => updateSetting("baseCurrency", value)}
+              />
+            </div>
+          )}
+        </div>
 
-          <div className="p-5 sm:p-6 space-y-5">
-            {loading ? (
-              <div className="h-64 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-white/[0.03] flex items-center justify-center">
-                <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
-              </div>
-            ) : (
-              <>
-                <CurrencySelect
-                  label="Ver todo el dashboard en"
-                  value={settings.baseCurrency}
-                  onChange={(value) => updateSetting("baseCurrency", value)}
-                />
-
-                <div className="space-y-3">
-                  {SOURCE_ROWS.map((source) => (
-                    <div key={source.key} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-white/[0.03] p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-[1fr_180px] gap-3 md:items-center">
-                        <div>
-                          <h3 className="text-base font-black">{source.title}</h3>
-                          <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-1">{source.description}</p>
-                        </div>
-                        <CurrencySelect
-                          label="Moneda"
-                          value={settings[source.key]}
-                          onChange={(value) => updateSetting(source.key, value)}
-                          compact
-                        />
+        <div className="p-5 sm:p-6">
+          {loading ? (
+            <div className="h-64 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-white/[0.03] flex items-center justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-3">
+                {SOURCE_ROWS.map((source) => (
+                  <div key={source.key} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-white/[0.03] p-4 min-h-[188px] flex flex-col">
+                    <div className="mb-4">
+                      <div className="inline-flex items-center rounded-full bg-white dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-3">
+                        Fuente
                       </div>
+                      <h3 className="text-lg font-black leading-tight">{source.title}</h3>
+                      <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 mt-2 leading-snug">{source.description}</p>
                     </div>
-                  ))}
-                </div>
+                    <div className="mt-auto">
+                      <CurrencySelect
+                        label="Moneda de origen"
+                        value={settings[source.key]}
+                        onChange={(value) => updateSetting(source.key, value)}
+                        compact
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
 
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+                <p className="text-xs font-bold text-zinc-400">
+                  Las cotizaciones se refrescan cada hora y se guardan con la configuración del cliente.
+                </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     onClick={handleSave}
                     disabled={saving || refreshingRates}
-                    className="h-12 px-6 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-sm font-black shadow-lg shadow-black/10 dark:shadow-white/5 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+                    className="h-11 px-5 rounded-2xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-sm font-black shadow-lg shadow-black/10 dark:shadow-white/5 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
                   >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {saving ? "Guardando..." : "Guardar configuración"}
+                    {saving ? "Guardando..." : "Guardar"}
                   </button>
                   <button
                     onClick={() => fetchLiveRates(settings, { persist: true })}
                     disabled={refreshingRates || saving}
-                    className="h-12 px-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 text-sm font-black text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="h-11 px-5 rounded-2xl border border-zinc-200 dark:border-zinc-700 text-sm font-black text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <RefreshCw className={`w-4 h-4 ${refreshingRates ? "animate-spin" : ""}`} />
                     Actualizar cotizaciones
                   </button>
                 </div>
-              </>
-            )}
-          </div>
-        </section>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
 
+      <div className="mt-5">
         <div className="space-y-5">
           <section className="rounded-[22px] bg-white dark:bg-zinc-950 border border-black/[0.06] dark:border-white/[0.06] shadow-sm overflow-hidden">
             <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex items-start gap-3">
