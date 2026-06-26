@@ -981,24 +981,31 @@ export const ecommerce = {
     let totalPages = 1;
     
     try {
-      while (page <= totalPages && page <= 5) {
-        const params = new URLSearchParams({ per_page: '100', page: String(page), status: 'publish' });
-        const res = await fetch(`/api/shopify/wc/products?${params.toString()}`, {
-          headers: {
-            'x-wc-base-url': baseUrl,
-            'x-wc-consumer-key': ck,
-            'x-wc-consumer-secret': cs,
-          },
-        });
-        if (!res.ok) throw new Error(`WooCommerce Products API Error: ${res.status}`);
-        if (page === 1) {
-          totalPages = parseInt(res.headers.get('X-WP-TotalPages') || '1', 10);
+      const readProducts = async (statusFilter: string | null) => {
+        page = 1;
+        totalPages = 1;
+        while (page <= totalPages && page <= 5) {
+          const params = new URLSearchParams({ per_page: '100', page: String(page) });
+          if (statusFilter) params.set('status', statusFilter);
+          const res = await fetch(`/api/shopify/wc/products?${params.toString()}`, {
+            headers: {
+              'x-wc-base-url': baseUrl,
+              'x-wc-consumer-key': ck,
+              'x-wc-consumer-secret': cs,
+            },
+          });
+          if (!res.ok) throw new Error(`WooCommerce Products API Error: ${res.status}`);
+          if (page === 1) {
+            totalPages = parseInt(res.headers.get('X-WP-TotalPages') || '1', 10);
+          }
+          const data: any[] = await res.json();
+          if (!Array.isArray(data) || data.length === 0) break;
+          allProducts = allProducts.concat(data);
+          page++;
         }
-        const data: any[] = await res.json();
-        if (!Array.isArray(data) || data.length === 0) break;
-        allProducts = allProducts.concat(data);
-        page++;
-      }
+      };
+      await readProducts('publish');
+      if (allProducts.length === 0) await readProducts(null);
 
       const variableProducts = allProducts.filter((p: any) => p.type === 'variable');
       const variationsByProduct: Record<string, any[]> = {};

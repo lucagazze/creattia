@@ -104,6 +104,7 @@ export default function CostosPage() {
   const { showToast } = useToast();
   const detectedPlatform = useMemo(() => {
     const p: any = profile;
+    if (['shopify', 'wordpress', 'tiendanube'].includes(p?.ecommerce_platform)) return p.ecommerce_platform;
     if (p?.ecommerce_platform === 'shopify' && p.shopify_domain && p.shopify_access_token) return 'shopify';
     if (p?.ecommerce_platform === 'wordpress' && p.wordpress_url && p.woo_consumer_key && p.woo_consumer_secret) return 'wordpress';
     if (p?.ecommerce_platform === 'tiendanube' && p.tiendanube_store_id && p.tiendanube_access_token) return 'tiendanube';
@@ -206,6 +207,16 @@ export default function CostosPage() {
     };
   });
 
+  const mapNormalizedProducts = (products: any[]): CatalogProduct[] => products.map((p: any) => ({
+    id: String(p.id),
+    title: p.title || p.name || 'Producto',
+    variants: (Array.isArray(p.variants) && p.variants.length > 0 ? p.variants : [p]).map((v: any) => ({
+      id: String(v.id || p.id),
+      title: v.title && v.title !== 'Default Title' ? v.title : 'Único',
+      price: parseFloat(v.price || p.price || p.regular_price || 0) || 0
+    }))
+  }));
+
   // Connected store product catalog fetching
   const loadProductCatalog = useCallback(async () => {
     if (!profile || !detectedPlatform) {
@@ -216,13 +227,39 @@ export default function CostosPage() {
     setLoadingProducts(true);
     try {
       const p: any = profile;
+      if (profileId && profileId !== 'default') {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (accessToken) {
+          const backendRes = await fetch('/api/scrape-all', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({ type: 'products', clientId: profileId, platform: detectedPlatform })
+          });
+          if (backendRes.ok) {
+            const backendData = await backendRes.json();
+            const backendProducts = Array.isArray(backendData.products) ? backendData.products : [];
+            if (backendProducts.length > 0) {
+              setCatalogProducts(mapNormalizedProducts(backendProducts));
+              return;
+            }
+          }
+        }
+      }
+
       if (detectedPlatform === 'shopify') {
+        if (!p.shopify_domain || !p.shopify_access_token) throw new Error('Shopify no configurado.');
         const products = await ecommerce.getProducts(p.shopify_domain, p.shopify_access_token);
         setCatalogProducts(mapShopifyProducts(products));
       } else if (detectedPlatform === 'wordpress') {
+        if (!p.wordpress_url || !p.woo_consumer_key || !p.woo_consumer_secret) throw new Error('WooCommerce no configurado.');
         const products = await ecommerce.getWooCommerceProducts(p.wordpress_url, p.woo_consumer_key, p.woo_consumer_secret);
         setCatalogProducts(mapWooProducts(products));
       } else if (detectedPlatform === 'tiendanube') {
+        if (!p.tiendanube_store_id || !p.tiendanube_access_token) throw new Error('Tiendanube no configurado.');
         const products = await ecommerce.getTiendaNubeProducts(p.tiendanube_store_id, p.tiendanube_access_token);
         setCatalogProducts(mapTiendaNubeProducts(products));
       }
@@ -233,7 +270,7 @@ export default function CostosPage() {
     } finally {
       setLoadingProducts(false);
     }
-  }, [profile, detectedPlatform]);
+  }, [profile, profileId, detectedPlatform]);
 
   // Load from localStorage and Supabase
   useEffect(() => {

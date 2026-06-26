@@ -752,19 +752,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Raw WooCommerce products (without variations yet)
         const rawWooProducts: any[] = [];
-        for (let page = 1; page <= 5; page++) {
-          const r = await fetchWoo(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`);
-          if (!r.ok) {
-            if (page === 1) {
-              const text = await r.text();
-              throw new Error(`WooCommerce error ${r.status}: ${text.slice(0, 150)}`);
+        const readWooProducts = async (statusFilter: string | null) => {
+          for (let page = 1; page <= 5; page++) {
+            const search = new URLSearchParams({ per_page: '100', page: String(page) });
+            if (statusFilter) search.set('status', statusFilter);
+            const r = await fetchWoo(`${base}/wp-json/wc/v3/products?${search.toString()}`);
+            if (!r.ok) {
+              if (page === 1 && statusFilter === 'publish') {
+                const text = await r.text();
+                throw new Error(`WooCommerce error ${r.status}: ${text.slice(0, 150)}`);
+              }
+              break;
             }
-            break;
+            const data: any[] = await r.json();
+            if (!data.length) break;
+            rawWooProducts.push(...data);
           }
-          const data: any[] = await r.json();
-          if (!data.length) break;
-          rawWooProducts.push(...data);
-        }
+        };
+        await readWooProducts('publish');
+        if (rawWooProducts.length === 0) await readWooProducts(null);
 
         // Fetch real variations for variable products in parallel batches of 10
         const variableProducts = rawWooProducts.filter((p: any) => p.type === 'variable');
