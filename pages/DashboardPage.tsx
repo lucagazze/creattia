@@ -1972,6 +1972,7 @@ export default function DashboardPage() {
 
   const currentSpend = currentMetaSpend;
   const prevSpend = prevMetaSpend;
+  const usdArsRate = convertCurrency(1, "USD", "ARS", currencySettings);
   const getProductCosts = (store: any) => {
     const variantOrders = store?.variantOrders || {};
     return Object.entries(variantOrders).reduce((sum, [variantId, qty]) => {
@@ -2214,6 +2215,11 @@ export default function DashboardPage() {
             </span>
           </h1>
         </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+          <div className="h-9 md:h-10 px-3.5 rounded-full bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] shadow-sm flex items-center justify-center gap-2 text-[11px] md:text-[12px] font-black text-zinc-700 dark:text-zinc-200">
+            <Coins className="w-4 h-4 text-emerald-500" />
+            <span className="whitespace-nowrap">1 USD = {formatCurrencyValue(usdArsRate, "ARS", 2)} ARS</span>
+          </div>
         <div
           className="flex items-center justify-between md:justify-start w-full md:w-auto bg-white dark:bg-zinc-900 border border-black/[0.06] dark:border-white/[0.06] rounded-full px-1 py-0.5 md:py-1 shadow-sm h-9 md:h-10 relative z-20"
           ref={datePickerRef}
@@ -2380,6 +2386,7 @@ export default function DashboardPage() {
               {fmtDateRange(activePrevRange.until)}
             </span>
           </div>
+        </div>
         </div>
       </div>
 
