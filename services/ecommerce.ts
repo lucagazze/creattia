@@ -999,6 +999,51 @@ export const ecommerce = {
         allProducts = allProducts.concat(data);
         page++;
       }
+
+      const variableProducts = allProducts.filter((p: any) => p.type === 'variable');
+      const variationsByProduct: Record<string, any[]> = {};
+      for (let i = 0; i < variableProducts.length; i += 8) {
+        const batch = variableProducts.slice(i, i + 8);
+        const results = await Promise.all(batch.map(async (p: any) => {
+          try {
+            const res = await fetch(`/api/shopify/wc/products/${p.id}/variations?per_page=100`, {
+              headers: {
+                'x-wc-base-url': baseUrl,
+                'x-wc-consumer-key': ck,
+                'x-wc-consumer-secret': cs,
+              },
+            });
+            if (!res.ok) return { productId: String(p.id), variations: [] };
+            const data: any[] = await res.json();
+            return { productId: String(p.id), variations: Array.isArray(data) ? data : [] };
+          } catch {
+            return { productId: String(p.id), variations: [] };
+          }
+        }));
+        results.forEach((item) => {
+          variationsByProduct[item.productId] = item.variations;
+        });
+      }
+
+      allProducts = allProducts.map((p: any) => {
+        const realVariations = variationsByProduct[String(p.id)] || [];
+        const variants = realVariations.length > 0
+          ? realVariations.map((v: any) => ({
+              id: v.id,
+              title: v.attributes?.map((a: any) => a.option).filter(Boolean).join(' / ') || `Variación ${v.id}`,
+              price: v.price || v.regular_price || p.price || p.regular_price || 0,
+              inventory_quantity: v.stock_quantity ?? (v.stock_status === 'instock' ? 99 : 0),
+              sku: v.sku || '',
+            }))
+          : [{
+              id: p.id,
+              title: 'Único',
+              price: p.price || p.regular_price || 0,
+              inventory_quantity: p.stock_quantity ?? (p.stock_status === 'instock' ? 99 : 0),
+              sku: p.sku || '',
+            }];
+        return { ...p, variants };
+      });
     } catch (e) {
       console.error("Error fetching WooCommerce products:", e);
     }

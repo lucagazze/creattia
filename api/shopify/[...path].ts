@@ -30,10 +30,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const wcMatch = req.url?.match(/^\/api\/shopify\/wc\/(.*)/);
     const wcPathAndQuery = wcMatch ? wcMatch[1] : 'orders';
     const targetUrl = `${cleanBase}/wp-json/wc/v3/${wcPathAndQuery}`;
+    const withQueryCredentials = (url: string) => {
+      const parsed = new URL(url);
+      parsed.searchParams.set('consumer_key', wcKey);
+      parsed.searchParams.set('consumer_secret', wcSecret);
+      return parsed.toString();
+    };
     try {
-      const wcRes = await fetch(targetUrl, {
+      let wcRes = await fetch(targetUrl, {
         headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/json' },
       });
+      if ([401, 403].includes(wcRes.status)) {
+        wcRes = await fetch(withQueryCredentials(targetUrl), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       const totalPages = wcRes.headers.get('X-WP-TotalPages') || '1';
       const totalCount = wcRes.headers.get('X-WP-Total') || '0';
       res.setHeader('X-WP-TotalPages', totalPages);

@@ -553,12 +553,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const base = (active_wordpress_url || '').replace(/\/$/, '');
         if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
         const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
+        const fetchWoo = async (url: string) => {
+          let response = await fetch(url, { headers: { Authorization: `Basic ${creds}` } });
+          if ([401, 403].includes(response.status)) {
+            const parsed = new URL(url);
+            parsed.searchParams.set('consumer_key', active_woo_consumer_key);
+            parsed.searchParams.set('consumer_secret', active_woo_consumer_secret);
+            response = await fetch(parsed.toString());
+          }
+          return response;
+        };
         
         let page = 1;
         while (page <= 30) {
-          const wRes = await fetch(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=100&page=${page}`, {
-            headers: { Authorization: `Basic ${creds}` }
-          });
+          const wRes = await fetchWoo(`${base}/wp-json/wc/v3/orders?after=${sinceIso}&before=${untilIso}&per_page=100&page=${page}`);
           if (!wRes.ok) break;
           const wData = await wRes.json();
           if (!Array.isArray(wData) || wData.length === 0) break;
@@ -731,11 +739,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const base = (active_wordpress_url || '').replace(/\/$/, '');
         if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
         const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
+        const fetchWoo = async (url: string) => {
+          let response = await fetch(url, { headers: { 'Authorization': `Basic ${creds}` } });
+          if ([401, 403].includes(response.status)) {
+            const parsed = new URL(url);
+            parsed.searchParams.set('consumer_key', active_woo_consumer_key);
+            parsed.searchParams.set('consumer_secret', active_woo_consumer_secret);
+            response = await fetch(parsed.toString());
+          }
+          return response;
+        };
 
         // Raw WooCommerce products (without variations yet)
         const rawWooProducts: any[] = [];
         for (let page = 1; page <= 5; page++) {
-          const r = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`, { headers: { 'Authorization': `Basic ${creds}` } });
+          const r = await fetchWoo(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`);
           if (!r.ok) {
             if (page === 1) {
               const text = await r.text();
@@ -758,10 +776,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const results = await Promise.all(
             batch.map(async (p: any) => {
               try {
-                const vr = await fetch(
-                  `${base}/wp-json/wc/v3/products/${p.id}/variations?per_page=100`,
-                  { headers: { 'Authorization': `Basic ${creds}` } }
-                );
+                const vr = await fetchWoo(`${base}/wp-json/wc/v3/products/${p.id}/variations?per_page=100`);
                 if (!vr.ok) return { id: p.id, vars: [] };
                 const vars: any[] = await vr.json();
                 return { id: p.id, vars };
@@ -993,6 +1008,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
         const creds = Buffer.from(`${active_woo_consumer_key}:${active_woo_consumer_secret}`).toString('base64');
         const wcHeaders = { Authorization: `Basic ${creds}` };
+        const fetchWoo = async (url: string) => {
+          let response = await fetch(url, { headers: wcHeaders });
+          if ([401, 403].includes(response.status)) {
+            const parsed = new URL(url);
+            parsed.searchParams.set('consumer_key', active_woo_consumer_key);
+            parsed.searchParams.set('consumer_secret', active_woo_consumer_secret);
+            response = await fetch(parsed.toString());
+          }
+          return response;
+        };
         const wcOrderFields = [
           'id',
           'number',
@@ -1004,7 +1029,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           'discount_total',
           'total_tax',
           'billing',
-          'shipping'
+          'shipping',
+          'line_items',
+          'shipping_lines',
+          'coupon_lines',
+          'meta_data'
         ].join(',');
 
         const wooOrdersUrl = (params: Record<string, string | number | undefined>) => {
@@ -1020,7 +1049,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
 
         const readWooPage = async (url: string) => {
-          const response = await fetch(url, { headers: wcHeaders });
+          const response = await fetchWoo(url);
           if (!response.ok) return { response, orders: [] as any[], totalPages: 0 };
           const orders = await response.json();
           const totalPages = Math.max(1, Number(response.headers.get('x-wp-totalpages') || '1'));
@@ -1567,11 +1596,19 @@ RESPONDÉ SOLO CON JSON VALIDO.`;
       try {
         const base = (cl.wordpress_url as string).replace(/\/$/, '');
         const creds = Buffer.from(`${cl.woo_consumer_key}:${cl.woo_consumer_secret}`).toString('base64');
+        const fetchWoo = async (url: string) => {
+          let response = await fetch(url, { headers: { Authorization: `Basic ${creds}` } });
+          if ([401, 403].includes(response.status)) {
+            const parsed = new URL(url);
+            parsed.searchParams.set('consumer_key', cl.woo_consumer_key);
+            parsed.searchParams.set('consumer_secret', cl.woo_consumer_secret);
+            response = await fetch(parsed.toString());
+          }
+          return response;
+        };
         let allWoo: any[] = [];
         for (let page = 1; page <= 3; page++) {
-          const r = await fetch(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`, {
-            headers: { Authorization: `Basic ${creds}` },
-          });
+          const r = await fetchWoo(`${base}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`);
           if (!r.ok) break;
           const wooData = await r.json() as any[];
           if (!wooData.length) break;

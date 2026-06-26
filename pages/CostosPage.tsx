@@ -166,6 +166,18 @@ export default function CostosPage() {
   }));
 
   const mapWooProducts = (products: any[]): CatalogProduct[] => products.map((p: any) => {
+    if (Array.isArray(p.variants) && p.variants.length > 0) {
+      return {
+        id: String(p.id),
+        title: p.name || p.title || 'Producto',
+        variants: p.variants.map((v: any) => ({
+          id: String(v.id || p.id),
+          title: v.title && v.title !== 'Default Title' ? v.title : 'Único',
+          price: parseFloat(v.price || p.price || p.regular_price || 0) || 0
+        }))
+      };
+    }
+
     const variations = Array.isArray(p.variations) && p.variations.length > 0
       ? p.variations.map((id: any, idx: number) => ({
           id: String(id),

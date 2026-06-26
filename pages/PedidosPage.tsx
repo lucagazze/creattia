@@ -492,7 +492,7 @@ export default function PedidosPage() {
             ? ecommerce.getWooCommerceProducts(wordpressUrl, wooConsumerKey, wooConsumerSecret).then(prods => {
                 const map: Record<string, string> = {};
                 for (const p of prods) {
-                  const src = typeof p.image === 'string' ? p.image : p.image?.src;
+                  const src = typeof p.image === 'string' ? p.image : p.image?.src || p.images?.[0]?.src;
                   if (src) map[String(p.id)] = src;
                 }
                 return map;
