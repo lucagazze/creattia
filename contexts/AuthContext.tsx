@@ -55,6 +55,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (ensureData?.created && p?.id) {
               try { sessionStorage.setItem('ag_welcome_profile_id', p.id); } catch { /* ignore */ }
             }
+            if (ensureData?.id) {
+              try { sessionStorage.setItem('ag_after_signup', '/integraciones?welcome=1'); } catch { /* ignore */ }
+            }
           }
 
           setProfile(p);

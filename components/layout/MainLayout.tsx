@@ -229,6 +229,19 @@ export const MainLayout = () => {
     }
   }, [location.pathname, showToast]);
 
+  useEffect(() => {
+    if (!profile || location.pathname === '/integraciones') return;
+    try {
+      const destination = sessionStorage.getItem('ag_after_signup');
+      if (destination) {
+        sessionStorage.removeItem('ag_after_signup');
+        navigate(destination, { replace: true });
+      }
+    } catch {
+      // Ignore storage edge cases; the app can still be used normally.
+    }
+  }, [profile?.id, location.pathname, navigate]);
+
   // Auto-create profile for new users (Google OAuth or email signup)
   // When the profile is freshly created, redirect to integrations with welcome flag
   useEffect(() => {

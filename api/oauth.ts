@@ -3501,8 +3501,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: existing } = await supabase.from('car_clients').select('id').eq('user_id', userId).maybeSingle();
     if (existing) return res.status(200).json({ created: false, id: existing.id });
-    const businessName = email ? email.split('@')[0] : 'Mi negocio';
-    const { data: created, error } = await supabase.from('car_clients').insert({ user_id: userId, business_name: businessName }).select('id').single();
+
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (cleanEmail) {
+      const { data: invitedAccount } = await supabase
+        .from('car_business_accounts')
+        .select('id, business_id, user_id')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+      if (invitedAccount?.business_id) {
+        const { error: linkError } = await supabase
+          .from('car_business_accounts')
+          .update({ user_id: userId })
+          .eq('id', invitedAccount.id);
+        if (linkError) return res.status(500).json({ error: linkError.message });
+        return res.status(200).json({ created: false, id: invitedAccount.business_id, linked: true });
+      }
+    }
+
+    const businessName = cleanEmail ? cleanEmail.split('@')[0] : 'Mi negocio';
+    const { data: created, error } = await supabase.from('car_clients').insert({
+      user_id: userId,
+      business_name: businessName,
+      active: true,
+      plan: 'starter'
+    }).select('id').single();
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ created: true, id: created.id });
   }

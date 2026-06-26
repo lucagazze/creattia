@@ -26,10 +26,13 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { darkMode, toggleDarkMode } = useTheme();
-  const { session } = useAuth();
+  const { session, refreshProfile } = useAuth();
 
   useEffect(() => {
-    if (session) navigate('/dashboard');
+    if (!session) return;
+    const destination = sessionStorage.getItem('ag_after_signup') || '/dashboard';
+    sessionStorage.removeItem('ag_after_signup');
+    navigate(destination, { replace: true });
   }, [session, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -66,14 +69,48 @@ export default function LoginPage() {
     if (password.length < 6) { showToast('La contraseña debe tener al menos 6 caracteres', 'error'); return; }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const authEmail = toAuthEmail(email);
+      const { data, error } = await supabase.auth.signUp({
+        email: authEmail,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/#/integraciones?welcome=1`,
+        },
+      });
+      if (error) throw error;
+
+      if (data.session?.access_token && data.user) {
+        await fetch('/api/oauth?action=ensure-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: data.user.id, email: data.user.email || authEmail }),
+        });
+        sessionStorage.setItem('ag_after_signup', '/integraciones?welcome=1');
+        await refreshProfile();
+        navigate('/integraciones?welcome=1', { replace: true });
+        return;
+      }
+
+      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
         email: toAuthEmail(email),
         password,
       });
-      if (error) throw error;
+      if (!loginError && loginData.session?.access_token && loginData.user) {
+        await fetch('/api/oauth?action=ensure-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: loginData.user.id, email: loginData.user.email || authEmail }),
+        });
+        sessionStorage.setItem('ag_after_signup', '/integraciones?welcome=1');
+        await refreshProfile();
+        navigate('/integraciones?welcome=1', { replace: true });
+        return;
+      }
+
       setRegistered(true);
     } catch (error: any) {
       showToast(mapRegisterError(error.message || ''), 'error');
+    } finally {
       setLoading(false);
     }
   };
@@ -300,8 +337,8 @@ export default function LoginPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <p className={`text-[13px] font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>¡Cuenta creada!</p>
-                <p className="text-[12px] text-zinc-500">Revisá tu email para confirmar tu cuenta, luego iniciá sesión.</p>
+                <p className={`text-[13px] font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>Cuenta creada</p>
+                <p className="text-[12px] text-zinc-500">Te enviamos un email de confirmación. Después de confirmarlo vas a entrar directo a Integraciones.</p>
                 <button
                   onClick={() => { setMode('login'); setRegistered(false); }}
                   className="text-[12px] font-bold text-emerald-500 hover:text-emerald-400 transition-colors"
