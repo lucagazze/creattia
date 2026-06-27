@@ -14,6 +14,7 @@ import {
   getRateKey,
   normalizeCurrencySettings,
 } from "../utils/currencySettings";
+import { getDemoCostsPayload, isDemoProfile } from "../utils/demoData";
 
 type SourceKey = "storeCurrency" | "metaCurrency" | "emailCurrency" | "costsCurrency";
 
@@ -55,6 +56,7 @@ export default function MonedaPage() {
   const { viewAsProfile, isViewingAs } = useViewAs();
   const profile = isViewingAs ? viewAsProfile : authProfile;
   const profileId = profile?.id || "";
+  const isDemoAccount = isDemoProfile(profile as any) || profile?.plan === "demo";
   const { showToast } = useToast();
 
   const [settings, setSettings] = useState<CurrencySettings>(DEFAULT_CURRENCY_SETTINGS);
@@ -66,6 +68,17 @@ export default function MonedaPage() {
   const lastAutoSaveRef = useRef<string>("");
 
   const callCostsApi = async (action: string, payload: Record<string, any> = {}) => {
+    if (isDemoAccount) {
+      const demoPayload = getDemoCostsPayload();
+      if (action === "costs-load") return demoPayload;
+      if (action === "costs-save-settings") {
+        return {
+          ...demoPayload,
+          costSettings: payload.settings || demoPayload.costSettings,
+          costSettingsUpdatedAt: new Date().toISOString(),
+        };
+      }
+    }
     if (!profileId) throw new Error("Cliente no disponible.");
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;

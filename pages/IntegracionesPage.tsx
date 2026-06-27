@@ -8,6 +8,7 @@ import { useToast } from "../components/Toast";
 import { PortalOverlay } from "../components/ui/PortalOverlay";
 import { ecommerce } from "../services/ecommerce";
 import { klaviyo } from "../services/klaviyo";
+import { isDemoEmail, isDemoProfile, withDemoProfileDefaults } from "../utils/demoData";
 import {
   Loader2,
   Check,
@@ -168,7 +169,7 @@ const ML_COUNTRIES = [
 ];
 
 export default function IntegracionesPage() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
   const { viewAsProfile, isViewingAs, setViewAsProfile } = useViewAs();
   const { darkMode } = useTheme();
   const { showToast } = useToast();
@@ -179,6 +180,7 @@ export default function IntegracionesPage() {
   const activeProfileId = activeProfile?.id;
 
   const [clientData, setClientData] = useState<any>(null);
+  const isDemoAccount = isDemoEmail(user?.email) || isDemoProfile(activeProfile as any) || isDemoProfile(clientData as any);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "ecommerce" | "social" | "ads" | "marketing" | "mensajeria">("all");
 
@@ -500,28 +502,29 @@ export default function IntegracionesPage() {
 
       if (error) throw error;
       if (data) {
-        setClientData(data);
+        const normalizedData = withDemoProfileDefaults(data, user?.email, user?.id) || data;
+        setClientData(normalizedData);
         // Prefill forms
-        setShopifyDomain(data.shopify_domain || "");
-        setShopifyToken(data.shopify_access_token || "");
-        setTiendanubeStoreId(data.tiendanube_store_id || "");
-        setTiendanubeToken(data.tiendanube_access_token || "");
-        setTiendanubeDomain(data.connection_statuses?.tiendanube_domain || data.connection_statuses?.tiendanube_requested_domain || "");
-        setWooUrl(data.wordpress_url || "");
-        setWooConsumerKey(data.woo_consumer_key || "");
-        setWooConsumerSecret(data.woo_consumer_secret || "");
-        setKlaviyoApiKey(data.klaviyo_api_key || "");
-        setKlaviyoListId(data.klaviyo_list_id || "");
-        setMetaAccountId(data.meta_account_id || "");
-        setMetaPixelId(data.meta_pixel_id || "");
-        setMetaToken(data.facebook_access_token || "");
-        setChatwootUrl(data.chatwoot_url || "https://app.chatwoot.com");
-        setChatwootToken(data.chatwoot_token || "");
+        setShopifyDomain(normalizedData.shopify_domain || "");
+        setShopifyToken(normalizedData.shopify_access_token || "");
+        setTiendanubeStoreId(normalizedData.tiendanube_store_id || "");
+        setTiendanubeToken(normalizedData.tiendanube_access_token || "");
+        setTiendanubeDomain(normalizedData.connection_statuses?.tiendanube_domain || normalizedData.connection_statuses?.tiendanube_requested_domain || "");
+        setWooUrl(normalizedData.wordpress_url || "");
+        setWooConsumerKey(normalizedData.woo_consumer_key || "");
+        setWooConsumerSecret(normalizedData.woo_consumer_secret || "");
+        setKlaviyoApiKey(normalizedData.klaviyo_api_key || "");
+        setKlaviyoListId(normalizedData.klaviyo_list_id || "");
+        setMetaAccountId(normalizedData.meta_account_id || "");
+        setMetaPixelId(normalizedData.meta_pixel_id || "");
+        setMetaToken(normalizedData.facebook_access_token || "");
+        setChatwootUrl(normalizedData.chatwoot_url || "https://app.chatwoot.com");
+        setChatwootToken(normalizedData.chatwoot_token || "");
 
         
         // ML Country fallback
-        if (data.connection_statuses?.mercadolibre_country) {
-          setMlCountry(data.connection_statuses.mercadolibre_country);
+        if (normalizedData.connection_statuses?.mercadolibre_country) {
+          setMlCountry(normalizedData.connection_statuses.mercadolibre_country);
         }
       }
     } catch (err: any) {
@@ -1119,6 +1122,7 @@ export default function IntegracionesPage() {
   // ── Live re-verification: actually pings the platform's API instead of trusting "a token exists" ──
   const verifyConnection = useCallback(async (platformId: string, silent = false) => {
     if (!clientData || !activeProfileId) return;
+    if (isDemoEmail(user?.email) || isDemoProfile(clientData as any)) return;
 
     let testFn: (() => Promise<boolean>) | null = null;
     let statusKey = platformId;
@@ -1629,6 +1633,12 @@ export default function IntegracionesPage() {
 
   const getPlatformStatus = (platformId: string): "ok" | "error" | "disconnected" => {
     if (!clientData) return "disconnected";
+
+    if (isDemoAccount) {
+      if (["shopify", "meta_ads", "instagram_org", "facebook_org", "klaviyo"].includes(platformId)) {
+        return "ok";
+      }
+    }
     
     if (platformId === "chatwoot") {
       if (!clientData.chatwoot_url || !clientData.chatwoot_token) return "disconnected";

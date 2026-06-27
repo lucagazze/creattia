@@ -318,7 +318,7 @@ export const getDemoCostsPayload = () => {
       gateways: { pagonube: 'configured', mercadopago: 'configured', gocuotas: 'pending', ualabis: 'pending', modo: 'pending' },
       shipping: { type: 'custom', customShippingCost: 1900, configured: true },
       updatedSections: { platform: now, payment: now, shipping: now, additional: now },
-      currency: { baseCurrency: 'ARS', storeCurrency: 'ARS', metaCurrency: 'USD', emailCurrency: 'ARS', costCurrency: 'ARS', rates: { USD_ARS: 1477.29, ARS_USD: 0.000677 }, updatedAt: now },
+      currency: { baseCurrency: 'ARS', storeCurrency: 'ARS', metaCurrency: 'USD', emailCurrency: 'ARS', costsCurrency: 'ARS', rates: { 'USD:ARS': 1477.29, 'ARS:USD': 0.000677 }, updatedAt: now, rateUpdatedAt: now, rateProvider: 'demo' },
     },
     costSettingsUpdatedAt: now,
   };

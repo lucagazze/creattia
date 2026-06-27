@@ -833,13 +833,13 @@ export const AIChatFloat = () => {
             setIsOpen(true);
             if (aiReady) setTimeout(() => inputRef.current?.focus(), 150);
           }}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 z-[310] select-none hover:scale-110 active:scale-95 bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-500 text-white shadow-violet-500/20 shadow-lg p-[2px]"
+          className="fixed bottom-4 right-4 md:bottom-6 md:right-6 w-11 h-11 md:w-14 md:h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 z-[310] select-none hover:scale-110 active:scale-95 bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-cyan-500 text-white shadow-violet-500/20 shadow-lg p-[2px]"
         >
-          <div className="w-full h-full rounded-full bg-zinc-950 dark:bg-zinc-900 flex items-center justify-center p-2.5">
+          <div className="w-full h-full rounded-full bg-zinc-950 dark:bg-zinc-900 flex items-center justify-center p-2 md:p-2.5">
             <img 
               src="/assets/logoSinFondo.png" 
               alt="Algor" 
-              className="w-7 h-7 object-contain" 
+              className="w-6 h-6 md:w-7 md:h-7 object-contain" 
             />
           </div>
         </div>
