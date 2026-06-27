@@ -16,6 +16,33 @@ const META_APP_ID = process.env.META_APP_ID || '';
 const META_APP_SECRET = process.env.META_APP_SECRET || '';
 const YOUTUBE_CLIENT_ID = process.env.YOUTUBE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
 const YOUTUBE_CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '';
+const DEMO_EMAIL = 'demo@car.app';
+const DEMO_PROFILE_FIELDS = {
+  business_name: 'Demo CAR Store',
+  industry: 'Ecommerce',
+  plan: 'demo',
+  active: true,
+  ecommerce_platform: 'shopify',
+  shopify_domain: 'demo-car-store.myshopify.com',
+  shopify_access_token: 'demo-shop-token',
+  meta_account_id: 'act_demo_car',
+  klaviyo_api_key: 'demo-klaviyo-key',
+  fb_page_id: 'demo_fb_page',
+  fb_page_name: 'Demo CAR Store',
+  fb_page_access_token: 'demo-page-token',
+  ig_business_id: 'demo_ig_business',
+  ig_username: 'demo.car.store',
+  website_url: 'https://demo.algoritmiadesarrollos.com.ar',
+  business_description: 'Cuenta de demostracion con datos simulados para presentar todas las metricas de C.A.R.',
+  client_tags: ['tienda_online', 'meta_ads', 'email_marketing', 'demo'],
+  connection_statuses: {
+    ecommerce: 'connected',
+    meta: 'connected',
+    facebook: 'connected',
+    instagram: 'connected',
+    klaviyo: 'connected',
+  },
+};
 
 const getHost = (req: VercelRequest) => {
   const host = req.headers.host || '';
@@ -3556,10 +3583,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!userId) return res.status(400).json({ error: 'userId required' });
     if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Server not configured' });
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: existing } = await supabase.from('car_clients').select('id').eq('user_id', userId).maybeSingle();
-    if (existing) return res.status(200).json({ created: false, id: existing.id });
-
     const cleanEmail = String(email || '').trim().toLowerCase();
+    const { data: existing } = await supabase.from('car_clients').select('id').eq('user_id', userId).maybeSingle();
+    if (existing) {
+      if (cleanEmail === DEMO_EMAIL) {
+        const { error: updateError } = await supabase
+          .from('car_clients')
+          .update(DEMO_PROFILE_FIELDS)
+          .eq('id', existing.id);
+        if (updateError) return res.status(500).json({ error: updateError.message });
+      }
+      return res.status(200).json({ created: false, id: existing.id });
+    }
+
     if (cleanEmail) {
       const { data: invitedAccount } = await supabase
         .from('car_business_accounts')
@@ -3576,12 +3612,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    const businessName = cleanEmail ? cleanEmail.split('@')[0] : 'Mi negocio';
+    const isDemo = cleanEmail === DEMO_EMAIL;
+    const businessName = isDemo ? DEMO_PROFILE_FIELDS.business_name : (cleanEmail ? cleanEmail.split('@')[0] : 'Mi negocio');
     const { data: created, error } = await supabase.from('car_clients').insert({
       user_id: userId,
       business_name: businessName,
       active: true,
-      plan: 'starter'
+      plan: isDemo ? 'demo' : 'starter',
+      ...(isDemo ? DEMO_PROFILE_FIELDS : {})
     }).select('id').single();
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ created: true, id: created.id });

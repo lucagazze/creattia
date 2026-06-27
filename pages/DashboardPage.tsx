@@ -73,6 +73,7 @@ import {
   formatCurrencyValue,
   normalizeCurrencySettings,
 } from "../utils/currencySettings";
+import { getDemoCostsPayload, isDemoProfile } from "../utils/demoData";
 
 
 const BLUE = "#3b82f6";
@@ -1682,6 +1683,26 @@ export default function DashboardPage() {
       }
       const range = activePreset === "custom" ? { since: activeSince, until: activeUntil } : presetToRange(activePreset);
       const prevRange = getPrevPeriod(range.since, range.until);
+      if (isDemoProfile(profile)) {
+        const costsData = getDemoCostsPayload();
+        const rows = costsData.additionalCosts || [];
+        const parsedCostSettings = parseStoredCostSettings(costsData.costSettings);
+        setCostSettings(parsedCostSettings);
+        setCurrencySettings(parsedCostSettings.currency || DEFAULT_CURRENCY_SETTINGS);
+        const variants: Record<string, { cost: number; packagingCost: number }> = {};
+        costsData.variantCosts.forEach((row: any) => {
+          variants[String(row.variant_id)] = {
+            cost: Number(row.cost) || 0,
+            packagingCost: Number(row.packaging_cost) || 0,
+          };
+        });
+        setVariantCostMap(variants);
+        setCostSummary({
+          current: calcCostForRange(rows, range.since, range.until),
+          previous: calcCostForRange(rows, prevRange.since, prevRange.until),
+        });
+        return;
+      }
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) {

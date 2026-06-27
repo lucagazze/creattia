@@ -21,6 +21,7 @@ export const withDemoProfileDefaults = (profile: ClientProfile | null, email?: s
   if (!isDemoEmail(email) && !isDemoProfile(profile)) return profile;
   const now = new Date().toISOString();
   return {
+    ...profile,
     id: profile?.id || 'demo-car-client',
     user_id: profile?.user_id || userId || 'demo-user',
     business_name: 'Demo CAR Store',
@@ -48,7 +49,6 @@ export const withDemoProfileDefaults = (profile: ClientProfile | null, email?: s
       klaviyo: 'connected',
     },
     created_at: profile?.created_at || now,
-    ...profile,
   };
 };
 
@@ -230,8 +230,8 @@ export const getDemoMetaDaily = (range?: { since: string; until: string }) => {
   const fallbackSince = formatDemoDate(addDays(new Date(), -14));
   const { start, days } = parseRange(range?.since || fallbackSince, range?.until || fallbackUntil);
   return Array.from({ length: days }, (_, i) => {
-    const spend = 55 + ((i * 13) % 42);
-    const purchaseValue = spend * (5.8 + ((i % 5) * 0.7));
+    const spend = 9 + ((i * 5) % 9);
+    const purchaseValue = spend * (7.4 + ((i % 5) * 0.8));
     const purchases = Math.max(2, Math.round(purchaseValue / 9200));
     return {
       date: formatDemoDate(addDays(start, i)),
