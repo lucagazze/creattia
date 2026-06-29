@@ -47,6 +47,18 @@ interface IntegrationPlatform {
 
 const META_PLATFORM_IDS = ["meta_ads", "instagram_org", "facebook_org"];
 const isMetaPlatform = (platformId: string) => META_PLATFORM_IDS.includes(platformId) || platformId === "meta";
+const ECOMMERCE_PLATFORM_IDS = ["shopify", "tiendanube", "wordpress"];
+const isEcommercePlatform = (platformId: string) => ECOMMERCE_PLATFORM_IDS.includes(platformId);
+const getEcommerceStatusKey = (platformId: string) => (
+  platformId === "tiendanube" || platformId === "wordpress" ? platformId : "shopify"
+);
+const isHealthyStatus = (value: unknown) => value === "ok" || value === "connected";
+const isErrorStatus = (value: unknown) => value === "error" || (typeof value === "string" && value.startsWith("error"));
+const getPlatformStatusValue = (statuses: Record<string, any> = {}, platformId: string) => {
+  if (!isEcommercePlatform(platformId)) return statuses[platformId];
+  const key = getEcommerceStatusKey(platformId);
+  return statuses[key] ?? (platformId !== "shopify" ? statuses.shopify : undefined);
+};
 
 const PLATFORMS: IntegrationPlatform[] = [
   {
@@ -306,13 +318,13 @@ export default function IntegracionesPage() {
           .maybeSingle();
 
         if (platform === "tiendanube" && data?.ecommerce_platform === "tiendanube" && data.tiendanube_store_id && data.tiendanube_access_token) {
-          return data.connection_statuses?.shopify === "ok" ? "ok" : "unverified";
+          return isHealthyStatus(getPlatformStatusValue(data.connection_statuses, "tiendanube")) ? "ok" : "unverified";
         }
         // Credentials present = the OAuth callback already saved them — that's the real
         // signal. connection_statuses only reflects a best-effort live verification ping,
         // which can fail on a slow/flaky host even though the saved keys work fine.
         if (platform === "wordpress" && data?.ecommerce_platform === "wordpress" && data.wordpress_url && data.woo_consumer_key && data.woo_consumer_secret) {
-          return data.connection_statuses?.shopify === "ok" ? "ok" : "unverified";
+          return isHealthyStatus(getPlatformStatusValue(data.connection_statuses, "wordpress")) ? "ok" : "unverified";
         }
         await new Promise(resolve => setTimeout(resolve, 900));
       }
@@ -415,7 +427,7 @@ export default function IntegracionesPage() {
     if (loading) return;
 
     const shopParam = getQueryParam("shop");
-    const isConnected = clientData?.connection_statuses?.shopify === 'connected';
+    const isConnected = clientData?.ecommerce_platform === "shopify" && isHealthyStatus(clientData?.connection_statuses?.shopify);
 
     if (shopParam && activeProfileId && !isConnected) {
       window.history.replaceState({}, "", "/#/integraciones");
@@ -1131,10 +1143,10 @@ export default function IntegracionesPage() {
       testFn = () => testShopifyConnection(clientData.shopify_domain, clientData.shopify_access_token);
     } else if (platformId === "tiendanube" && clientData.ecommerce_platform === "tiendanube" && clientData.tiendanube_store_id && clientData.tiendanube_access_token) {
       testFn = () => testTiendanubeConnection(clientData.tiendanube_store_id, clientData.tiendanube_access_token);
-      statusKey = "shopify";
+      statusKey = "tiendanube";
     } else if (platformId === "wordpress" && clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key && clientData.woo_consumer_secret) {
       testFn = () => testWooConnection(clientData.wordpress_url, clientData.woo_consumer_key, clientData.woo_consumer_secret);
-      statusKey = "shopify";
+      statusKey = "wordpress";
     } else if (platformId === "klaviyo" && clientData.klaviyo_api_key) {
       testFn = () => testKlaviyoConnection(clientData.klaviyo_api_key);
     } else if (platformId === "chatwoot" && clientData.chatwoot_url && clientData.chatwoot_token) {
@@ -1173,10 +1185,10 @@ export default function IntegracionesPage() {
 
     const candidates: string[] = [];
     const statuses = clientData.connection_statuses || {};
-    const isOk = (key: string) => statuses[key] === "ok" || statuses[key] === "connected";
+    const isOk = (key: string) => isHealthyStatus(getPlatformStatusValue(statuses, key));
     if (clientData.ecommerce_platform === "shopify" && clientData.shopify_domain && clientData.shopify_access_token && !isOk("shopify")) candidates.push("shopify");
-    if (clientData.ecommerce_platform === "tiendanube" && clientData.tiendanube_store_id && clientData.tiendanube_access_token && !isOk("shopify")) candidates.push("tiendanube");
-    if (clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key && clientData.woo_consumer_secret && !isOk("shopify")) candidates.push("wordpress");
+    if (clientData.ecommerce_platform === "tiendanube" && clientData.tiendanube_store_id && clientData.tiendanube_access_token && !isOk("tiendanube")) candidates.push("tiendanube");
+    if (clientData.ecommerce_platform === "wordpress" && clientData.wordpress_url && clientData.woo_consumer_key && clientData.woo_consumer_secret && !isOk("wordpress")) candidates.push("wordpress");
     if (clientData.klaviyo_api_key && !isOk("klaviyo")) candidates.push("klaviyo");
     if (clientData.chatwoot_url && clientData.chatwoot_token && !isOk("chatwoot")) candidates.push("chatwoot");
 
@@ -1193,8 +1205,6 @@ export default function IntegracionesPage() {
 
     let fieldsToUpdate: any = {};
     let isConnected = false;
-    let typeName = selectedPlatform.id;
-
     try {
       if (selectedPlatform.id === "shopify") {
         if (!shopifyDomain.trim() || !shopifyToken.trim()) {
@@ -1237,7 +1247,6 @@ export default function IntegracionesPage() {
           ecommerce_platform: "wordpress"
         };
         isConnected = await testWooConnection(wooUrl.trim(), wooConsumerKey.trim(), wooConsumerSecret.trim());
-        typeName = "shopify"; // Backend stores status as 'shopify' for all ecommerce integrations
       } else if (selectedPlatform.id === "klaviyo") {
         if (!klaviyoApiKey.trim()) {
           showToast("Ingresá la API Key de Klaviyo", "warning");
@@ -1285,7 +1294,7 @@ export default function IntegracionesPage() {
       setClientData((prev: any) => ({ ...prev, ...fieldsToUpdate }));
 
       // 3. Update connection_statuses in Supabase and locally
-      const statusKey = (selectedPlatform.id === "wordpress" || selectedPlatform.id === "tiendanube") ? "shopify" : isMetaPlatform(selectedPlatform.id) ? "meta" : selectedPlatform.id;
+      const statusKey = isEcommercePlatform(selectedPlatform.id) ? getEcommerceStatusKey(selectedPlatform.id) : isMetaPlatform(selectedPlatform.id) ? "meta" : selectedPlatform.id;
       await updateConnectionStatus(statusKey, isConnected ? "ok" : "error");
 
       if (isConnected) {
@@ -1312,27 +1321,18 @@ export default function IntegracionesPage() {
     let fieldsToUpdate: any = {};
     let statusKey = platformId;
 
-    if (platformId === "shopify") {
+    if (isEcommercePlatform(platformId)) {
       fieldsToUpdate = {
         shopify_domain: null,
         shopify_access_token: null,
-        ecommerce_platform: null
-      };
-    } else if (platformId === "tiendanube") {
-      fieldsToUpdate = {
         tiendanube_store_id: null,
         tiendanube_access_token: null,
-        ecommerce_platform: null
-      };
-      statusKey = "shopify";
-    } else if (platformId === "wordpress") {
-      fieldsToUpdate = {
         wordpress_url: null,
         woo_consumer_key: null,
         woo_consumer_secret: null,
         ecommerce_platform: null
       };
-      statusKey = "shopify";
+      statusKey = getEcommerceStatusKey(platformId);
     } else if (platformId === "klaviyo") {
       fieldsToUpdate = {
         klaviyo_api_key: null,
@@ -1446,7 +1446,20 @@ export default function IntegracionesPage() {
 
       // 2. Clear status
       let extraData: Record<string, any> = {};
-      if (platformId === "mercadolibre") {
+      if (isEcommercePlatform(platformId)) {
+        extraData = {
+          shopify: null,
+          tiendanube: null,
+          wordpress: null,
+          woocommerce: null,
+          shopify_shop_name: null,
+          tiendanube_store_name: null,
+          tiendanube_domain: null,
+          tiendanube_requested_domain: null,
+          woocommerce_domain: null,
+          wordpress_url: null,
+        };
+      } else if (platformId === "mercadolibre") {
         extraData = { mercadolibre_country: null };
       } else if (isMetaPlatform(platformId)) {
         extraData = {
@@ -1481,6 +1494,15 @@ export default function IntegracionesPage() {
       } else if (platformId === "klaviyo") {
         setKlaviyoApiKey("");
         setKlaviyoListId("");
+      } else if (isEcommercePlatform(platformId)) {
+        setShopifyDomain("");
+        setShopifyToken("");
+        setTiendanubeStoreId("");
+        setTiendanubeToken("");
+        setTiendanubeDomain("");
+        setWooUrl("");
+        setWooConsumerKey("");
+        setWooConsumerSecret("");
       }
 
       showToast("Plataforma desconectada correctamente.", "success");
@@ -1695,7 +1717,7 @@ export default function IntegracionesPage() {
 
     let key = platformId;
     if (platformId === "wordpress" || platformId === "tiendanube") {
-      key = "shopify";
+      key = getEcommerceStatusKey(platformId);
       // Double check active platform matches
       if (clientData.ecommerce_platform !== platformId) {
         return "disconnected";
@@ -1709,10 +1731,10 @@ export default function IntegracionesPage() {
     }
 
     const statuses = clientData.connection_statuses || {};
-    const val = statuses[key];
+    const val = isEcommercePlatform(platformId) ? getPlatformStatusValue(statuses, platformId) : statuses[key];
     if (!val) return "disconnected";
-    if (val === "ok" || val === "connected") return "ok";
-    if (val === "error" || (typeof val === "string" && val.startsWith("error"))) return "error";
+    if (isHealthyStatus(val)) return "ok";
+    if (isErrorStatus(val)) return "error";
     return "disconnected";
   };
 
@@ -1739,13 +1761,13 @@ export default function IntegracionesPage() {
 
     let key = platformId;
     if (platformId === "wordpress" || platformId === "tiendanube") {
-      key = "shopify";
+      key = getEcommerceStatusKey(platformId);
       if (clientData.ecommerce_platform !== platformId) {
         return null;
       }
     }
     const statuses = clientData.connection_statuses || {};
-    const val = statuses[key];
+    const val = isEcommercePlatform(platformId) ? getPlatformStatusValue(statuses, platformId) : statuses[key];
     if (typeof val === "string" && val.startsWith("error:")) {
       return val.replace(/^error:\s*/, "");
     }
