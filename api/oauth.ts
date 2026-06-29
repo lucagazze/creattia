@@ -590,6 +590,83 @@ async function handleMetaAccounts(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+async function assertAdminUser(supabase: any, req: VercelRequest) {
+  const bearer = (req.headers.authorization || '') as string;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) throw new Error('Sesión requerida');
+  const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
+  const authUserId = userData?.user?.id || '';
+  if (userErr || !authUserId) throw new Error('Sesión inválida');
+  const { data: adminProfile } = await supabase
+    .from('car_clients')
+    .select('id')
+    .eq('user_id', authUserId)
+    .eq('is_admin', true)
+    .maybeSingle();
+  if (!adminProfile) throw new Error('Permiso de admin requerido');
+}
+
+async function getAgencyMetaToken(supabase: any) {
+  const { data } = await supabase
+    .from('AgencySettings')
+    .select('value')
+    .eq('key', 'meta_ads_token')
+    .maybeSingle();
+  return data?.value || process.env.META_ADS_TOKEN || process.env.VITE_META_ADS_TOKEN || '';
+}
+
+async function fetchAllMetaAdAccounts(token: string) {
+  const accounts: any[] = [];
+  let url: string | null = `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,currency,account_status,amount_spent&limit=100&access_token=${encodeURIComponent(token)}`;
+  while (url) {
+    const response = await fetch(url);
+    const json = await response.json() as { data?: any[]; paging?: { next?: string }; error?: { message?: string } };
+    if (json.error) throw new Error(json.error.message || 'Meta rechazó el token de agencia');
+    if (Array.isArray(json.data)) accounts.push(...json.data);
+    url = json.paging?.next || null;
+  }
+  return accounts;
+}
+
+async function handleAdminMetaAccounts(req: VercelRequest, res: VercelResponse) {
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Server not configured' });
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    await assertAdminUser(supabase, req);
+    const token = await getAgencyMetaToken(supabase);
+    if (!token) return res.status(404).json({ error: 'No hay token de agencia de Meta configurado.' });
+    const accounts = await fetchAllMetaAdAccounts(token);
+    return res.status(200).json({ accounts });
+  } catch (err: any) {
+    const message = err?.message || 'No se pudieron cargar las cuentas de Meta.';
+    const status = /admin|permiso/i.test(message) ? 403 : /sesión/i.test(message) ? 401 : 400;
+    return res.status(status).json({ error: message });
+  }
+}
+
+async function handleAdminMetaAccount(req: VercelRequest, res: VercelResponse) {
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Server not configured' });
+  const accountIdRaw = (req.query.accountId as string || '').trim();
+  if (!accountIdRaw) return res.status(400).json({ error: 'accountId required' });
+  const accountId = accountIdRaw.startsWith('act_') ? accountIdRaw : `act_${accountIdRaw}`;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    await assertAdminUser(supabase, req);
+    const token = await getAgencyMetaToken(supabase);
+    if (!token) return res.status(404).json({ error: 'No hay token de agencia de Meta configurado.' });
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(accountId)}?fields=name,currency,timezone_name,account_status,amount_spent,balance&access_token=${encodeURIComponent(token)}`
+    );
+    const json = await response.json() as any;
+    if (json.error) throw new Error(json.error.message || 'Meta rechazó el token de agencia');
+    return res.status(200).json({ account: json });
+  } catch (err: any) {
+    const message = err?.message || 'No se pudo verificar la cuenta de Meta.';
+    const status = /admin|permiso/i.test(message) ? 403 : /sesión/i.test(message) ? 401 : 400;
+    return res.status(status).json({ error: message });
+  }
+}
+
 // ── META: list facebook pages for a clientId ──────────────────────────────────
 async function handleMetaPages(req: VercelRequest, res: VercelResponse) {
   const clientId = req.query.clientId as string;
@@ -3590,6 +3667,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action.startsWith('shopify')) return handleShopify(req, res);
   if (action.startsWith('tiendanube')) return handleTiendanube(req, res);
   if (action.startsWith('woocommerce')) return handleWooCommerce(req, res);
+  if (action === 'admin-meta-accounts') return handleAdminMetaAccounts(req, res);
+  if (action === 'admin-meta-account') return handleAdminMetaAccount(req, res);
   if (action === 'meta-accounts') return handleMetaAccounts(req, res);
   if (action === 'meta-pages') return handleMetaPages(req, res);
   if (action === 'meta-save-selection') return handleMetaSaveSelection(req, res);

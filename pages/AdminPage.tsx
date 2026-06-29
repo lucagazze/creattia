@@ -252,6 +252,7 @@ export default function AdminPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [form, setForm] = useState(blank());
   const [metaAccounts, setMetaAccounts] = useState<any[]>([]);
+  const [loadingMetaAccounts, setLoadingMetaAccounts] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientRow | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [savingConfig, setSavingConfig] = useState(false);
@@ -535,11 +536,47 @@ export default function AdminPage() {
     }
   };
 
+  const loadMetaAdAccounts = async (quiet = true) => {
+    setLoadingMetaAccounts(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Sesión inválida');
+      const response = await fetch('/api/oauth?action=admin-meta-accounts', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error || 'No se pudieron cargar las cuentas.');
+      setMetaAccounts(json.accounts || []);
+      if (!quiet) showToast(`Cuentas de Meta actualizadas: ${(json.accounts || []).length}`, 'success');
+    } catch (err: any) {
+      try {
+        const fallback = await metaAds.getAllAdAccounts();
+        setMetaAccounts(fallback?.data || []);
+        if (!quiet) showToast(`Cuentas de Meta actualizadas: ${(fallback?.data || []).length}`, 'success');
+      } catch {
+        setMetaAccounts([]);
+        if (!quiet) showToast('No se pudieron cargar las cuentas de Meta: ' + (err.message || 'token inválido'), 'error');
+      }
+    } finally {
+      setLoadingMetaAccounts(false);
+    }
+  };
+
+  const verifyMetaAccount = async (accountId: string) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) throw new Error('Sesión inválida');
+    const response = await fetch(`/api/oauth?action=admin-meta-account&accountId=${encodeURIComponent(accountId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || !json.account) throw new Error(json.error || 'No se pudo verificar la cuenta de Meta.');
+    return json.account;
+  };
+
   useEffect(() => {
-    metaAds
-      .getAllAdAccounts()
-      .then((res) => setMetaAccounts(res?.data || []))
-      .catch(() => {});
+    loadMetaAdAccounts(true);
 
     loadDiscoveredIgAccounts(true);
     loadDiscoveredFbPages(true);
@@ -583,6 +620,7 @@ export default function AdminPage() {
               } else {
                 localStorage.setItem("meta_ads_token", accessToken);
                 showToast("¡Cuenta de Facebook de Agencia vinculada! ✓", "success");
+                loadMetaAdAccounts(true);
                 loadDiscoveredIgAccounts(true);
                 loadDiscoveredFbPages(true);
               }
@@ -1202,7 +1240,7 @@ setStatuses((p) => ({ ...p, klaviyo: "error" }));
     }
     setTestingMeta(true);
     try {
-      const res = await metaAds.getAccount(editForm.meta_account_id);
+      const res = await verifyMetaAccount(editForm.meta_account_id);
       if (!res || res.error)
         throw new Error("No se pudo obtener datos (verificá el Token General)");
       showToast("¡Conexión con Meta Exitosa! ✓", "success");
@@ -1448,7 +1486,7 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
     }
     if (editForm.meta_account_id) {
       try {
-        await metaAds.getAccount(editForm.meta_account_id);
+        await verifyMetaAccount(editForm.meta_account_id);
         testResults.meta = 'ok'; saveConnOk(editingClient.id, 'meta');
       } catch { testResults.meta = 'error'; saveConnErr(editingClient.id, 'meta'); errors.push('Meta Ads'); }
     }
@@ -2644,10 +2682,15 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
                         <div className="p-5 space-y-3">
                           <Field label="Cuenta publicitaria">
                             <select value={editForm.meta_account_id} onChange={e => ef("meta_account_id", e.target.value)} className={inputCls}>
-                              <option value="">Seleccionar cuenta...</option>
+                              <option value="">{loadingMetaAccounts ? "Cargando cuentas..." : "Seleccionar cuenta..."}</option>
                               {metaAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({acc.id})</option>)}
                             </select>
                           </Field>
+                          <button type="button" onClick={() => loadMetaAdAccounts(false)} disabled={loadingMetaAccounts}
+                            className="w-full h-9 rounded-xl border border-zinc-200 dark:border-zinc-800 text-[11px] font-black text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 flex items-center justify-center gap-2 disabled:opacity-50">
+                            {loadingMetaAccounts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                            {loadingMetaAccounts ? "Actualizando cuentas..." : "Actualizar cuentas disponibles"}
+                          </button>
                           <button type="button" onClick={testMeta} disabled={testingMeta || !editForm.meta_account_id}
                             className={`w-full h-10 rounded-xl text-[12px] font-black flex items-center justify-center gap-2 transition-all disabled:opacity-40 ${statuses.meta === "ok" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}`}>
                             {testingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : statuses.meta === "ok" ? <Check className="w-4 h-4" /> : <Facebook className="w-4 h-4" />}
