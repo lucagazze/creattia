@@ -1405,25 +1405,27 @@ export default function IntegracionesPage() {
         }
       }
 
-      if (isMetaPlatform(platformId)) {
+      {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
         if (!accessToken) throw new Error('Tu sesión expiró. Volvé a iniciar sesión.');
-        const res = await fetch('/api/oauth?action=meta-disconnect', {
+        const res = await fetch('/api/oauth?action=integration-disconnect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-          body: JSON.stringify({ clientId: activeProfileId })
+          body: JSON.stringify({ clientId: activeProfileId, platformId })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'No se pudo desconectar Meta.');
+        if (!res.ok) throw new Error(data.error || 'No se pudo desconectar la integración.');
         if (data.client) {
           setClientData(data.client);
           if (isViewingAs) setViewAsProfile(data.client as any);
         }
-        setMetaAccountId("");
-        setMetaPixelId("");
-        setMetaToken("");
-        showToast("Meta desconectado correctamente.", "success");
+        if (isMetaPlatform(platformId)) {
+          setMetaAccountId("");
+          setMetaPixelId("");
+          setMetaToken("");
+        }
+        showToast("Plataforma desconectada correctamente.", "success");
         await refreshProfile();
         await loadClientData();
         closeConfigModal();
@@ -1460,7 +1462,11 @@ export default function IntegracionesPage() {
           wordpress_url: null,
         };
       } else if (platformId === "mercadolibre") {
-        extraData = { mercadolibre_country: null };
+        extraData = {
+          mercadolibre_country: null,
+          mercadolibre_nickname: null,
+          mercadolibre_email: null,
+        };
       } else if (isMetaPlatform(platformId)) {
         extraData = {
           facebook: null,
@@ -1480,10 +1486,16 @@ export default function IntegracionesPage() {
       } else if (platformId === "tiktok_content") {
         extraData = {
           tiktok_content_display_name: null,
+          tiktok_content_username: null,
+        };
+      } else if (platformId === "tiktok_ads") {
+        extraData = {
+          tiktok_advertiser_name: null,
         };
       } else if (platformId === "youtube") {
         extraData = {
           youtube_channel_title: null,
+          youtube_channel_id: null,
         };
       }
       await updateConnectionStatus(statusKey, null, extraData);

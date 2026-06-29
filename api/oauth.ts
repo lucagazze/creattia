@@ -819,6 +819,128 @@ async function handleMetaDisconnect(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok: true, client: data });
 }
 
+async function handleIntegrationDisconnect(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido. Use POST.' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Servidor no configurado.' });
+
+  const authHeader = req.headers.authorization || '';
+  const bearer = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+  const accessToken = bearer.startsWith('Bearer ') ? bearer.slice('Bearer '.length) : '';
+  if (!accessToken) return res.status(401).json({ error: 'Sesión requerida' });
+
+  const body = parseRequestBody(req.body);
+  const clientId = String(body.clientId || req.query.clientId || '');
+  const platformId = String(body.platformId || req.query.platformId || '');
+  if (!clientId) return res.status(400).json({ error: 'clientId requerido' });
+  if (!platformId) return res.status(400).json({ error: 'platformId requerido' });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    await assertClientAccess(supabase, accessToken, clientId);
+  } catch (err: any) {
+    return res.status(isAuthSessionError(err) ? 401 : 403).json({ error: err?.message || 'Sin permisos' });
+  }
+
+  const { data: current, error: readError } = await supabase
+    .from('car_clients')
+    .select('connection_statuses')
+    .eq('id', clientId)
+    .maybeSingle();
+  if (readError) return res.status(500).json({ error: readError.message });
+
+  const updateFields: Record<string, any> = {};
+  const statusKeys = new Set<string>([platformId]);
+
+  const clearEcommerce = () => {
+    Object.assign(updateFields, {
+      shopify_domain: null,
+      shopify_access_token: null,
+      tiendanube_store_id: null,
+      tiendanube_access_token: null,
+      wordpress_url: null,
+      woo_consumer_key: null,
+      woo_consumer_secret: null,
+      ecommerce_platform: null
+    });
+    ['shopify', 'tiendanube', 'wordpress', 'woocommerce', 'shopify_shop_name', 'tiendanube_store_name', 'tiendanube_domain', 'tiendanube_requested_domain', 'woocommerce_domain', 'wordpress_url']
+      .forEach(key => statusKeys.add(key));
+  };
+
+  if (['shopify', 'tiendanube', 'wordpress', 'woocommerce'].includes(platformId)) {
+    clearEcommerce();
+  } else if (platformId === 'klaviyo') {
+    Object.assign(updateFields, { klaviyo_api_key: null, klaviyo_list_id: null });
+  } else if (['meta', 'meta_ads', 'instagram_org', 'facebook_org', 'instagram', 'facebook'].includes(platformId)) {
+    Object.assign(updateFields, {
+      meta_account_id: null,
+      meta_pixel_id: null,
+      facebook_access_token: null,
+      fb_page_id: null,
+      fb_page_name: null,
+      fb_page_access_token: null,
+      ig_business_id: null,
+      ig_username: null
+    });
+    ['meta', 'meta_ads', 'facebook', 'instagram', 'meta_account_name', 'facebook_page_name', 'instagram_username']
+      .forEach(key => statusKeys.add(key));
+  } else if (platformId === 'chatwoot') {
+    Object.assign(updateFields, { chatwoot_url: null, chatwoot_token: null });
+    ['chatwoot', 'mensajeria', 'messaging', 'chatwoot_url', 'chatwoot_token'].forEach(key => statusKeys.add(key));
+  } else if (platformId === 'mercadolibre') {
+    Object.assign(updateFields, {
+      mercadolibre_access_token: null,
+      mercadolibre_refresh_token: null,
+      mercadolibre_user_id: null,
+      mercadolibre_expiration: null
+    });
+    ['mercadolibre', 'mercadolibre_country', 'mercadolibre_nickname', 'mercadolibre_email'].forEach(key => statusKeys.add(key));
+  } else if (platformId === 'tiktok_ads') {
+    Object.assign(updateFields, {
+      tiktok_access_token: null,
+      tiktok_refresh_token: null,
+      tiktok_advertiser_id: null,
+      tiktok_expiration: null
+    });
+    ['tiktok_ads', 'tiktok_advertiser_name'].forEach(key => statusKeys.add(key));
+  } else if (platformId === 'tiktok_content') {
+    Object.assign(updateFields, {
+      tiktok_content_access_token: null,
+      tiktok_content_refresh_token: null,
+      tiktok_content_open_id: null,
+      tiktok_content_display_name: null,
+      tiktok_content_avatar_url: null,
+      tiktok_content_expiration: null
+    });
+    ['tiktok_content', 'tiktok_content_display_name', 'tiktok_content_username'].forEach(key => statusKeys.add(key));
+  } else if (platformId === 'youtube') {
+    Object.assign(updateFields, {
+      youtube_access_token: null,
+      youtube_refresh_token: null,
+      youtube_channel_id: null,
+      youtube_channel_title: null,
+      youtube_expiration: null
+    });
+    ['youtube', 'youtube_channel_title', 'youtube_channel_id'].forEach(key => statusKeys.add(key));
+  } else if (platformId === 'google_ads') {
+    statusKeys.add('google_ads');
+  } else {
+    return res.status(400).json({ error: 'Integración no soportada' });
+  }
+
+  const connectionStatuses = { ...(current?.connection_statuses || {}) };
+  statusKeys.forEach(key => delete connectionStatuses[key]);
+
+  const { data, error } = await supabase
+    .from('car_clients')
+    .update({ ...updateFields, connection_statuses: connectionStatuses })
+    .eq('id', clientId)
+    .select('*')
+    .maybeSingle();
+
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ ok: true, client: data });
+}
+
 async function handleYoutube(req: VercelRequest, res: VercelResponse) {
   const action = req.query.action as string;
   const base = getHost(req);
@@ -3672,6 +3794,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'meta-accounts') return handleMetaAccounts(req, res);
   if (action === 'meta-pages') return handleMetaPages(req, res);
   if (action === 'meta-save-selection') return handleMetaSaveSelection(req, res);
+  if (action === 'integration-disconnect') return handleIntegrationDisconnect(req, res);
   if (action === 'meta-disconnect') return handleMetaDisconnect(req, res);
 
   if (action === 'meta-status') {
