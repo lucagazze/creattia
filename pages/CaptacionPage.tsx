@@ -628,6 +628,17 @@ export default function CaptacionPage() {
     </div>
   );
 
+  const PerformanceCell = ({ value, unitCost, tone = 'default' }: any) => (
+    <div className="flex flex-col items-end gap-0.5">
+      <span className={`text-[12px] font-black tabular-nums ${tone === 'good' ? 'text-emerald-600 dark:text-emerald-400' : tone === 'bad' ? 'text-red-500' : value && value !== '—' ? 'text-zinc-800 dark:text-zinc-100' : 'text-zinc-400'}`}>
+        {value || '—'}
+      </span>
+      {unitCost > 0 && (
+        <span className="text-[9px] text-zinc-450 dark:text-zinc-500 font-medium tabular-nums">{fmt(unitCost, true)} c/u</span>
+      )}
+    </div>
+  );
+
   const renderAdsetTree = (camp: any) => {
     const adsets = camp.adsets || [];
     if (!adsets.length) {
@@ -635,62 +646,79 @@ export default function CaptacionPage() {
     }
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {adsets.map((adset: any) => {
           const adsetOpen = !!expandedAdsets[adset.id];
           return (
-            <div key={adset.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-black/10 overflow-hidden">
-              <button onClick={() => toggleAdset(adset.id)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/70 dark:hover:bg-white/[0.03] transition-colors">
-                <div className="flex items-center gap-2 min-w-0">
-                  <ChevronRight className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform ${adsetOpen ? 'rotate-90' : ''}`} />
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-black text-zinc-850 dark:text-zinc-100 truncate">{adset.name}</p>
-                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">{adset.ads?.length || 0} anuncios · {adset.budgetStr}</p>
-                  </div>
-                </div>
-                <div className="hidden sm:flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] font-black tabular-nums text-zinc-700 dark:text-zinc-200">{fmt(adset.spend, true)}</span>
-                  <span className={`text-[11px] font-black tabular-nums ${adset.roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>{adset.roas > 0 ? `${adset.roas.toFixed(1)} ROAS` : 'Sin ROAS'}</span>
-                </div>
-              </button>
-
-              {adsetOpen && (
-                <div className="px-4 pb-4 space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    <ResultMetric label="Gasto" value={fmt(adset.spend, true)} />
-                    <ResultMetric label="Compras" value={adset.purchases || '—'} sub={adset.cpa ? `${fmt(adset.cpa, true)} c/u` : ''} tone={adset.purchases ? 'good' : 'default'} />
-                    <ResultMetric label="Leads" value={adset.leads || '—'} sub={adset.cpl ? `${fmt(adset.cpl, true)} c/u` : ''} tone={adset.leads ? 'good' : 'default'} />
-                    <ResultMetric label="Mensajes" value={adset.messages || '—'} sub={adset.cpm ? `${fmt(adset.cpm, true)} c/u` : ''} tone={adset.messages ? 'good' : 'default'} />
-                    <ResultMetric label="ROAS" value={adset.roas > 0 ? adset.roas.toFixed(1) : '—'} sub={adset.purchaseValue ? fmt(adset.purchaseValue, true) : ''} tone={adset.roas >= 1 ? 'good' : 'default'} />
-                  </div>
-
-                  <div className="rounded-2xl border border-black/[0.04] dark:border-white/[0.05] bg-white dark:bg-zinc-950/40 overflow-hidden">
-                    {adset.ads?.length ? adset.ads.map((ad: any) => (
-                      <div key={ad.id} className="grid grid-cols-[44px_1fr_auto] md:grid-cols-[44px_1fr_92px_70px_72px_56px] items-center gap-3 px-3 py-2.5 border-b last:border-b-0 border-zinc-100 dark:border-zinc-800/70">
-                        <button
-                          onClick={() => setSelectedCreative({ ad, adset, camp })}
-                          className="w-10 h-10 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group"
-                          title="Ver creativo"
-                        >
-                          {ad.thumbnail ? <img src={ad.thumbnail} alt={ad.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <ImageIcon className="w-4 h-4 text-zinc-400" />}
+            <div key={adset.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800/70 bg-white dark:bg-zinc-950/40 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[920px] text-left border-collapse">
+                  <tbody>
+                    <tr className="bg-zinc-50/80 dark:bg-white/[0.025] hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors">
+                      <td className="py-3 pr-4 pl-3 w-[320px]">
+                        <button onClick={() => toggleAdset(adset.id)} className="flex items-center gap-2 text-left min-w-0">
+                          <ChevronRight className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform ${adsetOpen ? 'rotate-90' : ''}`} />
+                          <span className="text-[9px] font-extrabold px-1.5 py-[2px] rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/10 uppercase tracking-wider shrink-0">Set</span>
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 leading-snug truncate">{adset.name}</p>
+                            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">{adset.ads?.length || 0} anuncios</p>
+                          </div>
                         </button>
-                        <div className="min-w-0">
-                          <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{ad.name}</p>
-                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider truncate">{ad.creativeName || 'Creativo'}</p>
-                        </div>
-                        <span className="hidden md:block text-right text-[11px] font-black tabular-nums text-zinc-700 dark:text-zinc-200">{fmt(ad.spend, true)}</span>
-                        <span className="hidden md:block text-right text-[11px] font-black tabular-nums text-emerald-600 dark:text-emerald-400">{ad.results || '—'}</span>
-                        <span className="hidden md:block text-right text-[11px] font-black tabular-nums text-zinc-700 dark:text-zinc-200">{ad.roas > 0 ? ad.roas.toFixed(1) : '—'}</span>
-                        <button onClick={() => setSelectedCreative({ ad, adset, camp })} className="justify-self-end w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center transition-colors" title="Abrir creativo">
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )) : (
-                      <div className="py-5 text-center text-[12px] font-semibold text-zinc-400">No hay anuncios visibles para este conjunto.</div>
+                      </td>
+                      <td className="py-3 px-4 text-right"><span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 tabular-nums">{fmt(adset.spend, true)}</span></td>
+                      <td className="py-3 px-4 text-right"><PerformanceCell value={adset.purchases > 0 ? adset.purchases : '—'} unitCost={adset.cpa} tone={adset.purchases ? 'good' : 'default'} /></td>
+                      <td className="py-3 px-4 text-right"><PerformanceCell value={adset.leads > 0 ? adset.leads : '—'} unitCost={adset.cpl} tone={adset.leads ? 'good' : 'default'} /></td>
+                      <td className="py-3 px-4 text-right"><PerformanceCell value={adset.messages > 0 ? adset.messages : '—'} unitCost={adset.cpm} tone={adset.messages ? 'good' : 'default'} /></td>
+                      <td className="py-3 px-4 text-right">
+                        <span className={`text-[12px] font-black tabular-nums ${adset.roas > 0 ? (adset.roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500') : 'text-zinc-400'}`}>{adset.roas > 0 ? adset.roas.toFixed(1) : '—'}</span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className={`text-[12px] font-black tabular-nums ${adset.purchaseValue > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400'}`}>{adset.purchaseValue > 0 ? fmt(adset.purchaseValue, true) : '—'}</span>
+                      </td>
+                      <td className="py-3 pl-4 pr-3 text-right"><span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 tabular-nums">{adset.budgetStr}</span></td>
+                    </tr>
+
+                    {adsetOpen && (
+                      adset.ads?.length ? adset.ads.map((ad: any) => (
+                        <tr key={ad.id} className="border-t border-zinc-100 dark:border-zinc-800/70 hover:bg-zinc-50/60 dark:hover:bg-white/[0.02] transition-colors">
+                          <td className="py-2.5 pr-4 pl-9">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <button
+                                onClick={() => setSelectedCreative({ ad, adset, camp })}
+                                className="w-9 h-9 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group shrink-0"
+                                title="Ver creativo"
+                              >
+                                {ad.thumbnail ? <img src={ad.thumbnail} alt={ad.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <ImageIcon className="w-4 h-4 text-zinc-400" />}
+                              </button>
+                              <div className="min-w-0">
+                                <p className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 leading-snug truncate">{ad.name}</p>
+                                <button onClick={() => setSelectedCreative({ ad, adset, camp })} className="text-[9px] font-black text-blue-500 uppercase tracking-wider hover:text-blue-600 inline-flex items-center gap-1">
+                                  Ver creativo <ExternalLink className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-4 text-right"><span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 tabular-nums">{fmt(ad.spend, true)}</span></td>
+                          <td className="py-2.5 px-4 text-right"><PerformanceCell value={ad.purchases > 0 ? ad.purchases : '—'} unitCost={ad.cpa} tone={ad.purchases ? 'good' : 'default'} /></td>
+                          <td className="py-2.5 px-4 text-right"><PerformanceCell value={ad.leads > 0 ? ad.leads : '—'} unitCost={ad.cpl} tone={ad.leads ? 'good' : 'default'} /></td>
+                          <td className="py-2.5 px-4 text-right"><PerformanceCell value={ad.messages > 0 ? ad.messages : '—'} unitCost={ad.cpm} tone={ad.messages ? 'good' : 'default'} /></td>
+                          <td className="py-2.5 px-4 text-right">
+                            <span className={`text-[12px] font-black tabular-nums ${ad.roas > 0 ? (ad.roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500') : 'text-zinc-400'}`}>{ad.roas > 0 ? ad.roas.toFixed(1) : '—'}</span>
+                          </td>
+                          <td className="py-2.5 px-4 text-right">
+                            <span className={`text-[12px] font-black tabular-nums ${ad.purchaseValue > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400'}`}>{ad.purchaseValue > 0 ? fmt(ad.purchaseValue, true) : '—'}</span>
+                          </td>
+                          <td className="py-2.5 pl-4 pr-3 text-right"><span className="text-[12px] font-black text-zinc-400 tabular-nums">—</span></td>
+                        </tr>
+                      )) : (
+                        <tr className="border-t border-zinc-100 dark:border-zinc-800/70">
+                          <td colSpan={8} className="py-5 text-center text-[12px] font-semibold text-zinc-400">No hay anuncios visibles para este conjunto.</td>
+                        </tr>
+                      )
                     )}
-                  </div>
-                </div>
-              )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           );
         })}
