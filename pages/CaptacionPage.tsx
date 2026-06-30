@@ -9,7 +9,8 @@ import {
 } from 'recharts';
 import {
   TrendingUp, Download, RefreshCw, Calendar, ChevronDown, ChevronRight,
-  Users, DollarSign, Target, BarChart2, Globe, Smartphone, User, Megaphone, MessageSquare, Loader2
+  Users, DollarSign, Target, BarChart2, Globe, Smartphone, User, Megaphone, MessageSquare, Loader2,
+  ImageIcon, ExternalLink, X
 } from 'lucide-react';
 import { DashboardMetric, MetricDetailChart } from '../components/ui/DashboardMetrics';
 import EmailLoader from '../components/ui/EmailLoader';
@@ -151,6 +152,9 @@ export default function CaptacionPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
   const [expandedMetric, setExpandedMetric] = useState<string | null>('spend');
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
+  const [expandedAdsets, setExpandedAdsets] = useState<Record<string, boolean>>({});
+  const [selectedCreative, setSelectedCreative] = useState<any | null>(null);
 
   const [prevProfileId, setPrevProfileId] = useState(profile?.id);
   if (profile?.id !== prevProfileId) {
@@ -165,6 +169,9 @@ export default function CaptacionPage() {
     setAgeData([]);
     setCampaigns([]);
     setActiveCampaigns([]);
+    setExpandedCampaigns({});
+    setExpandedAdsets({});
+    setSelectedCreative(null);
     setLoading(true);
   }
 
@@ -241,14 +248,18 @@ export default function CaptacionPage() {
         metaAds.getInsightsAtCampaignLevel(accountId, 'campaign_name,spend,reach,actions,action_values,purchase_roas,objective', prevRange),
         metaAds.getCampaigns(accountId),
         metaAds.getAccountAdsets(accountId),
+        metaAds.getInsightsAtAdsetLevel(accountId, 'campaign_id,campaign_name,adset_id,adset_name,spend,reach,actions,action_values,purchase_roas,impressions,inline_link_clicks,inline_link_click_ctr', range),
+        metaAds.getAdInsightsForAccount(accountId, 'ad_id,ad_name,campaign_id,campaign_name,adset_id,adset_name,spend,reach,actions,action_values,purchase_roas,impressions,inline_link_clicks,inline_link_click_ctr', range),
+        metaAds.getAccountAds(accountId),
       ]);
       const ok = <T,>(r: PromiseSettledResult<T>, fallback: T): T =>
         r.status === 'fulfilled' ? r.value : fallback;
       if (fetchId !== fetchIdRef.current) return;
-      const [rawDaily, rawPrevDaily, gender, regions, platform, age, campaignInsights, prevCampaignInsights, rawCampaigns, rawAdsets] = [
+      const [rawDaily, rawPrevDaily, gender, regions, platform, age, campaignInsights, prevCampaignInsights, rawCampaigns, rawAdsets, adsetInsights, adInsights, rawAds] = [
         ok(settled[0], []), ok(settled[1], []), ok(settled[2], []), ok(settled[3], []),
         ok(settled[4], []), ok(settled[5], []), ok(settled[6], []), ok(settled[7], []),
-        ok(settled[8], { data: [] }), ok(settled[9], { data: [] }),
+        ok(settled[8], { data: [] }), ok(settled[9], { data: [] }), ok(settled[10], []),
+        ok(settled[11], []), ok(settled[12], { data: [] }),
       ];
 
       const processDaily = (raw: any[], r: any) => {
@@ -395,6 +406,47 @@ export default function CaptacionPage() {
       // Process active campaigns (prendidas) and daily budget (CBO / ABO)
       const campaignsList = (rawCampaigns?.data || []) as any[];
       const adsetsList = (rawAdsets?.data || []) as any[];
+      const adsList = (rawAds?.data || []) as any[];
+
+      const getPurchaseValue = (values: any[] = []) => parseFloat(values?.find((v: any) =>
+        v.action_type === 'purchase' ||
+        v.action_type === 'offsite_conversion.fb_pixel_purchase' ||
+        v.action_type === 'omni_purchase'
+      )?.value || 0);
+
+      const getMetrics = (source: any = {}) => {
+        const spend = parseFloat(source.spend || 0);
+        const purchases = extractActions(source.actions, 'purchases');
+        const leads = extractActions(source.actions, 'leads');
+        const messages = extractActions(source.actions, 'messages');
+        const reach = parseInt(source.reach || 0);
+        const purchaseValue = getPurchaseValue(source.action_values);
+        const roas = parseFloat(source.purchase_roas?.[0]?.value || 0);
+        return {
+          spend,
+          reach,
+          purchases,
+          leads,
+          messages,
+          results: purchases || leads || messages,
+          resultLabel: purchases > 0 ? 'Ventas' : leads > 0 ? 'Leads' : messages > 0 ? 'Mensajes' : 'Resultados',
+          purchaseValue,
+          roas,
+          cpa: purchases > 0 ? spend / purchases : 0,
+          cpl: leads > 0 ? spend / leads : 0,
+          cpm: messages > 0 ? spend / messages : 0,
+          clicks: parseInt(source.inline_link_clicks || 0),
+          ctr: parseFloat(source.inline_link_click_ctr || 0),
+        };
+      };
+
+      const makeBudget = (daily?: string, lifetime?: string) => {
+        const value = daily || lifetime;
+        if (!value) return '—';
+        return `$ ${(parseFloat(value) / 100).toLocaleString('es-AR', { maximumFractionDigits: 0 })}${daily ? '/día' : ' total'}`;
+      };
+
+      const insightByAdId = new Map((adInsights || []).map((row: any) => [row.ad_id || row.ad_name, row]));
 
       const activeCamps = campaignsList
         .filter(c => c.status === 'ACTIVE')
@@ -425,18 +477,45 @@ export default function CaptacionPage() {
             }
           }
 
-          const purchases = matchedInsight ? extractActions(matchedInsight.actions, 'purchases') : 0;
-          const leads = matchedInsight ? extractActions(matchedInsight.actions, 'leads') : 0;
-          const messages = matchedInsight ? extractActions(matchedInsight.actions, 'messages') : 0;
-          const results = purchases || leads || messages;
-          const resultLabel = purchases > 0 ? 'Ventas' : leads > 0 ? 'Leads' : messages > 0 ? 'Mensajes' : 'Resultados';
-          const roas = matchedInsight ? parseFloat(matchedInsight.purchase_roas?.[0]?.value || 0) : 0;
-          const purchaseValue = matchedInsight
-            ? parseFloat(matchedInsight.action_values?.find((v: any) => v.action_type === 'purchase' || v.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || 0)
-            : 0;
-          const cpa = purchases > 0 ? spendInPeriod / purchases : 0;
-          const cpl = leads > 0 ? spendInPeriod / leads : 0;
-          const cpm = messages > 0 ? spendInPeriod / messages : 0;
+          const metrics = getMetrics(matchedInsight || {});
+          const visibleAdsets = [
+            ...adsetsList.filter(a => a.campaign_id === c.id),
+            ...(adsetInsights || [])
+              .filter((row: any) => row.campaign_id === c.id && !adsetsList.some(a => a.id === row.adset_id))
+              .map((row: any) => ({ id: row.adset_id || row.adset_name, name: row.adset_name || 'Conjunto sin nombre', campaign_id: c.id, status: 'ACTIVE' })),
+          ];
+
+          const adsets = visibleAdsets.map((adset: any) => {
+            const matchedAdsetInsight = (adsetInsights || []).find((row: any) =>
+              row.adset_id === adset.id || row.adset_name === adset.name
+            );
+            const adsetMetrics = getMetrics(matchedAdsetInsight || {});
+            const ads = adsList
+              .filter((ad: any) => ad.adset_id === adset.id || (!ad.adset_id && ad.campaign_id === c.id))
+              .map((ad: any) => {
+                const insight = insightByAdId.get(ad.id) || insightByAdId.get(ad.name) || {};
+                const adMetrics = getMetrics(insight);
+                const creative = ad.creative || {};
+                return {
+                  ...ad,
+                  ...adMetrics,
+                  thumbnail: creative.thumbnail_url || creative.image_url || '',
+                  previewUrl: ad.preview_shareable_link || creative.instagram_permalink_url || '',
+                  creativeName: creative.name || ad.name,
+                };
+              })
+              .sort((a: any, b: any) => b.spend - a.spend);
+
+            return {
+              id: adset.id,
+              name: adset.name,
+              status: adset.status || adset.effective_status || 'ACTIVE',
+              budgetStr: makeBudget(adset.daily_budget, adset.lifetime_budget),
+              optimizationGoal: adset.optimization_goal,
+              ...adsetMetrics,
+              ads,
+            };
+          }).sort((a: any, b: any) => b.spend - a.spend);
 
           return {
             id: c.id,
@@ -445,16 +524,17 @@ export default function CaptacionPage() {
             budgetStr,
             spendInPeriod,
             reachInPeriod,
-            results,
-            resultLabel,
-            purchases,
-            leads,
-            messages,
-            cpa,
-            cpl,
-            cpm,
-            roas,
-            purchaseValue,
+            results: metrics.results,
+            resultLabel: metrics.resultLabel,
+            purchases: metrics.purchases,
+            leads: metrics.leads,
+            messages: metrics.messages,
+            cpa: metrics.cpa,
+            cpl: metrics.cpl,
+            cpm: metrics.cpm,
+            roas: metrics.roas,
+            purchaseValue: metrics.purchaseValue,
+            adsets,
           };
         })
         .sort((a, b) => b.spendInPeriod - a.spendInPeriod);
@@ -536,6 +616,87 @@ export default function CaptacionPage() {
   const trendValue = getChange(avg, prevAvg);
   const chartColor = (trendValue !== undefined && trendValue > 5) ? GREEN : (trendValue !== undefined && trendValue < -5) ? RED : BLUE;
   const gradientId = `grad-${expandedMetric}`;
+
+  const toggleCampaign = (id: string) => setExpandedCampaigns(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleAdset = (id: string) => setExpandedAdsets(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const ResultMetric = ({ label, value, sub, tone = 'default' }: any) => (
+    <div className="rounded-xl border border-black/[0.05] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-3 py-2">
+      <span className="block text-[8px] font-black uppercase tracking-wider text-zinc-400">{label}</span>
+      <span className={`block text-[12px] font-black tabular-nums ${tone === 'good' ? 'text-emerald-600 dark:text-emerald-400' : tone === 'bad' ? 'text-red-500' : 'text-zinc-850 dark:text-zinc-100'}`}>{value}</span>
+      {sub && <span className="block text-[9px] font-semibold text-zinc-400 tabular-nums">{sub}</span>}
+    </div>
+  );
+
+  const renderAdsetTree = (camp: any) => {
+    const adsets = camp.adsets || [];
+    if (!adsets.length) {
+      return <div className="rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 p-5 text-center text-[12px] font-semibold text-zinc-400">Meta no devolvió conjuntos de anuncios para esta campaña.</div>;
+    }
+
+    return (
+      <div className="space-y-2">
+        {adsets.map((adset: any) => {
+          const adsetOpen = !!expandedAdsets[adset.id];
+          return (
+            <div key={adset.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-black/10 overflow-hidden">
+              <button onClick={() => toggleAdset(adset.id)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/70 dark:hover:bg-white/[0.03] transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ChevronRight className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform ${adsetOpen ? 'rotate-90' : ''}`} />
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-black text-zinc-850 dark:text-zinc-100 truncate">{adset.name}</p>
+                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">{adset.ads?.length || 0} anuncios · {adset.budgetStr}</p>
+                  </div>
+                </div>
+                <div className="hidden sm:flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-black tabular-nums text-zinc-700 dark:text-zinc-200">{fmt(adset.spend, true)}</span>
+                  <span className={`text-[11px] font-black tabular-nums ${adset.roas >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`}>{adset.roas > 0 ? `${adset.roas.toFixed(1)} ROAS` : 'Sin ROAS'}</span>
+                </div>
+              </button>
+
+              {adsetOpen && (
+                <div className="px-4 pb-4 space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <ResultMetric label="Gasto" value={fmt(adset.spend, true)} />
+                    <ResultMetric label="Compras" value={adset.purchases || '—'} sub={adset.cpa ? `${fmt(adset.cpa, true)} c/u` : ''} tone={adset.purchases ? 'good' : 'default'} />
+                    <ResultMetric label="Leads" value={adset.leads || '—'} sub={adset.cpl ? `${fmt(adset.cpl, true)} c/u` : ''} tone={adset.leads ? 'good' : 'default'} />
+                    <ResultMetric label="Mensajes" value={adset.messages || '—'} sub={adset.cpm ? `${fmt(adset.cpm, true)} c/u` : ''} tone={adset.messages ? 'good' : 'default'} />
+                    <ResultMetric label="ROAS" value={adset.roas > 0 ? adset.roas.toFixed(1) : '—'} sub={adset.purchaseValue ? fmt(adset.purchaseValue, true) : ''} tone={adset.roas >= 1 ? 'good' : 'default'} />
+                  </div>
+
+                  <div className="rounded-2xl border border-black/[0.04] dark:border-white/[0.05] bg-white dark:bg-zinc-950/40 overflow-hidden">
+                    {adset.ads?.length ? adset.ads.map((ad: any) => (
+                      <div key={ad.id} className="grid grid-cols-[44px_1fr_auto] md:grid-cols-[44px_1fr_92px_70px_72px_56px] items-center gap-3 px-3 py-2.5 border-b last:border-b-0 border-zinc-100 dark:border-zinc-800/70">
+                        <button
+                          onClick={() => setSelectedCreative({ ad, adset, camp })}
+                          className="w-10 h-10 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group"
+                          title="Ver creativo"
+                        >
+                          {ad.thumbnail ? <img src={ad.thumbnail} alt={ad.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /> : <ImageIcon className="w-4 h-4 text-zinc-400" />}
+                        </button>
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-100 truncate">{ad.name}</p>
+                          <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider truncate">{ad.creativeName || 'Creativo'}</p>
+                        </div>
+                        <span className="hidden md:block text-right text-[11px] font-black tabular-nums text-zinc-700 dark:text-zinc-200">{fmt(ad.spend, true)}</span>
+                        <span className="hidden md:block text-right text-[11px] font-black tabular-nums text-emerald-600 dark:text-emerald-400">{ad.results || '—'}</span>
+                        <span className="hidden md:block text-right text-[11px] font-black tabular-nums text-zinc-700 dark:text-zinc-200">{ad.roas > 0 ? ad.roas.toFixed(1) : '—'}</span>
+                        <button onClick={() => setSelectedCreative({ ad, adset, camp })} className="justify-self-end w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center transition-colors" title="Abrir creativo">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )) : (
+                      <div className="py-5 text-center text-[12px] font-semibold text-zinc-400">No hay anuncios visibles para este conjunto.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <CenteredPageLoader isLoading={false}>
@@ -857,9 +1018,13 @@ export default function CaptacionPage() {
               </thead>
               <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/40">
                 {activeCampaigns.map((camp) => (
-                  <tr key={camp.id} className="group hover:bg-zinc-50/60 dark:hover:bg-white/[0.02] transition-colors duration-150">
+                  <React.Fragment key={camp.id}>
+                  <tr className="group hover:bg-zinc-50/60 dark:hover:bg-white/[0.02] transition-colors duration-150">
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
+                        <button onClick={() => toggleCampaign(camp.id)} className="w-7 h-7 rounded-full bg-zinc-50 dark:bg-zinc-800/80 hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center justify-center shrink-0 transition-colors" title="Ver conjuntos de anuncios">
+                          <ChevronRight className={`w-4 h-4 text-zinc-400 group-hover:text-blue-500 transition-transform ${expandedCampaigns[camp.id] ? 'rotate-90' : ''}`} />
+                        </button>
                         <span className="text-[9px] font-extrabold px-1.5 py-[2px] rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 uppercase tracking-wider shrink-0">●</span>
                         <p className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 leading-snug max-w-[260px]">{camp.name}</p>
                       </div>
@@ -911,6 +1076,16 @@ export default function CaptacionPage() {
                       <span className="text-[12px] font-black text-zinc-800 dark:text-zinc-100 tabular-nums">{camp.budgetStr}</span>
                     </td>
                   </tr>
+                  {expandedCampaigns[camp.id] && (
+                    <tr>
+                      <td colSpan={8} className="pb-5 pt-1">
+                        <div className="ml-9 rounded-3xl border border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-950/40 p-3">
+                          {renderAdsetTree(camp)}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -921,7 +1096,10 @@ export default function CaptacionPage() {
             {activeCampaigns.map((camp) => (
               <div key={camp.id} className="p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 leading-snug">{camp.name}</p>
+                  <button onClick={() => toggleCampaign(camp.id)} className="flex items-start gap-2 text-left min-w-0">
+                    <ChevronRight className={`w-4 h-4 mt-0.5 text-zinc-400 shrink-0 transition-transform ${expandedCampaigns[camp.id] ? 'rotate-90' : ''}`} />
+                    <p className="text-[12px] font-bold text-zinc-800 dark:text-zinc-200 leading-snug">{camp.name}</p>
+                  </button>
                   <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 uppercase tracking-wider shrink-0">Activa</span>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800/60">
@@ -972,6 +1150,11 @@ export default function CaptacionPage() {
                     </div>
                   )}
                 </div>
+                {expandedCampaigns[camp.id] && (
+                  <div className="pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-800/60">
+                    {renderAdsetTree(camp)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1152,6 +1335,50 @@ export default function CaptacionPage() {
       </div>
 
       </div>
+
+      {selectedCreative && (
+        <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 print:hidden" onClick={() => setSelectedCreative(null)}>
+          <div className="w-full max-w-[520px] rounded-[28px] bg-white dark:bg-zinc-950 border border-white/20 dark:border-white/[0.08] shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 p-5 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-500">Creativo del anuncio</p>
+                <h3 className="text-lg font-black text-zinc-900 dark:text-white leading-tight truncate">{selectedCreative.ad?.name}</h3>
+                <p className="text-[12px] font-semibold text-zinc-400 truncate">{selectedCreative.camp?.name} · {selectedCreative.adset?.name}</p>
+              </div>
+              <button onClick={() => setSelectedCreative(null)} className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 min-h-[260px] flex items-center justify-center overflow-hidden">
+                {selectedCreative.ad?.thumbnail ? (
+                  <img src={selectedCreative.ad.thumbnail} alt={selectedCreative.ad.name} className="w-full max-h-[420px] object-contain" />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-zinc-400">
+                    <ImageIcon className="w-8 h-8" />
+                    <span className="text-[12px] font-bold">Meta no devolvió miniatura para este anuncio</span>
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <ResultMetric label="Gasto" value={fmt(selectedCreative.ad?.spend || 0, true)} />
+                <ResultMetric label="Resultados" value={selectedCreative.ad?.results || '—'} tone={selectedCreative.ad?.results ? 'good' : 'default'} />
+                <ResultMetric label="ROAS" value={selectedCreative.ad?.roas > 0 ? selectedCreative.ad.roas.toFixed(1) : '—'} tone={selectedCreative.ad?.roas >= 1 ? 'good' : 'default'} />
+                <ResultMetric label="CTR" value={selectedCreative.ad?.ctr > 0 ? `${selectedCreative.ad.ctr.toFixed(2)}%` : '—'} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setSelectedCreative(null)} className="h-10 px-4 rounded-xl text-[12px] font-black text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">Cerrar</button>
+                {selectedCreative.ad?.previewUrl && (
+                  <a href={selectedCreative.ad.previewUrl} target="_blank" rel="noreferrer" className="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-black flex items-center gap-2 transition-colors">
+                    <ExternalLink className="w-4 h-4" />
+                    Abrir en Meta
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`@media print { body { background: white !important; } .print\\:hidden { display: none !important; } @page { margin: 1cm; size: A4; } }`}</style>
     </div>
