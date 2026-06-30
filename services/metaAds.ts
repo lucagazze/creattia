@@ -575,7 +575,7 @@ export const metaAds = {
   // ── ADS with creative thumbnails ──────────────────────────
   getAds: (adsetId: string) =>
     apiGet(`${adsetId}/ads`, {
-      fields: 'id,name,status,preview_shareable_link,creative{id,name,thumbnail_url,image_url,image_hash,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_story_id,instagram_permalink_url}',
+      fields: 'id,name,status,adset_id,campaign_id,preview_shareable_link,creative{id,name,thumbnail_url,image_url,image_hash,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_story_id,instagram_permalink_url}',
       limit: '50',
     }),
 
@@ -583,12 +583,12 @@ export const metaAds = {
   getAccountAds: async (accountId = META_AD_ACCOUNT) => {
     if (isDemoMetaAccount(accountId)) {
       return { data: [
-        { id: 'demo_ad_1', name: 'UGC Rutina Glow - Reel', status: 'ACTIVE', effective_status: 'ACTIVE', configured_status: 'ACTIVE', campaign_id: 'demo_cmp_1', creative: { id: 'demo_creative_1', name: 'Reel demostracion', body: 'Rutina simple para una piel luminosa.', title: 'Kit Glow', thumbnail_url: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=600&q=80', object_type: 'VIDEO', effective_instagram_story_id: 'demo_ig_media_1' } },
-        { id: 'demo_ad_2', name: 'Carrusel Protector Solar', status: 'ACTIVE', effective_status: 'ACTIVE', configured_status: 'ACTIVE', campaign_id: 'demo_cmp_2', creative: { id: 'demo_creative_2', name: 'Carrusel SPF', body: 'SPF50 liviano para todos los dias.', title: 'Protector Solar', thumbnail_url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=600&q=80', object_type: 'PHOTO', effective_object_story_id: `${DEMO_FB_PAGE_ID}_post_2` } },
+        { id: 'demo_ad_1', name: 'UGC Rutina Glow - Reel', status: 'ACTIVE', effective_status: 'ACTIVE', configured_status: 'ACTIVE', campaign_id: 'demo_cmp_1', adset_id: 'demo_adset_1', creative: { id: 'demo_creative_1', name: 'Reel demostracion', body: 'Rutina simple para una piel luminosa.', title: 'Kit Glow', thumbnail_url: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=600&q=80', object_type: 'VIDEO', effective_instagram_story_id: 'demo_ig_media_1' } },
+        { id: 'demo_ad_2', name: 'Carrusel Protector Solar', status: 'ACTIVE', effective_status: 'ACTIVE', configured_status: 'ACTIVE', campaign_id: 'demo_cmp_2', adset_id: 'demo_adset_2', creative: { id: 'demo_creative_2', name: 'Carrusel SPF', body: 'SPF50 liviano para todos los dias.', title: 'Protector Solar', thumbnail_url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=600&q=80', object_type: 'PHOTO', effective_object_story_id: `${DEMO_FB_PAGE_ID}_post_2` } },
       ] };
     }
     const first = await apiGet(`${accountId}/ads`, {
-      fields: 'id,name,status,effective_status,configured_status,campaign_id,preview_shareable_link,creative{id,name,body,title,thumbnail_url,image_url,image_hash,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_permalink_url}',
+      fields: 'id,name,status,effective_status,configured_status,campaign_id,adset_id,preview_shareable_link,creative{id,name,body,title,thumbnail_url,image_url,image_hash,object_type,video_id,effective_object_story_id,effective_instagram_story_id,instagram_permalink_url}',
       limit: '150',
     });
     return { ...first, data: await collectPaginatedData(first) };

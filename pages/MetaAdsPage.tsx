@@ -138,6 +138,7 @@ export default function MetaAdsPage() {
   const [activeAds, setActiveAds] = useState<any[]>([]);
   const [adInsightsMap, setAdInsightsMap] = useState<Record<string, any>>({});
   const [campaignMap, setCampaignMap] = useState<Record<string, string>>({});
+  const [adsetMap, setAdsetMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -295,7 +296,7 @@ export default function MetaAdsPage() {
   const [prevProfileId, setPrevProfileId] = useState(profile?.id);
   if (profile?.id !== prevProfileId) {
     setPrevProfileId(profile?.id);
-    setActiveAds([]); setAdInsightsMap({}); setCampaignMap({});
+    setActiveAds([]); setAdInsightsMap({}); setCampaignMap({}); setAdsetMap({});
     setResolvedThumbnails({}); setResolvedDetails({}); setResolvingIds({});
     setLoading(true);
     setSelectedAd(null);
@@ -434,7 +435,7 @@ export default function MetaAdsPage() {
   const fetchAds = (since?: string, until?: string) => {
     const accountId = metaAccountId;
     if (!accountId) {
-      setActiveAds([]); setAdInsightsMap({}); setCampaignMap({});
+      setActiveAds([]); setAdInsightsMap({}); setCampaignMap({}); setAdsetMap({});
       setResolvedThumbnails({}); setResolvedDetails({}); setResolvingIds({});
       setLoading(false);
       return;
@@ -452,7 +453,8 @@ export default function MetaAdsPage() {
       }),
       metaAds.getAdInsightsForAccount(accountId, adFields, tr).catch(() => []),
       metaAds.getCampaigns(accountId).catch(() => ({ data: [] })),
-    ]).then(([adsRes, insightsRes, campsRes]) => {
+      metaAds.getAccountAdsets(accountId).catch(() => ({ data: [] })),
+    ]).then(([adsRes, insightsRes, campsRes, adsetsRes]) => {
       const spentAdIds = new Set(
         (insightsRes || [])
           .filter((i: any) => parseFloat(i.spend || '0') > 0)
@@ -467,6 +469,9 @@ export default function MetaAdsPage() {
       const cMap: Record<string, string> = {};
       ((campsRes as any).data || []).forEach((c: any) => { if (c.id) cMap[c.id] = c.name; });
       setCampaignMap(cMap);
+      const aMap: Record<string, string> = {};
+      ((adsetsRes as any).data || []).forEach((adset: any) => { if (adset.id) aMap[adset.id] = adset.name; });
+      setAdsetMap(aMap);
     }).catch((err) => {
       console.error(err);
       setFetchError(err?.message || 'No se pudo conectar con la API de Meta.');
@@ -949,41 +954,68 @@ export default function MetaAdsPage() {
 
         {/* Ads grid */}
         {accountId && activeAds.length > 0 && (() => {
-          const grouped: Record<string, { campaignName: string; ads: any[] }> = {};
+          const getAdSpend = (ad: any) => parseFloat(adInsightsMap[ad.id]?.spend || 0);
+          const grouped: Record<string, {
+            campaignName: string;
+            adsets: Record<string, { adsetName: string; ads: any[] }>;
+          }> = {};
           activeAds.forEach(ad => {
             const cid = ad.campaign_id || 'other';
             const cname = campaignMap[cid] || 'Sin campaña';
-            if (!grouped[cid]) grouped[cid] = { campaignName: cname, ads: [] };
-            grouped[cid].ads.push(ad);
+            const adsetId = ad.adset_id || ad.adset?.id || 'other';
+            const adsetName = adsetMap[adsetId] || ad.adset?.name || 'Sin conjunto de anuncios';
+            if (!grouped[cid]) grouped[cid] = { campaignName: cname, adsets: {} };
+            if (!grouped[cid].adsets[adsetId]) grouped[cid].adsets[adsetId] = { adsetName, ads: [] };
+            grouped[cid].adsets[adsetId].ads.push(ad);
           });
 
-          // Sort ads in each campaign group by spend descending (highest spend first)
+          // Sort ads inside each ad set by spend descending.
           Object.keys(grouped).forEach(cid => {
-            grouped[cid].ads.sort((a, b) => {
-              const spendA = parseFloat(adInsightsMap[a.id]?.spend || 0);
-              const spendB = parseFloat(adInsightsMap[b.id]?.spend || 0);
-              return spendB - spendA;
+            Object.keys(grouped[cid].adsets).forEach(adsetId => {
+              grouped[cid].adsets[adsetId].ads.sort((a, b) => getAdSpend(b) - getAdSpend(a));
             });
           });
 
           // Sort campaigns by total campaign spend descending (highest spend campaign first)
           const sortedGroupedEntries = Object.entries(grouped).sort((a, b) => {
-            const spendA = a[1].ads.reduce((sum, ad) => sum + parseFloat(adInsightsMap[ad.id]?.spend || 0), 0);
-            const spendB = b[1].ads.reduce((sum, ad) => sum + parseFloat(adInsightsMap[ad.id]?.spend || 0), 0);
+            const spendA = Object.values(a[1].adsets).reduce((sum, adset) => sum + adset.ads.reduce((s, ad) => s + getAdSpend(ad), 0), 0);
+            const spendB = Object.values(b[1].adsets).reduce((sum, adset) => sum + adset.ads.reduce((s, ad) => s + getAdSpend(ad), 0), 0);
             return spendB - spendA;
           });
 
           return (
             <div className={`space-y-10 transition-opacity duration-200 ${isDateReloading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-              {sortedGroupedEntries.map(([cid, group]) => (
+              {sortedGroupedEntries.map(([cid, group]) => {
+                const adsetEntries = Object.entries(group.adsets).sort((a, b) => {
+                  const spendA = a[1].ads.reduce((sum, ad) => sum + getAdSpend(ad), 0);
+                  const spendB = b[1].ads.reduce((sum, ad) => sum + getAdSpend(ad), 0);
+                  return spendB - spendA;
+                });
+                const campaignAdsCount = adsetEntries.reduce((sum, [, adset]) => sum + adset.ads.length, 0);
+                return (
                 <div key={cid}>
                   <div className="flex items-center gap-2 mb-5">
                     <div className="w-1 h-5 rounded-full bg-blue-500 flex-shrink-0" />
                     <h4 className="text-[14px] font-black text-zinc-800 dark:text-zinc-100 tracking-tight truncate">{group.campaignName}</h4>
-                    <span className="text-[11px] font-bold text-zinc-400 flex-shrink-0">{group.ads.length} creativos</span>
+                    <span className="text-[11px] font-bold text-zinc-400 flex-shrink-0">{adsetEntries.length} conjuntos · {campaignAdsCount} creativos</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {group.ads.map(ad => {
+                  <div className="space-y-6">
+                    {adsetEntries.map(([adsetId, adset]) => {
+                      const adsetSpend = adset.ads.reduce((sum, ad) => sum + getAdSpend(ad), 0);
+                      return (
+                        <section key={adsetId} className="rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/30 p-3 sm:p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-500">Conjunto de anuncios</p>
+                              <h5 className="text-[13px] sm:text-[14px] font-black text-zinc-800 dark:text-zinc-100 truncate">{adset.adsetName}</h5>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] font-bold text-zinc-500">
+                              <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1">{adset.ads.length} creativos</span>
+                              <span className="rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 px-2.5 py-1">${adsetSpend.toFixed(0)} gasto</span>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {adset.ads.map(ad => {
                       const insights = adInsightsMap[ad.id];
                       const adSpend = parseFloat(insights?.spend || 0);
                       const adActions = insights?.actions || [];
@@ -1067,9 +1099,14 @@ export default function MetaAdsPage() {
                         </div>
                       );
                     })}
+                          </div>
+                        </section>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           );
         })()}
