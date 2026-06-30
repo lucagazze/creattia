@@ -466,10 +466,15 @@ export default function CaptacionPage() {
         return `$ ${(parseFloat(value) / 100).toLocaleString('es-AR', { maximumFractionDigits: 0 })}${daily ? '/día' : ' total'}`;
       };
 
+      const isMetaActive = (item: any) =>
+        item?.status === 'ACTIVE' ||
+        item?.effective_status === 'ACTIVE' ||
+        item?.configured_status === 'ACTIVE';
+
       const insightByAdId = new Map((adInsights || []).map((row: any) => [row.ad_id || row.ad_name, row]));
 
       const activeCamps = campaignsList
-        .filter(c => c.status === 'ACTIVE')
+        .filter(c => isMetaActive(c))
         .map(c => {
           // Gasto en el período seleccionado (desde campaignInsights)
           const matchedInsight = campaignInsights.find((ci: any) => ci.campaign_id === c.id || ci.campaign_name === c.name);
@@ -484,7 +489,7 @@ export default function CaptacionPage() {
             budgetStr = `$ ${(parseFloat(c.lifetime_budget) / 100).toLocaleString('es-AR', { maximumFractionDigits: 0 })} total`;
           } else {
             // ABO - Sum budgets of active adsets
-            const activeAdsetsForCamp = adsetsList.filter(a => a.campaign_id === c.id && a.status === 'ACTIVE');
+            const activeAdsetsForCamp = adsetsList.filter(a => a.campaign_id === c.id && isMetaActive(a));
             const totalDaily = activeAdsetsForCamp.reduce((sum, a) => sum + parseFloat(a.daily_budget || 0), 0);
             const totalLifetime = activeAdsetsForCamp.reduce((sum, a) => sum + parseFloat(a.lifetime_budget || 0), 0);
             
@@ -498,12 +503,7 @@ export default function CaptacionPage() {
           }
 
           const metrics = getMetrics(matchedInsight || {});
-          const visibleAdsets = [
-            ...adsetsList.filter(a => a.campaign_id === c.id),
-            ...(adsetInsights || [])
-              .filter((row: any) => row.campaign_id === c.id && !adsetsList.some(a => a.id === row.adset_id))
-              .map((row: any) => ({ id: row.adset_id || row.adset_name, name: row.adset_name || 'Conjunto sin nombre', campaign_id: c.id, status: 'ACTIVE' })),
-          ];
+          const visibleAdsets = adsetsList.filter(a => a.campaign_id === c.id && isMetaActive(a));
 
           const adsets = visibleAdsets.map((adset: any) => {
             const matchedAdsetInsight = (adsetInsights || []).find((row: any) =>
@@ -557,6 +557,7 @@ export default function CaptacionPage() {
             adsets,
           };
         })
+        .filter((c: any) => c.spendInPeriod > 0)
         .sort((a, b) => b.spendInPeriod - a.spendInPeriod);
 
       setActiveCampaigns(activeCamps);
