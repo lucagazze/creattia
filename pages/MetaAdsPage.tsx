@@ -819,6 +819,10 @@ export default function MetaAdsPage() {
                         setPendingPreset(p.id as any); 
                         setPendingSince(r.since); 
                         setPendingUntil(r.until); 
+                        setActivePreset(p.id as any);
+                        setActiveSince(r.since);
+                        setActiveUntil(r.until);
+                        setShowDatePicker(false);
                       }} 
                       className={`flex-shrink-0 text-center md:text-left px-2.5 py-1 md:px-3 md:py-1.5 rounded-[10px] text-[12px] font-bold transition-all whitespace-nowrap ${pendingPreset === p.id ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800'}`}
                     >
