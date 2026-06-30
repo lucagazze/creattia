@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { useTheme } from '../contexts/ThemeContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +9,7 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie, Legend, ReferenceLine
 } from 'recharts';
 import {
-  TrendingUp, Download, RefreshCw, Calendar, ChevronDown, ChevronRight,
+  TrendingUp, Download, RefreshCw, Calendar, ChevronDown, ChevronRight, ChevronLeft,
   Users, DollarSign, Target, BarChart2, Globe, Smartphone, User, Megaphone, MessageSquare, Loader2,
   ImageIcon, ExternalLink, X
 } from 'lucide-react';
@@ -52,6 +53,19 @@ const fmtVal = (v: number) => {
   if (v >= 1000) return (v/1000).toFixed(1) + 'k';
   return v.toFixed(v < 10 ? 2 : 0);
 };
+
+const MetricColGroup = () => (
+  <colgroup>
+    <col className="w-[33%]" />
+    <col className="w-[11%]" />
+    <col className="w-[11%]" />
+    <col className="w-[11%]" />
+    <col className="w-[11%]" />
+    <col className="w-[7%]" />
+    <col className="w-[10%]" />
+    <col className="w-[6%]" />
+  </colgroup>
+);
 
 
 
@@ -155,6 +169,9 @@ export default function CaptacionPage() {
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
   const [expandedAdsets, setExpandedAdsets] = useState<Record<string, boolean>>({});
   const [selectedCreative, setSelectedCreative] = useState<any | null>(null);
+  const [creativeDetails, setCreativeDetails] = useState<Record<string, any>>({});
+  const [creativeLoading, setCreativeLoading] = useState<Record<string, boolean>>({});
+  const [creativeSlide, setCreativeSlide] = useState(0);
 
   const [prevProfileId, setPrevProfileId] = useState(profile?.id);
   if (profile?.id !== prevProfileId) {
@@ -172,6 +189,9 @@ export default function CaptacionPage() {
     setExpandedCampaigns({});
     setExpandedAdsets({});
     setSelectedCreative(null);
+    setCreativeDetails({});
+    setCreativeLoading({});
+    setCreativeSlide(0);
     setLoading(true);
   }
 
@@ -620,6 +640,37 @@ export default function CaptacionPage() {
   const toggleCampaign = (id: string) => setExpandedCampaigns(prev => ({ ...prev, [id]: !prev[id] }));
   const toggleAdset = (id: string) => setExpandedAdsets(prev => ({ ...prev, [id]: !prev[id] }));
 
+  const resolveCreative = async (ad: any) => {
+    if (!ad?.id || creativeDetails[ad.id] || creativeLoading[ad.id]) return;
+    setCreativeLoading(prev => ({ ...prev, [ad.id]: true }));
+    const params = new URLSearchParams();
+    if (ad.id) params.set('adId', ad.id);
+    if (ad.creative?.id) params.set('creativeId', ad.creative.id);
+    if (ad.creative?.video_id) params.set('videoId', ad.creative.video_id);
+    if (profile?.id) params.set('clientId', profile.id);
+    params.set('v', '3');
+    try {
+      const res = await fetch(`/api/meta-video?${params.toString()}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('No se pudo resolver el creativo.');
+      const data = await res.json();
+      setCreativeDetails(prev => ({ ...prev, [ad.id]: data }));
+    } catch {
+      setCreativeDetails(prev => ({ ...prev, [ad.id]: { type: 'failed' } }));
+    } finally {
+      setCreativeLoading(prev => {
+        const next = { ...prev };
+        delete next[ad.id];
+        return next;
+      });
+    }
+  };
+
+  const openCreative = (ad: any, adset: any, camp: any) => {
+    setSelectedCreative({ ad, adset, camp });
+    setCreativeSlide(0);
+    resolveCreative(ad);
+  };
+
   const ResultMetric = ({ label, value, sub, tone = 'default' }: any) => (
     <div className="rounded-xl border border-black/[0.05] dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-3 py-2">
       <span className="block text-[8px] font-black uppercase tracking-wider text-zinc-400">{label}</span>
@@ -652,11 +703,12 @@ export default function CaptacionPage() {
           return (
             <div key={adset.id} className="rounded-2xl border border-zinc-100 dark:border-zinc-800/70 bg-white dark:bg-zinc-950/40 overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[920px] text-left border-collapse">
+                <table className="w-full min-w-[1080px] table-fixed text-left border-collapse">
+                  <MetricColGroup />
                   <tbody>
-                    <tr className="bg-zinc-50/80 dark:bg-white/[0.025] hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors">
-                      <td className="py-3 pr-4 pl-3 w-[320px]">
-                        <button onClick={() => toggleAdset(adset.id)} className="flex items-center gap-2 text-left min-w-0">
+                    <tr onClick={() => toggleAdset(adset.id)} className="cursor-pointer bg-zinc-50/80 dark:bg-white/[0.025] hover:bg-zinc-50 dark:hover:bg-white/[0.04] transition-colors">
+                      <td className="py-3 pr-4 pl-3">
+                        <button onClick={(e) => { e.stopPropagation(); toggleAdset(adset.id); }} className="flex items-center gap-2 text-left min-w-0">
                           <ChevronRight className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform ${adsetOpen ? 'rotate-90' : ''}`} />
                           <span className="text-[9px] font-extrabold px-1.5 py-[2px] rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/10 uppercase tracking-wider shrink-0">Set</span>
                           <div className="min-w-0">
@@ -684,7 +736,7 @@ export default function CaptacionPage() {
                           <td className="py-2.5 pr-4 pl-9">
                             <div className="flex items-center gap-2 min-w-0">
                               <button
-                                onClick={() => setSelectedCreative({ ad, adset, camp })}
+                                onClick={(e) => { e.stopPropagation(); openCreative(ad, adset, camp); }}
                                 className="w-9 h-9 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center group shrink-0"
                                 title="Ver creativo"
                               >
@@ -692,7 +744,7 @@ export default function CaptacionPage() {
                               </button>
                               <div className="min-w-0">
                                 <p className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200 leading-snug truncate">{ad.name}</p>
-                                <button onClick={() => setSelectedCreative({ ad, adset, camp })} className="text-[9px] font-black text-blue-500 uppercase tracking-wider hover:text-blue-600 inline-flex items-center gap-1">
+                                <button onClick={(e) => { e.stopPropagation(); openCreative(ad, adset, camp); }} className="text-[9px] font-black text-blue-500 uppercase tracking-wider hover:text-blue-600 inline-flex items-center gap-1">
                                   Ver creativo <ExternalLink className="w-3 h-3" />
                                 </button>
                               </div>
@@ -1031,7 +1083,8 @@ export default function CaptacionPage() {
 
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto -mx-1">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[1080px] table-fixed text-left border-collapse">
+              <MetricColGroup />
               <thead>
                 <tr className="border-b border-zinc-100 dark:border-zinc-800/60">
                   <th className="pb-2 pr-4 text-[9px] font-extrabold text-zinc-400 uppercase tracking-wider whitespace-nowrap">Campaña</th>
@@ -1047,10 +1100,10 @@ export default function CaptacionPage() {
               <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800/40">
                 {activeCampaigns.map((camp) => (
                   <React.Fragment key={camp.id}>
-                  <tr className="group hover:bg-zinc-50/60 dark:hover:bg-white/[0.02] transition-colors duration-150">
+                  <tr onClick={() => toggleCampaign(camp.id)} className="group cursor-pointer hover:bg-zinc-50/60 dark:hover:bg-white/[0.02] transition-colors duration-150">
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => toggleCampaign(camp.id)} className="w-7 h-7 rounded-full bg-zinc-50 dark:bg-zinc-800/80 hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center justify-center shrink-0 transition-colors" title="Ver conjuntos de anuncios">
+                        <button onClick={(e) => { e.stopPropagation(); toggleCampaign(camp.id); }} className="w-7 h-7 rounded-full bg-zinc-50 dark:bg-zinc-800/80 hover:bg-blue-50 dark:hover:bg-blue-500/10 flex items-center justify-center shrink-0 transition-colors" title="Ver conjuntos de anuncios">
                           <ChevronRight className={`w-4 h-4 text-zinc-400 group-hover:text-blue-500 transition-transform ${expandedCampaigns[camp.id] ? 'rotate-90' : ''}`} />
                         </button>
                         <span className="text-[9px] font-extrabold px-1.5 py-[2px] rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10 uppercase tracking-wider shrink-0">●</span>
@@ -1107,7 +1160,7 @@ export default function CaptacionPage() {
                   {expandedCampaigns[camp.id] && (
                     <tr>
                       <td colSpan={8} className="pb-5 pt-1">
-                        <div className="ml-9 rounded-3xl border border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-950/40 p-3">
+                        <div className="rounded-3xl border border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-950/40 p-3">
                           {renderAdsetTree(camp)}
                         </div>
                       </td>
@@ -1365,45 +1418,104 @@ export default function CaptacionPage() {
       </div>
 
       {selectedCreative && (
-        <div className="fixed inset-0 z-[9999] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 print:hidden" onClick={() => setSelectedCreative(null)}>
-          <div className="w-full max-w-[520px] rounded-[28px] bg-white dark:bg-zinc-950 border border-white/20 dark:border-white/[0.08] shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-4 p-5 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-500">Creativo del anuncio</p>
-                <h3 className="text-lg font-black text-zinc-900 dark:text-white leading-tight truncate">{selectedCreative.ad?.name}</h3>
-                <p className="text-[12px] font-semibold text-zinc-400 truncate">{selectedCreative.camp?.name} · {selectedCreative.adset?.name}</p>
-              </div>
-              <button onClick={() => setSelectedCreative(null)} className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="rounded-3xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 min-h-[260px] flex items-center justify-center overflow-hidden">
-                {selectedCreative.ad?.thumbnail ? (
-                  <img src={selectedCreative.ad.thumbnail} alt={selectedCreative.ad.name} className="w-full max-h-[420px] object-contain" />
-                ) : (
-                  <div className="flex flex-col items-center gap-2 text-zinc-400">
-                    <ImageIcon className="w-8 h-8" />
-                    <span className="text-[12px] font-bold">Meta no devolvió miniatura para este anuncio</span>
+        <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 print:hidden" onClick={() => setSelectedCreative(null)}>
+          <button onClick={() => setSelectedCreative(null)} className="absolute right-4 top-4 z-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white transition-colors" aria-label="Cerrar creativo">
+            <X className="w-5 h-5" />
+          </button>
+          <div className="w-full max-w-[1100px] h-[88vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {(() => {
+              const ad = selectedCreative.ad || {};
+              const mediaData = creativeDetails[ad.id];
+              const isResolving = creativeLoading[ad.id] || !mediaData;
+              const creative = ad.creative || {};
+              const thumbUrl = mediaData?.picture || mediaData?.url || creative.image_url || creative.thumbnail_url || ad.thumbnail || '';
+
+              if (isResolving) {
+                return (
+                  <div className="flex flex-col items-center justify-center gap-3 text-white">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                    <span className="text-[12px] font-black uppercase tracking-[0.18em] text-white/70">Cargando creativo...</span>
                   </div>
-                )}
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <ResultMetric label="Gasto" value={fmt(selectedCreative.ad?.spend || 0, true)} />
-                <ResultMetric label="Resultados" value={selectedCreative.ad?.results || '—'} tone={selectedCreative.ad?.results ? 'good' : 'default'} />
-                <ResultMetric label="ROAS" value={selectedCreative.ad?.roas > 0 ? selectedCreative.ad.roas.toFixed(1) : '—'} tone={selectedCreative.ad?.roas >= 1 ? 'good' : 'default'} />
-                <ResultMetric label="CTR" value={selectedCreative.ad?.ctr > 0 ? `${selectedCreative.ad.ctr.toFixed(2)}%` : '—'} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setSelectedCreative(null)} className="h-10 px-4 rounded-xl text-[12px] font-black text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">Cerrar</button>
-                {selectedCreative.ad?.previewUrl && (
-                  <a href={selectedCreative.ad.previewUrl} target="_blank" rel="noreferrer" className="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-black flex items-center gap-2 transition-colors">
-                    <ExternalLink className="w-4 h-4" />
-                    Abrir en Meta
-                  </a>
-                )}
-              </div>
-            </div>
+                );
+              }
+
+              if (mediaData.type === 'video_source' && mediaData.source) {
+                return (
+                  <video
+                    src={mediaData.source}
+                    poster={mediaData.picture || thumbUrl || undefined}
+                    controls
+                    autoPlay
+                    playsInline
+                    preload="metadata"
+                    {...{ referrerPolicy: 'no-referrer' }}
+                    className="max-w-full max-h-full object-contain rounded-2xl bg-black shadow-2xl"
+                  />
+                );
+              }
+
+              if (mediaData.type === 'carousel' && mediaData.cards?.length > 0) {
+                const cards = mediaData.cards;
+                const card = cards[Math.min(creativeSlide, cards.length - 1)];
+                return (
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    {card.isVideo && card.videoSrc ? (
+                      <video src={card.videoSrc} poster={card.url || undefined} controls autoPlay playsInline preload="metadata" {...{ referrerPolicy: 'no-referrer' }} className="max-w-full max-h-full object-contain rounded-2xl bg-black shadow-2xl" />
+                    ) : card.url ? (
+                      <img src={card.url} alt={card.name || ad.name || 'Creativo'} referrerPolicy="no-referrer" className="max-w-full max-h-full object-contain rounded-2xl bg-black shadow-2xl" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-white/60">
+                        <ImageIcon className="w-8 h-8" />
+                        <span className="text-[12px] font-bold">Sin preview disponible</span>
+                      </div>
+                    )}
+                    {cards.length > 1 && (
+                      <>
+                        <button onClick={(e) => { e.stopPropagation(); setCreativeSlide((creativeSlide - 1 + cards.length) % cards.length); }} className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white flex items-center justify-center">
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setCreativeSlide((creativeSlide + 1) % cards.length); }} className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white flex items-center justify-center">
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/55 backdrop-blur px-3 py-1.5 text-[11px] font-black text-white">
+                          {Math.min(creativeSlide + 1, cards.length)} / {cards.length}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              }
+
+              if (mediaData.type === 'ad_preview' && mediaData.embed_html) {
+                const resizedHtml = mediaData.embed_html
+                  .replace(/width="\d+"/g, 'width="100%"')
+                  .replace(/height="\d+"/g, 'height="720"')
+                  .replace(/<iframe/g, `<iframe style="width:100%;height:720px;border:none;"`);
+                const cleanHtml = DOMPurify.sanitize(resizedHtml, {
+                  ADD_TAGS: ['iframe'],
+                  ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'style', 'src', 'width', 'height'],
+                });
+                return <div className="w-full max-w-[720px] max-h-full rounded-2xl overflow-hidden bg-white" dangerouslySetInnerHTML={{ __html: cleanHtml }} />;
+              }
+
+              if ((mediaData.type === 'image' && mediaData.url) || thumbUrl) {
+                return (
+                  <img
+                    src={(mediaData.type === 'image' ? mediaData.url : thumbUrl) || ''}
+                    alt={ad.name || 'Creativo'}
+                    referrerPolicy="no-referrer"
+                    className="max-w-full max-h-full object-contain rounded-2xl bg-black shadow-2xl"
+                  />
+                );
+              }
+
+              return (
+                <div className="flex flex-col items-center gap-2 text-white/60">
+                  <ImageIcon className="w-8 h-8" />
+                  <span className="text-[12px] font-bold">Meta no devolvió preview para este anuncio</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
