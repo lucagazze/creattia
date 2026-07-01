@@ -1517,10 +1517,15 @@ setStatuses((p) => ({ ...p, chatwoot: "error" }));
     try {
       // Core fields — definitely exist in DB
       // Core fields confirmed in DB schema
+      const cleanTags = Array.isArray(editForm.client_tags)
+        ? editForm.client_tags.filter((tag: any) => typeof tag === 'string' && tag.trim())
+        : [];
       const corePayload: Record<string, any> = {
         business_name: editForm.business_name || null,
+        industry: editForm.industry || null,
         plan: editForm.plan || null,
         active: editForm.active,
+        client_tags: cleanTags,
         meta_account_id: editForm.meta_account_id || null,
         ig_business_id: editForm.ig_business_id || null,
         ig_username: editForm.ig_username || null,
