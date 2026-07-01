@@ -202,9 +202,10 @@ export default function CaptacionPage() {
   const isEcom = profile?.client_tags?.includes('tienda_online') || !profile?.client_tags || profile.client_tags.length === 0;
   const isLead = profile?.client_tags?.includes('lead_gen');
   const isWpp = profile?.client_tags?.includes('whatsapp');
+  const primaryTag = profile?.client_tags?.[0] || 'tienda_online';
   
-  const resultsLabel = isWpp ? 'Mensajes' : isLead ? 'Leads' : 'Compras';
-  const cprLabel = isWpp ? 'Costo x Msj' : isLead ? 'CPL' : 'CPA';
+  const resultsLabel = primaryTag === 'whatsapp' ? 'Mensajes' : primaryTag === 'lead_gen' ? 'Leads' : 'Compras';
+  const cprLabel = primaryTag === 'whatsapp' ? 'Costo x Msj' : primaryTag === 'lead_gen' ? 'CPL' : 'CPA';
 
   const extractActions = (actions: any[], type: 'purchases' | 'leads' | 'messages' | 'ig_followers' | 'fb_likes') => {
     if (!actions || !Array.isArray(actions)) return 0;
@@ -328,9 +329,8 @@ export default function CaptacionPage() {
       setPrevSummary(calcSummaryFromCampaigns(prevCampaignInsights, rawPrevDaily));
 
       const getPrimaryResult = (actions: any[]) => {
-        if (isEcom) return extractActions(actions, 'purchases');
-        if (isLead) return extractActions(actions, 'leads');
-        if (isWpp) return extractActions(actions, 'messages');
+        if (primaryTag === 'whatsapp') return extractActions(actions, 'messages');
+        if (primaryTag === 'lead_gen') return extractActions(actions, 'leads');
         return extractActions(actions, 'purchases');
       };
 

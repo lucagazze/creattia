@@ -1237,14 +1237,32 @@ export default function DashboardPage() {
     if (!tags || tags.length === 0) return tag === 'tienda_online';
     return tags.includes(tag);
   };
+  const primaryTag = profile?.client_tags?.[0] || 'tienda_online';
+  const getDashboardSectionOrder = (section: 'store' | 'meta' | 'email' | 'messages') => {
+    if (primaryTag === 'whatsapp') {
+      if (section === 'messages') return 0;
+      if (section === 'meta') return 1;
+      if (section === 'store') return 2;
+      return 3;
+    }
+    if (primaryTag === 'lead_gen') {
+      if (section === 'meta') return 0;
+      if (section === 'messages') return 1;
+      if (section === 'store') return 2;
+      return 3;
+    }
+    if (section === 'store') return 0;
+    if (section === 'meta') return 1;
+    if (section === 'email') return 2;
+    return 3;
+  };
   const isEcommerce = !!detectedPlatform || hasTag('tienda_online');
 
   useEffect(() => {
-    const primaryTag = profile?.client_tags?.[0];
     if (primaryTag === 'whatsapp') setSelectedMetaGoal('messages');
     else if (primaryTag === 'lead_gen') setSelectedMetaGoal('leads');
     else setSelectedMetaGoal('purchases'); // default to purchases for e-com or if empty
-  }, [profile?.client_tags]);
+  }, [primaryTag]);
 
   // Load all clients if admin
   useEffect(() => {
@@ -2416,10 +2434,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         {/* Shopify Section */}
         {detectedPlatform && !shopifyError && (
-          <div className="space-y-2">
+          <div className="space-y-2" style={{ order: getDashboardSectionOrder('store') }}>
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 {detectedPlatform === 'shopify' ? (
@@ -2679,7 +2697,7 @@ export default function DashboardPage() {
 
         {/* Meta Ads Section */}
         {profile?.meta_account_id && !metaError && (
-          <div className="space-y-2">
+          <div className="space-y-2" style={{ order: getDashboardSectionOrder('meta') }}>
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <img src="/assets/meta (1).webp" alt="Meta" className="w-5 h-5 object-contain shrink-0" />
@@ -2911,7 +2929,7 @@ export default function DashboardPage() {
 
         {/* Email Marketing Section */}
         {profile?.klaviyo_api_key && !klaviyoError && (
-          <div className="space-y-2">
+          <div className="space-y-2" style={{ order: getDashboardSectionOrder('email') }}>
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <img src="/assets/Klaviyo-Logo-Photoroom.webp" alt="Klaviyo" className="w-5 h-5 object-contain shrink-0" />
@@ -3136,7 +3154,7 @@ export default function DashboardPage() {
 
         {/* ATENCIÓN (Chatwoot) */}
         {hasChatwoot && (
-          <div className="space-y-4">
+          <div className="space-y-4" style={{ order: getDashboardSectionOrder('messages') }}>
             <div className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-violet-500 shrink-0" />
               <h2 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Mensajería</h2>
@@ -3204,7 +3222,8 @@ export default function DashboardPage() {
 
         {!profile?.meta_account_id &&
           !profile?.klaviyo_api_key &&
-          !detectedPlatform && (
+          !detectedPlatform &&
+          !hasChatwoot && (
             <div className="flex flex-col items-center justify-center py-20 px-4 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
               <h3 className="text-zinc-500 font-medium mb-2">
                 Aún no tienes módulos conectados
