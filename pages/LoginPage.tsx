@@ -6,9 +6,15 @@ import { Loader2, Moon, Sun, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
-const toAuthEmail = (input: string) => {
+const USERNAME_EMAIL_DOMAINS = ['algoritmia.team', 'car.algoritmia.com'];
+
+const toAuthEmails = (input: string) => {
   const clean = input.trim().toLowerCase();
-  return clean.includes('@') ? clean : `${clean}@algoritmia.team`;
+  return clean.includes('@') ? [clean] : USERNAME_EMAIL_DOMAINS.map((domain) => `${clean}@${domain}`);
+};
+
+const toAuthEmail = (input: string) => {
+  return toAuthEmails(input)[0];
 };
 
 type Mode = 'login' | 'register' | 'reset';
@@ -40,11 +46,20 @@ export default function LoginPage() {
     if (!email || !password) { showToast('Completá todos los campos', 'error'); return; }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: toAuthEmail(email),
-        password,
-      });
-      if (error) throw error;
+      const authEmails = toAuthEmails(email);
+      let lastError: any = null;
+      for (const authEmail of authEmails) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password,
+        });
+        if (!error) return;
+        lastError = error;
+        if (email.includes('@')) break;
+        const message = String(error.message || '').toLowerCase();
+        if (!message.includes('invalid')) break;
+      }
+      if (lastError) throw lastError;
     } catch (error: any) {
       showToast(error.message || 'Error al iniciar sesión', 'error');
       setLoading(false);

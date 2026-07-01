@@ -136,7 +136,7 @@ const INDUSTRIES = [
 
 const toAuthEmail = (input: string) => {
   const clean = input.trim().toLowerCase();
-  return clean.includes('@') ? clean : `${clean}@car.algoritmia.com`;
+  return clean.includes('@') ? clean : `${clean}@algoritmia.team`;
 };
 
 const inputCls =
