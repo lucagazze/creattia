@@ -15,7 +15,14 @@ export const isDemoMetaAccount = (accountId?: string | null) =>
   String(accountId || '') === DEMO_META_ACCOUNT_ID || String(accountId || '').startsWith('act_demo');
 export const isDemoKlaviyoKey = (apiKey?: string | null) => String(apiKey || '') === DEMO_KLAVIYO_KEY;
 export const isDemoProfile = (profile?: Partial<ClientProfile> | null) =>
-  Boolean(profile && (isDemoShop(profile.shopify_domain, profile.shopify_access_token) || isDemoMetaAccount(profile.meta_account_id)));
+  Boolean(profile && (
+    profile.id === 'demo-car-client' ||
+    profile.user_id === 'demo-user' ||
+    isDemoEmail((profile as any).email) ||
+    profile.plan === 'demo' ||
+    isDemoShop(profile.shopify_domain, profile.shopify_access_token) ||
+    isDemoMetaAccount(profile.meta_account_id)
+  ));
 
 export const withDemoProfileDefaults = (profile: ClientProfile | null, email?: string, userId?: string): ClientProfile | null => {
   if (!isDemoEmail(email) && !isDemoProfile(profile)) return profile;
@@ -40,6 +47,17 @@ export const withDemoProfileDefaults = (profile: ClientProfile | null, email?: s
     ig_username: 'demo.car.store',
     website_url: 'https://demo.algoritmiadesarrollos.com.ar',
     business_description: 'Cuenta de demostracion con datos simulados para presentar todas las metricas de C.A.R.',
+    scraped_content: profile?.scraped_content || 'Cerebro demo entrenado con catalogo, tienda online, politicas comerciales, metricas de ecommerce, Meta Ads, email marketing y mensajeria.',
+    instagram_context: profile?.instagram_context || 'Cuenta demo de Instagram y Facebook con publicaciones, comentarios y anuncios activos para responder consultas de clientes.',
+    custom_instructions: profile?.custom_instructions || JSON.stringify({
+      tone: 'Claro, cercano y comercial',
+      rules: [
+        'Responder con informacion concreta del catalogo demo.',
+        'Priorizar conversion, confianza y seguimiento por mensaje.',
+        'No inventar stock, precios ni promociones fuera de los datos disponibles.'
+      ],
+    }),
+    brain_updated_at: profile?.brain_updated_at || now,
     client_tags: ['tienda_online', 'meta_ads', 'email_marketing', 'demo'],
     connection_statuses: {
       ecommerce: 'connected',
