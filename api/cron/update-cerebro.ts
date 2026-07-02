@@ -9,11 +9,13 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // 1. Verify authorization (Vercel cron validation or secret parameter)
+  // 1. Solo CRON_SECRET real: x-vercel-cron es falsificable y un secreto hardcodeado en
+  // querystring queda expuesto en el código. Vercel envía el secreto automáticamente.
   const authHeader = req.headers.authorization;
-  const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}` || req.headers['x-vercel-cron'] === '1';
-  
-  if (!isCron && req.query.secret !== 'supersecretupdate') {
+  const cronSecret = process.env.CRON_SECRET || '';
+  const isCron = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+  if (!isCron) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

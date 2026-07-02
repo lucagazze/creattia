@@ -81,9 +81,36 @@ async function handleGraphProxy(req: VercelRequest, res: VercelResponse) {
   const graphPath = normalizeGraphPath(req.query.path);
   if (!graphPath) return res.status(400).json({ error: 'Invalid Meta path' });
 
+  const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+  });
+
+  // Un usuario solo puede consultar cuentas publicitarias (act_) de sus propios clientes.
+  // El select corre con el token del usuario: RLS limita las filas (los admins ven todas).
+  if (graphPath.startsWith('act_')) {
+    const actId = graphPath.split('/')[0];
+    const { data: myClients } = await supabaseUser.from('car_clients').select('meta_account_id');
+    const allowed = (myClients || []).some((r: any) => String(r.meta_account_id || '').trim() === actId);
+    if (!allowed) return res.status(403).json({ error: 'No autorizado para esta cuenta publicitaria' });
+  }
+
   const clientIdRaw = Array.isArray(req.query.clientId) ? req.query.clientId[0] : req.query.clientId;
   const graphClientId = typeof clientIdRaw === 'string' ? clientIdRaw.trim() : '';
   const clientTokens = await getClientMetaTokens(graphClientId, bearer);
+
+  // Paths me/* con el token de agencia listan activos de TODA la agencia: solo admins.
+  // Con token propio del cliente (OAuth), me/* devuelve sus propios activos y está permitido.
+  if ((graphPath === 'me' || graphPath.startsWith('me/')) && !clientTokens.userToken && !clientTokens.pageToken) {
+    const { data: adminRow } = await supabaseUser
+      .from('car_clients')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_admin', true)
+      .maybeSingle();
+    if (!adminRow) return res.status(403).json({ error: 'No autorizado' });
+  }
+
   const token = graphPath.startsWith('act_')
     ? (clientTokens.userToken || await getMetaToken())
     : (clientTokens.pageToken || clientTokens.userToken || await getMetaToken());
@@ -105,6 +132,15 @@ async function handleGraphProxy(req: VercelRequest, res: VercelResponse) {
         error: data?.error?.message || `Meta API error ${metaRes.status}`,
         metaError: data?.error || null,
       });
+    }
+    // Las URLs de paging de Meta incluyen el access_token del servidor: redactarlo
+    // antes de responder. El cliente pagina con paging.cursors.after vía este proxy.
+    if (data?.paging) {
+      for (const key of ['next', 'previous']) {
+        if (typeof data.paging[key] === 'string') {
+          data.paging[key] = data.paging[key].replace(/access_token=[^&]+/g, 'access_token=redacted');
+        }
+      }
     }
     res.setHeader('Cache-Control', 'private, max-age=60');
     return res.status(200).json(data);

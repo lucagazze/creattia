@@ -444,7 +444,7 @@ export default function MetaAdsPage() {
     setFetchError(null);
     setResolvedThumbnails({}); setResolvedDetails({}); setResolvingIds({});
     const tr = { since: since || activeSince, until: until || activeUntil };
-    const adFields = 'ad_id,spend,impressions,reach,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas,video_30_sec_watched_actions,video_p100_watched_actions';
+    const adFields = 'ad_id,ad_name,campaign_id,campaign_name,adset_id,adset_name,spend,impressions,reach,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas,video_30_sec_watched_actions,video_p100_watched_actions';
     Promise.all([
       metaAds.getAccountAds(accountId).catch((err) => {
         console.error("Error fetching account ads:", err);
@@ -455,22 +455,40 @@ export default function MetaAdsPage() {
       metaAds.getCampaigns(accountId).catch(() => ({ data: [] })),
       metaAds.getAccountAdsets(accountId).catch(() => ({ data: [] })),
     ]).then(([adsRes, insightsRes, campsRes, adsetsRes]) => {
-      const spentAdIds = new Set(
-        (insightsRes || [])
-          .filter((i: any) => parseFloat(i.spend || '0') > 0)
-          .map((i: any) => i.ad_id)
-          .filter(Boolean)
-      );
-      const adsWithSpend = (adsRes.data || []).filter((ad: any) => spentAdIds.has(ad.id));
-      setActiveAds(adsWithSpend.length > 0 ? adsWithSpend : (adsRes.data || []));
+      const spentInsights = (insightsRes || []).filter((i: any) => i.ad_id && parseFloat(i.spend || '0') > 0);
+      const spentAdIds = new Set(spentInsights.map((i: any) => i.ad_id));
       const byAdId: Record<string, any> = {};
       (insightsRes || []).forEach((i: any) => { if (i.ad_id) byAdId[i.ad_id] = i; });
+      // Anuncios eliminados que ya no existen en /ads pero tuvieron gasto en el período:
+      // se reconstruyen desde insights para que el histórico siempre sea visible.
+      const knownIds = new Set((adsRes.data || []).map((ad: any) => ad.id));
+      const ghostAds = spentInsights
+        .filter((i: any) => !knownIds.has(i.ad_id))
+        .map((i: any) => ({
+          id: i.ad_id,
+          name: i.ad_name || 'Anuncio eliminado',
+          campaign_id: i.campaign_id,
+          adset_id: i.adset_id,
+          effective_status: 'DELETED',
+          creative: null,
+        }));
+      const adsWithSpend = [...(adsRes.data || []).filter((ad: any) => spentAdIds.has(ad.id)), ...ghostAds]
+        .sort((a: any, b: any) => parseFloat(byAdId[b.id]?.spend || '0') - parseFloat(byAdId[a.id]?.spend || '0'));
+      setActiveAds(adsWithSpend);
       setAdInsightsMap(byAdId);
       const cMap: Record<string, string> = {};
       ((campsRes as any).data || []).forEach((c: any) => { if (c.id) cMap[c.id] = c.name; });
+      // Campañas eliminadas no vienen en /campaigns: usar el nombre que reportan los insights.
+      spentInsights.forEach((i: any) => {
+        if (i.campaign_id && !cMap[i.campaign_id] && i.campaign_name) cMap[i.campaign_id] = i.campaign_name;
+      });
       setCampaignMap(cMap);
       const aMap: Record<string, string> = {};
       ((adsetsRes as any).data || []).forEach((adset: any) => { if (adset.id) aMap[adset.id] = adset.name; });
+      // Conjuntos eliminados no vienen en /adsets: usar el nombre que reportan los insights.
+      spentInsights.forEach((i: any) => {
+        if (i.adset_id && !aMap[i.adset_id] && i.adset_name) aMap[i.adset_id] = i.adset_name;
+      });
       setAdsetMap(aMap);
     }).catch((err) => {
       console.error(err);
@@ -514,7 +532,7 @@ export default function MetaAdsPage() {
     if (!metaAccountId || activeAds.length === 0) return;
     const activeCount = Object.keys(resolvingIds).length;
     if (activeCount >= 4) return;
-    const toResolve = activeAds.filter(ad => !resolvedDetails[ad.id] && !resolvingIds[ad.id]);
+    const toResolve = activeAds.filter(ad => ad.effective_status !== 'DELETED' && !resolvedDetails[ad.id] && !resolvingIds[ad.id]);
     if (toResolve.length === 0) return;
     const batch = toResolve.slice(0, 4 - activeCount);
     if (batch.length === 0) return;
@@ -951,8 +969,8 @@ export default function MetaAdsPage() {
         {accountId && !loading && !fetchError && activeAds.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
             <div className="w-16 h-16 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center"><Layers className="w-7 h-7 text-zinc-400" /></div>
-            <p className="text-[15px] font-semibold text-zinc-500">No hay anuncios activos</p>
-            <p className="text-[13px] text-zinc-400">No se encontraron anuncios activos ni anuncios con gasto en el período seleccionado.</p>
+            <p className="text-[15px] font-semibold text-zinc-500">Sin inversión en este período</p>
+            <p className="text-[13px] text-zinc-400">Ningún anuncio tuvo gasto en el rango de fechas seleccionado. Probá con otro período.</p>
           </div>
         )}
 
@@ -1066,7 +1084,16 @@ export default function MetaAdsPage() {
                             )}
                             {isVideo && (<div className="absolute top-2 right-2 z-30 flex items-center gap-1 bg-black/60 text-white px-2 py-0.5 rounded-full text-[9px] font-bold uppercase backdrop-blur-sm"><Film className="w-3 h-3" /> Video</div>)}
                             {!isVideo && isCarousel && (<div className="absolute top-2 right-2 z-30 flex items-center gap-1 bg-black/60 text-white px-2 py-0.5 rounded-full text-[9px] font-bold uppercase backdrop-blur-sm"><Layers className="w-3 h-3" /> Carousel</div>)}
-                            <div className="absolute top-2 left-2 z-30"><span className="text-[9px] font-black px-2 py-1 rounded-lg bg-emerald-500/90 backdrop-blur-sm text-white uppercase tracking-wider">Activo</span></div>
+                            {(() => {
+                              const st = ad.effective_status || ad.status;
+                              const badge =
+                                st === 'ACTIVE' ? { label: 'Activo', cls: 'bg-emerald-500/90' } :
+                                st === 'DELETED' ? { label: 'Eliminado', cls: 'bg-red-500/90' } :
+                                st === 'ARCHIVED' ? { label: 'Archivado', cls: 'bg-zinc-500/90' } :
+                                (st === 'PAUSED' || st === 'ADSET_PAUSED' || st === 'CAMPAIGN_PAUSED') ? { label: 'Pausado', cls: 'bg-amber-500/90' } :
+                                { label: 'Inactivo', cls: 'bg-zinc-500/90' };
+                              return <div className="absolute top-2 left-2 z-30"><span className={`text-[9px] font-black px-2 py-1 rounded-lg ${badge.cls} backdrop-blur-sm text-white uppercase tracking-wider`}>{badge.label}</span></div>;
+                            })()}
                           </div>
                           <div className="p-4 flex flex-col gap-3 flex-1">
                             <div>

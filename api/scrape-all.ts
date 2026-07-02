@@ -74,6 +74,67 @@ async function callTribeV2Service(input: { frames: string[]; imageUrl?: string; 
   return normalizeCreativeAnalysis({ ...data, provider: data?.provider || 'tribev2' });
 }
 
+const CREATIVE_ANALYSIS_PROMPT = (isVideo: boolean) => `Sos un experto en neuromarketing y creativos de Meta Ads. Analizá esta imagen ${isVideo ? '(frame de un video de anuncio)' : 'de anuncio'} y devolvé SOLO un JSON válido, sin markdown, con esta forma exacta:
+{"attentionPct": <0-99, qué tanto captura la atención al scrollear el feed>, "attentionReason": "<1 frase en español>", "emotionPct": <0-99, impacto emocional>, "emotionReason": "<1 frase>", "cogLoad": <0-99, carga cognitiva (menos es mejor)>, "cogLoadReason": "<1 frase>", "highestRegion": "<zona que más atención captura: rostro, texto principal, producto, etc>", "textInsight": "<2 frases con el diagnóstico general del creativo>", "actionItems": ["<mejora concreta 1>", "<mejora 2>", "<mejora 3>"]}`;
+
+// Fallback cuando TRIBE v2 no está configurado o falla: visión con Gemini y, si no hay, OpenAI.
+async function analyzeCreativeWithAI(frames: string[], isVideo: boolean) {
+  const frame = frames[0] || '';
+  const match = frame.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return null;
+  const [, mimeType, b64] = match;
+  const prompt = CREATIVE_ANALYSIS_PROMPT(isVideo);
+
+  const geminiKey = getFirstEnv('GOOGLE_AI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY');
+  if (geminiKey) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: b64 } }] }],
+          generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
+        }),
+      });
+      if (r.ok) {
+        const data = await r.json() as any;
+        const text = (data.candidates?.[0]?.content?.parts || []).map((p: any) => p.text || '').join('');
+        if (text) {
+          const parsed = JSON.parse(text.replace(/^```json\s*/i, '').replace(/```\s*$/, ''));
+          return normalizeCreativeAnalysis({ ...parsed, provider: 'gemini-2.5-flash' });
+        }
+      }
+    } catch (err: any) {
+      console.warn('[analyze-creative] Gemini fallback failed:', err?.message || err);
+    }
+  }
+
+  const openAiKey = getFirstEnv('OPENAI_API_KEY', 'OPENAI_KEY');
+  if (openAiKey) {
+    try {
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openAiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: frame } }] }],
+          temperature: 0.4,
+          response_format: { type: 'json_object' },
+        }),
+      });
+      if (r.ok) {
+        const data = await r.json() as any;
+        const text = data.choices?.[0]?.message?.content || '';
+        if (text) return normalizeCreativeAnalysis({ ...JSON.parse(text), provider: 'gpt-4o-mini' });
+      }
+    } catch (err: any) {
+      console.warn('[analyze-creative] OpenAI fallback failed:', err?.message || err);
+    }
+  }
+
+  return null;
+}
+
 function cleanHtml(html: string): string {
   let text = html;
   // Remove non-content sections
@@ -330,31 +391,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (frames.length === 0) return res.status(400).json({ error: 'No frames provided' });
 
+    // TRIBE v2 si está configurado; si no (o si falla), visión IA (Gemini → OpenAI).
+    let analysis: any = null;
     try {
-      const tribeResult = await callTribeV2Service({
+      analysis = await callTribeV2Service({
         frames,
         imageUrl: earlyImageUrl,
         isVideo: !!earlyIsVideo,
       });
-      if (!tribeResult) {
-        return res.status(503).json({
-          error: 'TRIBE v2 no está configurado',
-          detail: 'Configurá TRIBE_V2_API_URL para analizar creativos. No se usan Gemini, ChatGPT ni fallback de IA.',
-        });
-      }
-      return res.status(200).json(tribeResult);
     } catch (err: any) {
-      console.warn('TRIBE v2 analysis failed:', err?.message || err);
-      return res.status(502).json({
-        error: 'TRIBE v2 no pudo analizar el creativo',
-        detail: err?.message || 'Revisá que el servicio TRIBE v2 esté activo y accesible desde TRIBE_V2_API_URL.',
+      console.warn('TRIBE v2 analysis failed, trying AI vision fallback:', err?.message || err);
+    }
+    if (!analysis) {
+      try {
+        analysis = await analyzeCreativeWithAI(frames, !!earlyIsVideo);
+      } catch (err: any) {
+        console.warn('AI vision fallback failed:', err?.message || err);
+      }
+    }
+    if (!analysis) {
+      return res.status(503).json({
+        error: 'No se pudo analizar el creativo',
+        detail: 'Configurá TRIBE_V2_API_URL o una API key de IA (GOOGLE_AI_API_KEY / OPENAI_API_KEY) en el servidor.',
       });
     }
+    return res.status(200).json(analysis);
   }
 
   // 1. Authenticate (check cron bypass first, then user session)
   const authHeader = req.headers.authorization;
-  const isCron = (authHeader && authHeader === `Bearer ${process.env.CRON_SECRET}`) || req.headers['x-vercel-cron'] === '1';
+  // Solo CRON_SECRET real: el header x-vercel-cron es falsificable por cualquier caller externo,
+  // y sin secreto configurado "Bearer undefined" autenticaría. Vercel envía el secreto automáticamente.
+  const cronSecret = process.env.CRON_SECRET || '';
+  const isCron = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
 
   let isAdmin = false;
   let userClientId: string | null = null;

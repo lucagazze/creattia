@@ -1114,6 +1114,30 @@ export default function DashboardPage() {
     }
   };
 
+  // Al obtener datos con éxito, limpia cualquier error viejo guardado en connection_statuses
+  // para que el estado en DB refleje la realidad (auto-reparación).
+  const clearPlatformErrorInDB = async (platformKey: string) => {
+    if (!profile?.id) return;
+    try {
+      const { data: clientRow } = await supabase
+        .from('car_clients')
+        .select('connection_statuses')
+        .eq('id', profile.id)
+        .single();
+
+      const currentStatuses = clientRow?.connection_statuses || {};
+      const currentVal = currentStatuses[platformKey];
+      if (currentVal === 'ok') return;
+
+      await supabase
+        .from('car_clients')
+        .update({ connection_statuses: { ...currentStatuses, [platformKey]: 'ok' } })
+        .eq('id', profile.id);
+    } catch (err) {
+      console.error(`Error clearing platform error for ${platformKey} in DB:`, err);
+    }
+  };
+
   const [links, setLinks] = useState<any[]>([]);
   const [metaDaily, setMetaDaily] = useState<any[]>([]);
   const [prevMetaDaily, setPrevMetaDaily] = useState<any[]>([]);
@@ -1463,6 +1487,8 @@ export default function DashboardPage() {
             throw new Error("No se obtuvieron datos de Shopify. Verifique el dominio y token.");
           }
           if (myFetchId !== fetchIdRef.current) return;
+          setShopifyError(null);
+          clearPlatformErrorInDB("shopify");
           setCurrentStore(currStore);
           setPrevStore(prevStoreData);
           updateCache('currentStore', currStore);
@@ -1480,8 +1506,9 @@ export default function DashboardPage() {
       };
 
       const fetchMeta = async () => {
-        const isMetaInError = typeof statuses.meta === 'string' && statuses.meta.startsWith('error');
-        if (!profile?.meta_account_id || isMetaInError) {
+        // Nota: un error guardado en connection_statuses NO bloquea el fetch.
+        // Si bloqueara, un error transitorio dejaría el dashboard sin métricas para siempre.
+        if (!profile?.meta_account_id) {
           setFetchingMeta(false);
           return;
         }
@@ -1591,6 +1618,8 @@ export default function DashboardPage() {
           }
 
           if (myFetchId !== fetchIdRef.current) return;
+          setMetaError(null);
+          clearPlatformErrorInDB("meta");
           setCurrentMeta(currSummary);
           setPrevMeta(prevSummary);
           setMetaDaily(padded);
@@ -1614,8 +1643,7 @@ export default function DashboardPage() {
       };
 
       const fetchKlaviyo = async () => {
-        const isKlaviyoInError = typeof statuses.klaviyo === 'string' && statuses.klaviyo.startsWith('error');
-        if (!profile?.klaviyo_api_key || isKlaviyoInError) {
+        if (!profile?.klaviyo_api_key) {
           setFetchingKlaviyo(false);
           return;
         }
@@ -1638,6 +1666,8 @@ export default function DashboardPage() {
             throw new Error("No se obtuvieron datos de Klaviyo. Verifique la API Key.");
           }
           if (myFetchId !== fetchIdRef.current) return;
+          setKlaviyoError(null);
+          clearPlatformErrorInDB("klaviyo");
           setCurrentKlaviyo(curr);
           setPrevKlaviyo(prev);
           updateCache('currentKlaviyo', curr);
