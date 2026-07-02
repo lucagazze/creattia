@@ -19,6 +19,29 @@ const getFirstEnv = (...names: string[]) => {
   return '';
 };
 
+// ── Shopify: fetch de pedidos tolerante a "Protected Customer Data" ──────────
+// Para apps públicas SIN la aprobación de datos protegidos de clientes (Partner
+// Dashboard → API access), orders.json devuelve 403. En ese caso reintentamos
+// excluyendo los campos protegidos (customer, email, direcciones): el dashboard
+// sigue funcionando y solo se degradan las métricas de clientes recurrentes.
+// Antes este 403 se tragaba en silencio y el dashboard quedaba vacío — motivo
+// del rechazo de la app en la revisión del App Store (regla 2.1.1).
+const SHOPIFY_SAFE_ORDER_FIELDS = 'id,name,order_number,created_at,cancelled_at,closed_at,total_price,subtotal_price,total_tax,total_discounts,financial_status,fulfillment_status,currency,line_items,discount_codes,shipping_lines,test';
+
+async function fetchShopifyOrdersPage(url: string, token: string): Promise<{ status: number; orders: any[]; nextUrl: string | null }> {
+  const doFetch = (u: string) => fetch(u, { headers: { 'X-Shopify-Access-Token': token } });
+  let res = await doFetch(url);
+  if (res.status === 403 && !url.includes('fields=')) {
+    const sep = url.includes('?') ? '&' : '?';
+    res = await doFetch(`${url}${sep}fields=${encodeURIComponent(SHOPIFY_SAFE_ORDER_FIELDS)}`);
+  }
+  if (!res.ok) return { status: res.status, orders: [], nextUrl: null };
+  const data: any = await res.json().catch(() => ({}));
+  const lh = res.headers.get('link') || '';
+  const nm = lh.match(/<([^>]+)>;\s*rel="next"/);
+  return { status: res.status, orders: data.orders || [], nextUrl: nm ? nm[1] : null };
+}
+
 function normalizeCreativeAnalysis(raw: any) {
   const attentionPct = Number(raw?.attentionPct ?? raw?.attention_pct ?? raw?.attention ?? raw?.retention ?? 0);
   const emotionPct = Number(raw?.emotionPct ?? raw?.emotion_pct ?? raw?.emotion ?? raw?.impact ?? 0);
@@ -609,15 +632,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let nextUrl: string | null = `https://${domain}/admin/api/2026-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
         let pagesCount = 0;
         while (nextUrl && pagesCount++ < 15) {
-          const sRes: Response = await fetch(nextUrl, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
-          if (!sRes.ok) break;
-          const sData: any = await sRes.json();
-          rawOrders = rawOrders.concat(sData.orders || []);
-          const lh = sRes.headers.get('link') || '';
-          const nm = lh.match(/<([^>]+)>;\s*rel="next"/);
-          nextUrl = nm ? nm[1] : null;
+          const page = await fetchShopifyOrdersPage(nextUrl, active_shopify_access_token);
+          if (page.status < 200 || page.status >= 300) {
+            if (rawOrders.length === 0 && [401, 402, 403].includes(page.status)) {
+              return res.status(502).json({ error: `Shopify rechazó la lectura de pedidos (HTTP ${page.status}). Reconectá la tienda desde Integraciones.` });
+            }
+            break;
+          }
+          rawOrders = rawOrders.concat(page.orders);
+          nextUrl = page.nextUrl;
         }
-      } 
+      }
       else if (active_platform === 'wordpress') {
         const base = (active_wordpress_url || '').replace(/\/$/, '');
         if (!base || !active_woo_consumer_key || !active_woo_consumer_secret) return res.status(400).json({ error: 'WooCommerce no configurado' });
@@ -1003,21 +1028,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!domain || !active_shopify_access_token) return res.status(400).json({ error: 'Shopify no configurado' });
 
         let nextUrl: string | null = `https://${domain}/admin/api/2026-01/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
-        while (nextUrl) {
-          const sRes: Response = await fetch(nextUrl, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
-          if (!sRes.ok) break;
-          const sData: any = await sRes.json();
-          rawOrders = rawOrders.concat(sData.orders || []);
-          const lh = sRes.headers.get('link') || '';
-          const nm = lh.match(/<([^>]+)>;\s*rel="next"/);
-          nextUrl = nm ? nm[1] : null;
+        let pagesGuard = 0;
+        while (nextUrl && pagesGuard++ < 40) {
+          const page = await fetchShopifyOrdersPage(nextUrl, active_shopify_access_token);
+          if (page.status < 200 || page.status >= 300) {
+            if (rawOrders.length === 0 && [401, 402, 403].includes(page.status)) {
+              return res.status(502).json({ error: `Shopify rechazó la lectura de pedidos (HTTP ${page.status}). Reconectá la tienda desde Integraciones.` });
+            }
+            break;
+          }
+          rawOrders = rawOrders.concat(page.orders);
+          nextUrl = page.nextUrl;
         }
 
-        const rRes = await fetch(`https://${domain}/admin/api/2026-01/orders.json?status=any&limit=40`, { headers: { 'X-Shopify-Access-Token': active_shopify_access_token } });
-        if (rRes.ok) {
-          const rData = await rRes.json();
-          rawRecent = rData.orders || [];
-        }
+        const recentPage = await fetchShopifyOrdersPage(`https://${domain}/admin/api/2026-01/orders.json?status=any&limit=40`, active_shopify_access_token);
+        rawRecent = recentPage.orders;
 
         // Fetch customer details in bulk to get real orders_count and total_spent
         const customerIds = [...new Set(

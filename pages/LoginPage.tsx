@@ -41,6 +41,23 @@ export default function LoginPage() {
     navigate(destination, { replace: true });
   }, [session, navigate]);
 
+  // Instalación desde el Shopify App Store: llega con ?shop=xxx.myshopify.com sin cuenta.
+  // Arrancar en "Crear cuenta" y avisar que al terminar se conecta la tienda automáticamente.
+  const shopifyShopParam = (() => {
+    try {
+      const fromSearch = new URLSearchParams(window.location.search).get('shop');
+      if (fromSearch) return fromSearch;
+      const hash = window.location.hash;
+      if (hash.includes('?')) return new URLSearchParams(hash.split('?')[1]).get('shop');
+    } catch { /* ignore */ }
+    return null;
+  })();
+
+  useEffect(() => {
+    if (shopifyShopParam && !session) setMode('register');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { showToast('Completá todos los campos', 'error'); return; }
@@ -227,6 +244,18 @@ export default function LoginPage() {
               Ecosistema de Algoritmia.
             </p>
           </div>
+
+          {/* Instalación desde Shopify: avisar que la tienda se conecta sola al crear la cuenta */}
+          {shopifyShopParam && (
+            <div className={`rounded-2xl border p-3.5 mb-4 flex items-start gap-2.5 ${
+              darkMode ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-emerald-50 border-emerald-200'
+            }`}>
+              <svg className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.7 6.1L12.3.4C12.1.2 11.9.2 11.7.4L5.3 6.1c-.2.2-.3.4-.2.7l2.1 14.8c0 .2.2.4.4.4h8.8c.2 0 .4-.2.4-.4l2.1-14.8c0-.3-.1-.5-.2-.7z"/></svg>
+              <p className={`text-[12px] leading-snug font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                Detectamos tu tienda <span className="font-black">{shopifyShopParam}</span>. Creá tu cuenta y se conectará automáticamente al terminar.
+              </p>
+            </div>
+          )}
 
           {/* Toggle — only show for login/register */}
           {mode !== 'reset' && (

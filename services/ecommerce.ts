@@ -23,6 +23,20 @@ function ecSetCache(key: string, data: any) {
 
 const BASE = '/api/shopify';
 
+// Sin la aprobación de "Protected Customer Data" (Partner Dashboard), Shopify devuelve
+// 403 en orders.json. Reintentamos excluyendo los campos protegidos (customer/email/
+// direcciones) para que las métricas sigan funcionando con datos no protegidos.
+const SHOPIFY_SAFE_ORDER_FIELDS = 'id,name,order_number,created_at,cancelled_at,closed_at,total_price,subtotal_price,total_tax,total_discounts,financial_status,fulfillment_status,currency,line_items,discount_codes,shipping_lines,test';
+
+const fetchShopifyWithSafeFallback = async (url: string, headers: Record<string, string>): Promise<Response> => {
+  const res = await fetch(url, { headers });
+  if (res.status === 403 && !url.includes('fields=')) {
+    const sep = url.includes('?') ? '&' : '?';
+    return fetch(`${url}${sep}fields=${encodeURIComponent(SHOPIFY_SAFE_ORDER_FIELDS)}`, { headers });
+  }
+  return res;
+};
+
 // ─── Order attribution ────────────────────────────────────────────────────────
 
 export type OrderAttribution = {
@@ -210,11 +224,9 @@ export const ecommerce = {
       let nextUrl: string | null = `${BASE}/orders.json?status=any&created_at_min=${sinceIso}&created_at_max=${untilIso}&limit=250`;
 
       while (nextUrl) {
-        const res: Response = await fetch(nextUrl, {
-          headers: {
-            'X-Shopify-Access-Token': token,
-            'X-Shop-Domain': cleanDomain,
-          }
+        const res: Response = await fetchShopifyWithSafeFallback(nextUrl, {
+          'X-Shopify-Access-Token': token,
+          'X-Shop-Domain': cleanDomain,
         });
 
         if (!res.ok) {
@@ -333,11 +345,9 @@ export const ecommerce = {
       const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
       const url = `${BASE}/orders.json?status=any&limit=${limit}`;
 
-      const res = await fetch(url, {
-        headers: {
-          'X-Shopify-Access-Token': token,
-          'X-Shop-Domain': cleanDomain,
-        }
+      const res = await fetchShopifyWithSafeFallback(url, {
+        'X-Shopify-Access-Token': token,
+        'X-Shop-Domain': cleanDomain,
       });
 
       if (!res.ok) {
