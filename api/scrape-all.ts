@@ -26,7 +26,8 @@ const getFirstEnv = (...names: string[]) => {
 // sigue funcionando y solo se degradan las métricas de clientes recurrentes.
 // Antes este 403 se tragaba en silencio y el dashboard quedaba vacío — motivo
 // del rechazo de la app en la revisión del App Store (regla 2.1.1).
-const SHOPIFY_SAFE_ORDER_FIELDS = 'id,name,order_number,created_at,cancelled_at,closed_at,total_price,subtotal_price,total_tax,total_discounts,financial_status,fulfillment_status,currency,line_items,discount_codes,shipping_lines,test';
+// landing_site/referring_site/source_name no son datos protegidos y alimentan la atribución por UTM.
+const SHOPIFY_SAFE_ORDER_FIELDS = 'id,name,order_number,created_at,cancelled_at,closed_at,total_price,subtotal_price,total_tax,total_discounts,financial_status,fulfillment_status,currency,line_items,discount_codes,shipping_lines,test,landing_site,referring_site,source_name';
 
 async function fetchShopifyOrdersPage(url: string, token: string): Promise<{ status: number; orders: any[]; nextUrl: string | null }> {
   const doFetch = (u: string) => fetch(u, { headers: { 'X-Shopify-Access-Token': token } });
@@ -57,6 +58,9 @@ function normalizeCreativeAnalysis(raw: any) {
     textInsight: String(raw?.textInsight ?? raw?.text_insight ?? raw?.summary ?? 'Análisis generado con TRIBE v2.'),
     actionItems: Array.isArray(raw?.actionItems ?? raw?.action_items)
       ? (raw.actionItems ?? raw.action_items).slice(0, 4).map((item: any) => String(item))
+      : [],
+    newAngles: Array.isArray(raw?.newAngles)
+      ? raw.newAngles.slice(0, 5).map((item: any) => String(item))
       : [],
     provider: raw?.provider ?? 'ai-vision',
   };
@@ -97,16 +101,24 @@ async function callTribeV2Service(input: { frames: string[]; imageUrl?: string; 
   return normalizeCreativeAnalysis({ ...data, provider: data?.provider || 'tribev2' });
 }
 
-const CREATIVE_ANALYSIS_PROMPT = (isVideo: boolean) => `Sos un experto en neuromarketing y creativos de Meta Ads. Analizá esta imagen ${isVideo ? '(frame de un video de anuncio)' : 'de anuncio'} y devolvé SOLO un JSON válido, sin markdown, con esta forma exacta:
-{"attentionPct": <0-99, qué tanto captura la atención al scrollear el feed>, "attentionReason": "<1 frase en español>", "emotionPct": <0-99, impacto emocional>, "emotionReason": "<1 frase>", "cogLoad": <0-99, carga cognitiva (menos es mejor)>, "cogLoadReason": "<1 frase>", "highestRegion": "<zona que más atención captura: rostro, texto principal, producto, etc>", "textInsight": "<2 frases con el diagnóstico general del creativo>", "actionItems": ["<mejora concreta 1>", "<mejora 2>", "<mejora 3>"]}`;
+const CREATIVE_ANALYSIS_PROMPT = (isVideo: boolean, fatigueContext?: any) => {
+  const base = `Sos un experto en neuromarketing y creativos de Meta Ads. Analizá esta imagen ${isVideo ? '(frame de un video de anuncio)' : 'de anuncio'} y devolvé SOLO un JSON válido, sin markdown, con esta forma exacta:
+{"attentionPct": <0-99, qué tanto captura la atención al scrollear el feed>, "attentionReason": "<1 frase en español>", "emotionPct": <0-99, impacto emocional>, "emotionReason": "<1 frase>", "cogLoad": <0-99, carga cognitiva (menos es mejor)>, "cogLoadReason": "<1 frase>", "highestRegion": "<zona que más atención captura: rostro, texto principal, producto, etc>", "textInsight": "<2 frases con el diagnóstico general del creativo>", "actionItems": ["<mejora concreta 1>", "<mejora 2>", "<mejora 3>"]`;
+  if (!fatigueContext) return base + '}';
+  const signals = Array.isArray(fatigueContext.signals) ? fatigueContext.signals.join('; ') : '';
+  return base + `, "newAngles": ["<ángulo 1>", "<ángulo 2>", "<ángulo 3>"]}
+
+CONTEXTO IMPORTANTE: este anuncio${fatigueContext.adName ? ` ("${String(fatigueContext.adName).slice(0, 120)}")` : ''} muestra señales de FATIGA CREATIVA: ${signals || 'rendimiento en caída'}.${fatigueContext.body ? ` Copy actual: "${String(fatigueContext.body).slice(0, 300)}".` : ''}
+En "newAngles" proponé 3 ángulos creativos NUEVOS y concretos para reemplazarlo, DISTINTOS al enfoque actual (por ejemplo: cambiar de beneficio a prueba social, de producto a problema, de demo a UGC). Cada ángulo en 1-2 frases accionables en español, listas para brifear a un diseñador.`;
+};
 
 // Fallback cuando TRIBE v2 no está configurado o falla: visión con Gemini y, si no hay, OpenAI.
-async function analyzeCreativeWithAI(frames: string[], isVideo: boolean) {
+async function analyzeCreativeWithAI(frames: string[], isVideo: boolean, fatigueContext?: any) {
   const frame = frames[0] || '';
   const match = frame.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return null;
   const [, mimeType, b64] = match;
-  const prompt = CREATIVE_ANALYSIS_PROMPT(isVideo);
+  const prompt = CREATIVE_ANALYSIS_PROMPT(isVideo, fatigueContext);
 
   const geminiKey = getFirstEnv('GOOGLE_AI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY');
   if (geminiKey) {
@@ -195,6 +207,65 @@ const SKIP_EXTENSIONS = /\.(css|js|jpg|jpeg|png|gif|svg|webp|ico|woff|woff2|ttf|
 const SKIP_PATHS = /\/(wp-content|wp-includes|wp-json|wp-admin|feed|tag|author|page\/\d+|cart|checkout|mi-cuenta|my-account|wishlist|compare|carrito)\//i;
 const SKIP_PRODUCT_PAGES = /\/(product|producto|shop\/|tienda\/|categoria-producto|product-category|collections\/|collection\/).+/i;
 
+// ── Atribución de pedidos por UTM (landing_site) y referrer ──────────────────
+// Agrupa los pedidos del período por fuente y, para Meta, por utm_campaign para
+// poder comparar el ROAS que reporta Meta contra lo que registra la tienda.
+function buildOrderAttribution(orders: any[]) {
+  const empty = () => ({ orders: 0, revenue: 0 });
+  const summary: Record<string, { orders: number; revenue: number }> = {
+    meta_ads: empty(), google_ads: empty(), email: empty(), organic: empty(), other: empty(), direct: empty(),
+  };
+  const metaCampaigns: Record<string, { key: string; orders: number; revenue: number }> = {};
+  let ordersWithUtms = 0;
+
+  for (const o of orders) {
+    const revenue = parseFloat(o.total_price || 0) || 0;
+    const landing: string = o.landing_site || '';
+    const referrer: string = o.referring_site || '';
+    let src = '', med = '', camp = '';
+    if (landing) {
+      try {
+        const u = new URL(landing.startsWith('http') ? landing : `https://x.com${landing}`);
+        src = (u.searchParams.get('utm_source') || '').toLowerCase();
+        med = (u.searchParams.get('utm_medium') || '').toLowerCase();
+        camp = u.searchParams.get('utm_campaign') || '';
+      } catch { /* landing malformado */ }
+    }
+    if (src || med) ordersWithUtms++;
+
+    let bucket = 'direct';
+    if (['facebook', 'instagram', 'fb', 'meta', 'ig'].some(x => src.includes(x)) || (['paid', 'paidsocial', 'paid_social', 'cpc'].includes(med) && !src.includes('google'))) bucket = 'meta_ads';
+    else if (src.includes('google') && ['cpc', 'paid', 'ppc', 'paidsearch', 'paid_search'].some(x => med.includes(x))) bucket = 'google_ads';
+    else if (med === 'email' || src === 'email' || ['klaviyo', 'mailchimp', 'brevo', 'sendgrid', 'omnisend'].some(x => src.includes(x))) bucket = 'email';
+    else if (med === 'organic') bucket = 'organic';
+    else if (src || med) bucket = 'other';
+    else if (referrer) {
+      try {
+        const host = new URL(referrer.startsWith('http') ? referrer : `https://${referrer}`).hostname.replace(/^www\./, '');
+        if (['facebook.com', 'instagram.com', 'fb.com', 'l.facebook.com', 'lm.facebook.com', 'l.instagram.com'].some(h => host.endsWith(h))) bucket = 'meta_ads';
+        else if (host.startsWith('google.') || host.includes('.google.')) bucket = 'organic';
+        else bucket = 'other';
+      } catch { /* queda direct */ }
+    }
+    summary[bucket].orders += 1;
+    summary[bucket].revenue += revenue;
+    if (bucket === 'meta_ads') {
+      const key = (camp || 'Sin utm_campaign').trim();
+      const norm = key.toLowerCase();
+      if (!metaCampaigns[norm]) metaCampaigns[norm] = { key, orders: 0, revenue: 0 };
+      metaCampaigns[norm].orders += 1;
+      metaCampaigns[norm].revenue += revenue;
+    }
+  }
+
+  return {
+    summary,
+    metaCampaigns: Object.values(metaCampaigns).sort((a, b) => b.revenue - a.revenue),
+    ordersWithUtms,
+    totalOrders: orders.length,
+  };
+}
+
 function normalizeOrder(o: any, platform: string) {
   if (platform === 'shopify') {
     // Parse string numeric fields so .toLocaleString() and arithmetic work correctly
@@ -236,6 +307,7 @@ function normalizeOrder(o: any, platform: string) {
       customer_name: o.customer ? `${o.customer.name || ''}`.trim() : 'Sin Cliente',
       email: o.customer?.email || null,
       phone: o.customer?.phone || null,
+      landing_site: o.landing_url || null,
       line_items: (o.line_items || []).map((it: any) => ({
         product_id: it.product_id,
         variant_id: it.variant_id || it.product_id,
@@ -388,7 +460,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── CREATIVE ANALYSIS — no auth required (landing page + app users) ─────────
-  const { type: earlyType, frames: earlyFrames, imageUrl: earlyImageUrl, isVideo: earlyIsVideo } = req.body as any;
+  const { type: earlyType, frames: earlyFrames, imageUrl: earlyImageUrl, isVideo: earlyIsVideo, fatigueContext: earlyFatigueContext } = req.body as any;
   if (earlyType === 'analyze-creative') {
     const frames: string[] = Array.isArray(earlyFrames) ? earlyFrames.filter(Boolean) : [];
     if (frames.length === 0 && earlyImageUrl) {
@@ -427,7 +499,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (!analysis) {
       try {
-        analysis = await analyzeCreativeWithAI(frames, !!earlyIsVideo);
+        analysis = await analyzeCreativeWithAI(frames, !!earlyIsVideo, earlyFatigueContext);
       } catch (err: any) {
         console.warn('AI vision fallback failed:', err?.message || err);
       }
@@ -1437,6 +1509,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         variantOrders: variantStats,
         topProvinces,
         topCities,
+        attribution: buildOrderAttribution(validOrders),
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Error interno' });

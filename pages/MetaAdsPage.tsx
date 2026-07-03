@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import DOMPurify from 'dompurify';
 import { useAIGate } from '../hooks/useAIGate';
-import { metaAds, today, presetToRange, DatePreset } from '../services/metaAds';
+import { metaAds, today, presetToRange, getPrevPeriod, DatePreset } from '../services/metaAds';
+import { ecommerce } from '../services/ecommerce';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewAs } from '../contexts/ViewAsContext';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
@@ -15,7 +16,7 @@ import { supabase } from '../services/supabase';
 import {
   Layers, Film, X, Loader2, ImageIcon, ChevronLeft, ChevronRight, Calendar, ChevronDown,
   Instagram, MessageCircle, Heart, Send, Sparkles, ArrowUpRight, Play, Facebook,
-  Share2, Eye, MousePointerClick, Users, Brain, AlertTriangle, EyeOff
+  Share2, Eye, MousePointerClick, Users, Brain, AlertTriangle, EyeOff, TrendingDown, Scale
 } from 'lucide-react';
 
 // ── AutoResizeTextarea ────────────────────────────────────────────────────────
@@ -137,10 +138,17 @@ export default function MetaAdsPage() {
   // ── Ads state ───────────────────────────────────────────────────────────────
   const [activeAds, setActiveAds] = useState<any[]>([]);
   const [adInsightsMap, setAdInsightsMap] = useState<Record<string, any>>({});
+  const [prevAdInsightsMap, setPrevAdInsightsMap] = useState<Record<string, any>>({});
   const [campaignMap, setCampaignMap] = useState<Record<string, string>>({});
   const [adsetMap, setAdsetMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // ── Atribución real (Meta vs tienda) ────────────────────────────────────────
+  const [attribStore, setAttribStore] = useState<any>(null);
+  const [attribMetaCampaigns, setAttribMetaCampaigns] = useState<any[]>([]);
+  const [loadingAttrib, setLoadingAttrib] = useState(false);
+  const [showAttrib, setShowAttrib] = useState(true);
 
   const [resolvedThumbnails, setResolvedThumbnails] = useState<Record<string, string>>({});
   const [resolvedDetails, setResolvedDetails] = useState<Record<string, any>>({});
@@ -218,7 +226,7 @@ export default function MetaAdsPage() {
     }
   }, [clientId]);
 
-  const analyzeCreativeUrl = async (imageUrl: string | null, isVideo: boolean): Promise<any> => {
+  const analyzeCreativeUrl = async (imageUrl: string | null, isVideo: boolean, fatigueContext?: any): Promise<any> => {
     if (!imageUrl) throw new Error('No hay imagen disponible para analizar.');
     let frame: string | null = null;
     try {
@@ -248,7 +256,7 @@ export default function MetaAdsPage() {
     const res = await fetch('/api/scrape-all', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ type: 'analyze-creative', frames: frame ? [frame] : [], imageUrl, isVideo }),
+      body: JSON.stringify({ type: 'analyze-creative', frames: frame ? [frame] : [], imageUrl, isVideo, fatigueContext }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || data.error || 'No se pudo analizar el creativo con IA.');
@@ -264,7 +272,12 @@ export default function MetaAdsPage() {
       setSlideTab('metrics');
       const durationSec = isVideo ? clampDuration(await getRemoteVideoDuration(videoUrl)) : 30;
       setAnalysisDurationSec(durationSec);
-      analyzeCreativeUrl(imageUrl || null, isVideo || false)
+      // Si el anuncio muestra fatiga, la IA además propone ángulos nuevos para reemplazarlo
+      const fatigue = selectedAd ? getAdFatigue(selectedAd.ad) : null;
+      const fatigueContext = fatigue
+        ? { adName: selectedAd?.name, body: selectedAd?.body, signals: fatigue.signals }
+        : undefined;
+      analyzeCreativeUrl(imageUrl || null, isVideo || false, fatigueContext)
         .then(result => {
           setTribeResult(result);
           setTimeline(genTimeline(result.attentionPct, result.emotionPct, result.cogLoad, result.score, durationSec));
@@ -435,7 +448,7 @@ export default function MetaAdsPage() {
   const fetchAds = (since?: string, until?: string) => {
     const accountId = metaAccountId;
     if (!accountId) {
-      setActiveAds([]); setAdInsightsMap({}); setCampaignMap({}); setAdsetMap({});
+      setActiveAds([]); setAdInsightsMap({}); setPrevAdInsightsMap({}); setCampaignMap({}); setAdsetMap({});
       setResolvedThumbnails({}); setResolvedDetails({}); setResolvingIds({});
       setLoading(false);
       return;
@@ -444,7 +457,9 @@ export default function MetaAdsPage() {
     setFetchError(null);
     setResolvedThumbnails({}); setResolvedDetails({}); setResolvingIds({});
     const tr = { since: since || activeSince, until: until || activeUntil };
-    const adFields = 'ad_id,ad_name,campaign_id,campaign_name,adset_id,adset_name,spend,impressions,reach,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas,video_30_sec_watched_actions,video_p100_watched_actions';
+    // Período anterior equivalente: base de comparación para detectar fatiga creativa
+    const prevTr = getPrevPeriod(tr.since, tr.until);
+    const adFields = 'ad_id,ad_name,campaign_id,campaign_name,adset_id,adset_name,spend,impressions,reach,frequency,inline_link_click_ctr,inline_link_clicks,actions,cost_per_action_type,action_values,purchase_roas,video_30_sec_watched_actions,video_p100_watched_actions';
     Promise.all([
       metaAds.getAccountAds(accountId).catch((err) => {
         console.error("Error fetching account ads:", err);
@@ -454,7 +469,11 @@ export default function MetaAdsPage() {
       metaAds.getAdInsightsForAccount(accountId, adFields, tr).catch(() => []),
       metaAds.getCampaigns(accountId).catch(() => ({ data: [] })),
       metaAds.getAccountAdsets(accountId).catch(() => ({ data: [] })),
-    ]).then(([adsRes, insightsRes, campsRes, adsetsRes]) => {
+      metaAds.getAdInsightsForAccount(accountId, adFields, prevTr).catch(() => []),
+    ]).then(([adsRes, insightsRes, campsRes, adsetsRes, prevInsightsRes]) => {
+      const prevByAdId: Record<string, any> = {};
+      (prevInsightsRes || []).forEach((i: any) => { if (i.ad_id) prevByAdId[i.ad_id] = i; });
+      setPrevAdInsightsMap(prevByAdId);
       const spentInsights = (insightsRes || []).filter((i: any) => i.ad_id && parseFloat(i.spend || '0') > 0);
       const spentAdIds = new Set(spentInsights.map((i: any) => i.ad_id));
       const byAdId: Record<string, any> = {};
@@ -497,6 +516,76 @@ export default function MetaAdsPage() {
   };
 
   useEffect(() => { fetchAds(activeSince, activeUntil); }, [profile?.id, activeSince, activeUntil]);
+
+  // ── Fatiga creativa ──────────────────────────────────────────────────────────
+  // Compara el período actual contra el anterior equivalente. Señales: CTR en caída,
+  // frecuencia alta y CPA en alza. 2+ señales = fatigado, 1 = vigilar.
+  const countAdResults = (ins: any): number => {
+    const actions = ins?.actions || [];
+    const get = (t: string) => { const a = actions.find((x: any) => x.action_type === t || x.action_type === `offsite_conversion.fb_pixel_${t}`); return a ? parseInt(a.value) : 0; };
+    const msg = actions.find((x: any) => x.action_type === 'onsite_conversion.messaging_conversation_started_7d' || x.action_type === 'onsite_conversion.messaging_first_reply');
+    return get('purchase') + get('lead') + (msg ? parseInt(msg.value) : 0);
+  };
+
+  const getAdFatigue = (ad: any): { level: 'high' | 'watch'; signals: string[] } | null => {
+    const st = ad?.effective_status || ad?.status;
+    if (st !== 'ACTIVE') return null;
+    const curr = adInsightsMap[ad.id];
+    const prev = prevAdInsightsMap[ad.id];
+    if (!curr || !prev) return null;
+    const spend = parseFloat(curr.spend || 0);
+    const prevSpend = parseFloat(prev.spend || 0);
+    // Sin gasto comparable en ambos períodos, la señal no es confiable
+    if (spend < 3 || prevSpend < 3) return null;
+    const signals: string[] = [];
+    const ctr = parseFloat(curr.inline_link_click_ctr || 0);
+    const prevCtr = parseFloat(prev.inline_link_click_ctr || 0);
+    if (prevCtr > 0 && ctr < prevCtr * 0.8) signals.push(`CTR cayó ${Math.round((1 - ctr / prevCtr) * 100)}% (${prevCtr.toFixed(2)}% → ${ctr.toFixed(2)}%)`);
+    const freq = parseFloat(curr.frequency || 0);
+    if (freq >= 2.5) signals.push(`Frecuencia alta: ${freq.toFixed(1)} — la audiencia ya lo vio varias veces`);
+    const results = countAdResults(curr);
+    const prevResults = countAdResults(prev);
+    const cpa = results > 0 ? spend / results : 0;
+    const prevCpa = prevResults > 0 ? prevSpend / prevResults : 0;
+    if (prevCpa > 0 && cpa > 0 && cpa > prevCpa * 1.25) signals.push(`CPA subió ${Math.round((cpa / prevCpa - 1) * 100)}% ($${prevCpa.toFixed(0)} → $${cpa.toFixed(0)})`);
+    if (prevResults > 1 && results === 0) signals.push('Sin resultados en este período (antes convertía)');
+    if (signals.length >= 2) return { level: 'high', signals };
+    if (signals.length === 1) return { level: 'watch', signals };
+    return null;
+  };
+
+  // ── Atribución real: pedidos de la tienda (UTM) vs campañas de Meta ─────────
+  const prof: any = profile;
+  const storePlatform = (() => {
+    const configured = String(prof?.ecommerce_platform || '').trim().toLowerCase();
+    if (configured === 'shopify' || configured === 'tiendanube') return configured;
+    if (configured === 'woocommerce' || configured === 'woo' || configured === 'wordpress') return 'wordpress';
+    if (prof?.shopify_domain && prof?.shopify_access_token) return 'shopify';
+    if (prof?.tiendanube_store_id && prof?.tiendanube_access_token) return 'tiendanube';
+    if (prof?.wordpress_url && prof?.woo_consumer_key) return 'wordpress';
+    return null;
+  })();
+  const hasStoreForAttrib = !!storePlatform && !!clientId;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!metaAccountId || !hasStoreForAttrib) {
+      setAttribStore(null);
+      setAttribMetaCampaigns([]);
+      return;
+    }
+    const tr = { since: activeSince, until: activeUntil };
+    setLoadingAttrib(true);
+    Promise.all([
+      ecommerce.getDashboardData(storePlatform!, prof?.shopify_domain, prof?.shopify_access_token, tr.since, tr.until, clientId).catch(() => null),
+      metaAds.getInsightsAtCampaignLevel(metaAccountId, 'campaign_id,campaign_name,spend,actions,action_values', tr).catch(() => []),
+    ]).then(([storeData, campInsights]) => {
+      if (cancelled) return;
+      setAttribStore(storeData);
+      setAttribMetaCampaigns(Array.isArray(campInsights) ? campInsights : []);
+    }).finally(() => { if (!cancelled) setLoadingAttrib(false); });
+    return () => { cancelled = true; };
+  }, [metaAccountId, clientId, activeSince, activeUntil, hasStoreForAttrib]);
 
   // ── Creative resolver (shared fetch logic) ─────────────────────────────────
   const resolveCreative = useCallback(async (ad: any) => {
@@ -974,6 +1063,146 @@ export default function MetaAdsPage() {
           </div>
         )}
 
+        {/* ── Atribución real: Meta vs. tienda ── */}
+        {accountId && hasStoreForAttrib && !fetchError && (() => {
+          const attribution = attribStore?.attribution;
+          if (loadingAttrib && !attribution) {
+            return (
+              <div className="mb-8 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/30 p-5 flex items-center gap-3">
+                <Loader2 className="w-4 h-4 text-violet-500 animate-spin" />
+                <span className="text-[12px] font-bold text-zinc-400">Cruzando pedidos de la tienda con campañas de Meta...</span>
+              </div>
+            );
+          }
+          if (!attribution) return null;
+
+          const fmt$ = (n: number) => `$${(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+          const norm = (s: string) => String(s || '').trim().toLowerCase();
+          const storeMeta = attribution.summary?.meta_ads || { orders: 0, revenue: 0 };
+          const storeCampaigns: any[] = attribution.metaCampaigns || [];
+
+          // Campañas de Meta con gasto en el período
+          const metaRows = (attribMetaCampaigns || [])
+            .map((c: any) => {
+              const spend = parseFloat(c.spend || 0);
+              const purchases = (() => { const a = (c.actions || []).find((x: any) => x.action_type === 'purchase' || x.action_type === 'offsite_conversion.fb_pixel_purchase' || x.action_type === 'omni_purchase'); return a ? parseInt(a.value) : 0; })();
+              const metaRevenue = (() => { const v = (c.action_values || []).find((x: any) => x.action_type === 'purchase' || x.action_type === 'offsite_conversion.fb_pixel_purchase' || x.action_type === 'omni_purchase'); return v ? parseFloat(v.value) : 0; })();
+              // Match por utm_campaign = nombre de campaña o ID
+              const storeMatch = storeCampaigns.find((sc: any) => norm(sc.key) === norm(c.campaign_name) || String(sc.key).trim() === String(c.campaign_id));
+              return { id: c.campaign_id, name: c.campaign_name, spend, purchases, metaRevenue, storeOrders: storeMatch?.orders || 0, storeRevenue: storeMatch?.revenue || 0, matched: !!storeMatch };
+            })
+            .filter((r: any) => r.spend > 0)
+            .sort((a: any, b: any) => b.spend - a.spend);
+
+          if (metaRows.length === 0 && storeMeta.orders === 0) return null;
+
+          const totalSpend = metaRows.reduce((s: number, r: any) => s + r.spend, 0);
+          const totalMetaRevenue = metaRows.reduce((s: number, r: any) => s + r.metaRevenue, 0);
+          const totalMetaPurchases = metaRows.reduce((s: number, r: any) => s + r.purchases, 0);
+          const metaRoas = totalSpend > 0 ? totalMetaRevenue / totalSpend : 0;
+          const realRoas = totalSpend > 0 ? storeMeta.revenue / totalSpend : 0;
+          const matchedStoreOrders = metaRows.reduce((s: number, r: any) => s + r.storeOrders, 0);
+          const unmatchedStore = { orders: storeMeta.orders - matchedStoreOrders, revenue: storeMeta.revenue - metaRows.reduce((s: number, r: any) => s + r.storeRevenue, 0) };
+          const utmCoverage = attribution.totalOrders > 0 ? Math.round((attribution.ordersWithUtms / attribution.totalOrders) * 100) : 0;
+          const gapPct = totalMetaRevenue > 0 ? Math.round(((storeMeta.revenue - totalMetaRevenue) / totalMetaRevenue) * 100) : 0;
+
+          return (
+            <div className="mb-10 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 shadow-sm overflow-hidden">
+              <button onClick={() => setShowAttrib(v => !v)} className="w-full flex items-center justify-between p-5 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-500"><Scale className="w-4 h-4" /></div>
+                  <div>
+                    <span className="text-[15px] font-black text-zinc-900 dark:text-white block">Atribución real — Meta vs. tienda</span>
+                    <span className="text-[11px] font-bold text-zinc-400">Pedidos con UTM cruzados con campañas · {utmCoverage}% de los pedidos traen UTMs</span>
+                  </div>
+                </div>
+                <ChevronLeft className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${showAttrib ? '-rotate-90' : ''}`} />
+              </button>
+
+              {showAttrib && (
+                <div className="px-5 pb-5 space-y-4">
+                  {/* Resumen: la brecha */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-blue-200/50 dark:border-blue-800/30 bg-blue-50/50 dark:bg-blue-950/20 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-blue-500 mb-1">Meta dice</p>
+                      <p className="text-[18px] font-black text-zinc-900 dark:text-white">{fmt$(totalMetaRevenue)}</p>
+                      <p className="text-[11px] font-bold text-zinc-400">{totalMetaPurchases} compras · ROAS {metaRoas.toFixed(2)}</p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-200/50 dark:border-emerald-800/30 bg-emerald-50/50 dark:bg-emerald-950/20 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-emerald-500 mb-1">Tu tienda registra</p>
+                      <p className="text-[18px] font-black text-zinc-900 dark:text-white">{fmt$(storeMeta.revenue)}</p>
+                      <p className="text-[11px] font-bold text-zinc-400">{storeMeta.orders} pedidos con origen Meta · ROAS real {realRoas.toFixed(2)}</p>
+                    </div>
+                    <div className={`rounded-xl border p-4 ${gapPct < 0 ? 'border-amber-200/50 dark:border-amber-800/30 bg-amber-50/50 dark:bg-amber-950/20' : 'border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/40'}`}>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400 mb-1">Brecha de atribución</p>
+                      <p className={`text-[18px] font-black ${gapPct < 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{gapPct > 0 ? '+' : ''}{gapPct}%</p>
+                      <p className="text-[11px] font-bold text-zinc-400">{gapPct < 0 ? 'Meta reporta más de lo que la tienda registra' : 'La tienda registra igual o más que Meta'}</p>
+                    </div>
+                  </div>
+
+                  {/* Tabla por campaña */}
+                  {metaRows.length > 0 && (
+                    <div className="overflow-x-auto rounded-xl border border-zinc-100 dark:border-zinc-800">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-zinc-50 dark:bg-zinc-900/60 text-[9.5px] font-black uppercase tracking-wider text-zinc-400">
+                            <th className="p-3">Campaña</th>
+                            <th className="p-3 text-right">Gasto</th>
+                            <th className="p-3 text-right text-blue-500">Meta: compras</th>
+                            <th className="p-3 text-right text-blue-500">Meta: ingresos</th>
+                            <th className="p-3 text-right text-blue-500">Meta ROAS</th>
+                            <th className="p-3 text-right text-emerald-500">Tienda: pedidos</th>
+                            <th className="p-3 text-right text-emerald-500">Tienda: ingresos</th>
+                            <th className="p-3 text-right text-emerald-500">ROAS real</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-[12px] font-bold text-zinc-700 dark:text-zinc-300">
+                          {metaRows.map((r: any) => (
+                            <tr key={r.id} className="border-t border-zinc-50 dark:border-zinc-800/60">
+                              <td className="p-3 max-w-[220px] truncate" title={r.name}>{r.name}</td>
+                              <td className="p-3 text-right">{fmt$(r.spend)}</td>
+                              <td className="p-3 text-right">{r.purchases || '—'}</td>
+                              <td className="p-3 text-right">{r.metaRevenue > 0 ? fmt$(r.metaRevenue) : '—'}</td>
+                              <td className="p-3 text-right">{r.spend > 0 && r.metaRevenue > 0 ? (r.metaRevenue / r.spend).toFixed(2) : '—'}</td>
+                              <td className="p-3 text-right">{r.matched ? r.storeOrders : <span className="text-zinc-300 dark:text-zinc-600" title="Ningún pedido llegó con esta campaña en la UTM">sin match</span>}</td>
+                              <td className="p-3 text-right">{r.matched && r.storeRevenue > 0 ? fmt$(r.storeRevenue) : '—'}</td>
+                              <td className="p-3 text-right">{r.matched && r.spend > 0 && r.storeRevenue > 0 ? <span className={r.storeRevenue / r.spend >= 1 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}>{(r.storeRevenue / r.spend).toFixed(2)}</span> : '—'}</td>
+                            </tr>
+                          ))}
+                          {unmatchedStore.orders > 0 && (
+                            <tr className="border-t border-zinc-50 dark:border-zinc-800/60 text-zinc-400">
+                              <td className="p-3 italic">Otros pedidos con origen Meta (UTM sin match de campaña)</td>
+                              <td className="p-3 text-right">—</td>
+                              <td className="p-3 text-right">—</td>
+                              <td className="p-3 text-right">—</td>
+                              <td className="p-3 text-right">—</td>
+                              <td className="p-3 text-right">{unmatchedStore.orders}</td>
+                              <td className="p-3 text-right">{fmt$(Math.max(0, unmatchedStore.revenue))}</td>
+                              <td className="p-3 text-right">—</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {utmCoverage < 50 && (
+                    <div className="flex items-start gap-2 rounded-xl border border-amber-200/50 dark:border-amber-800/30 bg-amber-50/50 dark:bg-amber-950/20 p-3">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <p className="text-[11.5px] font-semibold text-amber-700 dark:text-amber-400 leading-snug">
+                        Solo el {utmCoverage}% de los pedidos del período traen UTMs. Para una atribución precisa, configurá los parámetros de URL en tus anuncios de Meta: <code className="font-black">utm_source=facebook&utm_medium=paid&utm_campaign={'{{campaign.name}}'}</code>
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-zinc-400 leading-snug">
+                    Meta atribuye con su ventana de conversión (ej. 7 días clic / 1 día vista); la tienda registra el pedido solo si el último clic trajo UTMs de Meta. La verdad suele estar entre ambos números.
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Ads grid */}
         {accountId && activeAds.length > 0 && (() => {
           const getAdSpend = (ad: any) => parseFloat(adInsightsMap[ad.id]?.spend || 0);
@@ -1092,7 +1321,22 @@ export default function MetaAdsPage() {
                                 st === 'ARCHIVED' ? { label: 'Archivado', cls: 'bg-zinc-500/90' } :
                                 (st === 'PAUSED' || st === 'ADSET_PAUSED' || st === 'CAMPAIGN_PAUSED') ? { label: 'Pausado', cls: 'bg-amber-500/90' } :
                                 { label: 'Inactivo', cls: 'bg-zinc-500/90' };
-                              return <div className="absolute top-2 left-2 z-30"><span className={`text-[9px] font-black px-2 py-1 rounded-lg ${badge.cls} backdrop-blur-sm text-white uppercase tracking-wider`}>{badge.label}</span></div>;
+                              const fatigue = getAdFatigue(ad);
+                              return (
+                                <div className="absolute top-2 left-2 z-30 flex flex-col items-start gap-1">
+                                  <span className={`text-[9px] font-black px-2 py-1 rounded-lg ${badge.cls} backdrop-blur-sm text-white uppercase tracking-wider`}>{badge.label}</span>
+                                  {fatigue?.level === 'high' && (
+                                    <span title={fatigue.signals.join(' · ')} className="text-[9px] font-black px-2 py-1 rounded-lg bg-red-600/95 backdrop-blur-sm text-white uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                                      <TrendingDown className="w-3 h-3" /> Fatigado — rotar
+                                    </span>
+                                  )}
+                                  {fatigue?.level === 'watch' && (
+                                    <span title={fatigue.signals.join(' · ')} className="text-[9px] font-black px-2 py-1 rounded-lg bg-amber-500/95 backdrop-blur-sm text-white uppercase tracking-wider flex items-center gap-1">
+                                      <TrendingDown className="w-3 h-3" /> Vigilar
+                                    </span>
+                                  )}
+                                </div>
+                              );
                             })()}
                           </div>
                           <div className="p-4 flex flex-col gap-3 flex-1">
@@ -1414,6 +1658,29 @@ export default function MetaAdsPage() {
 	                          const metrics = tribeResult;
                           return (
                             <div className="space-y-5 text-left animate-in fade-in duration-200">
+                              {/* Señales de fatiga del anuncio (comparación vs período anterior) */}
+                              {(() => {
+                                const fatigue = selectedAd ? getAdFatigue(selectedAd.ad) : null;
+                                if (!fatigue) return null;
+                                return (
+                                  <div className={`p-4 rounded-2xl border ${fatigue.level === 'high' ? 'bg-red-50/60 dark:bg-red-950/20 border-red-200/60 dark:border-red-800/30' : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/30'}`}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <TrendingDown className={`w-4 h-4 ${fatigue.level === 'high' ? 'text-red-500' : 'text-amber-500'}`} />
+                                      <span className={`text-[12px] font-black uppercase tracking-wider ${fatigue.level === 'high' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                        {fatigue.level === 'high' ? 'Fatiga creativa — rotar este anuncio' : 'Señal de fatiga — vigilar'}
+                                      </span>
+                                    </div>
+                                    <ul className="space-y-1">
+                                      {fatigue.signals.map((s, i) => (
+                                        <li key={i} className="text-[11.5px] font-semibold text-zinc-600 dark:text-zinc-300 flex items-start gap-1.5">
+                                          <span className={`w-1 h-1 rounded-full mt-1.5 shrink-0 ${fatigue.level === 'high' ? 'bg-red-400' : 'bg-amber-400'}`} />{s}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                );
+                              })()}
+
                               {/* Score global */}
                               <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/60 rounded-2xl flex items-center gap-4">
                                 <div className={`w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-lg font-black text-white shrink-0 ${scoreCls(metrics.score)}`}>
@@ -1434,6 +1701,24 @@ export default function MetaAdsPage() {
                                 <MetricBar label="Emoción" value={metrics.emotionPct} color={metrics.emotionPct >= 70 ? 'bg-emerald-500' : metrics.emotionPct >= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.emotionReason} />
                                 <MetricBar label="Carga Cognitiva" value={metrics.cogLoad} color={metrics.cogLoad <= 30 ? 'bg-emerald-500' : metrics.cogLoad <= 50 ? 'bg-amber-500' : 'bg-red-500'} reason={metrics.cogLoadReason} />
                               </div>
+
+                              {/* Ángulos nuevos sugeridos por IA (solo con fatiga detectada) */}
+                              {Array.isArray(metrics.newAngles) && metrics.newAngles.length > 0 && (
+                                <div className="p-5 bg-violet-50/60 dark:bg-violet-950/20 border border-violet-200/50 dark:border-violet-800/30 rounded-2xl">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Sparkles className="w-4 h-4 text-violet-500" />
+                                    <span className="text-[12px] font-black uppercase tracking-wider text-violet-600 dark:text-violet-400">Ángulos nuevos para reemplazarlo</span>
+                                  </div>
+                                  <div className="space-y-2.5">
+                                    {metrics.newAngles.map((angle: string, i: number) => (
+                                      <div key={i} className="flex items-start gap-2.5 p-3 rounded-xl bg-white/70 dark:bg-zinc-900/50 border border-violet-100 dark:border-violet-900/30">
+                                        <span className="w-5 h-5 rounded-full bg-violet-500 text-white text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                                        <p className="text-[12px] font-semibold text-zinc-700 dark:text-zinc-200 leading-snug">{angle}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
 
                               {/* Curva de Respuesta */}
                               {(() => {

@@ -26,7 +26,7 @@ const BASE = '/api/shopify';
 // Sin la aprobación de "Protected Customer Data" (Partner Dashboard), Shopify devuelve
 // 403 en orders.json. Reintentamos excluyendo los campos protegidos (customer/email/
 // direcciones) para que las métricas sigan funcionando con datos no protegidos.
-const SHOPIFY_SAFE_ORDER_FIELDS = 'id,name,order_number,created_at,cancelled_at,closed_at,total_price,subtotal_price,total_tax,total_discounts,financial_status,fulfillment_status,currency,line_items,discount_codes,shipping_lines,test';
+const SHOPIFY_SAFE_ORDER_FIELDS = 'id,name,order_number,created_at,cancelled_at,closed_at,total_price,subtotal_price,total_tax,total_discounts,financial_status,fulfillment_status,currency,line_items,discount_codes,shipping_lines,test,landing_site,referring_site,source_name';
 
 const fetchShopifyWithSafeFallback = async (url: string, headers: Record<string, string>): Promise<Response> => {
   const res = await fetch(url, { headers });
