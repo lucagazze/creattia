@@ -618,6 +618,79 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // ── ANALISTA IA — resumen ejecutivo diario con acciones ─────────────────────
+  // El cliente compila las señales (ventas, neto, pauta, costos, atribución) ya
+  // cargadas en el dashboard; acá solo se redacta con IA. 1 llamada por día por
+  // cliente (el cache vive en el cliente).
+  if (type === 'daily-brief') {
+    const signals = (req.body as any).signals;
+    if (!signals || typeof signals !== 'object') return res.status(400).json({ error: 'signals requerido' });
+    const geminiKey = getFirstEnv('GOOGLE_AI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GEMINI_API_KEY');
+    const openAiKey = getFirstEnv('OPENAI_API_KEY', 'OPENAI_KEY');
+    if (!geminiKey && !openAiKey) return res.status(503).json({ error: 'IA no configurada en el servidor' });
+
+    const briefPrompt = `Sos el analista de crecimiento de un e-commerce. Con los datos del período (JSON abajo), escribí un resumen ejecutivo y hasta 3 acciones concretas para hoy.
+
+REGLAS ESTRICTAS:
+- Español rioplatense, directo, sin relleno ni obviedades.
+- SOLO hablar de lo que los números justifican. Cada acción debe citar un número concreto.
+- Si no hay nada crítico, decilo en el resumen y dá 1 sola acción de mantenimiento.
+- "prev" siempre es el período anterior equivalente; comparalo con el actual.
+- "netRevenue" ya descuenta costos de productos, comisiones, costos fijos y pauta.
+- "attribution" clasifica los pedidos reales de la tienda por origen (UTMs).
+- section debe ser una de: creativos | ads | costos | pedidos | email | inventario | general.
+Devolvé SOLO un JSON válido, sin markdown:
+{"headline": "<titular de 1 línea con el dato más importante del período>", "summary": "<2-3 frases: qué pasó y por qué>", "actions": [{"emoji": "<1 emoji>", "title": "<acción imperativa corta>", "detail": "<1 frase con el número que la justifica>", "section": "<sección>"}]}
+
+DATOS:
+${JSON.stringify(signals).slice(0, 6000)}`;
+
+    const normalizeBrief = (raw: any) => ({
+      headline: String(raw?.headline || '').slice(0, 160),
+      summary: String(raw?.summary || '').slice(0, 600),
+      actions: Array.isArray(raw?.actions) ? raw.actions.slice(0, 3).map((a: any) => ({
+        emoji: String(a?.emoji || '👉').slice(0, 4),
+        title: String(a?.title || '').slice(0, 120),
+        detail: String(a?.detail || '').slice(0, 240),
+        section: String(a?.section || 'general'),
+      })).filter((a: any) => a.title) : [],
+    });
+
+    try {
+      if (geminiKey) {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: briefPrompt }] }], generationConfig: { temperature: 0.4, responseMimeType: 'application/json' } }),
+        });
+        if (r.ok) {
+          const data = await r.json() as any;
+          const text = (data.candidates?.[0]?.content?.parts || []).map((p: any) => p.text || '').join('');
+          if (text) {
+            const brief = normalizeBrief(JSON.parse(text.replace(/^```json\s*/i, '').replace(/```\s*$/, '')));
+            if (brief.headline) return res.status(200).json({ brief, provider: 'gemini-2.5-flash' });
+          }
+        }
+      }
+    } catch (err: any) { console.warn('[daily-brief] Gemini failed:', err?.message || err); }
+    try {
+      if (openAiKey) {
+        const r = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openAiKey}` },
+          body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: briefPrompt }], temperature: 0.4, response_format: { type: 'json_object' } }),
+        });
+        if (r.ok) {
+          const data = await r.json() as any;
+          const text = data.choices?.[0]?.message?.content || '';
+          if (text) {
+            const brief = normalizeBrief(JSON.parse(text));
+            if (brief.headline) return res.status(200).json({ brief, provider: 'gpt-4o-mini' });
+          }
+        }
+      }
+    } catch (err: any) { console.warn('[daily-brief] OpenAI failed:', err?.message || err); }
+    return res.status(502).json({ error: 'No se pudo generar el resumen con IA.' });
+  }
+
   // ── PRODUCT ANALYSIS — SAVE TO DB ────────────────────────────────────────
   if (type === 'save-analysis') {
     const { data: analysisData } = req.body as any;

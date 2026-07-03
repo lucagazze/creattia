@@ -67,6 +67,7 @@ import {
 } from "recharts";
 import EmailLoader from "../components/ui/EmailLoader";
 import { CenteredPageLoader } from "../components/ui/CenteredPageLoader";
+import DailyBriefCard from "../components/DailyBriefCard";
 import {
   DEFAULT_CURRENCY_SETTINGS,
   convertCurrency,
@@ -2463,6 +2464,31 @@ export default function DashboardPage() {
         </div>
         </div>
       </div>
+
+      {/* ── Analista IA: resumen ejecutivo con acciones ── */}
+      <DailyBriefCard
+        clientId={profile?.id}
+        ready={!loadingInitial && !fetchingStore && !fetchingMeta && (!!currentStore || !!currentMeta)}
+        signals={{
+          periodo: { desde: activeSince, hasta: activeUntil },
+          moneda: currencySettings.baseCurrency,
+          tienda: currentStore ? {
+            ingresos: currentStoreRevenue, prevIngresos: prevStoreRevenue,
+            pedidos: currentStore.orders, prevPedidos: prevStore?.orders ?? null,
+            ticketPromedio: currentStore.aov,
+            topProductos: (currentStore.topProducts || []).slice(0, 3),
+          } : null,
+          metaAds: currentMeta ? {
+            gasto: currentSpend, prevGasto: prevSpend,
+            compras: currentMeta.purchases, prevCompras: prevMeta?.purchases ?? null,
+            roas: currentMeta.roas, prevRoas: prevMeta?.roas ?? null,
+          } : null,
+          netRevenue: showProfitMetrics ? { curr: currentNetRevenue, prev: prevNetRevenue } : null,
+          costos: { fijos: currentFixedCosts, productos: currentProductCosts, comisionesYEnvios: currentVariableCosts.total },
+          attribution: currentStore?.attribution?.summary || null,
+          email: currentKlaviyo ? { ingresos: (currentKlaviyo as any).revenue ?? null } : null,
+        }}
+      />
 
       <div className="flex flex-col gap-6">
         {/* Shopify Section */}
