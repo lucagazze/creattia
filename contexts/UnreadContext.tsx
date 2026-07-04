@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { chatwoot } from '../services/chatwoot';
 import { metaAds } from '../services/metaAds';
 import { ecommerce } from '../services/ecommerce';
+import { loadIgnoredComments } from '../services/ignoredComments';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -522,6 +523,15 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
   }, [profile?.id, profile?.fb_page_id, (profile as any)?.ig_business_id, (profile as any)?.ig_username, profile?.meta_account_id]);
+
+  // Sincroniza el set de comentarios ignorados desde Supabase al caché local cuando
+  // cambia el cliente, para que el conteo del badge use el dato autoritativo aunque
+  // nunca se haya abierto la página de Comentarios en este dispositivo/navegador.
+  useEffect(() => {
+    if (!profile?.id) return;
+    loadIgnoredComments(profile.id).then(() => fetchCommentsCount());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
 
   // Sync comments update event
   useEffect(() => {

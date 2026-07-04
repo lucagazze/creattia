@@ -12,6 +12,7 @@ import { useUnread } from '../contexts/UnreadContext';
 import { metaAds } from '../services/metaAds';
 import { db } from '../services/db';
 import { supabase, supabaseAdmin } from '../services/supabase';
+import { loadIgnoredComments, setIgnoredComment } from '../services/ignoredComments';
 import { TopLoadingBar } from '../components/ui/TopLoadingBar';
 import { AppleLoader } from '../components/ui/AppleLoader';
 import { CenteredPageLoader } from '../components/ui/CenteredPageLoader';
@@ -214,11 +215,15 @@ export default function ComentariosPage() {
       setIgnoredIds({});
       return;
     }
-    try {
-      setIgnoredIds(JSON.parse(localStorage.getItem(`car_ignored_comments_${clientId}`) || '{}'));
-    } catch {
-      setIgnoredIds({});
-    }
+    let cancelled = false;
+    // Fuente de verdad: Supabase (persiste "para siempre" y cross-dispositivo).
+    // localStorage es solo caché; loadIgnoredComments refresca desde el server.
+    loadIgnoredComments(clientId, (serverMap) => {
+      if (!cancelled) setIgnoredIds(serverMap);
+    }).then((map) => {
+      if (!cancelled) setIgnoredIds(map);
+    });
+    return () => { cancelled = true; };
   }, [clientId]);
 
   const analyzeCreativeUrl = async (imageUrl: string | null, isVideo: boolean): Promise<any> => {
@@ -1236,9 +1241,10 @@ export default function ComentariosPage() {
       nextIgnored = !prev[commentId];
       const next = { ...prev, [commentId]: nextIgnored };
       if (!nextIgnored) delete next[commentId];
-      try { localStorage.setItem(`car_ignored_comments_${clientId}`, JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
+    // Persiste en Supabase (+ caché local instantáneo dentro del helper)
+    setIgnoredComment(clientId, commentId, nextIgnored);
     setComments(prev => {
       const nextComments = prev.map(c => c.id === commentId ? { ...c, _ignored: nextIgnored } : c);
       const pendingCount = nextComments.filter(c => isCommentPending({ ...c, _ignored: c.id === commentId ? nextIgnored : c._ignored }, selectedPost.platform)).length;
