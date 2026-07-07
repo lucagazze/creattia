@@ -40,6 +40,11 @@ const UnreadContext = createContext<UnreadContextType>({
 
 export const useUnread = () => useContext(UnreadContext);
 
+const getDefaultDocumentTitle = () => {
+  const hash = window.location.hash.toLowerCase();
+  return hash === '' || hash === '#/' || hash.startsWith('#/postty') ? 'Creattia | Ads con IA' : 'Portal C.A.R | Algoritmia';
+};
+
 // Helper to read manual unread from localStorage
 const getManuallyUnreadSet = (profileId?: string): Set<number> => {
   try {
@@ -99,7 +104,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setUnreadLoading(false);
       setChatwootAvailable(false);
     }
-    document.title = 'Portal C.A.R | Algoritmia';
+    document.title = getDefaultDocumentTitle();
   }, [profile?.id]);
 
   const fetchCount = useCallback(async () => {
@@ -210,7 +215,7 @@ export const UnreadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Update browser tab title dynamically when unread count or pending comments count changes
   useEffect(() => {
-    const defaultTitle = 'Portal C.A.R | Algoritmia';
+    const defaultTitle = getDefaultDocumentTitle();
     const total = unreadCount + pendingCommentsCount;
     if (total > 0) {
       document.title = `(${total}) ${defaultTitle}`;
