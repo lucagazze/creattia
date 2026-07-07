@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 type Screen =
+  | 'home'
   | 'login'
   | 'trial'
   | 'trialResults'
@@ -49,6 +50,21 @@ type Creative = {
   status: 'Borrador' | 'Listo' | 'Publicado';
 };
 
+type TrialAd = {
+  title: string;
+  subtitle: string;
+  cta: string;
+  format: 'feed' | 'story';
+  color: string;
+};
+
+type BrandDna = {
+  voice: string;
+  customer: string;
+  visual: string;
+  objections: string;
+};
+
 const APP_NAME = 'Creattia';
 
 const navItems = [
@@ -62,7 +78,7 @@ const navItems = [
   { id: 'settings', label: 'Ajustes', icon: Settings2 },
 ] as const;
 
-const products = [
+const defaultProducts = [
   {
     name: 'Serum Glow C',
     tag: 'Best seller',
@@ -113,7 +129,7 @@ const initialCreatives: Creative[] = [
   },
 ];
 
-const trialAds = [
+const fallbackTrialAds: TrialAd[] = [
   {
     title: 'Tus manos merecen un cuero a su altura.',
     subtitle: 'Espesor uniforme para un trabajo impecable.',
@@ -233,7 +249,7 @@ function TrialAdCard({
   onPreview,
   large = false,
 }: {
-  ad: (typeof trialAds)[number];
+  ad: TrialAd;
   selected?: boolean;
   onToggle?: () => void;
   onPreview?: () => void;
@@ -359,9 +375,18 @@ function PricingModal({
 }
 
 export default function PosttyReplicaPage() {
-  const [screen, setScreen] = React.useState<Screen>('login');
+  const [screen, setScreen] = React.useState<Screen>('home');
   const [trialUrl, setTrialUrl] = React.useState('https://www.theskirtingfactoryllc.com');
   const [selectedTrialAds, setSelectedTrialAds] = React.useState([0, 1, 2, 3]);
+  const [generatedTrialAds, setGeneratedTrialAds] = React.useState<TrialAd[]>(fallbackTrialAds);
+  const [aiError, setAiError] = React.useState('');
+  const [businessSummary, setBusinessSummary] = React.useState('');
+  const [brandDna, setBrandDna] = React.useState<BrandDna>({
+    voice: 'Cercana, experta y simple. Evita promesas infladas.',
+    customer: 'Personas que buscan resultados visibles sin rutinas extensas.',
+    visual: 'Fondos blancos, textura de producto, luz suave y acentos pastel.',
+    objections: 'Sensibilidad, precio, constancia y miedo a irritación.',
+  });
   const [previewTrialAd, setPreviewTrialAd] = React.useState<number | null>(null);
   const [pricingOpen, setPricingOpen] = React.useState(false);
   const [annualPricing, setAnnualPricing] = React.useState(false);
@@ -369,7 +394,8 @@ export default function PosttyReplicaPage() {
   const [brandName, setBrandName] = React.useState('Glow Studio');
   const [businessType, setBusinessType] = React.useState('Productos');
   const [flowMode, setFlowMode] = React.useState<'auto' | 'custom'>('auto');
-  const [selectedProduct, setSelectedProduct] = React.useState(products[0]);
+  const [generatedProducts, setGeneratedProducts] = React.useState(defaultProducts);
+  const [selectedProduct, setSelectedProduct] = React.useState(defaultProducts[0]);
   const [objective, setObjective] = React.useState('Generar ventas');
   const [messages, setMessages] = React.useState([
     'Acabo de analizar tu marca. Detecte una voz cercana, visual limpia y foco en resultados simples.',
@@ -382,7 +408,9 @@ export default function PosttyReplicaPage() {
   const [toast, setToast] = React.useState('');
 
   const campaignStep = ['brand', 'products', 'objective', 'workspace', 'review'].indexOf(screen);
-  const isLoggedIn = screen !== 'login';
+  const isLoggedIn = screen !== 'home' && screen !== 'login';
+  const activeTrialAds = generatedTrialAds.length ? generatedTrialAds : fallbackTrialAds;
+  const activeProducts = generatedProducts.length ? generatedProducts : defaultProducts;
 
   React.useEffect(() => {
     document.title = `${APP_NAME} | Ads con IA`;
@@ -410,12 +438,56 @@ export default function PosttyReplicaPage() {
     setCreatives((items) => items.map((item) => ({ ...item, status: item.status === 'Publicado' ? item.status : 'Listo' })));
   };
 
-  const generateTrialAds = () => {
+  const generateTrialAds = async () => {
     if (!trialUrl.trim()) return;
-    simulateWork(() => {
-      setSelectedTrialAds([0, 1, 2, 3]);
+    setWorking(true);
+    setAiError('');
+    notify('Analizando tu tienda con IA...');
+    try {
+      const response = await fetch('/api/creattia-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trialUrl }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.detail || data?.error || 'No pudimos generar la campaña con IA.');
+      }
+      const ads = Array.isArray(data.ads) ? data.ads : [];
+      setGeneratedTrialAds(ads.length ? ads : fallbackTrialAds);
+      setSelectedTrialAds(ads.map((_: TrialAd, index: number) => index));
+      setBrandName(data.brandName || 'Tu marca');
+      setBrandUrl(data.sourceUrl || trialUrl);
+      setBusinessSummary(data.businessSummary || '');
+      if (data.brandDna) {
+        setBrandDna({
+          voice: data.brandDna.voice || brandDna.voice,
+          customer: data.brandDna.customer || brandDna.customer,
+          visual: data.brandDna.visual || brandDna.visual,
+          objections: data.brandDna.objections || brandDna.objections,
+        });
+      }
+      if (Array.isArray(data.products) && data.products.length) {
+        const mappedProducts = data.products.slice(0, 3).map((item: any, index: number) => ({
+          name: item.name || ['Producto principal', 'Producto destacado', 'Kit recomendado'][index],
+          tag: item.tag || ['Detectado', 'Oportunidad', 'Bundle'][index],
+          price: item.price || 'A validar',
+          image: defaultProducts[index]?.image || defaultProducts[0].image,
+          insight: item.insight || 'Insight generado por IA a partir de la tienda.',
+        }));
+        setGeneratedProducts(mappedProducts);
+        setSelectedProduct(mappedProducts[0]);
+      }
+      setMessages([
+        `Analicé ${data.brandName || 'tu marca'} y detecté: ${data.businessSummary || 'una propuesta clara para convertir visitas en compras.'}`,
+        `Para ${data.products?.[0]?.name || 'tu producto principal'} recomiendo trabajar objeciones, prueba de valor y CTA directo.`,
+      ]);
       setScreen('trialResults');
-    }, 'Generando tus Ads de prueba...');
+    } catch (error: any) {
+      setAiError(error?.message || 'No pudimos generar la campaña con IA.');
+    } finally {
+      setWorking(false);
+    }
   };
 
   const toggleTrialAd = (index: number) => {
@@ -443,10 +515,74 @@ export default function PosttyReplicaPage() {
     notify('Publicado en Instagram');
   };
 
-  if (!isLoggedIn) {
+  if (screen === 'home') {
+    return (
+      <main className="min-h-screen bg-white font-sans text-gray-950">
+        <header className="mx-auto flex h-20 max-w-6xl items-center justify-between px-5">
+          <button type="button" onClick={() => setScreen('home')} className="flex items-center gap-2">
+            <Mascot className="h-10 w-10" />
+            <span className="text-lg font-black tracking-tight">{APP_NAME}</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <PillButton variant="light" onClick={() => setScreen('login')}>Entrar</PillButton>
+            <button
+              type="button"
+              onClick={() => setScreen('trial')}
+              className="hidden h-10 items-center justify-center rounded-full bg-[#d7ff3f] px-5 text-sm font-black text-gray-950 transition hover:opacity-90 sm:inline-flex"
+            >
+              Probar gratis
+            </button>
+          </div>
+        </header>
+
+        <section className="mx-auto grid min-h-[calc(100svh-80px)] max-w-6xl items-center gap-10 px-5 pb-14 pt-8 lg:grid-cols-[0.92fr_1.08fr]">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-gray-400">Ads con IA para e-commerce</p>
+            <h1 className="mt-5 max-w-3xl text-5xl font-light leading-[0.95] tracking-tight text-gray-950 sm:text-6xl lg:text-7xl">
+              Convertí una tienda en campañas listas para vender.
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-gray-500">
+              Pegá el link de tu marca. Creattia analiza productos, tono, objeciones y genera ads, posts y una campaña editable con IA real.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setScreen('trial')}
+                className="inline-flex h-12 items-center justify-center rounded-full bg-gray-950 px-7 text-sm font-black text-white transition hover:bg-gray-800"
+              >
+                Generar mis Ads
+              </button>
+              <PillButton variant="light" onClick={() => setScreen('login')}>Iniciar sesión</PillButton>
+            </div>
+            <div className="mt-8 grid max-w-xl grid-cols-3 gap-3">
+              {['Brand DNA', '4 ads demo', 'Planes Pro'].map((item) => (
+                <div key={item} className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-600">{item}</div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative min-h-[520px]">
+            <div className="absolute left-1/2 top-0 h-44 w-44 -translate-x-1/2 rounded-full bg-[#d7ff3f]/25 blur-3xl" />
+            <Mascot className="absolute left-1/2 top-0 z-10 h-36 w-36 -translate-x-1/2" />
+            <div className="absolute left-0 top-24 w-[44%] rotate-[-4deg]">
+              <TrialAdCard ad={fallbackTrialAds[0]} />
+            </div>
+            <div className="absolute left-[28%] top-10 z-20 w-[48%]">
+              <TrialAdCard ad={fallbackTrialAds[1]} />
+            </div>
+            <div className="absolute right-0 top-28 w-[42%] rotate-[5deg]">
+              <TrialAdCard ad={fallbackTrialAds[3]} />
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (screen === 'login') {
     return (
       <main className="min-h-screen bg-white font-sans text-gray-900">
-        <div className="flex min-h-screen flex-col items-center justify-center px-3 py-6">
+        <div className="grid min-h-[100svh] place-items-center px-3 py-8">
           <section className="relative w-full max-w-[424px] text-center">
             <Mascot className="absolute left-1/2 top-[-93px] h-[207px] w-[207px] -translate-x-1/2" />
             <div className="relative rounded-[24px] border border-gray-100 bg-white px-6 pb-10 pt-11 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
@@ -465,14 +601,14 @@ export default function PosttyReplicaPage() {
               Al iniciar sesión, aceptás los <button className="underline hover:text-gray-700">Términos y Condiciones</button> y la{' '}
               <button className="underline hover:text-gray-700">Política de Privacidad</button>.
             </p>
+            <button
+              type="button"
+              onClick={() => setScreen('home')}
+              className="mt-14 inline-flex h-[42px] items-center rounded-full border border-gray-200 bg-white px-7 text-sm font-bold text-gray-900 transition hover:bg-gray-100 active:scale-[0.97]"
+            >
+              Volver
+            </button>
           </section>
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            className="mt-auto inline-flex h-[42px] items-center rounded-full border border-gray-200 bg-white px-7 text-sm font-bold text-gray-900 transition hover:bg-gray-100 active:scale-[0.97]"
-          >
-            Volver
-          </button>
         </div>
       </main>
     );
@@ -501,12 +637,17 @@ export default function PosttyReplicaPage() {
                   <button
                     type="button"
                     onClick={generateTrialAds}
-                    disabled={!trialUrl.trim()}
+                    disabled={!trialUrl.trim() || working}
                     className="mt-4 inline-flex h-[48px] items-center justify-center rounded-full bg-gray-100 px-7 text-sm font-semibold text-gray-400 transition enabled:bg-gray-950 enabled:text-white enabled:hover:bg-gray-800 disabled:cursor-not-allowed"
                   >
-                    Generar mis Ads
+                    {working ? 'Analizando con IA...' : 'Generar mis Ads'}
                   </button>
                 </div>
+                {aiError && (
+                  <div className="mx-auto mt-4 max-w-[360px] rounded-2xl bg-red-50 px-4 py-3 text-left text-xs font-semibold leading-5 text-red-700">
+                    {aiError}
+                  </div>
+                )}
               </div>
             </section>
             <div className="mt-auto flex gap-3">
@@ -536,7 +677,7 @@ export default function PosttyReplicaPage() {
                 Estos Ads fueron creados como ejemplos, ¡imaginate los que podríamos crear si nos ayudas con tu conocimiento!
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {trialAds.map((ad, index) => (
+                {activeTrialAds.map((ad, index) => (
                   <TrialAdCard
                     key={ad.title}
                     ad={ad}
@@ -568,7 +709,7 @@ export default function PosttyReplicaPage() {
         {previewTrialAd !== null && (
           <div className="fixed inset-0 z-[90] grid place-items-center bg-gray-700/75 px-4 py-8">
             <div className="relative">
-              <TrialAdCard ad={trialAds[previewTrialAd]} large />
+              <TrialAdCard ad={activeTrialAds[previewTrialAd]} large />
               <button
                 onClick={() => setPreviewTrialAd(null)}
                 className="absolute -right-3 -top-3 grid h-9 w-9 place-items-center rounded-full bg-white text-gray-700 shadow-xl"
@@ -685,7 +826,7 @@ export default function PosttyReplicaPage() {
                       <Mascot className="absolute left-1/2 top-0 h-52 w-52 -translate-x-1/2" />
                       <div className="absolute bottom-5 left-3 right-3 rounded-3xl border border-gray-100 bg-white/90 p-4 shadow-xl backdrop-blur">
                         <p className="text-xs font-bold text-gray-900">ADN de marca listo</p>
-                        <p className="mt-1 text-xs leading-5 text-gray-500">Voz cercana, visual minimalista, foco en resultados medibles.</p>
+                        <p className="mt-1 text-xs leading-5 text-gray-500">{businessSummary || brandDna.voice}</p>
                       </div>
                     </div>
                   </div>
@@ -764,10 +905,10 @@ export default function PosttyReplicaPage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">El ADN de tu marca</p>
                   <div className="mt-5 grid gap-4 sm:grid-cols-2">
                     {[
-                      ['Voz de marca', 'Cercana, experta y simple. Evita promesas infladas.'],
-                      ['Cliente ideal', 'Personas que buscan resultados visibles sin rutinas extensas.'],
-                      ['Territorio visual', 'Fondos blancos, textura de producto, luz suave y acentos pastel.'],
-                      ['Objeciones', 'Sensibilidad, precio, constancia y miedo a irritación.'],
+                      ['Voz de marca', brandDna.voice],
+                      ['Cliente ideal', brandDna.customer],
+                      ['Territorio visual', brandDna.visual],
+                      ['Objeciones', brandDna.objections],
                     ].map(([title, body]) => (
                       <div key={title} className="rounded-3xl bg-gray-50 p-4">
                         <h3 className="text-sm font-bold">{title}</h3>
@@ -789,7 +930,7 @@ export default function PosttyReplicaPage() {
                   <PillButton variant="light" icon={<Upload className="h-4 w-4" />}>Subir foto de producto</PillButton>
                 </div>
                 <div className="mt-6 grid gap-4 md:grid-cols-3">
-                  {products.map((product) => (
+                  {activeProducts.map((product) => (
                     <button
                       key={product.name}
                       type="button"
@@ -1010,7 +1151,7 @@ export default function PosttyReplicaPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {products.map((product, index) => (
+                      {activeProducts.map((product, index) => (
                         <tr key={product.name} className="border-t border-gray-50">
                           <td className="px-4 py-3 font-semibold text-gray-700">{product.name}</td>
                           <td className="px-4 py-3 text-right text-gray-600">{118 - index * 31}</td>
