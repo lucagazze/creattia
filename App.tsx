@@ -7,6 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { ViewAsProvider } from './contexts/ViewAsContext';
 import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/LandingPage';
+import PosttyReplicaPage from './pages/PosttyReplicaPage';
 import EmailPreviewPublicPage from './pages/EmailPreviewPublicPage';
 import OAuthSimulatePage from './pages/OAuthSimulatePage';
 import PrivacidadPage from './pages/PrivacidadPage';
@@ -158,7 +159,9 @@ export default function App() {
                 <ToastProvider>
                   <ErrorBoundary>
                     <Routes>
+                      <Route path="/" element={<PosttyReplicaPage />} />
                       <Route path="/landing" element={<LandingPage />} />
+                      <Route path="/postty" element={<PosttyReplicaPage />} />
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/privacidad" element={<PublicInfoLayout><PrivacidadPage /></PublicInfoLayout>} />
                       <Route path="/terminos" element={<PublicInfoLayout><TerminosPage /></PublicInfoLayout>} />
