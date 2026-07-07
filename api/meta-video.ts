@@ -51,21 +51,124 @@ function normalizeGraphPath(path: unknown): string {
   return clean;
 }
 
-async function getClientMetaTokens(clientId: string, bearer: string): Promise<{ userToken: string; pageToken: string }> {
-  if (!clientId) return { userToken: '', pageToken: '' };
+async function validatePageToken(pageId: string, token: string): Promise<boolean> {
+  if (!pageId || !token) return false;
+  try {
+    const url = new URL(`https://graph.facebook.com/v21.0/${pageId}`);
+    url.searchParams.set('fields', 'id');
+    url.searchParams.set('access_token', token);
+    const res = await fetch(url.toString());
+    const data = await res.json().catch(() => ({}));
+    return res.ok && !data?.error && String(data?.id || '') === String(pageId);
+  } catch {
+    return false;
+  }
+}
+
+async function derivePageTokenFromUserToken(pageId: string, userToken: string): Promise<string> {
+  if (!pageId || !userToken) return '';
+  try {
+    const accountsUrl = new URL('https://graph.facebook.com/v21.0/me/accounts');
+    accountsUrl.searchParams.set('fields', 'id,name,access_token');
+    accountsUrl.searchParams.set('limit', '100');
+    accountsUrl.searchParams.set('access_token', userToken);
+    const accountsRes = await fetch(accountsUrl.toString());
+    const accountsData = await accountsRes.json().catch(() => ({}));
+    const page = (accountsData?.data || []).find((item: any) => String(item.id) === String(pageId));
+    if (page?.access_token && await validatePageToken(pageId, page.access_token)) {
+      return page.access_token;
+    }
+
+    const pageUrl = new URL(`https://graph.facebook.com/v21.0/${pageId}`);
+    pageUrl.searchParams.set('fields', 'access_token');
+    pageUrl.searchParams.set('access_token', userToken);
+    const pageRes = await fetch(pageUrl.toString());
+    const pageData = await pageRes.json().catch(() => ({}));
+    if (pageData?.access_token && await validatePageToken(pageId, pageData.access_token)) {
+      return pageData.access_token;
+    }
+  } catch (err) {
+    console.error('Error deriving client page token:', err);
+  }
+  return '';
+}
+
+async function markClientMetaStatus(clientId: string, platform: 'facebook' | 'instagram', value: string) {
+  if (!clientId || !supabase) return;
+  try {
+    const { data } = await supabase
+      .from('car_clients')
+      .select('connection_statuses')
+      .eq('id', clientId)
+      .maybeSingle();
+    const current = data?.connection_statuses || {};
+    await supabase
+      .from('car_clients')
+      .update({ connection_statuses: { ...current, [platform]: value } })
+      .eq('id', clientId);
+  } catch (err) {
+    console.error('Error updating Meta connection status:', err);
+  }
+}
+
+async function getClientMetaTokens(clientId: string, bearer: string): Promise<{ userToken: string; pageToken: string; pageId: string; igId: string }> {
+  if (!clientId) return { userToken: '', pageToken: '', pageId: '', igId: '' };
   const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: { headers: { Authorization: `Bearer ${bearer}` } },
   });
   const { data } = await supabaseUser
     .from('car_clients')
-    .select('facebook_access_token, fb_page_access_token')
+    .select('facebook_access_token, fb_page_access_token, fb_page_id, ig_business_id, connection_statuses')
     .eq('id', clientId)
     .maybeSingle();
-  return {
-    userToken: data?.facebook_access_token || '',
-    pageToken: data?.fb_page_access_token || '',
-  };
+  const userToken = data?.facebook_access_token || '';
+  const pageId = data?.fb_page_id || '';
+  const igId = data?.ig_business_id || '';
+  let pageToken = data?.fb_page_access_token || '';
+
+  if (pageId && pageToken && !(await validatePageToken(pageId, pageToken))) {
+    pageToken = '';
+  }
+
+  if (pageId && !pageToken && userToken) {
+    pageToken = await derivePageTokenFromUserToken(pageId, userToken);
+    if (pageToken && supabase) {
+      const current = data?.connection_statuses || {};
+      await supabase
+        .from('car_clients')
+        .update({
+          fb_page_access_token: pageToken,
+          connection_statuses: {
+            ...current,
+            facebook: 'ok',
+            ...(igId ? { instagram: 'ok' } : {}),
+          },
+        })
+        .eq('id', clientId);
+    }
+  }
+
+  if (pageId && !pageToken) {
+    await markClientMetaStatus(clientId, 'facebook', 'error: reconectar Meta para renovar el token de pagina');
+    if (igId) await markClientMetaStatus(clientId, 'instagram', 'error: reconectar Meta para renovar el token de pagina');
+  }
+
+  return { userToken, pageToken, pageId, igId };
+}
+
+function graphPathNeedsClientPageToken(graphPath: string, clientTokens: { pageId: string; igId: string }) {
+  const firstSegment = graphPath.split('/')[0] || '';
+  if (!firstSegment || firstSegment.startsWith('act_')) return false;
+  return (
+    (!!clientTokens.pageId && firstSegment === String(clientTokens.pageId)) ||
+    (!!clientTokens.igId && firstSegment === String(clientTokens.igId)) ||
+    graphPath.includes('/comments') ||
+    graphPath.includes('/conversations') ||
+    graphPath.includes('/feed') ||
+    graphPath.includes('/media') ||
+    graphPath.includes('/insights')
+  );
 }
 
 async function handleGraphProxy(req: VercelRequest, res: VercelResponse) {
@@ -98,6 +201,7 @@ async function handleGraphProxy(req: VercelRequest, res: VercelResponse) {
   const clientIdRaw = Array.isArray(req.query.clientId) ? req.query.clientId[0] : req.query.clientId;
   const graphClientId = typeof clientIdRaw === 'string' ? clientIdRaw.trim() : '';
   const clientTokens = await getClientMetaTokens(graphClientId, bearer);
+  const needsClientPageToken = graphClientId && graphPathNeedsClientPageToken(graphPath, clientTokens);
 
   // Paths me/* con el token de agencia listan activos de TODA la agencia: solo admins.
   // Con token propio del cliente (OAuth), me/* devuelve sus propios activos y está permitido.
@@ -113,8 +217,14 @@ async function handleGraphProxy(req: VercelRequest, res: VercelResponse) {
 
   const token = graphPath.startsWith('act_')
     ? (clientTokens.userToken || await getMetaToken())
-    : (clientTokens.pageToken || clientTokens.userToken || await getMetaToken());
-  if (!token) return res.status(500).json({ error: 'No Meta token configured' });
+    : (clientTokens.pageToken || (!needsClientPageToken ? (clientTokens.userToken || await getMetaToken()) : ''));
+  if (!token) {
+    return res.status(409).json({
+      error: needsClientPageToken
+        ? 'La conexion de Facebook/Instagram necesita reconectarse para renovar permisos.'
+        : 'No Meta token configured',
+    });
+  }
 
   const graphUrl = new URL(`https://graph.facebook.com/v21.0/${graphPath}`);
   Object.entries(req.query).forEach(([key, raw]) => {
