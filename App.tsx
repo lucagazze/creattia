@@ -162,6 +162,7 @@ export default function App() {
                       <Route path="/" element={<PosttyReplicaPage />} />
                       <Route path="/landing" element={<LandingPage />} />
                       <Route path="/postty" element={<PosttyReplicaPage />} />
+                      <Route path="/creatteai" element={<PosttyReplicaPage />} />
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/privacidad" element={<PublicInfoLayout><PrivacidadPage /></PublicInfoLayout>} />
                       <Route path="/terminos" element={<PublicInfoLayout><TerminosPage /></PublicInfoLayout>} />

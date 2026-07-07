@@ -42,7 +42,7 @@ export const useUnread = () => useContext(UnreadContext);
 
 const getDefaultDocumentTitle = () => {
   const hash = window.location.hash.toLowerCase();
-  return hash === '' || hash === '#/' || hash.startsWith('#/postty') ? 'Creattia | Ads con IA' : 'Portal C.A.R | Algoritmia';
+  return hash === '' || hash === '#/' || hash.startsWith('#/postty') || hash.startsWith('#/creatteai') ? 'CreatteAI | Ads con IA' : 'Portal C.A.R | Algoritmia';
 };
 
 // Helper to read manual unread from localStorage

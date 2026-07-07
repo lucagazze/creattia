@@ -136,14 +136,14 @@ async function fetchCreattiaSite(url: string) {
       signal: controller.signal,
       headers: {
         accept: 'text/html,application/xhtml+xml',
-        'user-agent': 'CreattiaBot/1.0 (+https://creattia.vercel.app)',
+        'user-agent': 'CreatteAIBot/1.0 (+https://creattia.vercel.app)',
       },
     });
     if (!response.ok) throw new Error(`No pudimos leer la tienda (${response.status})`);
     const html = await response.text();
     const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || '';
     const description = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1] || '';
-    const text = stripCreattiaHtml(html).slice(0, 14000);
+    const text = stripCreattiaHtml(html).slice(0, 20000);
     return { title, description, text };
   } finally {
     clearTimeout(timeout);
@@ -157,7 +157,7 @@ async function callCreattiaGemini(key: string, systemPrompt: string, userPrompt:
     body: JSON.stringify({
       generationConfig: {
         temperature: 0.75,
-        maxOutputTokens: 1700,
+        maxOutputTokens: 3600,
         responseMimeType: 'application/json',
       },
       contents: [
@@ -184,10 +184,10 @@ async function callCreattiaOpenAI(key: string, systemPrompt: string, userPrompt:
       Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
       response_format: { type: 'json_object' },
       temperature: 0.75,
-      max_tokens: 1700,
+      max_tokens: 3600,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: JSON.stringify(userPrompt) },
@@ -209,21 +209,30 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     if (!geminiKey && !openAiKey) {
       return res.status(503).json({
         error: 'AI_NOT_CONFIGURED',
-        detail: 'Falta configurar GOOGLE_AI_API_KEY/GEMINI_API_KEY u OPENAI_API_KEY en Vercel para que Creattia genere campañas reales.',
+        detail: 'Falta configurar GOOGLE_AI_API_KEY/GEMINI_API_KEY u OPENAI_API_KEY en Vercel para que CreatteAI genere campañas reales.',
       });
     }
 
     const url = normalizeCreattiaUrl(String(req.body?.url || ''));
+    const instagramUrl = String(req.body?.instagramUrl || '').trim();
+    const businessType = String(req.body?.businessType || 'Ambos');
+    const preferences = req.body?.preferences || {};
     const site = await fetchCreattiaSite(url);
     const systemPrompt = [
-      'Sos Creattia, un agente experto en performance creative para ecommerce.',
-      'Analizás una tienda y devolvés conceptos de ads en español rioplatense, listos para renderizar.',
+      'Sos CreatteAI, un agente senior de performance creative para ecommerce y páginas de servicios.',
+      'Analizás web, Instagram declarado, propuesta de valor, puntos de dolor, objeciones, prueba social, oferta, rings creativos y formatos.',
+      'Generás solo creativos estáticos para Meta/Instagram: imagen 4:5, story 9:16, carrusel, founder ad, FAQ visual, oferta, demo o testimonial. No generes video.',
+      'Cada anuncio debe tener una razón estratégica clara, un punto de dolor específico, un ring y una estructura de conversión. Evitá promesas exageradas, médicas o imposibles de probar.',
+      'Usá español rioplatense premium y claro. No uses comparaciones agresivas ni ataques directos a competidores.',
       'Respondé únicamente JSON válido. Sin markdown.',
     ].join('\n');
 
     const userPrompt = {
-      task: 'Generá una campaña de prueba con 4 ads para Meta/Instagram a partir de esta tienda.',
+      task: 'Generá una campaña de prueba con 4 ads estáticos para Meta/Instagram a partir de esta marca.',
       url,
+      instagramUrl,
+      businessType,
+      preferences,
       site,
       required_json_shape: {
         brandName: 'string',
@@ -235,7 +244,16 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
           objections: 'string',
         },
         ads: [
-          { title: 'string max 52 chars', subtitle: 'string max 75 chars', cta: 'string max 58 chars', format: 'feed|story' },
+          {
+            title: 'string max 52 chars',
+            subtitle: 'string max 75 chars',
+            cta: 'string max 58 chars',
+            format: 'feed|story',
+            angle: 'string',
+            ring: 'Deseo|Dolor|Prueba|Mecanismo|Oferta',
+            visualDirection: 'string',
+            conversionReason: 'string'
+          },
         ],
         products: [
           { name: 'string', tag: 'string', price: 'string', insight: 'string' },

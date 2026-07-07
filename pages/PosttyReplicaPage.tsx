@@ -15,12 +15,16 @@ import {
   MessageCircle,
   Package,
   Plus,
+  Quote,
   RefreshCw,
   Send,
   Settings2,
+  ShieldCheck,
   ShoppingCart,
   Sparkles,
   Store,
+  Target,
+  Users,
   Upload,
   Wand2,
   X,
@@ -65,7 +69,7 @@ type BrandDna = {
   objections: string;
 };
 
-const APP_NAME = 'Creattia';
+const APP_NAME = 'CreatteAI';
 
 const navItems = [
   { id: 'dashboard', label: 'Inicio', icon: Sparkles },
@@ -167,6 +171,68 @@ const timeline = [
   'Estudiando el mercado',
   'Generando borradores',
 ];
+
+const landingResults = [
+  ['10x', 'más rápido que armar piezas desde cero'],
+  ['3.2x', 'mejor lectura de objeciones antes de pautar'],
+  ['+100', 'ads y piezas estáticas por marca'],
+];
+
+const businessTypes = ['E-commerce', 'Servicios', 'Agencias', 'Fitness', 'SaaS', 'Gastronomía', 'Productos digitales', 'Apps móviles'];
+
+const landingTestimonials = [
+  {
+    quote: 'Pasamos de mirar una hoja en blanco a tener campañas con ángulos claros en una tarde.',
+    name: 'Martina R.',
+    role: 'Founder ecommerce skincare',
+  },
+  {
+    quote: 'Lo mejor es que entiende la objeción. No tira frases lindas: arma piezas con intención de venta.',
+    name: 'Nico S.',
+    role: 'Consultor de servicios B2B',
+  },
+  {
+    quote: 'Para mi equipo fue como sumar un planner creativo que nunca se cansa de iterar.',
+    name: 'Camila V.',
+    role: 'Paid Media Lead',
+  },
+];
+
+const pricingPlans = [
+  {
+    name: 'Gratis',
+    price: '$0',
+    body: 'Probá CreatteAI con tu web e Instagram sin tarjeta.',
+    cta: 'Probar gratis',
+    features: ['1 marca', '4 Ads de prueba', 'Ángulos y rings básicos', 'Sin tarjeta de crédito'],
+  },
+  {
+    name: 'Basic',
+    price: '$87.900/mes',
+    body: 'Para marcas que manejan su marketing internamente.',
+    cta: 'Empezar ahora',
+    featured: true,
+    features: ['100 Ads y piezas', 'Ecommerce o servicios', 'Personalización por ángulo', 'Exportación de piezas estáticas'],
+  },
+  {
+    name: 'Pro',
+    price: '$249.900/mes',
+    body: 'Para equipos que necesitan volumen, iteración y mejor criterio.',
+    cta: 'Convertirme en Pro',
+    features: ['Ads ilimitados', 'Rings y formatos avanzados', 'Modelos Pro de IA', 'Optimización de campañas'],
+  },
+  {
+    name: 'Agencia',
+    price: 'Personalizado',
+    body: 'Para equipos con varias marcas y procesos de aprobación.',
+    cta: 'Agendar reunión',
+    features: ['Hasta 5 marcas', 'Hasta 10 usuarios', 'Flujos por cliente', 'Soporte estratégico'],
+  },
+];
+
+const creativeAngles = ['Punto de dolor', 'Transformación', 'Demo', 'Autoridad', 'Oferta', 'Objeciones', 'UGC testimonial', 'Comparación sin atacar'];
+const creativeRings = ['Deseo', 'Dolor', 'Prueba', 'Mecanismo', 'Oferta'];
+const creativeFormats = ['Imagen 4:5', 'Story 9:16', 'Carrusel', 'Founder ad', 'FAQ visual', 'Producto protagonista'];
 
 function GoogleMark() {
   return (
@@ -377,6 +443,11 @@ function PricingModal({
 export default function PosttyReplicaPage() {
   const [screen, setScreen] = React.useState<Screen>('home');
   const [trialUrl, setTrialUrl] = React.useState('https://www.theskirtingfactoryllc.com');
+  const [instagramUrl, setInstagramUrl] = React.useState('');
+  const [creativeBrief, setCreativeBrief] = React.useState('Quiero ads estáticos premium, claros, sin promesas exageradas y enfocados en conversión.');
+  const [selectedAnglesConfig, setSelectedAnglesConfig] = React.useState(['Punto de dolor', 'Demo', 'Objeciones']);
+  const [selectedRingsConfig, setSelectedRingsConfig] = React.useState(['Dolor', 'Prueba', 'Oferta']);
+  const [selectedFormatsConfig, setSelectedFormatsConfig] = React.useState(['Imagen 4:5', 'Story 9:16', 'Carrusel']);
   const [selectedTrialAds, setSelectedTrialAds] = React.useState([0, 1, 2, 3]);
   const [generatedTrialAds, setGeneratedTrialAds] = React.useState<TrialAd[]>(fallbackTrialAds);
   const [aiError, setAiError] = React.useState('');
@@ -421,6 +492,10 @@ export default function PosttyReplicaPage() {
     window.setTimeout(() => setToast(''), 2200);
   };
 
+  const toggleConfig = (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+    setter((items) => (items.includes(value) ? items.filter((item) => item !== value) : [...items, value]));
+  };
+
   const simulateWork = (next: () => void, label = `${APP_NAME} está trabajando...`) => {
     setWorking(true);
     notify(label);
@@ -447,7 +522,18 @@ export default function PosttyReplicaPage() {
       const response = await fetch('/api/scrape-website', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'creattia_generate', url: trialUrl }),
+        body: JSON.stringify({
+          action: 'creattia_generate',
+          url: trialUrl,
+          instagramUrl,
+          businessType,
+          preferences: {
+            brief: creativeBrief,
+            angles: selectedAnglesConfig,
+            rings: selectedRingsConfig,
+            formats: selectedFormatsConfig,
+          },
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -517,61 +603,241 @@ export default function PosttyReplicaPage() {
 
   if (screen === 'home') {
     return (
-      <main className="min-h-screen bg-white font-sans text-gray-950">
-        <header className="mx-auto flex h-20 max-w-6xl items-center justify-between px-5">
-          <button type="button" onClick={() => setScreen('home')} className="flex items-center gap-2">
-            <Mascot className="h-10 w-10" />
-            <span className="text-lg font-black tracking-tight">{APP_NAME}</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <PillButton variant="light" onClick={() => setScreen('login')}>Entrar</PillButton>
-            <button
-              type="button"
-              onClick={() => setScreen('trial')}
-              className="hidden h-10 items-center justify-center rounded-full bg-[#d7ff3f] px-5 text-sm font-black text-gray-950 transition hover:opacity-90 sm:inline-flex"
-            >
-              Probar gratis
+      <main className="min-h-screen bg-[#fbfff7] font-sans text-gray-950">
+        <header className="sticky top-0 z-50 border-b border-gray-900/5 bg-[#fbfff7]/88 backdrop-blur-xl">
+          <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5">
+            <button type="button" onClick={() => setScreen('home')} className="flex items-center gap-2.5">
+              <Mascot className="h-11 w-11" />
+              <span className="text-xl font-black tracking-tight">{APP_NAME}</span>
             </button>
+            <nav className="hidden items-center gap-7 text-sm font-bold text-gray-500 md:flex">
+              <a href="#como-funciona" className="hover:text-gray-950">Cómo funciona</a>
+              <a href="#precios" className="hover:text-gray-950">Precios</a>
+              <a href="#testimonios" className="hover:text-gray-950">Clientes</a>
+              <a href="#faq" className="hover:text-gray-950">FAQ</a>
+            </nav>
+            <div className="flex items-center gap-2">
+              <PillButton variant="light" onClick={() => setScreen('login')}>Entrar</PillButton>
+              <button
+                type="button"
+                onClick={() => setScreen('trial')}
+                className="hidden h-10 items-center justify-center rounded-full bg-[#d7ff3f] px-5 text-sm font-black text-gray-950 shadow-[0_10px_25px_rgba(120,170,40,0.22)] transition hover:-translate-y-0.5 sm:inline-flex"
+              >
+                Probar gratis
+              </button>
+            </div>
           </div>
         </header>
 
-        <section className="mx-auto grid min-h-[calc(100svh-80px)] max-w-6xl items-center gap-10 px-5 pb-14 pt-8 lg:grid-cols-[0.92fr_1.08fr]">
+        <section className="mx-auto grid min-h-[calc(100svh-80px)] max-w-7xl items-center gap-12 px-5 pb-20 pt-12 lg:grid-cols-[0.95fr_1.05fr]">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-gray-400">Ads con IA para e-commerce</p>
-            <h1 className="mt-5 max-w-3xl text-5xl font-light leading-[0.95] tracking-tight text-gray-950 sm:text-6xl lg:text-7xl">
-              Convertí una tienda en campañas listas para vender.
+            <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-gray-500 shadow-sm">
+              <Sparkles className="h-4 w-4 text-[#8bb000]" />
+              Ads estáticos para ecommerce y servicios
+            </div>
+            <h1 className="mt-6 max-w-3xl text-[46px] font-light leading-[0.93] tracking-tight text-gray-950 sm:text-7xl lg:text-[86px]">
+              El agente de marketing que crea Ads de Meta en minutos.
             </h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-gray-500">
-              Pegá el link de tu marca. Creattia analiza productos, tono, objeciones y genera ads, posts y una campaña editable con IA real.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-gray-600">
+              Pegá tu web e Instagram. {APP_NAME} analiza la marca, detecta puntos de dolor, objeciones, rings y formatos para generar creativos estáticos listos para vender.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={() => setScreen('trial')}
-                className="inline-flex h-12 items-center justify-center rounded-full bg-gray-950 px-7 text-sm font-black text-white transition hover:bg-gray-800"
+                className="inline-flex h-[52px] items-center justify-center rounded-full bg-gray-950 px-8 text-sm font-black text-white shadow-[0_16px_34px_rgba(15,23,42,0.2)] transition hover:-translate-y-0.5 hover:bg-gray-800"
               >
-                Generar mis Ads
+                Generar mis Ads gratis
               </button>
               <PillButton variant="light" onClick={() => setScreen('login')}>Iniciar sesión</PillButton>
             </div>
-            <div className="mt-8 grid max-w-xl grid-cols-3 gap-3">
-              {['Brand DNA', '4 ads demo', 'Planes Pro'].map((item) => (
-                <div key={item} className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-600">{item}</div>
+            <div className="mt-9 grid max-w-2xl gap-3 sm:grid-cols-3">
+              {landingResults.map(([value, label]) => (
+                <div key={value} className="rounded-[22px] border border-gray-100 bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.04)]">
+                  <p className="text-3xl font-black text-gray-950">{value}</p>
+                  <p className="mt-1 text-sm leading-5 text-gray-500">{label}</p>
+                </div>
               ))}
             </div>
           </div>
 
-          <div className="relative min-h-[520px]">
-            <div className="absolute left-1/2 top-0 h-44 w-44 -translate-x-1/2 rounded-full bg-[#d7ff3f]/25 blur-3xl" />
-            <Mascot className="absolute left-1/2 top-0 z-10 h-36 w-36 -translate-x-1/2" />
-            <div className="absolute left-0 top-24 w-[44%] rotate-[-4deg]">
-              <TrialAdCard ad={fallbackTrialAds[0]} />
+          <div className="relative min-h-[640px] overflow-hidden rounded-[38px] border border-gray-100 bg-white p-5 shadow-[0_30px_90px_rgba(15,23,42,0.09)]">
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(215,255,63,0.34),transparent_32%),radial-gradient(circle_at_88%_12%,rgba(120,227,209,0.42),transparent_24%)]" />
+            <Mascot className="absolute left-1/2 top-5 z-20 h-32 w-32 -translate-x-1/2" />
+            <div className="absolute left-6 top-28 z-10 w-[42%] rotate-[-5deg]">
+              <TrialAdCard ad={{ ...fallbackTrialAds[0], title: 'Tu producto, dicho como lo piensa tu cliente.', subtitle: 'Dolor real + promesa concreta + CTA simple.', cta: 'Ver concepto 4:5' }} />
             </div>
-            <div className="absolute left-[28%] top-10 z-20 w-[48%]">
-              <TrialAdCard ad={fallbackTrialAds[1]} />
+            <div className="absolute left-[29%] top-16 z-30 w-[44%]">
+              <TrialAdCard ad={{ ...fallbackTrialAds[2], title: 'Un solo mensaje. Una razón para comprar.', subtitle: 'Oferta clara con prueba y objeciones resueltas.', cta: 'Carrusel listo' }} />
             </div>
-            <div className="absolute right-0 top-28 w-[42%] rotate-[5deg]">
-              <TrialAdCard ad={fallbackTrialAds[3]} />
+            <div className="absolute right-6 top-32 z-20 w-[39%] rotate-[5deg]">
+              <TrialAdCard ad={{ ...fallbackTrialAds[3], title: '“Pensé que no era para mí…”', subtitle: 'FAQ visual para romper dudas antes del click.', cta: 'Story 9:16' }} />
+            </div>
+            <div className="absolute bottom-6 left-6 right-6 z-40 rounded-[30px] border border-gray-100 bg-white/92 p-5 shadow-2xl backdrop-blur">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-gray-400">Creative planner</p>
+                  <h3 className="mt-1 text-xl font-black">Rings, ángulos y formatos listos</h3>
+                </div>
+                <span className="rounded-full bg-[#d7ff3f] px-4 py-2 text-xs font-black">Sin video</span>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-xs font-bold text-gray-600">
+                {['Dolor', 'Prueba', 'Oferta', 'Demo', 'Objeciones', 'Testimonial'].map((item) => (
+                  <span key={item} className="rounded-full bg-gray-100 px-3 py-2 text-center">{item}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white py-16">
+          <div className="mx-auto max-w-7xl px-5">
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-gray-400">Resultados reales</p>
+            <div className="mt-4 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+              <h2 className="text-4xl font-light leading-tight tracking-tight sm:text-6xl">Contenido 10x más rápido, con criterio creativo de performance.</h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['Marca de ropa', '4.2x ROAS', 'Más claridad en campañas de prospección'],
+                  ['Consultora de servicios', '+38 leads', 'Creativos por dolor, autoridad y oferta'],
+                ].map(([name, metric, body]) => (
+                  <article key={name} className="rounded-[28px] border border-gray-100 bg-[#fbfff7] p-5">
+                    <p className="text-sm font-bold text-gray-500">{name}</p>
+                    <p className="mt-4 text-4xl font-black">{metric}</p>
+                    <p className="mt-2 text-sm leading-6 text-gray-500">{body}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="como-funciona" className="mx-auto max-w-7xl px-5 py-20">
+          <h2 className="max-w-3xl text-4xl font-light leading-tight tracking-tight sm:text-6xl">Cómo funciona</h2>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {[
+              [Store, '1', 'Conectás tu web e Instagram', 'Leemos propuesta, productos, servicios, tono, prueba social y objeciones.'],
+              [Target, '2', 'Elegís ángulos, rings y formatos', 'Dolor, prueba, oferta, demo, testimonial, FAQ, carrusel, 4:5 o story.'],
+              [Megaphone, '3', 'CreatteAI genera Ads listos', 'Recibís conceptos estáticos editables, con copy, visual y estructura de conversión.'],
+            ].map(([Icon, step, title, body]) => (
+              <article key={String(title)} className="rounded-[30px] border border-gray-100 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
+                {React.createElement(Icon as typeof Store, { className: 'h-8 w-8 text-gray-950' })}
+                <span className="mt-7 inline-grid h-10 w-10 place-items-center rounded-full bg-[#d7ff3f] text-sm font-black">{step}</span>
+                <h3 className="mt-5 text-xl font-black">{title as string}</h3>
+                <p className="mt-3 text-sm leading-6 text-gray-500">{body as string}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-gray-950 py-20 text-white">
+          <div className="mx-auto grid max-w-7xl gap-10 px-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-[#d7ff3f]">Funciona para cualquier negocio</p>
+              <h2 className="mt-4 text-4xl font-light leading-tight tracking-tight sm:text-6xl">Ecommerce, servicios, SaaS y agencias.</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {businessTypes.map((item) => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-white/8 px-4 py-5 text-sm font-black text-white/90">{item}</div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="precios" className="mx-auto max-w-7xl px-5 py-20">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-gray-400">Precios simples</p>
+              <h2 className="mt-3 text-4xl font-light tracking-tight sm:text-6xl">Empezá gratis. Escalá cuando venda.</h2>
+            </div>
+            <div className="rounded-full bg-white p-1 shadow-sm">
+              <button className="rounded-full bg-gray-950 px-5 py-2 text-sm font-black text-white">Mensual</button>
+              <button className="rounded-full px-5 py-2 text-sm font-black text-gray-500">Anual</button>
+            </div>
+          </div>
+          <div className="mt-10 grid gap-4 lg:grid-cols-4">
+            {pricingPlans.map((plan) => (
+              <article key={plan.name} className={`rounded-[30px] border p-6 ${plan.featured ? 'border-gray-950 bg-gray-950 text-white shadow-2xl' : 'border-gray-100 bg-white text-gray-950'}`}>
+                <Mascot className="h-16 w-16" />
+                <h3 className="mt-6 text-2xl font-black">{plan.name}</h3>
+                <p className={`mt-4 text-3xl font-black ${plan.featured ? 'text-[#d7ff3f]' : ''}`}>{plan.price}</p>
+                <p className={`mt-3 min-h-[52px] text-sm leading-6 ${plan.featured ? 'text-white/75' : 'text-gray-500'}`}>{plan.body}</p>
+                <button onClick={() => setScreen('trial')} className={`mt-5 h-11 w-full rounded-full text-sm font-black ${plan.featured ? 'bg-[#d7ff3f] text-gray-950' : 'bg-gray-100 text-gray-700'}`}>{plan.cta}</button>
+                <div className="mt-5 space-y-3">
+                  {plan.features.map((feature) => (
+                    <div key={feature} className="flex items-center gap-2 text-sm">
+                      <Check className={`h-4 w-4 ${plan.featured ? 'text-[#d7ff3f]' : 'text-green-600'}`} />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="testimonios" className="bg-white py-20">
+          <div className="mx-auto max-w-7xl px-5">
+            <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.2em] text-gray-400">Tu equipo</p>
+                <h2 className="mt-3 text-4xl font-light leading-tight tracking-tight sm:text-6xl">Hecho para que vender deje de sentirse pesado.</h2>
+                <div className="mt-8 grid gap-3">
+                  {[
+                    ['Mateo', 'CEO', 'Queremos que la IA baje la fricción de vender, no que agregue otra herramienta difícil.'],
+                    ['Valentina', 'CMO', 'Cada creativo tiene que partir de una tensión real: dolor, deseo, prueba y oferta.'],
+                    ['Bruno', 'CTO', 'El sistema está pensado para usar modelos potentes sin quemar presupuesto sin sentido.'],
+                  ].map(([name, role, quote]) => (
+                    <article key={name} className="rounded-[26px] border border-gray-100 bg-[#fbfff7] p-5">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-12 w-12 place-items-center rounded-full bg-gray-950 text-sm font-black text-[#d7ff3f]">{name.slice(0, 1)}</div>
+                        <div>
+                          <p className="text-sm font-black">{name}</p>
+                          <p className="text-xs font-bold text-gray-400">{role}</p>
+                        </div>
+                      </div>
+                      <p className="mt-4 text-sm leading-6 text-gray-600">“{quote}”</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-4">
+                {landingTestimonials.map((item) => (
+                  <article key={item.name} className="rounded-[30px] border border-gray-100 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
+                    <Quote className="h-7 w-7 text-[#9ab900]" />
+                    <p className="mt-4 text-xl font-light leading-8 text-gray-900">“{item.quote}”</p>
+                    <p className="mt-5 text-sm font-black">{item.name}</p>
+                    <p className="text-sm text-gray-500">{item.role}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" className="mx-auto max-w-4xl px-5 py-20">
+          <h2 className="text-center text-4xl font-light tracking-tight sm:text-6xl">Preguntas frecuentes</h2>
+          <div className="mt-10 divide-y divide-gray-100 rounded-[30px] border border-gray-100 bg-white">
+            {[
+              ['¿Qué puede generar CreatteAI?', 'Ads estáticos para Meta, stories, carruseles, conceptos visuales, copies, ángulos y guías de producción. Por ahora no hacemos video.'],
+              ['¿Sirve si vendo servicios?', 'Sí. El flujo contempla ecommerce y servicios: analiza propuesta, prueba social, objeciones, oferta y confianza.'],
+              ['¿Qué son los rings?', 'Son ejes creativos para tocar un punto de dolor desde deseo, dolor, prueba, mecanismo y oferta.'],
+              ['¿Puedo elegir formatos y ángulos?', 'Sí. Podés elegir rings, ángulos, formatos y dejar instrucciones propias antes de generar.'],
+            ].map(([q, a]) => (
+              <div key={q} className="p-6">
+                <h3 className="text-base font-black">{q}</h3>
+                <p className="mt-2 text-sm leading-6 text-gray-500">{a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-5 pb-16">
+          <div className="relative overflow-hidden rounded-[40px] bg-gray-950 p-8 text-white sm:p-12">
+            <Mascot className="absolute right-6 top-2 h-40 w-40 opacity-80" />
+            <div className="relative max-w-2xl">
+              <h2 className="text-4xl font-light leading-tight tracking-tight sm:text-6xl">¿Listo para dejar de pelearte con los creativos?</h2>
+              <p className="mt-5 text-base leading-7 text-white/70">Probá CreatteAI con una web real y recibí los primeros anuncios estáticos con criterio de performance.</p>
+              <button onClick={() => setScreen('trial')} className="mt-7 rounded-full bg-[#d7ff3f] px-7 py-4 text-sm font-black text-gray-950">Empezar gratis</button>
             </div>
           </div>
         </section>
@@ -620,25 +886,71 @@ export default function PosttyReplicaPage() {
     return (
       <main className="min-h-screen bg-white font-sans text-gray-900">
         {screen === 'trial' ? (
-          <div className="flex min-h-screen flex-col items-center justify-center px-3 py-6">
-            <section className="relative w-full max-w-[520px] text-center">
-              <Mascot className="absolute left-1/2 top-[-92px] h-[190px] w-[190px] -translate-x-1/2" />
-              <div className="relative rounded-[24px] border border-gray-100 bg-white px-6 pb-10 pt-11 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
-                <h1 className="text-[28px] font-light leading-[1.15] tracking-tight text-gray-900">Probá {APP_NAME} gratis</h1>
-                <p className="mt-4 text-sm leading-relaxed text-gray-500">Ingresá el link de tu tienda y generamos 4 Ads de prueba</p>
-                <input
-                  value={trialUrl}
-                  onChange={(event) => setTrialUrl(event.target.value)}
-                  placeholder="https://mitienda.com"
-                  autoFocus
-                  className="mx-auto mt-5 h-[46px] w-full max-w-[320px] rounded-full border border-gray-300 bg-white px-6 text-sm text-gray-700 outline-none transition focus:border-gray-500"
-                />
-                <div>
+          <div className="min-h-screen bg-[#fbfff7] px-3 py-10">
+            <section className="relative mx-auto w-full max-w-5xl">
+              <Mascot className="absolute left-1/2 top-[-72px] z-10 h-[150px] w-[150px] -translate-x-1/2" />
+              <div className="relative rounded-[32px] border border-gray-100 bg-white px-5 pb-8 pt-20 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:px-8">
+                <div className="mx-auto max-w-2xl text-center">
+                  <h1 className="text-[34px] font-light leading-[1.05] tracking-tight text-gray-900 sm:text-5xl">Probá {APP_NAME} gratis</h1>
+                  <p className="mt-4 text-sm leading-relaxed text-gray-500">Ingresá tu web, Instagram y preferencias. Generamos 4 Ads estáticos con ángulos, rings y formatos listos.</p>
+                </div>
+                <div className="mt-8 grid gap-4 lg:grid-cols-2">
+                  <Field label="URL de web o tienda" value={trialUrl} onChange={setTrialUrl} placeholder="https://mitienda.com" />
+                  <Field label="Instagram (opcional)" value={instagramUrl} onChange={setInstagramUrl} placeholder="https://instagram.com/tumarca" />
+                  <label className="block lg:col-span-2">
+                    <span className="text-xs font-semibold text-gray-500">Tipo de negocio</span>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {['Ecommerce', 'Servicios', 'Ambos'].map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setBusinessType(item)}
+                          className={`h-10 rounded-full text-sm font-semibold transition ${businessType === item ? 'bg-gray-950 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </label>
+                  <label className="block lg:col-span-2">
+                    <span className="text-xs font-semibold text-gray-500">Qué querés que CreatteAI tenga en cuenta</span>
+                    <textarea
+                      value={creativeBrief}
+                      onChange={(event) => setCreativeBrief(event.target.value)}
+                      className="mt-2 min-h-[92px] w-full rounded-3xl border border-gray-200 bg-white px-4 py-3 text-sm leading-6 text-gray-900 outline-none transition focus:border-gray-400"
+                    />
+                  </label>
+                  {[
+                    ['Ángulos', creativeAngles, selectedAnglesConfig, setSelectedAnglesConfig],
+                    ['Rings', creativeRings, selectedRingsConfig, setSelectedRingsConfig],
+                    ['Formatos', creativeFormats, selectedFormatsConfig, setSelectedFormatsConfig],
+                  ].map(([label, options, selected, setter]) => (
+                    <div key={label as string} className="lg:col-span-2">
+                      <p className="text-xs font-semibold text-gray-500">{label as string}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(options as string[]).map((item) => {
+                          const active = (selected as string[]).includes(item);
+                          return (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => toggleConfig(item, setter as React.Dispatch<React.SetStateAction<string[]>>)}
+                              className={`rounded-full px-4 py-2 text-xs font-black transition ${active ? 'bg-[#d7ff3f] text-gray-950' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                              {item}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-7 text-center">
                   <button
                     type="button"
                     onClick={generateTrialAds}
                     disabled={!trialUrl.trim() || working}
-                    className="mt-4 inline-flex h-[48px] items-center justify-center rounded-full bg-gray-100 px-7 text-sm font-semibold text-gray-400 transition enabled:bg-gray-950 enabled:text-white enabled:hover:bg-gray-800 disabled:cursor-not-allowed"
+                    className="inline-flex h-[52px] items-center justify-center rounded-full bg-gray-100 px-8 text-sm font-black text-gray-400 transition enabled:bg-gray-950 enabled:text-white enabled:hover:bg-gray-800 disabled:cursor-not-allowed"
                   >
                     {working ? 'Analizando con IA...' : 'Generar mis Ads'}
                   </button>
@@ -650,7 +962,7 @@ export default function PosttyReplicaPage() {
                 )}
               </div>
             </section>
-            <div className="mt-auto flex gap-3">
+            <div className="mx-auto mt-8 flex max-w-5xl justify-center gap-3">
               <PillButton variant="light" onClick={() => setScreen('login')}>Cerrar sesión</PillButton>
               <button
                 type="button"
@@ -1198,7 +1510,7 @@ export default function PosttyReplicaPage() {
                     <p className="mt-2 text-3xl font-light">100 Ads y piezas de Contenido</p>
                     <button className="mt-5 rounded-full bg-white px-5 py-2 text-sm font-bold text-gray-950">Ver planes</button>
                   </div>
-                  <a className="mt-4 flex items-center gap-2 text-sm font-semibold text-gray-500" href="https://calendly.com/soporte-posttyai/30min" target="_blank" rel="noreferrer">
+                  <a className="mt-4 flex items-center gap-2 text-sm font-semibold text-gray-500" href="mailto:soporte@creatteai.com" target="_blank" rel="noreferrer">
                     <LinkIcon className="h-4 w-4" />
                     Agendar soporte
                   </a>
