@@ -262,6 +262,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     };
 
     let raw = '';
+    let parsed: any;
     try {
       raw = geminiKey ? await callCreattiaGemini(geminiKey, systemPrompt, userPrompt) : await callCreattiaOpenAI(openAiKey, systemPrompt, userPrompt);
     } catch (primaryError: any) {
@@ -269,7 +270,13 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       raw = await callCreattiaOpenAI(openAiKey, systemPrompt, userPrompt);
     }
 
-    const parsed = extractCreattiaJson(raw);
+    try {
+      parsed = extractCreattiaJson(raw);
+    } catch (parseError: any) {
+      if (!openAiKey || !geminiKey) throw parseError;
+      raw = await callCreattiaOpenAI(openAiKey, systemPrompt, userPrompt);
+      parsed = extractCreattiaJson(raw);
+    }
     const ads = (Array.isArray(parsed.ads) ? parsed.ads : []).slice(0, 4).map((ad: CreattiaAd, index: number) => ({
       title: String(ad.title || 'Una pieza que vende mejor').slice(0, 80),
       subtitle: String(ad.subtitle || 'Concepto generado con IA para tu tienda.').slice(0, 110),
