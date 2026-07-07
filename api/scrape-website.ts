@@ -123,6 +123,11 @@ function extractCreattiaJson(text: string) {
   return JSON.parse(source.slice(start, end + 1));
 }
 
+function cleanCreattiaKey(value?: string) {
+  const clean = String(value || '').trim().replace(/^['"]|['"]$/g, '');
+  return clean || undefined;
+}
+
 async function fetchCreattiaSite(url: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 9000);
@@ -199,8 +204,8 @@ async function callCreattiaOpenAI(key: string, systemPrompt: string, userPrompt:
 
 async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
   try {
-    const geminiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY;
-    const openAiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
+    const geminiKey = cleanCreattiaKey(process.env.GOOGLE_AI_API_KEY) || cleanCreattiaKey(process.env.GEMINI_API_KEY) || cleanCreattiaKey(process.env.GOOGLE_GEMINI_API_KEY);
+    const openAiKey = cleanCreattiaKey(process.env.OPENAI_API_KEY) || cleanCreattiaKey(process.env.OPENAI_KEY);
     if (!geminiKey && !openAiKey) {
       return res.status(503).json({
         error: 'AI_NOT_CONFIGURED',
