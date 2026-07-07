@@ -444,10 +444,10 @@ export default function PosttyReplicaPage() {
     setAiError('');
     notify('Analizando tu tienda con IA...');
     try {
-      const response = await fetch('/api/creattia-generate', {
+      const response = await fetch('/api/scrape-website', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: trialUrl }),
+        body: JSON.stringify({ action: 'creattia_generate', url: trialUrl }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
