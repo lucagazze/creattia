@@ -393,8 +393,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const queryNorm = normalizeText(itemText);
     const queryWords = queryNorm.split(/\s+/).filter(w => w.length >= 3);
 
-    // Words that are generic in fabric shop catalog
-    const genericWords = new Set(['tela', 'telas', 'bolsa', 'bolsas', 'panos', 'pano', 'combo', 'combos', 'retazo', 'retazos']);
+    // Generic catalog words. Keep matching focused on the distinctive part of the item.
+    const genericWords = new Set([
+      'producto', 'productos', 'item', 'items', 'modelo', 'modelos', 'combo', 'combos',
+      'pack', 'packs', 'set', 'sets', 'kit', 'kits', 'unidad', 'unidades',
+      'tela', 'telas', 'bolsa', 'bolsas', 'panos', 'pano', 'retazo', 'retazos',
+      'crema', 'serum', 'gel', 'mask', 'mascara', 'tratamiento'
+    ]);
 
     const getPrimaryKeyword = (title: string): string => {
       const words = normalizeText(title).split(/\s+/).filter(w => w.length >= 3);
@@ -422,12 +427,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Detect if message is asking about a specific product/price
     const askingPrice = /precio|price|cost|cuánto|cuanto|vale|valor|cuesta|how much|\$|pesos|dolar/i.test(itemText);
-    const askingProduct = /tenés|tienen|hay\s+(stock|tela|disponible)|busco\s+\w|necesito\s+(comprar|tela|saber)|quiero\s+(comprar|saber\s+el\s+precio|ver\s+el\s+precio)|want\s+to\s+buy|do\s+you\s+have/i.test(itemText);
+    const askingProduct = /tenés|tienen|hay\s+(stock|producto|disponible)|busco\s+\w|necesito\s+(comprar|saber)|quiero\s+(comprar|saber\s+el\s+precio|ver\s+el\s+precio)|want\s+to\s+buy|do\s+you\s+have/i.test(itemText);
     const productMentioned = matched.length > 0;
 
     // Generic greeting/intro — don't trigger catalog enforcement
     const isGenericGreeting = /^[¡!]?\s*(hola|hi|hello|buenas|buen\s*(día|dia|tarde|noche)|hey|buenos)\b/i.test(itemText.trim())
-      || (!askingPrice && itemText.trim().split(/\s+/).length <= 10 && !/tenés|tienen|cuánto|precio|stock|disponible|específic/i.test(itemText));
+      || (!askingPrice && itemText.trim().split(/\s+/).length <= 10 && !/tenés|tienen|cuánto|precio|stock|disponible|específic|producto/i.test(itemText));
 
     // Build catalog context with validation hints
     let productsContext = '';
@@ -541,7 +546,7 @@ ${productsContext}
 ════ ENLACES ════
 ${linksBlock}
 
-${fewShotContext ? `════ EJEMPLOS DE RESPUESTAS REALES ════\n${fewShotContext}` : ''}
+${fewShotContext ? `════ EJEMPLOS DE RESPUESTAS REALES ════\nUsalos solo como referencia de tono y estilo. No copies datos, promesas ni frases si no aplican al comentario actual.\n${fewShotContext}` : ''}
 
 ════ ROL ════
 Sos la persona detrás de las redes de "${business_name}". No un bot. Un humano que trabaja en la marca y responde de forma natural.
@@ -549,15 +554,16 @@ Sos la persona detrás de las redes de "${business_name}". No un bot. Un humano 
 ════ REGLA ABSOLUTA — PRODUCTOS, PRECIOS, MEDIDAS, DISPONIBILIDAD ════
 ${verifiedFacts || ''}
 
-⛔ PROHIBICIÓN ABSOLUTA DE INVENTAR PRECIOS:
+⛔ PROHIBICIÓN ABSOLUTA DE INVENTAR PRECIOS O DISPONIBILIDAD:
 - Tenés terminantemente PROHIBIDO inventar, suponer, especular o mencionar cualquier precio que no esté explícitamente listado en los DATOS VERIFICADOS o en el catálogo de arriba.
-- Si el precio no figura para la tela consultada, o si la tela consultada no está en el catálogo, no digas ningún precio bajo ninguna circunstancia.
+- Si el precio no figura para el producto/servicio consultado, o si no está en el catálogo/contexto verificado, no digas ningún precio bajo ninguna circunstancia.
 
 ⛔ REGLAS GENERALES DE RESPUESTA:
-- Si la tela o producto consultado NO está en el catálogo o en los DATOS VERIFICADOS (como por ejemplo, si consultan por "lanilla" o "percal" y no figura en tu catálogo), tenés terminantemente PROHIBIDO inventar un precio o stock. En su lugar, respondé de forma natural, variada y atenta. Podés invitarlos a revisar todas las opciones vigentes en nuestra web (${canonicalSite}) o derivarlos para hablar por privado (por ejemplo: "Escribinos al privado y te confirmamos", "Si querés consultanos por privado y nos fijamos", "Te mandamos un mensajito privado para pasarte detalles", etc.). Nunca uses siempre el mismo texto genérico; variá la respuesta para que suene humana y conversacional.
-- Si el cliente pregunta por una tela específica que NO está en el catálogo (por ejemplo, pregunta por "percal" y en los datos solo tenés "microfibra" o "tussor", que son telas totalmente distintas), NO asumas que son lo mismo. Debés indicar que no lo tenés y derivar al privado de forma variada e informal.
+- Si el producto/servicio consultado NO está en el catálogo o en los DATOS VERIFICADOS, tenés terminantemente PROHIBIDO inventar precio, stock, ingredientes, medidas, beneficios, turnos o condiciones. En su lugar, respondé de forma natural, variada y atenta. Podés invitarlos a revisar las opciones vigentes en nuestra web (${canonicalSite}) o derivarlos para hablar por privado (por ejemplo: "Escribinos al privado y te confirmamos", "Si querés consultanos por privado y lo revisamos", "Te mandamos un mensajito privado para pasarte detalles", etc.). Nunca uses siempre el mismo texto genérico; variá la respuesta para que suene humana y conversacional.
+- Si el cliente pregunta por algo específico que NO está en el catálogo/contexto, NO asumas que otro producto parecido es equivalente. Aclaralo con cuidado o derivá al privado.
 - Si el producto SÍ está en el catálogo, NO uses la frase de derivación/fallback. Respondé directamente con el precio del catálogo y respondé a sus preguntas. Si el cliente pregunta por características adicionales (ancho, composición, etc.) de ese producto, podés buscar y responder usando la información del CEREBRO DEL NEGOCIO.
 - Para precios, stock y disponibilidad, la única fuente válida es el catálogo. Nunca supongas precios que no estén en el catálogo.
+- Si falta información, no inventes. Respondé con una frase útil y humana que pida el dato que falta o derive al canal correcto.
 
 ════ CÓMO RESPONDER ════
 ${isDM
