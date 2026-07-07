@@ -10,6 +10,10 @@ type CreattiaAd = {
   cta: string;
   format: 'feed' | 'story';
   color?: string;
+  angle?: string;
+  ring?: string;
+  visualDirection?: string;
+  conversionReason?: string;
 };
 
 const creattiaColorPresets = [
@@ -17,6 +21,10 @@ const creattiaColorPresets = [
   'from-[#1d120d] via-[#5d321f] to-[#9c7048]',
   'from-[#321c11] via-[#805033] to-[#d6a56f]',
   'from-[#e9e3d8] via-[#9f7559] to-[#4b2a1e]',
+  'from-[#101828] via-[#245c57] to-[#78e3d1]',
+  'from-[#172033] via-[#6d5dfc] to-[#f7d56b]',
+  'from-[#111827] via-[#dc6f55] to-[#ffe8c2]',
+  'from-[#0f251d] via-[#38a993] to-[#d7ff3f]',
 ];
 
 // ── audio-proxy helpers ──────────────────────────────────────────────────────
@@ -157,7 +165,7 @@ async function callCreattiaGemini(key: string, systemPrompt: string, userPrompt:
     body: JSON.stringify({
       generationConfig: {
         temperature: 0.75,
-        maxOutputTokens: 3600,
+        maxOutputTokens: 6500,
         responseMimeType: 'application/json',
       },
       contents: [
@@ -187,7 +195,7 @@ async function callCreattiaOpenAI(key: string, systemPrompt: string, userPrompt:
       model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
       response_format: { type: 'json_object' },
       temperature: 0.75,
-      max_tokens: 3600,
+      max_tokens: 6500,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: JSON.stringify(userPrompt) },
@@ -217,18 +225,21 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     const instagramUrl = String(req.body?.instagramUrl || '').trim();
     const businessType = String(req.body?.businessType || 'Ambos');
     const preferences = req.body?.preferences || {};
+    const requestedAds = Math.max(4, Math.min(16, Number(req.body?.creativeCount || 4)));
     const site = await fetchCreattiaSite(url);
     const systemPrompt = [
       'Sos CreatteAI, un agente senior de performance creative para ecommerce y páginas de servicios.',
       'Analizás web, Instagram declarado, propuesta de valor, puntos de dolor, objeciones, prueba social, oferta, rings creativos y formatos.',
       'Generás solo creativos estáticos para Meta/Instagram: imagen 4:5, story 9:16, carrusel, founder ad, FAQ visual, oferta, demo o testimonial. No generes video.',
       'Cada anuncio debe tener una razón estratégica clara, un punto de dolor específico, un ring y una estructura de conversión. Evitá promesas exageradas, médicas o imposibles de probar.',
+      'No repitas el mismo ángulo con distintas palabras: cada creativo tiene que aportar una hipótesis creativa distinta para testear en Meta Ads.',
       'Usá español rioplatense premium y claro. No uses comparaciones agresivas ni ataques directos a competidores.',
       'Respondé únicamente JSON válido. Sin markdown.',
     ].join('\n');
 
     const userPrompt = {
-      task: 'Generá una campaña de prueba con 4 ads estáticos para Meta/Instagram a partir de esta marca.',
+      task: `Generá exactamente ${requestedAds} ads estáticos para Meta/Instagram a partir de esta marca.`,
+      requestedAds,
       url,
       instagramUrl,
       businessType,
@@ -277,11 +288,15 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       raw = await callCreattiaOpenAI(openAiKey, systemPrompt, userPrompt);
       parsed = extractCreattiaJson(raw);
     }
-    const ads = (Array.isArray(parsed.ads) ? parsed.ads : []).slice(0, 4).map((ad: CreattiaAd, index: number) => ({
+    const ads = (Array.isArray(parsed.ads) ? parsed.ads : []).slice(0, requestedAds).map((ad: CreattiaAd, index: number) => ({
       title: String(ad.title || 'Una pieza que vende mejor').slice(0, 80),
       subtitle: String(ad.subtitle || 'Concepto generado con IA para tu tienda.').slice(0, 110),
       cta: String(ad.cta || 'Descubrí la diferencia').slice(0, 90),
       format: ad.format === 'story' ? 'story' : 'feed',
+      angle: String(ad.angle || '').slice(0, 38),
+      ring: String(ad.ring || '').slice(0, 24),
+      visualDirection: String(ad.visualDirection || '').slice(0, 150),
+      conversionReason: String(ad.conversionReason || '').slice(0, 120),
       color: creattiaColorPresets[index % creattiaColorPresets.length],
     }));
 
@@ -291,13 +306,20 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       businessSummary: parsed.businessSummary || site.description || '',
       brandDna: parsed.brandDna || null,
       products: Array.isArray(parsed.products) ? parsed.products.slice(0, 3) : [],
-      ads: ads.length ? ads : creattiaColorPresets.map((color, index) => ({
-        title: ['Tu producto, mejor contado', 'La razón para elegirte', 'Menos dudas, más compras', 'Una historia que convierte'][index],
+      ads: ads.length ? ads : Array.from({ length: requestedAds }, (_, index) => {
+        const color = creattiaColorPresets[index % creattiaColorPresets.length];
+        return {
+        title: ['Tu producto, mejor contado', 'La razón para elegirte', 'Menos dudas, más compras', 'Una historia que convierte'][index % 4],
         subtitle: 'Concepto generado con IA para tu tienda.',
         cta: 'Ver más',
         format: index === 3 ? 'story' : 'feed',
+        angle: ['Punto de dolor', 'Demo', 'Objeciones', 'Oferta'][index % 4],
+        ring: ['Dolor', 'Prueba', 'Mecanismo', 'Oferta'][index % 4],
+        visualDirection: 'Pieza estática clara, con jerarquía fuerte, producto o servicio protagonista y CTA visible.',
+        conversionReason: 'Testea una hipótesis creativa distinta para Meta Ads.',
         color,
-      })),
+      };
+      }),
     });
   } catch (error: any) {
     return res.status(400).json({

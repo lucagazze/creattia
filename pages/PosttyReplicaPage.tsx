@@ -60,6 +60,10 @@ type TrialAd = {
   cta: string;
   format: 'feed' | 'story';
   color: string;
+  angle?: string;
+  ring?: string;
+  visualDirection?: string;
+  conversionReason?: string;
 };
 
 type BrandDna = {
@@ -233,6 +237,7 @@ const pricingPlans = [
 const creativeAngles = ['Punto de dolor', 'Transformación', 'Demo', 'Autoridad', 'Oferta', 'Objeciones', 'UGC testimonial', 'Comparación sin atacar'];
 const creativeRings = ['Deseo', 'Dolor', 'Prueba', 'Mecanismo', 'Oferta'];
 const creativeFormats = ['Imagen 4:5', 'Story 9:16', 'Carrusel', 'Founder ad', 'FAQ visual', 'Producto protagonista'];
+const creativeCounts = [4, 8, 12, 16];
 
 function GoogleMark() {
   return (
@@ -245,9 +250,9 @@ function GoogleMark() {
 function Mascot({ className = '' }: { className?: string }) {
   return (
     <img
-      src="/assets/creattia-mascot.svg"
+      src="/assets/creatteai-favicon.svg"
       alt={`${APP_NAME} mascot`}
-      className={`object-contain drop-shadow-[0_18px_30px_rgba(76,100,150,0.22)] ${className}`}
+      className={`rounded-[28%] object-contain drop-shadow-[0_18px_30px_rgba(76,100,150,0.22)] ${className}`}
     />
   );
 }
@@ -325,17 +330,31 @@ function TrialAdCard({
     <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${ad.color} shadow-[0_18px_45px_rgba(15,23,42,0.18)] ${large ? 'h-[648px] w-[365px]' : 'aspect-[9/16] w-full'}`}>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.42),transparent_26%),linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.42))]" />
       <div className="absolute inset-x-5 top-9 text-white drop-shadow">
-        {ad.format === 'story' && <p className="mb-6 text-[11px] font-semibold opacity-80">llannecz · 4h</p>}
+        {ad.format === 'story' && <p className="mb-6 text-[11px] font-semibold opacity-80">creativo · Meta Ads</p>}
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {(ad.angle || ad.ring) && (
+            <span className="rounded-full bg-white/18 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white backdrop-blur">
+              {[ad.angle, ad.ring].filter(Boolean).join(' · ')}
+            </span>
+          )}
+        </div>
         <h3 className={`${large ? 'text-[32px]' : 'text-[23px]'} font-serif leading-[0.95] tracking-tight`}>{ad.title}</h3>
         <p className={`${large ? 'mt-5 text-[18px]' : 'mt-4 text-[14px]'} max-w-[260px] font-semibold leading-tight`}>{ad.subtitle}</p>
         {ad.format === 'story' ? (
           <div className="mt-5 space-y-2 text-[11px] font-bold text-gray-900">
-            <div className="ml-auto w-fit max-w-[220px] rounded-xl bg-white/85 px-3 py-2 text-center">¿Harto de renegar con el espesor del cuero?</div>
-            <div className="mx-auto w-fit max-w-[220px] rounded-xl bg-white/85 px-3 py-2 text-center">¿Harto de renegar con el espesor del cuello?</div>
+            <div className="ml-auto w-fit max-w-[220px] rounded-xl bg-white/85 px-3 py-2 text-center">¿Te pasa esto?</div>
+            <div className="mx-auto w-fit max-w-[220px] rounded-xl bg-white/85 px-3 py-2 text-center">{ad.conversionReason || 'Resuelve la duda antes del click.'}</div>
           </div>
         ) : null}
       </div>
-      <div className="absolute bottom-8 left-1/2 h-[46%] w-[78%] -translate-x-1/2 rounded-[55%_45%_38%_62%] bg-[linear-gradient(135deg,rgba(25,12,8,0.85),rgba(158,91,48,0.96),rgba(238,178,111,0.72))] shadow-[inset_0_12px_38px_rgba(255,255,255,0.22),0_30px_60px_rgba(0,0,0,0.38)]" />
+      <div className="absolute bottom-[18%] left-1/2 h-[36%] w-[72%] -translate-x-1/2 rounded-[34px] border border-white/25 bg-white/20 p-3 shadow-[inset_0_12px_38px_rgba(255,255,255,0.22),0_30px_60px_rgba(0,0,0,0.28)] backdrop-blur-sm">
+        <div className="h-full rounded-[24px] bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.95),rgba(255,255,255,0.16)_32%,rgba(15,23,42,0.18)_70%)]" />
+      </div>
+      {ad.visualDirection && large && (
+        <div className="absolute bottom-20 left-7 right-7 rounded-2xl bg-white/88 px-3 py-2 text-[11px] font-bold leading-4 text-gray-800 shadow-lg">
+          {ad.visualDirection}
+        </div>
+      )}
       <div className="absolute bottom-7 left-7 right-7 border-t border-white/45 pt-3 text-center text-xs font-semibold text-white/90">{ad.cta}</div>
       {typeof selected === 'boolean' && (
         <button
@@ -448,6 +467,7 @@ export default function PosttyReplicaPage() {
   const [selectedAnglesConfig, setSelectedAnglesConfig] = React.useState(['Punto de dolor', 'Demo', 'Objeciones']);
   const [selectedRingsConfig, setSelectedRingsConfig] = React.useState(['Dolor', 'Prueba', 'Oferta']);
   const [selectedFormatsConfig, setSelectedFormatsConfig] = React.useState(['Imagen 4:5', 'Story 9:16', 'Carrusel']);
+  const [creativeCount, setCreativeCount] = React.useState(8);
   const [selectedTrialAds, setSelectedTrialAds] = React.useState([0, 1, 2, 3]);
   const [generatedTrialAds, setGeneratedTrialAds] = React.useState<TrialAd[]>(fallbackTrialAds);
   const [aiError, setAiError] = React.useState('');
@@ -533,6 +553,7 @@ export default function PosttyReplicaPage() {
             rings: selectedRingsConfig,
             formats: selectedFormatsConfig,
           },
+          creativeCount,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -892,7 +913,7 @@ export default function PosttyReplicaPage() {
               <div className="relative rounded-[32px] border border-gray-100 bg-white px-5 pb-8 pt-20 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:px-8">
                 <div className="mx-auto max-w-2xl text-center">
                   <h1 className="text-[34px] font-light leading-[1.05] tracking-tight text-gray-900 sm:text-5xl">Probá {APP_NAME} gratis</h1>
-                  <p className="mt-4 text-sm leading-relaxed text-gray-500">Ingresá tu web, Instagram y preferencias. Generamos 4 Ads estáticos con ángulos, rings y formatos listos.</p>
+                  <p className="mt-4 text-sm leading-relaxed text-gray-500">Ingresá tu web, Instagram y preferencias. Generamos tandas de creativos estáticos con ángulos, rings y formatos listos.</p>
                 </div>
                 <div className="mt-8 grid gap-4 lg:grid-cols-2">
                   <Field label="URL de web o tienda" value={trialUrl} onChange={setTrialUrl} placeholder="https://mitienda.com" />
@@ -920,6 +941,21 @@ export default function PosttyReplicaPage() {
                       className="mt-2 min-h-[92px] w-full rounded-3xl border border-gray-200 bg-white px-4 py-3 text-sm leading-6 text-gray-900 outline-none transition focus:border-gray-400"
                     />
                   </label>
+                  <div className="lg:col-span-2">
+                    <p className="text-xs font-semibold text-gray-500">Cantidad de creativos</p>
+                    <div className="mt-2 grid grid-cols-4 gap-2">
+                      {creativeCounts.map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          onClick={() => setCreativeCount(count)}
+                          className={`h-11 rounded-full text-sm font-black transition ${creativeCount === count ? 'bg-gray-950 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                          {count} ads
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {[
                     ['Ángulos', creativeAngles, selectedAnglesConfig, setSelectedAnglesConfig],
                     ['Rings', creativeRings, selectedRingsConfig, setSelectedRingsConfig],
@@ -952,7 +988,7 @@ export default function PosttyReplicaPage() {
                     disabled={!trialUrl.trim() || working}
                     className="inline-flex h-[52px] items-center justify-center rounded-full bg-gray-100 px-8 text-sm font-black text-gray-400 transition enabled:bg-gray-950 enabled:text-white enabled:hover:bg-gray-800 disabled:cursor-not-allowed"
                   >
-                    {working ? 'Analizando con IA...' : 'Generar mis Ads'}
+                    {working ? 'Analizando con IA...' : `Generar ${creativeCount} Ads`}
                   </button>
                 </div>
                 {aiError && (
@@ -984,9 +1020,9 @@ export default function PosttyReplicaPage() {
               >
                 <ArrowLeft className="h-[18px] w-[18px]" />
               </button>
-              <h1 className="mt-6 text-[32px] font-light leading-[1.1] tracking-tight text-gray-900 sm:text-[36px]">Tus Ads de prueba</h1>
+              <h1 className="mt-6 text-[32px] font-light leading-[1.1] tracking-tight text-gray-900 sm:text-[36px]">Tus {activeTrialAds.length} creativos de prueba</h1>
               <p className="mt-2 max-w-[900px] text-sm leading-relaxed text-gray-500">
-                Estos Ads fueron creados como ejemplos, ¡imaginate los que podríamos crear si nos ayudas con tu conocimiento!
+                Estos Ads estáticos fueron creados con tu web, tus preferencias y criterios de performance para Meta.
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {activeTrialAds.map((ad, index) => (
