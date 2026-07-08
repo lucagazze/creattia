@@ -175,6 +175,8 @@ function selectUserReference(ad: CreattiaAd, index: number) {
   return scored[index % Math.min(4, scored.length)]?.reference || catalog[index % catalog.length];
 }
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // ── audio-proxy helpers ──────────────────────────────────────────────────────
 
 function isAllowedAudioUrl(urlStr: string): boolean {
@@ -701,27 +703,44 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
 
     const brandName = parsed.brandName || site.title || 'Tu marca';
     const businessSummary = parsed.businessSummary || site.description || '';
-    const adsWithImages = openAiKey
-      ? await Promise.all(ads.map(async (ad: CreattiaAd, index: number) => {
+    const adsWithImages = [];
+    if (openAiKey) {
+      for (let index = 0; index < ads.length; index += 1) {
+        const ad = ads[index];
+        const reference = creattiaAdReferenceLibrary[index % creattiaAdReferenceLibrary.length];
+        const userReference = selectUserReference(ad, index);
+        const prompt = buildCreattiaImagePrompt({
+          brandName,
+          businessSummary,
+          businessType,
+          siteText: site.text || '',
+          selectedProduct,
+          reference,
+          userReference,
+          ad,
+        });
         try {
-          const reference = creattiaAdReferenceLibrary[index % creattiaAdReferenceLibrary.length];
-          const userReference = selectUserReference(ad, index);
-          const imageUrl = await callCreattiaOpenAIImage(openAiKey, buildCreattiaImagePrompt({
-            brandName,
-            businessSummary,
-            businessType,
-            siteText: site.text || '',
-            selectedProduct,
-            reference,
-            userReference,
-            ad,
-          }), ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
-          return { ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null };
+          const imageUrl = await callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
+          adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
         } catch (error: any) {
-          return { ...ad, imageError: error?.message || 'Image generation failed' };
+          const message = error?.message || 'Image generation failed';
+          if (/429|rate limit|try again/i.test(message)) {
+            await wait(15000);
+            try {
+              const imageUrl = await callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
+              adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
+              continue;
+            } catch (retryError: any) {
+              adsWithImages.push({ ...ad, imageError: retryError?.message || message });
+              continue;
+            }
+          }
+          adsWithImages.push({ ...ad, imageError: message });
         }
-      }))
-      : ads;
+      }
+    } else {
+      adsWithImages.push(...ads);
+    }
 
     return res.status(200).json({
       sourceUrl: url,
