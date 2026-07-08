@@ -236,7 +236,17 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     const businessType = String(req.body?.businessType || 'Ambos');
     const preferences = req.body?.preferences || {};
     const requestedAds = Math.max(4, Math.min(16, Number(req.body?.creativeCount || 4)));
-    const site = await fetchCreattiaSite(url);
+    let site;
+    try {
+      site = await fetchCreattiaSite(url);
+    } catch (siteError: any) {
+      site = {
+        title: new URL(url).hostname.replace(/^www\./, ''),
+        description: '',
+        text: `No se pudo leer la web en este intento (${siteError?.message || 'fetch failed'}). Usá el dominio, Instagram declarado, tipo de negocio y preferencias del usuario como contexto principal. Generá creativos igualmente y evitá inventar datos muy específicos no inferibles.`,
+        fetchWarning: siteError?.message || 'No pudimos leer la web completa.',
+      };
+    }
     const systemPrompt = [
       'Sos CreatteAI, un agente senior de performance creative para ecommerce y páginas de servicios.',
       'Analizás web, Instagram declarado, propuesta de valor, puntos de dolor, objeciones, prueba social, oferta, rings creativos y formatos.',
