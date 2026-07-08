@@ -506,7 +506,7 @@ export default function PosttyReplicaPage() {
   const [creativeBrief, setCreativeBrief] = React.useState('Quiero ads estáticos premium, claros, sin promesas exageradas y enfocados en conversión.');
   const [selectedAnglesConfig, setSelectedAnglesConfig] = React.useState(['Punto de dolor', 'Demo', 'Objeciones']);
   const [selectedRingsConfig, setSelectedRingsConfig] = React.useState(['Dolor', 'Prueba', 'Oferta']);
-  const [selectedFormatsConfig, setSelectedFormatsConfig] = React.useState(['9:16 Stories/Reels', '1:1 Feed/Carousel', '4:5 Feed vertical']);
+  const [selectedFormatsConfig, setSelectedFormatsConfig] = React.useState(['9:16 Stories/Reels', '1:1 Feed/Carousel', '4:5 Feed vertical', '3:4 Grid preview']);
   const [creativeCount, setCreativeCount] = React.useState(8);
   const [selectedTrialAds, setSelectedTrialAds] = React.useState([0, 1, 2, 3]);
   const [generatedTrialAds, setGeneratedTrialAds] = React.useState<TrialAd[]>(fallbackTrialAds);

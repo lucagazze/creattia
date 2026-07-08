@@ -26,6 +26,17 @@ const normalizeAspectRatio = (input: unknown, fallbackIndex: number): '9:16' | '
   return (['9:16', '1:1', '4:5', '3:4'] as const)[fallbackIndex % 4];
 };
 
+const normalizeSelectedList = (input: unknown, fallback: string[]) => {
+  const values = Array.isArray(input)
+    ? input.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+  return values.length ? values : fallback;
+};
+
+const formatFromAspectRatio = (aspectRatio: '9:16' | '1:1' | '4:5' | '3:4'): 'feed' | 'story' => (
+  aspectRatio === '9:16' ? 'story' : 'feed'
+);
+
 const creattiaColorPresets = [
   'from-[#2b160e] via-[#7a4327] to-[#c38b5d]',
   'from-[#1d120d] via-[#5d321f] to-[#9c7048]',
@@ -236,6 +247,10 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     const businessType = String(req.body?.businessType || 'Ambos');
     const preferences = req.body?.preferences || {};
     const requestedAds = Math.max(4, Math.min(16, Number(req.body?.creativeCount || 4)));
+    const requestedFormatRatios = normalizeSelectedList(preferences?.formats, ['9:16 Stories/Reels', '1:1 Feed/Carousel', '4:5 Feed vertical', '3:4 Grid preview'])
+      .map((format, index) => normalizeAspectRatio(format, index));
+    const requestedAngles = normalizeSelectedList(preferences?.angles, ['Punto de dolor', 'Demo', 'Objeciones', 'Oferta']);
+    const requestedRings = normalizeSelectedList(preferences?.rings, ['Dolor', 'Prueba', 'Mecanismo', 'Oferta']);
     let site;
     try {
       site = await fetchCreattiaSite(url);
@@ -309,18 +324,21 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       raw = await callCreattiaOpenAI(openAiKey, systemPrompt, userPrompt);
       parsed = extractCreattiaJson(raw);
     }
-    const ads = (Array.isArray(parsed.ads) ? parsed.ads : []).slice(0, requestedAds).map((ad: CreattiaAd, index: number) => ({
-      title: String(ad.title || 'Una pieza que vende mejor').slice(0, 80),
-      subtitle: String(ad.subtitle || 'Concepto generado con IA para tu tienda.').slice(0, 110),
-      cta: String(ad.cta || 'Descubrí la diferencia').slice(0, 90),
-      aspectRatio: normalizeAspectRatio(ad.aspectRatio || ad.format || preferences?.formats?.[index % Math.max(1, preferences?.formats?.length || 1)], index),
-      format: normalizeAspectRatio(ad.aspectRatio || ad.format || preferences?.formats?.[index % Math.max(1, preferences?.formats?.length || 1)], index) === '9:16' ? 'story' : 'feed',
-      angle: String(ad.angle || '').slice(0, 38),
-      ring: String(ad.ring || '').slice(0, 24),
-      visualDirection: String(ad.visualDirection || '').slice(0, 150),
-      conversionReason: String(ad.conversionReason || '').slice(0, 120),
-      color: creattiaColorPresets[index % creattiaColorPresets.length],
-    }));
+    const ads = (Array.isArray(parsed.ads) ? parsed.ads : []).slice(0, requestedAds).map((ad: CreattiaAd, index: number) => {
+      const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
+      return {
+        title: String(ad.title || 'Una pieza que vende mejor').slice(0, 80),
+        subtitle: String(ad.subtitle || 'Concepto generado con IA para tu tienda.').slice(0, 110),
+        cta: String(ad.cta || 'Descubrí la diferencia').slice(0, 90),
+        aspectRatio,
+        format: formatFromAspectRatio(aspectRatio),
+        angle: requestedAngles[index % requestedAngles.length],
+        ring: requestedRings[index % requestedRings.length],
+        visualDirection: String(ad.visualDirection || '').slice(0, 150),
+        conversionReason: String(ad.conversionReason || '').slice(0, 120),
+        color: creattiaColorPresets[index % creattiaColorPresets.length],
+      };
+    });
 
     return res.status(200).json({
       sourceUrl: url,
@@ -330,14 +348,15 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       products: Array.isArray(parsed.products) ? parsed.products.slice(0, 3) : [],
       ads: ads.length ? ads : Array.from({ length: requestedAds }, (_, index) => {
         const color = creattiaColorPresets[index % creattiaColorPresets.length];
+        const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
         return {
         title: ['Tu producto, mejor contado', 'La razón para elegirte', 'Menos dudas, más compras', 'Una historia que convierte'][index % 4],
         subtitle: 'Concepto generado con IA para tu tienda.',
         cta: 'Ver más',
-        aspectRatio: normalizeAspectRatio(preferences?.formats?.[index % Math.max(1, preferences?.formats?.length || 1)], index),
-        format: normalizeAspectRatio(preferences?.formats?.[index % Math.max(1, preferences?.formats?.length || 1)], index) === '9:16' ? 'story' : 'feed',
-        angle: ['Punto de dolor', 'Demo', 'Objeciones', 'Oferta'][index % 4],
-        ring: ['Dolor', 'Prueba', 'Mecanismo', 'Oferta'][index % 4],
+        aspectRatio,
+        format: formatFromAspectRatio(aspectRatio),
+        angle: requestedAngles[index % requestedAngles.length],
+        ring: requestedRings[index % requestedRings.length],
         visualDirection: 'Pieza estática clara, con jerarquía fuerte, producto o servicio protagonista y CTA visible.',
         conversionReason: 'Testea una hipótesis creativa distinta para Meta Ads.',
         color,
