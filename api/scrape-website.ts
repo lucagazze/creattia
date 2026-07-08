@@ -461,8 +461,8 @@ async function callCreattiaOpenAI(key: string, systemPrompt: string, userPrompt:
 }
 
 async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio: '9:16' | '1:1' | '4:5' | '3:4') {
-  const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
-  const safeSize = aspectRatio === '1:1' ? '832x832' : '768x1024';
+  const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1-mini';
+  const safeSize = aspectRatio === '1:1' ? '1024x1024' : '1024x1536';
   const preferredQuality = process.env.OPENAI_IMAGE_QUALITY || 'medium';
   const attempts = [
     { size: safeSize, quality: preferredQuality, output_format: 'jpeg', output_compression: 88 },
@@ -471,7 +471,7 @@ async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio:
 
   const requestImage = async (body: Record<string, unknown>) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 18000);
+    const timeout = setTimeout(() => controller.abort(), 62000);
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       signal: controller.signal,
@@ -715,10 +715,10 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     if (openAiKey) {
       const maxBlockingImages = Math.min(
         ads.length,
-        Math.max(1, Math.min(4, Number(process.env.CREATTIA_MAX_BLOCKING_IMAGES || 3)))
+        Math.max(1, Math.min(4, Number(process.env.CREATTIA_MAX_BLOCKING_IMAGES || 2)))
       );
       const imageBatchStartedAt = Date.now();
-      const maxImageBatchMs = Math.max(45000, Math.min(150000, Number(process.env.CREATTIA_IMAGE_BATCH_TIMEOUT_MS || 115000)));
+      const maxImageBatchMs = Math.max(60000, Math.min(150000, Number(process.env.CREATTIA_IMAGE_BATCH_TIMEOUT_MS || 135000)));
       for (let index = 0; index < ads.length; index += 1) {
         const ad = ads[index];
         const reference = creattiaAdReferenceLibrary[index % creattiaAdReferenceLibrary.length];
@@ -745,7 +745,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
         try {
           const imageUrl = await withCreattiaTimeout(
             callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]),
-            36000,
+            70000,
             'CreatteAI image generation'
           );
           adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
@@ -756,7 +756,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
             try {
               const imageUrl = await withCreattiaTimeout(
                 callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]),
-                30000,
+                62000,
                 'CreatteAI image generation retry'
               );
               adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
