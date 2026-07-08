@@ -147,7 +147,11 @@ function stripCreattiaHtml(html: string) {
 function extractCreattiaImages(html: string, baseUrl: string) {
   const candidates: string[] = [];
   const pushImage = (value?: string | null) => {
-    const raw = String(value || '').trim();
+    const raw = String(value || '')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
     if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return;
     try {
       const firstSrcsetUrl = raw.split(',')[0]?.trim().split(/\s+/)[0] || raw;
