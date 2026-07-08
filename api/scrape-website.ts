@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -25,6 +27,21 @@ type CreattiaProduct = {
   price?: string;
   insight?: string;
   imageUrl?: string;
+};
+
+type UserAdReference = {
+  id: string;
+  sourceFile?: string;
+  localPath?: string;
+  archetype: string;
+  industry?: string;
+  angle?: string;
+  ring?: string;
+  layout?: string;
+  promptNotes?: string;
+  width?: number;
+  height?: number;
+  aspectRatio?: number;
 };
 
 const normalizeAspectRatio = (input: unknown, fallbackIndex: number): '9:16' | '1:1' | '4:5' | '3:4' => {
@@ -120,6 +137,43 @@ const creattiaAdReferenceLibrary = [
     visual: 'two-zone visual metaphor, clutter versus premium clarity, sharp composition, clean contrast, no labels',
   },
 ] as const;
+
+let cachedUserReferenceCatalog: UserAdReference[] | null = null;
+
+function loadUserReferenceCatalog() {
+  if (cachedUserReferenceCatalog) return cachedUserReferenceCatalog;
+  try {
+    const catalogPath = path.join(process.cwd(), 'public', 'creattia', 'reference-ads', 'catalog.json');
+    const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+    cachedUserReferenceCatalog = Array.isArray(catalog.references) ? catalog.references : [];
+  } catch {
+    cachedUserReferenceCatalog = [];
+  }
+  return cachedUserReferenceCatalog;
+}
+
+function selectUserReference(ad: CreattiaAd, index: number) {
+  const catalog = loadUserReferenceCatalog();
+  if (!catalog.length) return null;
+  const ring = String(ad.ring || '').toLowerCase();
+  const angle = String(ad.angle || '').toLowerCase();
+  const scored = catalog
+    .map((reference, referenceIndex) => {
+      let score = 0;
+      const refRing = String(reference.ring || '').toLowerCase();
+      const refAngle = String(reference.angle || '').toLowerCase();
+      const refArchetype = String(reference.archetype || '').toLowerCase();
+      if (ring && (refRing.includes(ring) || ring.includes(refRing))) score += 4;
+      if (angle && (refAngle.includes(angle) || refArchetype.includes(angle))) score += 3;
+      if (/dolor|pain|objec/i.test(`${angle} ${ring}`) && /problem|objection|pain|regret/.test(refArchetype)) score += 3;
+      if (/demo|mecan/i.test(`${angle} ${ring}`) && /mechanism|comparison|feature|proof/.test(refArchetype)) score += 3;
+      if (/oferta|offer/i.test(`${angle} ${ring}`) && /offer|product|bundle|catalog/.test(refArchetype)) score += 3;
+      if (/prueba|proof|autor/i.test(`${angle} ${ring}`) && /proof|authority|testimonial|ugc/.test(refArchetype)) score += 3;
+      return { reference, score: score + ((index + referenceIndex) % 3) / 10 };
+    })
+    .sort((a, b) => b.score - a.score);
+  return scored[index % Math.min(4, scored.length)]?.reference || catalog[index % catalog.length];
+}
 
 // ── audio-proxy helpers ──────────────────────────────────────────────────────
 
@@ -451,14 +505,16 @@ function buildCreattiaImagePrompt(args: {
   siteText: string;
   selectedProduct?: CreattiaProduct | null;
   reference: typeof creattiaAdReferenceLibrary[number];
+  userReference?: UserAdReference | null;
   ad: CreattiaAd & { aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4' };
 }) {
-  const { brandName, businessSummary, businessType, siteText, selectedProduct, reference, ad } = args;
+  const { brandName, businessSummary, businessType, siteText, selectedProduct, reference, userReference, ad } = args;
   return [
     `Create a high-end conversion-focused static ad visual for Meta Ads for the brand "${brandName}".`,
     `Business type: ${businessType}. Brand context: ${businessSummary || siteText.slice(0, 700)}.`,
     selectedProduct?.name ? `Focus product/service: ${selectedProduct.name}. Product notes: ${selectedProduct.insight || selectedProduct.tag || ''}. Price if relevant: ${selectedProduct.price || 'not specified'}.` : 'No single product selected: create a general brand/product-category visual.',
     `Use this internal high-converting ad reference archetype: "${reference.name}". Principle: ${reference.principle}. Visual style: ${reference.visual}.`,
+    userReference ? `Also use this user-provided reference pattern as inspiration only, not as a copy: archetype "${userReference.archetype}", industry "${userReference.industry || 'unknown'}", angle "${userReference.angle || 'unknown'}", ring "${userReference.ring || 'unknown'}", layout "${userReference.layout || 'high-performing direct response ad layout'}", notes "${userReference.promptNotes || 'match the composition logic and conversion structure without reproducing the exact ad'}".` : '',
     `Creative angle: ${ad.angle || 'performance ad'}. Ring: ${ad.ring || 'conversion'}. Concept: ${ad.title} / ${ad.subtitle}.`,
     ad.visualPrompt ? `Specific visual direction: ${ad.visualPrompt}.` : '',
     ad.visualDirection ? `Art direction: ${ad.visualDirection}.` : '',
@@ -466,6 +522,7 @@ function buildCreattiaImagePrompt(args: {
     'Reserve clean negative space in the upper or lower third for overlay headline/copy. Make the product/category unmistakable without needing text.',
     'Make this visual clearly different from other ads in the same campaign: different camera angle, scene, lighting setup, product metaphor, crop, color palette, and background composition.',
     'Avoid boring product-on-table shots unless the archetype specifically needs it. Prefer campaign-level visual ideas: sensory close-up, expert proof, problem metaphor, outcome scene, offer set design, or native creator moment.',
+    'Do not recreate the exact user reference image, brand, product, text, layout one-to-one, colors one-to-one, or protected trade dress. Abstract the creative structure into a new original image for this brand.',
     'Do not include readable text, letters, logos, watermarks, UI, fake badges, labels, borders, frames, screenshots, deformed hands, malformed objects, duplicate objects, or collage artifacts.',
     'The final app will add all copy on top. Generate only the premium ad visual underneath.',
   ].filter(Boolean).join('\n');
@@ -648,6 +705,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       ? await Promise.all(ads.map(async (ad: CreattiaAd, index: number) => {
         try {
           const reference = creattiaAdReferenceLibrary[index % creattiaAdReferenceLibrary.length];
+          const userReference = selectUserReference(ad, index);
           const imageUrl = await callCreattiaOpenAIImage(openAiKey, buildCreattiaImagePrompt({
             brandName,
             businessSummary,
@@ -655,9 +713,10 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
             siteText: site.text || '',
             selectedProduct,
             reference,
+            userReference,
             ad,
           }), ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
-          return { ...ad, imageUrl, referenceName: reference.name };
+          return { ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null };
         } catch (error: any) {
           return { ...ad, imageError: error?.message || 'Image generation failed' };
         }
@@ -671,6 +730,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       brandDna: parsed.brandDna || null,
       products: (Array.isArray(parsed.products) && parsed.products.length ? parsed.products : site.products || []).slice(0, 8),
       references: creattiaAdReferenceLibrary,
+      userReferences: loadUserReferenceCatalog().map(({ id, archetype, industry, angle, ring, localPath }) => ({ id, archetype, industry, angle, ring, localPath })),
       ads: adsWithImages.length ? adsWithImages : Array.from({ length: requestedAds }, (_, index) => {
         const color = creattiaColorPresets[index % creattiaColorPresets.length];
         const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
