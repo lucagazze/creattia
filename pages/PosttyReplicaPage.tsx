@@ -721,6 +721,24 @@ export default function PosttyReplicaPage() {
     setSelectedTrialAds((items) => (items.includes(index) ? items.filter((item) => item !== index) : [...items, index].sort()));
   };
 
+  const downloadSelectedTrialAds = () => {
+    const selectedAds = selectedTrialAds.map((index) => activeTrialAds[index]).filter((ad) => ad?.imageUrl);
+    if (!selectedAds.length) {
+      notify('Todavía no hay imágenes listas para descargar.');
+      return;
+    }
+    selectedAds.forEach((ad, index) => {
+      const link = document.createElement('a');
+      link.href = ad.imageUrl!;
+      const extension = ad.imageUrl!.startsWith('data:image/png') ? 'png' : 'jpg';
+      link.download = `${APP_NAME.toLowerCase()}-${String(index + 1).padStart(2, '0')}-${ad.aspectRatio || 'ad'}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+    notify(`Descargando ${selectedAds.length} Ads seleccionados...`);
+  };
+
   const regenerateCreative = (id: number) => {
     simulateWork(() => {
       setCreatives((items) =>
@@ -1255,7 +1273,7 @@ export default function PosttyReplicaPage() {
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white shadow-[0_-18px_45px_rgba(15,23,42,0.14)]">
               <div className="mx-auto flex max-w-[1120px] items-center justify-end gap-3 px-4 py-4 sm:gap-5">
                 <span className="hidden rounded-full bg-gray-100 px-3 py-2 text-sm font-bold text-gray-600 sm:inline">{selectedCount} seleccionados</span>
-                <PillButton variant="light" disabled={selectedCount === 0} onClick={() => notify('Descargando tus Ads seleccionados...')}>
+                <PillButton variant="light" disabled={selectedCount === 0} onClick={downloadSelectedTrialAds}>
                   Descargar
                 </PillButton>
                 <button
