@@ -177,6 +177,18 @@ function selectUserReference(ad: CreattiaAd, index: number) {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const withCreattiaTimeout = async <T>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
+  let timeout: ReturnType<typeof setTimeout>;
+  const timer = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timer]);
+  } finally {
+    clearTimeout(timeout!);
+  }
+};
+
 // ── audio-proxy helpers ──────────────────────────────────────────────────────
 
 function isAllowedAudioUrl(urlStr: string): boolean {
@@ -450,20 +462,16 @@ async function callCreattiaOpenAI(key: string, systemPrompt: string, userPrompt:
 
 async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio: '9:16' | '1:1' | '4:5' | '3:4') {
   const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
-  const largeSize = aspectRatio === '1:1' ? '1024x1024' : '1024x1536';
   const safeSize = aspectRatio === '1:1' ? '832x832' : '768x1024';
   const preferredQuality = process.env.OPENAI_IMAGE_QUALITY || 'medium';
   const attempts = [
     { size: safeSize, quality: preferredQuality, output_format: 'jpeg', output_compression: 88 },
-    { size: safeSize, quality: 'medium', output_format: 'jpeg', output_compression: 85 },
     { size: safeSize, quality: 'low', output_format: 'jpeg', output_compression: 82 },
-    { size: largeSize, quality: 'medium', output_format: 'jpeg', output_compression: 86 },
-    { size: safeSize, quality: 'low' },
   ];
 
   const requestImage = async (body: Record<string, unknown>) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 28000);
+    const timeout = setTimeout(() => controller.abort(), 18000);
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       signal: controller.signal,
@@ -705,10 +713,25 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     const businessSummary = parsed.businessSummary || site.description || '';
     const adsWithImages = [];
     if (openAiKey) {
+      const maxBlockingImages = Math.min(
+        ads.length,
+        Math.max(1, Math.min(4, Number(process.env.CREATTIA_MAX_BLOCKING_IMAGES || 3)))
+      );
+      const imageBatchStartedAt = Date.now();
+      const maxImageBatchMs = Math.max(45000, Math.min(150000, Number(process.env.CREATTIA_IMAGE_BATCH_TIMEOUT_MS || 115000)));
       for (let index = 0; index < ads.length; index += 1) {
         const ad = ads[index];
         const reference = creattiaAdReferenceLibrary[index % creattiaAdReferenceLibrary.length];
         const userReference = selectUserReference(ad, index);
+        if (index >= maxBlockingImages || Date.now() - imageBatchStartedAt > maxImageBatchMs) {
+          adsWithImages.push({
+            ...ad,
+            imageError: 'IMAGE_DEFERRED',
+            referenceName: reference.name,
+            userReference: userReference?.archetype || null,
+          });
+          continue;
+        }
         const prompt = buildCreattiaImagePrompt({
           brandName,
           businessSummary,
@@ -720,14 +743,22 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
           ad,
         });
         try {
-          const imageUrl = await callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
+          const imageUrl = await withCreattiaTimeout(
+            callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]),
+            36000,
+            'CreatteAI image generation'
+          );
           adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
         } catch (error: any) {
           const message = error?.message || 'Image generation failed';
           if (/429|rate limit|try again/i.test(message)) {
-            await wait(15000);
+            await wait(9000);
             try {
-              const imageUrl = await callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
+              const imageUrl = await withCreattiaTimeout(
+                callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]),
+                30000,
+                'CreatteAI image generation retry'
+              );
               adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
               continue;
             } catch (retryError: any) {
