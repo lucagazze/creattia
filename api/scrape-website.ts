@@ -60,44 +60,64 @@ const creattiaColorPresets = [
 
 const creattiaAdReferenceLibrary = [
   {
-    name: 'Premium product hero',
-    principle: 'A single strong product/service symbol, large negative space, luxury lighting, one obvious focal point.',
-    visual: 'macro commercial photography, tactile material detail, elegant shadows, premium ecommerce mood',
+    name: 'Benefit-first product hero',
+    principle: 'One clear product/category hero with the main benefit instantly readable through the scene.',
+    visual: 'premium product ad composition, bold central subject, clean negative space for headline, editorial lighting, crisp commercial finish',
   },
   {
-    name: 'Problem moment',
-    principle: 'Show the painful context before the solution without making the image ugly.',
-    visual: 'cinematic real-life scene, subtle tension, hands or workspace, emotionally clear but polished',
+    name: 'Problem-solution contrast',
+    principle: 'A visual before/after or messy-to-clean metaphor that makes the pain obvious without ugly design.',
+    visual: 'split-scene commercial composition, left side friction, right side premium solution, elegant contrast, no text',
   },
   {
     name: 'Proof of craft',
-    principle: 'Make the process and quality feel believable through expert hands, tools, materials, or detail.',
-    visual: 'artisan process, clean workshop, high-end editorial documentary lighting',
+    principle: 'Show why the product is trustworthy through process, material, hands, tools, or expert handling.',
+    visual: 'high-end documentary product photography, expert hands, real materials, workshop detail, cinematic depth of field',
   },
   {
     name: 'Aspirational outcome',
-    principle: 'Show the desired end state the buyer wants to reach.',
-    visual: 'finished premium result, warm lifestyle environment, calm confidence, refined composition',
+    principle: 'Show the end result the buyer wants, not just the object being sold.',
+    visual: 'finished desirable result, lifestyle/editorial environment, premium warm light, emotionally satisfying composition',
   },
   {
-    name: 'Offer focus',
-    principle: 'Create space for price/offer copy while the visual supports urgency and clarity.',
-    visual: 'minimal set design, strong product silhouette, bright CTA-safe area, high contrast',
+    name: 'Offer-led creative',
+    principle: 'Visual supports a strong promo, discount, bundle, or price/value message with room for overlay copy.',
+    visual: 'bright high-contrast product layout, clean offer area, energetic ecommerce set design, premium not cheap',
+  },
+  {
+    name: 'Shipping urgency',
+    principle: 'Make fast delivery, availability, or immediate gratification feel concrete and trustworthy.',
+    visual: 'premium packing table, product ready to ship, subtle motion, clean boxes, logistics cue, polished commercial scene',
+  },
+  {
+    name: 'UGC premium testimonial',
+    principle: 'Native human proof, but composed cleanly enough to feel like a top-performing paid social asset.',
+    visual: 'creator-style vertical photo, natural person using product, authentic but sharp, phone-native framing, premium color grading',
   },
   {
     name: 'Objection breaker',
-    principle: 'Visualize trust, guidance, guarantee, speed, quality, or simplicity.',
-    visual: 'expert consultation scene, packaging/shipping/proof cues, reassuring premium atmosphere',
+    principle: 'Visualize guidance, guarantee, quality, sizing, fit, safety, or ease of choice.',
+    visual: 'expert consultation moment, reassuring close-up, decision support cues, premium calm atmosphere, no text',
   },
   {
-    name: 'UGC premium',
-    principle: 'Feels native and human but still sharp enough for a paid ad.',
-    visual: 'creator-style photo, natural hands, phone-ready framing, authentic but clean',
+    name: 'Bundle and collection',
+    principle: 'Show range, abundance, kit value, or multiple variants in a clean shoppable layout.',
+    visual: 'organized product grid or bundle flat lay, premium shadows, colorful but restrained, e-commerce catalog meets editorial',
   },
   {
-    name: 'Comparison metaphor',
-    principle: 'Suggest better choice without directly attacking competitors.',
-    visual: 'two-zone composition, clear contrast between messy and premium, no labels or text',
+    name: 'Authority and award',
+    principle: 'Suggest best-in-class status, durability, reviews, or expert approval without fake badges.',
+    visual: 'hero product with trophy-like lighting, premium pedestal, review/proof mood, elegant dark-to-light contrast, no literal award text',
+  },
+  {
+    name: 'Sensory craving',
+    principle: 'Make the viewer feel texture, taste, smell, touch, comfort, or material quality immediately.',
+    visual: 'extreme tactile macro, rich texture, sensory detail, saturated premium color, appetizing/material-focused lighting',
+  },
+  {
+    name: 'Clean comparison',
+    principle: 'Suggest a smarter choice versus alternatives without naming or attacking competitors.',
+    visual: 'two-zone visual metaphor, clutter versus premium clarity, sharp composition, clean contrast, no labels',
   },
 ] as const;
 
@@ -374,16 +394,16 @@ async function callCreattiaOpenAI(key: string, systemPrompt: string, userPrompt:
 
 async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio: '9:16' | '1:1' | '4:5' | '3:4') {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55000);
+  const timeout = setTimeout(() => controller.abort(), 80000);
   const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
-  const size = aspectRatio === '1:1' ? '832x832' : '768x1024';
+  const size = aspectRatio === '1:1' ? '1024x1024' : '1024x1536';
   const payload = {
     model,
     prompt,
     size,
-    quality: process.env.OPENAI_IMAGE_QUALITY || 'low',
+    quality: process.env.OPENAI_IMAGE_QUALITY || 'high',
     output_format: 'jpeg',
-    output_compression: 78,
+    output_compression: 90,
     n: 1,
   };
 
@@ -415,7 +435,7 @@ async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio:
       model,
       prompt,
       size,
-      quality: process.env.OPENAI_IMAGE_QUALITY || 'low',
+      quality: process.env.OPENAI_IMAGE_QUALITY || 'high',
       n: 1,
     };
     return await requestImage(compactPayload);
@@ -435,17 +455,19 @@ function buildCreattiaImagePrompt(args: {
 }) {
   const { brandName, businessSummary, businessType, siteText, selectedProduct, reference, ad } = args;
   return [
-    `Create a premium AI-generated advertising visual for Meta Ads for the brand "${brandName}".`,
+    `Create a high-end conversion-focused static ad visual for Meta Ads for the brand "${brandName}".`,
     `Business type: ${businessType}. Brand context: ${businessSummary || siteText.slice(0, 700)}.`,
     selectedProduct?.name ? `Focus product/service: ${selectedProduct.name}. Product notes: ${selectedProduct.insight || selectedProduct.tag || ''}. Price if relevant: ${selectedProduct.price || 'not specified'}.` : 'No single product selected: create a general brand/product-category visual.',
     `Use this internal high-converting ad reference archetype: "${reference.name}". Principle: ${reference.principle}. Visual style: ${reference.visual}.`,
     `Creative angle: ${ad.angle || 'performance ad'}. Ring: ${ad.ring || 'conversion'}. Concept: ${ad.title} / ${ad.subtitle}.`,
     ad.visualPrompt ? `Specific visual direction: ${ad.visualPrompt}.` : '',
     ad.visualDirection ? `Art direction: ${ad.visualDirection}.` : '',
-    'Make the image look like a top-tier paid social ad background: cinematic commercial photography, premium composition, strong product/service metaphor, polished lighting, modern ecommerce aesthetic, clean negative space for overlay copy.',
-    'Make this visual clearly different from other ads in the same campaign: different camera angle, scene, lighting setup, product metaphor, and background composition.',
-    'Do not include any readable text, letters, logos, watermarks, UI, buttons, badges, labels, borders, frames, screenshots, distorted hands, malformed objects, or collage artifacts.',
-    'The final app will add text on top, so the image must be beautiful and useful as a background visual only.',
+    'The result must feel like a curated ad-library winner, not a generic stock photo: strong commercial art direction, one clear focal idea, premium retouching, intentional layout, high contrast, tasteful props, modern paid-social composition.',
+    'Reserve clean negative space in the upper or lower third for overlay headline/copy. Make the product/category unmistakable without needing text.',
+    'Make this visual clearly different from other ads in the same campaign: different camera angle, scene, lighting setup, product metaphor, crop, color palette, and background composition.',
+    'Avoid boring product-on-table shots unless the archetype specifically needs it. Prefer campaign-level visual ideas: sensory close-up, expert proof, problem metaphor, outcome scene, offer set design, or native creator moment.',
+    'Do not include readable text, letters, logos, watermarks, UI, fake badges, labels, borders, frames, screenshots, deformed hands, malformed objects, duplicate objects, or collage artifacts.',
+    'The final app will add all copy on top. Generate only the premium ad visual underneath.',
   ].filter(Boolean).join('\n');
 }
 
