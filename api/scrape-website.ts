@@ -396,16 +396,17 @@ async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio:
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 80000);
   const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
-  const size = aspectRatio === '1:1' ? '1024x1024' : '1024x1536';
-  const payload = {
-    model,
-    prompt,
-    size,
-    quality: process.env.OPENAI_IMAGE_QUALITY || 'high',
-    output_format: 'jpeg',
-    output_compression: 90,
-    n: 1,
-  };
+  const largeSize = aspectRatio === '1:1' ? '1024x1024' : '1024x1536';
+  const safeSize = aspectRatio === '1:1' ? '832x832' : '768x1024';
+  const preferredQuality = process.env.OPENAI_IMAGE_QUALITY || 'high';
+  const attempts = [
+    { size: largeSize, quality: preferredQuality, output_format: 'jpeg', output_compression: 90 },
+    { size: largeSize, quality: 'medium', output_format: 'jpeg', output_compression: 88 },
+    { size: safeSize, quality: preferredQuality, output_format: 'jpeg', output_compression: 88 },
+    { size: safeSize, quality: 'medium', output_format: 'jpeg', output_compression: 85 },
+    { size: safeSize, quality: 'low', output_format: 'jpeg', output_compression: 82 },
+    { size: safeSize, quality: 'low' },
+  ];
 
   const requestImage = async (body: Record<string, unknown>) => {
     const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -429,16 +430,20 @@ async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio:
   };
 
   try {
-    return await requestImage(payload);
-  } catch (error) {
-    const compactPayload = {
-      model,
-      prompt,
-      size,
-      quality: process.env.OPENAI_IMAGE_QUALITY || 'high',
-      n: 1,
-    };
-    return await requestImage(compactPayload);
+    let lastError: unknown;
+    for (const attempt of attempts) {
+      try {
+        return await requestImage({
+          model,
+          prompt,
+          n: 1,
+          ...attempt,
+        });
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('OpenAI Images failed');
   } finally {
     clearTimeout(timeout);
   }
