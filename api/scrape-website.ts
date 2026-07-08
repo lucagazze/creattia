@@ -762,11 +762,11 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
               adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
               continue;
             } catch (retryError: any) {
-              adsWithImages.push({ ...ad, imageError: retryError?.message || message });
+              adsWithImages.push({ ...ad, imageError: retryError?.message || message, referenceName: reference.name, userReference: userReference?.archetype || null });
               continue;
             }
           }
-          adsWithImages.push({ ...ad, imageError: message });
+          adsWithImages.push({ ...ad, imageError: message, referenceName: reference.name, userReference: userReference?.archetype || null });
         }
       }
     } else {
