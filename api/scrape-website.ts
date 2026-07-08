@@ -393,22 +393,21 @@ async function callCreattiaOpenAI(key: string, systemPrompt: string, userPrompt:
 }
 
 async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio: '9:16' | '1:1' | '4:5' | '3:4') {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 80000);
   const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
   const largeSize = aspectRatio === '1:1' ? '1024x1024' : '1024x1536';
   const safeSize = aspectRatio === '1:1' ? '832x832' : '768x1024';
-  const preferredQuality = process.env.OPENAI_IMAGE_QUALITY || 'high';
+  const preferredQuality = process.env.OPENAI_IMAGE_QUALITY || 'medium';
   const attempts = [
-    { size: largeSize, quality: preferredQuality, output_format: 'jpeg', output_compression: 90 },
-    { size: largeSize, quality: 'medium', output_format: 'jpeg', output_compression: 88 },
     { size: safeSize, quality: preferredQuality, output_format: 'jpeg', output_compression: 88 },
     { size: safeSize, quality: 'medium', output_format: 'jpeg', output_compression: 85 },
     { size: safeSize, quality: 'low', output_format: 'jpeg', output_compression: 82 },
+    { size: largeSize, quality: 'medium', output_format: 'jpeg', output_compression: 86 },
     { size: safeSize, quality: 'low' },
   ];
 
   const requestImage = async (body: Record<string, unknown>) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 28000);
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       signal: controller.signal,
@@ -417,7 +416,7 @@ async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio:
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify(body),
-    });
+    }).finally(() => clearTimeout(timeout));
     if (!response.ok) {
       const text = await response.text();
       throw new Error(`OpenAI Images: ${response.status} ${text.slice(0, 220)}`);
@@ -429,24 +428,20 @@ async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio:
     throw new Error('OpenAI Images: no image returned');
   };
 
-  try {
-    let lastError: unknown;
-    for (const attempt of attempts) {
-      try {
-        return await requestImage({
-          model,
-          prompt,
-          n: 1,
-          ...attempt,
-        });
-      } catch (error) {
-        lastError = error;
-      }
+  let lastError: unknown;
+  for (const attempt of attempts) {
+    try {
+      return await requestImage({
+        model,
+        prompt,
+        n: 1,
+        ...attempt,
+      });
+    } catch (error) {
+      lastError = error;
     }
-    throw lastError instanceof Error ? lastError : new Error('OpenAI Images failed');
-  } finally {
-    clearTimeout(timeout);
   }
+  throw lastError instanceof Error ? lastError : new Error('OpenAI Images failed');
 }
 
 function buildCreattiaImagePrompt(args: {
