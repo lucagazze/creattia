@@ -688,7 +688,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  if (req.body?.action === 'creattia_generate') {
+  if (req.body?.action === 'creattia_generate' || req.body?.action === 'creattia_analyze') {
     return handleCreattiaGenerate(req, res);
   }
 
