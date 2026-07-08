@@ -13,6 +13,8 @@ type CreattiaAd = {
   format: 'feed' | 'story';
   aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4';
   imageUrl?: string;
+  finalImage?: boolean;
+  imageProvider?: string;
   visualPrompt?: string;
   color?: string;
   angle?: string;
@@ -508,6 +510,121 @@ async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio:
   throw lastError instanceof Error ? lastError : new Error('OpenAI Images failed');
 }
 
+function findCreattiaGeminiImagePayload(value: any): { data: string; mimeType: string } | null {
+  if (!value || typeof value !== 'object') return null;
+  const data = value.data || value.imageBytes || value.b64_json || value.bytesBase64Encoded;
+  const mimeType = value.mime_type || value.mimeType || value.mimetype || value.mediaType || 'image/png';
+  if (typeof data === 'string' && data.length > 1000 && /^image\//i.test(String(mimeType))) return { data, mimeType };
+  if (typeof value.inlineData?.data === 'string') return { data: value.inlineData.data, mimeType: value.inlineData.mimeType || 'image/png' };
+  if (typeof value.inline_data?.data === 'string') return { data: value.inline_data.data, mimeType: value.inline_data.mime_type || 'image/png' };
+  if (typeof value.output_image?.data === 'string') return { data: value.output_image.data, mimeType: value.output_image.mime_type || 'image/png' };
+  if (typeof value.outputImage?.data === 'string') return { data: value.outputImage.data, mimeType: value.outputImage.mimeType || 'image/png' };
+  for (const child of Object.values(value)) {
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        const found = findCreattiaGeminiImagePayload(item);
+        if (found) return found;
+      }
+    } else if (child && typeof child === 'object') {
+      const found = findCreattiaGeminiImagePayload(child);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function getCreattiaReferenceImageInput(reference?: UserAdReference | null) {
+  if (!reference?.localPath) return null;
+  try {
+    const safePath = reference.localPath.replace(/^\/+/, '');
+    const filePath = path.join(process.cwd(), 'public', safePath.replace(/^creattia\//, 'creattia/'));
+    if (!filePath.startsWith(path.join(process.cwd(), 'public'))) return null;
+    const data = fs.readFileSync(filePath).toString('base64');
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+    return { type: 'image', data, mime_type: mimeType };
+  } catch {
+    return null;
+  }
+}
+
+async function callCreattiaGeminiImage(
+  key: string,
+  prompt: string,
+  aspectRatio: '9:16' | '1:1' | '4:5' | '3:4',
+  userReference?: UserAdReference | null
+) {
+  const models = [
+    process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+    'gemini-2.5-flash-image',
+  ].filter((model, index, all) => model && all.indexOf(model) === index);
+  const referenceInput = getCreattiaReferenceImageInput(userReference);
+  const input = [
+    {
+      type: 'text',
+      text: `${prompt}\n\nCanvas/aspect ratio: ${aspectRatio}. Generate one finished static ad image, ready to display.`,
+    },
+    ...(referenceInput ? [referenceInput] : []),
+  ];
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 70000);
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key,
+        },
+        body: JSON.stringify({ model, input }),
+      }).finally(() => clearTimeout(timeout));
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Gemini Images ${model}: ${response.status} ${text.slice(0, 260)}`);
+      }
+      const data = await response.json() as any;
+      const image = findCreattiaGeminiImagePayload(data);
+      if (!image) throw new Error(`Gemini Images ${model}: no image returned`);
+      return `data:${image.mimeType};base64,${image.data}`;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Gemini Images failed');
+}
+
+async function callCreattiaBestImage(
+  keys: { geminiKey?: string; openAiKey?: string },
+  prompt: string,
+  aspectRatio: '9:16' | '1:1' | '4:5' | '3:4',
+  userReference?: UserAdReference | null
+) {
+  const errors: string[] = [];
+  if (keys.geminiKey) {
+    try {
+      return {
+        imageUrl: await callCreattiaGeminiImage(keys.geminiKey, prompt, aspectRatio, userReference),
+        provider: 'gemini',
+      };
+    } catch (error: any) {
+      errors.push(error?.message || 'Gemini image failed');
+    }
+  }
+  if (keys.openAiKey) {
+    try {
+      return {
+        imageUrl: await callCreattiaOpenAIImage(keys.openAiKey, prompt, aspectRatio),
+        provider: 'openai',
+      };
+    } catch (error: any) {
+      errors.push(error?.message || 'OpenAI image failed');
+    }
+  }
+  throw new Error(errors.join(' | ') || 'No image model configured');
+}
+
 function buildCreattiaImagePrompt(args: {
   brandName: string;
   businessSummary: string;
@@ -520,21 +637,24 @@ function buildCreattiaImagePrompt(args: {
 }) {
   const { brandName, businessSummary, businessType, siteText, selectedProduct, reference, userReference, ad } = args;
   return [
-    `Create a high-end conversion-focused static ad visual for Meta Ads for the brand "${brandName}".`,
+    `Create a finished high-end conversion-focused static Meta ad for the brand "${brandName}".`,
     `Business type: ${businessType}. Brand context: ${businessSummary || siteText.slice(0, 700)}.`,
     selectedProduct?.name ? `Focus product/service: ${selectedProduct.name}. Product notes: ${selectedProduct.insight || selectedProduct.tag || ''}. Price if relevant: ${selectedProduct.price || 'not specified'}.` : 'No single product selected: create a general brand/product-category visual.',
     `Use this internal high-converting ad reference archetype: "${reference.name}". Principle: ${reference.principle}. Visual style: ${reference.visual}.`,
-    userReference ? `Also use this user-provided reference pattern as inspiration only, not as a copy: archetype "${userReference.archetype}", industry "${userReference.industry || 'unknown'}", angle "${userReference.angle || 'unknown'}", ring "${userReference.ring || 'unknown'}", layout "${userReference.layout || 'high-performing direct response ad layout'}", notes "${userReference.promptNotes || 'match the composition logic and conversion structure without reproducing the exact ad'}".` : '',
+    userReference ? `A user-provided reference image is attached. Use it as inspiration only, not as a copy: archetype "${userReference.archetype}", industry "${userReference.industry || 'unknown'}", angle "${userReference.angle || 'unknown'}", ring "${userReference.ring || 'unknown'}", layout "${userReference.layout || 'high-performing direct response ad layout'}", notes "${userReference.promptNotes || 'match the composition logic and conversion structure without reproducing the exact ad'}".` : '',
     `Creative angle: ${ad.angle || 'performance ad'}. Ring: ${ad.ring || 'conversion'}. Concept: ${ad.title} / ${ad.subtitle}.`,
     ad.visualPrompt ? `Specific visual direction: ${ad.visualPrompt}.` : '',
     ad.visualDirection ? `Art direction: ${ad.visualDirection}.` : '',
+    'IMPORTANT: This must be the complete final ad image, including background/photo, composition, headline, support copy and CTA integrated into the design. The app will display this image as-is.',
+    `Render this exact Spanish headline, with clean professional typography: "${ad.title}".`,
+    `Render this exact supporting copy: "${ad.subtitle}".`,
+    `Render this exact CTA or footer line: "${ad.cta}".`,
+    'Use short, legible text only. Keep the layout clean like a polished paid-social creative, with correct Spanish accents and no gibberish.',
     'The result must feel like a curated ad-library winner, not a generic stock photo: strong commercial art direction, one clear focal idea, premium retouching, intentional layout, high contrast, tasteful props, modern paid-social composition.',
-    'Reserve clean negative space in the upper or lower third for overlay headline/copy. Make the product/category unmistakable without needing text.',
     'Make this visual clearly different from other ads in the same campaign: different camera angle, scene, lighting setup, product metaphor, crop, color palette, and background composition.',
     'Avoid boring product-on-table shots unless the archetype specifically needs it. Prefer campaign-level visual ideas: sensory close-up, expert proof, problem metaphor, outcome scene, offer set design, or native creator moment.',
     'Do not recreate the exact user reference image, brand, product, text, layout one-to-one, colors one-to-one, or protected trade dress. Abstract the creative structure into a new original image for this brand.',
-    'Do not include readable text, letters, logos, watermarks, UI, fake badges, labels, borders, frames, screenshots, deformed hands, malformed objects, duplicate objects, or collage artifacts.',
-    'The final app will add all copy on top. Generate only the premium ad visual underneath.',
+    'Do not include watermarks, fake UI, fake social handles, platform chrome, malformed hands, malformed objects, duplicate objects, or collage artifacts.',
   ].filter(Boolean).join('\n');
 }
 
@@ -712,7 +832,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     const brandName = parsed.brandName || site.title || 'Tu marca';
     const businessSummary = parsed.businessSummary || site.description || '';
     const adsWithImages = [];
-    if (openAiKey) {
+    if (openAiKey || geminiKey) {
       const maxBlockingImages = Math.min(
         ads.length,
         Math.max(1, Math.min(4, Number(process.env.CREATTIA_MAX_BLOCKING_IMAGES || 2)))
@@ -743,23 +863,25 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
           ad,
         });
         try {
-          const imageUrl = await withCreattiaTimeout(
-            callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]),
+          const ratio = ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length];
+          const generatedImage = await withCreattiaTimeout(
+            callCreattiaBestImage({ geminiKey, openAiKey }, prompt, ratio, userReference),
             70000,
             'CreatteAI image generation'
           );
-          adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
+          adsWithImages.push({ ...ad, imageUrl: generatedImage.imageUrl, finalImage: true, imageProvider: generatedImage.provider, referenceName: reference.name, userReference: userReference?.archetype || null });
         } catch (error: any) {
           const message = error?.message || 'Image generation failed';
           if (/429|rate limit|try again/i.test(message)) {
             await wait(9000);
             try {
-              const imageUrl = await withCreattiaTimeout(
-                callCreattiaOpenAIImage(openAiKey, prompt, ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]),
+              const ratio = ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length];
+              const generatedImage = await withCreattiaTimeout(
+                callCreattiaBestImage({ geminiKey, openAiKey }, prompt, ratio, userReference),
                 62000,
                 'CreatteAI image generation retry'
               );
-              adsWithImages.push({ ...ad, imageUrl, referenceName: reference.name, userReference: userReference?.archetype || null });
+              adsWithImages.push({ ...ad, imageUrl: generatedImage.imageUrl, finalImage: true, imageProvider: generatedImage.provider, referenceName: reference.name, userReference: userReference?.archetype || null });
               continue;
             } catch (retryError: any) {
               adsWithImages.push({ ...ad, imageError: retryError?.message || message, referenceName: reference.name, userReference: userReference?.archetype || null });

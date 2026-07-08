@@ -62,6 +62,8 @@ type TrialAd = {
   format: 'feed' | 'story';
   aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4';
   imageUrl?: string;
+  finalImage?: boolean;
+  imageProvider?: string;
   color: string;
   angle?: string;
   ring?: string;
@@ -376,42 +378,45 @@ function TrialAdCard({
     '3:4': 'aspect-[3/4]',
   }[ad.aspectRatio || (ad.format === 'story' ? '9:16' : '4:5')];
   const isStory = (ad.aspectRatio || (ad.format === 'story' ? '9:16' : '4:5')) === '9:16';
+  const showFinalImage = Boolean(ad.imageUrl && ad.finalImage);
 
   return (
     <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${ad.color} shadow-[0_18px_45px_rgba(15,23,42,0.18)] ${large ? 'h-[648px] w-[365px]' : `${aspectClass} w-full`}`}>
       {ad.imageUrl ? (
         <img src={ad.imageUrl} alt={ad.title} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
       ) : null}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.28),transparent_24%),linear-gradient(180deg,rgba(0,0,0,0.34),rgba(0,0,0,0.12)_42%,rgba(0,0,0,0.72))]" />
+      {!showFinalImage && <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.28),transparent_24%),linear-gradient(180deg,rgba(0,0,0,0.34),rgba(0,0,0,0.12)_42%,rgba(0,0,0,0.72))]" />}
       {!ad.imageUrl && (
         <div className="absolute bottom-[18%] left-1/2 h-[36%] w-[72%] -translate-x-1/2 rounded-[34px] border border-white/25 bg-white/20 p-3 shadow-[inset_0_12px_38px_rgba(255,255,255,0.22),0_30px_60px_rgba(0,0,0,0.28)] backdrop-blur-sm">
           <div className="h-full rounded-[24px] bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.95),rgba(255,255,255,0.16)_32%,rgba(15,23,42,0.18)_70%)]" />
         </div>
       )}
-      <div className="absolute inset-x-5 top-9 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
-        {ad.format === 'story' && <p className="mb-6 text-[11px] font-semibold opacity-80">creativo · Meta Ads</p>}
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {(ad.angle || ad.ring) && (
-            <span className="rounded-full bg-white/18 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white backdrop-blur">
-              {[ad.angle, ad.ring].filter(Boolean).join(' · ')}
-            </span>
-          )}
-        </div>
-        <h3 className={`${large ? 'text-[32px]' : 'text-[23px]'} font-serif leading-[0.95] tracking-tight`}>{ad.title}</h3>
-        <p className={`${large ? 'mt-5 text-[18px]' : 'mt-4 text-[14px]'} max-w-[260px] font-semibold leading-tight`}>{ad.subtitle}</p>
-        {ad.format === 'story' ? (
-          <div className="mt-5 space-y-2 text-[11px] font-bold text-gray-900">
-            <div className="ml-auto w-fit max-w-[220px] rounded-xl bg-white/85 px-3 py-2 text-center">¿Te pasa esto?</div>
-            <div className="mx-auto w-fit max-w-[220px] rounded-xl bg-white/85 px-3 py-2 text-center">{ad.conversionReason || 'Resuelve la duda antes del click.'}</div>
+      {!showFinalImage && (
+        <div className="absolute inset-x-5 top-9 text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
+          {ad.format === 'story' && <p className="mb-6 text-[11px] font-semibold opacity-80">creativo · Meta Ads</p>}
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {(ad.angle || ad.ring) && (
+              <span className="rounded-full bg-white/18 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white backdrop-blur">
+                {[ad.angle, ad.ring].filter(Boolean).join(' · ')}
+              </span>
+            )}
           </div>
-        ) : null}
-      </div>
-      {ad.visualDirection && large && (
+          <h3 className={`${large ? 'text-[32px]' : 'text-[23px]'} font-serif leading-[0.95] tracking-tight`}>{ad.title}</h3>
+          <p className={`${large ? 'mt-5 text-[18px]' : 'mt-4 text-[14px]'} max-w-[260px] font-semibold leading-tight`}>{ad.subtitle}</p>
+          {ad.format === 'story' ? (
+            <div className="mt-5 space-y-2 text-[11px] font-bold text-gray-900">
+              <div className="ml-auto w-fit max-w-[220px] rounded-xl bg-white/85 px-3 py-2 text-center">¿Te pasa esto?</div>
+              <div className="mx-auto w-fit max-w-[220px] rounded-xl bg-white/85 px-3 py-2 text-center">{ad.conversionReason || 'Resuelve la duda antes del click.'}</div>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {ad.visualDirection && large && !showFinalImage && (
         <div className="absolute bottom-20 left-7 right-7 rounded-2xl bg-white/88 px-3 py-2 text-[11px] font-bold leading-4 text-gray-800 shadow-lg">
           {ad.visualDirection}
         </div>
       )}
-      <div className="absolute bottom-7 left-7 right-7 border-t border-white/45 pt-3 text-center text-xs font-semibold text-white/90">{ad.cta}</div>
+      {!showFinalImage && <div className="absolute bottom-7 left-7 right-7 border-t border-white/45 pt-3 text-center text-xs font-semibold text-white/90">{ad.cta}</div>}
       {typeof selected === 'boolean' && (
         <button
           type="button"
