@@ -76,6 +76,15 @@ type BrandDna = {
   objections: string;
 };
 
+type ProductOption = {
+  name: string;
+  tag: string;
+  price: string;
+  image: string;
+  imageUrl?: string;
+  insight: string;
+};
+
 const APP_NAME = 'CreatteAI';
 
 const navItems = [
@@ -89,7 +98,7 @@ const navItems = [
   { id: 'settings', label: 'Ajustes', icon: Settings2 },
 ] as const;
 
-const defaultProducts = [
+const defaultProducts: ProductOption[] = [
   {
     name: 'Serum Glow C',
     tag: 'Best seller',
@@ -534,6 +543,9 @@ export default function PosttyReplicaPage() {
   const [flowMode, setFlowMode] = React.useState<'auto' | 'custom'>('auto');
   const [generatedProducts, setGeneratedProducts] = React.useState(defaultProducts);
   const [selectedProduct, setSelectedProduct] = React.useState(defaultProducts[0]);
+  const [trialProducts, setTrialProducts] = React.useState<ProductOption[]>([]);
+  const [trialProductMode, setTrialProductMode] = React.useState<'general' | 'product'>('general');
+  const [selectedTrialProduct, setSelectedTrialProduct] = React.useState<ProductOption | null>(null);
   const [objective, setObjective] = React.useState('Generar ventas');
   const [messages, setMessages] = React.useState([
     'Acabo de analizar tu marca. Detecte una voz cercana, visual limpia y foco en resultados simples.',
@@ -599,6 +611,7 @@ export default function PosttyReplicaPage() {
             angles: selectedAnglesConfig,
             rings: selectedRingsConfig,
             formats: selectedFormatsConfig,
+            selectedProduct: trialProductMode === 'product' ? selectedTrialProduct : 'general',
           },
           creativeCount,
         }),
@@ -631,6 +644,8 @@ export default function PosttyReplicaPage() {
         }));
         setGeneratedProducts(mappedProducts);
         setSelectedProduct(mappedProducts[0]);
+        setTrialProducts(mappedProducts);
+        if (!selectedTrialProduct) setSelectedTrialProduct(mappedProducts[0]);
       }
       setMessages([
         `Analicé ${data.brandName || 'tu marca'} y detecté: ${data.businessSummary || 'una propuesta clara para convertir visitas en compras.'}`,
@@ -639,6 +654,59 @@ export default function PosttyReplicaPage() {
       setScreen('trialResults');
     } catch (error: any) {
       setAiError(error?.message || 'No pudimos generar la campaña con IA.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const analyzeTrialProducts = async () => {
+    if (!trialUrl.trim()) return;
+    setWorking(true);
+    setAiError('');
+    notify('Detectando productos de tu web...');
+    try {
+      const response = await fetch('/api/scrape-website', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'creattia_analyze',
+          url: trialUrl,
+          instagramUrl,
+          businessType,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.detail || data?.error || 'No pudimos detectar productos.');
+      setBrandName(data.brandName || 'Tu marca');
+      setBrandUrl(data.sourceUrl || trialUrl);
+      setBusinessSummary(data.businessSummary || '');
+      if (data.brandDna) {
+        setBrandDna({
+          voice: data.brandDna.voice || brandDna.voice,
+          customer: data.brandDna.customer || brandDna.customer,
+          visual: data.brandDna.visual || brandDna.visual,
+          objections: data.brandDna.objections || brandDna.objections,
+        });
+      }
+      const mappedProducts = (Array.isArray(data.products) ? data.products : []).slice(0, 8).map((item: any, index: number) => ({
+        name: item.name || ['Producto principal', 'Servicio principal', 'Oferta destacada'][index % 3],
+        tag: item.tag || ['Detectado', 'Oportunidad', 'Foco'][index % 3],
+        price: item.price || 'A validar',
+        image: defaultProducts[index % defaultProducts.length]?.image || defaultProducts[0].image,
+        imageUrl: item.imageUrl || '',
+        insight: item.insight || 'Buen candidato para anuncios por su claridad comercial.',
+      }));
+      setTrialProducts(mappedProducts);
+      setGeneratedProducts(mappedProducts.length ? mappedProducts : defaultProducts);
+      if (mappedProducts.length) {
+        setSelectedTrialProduct(mappedProducts[0]);
+        setTrialProductMode('product');
+      } else {
+        setTrialProductMode('general');
+      }
+      notify(mappedProducts.length ? `${mappedProducts.length} productos detectados` : 'No encontré productos claros, podés generar por marca general');
+    } catch (error: any) {
+      setAiError(error?.message || 'No pudimos detectar productos.');
     } finally {
       setWorking(false);
     }
@@ -1002,6 +1070,63 @@ export default function PosttyReplicaPage() {
                       ))}
                     </div>
                   </label>
+                  <div className="lg:col-span-2 rounded-[26px] border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                          Producto foco
+                          <HelpHint text="Podés generar anuncios para toda la marca o elegir un producto/servicio detectado en la web para que la imagen y el copy apunten a eso." />
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-gray-900">
+                          {trialProductMode === 'product' && selectedTrialProduct ? selectedTrialProduct.name : 'Marca general / categoría'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={analyzeTrialProducts}
+                        disabled={!trialUrl.trim() || working}
+                        className="inline-flex h-10 items-center justify-center rounded-full bg-white px-4 text-xs font-black text-gray-800 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Detectar productos
+                      </button>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <button
+                        type="button"
+                        onClick={() => setTrialProductMode('general')}
+                        className={`rounded-2xl border p-3 text-left transition ${trialProductMode === 'general' ? 'border-gray-950 bg-white shadow-sm' : 'border-gray-200 bg-white/70 hover:bg-white'}`}
+                      >
+                        <div className="grid h-20 place-items-center rounded-xl bg-gradient-to-br from-gray-950 via-gray-700 to-[#d7ff3f] text-xs font-black uppercase tracking-[0.14em] text-white">
+                          General
+                        </div>
+                        <p className="mt-3 text-sm font-black text-gray-950">Marca general</p>
+                        <p className="mt-1 text-xs leading-5 text-gray-500">Para probar categoría, oferta global o propuesta de valor.</p>
+                      </button>
+                      {trialProducts.map((product) => (
+                        <button
+                          key={product.name}
+                          type="button"
+                          onClick={() => {
+                            setTrialProductMode('product');
+                            setSelectedTrialProduct(product);
+                          }}
+                          className={`rounded-2xl border p-3 text-left transition ${trialProductMode === 'product' && selectedTrialProduct?.name === product.name ? 'border-gray-950 bg-white shadow-sm' : 'border-gray-200 bg-white/70 hover:bg-white'}`}
+                        >
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt={product.name} className="h-20 w-full rounded-xl object-cover" />
+                          ) : (
+                            <div className={`h-20 rounded-xl bg-gradient-to-br ${product.image}`} />
+                          )}
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">{product.tag}</span>
+                            <span className="text-[10px] font-bold text-gray-400">{product.price}</span>
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-sm font-black text-gray-950">{product.name}</p>
+                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">{product.insight}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <label className="block lg:col-span-2">
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
                       Qué querés que CreatteAI tenga en cuenta

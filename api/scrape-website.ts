@@ -19,6 +19,14 @@ type CreattiaAd = {
   conversionReason?: string;
 };
 
+type CreattiaProduct = {
+  name: string;
+  tag?: string;
+  price?: string;
+  insight?: string;
+  imageUrl?: string;
+};
+
 const normalizeAspectRatio = (input: unknown, fallbackIndex: number): '9:16' | '1:1' | '4:5' | '3:4' => {
   const raw = String(input || '').toLowerCase();
   if (raw.includes('9:16') || raw.includes('story') || raw.includes('reel')) return '9:16';
@@ -49,6 +57,49 @@ const creattiaColorPresets = [
   'from-[#111827] via-[#dc6f55] to-[#ffe8c2]',
   'from-[#0f251d] via-[#38a993] to-[#d7ff3f]',
 ];
+
+const creattiaAdReferenceLibrary = [
+  {
+    name: 'Premium product hero',
+    principle: 'A single strong product/service symbol, large negative space, luxury lighting, one obvious focal point.',
+    visual: 'macro commercial photography, tactile material detail, elegant shadows, premium ecommerce mood',
+  },
+  {
+    name: 'Problem moment',
+    principle: 'Show the painful context before the solution without making the image ugly.',
+    visual: 'cinematic real-life scene, subtle tension, hands or workspace, emotionally clear but polished',
+  },
+  {
+    name: 'Proof of craft',
+    principle: 'Make the process and quality feel believable through expert hands, tools, materials, or detail.',
+    visual: 'artisan process, clean workshop, high-end editorial documentary lighting',
+  },
+  {
+    name: 'Aspirational outcome',
+    principle: 'Show the desired end state the buyer wants to reach.',
+    visual: 'finished premium result, warm lifestyle environment, calm confidence, refined composition',
+  },
+  {
+    name: 'Offer focus',
+    principle: 'Create space for price/offer copy while the visual supports urgency and clarity.',
+    visual: 'minimal set design, strong product silhouette, bright CTA-safe area, high contrast',
+  },
+  {
+    name: 'Objection breaker',
+    principle: 'Visualize trust, guidance, guarantee, speed, quality, or simplicity.',
+    visual: 'expert consultation scene, packaging/shipping/proof cues, reassuring premium atmosphere',
+  },
+  {
+    name: 'UGC premium',
+    principle: 'Feels native and human but still sharp enough for a paid ad.',
+    visual: 'creator-style photo, natural hands, phone-ready framing, authentic but clean',
+  },
+  {
+    name: 'Comparison metaphor',
+    principle: 'Suggest better choice without directly attacking competitors.',
+    visual: 'two-zone composition, clear contrast between messy and premium, no labels or text',
+  },
+] as const;
 
 // ── audio-proxy helpers ──────────────────────────────────────────────────────
 
@@ -183,6 +234,54 @@ function extractCreattiaImages(html: string, baseUrl: string) {
   return [...new Set(candidates)].slice(0, 12);
 }
 
+function extractCreattiaProducts(html: string, images: string[]): CreattiaProduct[] {
+  const products: CreattiaProduct[] = [];
+  const addProduct = (item: any) => {
+    const name = String(item?.name || item?.title || '').trim();
+    if (!name || name.length < 2 || /home|catalog|shop all/i.test(name)) return;
+    const priceValue = item?.offers?.price || item?.price || item?.variants?.[0]?.price;
+    const price = priceValue ? `$${String(priceValue).replace(/\.0+$/, '')}` : '';
+    const imageValue = Array.isArray(item?.image) ? item.image[0] : item?.image || item?.featured_image;
+    products.push({
+      name: name.slice(0, 80),
+      tag: item?.category || item?.type || 'Detectado',
+      price,
+      imageUrl: typeof imageValue === 'string' ? imageValue : '',
+      insight: 'Producto detectado en la web. Se puede usar como foco del creativo.',
+    });
+  };
+
+  for (const match of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      const nodes = Array.isArray(parsed) ? parsed : [parsed, ...(Array.isArray(parsed['@graph']) ? parsed['@graph'] : [])];
+      for (const node of nodes) {
+        if (node?.['@type'] === 'Product' || (Array.isArray(node?.['@type']) && node['@type'].includes('Product'))) addProduct(node);
+        if (Array.isArray(node?.itemListElement)) node.itemListElement.forEach((entry: any) => addProduct(entry?.item || entry));
+      }
+    } catch {
+      // Ignore malformed structured data.
+    }
+  }
+
+  for (const match of html.matchAll(/"title"\s*:\s*"([^"]{3,90})"[\s\S]{0,260}?"price"\s*:\s*"?([0-9.,]+)"?/gi)) {
+    products.push({
+      name: match[1].replace(/\\"/g, '"'),
+      tag: 'Catálogo',
+      price: `$${match[2]}`,
+      imageUrl: images[products.length % Math.max(1, images.length)] || '',
+      insight: 'Producto encontrado en datos de catálogo. Ideal para probar ángulos específicos.',
+    });
+  }
+
+  const unique = new Map<string, CreattiaProduct>();
+  for (const product of products) {
+    const key = product.name.toLowerCase();
+    if (!unique.has(key)) unique.set(key, product);
+  }
+  return [...unique.values()].slice(0, 8);
+}
+
 function extractCreattiaJson(text: string) {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
   const source = fenced || text;
@@ -214,7 +313,8 @@ async function fetchCreattiaSite(url: string) {
     const description = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1] || '';
     const text = stripCreattiaHtml(html).slice(0, 20000);
     const images = extractCreattiaImages(html, url);
-    return { title, description, text, images };
+    const products = extractCreattiaProducts(html, images);
+    return { title, description, text, images, products };
   } finally {
     clearTimeout(timeout);
   }
@@ -329,16 +429,21 @@ function buildCreattiaImagePrompt(args: {
   businessSummary: string;
   businessType: string;
   siteText: string;
+  selectedProduct?: CreattiaProduct | null;
+  reference: typeof creattiaAdReferenceLibrary[number];
   ad: CreattiaAd & { aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4' };
 }) {
-  const { brandName, businessSummary, businessType, siteText, ad } = args;
+  const { brandName, businessSummary, businessType, siteText, selectedProduct, reference, ad } = args;
   return [
     `Create a premium AI-generated advertising visual for Meta Ads for the brand "${brandName}".`,
     `Business type: ${businessType}. Brand context: ${businessSummary || siteText.slice(0, 700)}.`,
+    selectedProduct?.name ? `Focus product/service: ${selectedProduct.name}. Product notes: ${selectedProduct.insight || selectedProduct.tag || ''}. Price if relevant: ${selectedProduct.price || 'not specified'}.` : 'No single product selected: create a general brand/product-category visual.',
+    `Use this internal high-converting ad reference archetype: "${reference.name}". Principle: ${reference.principle}. Visual style: ${reference.visual}.`,
     `Creative angle: ${ad.angle || 'performance ad'}. Ring: ${ad.ring || 'conversion'}. Concept: ${ad.title} / ${ad.subtitle}.`,
     ad.visualPrompt ? `Specific visual direction: ${ad.visualPrompt}.` : '',
     ad.visualDirection ? `Art direction: ${ad.visualDirection}.` : '',
-    'Make the image look like a high-end paid social ad background: cinematic commercial photography, premium composition, strong product/service metaphor, polished lighting, modern ecommerce aesthetic, clean negative space for overlay copy.',
+    'Make the image look like a top-tier paid social ad background: cinematic commercial photography, premium composition, strong product/service metaphor, polished lighting, modern ecommerce aesthetic, clean negative space for overlay copy.',
+    'Make this visual clearly different from other ads in the same campaign: different camera angle, scene, lighting setup, product metaphor, and background composition.',
     'Do not include any readable text, letters, logos, watermarks, UI, buttons, badges, labels, borders, frames, screenshots, distorted hands, malformed objects, or collage artifacts.',
     'The final app will add text on top, so the image must be beautiful and useful as a background visual only.',
   ].filter(Boolean).join('\n');
@@ -359,6 +464,9 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     const instagramUrl = String(req.body?.instagramUrl || '').trim();
     const businessType = String(req.body?.businessType || 'Ambos');
     const preferences = req.body?.preferences || {};
+    const selectedProduct = preferences?.selectedProduct && preferences.selectedProduct !== 'general'
+      ? preferences.selectedProduct as CreattiaProduct
+      : null;
     const requestedAds = Math.max(4, Math.min(16, Number(req.body?.creativeCount || 4)));
     const requestedFormatRatios = normalizeSelectedList(preferences?.formats, ['9:16 Stories/Reels', '1:1 Feed/Carousel', '4:5 Feed vertical', '3:4 Grid preview'])
       .map((format, index) => normalizeAspectRatio(format, index));
@@ -373,15 +481,69 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
         description: '',
         text: `No se pudo leer la web en este intento (${siteError?.message || 'fetch failed'}). Usá el dominio, Instagram declarado, tipo de negocio y preferencias del usuario como contexto principal. Generá creativos igualmente y evitá inventar datos muy específicos no inferibles.`,
         images: [],
+        products: [],
         fetchWarning: siteError?.message || 'No pudimos leer la web completa.',
       };
     }
+
+    if (req.body?.action === 'creattia_analyze') {
+      const analysisPrompt = {
+        task: 'Analizá esta web para detectar marca, ADN y productos/servicios elegibles para anuncios. No generes ads.',
+        url,
+        instagramUrl,
+        businessType,
+        site,
+        extractedProducts: Array.isArray(site.products) ? site.products : [],
+        required_json_shape: {
+          brandName: 'string',
+          businessSummary: 'string',
+          brandDna: {
+            voice: 'string',
+            customer: 'string',
+            visual: 'string',
+            objections: 'string',
+          },
+          products: [
+            { name: 'string', tag: 'string', price: 'string', insight: 'string' },
+          ],
+        },
+      };
+      const analysisSystemPrompt = [
+        'Sos CreatteAI, un estratega de performance creative.',
+        'Tu trabajo es detectar productos o servicios reales de una web y resumir qué conviene anunciar.',
+        'Devolvé productos concretos cuando existan. Si la web es de servicios, devolvé servicios/paquetes como productos elegibles.',
+        'Respondé únicamente JSON válido. Sin markdown.',
+      ].join('\n');
+      const analysisRaw = geminiKey
+        ? await callCreattiaGemini(geminiKey, analysisSystemPrompt, analysisPrompt)
+        : await callCreattiaOpenAI(openAiKey, analysisSystemPrompt, analysisPrompt);
+      const analysis = extractCreattiaJson(analysisRaw);
+      const products = (Array.isArray(analysis.products) && analysis.products.length ? analysis.products : site.products || [])
+        .slice(0, 8)
+        .map((product: CreattiaProduct, index: number) => ({
+          name: String(product.name || ['Producto principal', 'Servicio principal', 'Oferta destacada'][index % 3]).slice(0, 80),
+          tag: String(product.tag || ['Detectado', 'Oportunidad', 'Foco de campaña'][index % 3]).slice(0, 40),
+          price: String(product.price || 'A validar').slice(0, 40),
+          insight: String(product.insight || 'Buen candidato para anuncios por su claridad comercial.').slice(0, 160),
+          imageUrl: product.imageUrl || site.images?.[index % Math.max(1, site.images.length)] || '',
+        }));
+      return res.status(200).json({
+        sourceUrl: url,
+        brandName: analysis.brandName || site.title || 'Tu marca',
+        businessSummary: analysis.businessSummary || site.description || '',
+        brandDna: analysis.brandDna || null,
+        products,
+      });
+    }
+
     const systemPrompt = [
       'Sos CreatteAI, un agente senior de performance creative para ecommerce y páginas de servicios.',
       'Analizás web, Instagram declarado, propuesta de valor, puntos de dolor, objeciones, prueba social, oferta, rings creativos y formatos.',
       'Generás solo creativos estáticos para Meta/Instagram. Ratios disponibles: 9:16 Stories/Reels, 1:1 Feed/Carousel, 4:5 Feed vertical y 3:4 Grid preview. No generes video.',
       'Cada anuncio debe tener una razón estratégica clara, un punto de dolor específico, un ring y una estructura de conversión. Evitá promesas exageradas, médicas o imposibles de probar.',
       'No repitas el mismo ángulo con distintas palabras: cada creativo tiene que aportar una hipótesis creativa distinta para testear en Meta Ads.',
+      'Si hay un producto elegido, todos los anuncios deben tomarlo como foco. Si el usuario eligió marca general, variá entre producto, categoría y propuesta de valor.',
+      'Para cada ad generá un visualPrompt específico y ambicioso para una imagen nueva creada por IA. No pidas texto dentro de la imagen.',
       'Usá español rioplatense premium y claro. No uses comparaciones agresivas ni ataques directos a competidores.',
       'Respondé únicamente JSON válido. Sin markdown.',
     ].join('\n');
@@ -393,7 +555,9 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       instagramUrl,
       businessType,
       preferences,
+      selectedProduct: selectedProduct || 'general brand/category campaign',
       site,
+      internalReferenceArchetypes: creattiaAdReferenceLibrary,
       required_json_shape: {
         brandName: 'string',
         businessSummary: 'string',
@@ -461,14 +625,17 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     const adsWithImages = openAiKey
       ? await Promise.all(ads.map(async (ad: CreattiaAd, index: number) => {
         try {
+          const reference = creattiaAdReferenceLibrary[index % creattiaAdReferenceLibrary.length];
           const imageUrl = await callCreattiaOpenAIImage(openAiKey, buildCreattiaImagePrompt({
             brandName,
             businessSummary,
             businessType,
             siteText: site.text || '',
+            selectedProduct,
+            reference,
             ad,
           }), ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
-          return { ...ad, imageUrl };
+          return { ...ad, imageUrl, referenceName: reference.name };
         } catch {
           return ad;
         }
@@ -480,7 +647,8 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       brandName,
       businessSummary,
       brandDna: parsed.brandDna || null,
-      products: Array.isArray(parsed.products) ? parsed.products.slice(0, 3) : [],
+      products: (Array.isArray(parsed.products) && parsed.products.length ? parsed.products : site.products || []).slice(0, 8),
+      references: creattiaAdReferenceLibrary,
       ads: adsWithImages.length ? adsWithImages : Array.from({ length: requestedAds }, (_, index) => {
         const color = creattiaColorPresets[index % creattiaColorPresets.length];
         const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
