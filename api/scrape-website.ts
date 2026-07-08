@@ -556,6 +556,7 @@ async function callCreattiaGeminiImage(
 ) {
   const models = [
     process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
+    'gemini-3.1-flash-lite-image',
     'gemini-2.5-flash-image',
   ].filter((model, index, all) => model && all.indexOf(model) === index);
   const referenceInput = getCreattiaReferenceImageInput(userReference);
@@ -578,7 +579,16 @@ async function callCreattiaGeminiImage(
           'Content-Type': 'application/json',
           'x-goog-api-key': key,
         },
-        body: JSON.stringify({ model, input }),
+        body: JSON.stringify({
+          model,
+          input,
+          response_format: {
+            type: 'image',
+            mime_type: 'image/jpeg',
+            aspect_ratio: aspectRatio,
+            image_size: process.env.GEMINI_IMAGE_SIZE || '1K',
+          },
+        }),
       }).finally(() => clearTimeout(timeout));
       if (!response.ok) {
         const text = await response.text();
@@ -607,6 +617,7 @@ async function callCreattiaBestImage(
       return {
         imageUrl: await callCreattiaGeminiImage(keys.geminiKey, prompt, aspectRatio, userReference),
         provider: 'gemini',
+        fallbackErrors: errors,
       };
     } catch (error: any) {
       errors.push(error?.message || 'Gemini image failed');
@@ -617,6 +628,7 @@ async function callCreattiaBestImage(
       return {
         imageUrl: await callCreattiaOpenAIImage(keys.openAiKey, prompt, aspectRatio),
         provider: 'openai',
+        fallbackErrors: errors,
       };
     } catch (error: any) {
       errors.push(error?.message || 'OpenAI image failed');
@@ -869,7 +881,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
             70000,
             'CreatteAI image generation'
           );
-          adsWithImages.push({ ...ad, imageUrl: generatedImage.imageUrl, finalImage: true, imageProvider: generatedImage.provider, referenceName: reference.name, userReference: userReference?.archetype || null });
+          adsWithImages.push({ ...ad, imageUrl: generatedImage.imageUrl, finalImage: true, imageProvider: generatedImage.provider, imageProviderFallback: generatedImage.fallbackErrors?.slice(0, 2), referenceName: reference.name, userReference: userReference?.archetype || null });
         } catch (error: any) {
           const message = error?.message || 'Image generation failed';
           if (/429|rate limit|try again/i.test(message)) {
@@ -881,7 +893,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
                 62000,
                 'CreatteAI image generation retry'
               );
-              adsWithImages.push({ ...ad, imageUrl: generatedImage.imageUrl, finalImage: true, imageProvider: generatedImage.provider, referenceName: reference.name, userReference: userReference?.archetype || null });
+              adsWithImages.push({ ...ad, imageUrl: generatedImage.imageUrl, finalImage: true, imageProvider: generatedImage.provider, imageProviderFallback: generatedImage.fallbackErrors?.slice(0, 2), referenceName: reference.name, userReference: userReference?.archetype || null });
               continue;
             } catch (retryError: any) {
               adsWithImages.push({ ...ad, imageError: retryError?.message || message, referenceName: reference.name, userReference: userReference?.archetype || null });
