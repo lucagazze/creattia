@@ -663,8 +663,8 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
             ad,
           }), ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
           return { ...ad, imageUrl, referenceName: reference.name };
-        } catch {
-          return ad;
+        } catch (error: any) {
+          return { ...ad, imageError: error?.message || 'Image generation failed' };
         }
       }))
       : ads;
