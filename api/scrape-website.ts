@@ -35,6 +35,9 @@ type UserAdReference = {
   id: string;
   sourceFile?: string;
   localPath?: string;
+  sourceUrl?: string;
+  sourceName?: string;
+  usage?: string;
   archetype: string;
   industry?: string;
   angle?: string;
@@ -144,13 +147,22 @@ let cachedUserReferenceCatalog: UserAdReference[] | null = null;
 
 function loadUserReferenceCatalog() {
   if (cachedUserReferenceCatalog) return cachedUserReferenceCatalog;
+  const references: UserAdReference[] = [];
   try {
     const catalogPath = path.join(process.cwd(), 'public', 'creattia', 'reference-ads', 'catalog.json');
     const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-    cachedUserReferenceCatalog = Array.isArray(catalog.references) ? catalog.references : [];
+    if (Array.isArray(catalog.references)) references.push(...catalog.references);
   } catch {
-    cachedUserReferenceCatalog = [];
+    // Keep running with the external catalog if local image references are unavailable.
   }
+  try {
+    const externalCatalogPath = path.join(process.cwd(), 'public', 'creattia', 'reference-ads', 'external-catalog.json');
+    const externalCatalog = JSON.parse(fs.readFileSync(externalCatalogPath, 'utf8'));
+    if (Array.isArray(externalCatalog.references)) references.push(...externalCatalog.references);
+  } catch {
+    // External inspiration is optional.
+  }
+  cachedUserReferenceCatalog = references;
   return cachedUserReferenceCatalog;
 }
 
@@ -175,6 +187,27 @@ function selectUserReference(ad: CreattiaAd, index: number) {
     })
     .sort((a, b) => b.score - a.score);
   return scored[index % Math.min(4, scored.length)]?.reference || catalog[index % catalog.length];
+}
+
+function selectLocalImageReference(ad: CreattiaAd, index: number) {
+  const localCatalog = loadUserReferenceCatalog().filter((reference) => reference.localPath);
+  if (!localCatalog.length) return null;
+  const ring = String(ad.ring || '').toLowerCase();
+  const angle = String(ad.angle || '').toLowerCase();
+  const scored = localCatalog
+    .map((reference, referenceIndex) => {
+      let score = 0;
+      const refRing = String(reference.ring || '').toLowerCase();
+      const refAngle = String(reference.angle || '').toLowerCase();
+      const refArchetype = String(reference.archetype || '').toLowerCase();
+      if (ring && (refRing.includes(ring) || ring.includes(refRing))) score += 4;
+      if (angle && (refAngle.includes(angle) || refArchetype.includes(angle))) score += 3;
+      if (/dolor|pain|objec/i.test(`${angle} ${ring}`) && /problem|objection|pain|regret/.test(refArchetype)) score += 3;
+      if (/oferta|offer/i.test(`${angle} ${ring}`) && /offer|product|bundle/.test(refArchetype)) score += 3;
+      return { reference, score: score + ((index + referenceIndex) % 3) / 10 };
+    })
+    .sort((a, b) => b.score - a.score);
+  return scored[index % Math.min(4, scored.length)]?.reference || localCatalog[index % localCatalog.length];
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -568,6 +601,7 @@ async function callCreattiaGeminiImage(
     ...(referenceInput ? [referenceInput] : []),
   ];
   let lastError: unknown;
+  const modelErrors: string[] = [];
   for (const model of models) {
     try {
       const controller = new AbortController();
@@ -600,9 +634,10 @@ async function callCreattiaGeminiImage(
       return `data:${image.mimeType};base64,${image.data}`;
     } catch (error) {
       lastError = error;
+      modelErrors.push(error instanceof Error ? error.message : String(error));
     }
   }
-  throw lastError instanceof Error ? lastError : new Error('Gemini Images failed');
+  throw new Error(modelErrors.length ? modelErrors.join(' | ') : (lastError instanceof Error ? lastError.message : 'Gemini Images failed'));
 }
 
 async function callCreattiaBestImage(
@@ -653,7 +688,7 @@ function buildCreattiaImagePrompt(args: {
     `Business type: ${businessType}. Brand context: ${businessSummary || siteText.slice(0, 700)}.`,
     selectedProduct?.name ? `Focus product/service: ${selectedProduct.name}. Product notes: ${selectedProduct.insight || selectedProduct.tag || ''}. Price if relevant: ${selectedProduct.price || 'not specified'}.` : 'No single product selected: create a general brand/product-category visual.',
     `Use this internal high-converting ad reference archetype: "${reference.name}". Principle: ${reference.principle}. Visual style: ${reference.visual}.`,
-    userReference ? `A user-provided reference image is attached. Use it as inspiration only, not as a copy: archetype "${userReference.archetype}", industry "${userReference.industry || 'unknown'}", angle "${userReference.angle || 'unknown'}", ring "${userReference.ring || 'unknown'}", layout "${userReference.layout || 'high-performing direct response ad layout'}", notes "${userReference.promptNotes || 'match the composition logic and conversion structure without reproducing the exact ad'}".` : '',
+    userReference ? `${userReference.localPath ? 'A user-provided reference image is attached.' : 'Use this curated internet inspiration pattern.'} Use it as inspiration only, not as a copy: archetype "${userReference.archetype}", industry "${userReference.industry || 'unknown'}", angle "${userReference.angle || 'unknown'}", ring "${userReference.ring || 'unknown'}", layout "${userReference.layout || 'high-performing direct response ad layout'}", notes "${userReference.promptNotes || 'match the composition logic and conversion structure without reproducing the exact ad'}".` : '',
     `Creative angle: ${ad.angle || 'performance ad'}. Ring: ${ad.ring || 'conversion'}. Concept: ${ad.title} / ${ad.subtitle}.`,
     ad.visualPrompt ? `Specific visual direction: ${ad.visualPrompt}.` : '',
     ad.visualDirection ? `Art direction: ${ad.visualDirection}.` : '',
@@ -855,6 +890,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
         const ad = ads[index];
         const reference = creattiaAdReferenceLibrary[index % creattiaAdReferenceLibrary.length];
         const userReference = selectUserReference(ad, index);
+        const visualReference = userReference?.localPath ? userReference : selectLocalImageReference(ad, index);
         if (index >= maxBlockingImages || Date.now() - imageBatchStartedAt > maxImageBatchMs) {
           adsWithImages.push({
             ...ad,
@@ -877,7 +913,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
         try {
           const ratio = ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length];
           const generatedImage = await withCreattiaTimeout(
-            callCreattiaBestImage({ geminiKey, openAiKey }, prompt, ratio, userReference),
+            callCreattiaBestImage({ geminiKey, openAiKey }, prompt, ratio, visualReference),
             70000,
             'CreatteAI image generation'
           );
@@ -889,7 +925,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
             try {
               const ratio = ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length];
               const generatedImage = await withCreattiaTimeout(
-                callCreattiaBestImage({ geminiKey, openAiKey }, prompt, ratio, userReference),
+                callCreattiaBestImage({ geminiKey, openAiKey }, prompt, ratio, visualReference),
                 62000,
                 'CreatteAI image generation retry'
               );
@@ -914,7 +950,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       brandDna: parsed.brandDna || null,
       products: (Array.isArray(parsed.products) && parsed.products.length ? parsed.products : site.products || []).slice(0, 8),
       references: creattiaAdReferenceLibrary,
-      userReferences: loadUserReferenceCatalog().map(({ id, archetype, industry, angle, ring, localPath }) => ({ id, archetype, industry, angle, ring, localPath })),
+      userReferences: loadUserReferenceCatalog().map(({ id, archetype, industry, angle, ring, localPath, sourceUrl, sourceName }) => ({ id, archetype, industry, angle, ring, localPath, sourceUrl, sourceName })),
       ads: adsWithImages.length ? adsWithImages : Array.from({ length: requestedAds }, (_, index) => {
         const color = creattiaColorPresets[index % creattiaColorPresets.length];
         const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
