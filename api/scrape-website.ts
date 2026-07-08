@@ -9,11 +9,21 @@ type CreattiaAd = {
   subtitle: string;
   cta: string;
   format: 'feed' | 'story';
+  aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4';
   color?: string;
   angle?: string;
   ring?: string;
   visualDirection?: string;
   conversionReason?: string;
+};
+
+const normalizeAspectRatio = (input: unknown, fallbackIndex: number): '9:16' | '1:1' | '4:5' | '3:4' => {
+  const raw = String(input || '').toLowerCase();
+  if (raw.includes('9:16') || raw.includes('story') || raw.includes('reel')) return '9:16';
+  if (raw.includes('1:1') || raw.includes('square') || raw.includes('carousel')) return '1:1';
+  if (raw.includes('3:4')) return '3:4';
+  if (raw.includes('4:5') || raw.includes('feed')) return '4:5';
+  return (['9:16', '1:1', '4:5', '3:4'] as const)[fallbackIndex % 4];
 };
 
 const creattiaColorPresets = [
@@ -230,7 +240,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     const systemPrompt = [
       'Sos CreatteAI, un agente senior de performance creative para ecommerce y páginas de servicios.',
       'Analizás web, Instagram declarado, propuesta de valor, puntos de dolor, objeciones, prueba social, oferta, rings creativos y formatos.',
-      'Generás solo creativos estáticos para Meta/Instagram: imagen 4:5, story 9:16, carrusel, founder ad, FAQ visual, oferta, demo o testimonial. No generes video.',
+      'Generás solo creativos estáticos para Meta/Instagram. Ratios disponibles: 9:16 Stories/Reels, 1:1 Feed/Carousel, 4:5 Feed vertical y 3:4 Grid preview. No generes video.',
       'Cada anuncio debe tener una razón estratégica clara, un punto de dolor específico, un ring y una estructura de conversión. Evitá promesas exageradas, médicas o imposibles de probar.',
       'No repitas el mismo ángulo con distintas palabras: cada creativo tiene que aportar una hipótesis creativa distinta para testear en Meta Ads.',
       'Usá español rioplatense premium y claro. No uses comparaciones agresivas ni ataques directos a competidores.',
@@ -260,6 +270,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
             subtitle: 'string max 75 chars',
             cta: 'string max 58 chars',
             format: 'feed|story',
+            aspectRatio: '9:16|1:1|4:5|3:4',
             angle: 'string',
             ring: 'Deseo|Dolor|Prueba|Mecanismo|Oferta',
             visualDirection: 'string',
@@ -292,7 +303,8 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       title: String(ad.title || 'Una pieza que vende mejor').slice(0, 80),
       subtitle: String(ad.subtitle || 'Concepto generado con IA para tu tienda.').slice(0, 110),
       cta: String(ad.cta || 'Descubrí la diferencia').slice(0, 90),
-      format: ad.format === 'story' ? 'story' : 'feed',
+      aspectRatio: normalizeAspectRatio(ad.aspectRatio || ad.format || preferences?.formats?.[index % Math.max(1, preferences?.formats?.length || 1)], index),
+      format: normalizeAspectRatio(ad.aspectRatio || ad.format || preferences?.formats?.[index % Math.max(1, preferences?.formats?.length || 1)], index) === '9:16' ? 'story' : 'feed',
       angle: String(ad.angle || '').slice(0, 38),
       ring: String(ad.ring || '').slice(0, 24),
       visualDirection: String(ad.visualDirection || '').slice(0, 150),
@@ -312,7 +324,8 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
         title: ['Tu producto, mejor contado', 'La razón para elegirte', 'Menos dudas, más compras', 'Una historia que convierte'][index % 4],
         subtitle: 'Concepto generado con IA para tu tienda.',
         cta: 'Ver más',
-        format: index === 3 ? 'story' : 'feed',
+        aspectRatio: normalizeAspectRatio(preferences?.formats?.[index % Math.max(1, preferences?.formats?.length || 1)], index),
+        format: normalizeAspectRatio(preferences?.formats?.[index % Math.max(1, preferences?.formats?.length || 1)], index) === '9:16' ? 'story' : 'feed',
         angle: ['Punto de dolor', 'Demo', 'Objeciones', 'Oferta'][index % 4],
         ring: ['Dolor', 'Prueba', 'Mecanismo', 'Oferta'][index % 4],
         visualDirection: 'Pieza estática clara, con jerarquía fuerte, producto o servicio protagonista y CTA visible.',

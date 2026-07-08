@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Download,
   Edit3,
+  HelpCircle,
   Image,
   Instagram,
   Link as LinkIcon,
@@ -59,6 +60,7 @@ type TrialAd = {
   subtitle: string;
   cta: string;
   format: 'feed' | 'story';
+  aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4';
   color: string;
   angle?: string;
   ring?: string;
@@ -236,8 +238,27 @@ const pricingPlans = [
 
 const creativeAngles = ['Punto de dolor', 'Transformación', 'Demo', 'Autoridad', 'Oferta', 'Objeciones', 'UGC testimonial', 'Comparación sin atacar'];
 const creativeRings = ['Deseo', 'Dolor', 'Prueba', 'Mecanismo', 'Oferta'];
-const creativeFormats = ['Imagen 4:5', 'Story 9:16', 'Carrusel', 'Founder ad', 'FAQ visual', 'Producto protagonista'];
+const creativeFormats = ['9:16 Stories/Reels', '1:1 Feed/Carousel', '4:5 Feed vertical', '3:4 Grid preview'];
 const creativeCounts = [4, 8, 12, 16];
+
+const optionHelp: Record<string, string> = {
+  'Punto de dolor': 'Parte de una frustración real del cliente y muestra por qué vale la pena actuar ahora.',
+  Transformación: 'Muestra el antes/después emocional o práctico que promete la marca.',
+  Demo: 'Explica visualmente cómo funciona el producto o servicio sin depender de texto largo.',
+  Autoridad: 'Usa experiencia, credenciales, proceso o prueba técnica para generar confianza.',
+  Oferta: 'Ordena precio, bonus, urgencia o incentivo sin sonar desesperado.',
+  Objeciones: 'Responde dudas típicas antes del click: precio, calidad, envío, tiempo, confianza.',
+  'UGC testimonial': 'Pieza con voz de usuario/cliente, ideal para prueba social y cercanía.',
+  'Comparación sin atacar': 'Compara alternativas o formas de resolver el problema sin nombrar competidores.',
+  Deseo: 'El anuncio empuja el resultado aspiracional que la persona quiere conseguir.',
+  Dolor: 'El anuncio toca el problema que la persona ya siente y quiere resolver.',
+  Prueba: 'El anuncio muestra evidencia: testimonios, proceso, datos o demostración.',
+  Mecanismo: 'El anuncio explica por qué esta solución funciona distinto.',
+  '9:16 Stories/Reels': 'Formato vertical full screen. Útil para Stories y Reels. Mantener texto importante fuera de bordes superior/inferior.',
+  '1:1 Feed/Carousel': 'Formato cuadrado. Seguro para feed, carruseles, marketplace y varias ubicaciones.',
+  '4:5 Feed vertical': 'Formato feed vertical. Ocupa más pantalla móvil que 1:1 y suele rendir mejor en feed.',
+  '3:4 Grid preview': 'Adaptación vertical moderada para pensar recortes de grilla/preview y piezas reutilizables.',
+};
 
 function GoogleMark() {
   return (
@@ -303,6 +324,18 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
   );
 }
 
+function HelpHint({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      aria-label={text}
+      className="inline-grid h-5 w-5 place-items-center rounded-full border border-gray-200 bg-white text-gray-400 shadow-sm"
+    >
+      <HelpCircle className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
 function ProgressDots({ active }: { active: number }) {
   return (
     <div className="flex items-center justify-center gap-2">
@@ -326,8 +359,15 @@ function TrialAdCard({
   onPreview?: () => void;
   large?: boolean;
 }) {
+  const aspectClass = {
+    '9:16': 'aspect-[9/16]',
+    '1:1': 'aspect-square',
+    '4:5': 'aspect-[4/5]',
+    '3:4': 'aspect-[3/4]',
+  }[ad.aspectRatio || (ad.format === 'story' ? '9:16' : '4:5')];
+
   return (
-    <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${ad.color} shadow-[0_18px_45px_rgba(15,23,42,0.18)] ${large ? 'h-[648px] w-[365px]' : 'aspect-[9/16] w-full'}`}>
+    <div className={`group relative overflow-hidden rounded-xl bg-gradient-to-br ${ad.color} shadow-[0_18px_45px_rgba(15,23,42,0.18)] ${large ? 'h-[648px] w-[365px]' : `${aspectClass} w-full`}`}>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.42),transparent_26%),linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.42))]" />
       <div className="absolute inset-x-5 top-9 text-white drop-shadow">
         {ad.format === 'story' && <p className="mb-6 text-[11px] font-semibold opacity-80">creativo · Meta Ads</p>}
@@ -466,7 +506,7 @@ export default function PosttyReplicaPage() {
   const [creativeBrief, setCreativeBrief] = React.useState('Quiero ads estáticos premium, claros, sin promesas exageradas y enfocados en conversión.');
   const [selectedAnglesConfig, setSelectedAnglesConfig] = React.useState(['Punto de dolor', 'Demo', 'Objeciones']);
   const [selectedRingsConfig, setSelectedRingsConfig] = React.useState(['Dolor', 'Prueba', 'Oferta']);
-  const [selectedFormatsConfig, setSelectedFormatsConfig] = React.useState(['Imagen 4:5', 'Story 9:16', 'Carrusel']);
+  const [selectedFormatsConfig, setSelectedFormatsConfig] = React.useState(['9:16 Stories/Reels', '1:1 Feed/Carousel', '4:5 Feed vertical']);
   const [creativeCount, setCreativeCount] = React.useState(8);
   const [selectedTrialAds, setSelectedTrialAds] = React.useState([0, 1, 2, 3]);
   const [generatedTrialAds, setGeneratedTrialAds] = React.useState<TrialAd[]>(fallbackTrialAds);
@@ -750,6 +790,25 @@ export default function PosttyReplicaPage() {
           </div>
         </section>
 
+        <section className="mx-auto max-w-7xl px-5 pb-20">
+          <div className="grid gap-4 lg:grid-cols-3">
+            {[
+              ['Brief claro', 'El bicho ordena web, Instagram, objeciones y preferencias antes de crear.', 'from-[#f8fff2] to-[#d7ff3f]/40'],
+              ['Hipótesis para testear', 'Cada creativo sale con formato, ring, ángulo y motivo de conversión.', 'from-[#effffb] to-[#78e3d1]/45'],
+              ['Producción Meta-first', 'Diseñamos pensando en feed, Stories, Reels, carruseles y recortes.', 'from-[#fff7ed] to-[#ffb25b]/35'],
+            ].map(([title, body, tone], index) => (
+              <article key={title} className={`relative min-h-[260px] overflow-hidden rounded-[32px] border border-gray-100 bg-gradient-to-br ${tone} p-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)]`}>
+                <Mascot className={`absolute bottom-4 right-4 h-36 w-36 ${index === 1 ? 'rotate-6' : index === 2 ? '-rotate-6' : ''}`} />
+                <div className="relative max-w-[260px]">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-gray-950 text-sm font-black text-[#d7ff3f]">{index + 1}</span>
+                  <h3 className="mt-5 text-2xl font-black">{title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-gray-600">{body}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="bg-gray-950 py-20 text-white">
           <div className="mx-auto grid max-w-7xl gap-10 px-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
             <div>
@@ -919,7 +978,10 @@ export default function PosttyReplicaPage() {
                   <Field label="URL de web o tienda" value={trialUrl} onChange={setTrialUrl} placeholder="https://mitienda.com" />
                   <Field label="Instagram (opcional)" value={instagramUrl} onChange={setInstagramUrl} placeholder="https://instagram.com/tumarca" />
                   <label className="block lg:col-span-2">
-                    <span className="text-xs font-semibold text-gray-500">Tipo de negocio</span>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                      Tipo de negocio
+                      <HelpHint text="Esto cambia el criterio creativo: ecommerce prioriza producto, oferta y objeciones de compra; servicios prioriza confianza, autoridad y generación de leads." />
+                    </span>
                     <div className="mt-2 grid grid-cols-3 gap-2">
                       {['Ecommerce', 'Servicios', 'Ambos'].map((item) => (
                         <button
@@ -934,7 +996,10 @@ export default function PosttyReplicaPage() {
                     </div>
                   </label>
                   <label className="block lg:col-span-2">
-                    <span className="text-xs font-semibold text-gray-500">Qué querés que CreatteAI tenga en cuenta</span>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                      Qué querés que CreatteAI tenga en cuenta
+                      <HelpHint text="Usalo para pedir tono, restricciones, promociones, estilo visual, producto prioritario o cosas que no querés que diga." />
+                    </span>
                     <textarea
                       value={creativeBrief}
                       onChange={(event) => setCreativeBrief(event.target.value)}
@@ -942,7 +1007,10 @@ export default function PosttyReplicaPage() {
                     />
                   </label>
                   <div className="lg:col-span-2">
-                    <p className="text-xs font-semibold text-gray-500">Cantidad de creativos</p>
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                      Cantidad de creativos
+                      <HelpHint text="Más creativos significa más hipótesis para testear en Meta: ángulos, rings y formatos combinados." />
+                    </p>
                     <div className="mt-2 grid grid-cols-4 gap-2">
                       {creativeCounts.map((count) => (
                         <button
@@ -962,7 +1030,16 @@ export default function PosttyReplicaPage() {
                     ['Formatos', creativeFormats, selectedFormatsConfig, setSelectedFormatsConfig],
                   ].map(([label, options, selected, setter]) => (
                     <div key={label as string} className="lg:col-span-2">
-                      <p className="text-xs font-semibold text-gray-500">{label as string}</p>
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                        {label as string}
+                        <HelpHint text={
+                          label === 'Ángulos'
+                            ? 'El ángulo define desde dónde vendemos: dolor, demo, autoridad, oferta, objeciones o prueba social.'
+                            : label === 'Rings'
+                              ? 'Los rings ordenan el disparador principal del creativo: deseo, dolor, prueba, mecanismo u oferta.'
+                              : 'Formatos reales para adaptar creativos estáticos a Meta: 9:16, 1:1, 4:5 y 3:4.'
+                        } />
+                      </p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {(options as string[]).map((item) => {
                           const active = (selected as string[]).includes(item);
@@ -971,9 +1048,11 @@ export default function PosttyReplicaPage() {
                               key={item}
                               type="button"
                               onClick={() => toggleConfig(item, setter as React.Dispatch<React.SetStateAction<string[]>>)}
-                              className={`rounded-full px-4 py-2 text-xs font-black transition ${active ? 'bg-[#d7ff3f] text-gray-950' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                              title={optionHelp[item]}
+                              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-black transition ${active ? 'bg-[#d7ff3f] text-gray-950' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                             >
                               {item}
+                              <HelpCircle className="h-3.5 w-3.5 opacity-60" />
                             </button>
                           );
                         })}
