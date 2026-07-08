@@ -11,6 +11,7 @@ type CreattiaAd = {
   format: 'feed' | 'story';
   aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4';
   imageUrl?: string;
+  visualPrompt?: string;
   color?: string;
   angle?: string;
   ring?: string;
@@ -271,6 +272,78 @@ async function callCreattiaOpenAI(key: string, systemPrompt: string, userPrompt:
   return data.choices?.[0]?.message?.content || '{}';
 }
 
+async function callCreattiaOpenAIImage(key: string, prompt: string, aspectRatio: '9:16' | '1:1' | '4:5' | '3:4') {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000);
+  const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
+  const size = aspectRatio === '1:1' ? '832x832' : '768x1024';
+  const payload = {
+    model,
+    prompt,
+    size,
+    quality: process.env.OPENAI_IMAGE_QUALITY || 'low',
+    output_format: 'jpeg',
+    output_compression: 78,
+    n: 1,
+  };
+
+  const requestImage = async (body: Record<string, unknown>) => {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenAI Images: ${response.status} ${text.slice(0, 220)}`);
+    }
+    const data = await response.json() as any;
+    const image = data.data?.[0];
+    if (image?.b64_json) return `data:image/jpeg;base64,${image.b64_json}`;
+    if (image?.url) return image.url;
+    throw new Error('OpenAI Images: no image returned');
+  };
+
+  try {
+    return await requestImage(payload);
+  } catch (error) {
+    const compactPayload = {
+      model,
+      prompt,
+      size,
+      quality: process.env.OPENAI_IMAGE_QUALITY || 'low',
+      n: 1,
+    };
+    return await requestImage(compactPayload);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildCreattiaImagePrompt(args: {
+  brandName: string;
+  businessSummary: string;
+  businessType: string;
+  siteText: string;
+  ad: CreattiaAd & { aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4' };
+}) {
+  const { brandName, businessSummary, businessType, siteText, ad } = args;
+  return [
+    `Create a premium AI-generated advertising visual for Meta Ads for the brand "${brandName}".`,
+    `Business type: ${businessType}. Brand context: ${businessSummary || siteText.slice(0, 700)}.`,
+    `Creative angle: ${ad.angle || 'performance ad'}. Ring: ${ad.ring || 'conversion'}. Concept: ${ad.title} / ${ad.subtitle}.`,
+    ad.visualPrompt ? `Specific visual direction: ${ad.visualPrompt}.` : '',
+    ad.visualDirection ? `Art direction: ${ad.visualDirection}.` : '',
+    'Make the image look like a high-end paid social ad background: cinematic commercial photography, premium composition, strong product/service metaphor, polished lighting, modern ecommerce aesthetic, clean negative space for overlay copy.',
+    'Do not include any readable text, letters, logos, watermarks, UI, buttons, badges, labels, borders, frames, screenshots, distorted hands, malformed objects, or collage artifacts.',
+    'The final app will add text on top, so the image must be beautiful and useful as a background visual only.',
+  ].filter(Boolean).join('\n');
+}
+
 async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
   try {
     const geminiKey = cleanCreattiaKey(process.env.GOOGLE_AI_API_KEY) || cleanCreattiaKey(process.env.GEMINI_API_KEY) || cleanCreattiaKey(process.env.GOOGLE_GEMINI_API_KEY);
@@ -337,7 +410,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
             cta: 'string max 58 chars',
             format: 'feed|story',
             aspectRatio: '9:16|1:1|4:5|3:4',
-            imageUrl: 'string optional, use one detected site image when relevant',
+            visualPrompt: 'string, describe a premium AI image to generate for this specific ad. No text in the image.',
             angle: 'string',
             ring: 'Deseo|Dolor|Prueba|Mecanismo|Oferta',
             visualDirection: 'string',
@@ -368,40 +441,55 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     }
     const ads = (Array.isArray(parsed.ads) ? parsed.ads : []).slice(0, requestedAds).map((ad: CreattiaAd, index: number) => {
       const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
-      const siteImages = Array.isArray(site.images) ? site.images : [];
       return {
         title: String(ad.title || 'Una pieza que vende mejor').slice(0, 80),
         subtitle: String(ad.subtitle || 'Concepto generado con IA para tu tienda.').slice(0, 110),
         cta: String(ad.cta || 'Descubrí la diferencia').slice(0, 90),
         aspectRatio,
         format: formatFromAspectRatio(aspectRatio),
-        imageUrl: siteImages[index % Math.max(1, siteImages.length)] || String(ad.imageUrl || ''),
         angle: requestedAngles[index % requestedAngles.length],
         ring: requestedRings[index % requestedRings.length],
+        visualPrompt: String(ad.visualPrompt || '').slice(0, 500),
         visualDirection: String(ad.visualDirection || '').slice(0, 150),
         conversionReason: String(ad.conversionReason || '').slice(0, 120),
         color: creattiaColorPresets[index % creattiaColorPresets.length],
       };
     });
 
+    const brandName = parsed.brandName || site.title || 'Tu marca';
+    const businessSummary = parsed.businessSummary || site.description || '';
+    const adsWithImages = openAiKey
+      ? await Promise.all(ads.map(async (ad: CreattiaAd, index: number) => {
+        try {
+          const imageUrl = await callCreattiaOpenAIImage(openAiKey, buildCreattiaImagePrompt({
+            brandName,
+            businessSummary,
+            businessType,
+            siteText: site.text || '',
+            ad,
+          }), ad.aspectRatio || requestedFormatRatios[index % requestedFormatRatios.length]);
+          return { ...ad, imageUrl };
+        } catch {
+          return ad;
+        }
+      }))
+      : ads;
+
     return res.status(200).json({
       sourceUrl: url,
-      brandName: parsed.brandName || site.title || 'Tu marca',
-      businessSummary: parsed.businessSummary || site.description || '',
+      brandName,
+      businessSummary,
       brandDna: parsed.brandDna || null,
       products: Array.isArray(parsed.products) ? parsed.products.slice(0, 3) : [],
-      images: Array.isArray(site.images) ? site.images : [],
-      ads: ads.length ? ads : Array.from({ length: requestedAds }, (_, index) => {
+      ads: adsWithImages.length ? adsWithImages : Array.from({ length: requestedAds }, (_, index) => {
         const color = creattiaColorPresets[index % creattiaColorPresets.length];
         const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
-        const siteImages = Array.isArray(site.images) ? site.images : [];
         return {
         title: ['Tu producto, mejor contado', 'La razón para elegirte', 'Menos dudas, más compras', 'Una historia que convierte'][index % 4],
         subtitle: 'Concepto generado con IA para tu tienda.',
         cta: 'Ver más',
         aspectRatio,
         format: formatFromAspectRatio(aspectRatio),
-        imageUrl: siteImages[index % Math.max(1, siteImages.length)] || '',
         angle: requestedAngles[index % requestedAngles.length],
         ring: requestedRings[index % requestedRings.length],
         visualDirection: 'Pieza estática clara, con jerarquía fuerte, producto o servicio protagonista y CTA visible.',

@@ -374,12 +374,7 @@ function TrialAdCard({
         <img src={ad.imageUrl} alt={ad.title} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
       ) : null}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.28),transparent_24%),linear-gradient(180deg,rgba(0,0,0,0.34),rgba(0,0,0,0.12)_42%,rgba(0,0,0,0.72))]" />
-      {ad.imageUrl ? (
-        <div className={`absolute left-5 right-5 overflow-hidden rounded-[24px] border border-white/25 bg-white/10 shadow-[0_22px_52px_rgba(0,0,0,0.30)] ${isStory ? 'bottom-[18%] h-[31%]' : 'bottom-[24%] h-[32%]'}`}>
-          <img src={ad.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
-        </div>
-      ) : (
+      {!ad.imageUrl && (
         <div className="absolute bottom-[18%] left-1/2 h-[36%] w-[72%] -translate-x-1/2 rounded-[34px] border border-white/25 bg-white/20 p-3 shadow-[inset_0_12px_38px_rgba(255,255,255,0.22),0_30px_60px_rgba(0,0,0,0.28)] backdrop-blur-sm">
           <div className="h-full rounded-[24px] bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.95),rgba(255,255,255,0.16)_32%,rgba(15,23,42,0.18)_70%)]" />
         </div>
