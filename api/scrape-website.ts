@@ -10,6 +10,7 @@ type CreattiaAd = {
   cta: string;
   format: 'feed' | 'story';
   aspectRatio?: '9:16' | '1:1' | '4:5' | '3:4';
+  imageUrl?: string;
   color?: string;
   angle?: string;
   ring?: string;
@@ -143,6 +144,40 @@ function stripCreattiaHtml(html: string) {
     .trim();
 }
 
+function extractCreattiaImages(html: string, baseUrl: string) {
+  const candidates: string[] = [];
+  const pushImage = (value?: string | null) => {
+    const raw = String(value || '').trim();
+    if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return;
+    try {
+      const firstSrcsetUrl = raw.split(',')[0]?.trim().split(/\s+/)[0] || raw;
+      const url = new URL(firstSrcsetUrl, baseUrl);
+      if (!['http:', 'https:'].includes(url.protocol)) return;
+      const href = url.toString();
+      if (/\.(svg|gif)(\?|$)/i.test(href)) return;
+      if (/logo|icon|favicon|sprite|placeholder/i.test(href)) return;
+      candidates.push(href);
+    } catch {
+      // Ignore malformed image URLs from third-party storefronts.
+    }
+  };
+
+  for (const pattern of [
+    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["']/gi,
+    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/gi,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/gi,
+    /<img[^>]+(?:src|data-src|data-original|data-lazy-src)=["']([^"']+)["']/gi,
+    /<img[^>]+(?:srcset|data-srcset)=["']([^"']+)["']/gi,
+    /<source[^>]+srcset=["']([^"']+)["']/gi,
+  ]) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(html))) pushImage(match[1]);
+  }
+
+  return [...new Set(candidates)].slice(0, 12);
+}
+
 function extractCreattiaJson(text: string) {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
   const source = fenced || text;
@@ -173,7 +208,8 @@ async function fetchCreattiaSite(url: string) {
     const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || '';
     const description = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)?.[1] || '';
     const text = stripCreattiaHtml(html).slice(0, 20000);
-    return { title, description, text };
+    const images = extractCreattiaImages(html, url);
+    return { title, description, text, images };
   } finally {
     clearTimeout(timeout);
   }
@@ -259,6 +295,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
         title: new URL(url).hostname.replace(/^www\./, ''),
         description: '',
         text: `No se pudo leer la web en este intento (${siteError?.message || 'fetch failed'}). Usá el dominio, Instagram declarado, tipo de negocio y preferencias del usuario como contexto principal. Generá creativos igualmente y evitá inventar datos muy específicos no inferibles.`,
+        images: [],
         fetchWarning: siteError?.message || 'No pudimos leer la web completa.',
       };
     }
@@ -296,6 +333,7 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
             cta: 'string max 58 chars',
             format: 'feed|story',
             aspectRatio: '9:16|1:1|4:5|3:4',
+            imageUrl: 'string optional, use one detected site image when relevant',
             angle: 'string',
             ring: 'Deseo|Dolor|Prueba|Mecanismo|Oferta',
             visualDirection: 'string',
@@ -326,12 +364,14 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
     }
     const ads = (Array.isArray(parsed.ads) ? parsed.ads : []).slice(0, requestedAds).map((ad: CreattiaAd, index: number) => {
       const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
+      const siteImages = Array.isArray(site.images) ? site.images : [];
       return {
         title: String(ad.title || 'Una pieza que vende mejor').slice(0, 80),
         subtitle: String(ad.subtitle || 'Concepto generado con IA para tu tienda.').slice(0, 110),
         cta: String(ad.cta || 'Descubrí la diferencia').slice(0, 90),
         aspectRatio,
         format: formatFromAspectRatio(aspectRatio),
+        imageUrl: siteImages[index % Math.max(1, siteImages.length)] || String(ad.imageUrl || ''),
         angle: requestedAngles[index % requestedAngles.length],
         ring: requestedRings[index % requestedRings.length],
         visualDirection: String(ad.visualDirection || '').slice(0, 150),
@@ -346,15 +386,18 @@ async function handleCreattiaGenerate(req: VercelRequest, res: VercelResponse) {
       businessSummary: parsed.businessSummary || site.description || '',
       brandDna: parsed.brandDna || null,
       products: Array.isArray(parsed.products) ? parsed.products.slice(0, 3) : [],
+      images: Array.isArray(site.images) ? site.images : [],
       ads: ads.length ? ads : Array.from({ length: requestedAds }, (_, index) => {
         const color = creattiaColorPresets[index % creattiaColorPresets.length];
         const aspectRatio = requestedFormatRatios[index % requestedFormatRatios.length];
+        const siteImages = Array.isArray(site.images) ? site.images : [];
         return {
         title: ['Tu producto, mejor contado', 'La razón para elegirte', 'Menos dudas, más compras', 'Una historia que convierte'][index % 4],
         subtitle: 'Concepto generado con IA para tu tienda.',
         cta: 'Ver más',
         aspectRatio,
         format: formatFromAspectRatio(aspectRatio),
+        imageUrl: siteImages[index % Math.max(1, siteImages.length)] || '',
         angle: requestedAngles[index % requestedAngles.length],
         ring: requestedRings[index % requestedRings.length],
         visualDirection: 'Pieza estática clara, con jerarquía fuerte, producto o servicio protagonista y CTA visible.',
