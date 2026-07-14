@@ -1,43 +1,50 @@
-# CAR SaaS - app.algoritmiadesarrollos.com.ar
+# Creattia
 
-## Creative analysis with TRIBE v2
+Proyecto independiente de la landing y la aplicación web de Creattia.
 
-Run the local TRIBE v2 analyzer:
+## Rutas
 
-```bash
-npm run tribev2
-```
+- `/` — landing pública.
+- `/app/` — registro, onboarding y aplicación.
+- `/api/creativos/*` — generación, catálogo, suscripciones y webhook.
 
-The service listens on:
-
-```bash
-http://127.0.0.1:8787/analyze
-```
-
-Set `TRIBE_V2_API_URL` to route all creative analysis requests through that
-service. Creative analysis requires TRIBE v2 and does not fall back to Gemini,
-OpenAI, mock data, or another AI provider.
+## Desarrollo local
 
 ```bash
-TRIBE_V2_API_URL=http://127.0.0.1:8787/analyze
+npm install
+cp .env.example .env
+npm run dev
 ```
 
-Optional: set `TRIBE_V2_API_KEY` to send `Authorization: Bearer <key>` to that
-service.
+La aplicación funciona en modo demo cuando Supabase todavía no está configurado.
 
-Expected service response fields are normalized by the app, but these names are
-preferred:
+## Supabase
 
-```json
-{
-  "attentionPct": 72,
-  "attentionReason": "Reason",
-  "emotionPct": 65,
-  "emotionReason": "Reason",
-  "cogLoad": 28,
-  "cogLoadReason": "Reason",
-  "highestRegion": "V1",
-  "textInsight": "Short diagnosis",
-  "actionItems": ["Action 1", "Action 2"]
-}
+1. Crear o elegir un proyecto de Supabase exclusivo para Creattia.
+2. Copiar `.env.example` a `.env` y completar las tres variables de Supabase.
+3. Vincular el proyecto con Supabase CLI y aplicar `supabase/migrations/`.
+4. Agregar estas URLs en Authentication → URL Configuration:
+   - Site URL: `https://creattia.app`
+   - Redirect URL: `https://creattia.app/app/`
+   - Para desarrollo: `http://127.0.0.1:4330/app/`
+5. Habilitar Google como proveedor si se usará ese acceso.
+
+La `SUPABASE_SERVICE_ROLE_KEY` es exclusivamente de servidor. Nunca debe llevar el prefijo `PUBLIC_` ni incluirse en código cliente.
+
+## Producción
+
+- Configurar las variables de `.env.example` en Vercel.
+- Definir `PUBLIC_SITE_URL=https://creattia.app`.
+- Configurar el webhook de Mercado Pago en:
+  `https://creattia.app/api/creativos/webhook/mercadopago`
+- Conectar `creattia.app` como dominio del nuevo proyecto.
+
+## Git nuevo
+
+Este directorio no depende del repositorio de Algoritmia. Para convertirlo en repositorio propio:
+
+```bash
+git init
+git add .
+git commit -m "Initial Creattia app"
 ```

@@ -1,0 +1,79 @@
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+
+function isPrivateAddress(address: string) {
+	const normalized = address.toLowerCase().split('%')[0];
+	if (isIP(normalized) === 4) {
+		const [a, b] = normalized.split('.').map(Number);
+		return a === 0 || a === 10 || a === 127 || a >= 224
+			|| (a === 100 && b >= 64 && b <= 127)
+			|| (a === 169 && b === 254)
+			|| (a === 172 && b >= 16 && b <= 31)
+			|| (a === 192 && (b === 0 || b === 168))
+			|| (a === 198 && (b === 18 || b === 19));
+	}
+	if (isIP(normalized) === 6) {
+		return normalized === '::' || normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd')
+			|| normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea')
+			|| normalized.startsWith('feb') || normalized.startsWith('::ffff:127.')
+			|| normalized.startsWith('::ffff:10.') || normalized.startsWith('::ffff:172.')
+			|| normalized.startsWith('::ffff:192.168.');
+	}
+	return true;
+}
+
+export function normalizeExternalUrl(raw: string, kind: 'website' | 'instagram' = 'website') {
+	let value = raw.trim();
+	if (!value) return '';
+	if (kind === 'instagram' && value.startsWith('@')) value = `https://www.instagram.com/${value.slice(1)}/`;
+	if (!/^https?:\/\//i.test(value)) value = `https://${value}`;
+	const url = new URL(value);
+	if (!['http:', 'https:'].includes(url.protocol)) throw new Error('La URL debe comenzar con http o https.');
+	if (kind === 'instagram' && url.hostname !== 'instagram.com' && !url.hostname.endsWith('.instagram.com')) {
+		throw new Error('El enlace de Instagram debe apuntar a instagram.com.');
+	}
+	url.hash = '';
+	return url.toString();
+}
+
+async function assertPublicUrl(url: URL) {
+	const hostname = url.hostname.toLowerCase();
+	if (!hostname || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+		throw new Error('La URL no puede apuntar a una red privada.');
+	}
+	if (isIP(hostname) && isPrivateAddress(hostname)) throw new Error('La URL no puede apuntar a una red privada.');
+	const addresses = await lookup(hostname, { all: true, verbatim: true });
+	if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
+		throw new Error('La URL resuelve a una red privada o no disponible.');
+	}
+}
+
+export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, timeoutMs = 12_000) {
+	let current = new URL(rawUrl);
+	for (let redirects = 0; redirects < 4; redirects += 1) {
+		await assertPublicUrl(current);
+		const response = await fetch(current, {
+			...init,
+			redirect: 'manual',
+			signal: AbortSignal.timeout(timeoutMs),
+			headers: {
+				'user-agent': 'CreattiaCatalogBot/1.0 (+https://creattia.app)',
+				accept: 'text/html,application/json,image/avif,image/webp,image/png,image/jpeg;q=0.9,*/*;q=0.5',
+				...(init.headers || {}),
+			},
+		});
+		if (response.status < 300 || response.status >= 400) return response;
+		const location = response.headers.get('location');
+		if (!location) return response;
+		current = new URL(location, current);
+	}
+	throw new Error('La URL tiene demasiadas redirecciones.');
+}
+
+export async function readLimited(response: Response, maxBytes: number) {
+	const declared = Number(response.headers.get('content-length') || 0);
+	if (declared > maxBytes) throw new Error('El archivo remoto supera el tamaño permitido.');
+	const bytes = new Uint8Array(await response.arrayBuffer());
+	if (bytes.byteLength > maxBytes) throw new Error('El archivo remoto supera el tamaño permitido.');
+	return bytes;
+}

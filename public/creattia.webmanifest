@@ -1,0 +1,24 @@
+{
+  "name": "Creattia",
+  "short_name": "Creattia",
+  "description": "Generá imágenes que venden para tu negocio con inteligencia artificial.",
+  "start_url": "/app/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/images/creattia/moki-manifest-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/creattia/moki-manifest-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#6d35e8",
+  "background_color": "#faf9fb",
+  "display": "standalone"
+}

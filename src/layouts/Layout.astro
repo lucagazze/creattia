@@ -1,0 +1,90 @@
+---
+import '@fontsource-variable/inter';
+
+interface Props {
+  title: string;
+  description?: string;
+  noindex?: boolean;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  favicon?: string;
+  appleTouchIcon?: string;
+  manifest?: string;
+}
+
+const {
+  title,
+  description = 'Creattia genera imágenes publicitarias con inteligencia artificial usando tus productos y la identidad de tu negocio.',
+  noindex = false,
+  ogTitle = 'Creattia | Imágenes con IA que venden',
+  ogDescription = 'Elegí una idea, sumá tu producto y generá una imagen lista para publicar. Sin diseñar ni escribir prompts.',
+  ogImage = '/images/creattia/moki-og.jpg',
+  favicon = '/images/creattia/moki-favicon-96.png',
+  appleTouchIcon = '/images/creattia/moki-apple-touch.png',
+  manifest = '/creattia.webmanifest',
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site || Astro.url).href;
+const socialImageURL = new URL(ogImage, Astro.site || Astro.url).href;
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Creattia',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  url: 'https://creattia.app',
+  description,
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+    description: 'Tres generaciones gratis para probar la plataforma.',
+  },
+};
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#6d35e8" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="author" content="Creattia" />
+    <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow'} />
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="icon" type="image/png" href={favicon} sizes="96x96" />
+    <link rel="apple-touch-icon" sizes="180x180" href={appleTouchIcon} />
+    <link rel="manifest" href={manifest} />
+    <title>{title}</title>
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_AR" />
+    <meta property="og:title" content={ogTitle} />
+    <meta property="og:description" content={ogDescription} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:image" content={socialImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogTitle} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={ogTitle} />
+    <meta name="twitter:description" content={ogDescription} />
+    <meta name="twitter:image" content={socialImageURL} />
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <slot name="head" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root { color-scheme: light; }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { font-family: 'Inter Variable', Inter, system-ui, sans-serif; background: #fff; }
+  body { min-width: 320px; margin: 0; }
+  button, input, textarea, select { font: inherit; }
+</style>

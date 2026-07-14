@@ -1,0 +1,24 @@
+---
+export const prerender = true;
+import Layout from '../../layouts/Layout.astro';
+import CreativeApp from '../../components/creattia/CreativeApp';
+---
+
+<Layout
+	title="Creattia | Imágenes con IA que venden"
+	description="Generá creativos estáticos para Meta Ads a partir de estructuras validadas, con tu producto y tu marca."
+	ogTitle="Creattia | Imágenes con IA que venden"
+	ogDescription="Una biblioteca en expansión, tu producto y tu marca. Generá imágenes listas para vender."
+	ogImage="/images/creattia/moki-og.jpg"
+	favicon="/images/creattia/moki-favicon-96.png"
+	appleTouchIcon="/images/creattia/moki-apple-touch.png"
+	manifest="/creattia.webmanifest"
+	noindex={true}
+>
+	<CreativeApp client:load />
+</Layout>
+
+<style is:global>
+	body { margin: 0; background: #f8f7fa; }
+	#preloader { background: #f8f7fa; }
+</style>

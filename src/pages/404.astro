@@ -1,0 +1,17 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Página no encontrada | Creattia" noindex>
+  <main class="not-found">
+    <img src="/images/creattia/moki-mascot.webp" alt="Moki"/>
+    <span>ERROR 404</span>
+    <h1>Esta página no existe.</h1>
+    <p>Volvé a Creattia y seguí creando imágenes para tu negocio.</p>
+    <a href="/">Volver al inicio</a>
+  </main>
+</Layout>
+
+<style>
+  .not-found{min-height:100vh;padding:40px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 45%,#eee5ff,transparent 35%),#faf9fb;color:#211d24;text-align:center}.not-found img{width:180px;height:180px;object-fit:contain}.not-found span{color:#7442dc;font-size:9px;font-weight:900;letter-spacing:.16em}.not-found h1{margin:16px 0 12px;font-size:clamp(38px,7vw,64px);letter-spacing:-.06em}.not-found p{margin:0;color:#746d78;font-size:14px}.not-found a{margin-top:28px;padding:15px 20px;border-radius:12px;background:#6d35e8;color:#fff;text-decoration:none;font-size:12px;font-weight:850}
+</style>

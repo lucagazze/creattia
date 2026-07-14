@@ -1,0 +1,135 @@
+import type { APIRoute } from 'astro';
+import { analyzeCatalogWithAI, scanInstagram, scanWebsite, type ScannedProduct, type ScannedSource } from '../../../lib/creattia/catalog-scanner';
+import { normalizeExternalUrl, readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
+import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+
+export const prerender = false;
+export const maxDuration = 120;
+
+const imageTypes: Record<string, string> = {
+	'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif',
+};
+
+async function mirrorProductImage(userId: string, product: any) {
+	const admin = getAdminClient();
+	if (!admin || !product.source_image_url || product.image_path) return product.image_path || '';
+	try {
+		const response = await safeExternalFetch(product.source_image_url, { headers: { accept: 'image/avif,image/webp,image/png,image/jpeg' } }, 15_000);
+		const contentType = (response.headers.get('content-type') || '').split(';')[0];
+		if (!response.ok || !imageTypes[contentType]) return '';
+		const bytes = await readLimited(response, 10 * 1024 * 1024);
+		const path = `${userId}/products/${product.id}/primary.${imageTypes[contentType]}`;
+		const { error: uploadError } = await admin.storage.from('creative-assets').upload(path, bytes, { contentType, upsert: true });
+		if (uploadError) return '';
+		await admin.from('creative_products').update({ image_path: path, updated_at: new Date().toISOString() }).eq('id', product.id).eq('user_id', userId);
+		await admin.from('creative_product_images').upsert({
+			user_id: userId, product_id: product.id, storage_path: path, source_url: product.source_image_url, sort_order: 0, is_primary: true,
+		}, { onConflict: 'product_id,storage_path' });
+		return path;
+	} catch { return ''; }
+}
+
+export const POST: APIRoute = async ({ request }) => {
+	const auth = await authenticateRequest(request);
+	if (!auth.user) return json({ error: auth.error }, 401);
+	const admin = getAdminClient();
+	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+
+	try {
+		const body = await request.json().catch(() => ({}));
+		const website = body.website ? normalizeExternalUrl(String(body.website).slice(0, 500)) : '';
+		const instagram = body.instagram ? normalizeExternalUrl(String(body.instagram).slice(0, 300), 'instagram') : '';
+		if (!website && !instagram) return json({ error: 'Agregá la web o el Instagram de la marca.' }, 400);
+
+		await admin.from('creative_profiles').update({
+			website_url: website || null, instagram_handle: instagram || null, catalog_status: 'scanning', catalog_error: null, updated_at: new Date().toISOString(),
+		}).eq('user_id', auth.user.id);
+
+		const requested = [
+			...(website ? [{ type: 'website' as const, url: website, scan: () => scanWebsite(website) }] : []),
+			...(instagram ? [{ type: 'instagram' as const, url: instagram, scan: () => scanInstagram(instagram) }] : []),
+		];
+		await Promise.all(requested.map((source) => admin.from('creative_brand_sources').upsert({
+			user_id: auth.user!.id, source_type: source.type, source_url: source.url, status: 'scanning', error_message: null, updated_at: new Date().toISOString(),
+		}, { onConflict: 'user_id,source_type' })));
+
+		const settled = await Promise.allSettled(requested.map((source) => source.scan()));
+		const sources: ScannedSource[] = [];
+		const errors: string[] = [];
+		for (let index = 0; index < settled.length; index += 1) {
+			const outcome = settled[index];
+			const source = requested[index];
+			if (outcome.status === 'fulfilled') {
+				sources.push(outcome.value);
+				await admin.from('creative_brand_sources').update({
+					status: source.type === 'instagram' && !outcome.value.description ? 'partial' : 'ready', title: outcome.value.title || null,
+					summary: outcome.value.description || null, metadata: { ...outcome.value.metadata, imageUrl: outcome.value.imageUrl, colors: outcome.value.colors },
+					error_message: null, last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+				}).eq('user_id', auth.user.id).eq('source_type', source.type);
+			} else {
+				const message = outcome.reason instanceof Error ? outcome.reason.message : 'No se pudo leer la fuente.';
+				errors.push(`${source.type}: ${message}`);
+				await admin.from('creative_brand_sources').update({ status: 'failed', error_message: message.slice(0, 500), updated_at: new Date().toISOString() })
+					.eq('user_id', auth.user.id).eq('source_type', source.type);
+			}
+		}
+
+		if (!sources.length) {
+			await admin.from('creative_profiles').update({ catalog_status: 'failed', catalog_error: errors.join(' · ').slice(0, 1000), updated_at: new Date().toISOString() }).eq('user_id', auth.user.id);
+			return json({ error: 'No pudimos leer las fuentes. Revisá que las URLs sean públicas.', details: errors }, 422);
+		}
+
+		const products: ScannedProduct[] = [];
+		const seen = new Set<string>();
+		for (const product of sources.flatMap((source) => source.products)) {
+			if (seen.has(product.externalId)) continue;
+			seen.add(product.externalId); products.push(product);
+		}
+		const analysis = await analyzeCatalogWithAI({ sources, products, apiKey: import.meta.env.OPENAI_API_KEY });
+		const insightMap = new Map((analysis.productInsights || []).map((item: any) => [String(item.externalId), item]));
+
+		let storedProducts: any[] = [];
+		let photosSaved = 0;
+		if (products.length) {
+			const rows = products.slice(0, 60).map((product) => {
+				const insight: any = insightMap.get(product.externalId);
+				return {
+					user_id: auth.user!.id, name: product.name, description: insight?.description || product.description || null,
+					price_text: product.priceText || null, currency: product.currency || null, source: 'website', external_id: product.externalId,
+					product_url: product.productUrl || null, source_image_url: product.imageUrl || null, metadata: product.metadata,
+					analysis: insight ? { category: insight.category, keywords: insight.keywords } : {}, is_active: true,
+					updated_at: new Date().toISOString(), synced_at: new Date().toISOString(),
+				};
+			});
+			const { data, error } = await admin.from('creative_products').upsert(rows, { onConflict: 'user_id,source,external_id' })
+				.select('id,name,image_path,source_image_url');
+			if (error) throw error;
+			storedProducts = data || [];
+			for (let index = 0; index < storedProducts.length; index += 4) {
+				const paths = await Promise.all(storedProducts.slice(index, index + 4).map((product) => mirrorProductImage(auth.user!.id, product)));
+				photosSaved += paths.filter(Boolean).length;
+			}
+		}
+
+		const status = products.length ? (errors.length ? 'partial' : 'ready') : 'partial';
+		const { data: currentProfile } = await admin.from('creative_profiles').select('brand_name').eq('user_id', auth.user.id).maybeSingle();
+		await admin.from('creative_profiles').update({
+			brand_name: currentProfile?.brand_name || sources[0]?.title || null,
+			brand_summary: String(analysis.brandSummary || '').slice(0, 3000) || null,
+			brand_voice: String(analysis.brandVoice || '').slice(0, 1000) || null,
+			target_audience: String(analysis.targetAudience || '').slice(0, 1500) || null,
+			catalog_status: status, catalog_error: errors.join(' · ').slice(0, 1000) || null,
+			catalog_last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+		}).eq('user_id', auth.user.id);
+
+		return json({
+			status, analysisMode: analysis.mode, sources: sources.map((source) => ({ url: source.url, title: source.title })),
+			productsFound: products.length, photosSaved,
+			brandSummary: analysis.brandSummary, warnings: errors,
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'No se pudo analizar la marca.';
+		await admin.from('creative_profiles').update({ catalog_status: 'failed', catalog_error: message.slice(0, 1000), updated_at: new Date().toISOString() }).eq('user_id', auth.user.id);
+		return json({ error: message }, 500);
+	}
+};

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://app.algoritmiadesarrollos.com.ar/sitemap.xml
+Sitemap: https://creattia.app/sitemap-index.xml
