@@ -35,7 +35,7 @@ La `SUPABASE_SERVICE_ROLE_KEY` es exclusivamente de servidor. Nunca debe llevar 
 
 ## Referencias creativas
 
-Las 50 estrategias originales funcionan aunque todavía no tengan una imagen de referencia. El repositorio también incluye 50 anuncios estáticos originales, uno por estrategia, listos para importar desde `docs/reference-library.starter-50.json`.
+Las 50 estrategias originales funcionan aunque todavía no tengan una imagen de referencia. El repositorio también incluye 50 anuncios estáticos originales en `public/images/creattia/reference-library`, uno por estrategia, listos para importar desde `docs/reference-library.starter-50.json`.
 
 ```bash
 npm run references:manifest

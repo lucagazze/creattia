@@ -46,6 +46,9 @@ async function loadAsset(item) {
 }
 
 let imported = 0;
+let databaseImported = 0;
+let databaseAvailable = true;
+const remoteItems = [];
 for (const [index, item] of manifest.items.entries()) {
 	if (!Number.isInteger(item.templateId) || item.templateId < 1) throw new Error(`Item ${index + 1}: templateId inválido.`);
 	if (!item.name?.trim()) throw new Error(`Item ${index + 1}: falta name.`);
@@ -62,9 +65,6 @@ for (const [index, item] of manifest.items.entries()) {
 	if (uploadError) throw uploadError;
 
 	const sourceUrl = String(item.sourceUrl || item.imageUrl || '').trim() || null;
-	const { data: existing, error: findError } = await admin.from('creative_references').select('id')
-		.eq('template_id', item.templateId).eq('image_path', storagePath).maybeSingle();
-	if (findError) throw findError;
 	const row = {
 		template_id: item.templateId,
 		name: item.name.trim().slice(0, 180),
@@ -86,13 +86,44 @@ for (const [index, item] of manifest.items.entries()) {
 		},
 		updated_at: new Date().toISOString(),
 	};
-	const query = existing
-		? admin.from('creative_references').update(row).eq('id', existing.id)
-		: admin.from('creative_references').insert(row);
-	const { error } = await query;
-	if (error) throw error;
+	remoteItems.push({
+		templateId: item.templateId,
+		name: row.name,
+		imagePath: storagePath,
+		promptNotes: row.prompt_notes,
+		sortOrder: row.sort_order,
+		rightsStatus: row.rights_status,
+		categoryGroup: row.category_group,
+		categoryBranch: row.category_branch,
+		categoryLeaf: row.category_leaf,
+		metadata: row.metadata,
+	});
+	if (databaseAvailable) {
+		const { data: existing, error: findError } = await admin.from('creative_references').select('id')
+			.eq('template_id', item.templateId).eq('image_path', storagePath).maybeSingle();
+		if (findError?.code === '42P01') databaseAvailable = false;
+		else if (findError) throw findError;
+		else {
+			const query = existing
+				? admin.from('creative_references').update(row).eq('id', existing.id)
+				: admin.from('creative_references').insert(row);
+			const { error } = await query;
+			if (error?.code === '42P01') databaseAvailable = false;
+			else if (error) throw error;
+			else databaseImported += 1;
+		}
+	}
 	imported += 1;
 	process.stdout.write(`\rReferencias importadas: ${imported}/${manifest.items.length}`);
 }
 
-process.stdout.write(`\nListo. ${imported} referencias verificadas quedaron disponibles.\n`);
+const collection = String(manifest.collection || 'reference-library').replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
+const remoteManifestPath = `manifests/${collection}.json`;
+const remoteManifest = Buffer.from(`${JSON.stringify({ version: 1, collection, items: remoteItems }, null, 2)}\n`);
+const { error: manifestError } = await admin.storage.from('creative-references').upload(remoteManifestPath, remoteManifest, {
+	contentType: 'application/json',
+	upsert: true,
+});
+if (manifestError) throw manifestError;
+
+process.stdout.write(`\nListo. ${imported} imágenes y el manifiesto remoto quedaron disponibles.${databaseAvailable ? ` ${databaseImported} registros sincronizados.` : ' La tabla todavía no existe; se usará el manifiesto de Storage.'}\n`);

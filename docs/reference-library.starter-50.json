@@ -5,7 +5,7 @@
     {
       "templateId": 1,
       "name": "01 · Tweet · Referencia estática",
-      "localImage": "references/starter-50/01-tweet.png",
+      "localImage": "public/images/creattia/reference-library/01-tweet.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de tweet, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -32,7 +32,7 @@
     {
       "templateId": 2,
       "name": "02 · Reseña 5 estrellas · Referencia estática",
-      "localImage": "references/starter-50/02-resena-5-estrellas.png",
+      "localImage": "public/images/creattia/reference-library/02-resena-5-estrellas.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de reseña 5 estrellas, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Rostro experto, producto y varias pruebas de confianza.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -59,7 +59,7 @@
     {
       "templateId": 3,
       "name": "03 · Muro de reseñas · Referencia estática",
-      "localImage": "references/starter-50/03-muro-de-resenas.png",
+      "localImage": "public/images/creattia/reference-library/03-muro-de-resenas.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de muro de reseñas, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -86,7 +86,7 @@
     {
       "templateId": 4,
       "name": "04 · Captura de WhatsApp · Referencia estática",
-      "localImage": "references/starter-50/04-captura-de-whatsapp.png",
+      "localImage": "public/images/creattia/reference-library/04-captura-de-whatsapp.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de captura de whatsapp, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Lifestyle aspiracional acompañado por frustraciones reconocibles.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -113,7 +113,7 @@
     {
       "templateId": 5,
       "name": "05 · Comentario destacado · Referencia estática",
-      "localImage": "references/starter-50/05-comentario-destacado.png",
+      "localImage": "public/images/creattia/reference-library/05-comentario-destacado.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de comentario destacado, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -140,7 +140,7 @@
     {
       "templateId": 6,
       "name": "06 · Antes y después · Referencia estática",
-      "localImage": "references/starter-50/06-antes-y-despues.png",
+      "localImage": "public/images/creattia/reference-library/06-antes-y-despues.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de antes y después, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Lifestyle aspiracional acompañado por frustraciones reconocibles.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -167,7 +167,7 @@
     {
       "templateId": 7,
       "name": "07 · Testimonial con rostro · Referencia estática",
-      "localImage": "references/starter-50/07-testimonial-con-rostro.png",
+      "localImage": "public/images/creattia/reference-library/07-testimonial-con-rostro.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de testimonial con rostro, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La presencia humana y el fondo neutro superaron al producto aislado.",
       "sortOrder": 1,
       "sourceUrl": "https://adbuffs.com/case-studies/knya/",
@@ -194,7 +194,7 @@
     {
       "templateId": 8,
       "name": "08 · DM “¿queda stock?” · Referencia estática",
-      "localImage": "references/starter-50/08-dm-queda-stock.png",
+      "localImage": "public/images/creattia/reference-library/08-dm-queda-stock.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de dm “¿queda stock?”, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La urgencia visual convierte una promoción en un evento.",
       "sortOrder": 1,
       "sourceUrl": "https://www.stackadapt.com/case-studies/the-stable-ecommerce-sales-with-creative-ads",
@@ -221,7 +221,7 @@
     {
       "templateId": 9,
       "name": "09 · Contador social · Referencia estática",
-      "localImage": "references/starter-50/09-contador-social.png",
+      "localImage": "public/images/creattia/reference-library/09-contador-social.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de contador social, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -248,7 +248,7 @@
     {
       "templateId": 10,
       "name": "10 · Como se vio en · Referencia estática",
-      "localImage": "references/starter-50/10-como-se-vio-en.png",
+      "localImage": "public/images/creattia/reference-library/10-como-se-vio-en.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de como se vio en, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Rostro experto, producto y varias pruebas de confianza.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -275,7 +275,7 @@
     {
       "templateId": 11,
       "name": "11 · Review de marketplace · Referencia estática",
-      "localImage": "references/starter-50/11-review-de-marketplace.png",
+      "localImage": "public/images/creattia/reference-library/11-review-de-marketplace.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de review de marketplace, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -302,7 +302,7 @@
     {
       "templateId": 12,
       "name": "12 · UGC con producto en mano · Referencia estática",
-      "localImage": "references/starter-50/12-ugc-con-producto-en-mano.png",
+      "localImage": "public/images/creattia/reference-library/12-ugc-con-producto-en-mano.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de ugc con producto en mano, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Lifestyle aspiracional acompañado por frustraciones reconocibles.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -329,7 +329,7 @@
     {
       "templateId": 13,
       "name": "13 · Precio tachado · Referencia estática",
-      "localImage": "references/starter-50/13-precio-tachado.png",
+      "localImage": "public/images/creattia/reference-library/13-precio-tachado.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de precio tachado, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Fotografía editorial con una oferta imposible de ignorar.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -356,7 +356,7 @@
     {
       "templateId": 14,
       "name": "14 · Bundle / Kit · Referencia estática",
-      "localImage": "references/starter-50/14-bundle-kit.png",
+      "localImage": "public/images/creattia/reference-library/14-bundle-kit.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de bundle / kit, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Bundle de alto margen presentado como una oferta simple.",
       "sortOrder": 1,
       "sourceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
@@ -383,7 +383,7 @@
     {
       "templateId": 15,
       "name": "15 · Fecha límite · Referencia estática",
-      "localImage": "references/starter-50/15-fecha-limite.png",
+      "localImage": "public/images/creattia/reference-library/15-fecha-limite.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de fecha límite, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La urgencia visual convierte una promoción en un evento.",
       "sortOrder": 1,
       "sourceUrl": "https://www.stackadapt.com/case-studies/the-stable-ecommerce-sales-with-creative-ads",
@@ -410,7 +410,7 @@
     {
       "templateId": 16,
       "name": "16 · Regalo con la compra · Referencia estática",
-      "localImage": "references/starter-50/16-regalo-con-la-compra.png",
+      "localImage": "public/images/creattia/reference-library/16-regalo-con-la-compra.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de regalo con la compra, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Varios productos ordenados, oferta y confianza sin ruido.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -437,7 +437,7 @@
     {
       "templateId": 17,
       "name": "17 · 2x1 / 3x2 · Referencia estática",
-      "localImage": "references/starter-50/17-2x1-3x2.png",
+      "localImage": "public/images/creattia/reference-library/17-2x1-3x2.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de 2x1 / 3x2, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Bundle de alto margen presentado como una oferta simple.",
       "sortOrder": 1,
       "sourceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
@@ -464,7 +464,7 @@
     {
       "templateId": 18,
       "name": "18 · Envío gratis · Referencia estática",
-      "localImage": "references/starter-50/18-envio-gratis.png",
+      "localImage": "public/images/creattia/reference-library/18-envio-gratis.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de envío gratis, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Fotografía editorial con una oferta imposible de ignorar.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -491,7 +491,7 @@
     {
       "templateId": 19,
       "name": "19 · Cupón visual · Referencia estática",
-      "localImage": "references/starter-50/19-cupon-visual.png",
+      "localImage": "public/images/creattia/reference-library/19-cupon-visual.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de cupón visual, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -518,7 +518,7 @@
     {
       "templateId": 20,
       "name": "20 · Escalera de precio · Referencia estática",
-      "localImage": "references/starter-50/20-escalera-de-precio.png",
+      "localImage": "public/images/creattia/reference-library/20-escalera-de-precio.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de escalera de precio, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Varios productos ordenados, oferta y confianza sin ruido.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -545,7 +545,7 @@
     {
       "templateId": 21,
       "name": "21 · Sello de garantía · Referencia estática",
-      "localImage": "references/starter-50/21-sello-de-garantia.png",
+      "localImage": "public/images/creattia/reference-library/21-sello-de-garantia.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de sello de garantía, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -572,7 +572,7 @@
     {
       "templateId": 22,
       "name": "22 · Cuotas sin interés · Referencia estática",
-      "localImage": "references/starter-50/22-cuotas-sin-interes.png",
+      "localImage": "public/images/creattia/reference-library/22-cuotas-sin-interes.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de cuotas sin interés, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Bundle de alto margen presentado como una oferta simple.",
       "sortOrder": 1,
       "sourceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
@@ -599,7 +599,7 @@
     {
       "templateId": 23,
       "name": "23 · Nosotros vs Ellos · Referencia estática",
-      "localImage": "references/starter-50/23-nosotros-vs-ellos.png",
+      "localImage": "public/images/creattia/reference-library/23-nosotros-vs-ellos.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de nosotros vs ellos, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Hooks, beneficios y pruebas se testean como un sistema repetible.",
       "sortOrder": 1,
       "sourceUrl": "https://www.statiq.club/case-studies/shaan-puri",
@@ -626,7 +626,7 @@
     {
       "templateId": 24,
       "name": "24 · Lado a lado · Referencia estática",
-      "localImage": "references/starter-50/24-lado-a-lado.png",
+      "localImage": "public/images/creattia/reference-library/24-lado-a-lado.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de lado a lado, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -653,7 +653,7 @@
     {
       "templateId": 25,
       "name": "25 · Comparación de costo · Referencia estática",
-      "localImage": "references/starter-50/25-comparacion-de-costo.png",
+      "localImage": "public/images/creattia/reference-library/25-comparacion-de-costo.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de comparación de costo, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Hooks, beneficios y pruebas se testean como un sistema repetible.",
       "sortOrder": 1,
       "sourceUrl": "https://www.statiq.club/case-studies/shaan-puri",
@@ -680,7 +680,7 @@
     {
       "templateId": 26,
       "name": "26 · Pagás X, recibís Y · Referencia estática",
-      "localImage": "references/starter-50/26-pagas-x-recibis-y.png",
+      "localImage": "public/images/creattia/reference-library/26-pagas-x-recibis-y.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de pagás x, recibís y, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Varios productos ordenados, oferta y confianza sin ruido.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -707,7 +707,7 @@
     {
       "templateId": 27,
       "name": "27 · Checklist de compra · Referencia estática",
-      "localImage": "references/starter-50/27-checklist-de-compra.png",
+      "localImage": "public/images/creattia/reference-library/27-checklist-de-compra.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de checklist de compra, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -734,7 +734,7 @@
     {
       "templateId": 28,
       "name": "28 · Composición comparada · Referencia estática",
-      "localImage": "references/starter-50/28-composicion-comparada.png",
+      "localImage": "public/images/creattia/reference-library/28-composicion-comparada.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de composición comparada, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -761,7 +761,7 @@
     {
       "templateId": 29,
       "name": "29 · Con vs sin · Referencia estática",
-      "localImage": "references/starter-50/29-con-vs-sin.png",
+      "localImage": "public/images/creattia/reference-library/29-con-vs-sin.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de con vs sin, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Lifestyle aspiracional acompañado por frustraciones reconocibles.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -788,7 +788,7 @@
     {
       "templateId": 30,
       "name": "30 · Listicle · Referencia estática",
-      "localImage": "references/starter-50/30-listicle.png",
+      "localImage": "public/images/creattia/reference-library/30-listicle.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de listicle, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -815,7 +815,7 @@
     {
       "templateId": 31,
       "name": "31 · Estadística brutal · Referencia estática",
-      "localImage": "references/starter-50/31-estadistica-brutal.png",
+      "localImage": "public/images/creattia/reference-library/31-estadistica-brutal.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de estadística brutal, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Hooks, beneficios y pruebas se testean como un sistema repetible.",
       "sortOrder": 1,
       "sourceUrl": "https://www.statiq.club/case-studies/shaan-puri",
@@ -842,7 +842,7 @@
     {
       "templateId": 32,
       "name": "32 · Mito vs realidad · Referencia estática",
-      "localImage": "references/starter-50/32-mito-vs-realidad.png",
+      "localImage": "public/images/creattia/reference-library/32-mito-vs-realidad.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de mito vs realidad, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -869,7 +869,7 @@
     {
       "templateId": 33,
       "name": "33 · Diagrama señalado · Referencia estática",
-      "localImage": "references/starter-50/33-diagrama-senalado.png",
+      "localImage": "public/images/creattia/reference-library/33-diagrama-senalado.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de diagrama señalado, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Producto lateral, fondo limpio y una decisión de compra directa.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -896,7 +896,7 @@
     {
       "templateId": 34,
       "name": "34 · Pregunta directa · Referencia estática",
-      "localImage": "references/starter-50/34-pregunta-directa.png",
+      "localImage": "public/images/creattia/reference-library/34-pregunta-directa.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de pregunta directa, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -923,7 +923,7 @@
     {
       "templateId": 35,
       "name": "35 · Meme · Referencia estática",
-      "localImage": "references/starter-50/35-meme.png",
+      "localImage": "public/images/creattia/reference-library/35-meme.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de meme, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -950,7 +950,7 @@
     {
       "templateId": 36,
       "name": "36 · Comic · Referencia estática",
-      "localImage": "references/starter-50/36-comic.png",
+      "localImage": "public/images/creattia/reference-library/36-comic.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de comic, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -977,7 +977,7 @@
     {
       "templateId": 37,
       "name": "37 · Sí / No · Referencia estática",
-      "localImage": "references/starter-50/37-si-no.png",
+      "localImage": "public/images/creattia/reference-library/37-si-no.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de sí / no, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1004,7 +1004,7 @@
     {
       "templateId": 38,
       "name": "38 · Definición · Referencia estática",
-      "localImage": "references/starter-50/38-definicion.png",
+      "localImage": "public/images/creattia/reference-library/38-definicion.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de definición, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: El contexto visual hace que el precio premium se sienta lógico.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1031,7 +1031,7 @@
     {
       "templateId": 39,
       "name": "39 · Nota manuscrita · Referencia estática",
-      "localImage": "references/starter-50/39-nota-manuscrita.png",
+      "localImage": "public/images/creattia/reference-library/39-nota-manuscrita.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de nota manuscrita, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Rostro experto, producto y varias pruebas de confianza.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1058,7 +1058,7 @@
     {
       "templateId": 40,
       "name": "40 · Hero limpio · Referencia estática",
-      "localImage": "references/starter-50/40-hero-limpio.png",
+      "localImage": "public/images/creattia/reference-library/40-hero-limpio.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de hero limpio, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Producto lateral, fondo limpio y una decisión de compra directa.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1085,7 +1085,7 @@
     {
       "templateId": 41,
       "name": "41 · Features señaladas · Referencia estática",
-      "localImage": "references/starter-50/41-features-senaladas.png",
+      "localImage": "public/images/creattia/reference-library/41-features-senaladas.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de features señaladas, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Producto lateral, fondo limpio y una decisión de compra directa.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1112,7 +1112,7 @@
     {
       "templateId": 42,
       "name": "42 · Lifestyle en uso · Referencia estática",
-      "localImage": "references/starter-50/42-lifestyle-en-uso.png",
+      "localImage": "public/images/creattia/reference-library/42-lifestyle-en-uso.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de lifestyle en uso, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Uso real, fondo neutro y mensaje corto centrado en el fit.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1139,7 +1139,7 @@
     {
       "templateId": 43,
       "name": "43 · Despiece · Referencia estática",
-      "localImage": "references/starter-50/43-despiece.png",
+      "localImage": "public/images/creattia/reference-library/43-despiece.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de despiece, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: El contexto visual hace que el precio premium se sienta lógico.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1166,7 +1166,7 @@
     {
       "templateId": 44,
       "name": "44 · Escala real · Referencia estática",
-      "localImage": "references/starter-50/44-escala-real.png",
+      "localImage": "public/images/creattia/reference-library/44-escala-real.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de escala real, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Producto lateral, fondo limpio y una decisión de compra directa.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1193,7 +1193,7 @@
     {
       "templateId": 45,
       "name": "45 · Paso a paso 1-2-3 · Referencia estática",
-      "localImage": "references/starter-50/45-paso-a-paso-1-2-3.png",
+      "localImage": "public/images/creattia/reference-library/45-paso-a-paso-1-2-3.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de paso a paso 1-2-3, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1220,7 +1220,7 @@
     {
       "templateId": 46,
       "name": "46 · Qué viene en la caja · Referencia estática",
-      "localImage": "references/starter-50/46-que-viene-en-la-caja.png",
+      "localImage": "public/images/creattia/reference-library/46-que-viene-en-la-caja.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de qué viene en la caja, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Varios productos ordenados, oferta y confianza sin ruido.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1247,7 +1247,7 @@
     {
       "templateId": 47,
       "name": "47 · Secuencia de 3 frames · Referencia estática",
-      "localImage": "references/starter-50/47-secuencia-de-3-frames.png",
+      "localImage": "public/images/creattia/reference-library/47-secuencia-de-3-frames.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de secuencia de 3 frames, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Uso real, fondo neutro y mensaje corto centrado en el fit.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1274,7 +1274,7 @@
     {
       "templateId": 48,
       "name": "48 · Aval de experto · Referencia estática",
-      "localImage": "references/starter-50/48-aval-de-experto.png",
+      "localImage": "public/images/creattia/reference-library/48-aval-de-experto.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de aval de experto, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Rostro experto, producto y varias pruebas de confianza.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1301,7 +1301,7 @@
     {
       "templateId": 49,
       "name": "49 · Sellos y certificaciones · Referencia estática",
-      "localImage": "references/starter-50/49-sellos-y-certificaciones.png",
+      "localImage": "public/images/creattia/reference-library/49-sellos-y-certificaciones.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de sellos y certificaciones, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
       "sortOrder": 1,
       "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
@@ -1328,7 +1328,7 @@
     {
       "templateId": 50,
       "name": "50 · Carta del fundador · Referencia estática",
-      "localImage": "references/starter-50/50-carta-del-fundador.png",
+      "localImage": "public/images/creattia/reference-library/50-carta-del-fundador.png",
       "promptNotes": "Referencia estática original. Conservar la jerarquía de carta del fundador, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La presencia humana y el fondo neutro superaron al producto aislado.",
       "sortOrder": 1,
       "sourceUrl": "https://adbuffs.com/case-studies/knya/",

@@ -134,6 +134,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const requestedImageType = clean(form.get('imageType'), 30) || 'product';
 		const imageType = imageTypes.has(requestedImageType) ? requestedImageType : 'product';
 		const referenceId = clean(form.get('referenceId'), 60);
+		const referencePath = clean(form.get('referencePath'), 300);
 		const sourceGenerationId = clean(form.get('sourceGenerationId'), 60);
 		const requestedVariationStrength = clean(form.get('variationStrength'), 20) || 'exact';
 		const variationStrength = variationStrengths.has(requestedVariationStrength) ? requestedVariationStrength : 'exact';
@@ -147,6 +148,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const logo = form.get('logo');
 
 		if (!Number.isInteger(templateId) || templateId < 1) return json({ error: 'El creativo elegido no es válido.' }, 400);
+		if (referencePath && !new RegExp(`^${templateId}/[a-f0-9]{16}\\.(png|jpe?g|webp|avif)$`, 'i').test(referencePath)) return json({ error: 'La ruta de referencia no es válida.' }, 400);
 		if (!Number.isInteger(count) || count < 1 || count > 4) return json({ error: 'Elegí entre 1 y 4 imágenes.' }, 400);
 		if (productIds.length > 5) return json({ error: 'Podés usar hasta 5 productos en una imagen.' }, 400);
 		if (product instanceof File && product.size > 15 * 1024 * 1024) return json({ error: 'La imagen del producto supera los 15 MB.' }, 413);
@@ -186,7 +188,7 @@ export const POST: APIRoute = async ({ request }) => {
 			sourceGeneration = data;
 		}
 
-		let storedReference: { id: string; image_path: string } | null = null;
+		let storedReference: { id: string | null; image_path: string } | null = referencePath && !sourceGeneration ? { id: null, image_path: referencePath } : null;
 		if (referenceId && !sourceGeneration) {
 			const { data, error } = await admin.from('creative_references').select('id,image_path')
 				.eq('id', referenceId).eq('template_id', templateId).eq('is_active', true)

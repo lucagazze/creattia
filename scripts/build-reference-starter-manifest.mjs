@@ -3,14 +3,14 @@ import { resolve } from 'node:path';
 import { evidenceSources, referenceFileName, starterReferences } from './reference-starter-50.mjs';
 
 const destination = resolve('docs/reference-library.starter-50.json');
-await mkdir(resolve('references/starter-50'), { recursive: true });
+await mkdir(resolve('public/images/creattia/reference-library'), { recursive: true });
 
 const items = starterReferences.map((item) => {
 	const evidence = evidenceSources[item.sourceKey];
 	return {
 		templateId: item.id,
 		name: `${String(item.id).padStart(2, '0')} · ${item.name} · Referencia estática`,
-		localImage: `references/starter-50/${referenceFileName(item)}`,
+		localImage: `public/images/creattia/reference-library/${referenceFileName(item)}`,
 		promptNotes: `Referencia estática original. Conservar la jerarquía de ${item.name.toLowerCase()}, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: ${evidence.pattern}`,
 		sortOrder: 1,
 		sourceUrl: evidence.url,

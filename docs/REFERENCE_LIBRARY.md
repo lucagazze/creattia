@@ -9,7 +9,7 @@ Las referencias solo se habilitan para generación cuando su procedencia está m
 
 ## Colección inicial: 50 anuncios estáticos
 
-El repositorio incluye una colección inicial de 50 composiciones originales en formato vertical 4:5 (1080 × 1350). No contiene videos ni activos copiados de anunciantes: cada pieza recrea una estructura publicitaria validada —oferta, comparación, prueba social, demostración o autoridad— con una marca y un producto ficticios.
+El repositorio incluye una colección inicial de 50 composiciones originales en `public/images/creattia/reference-library`, todas en formato vertical 4:5 (1080 × 1350). No contiene videos ni activos copiados de anunciantes: cada pieza recrea una estructura publicitaria validada —oferta, comparación, prueba social, demostración o autoridad— con una marca y un producto ficticios.
 
 La investigación conserva, dentro del manifiesto, la fuente y la señal utilizada para priorizar cada estructura: ROAS, CTR, CPA, inversión, impresiones, duplicaciones o permanencia activa. Estas señales sirven para ordenar buenos puntos de partida; no garantizan ventas futuras.
 
@@ -19,7 +19,7 @@ Para regenerar el manifiesto:
 npm run references:manifest
 ```
 
-Para subir la colección al bucket privado y vincular una imagen con cada estrategia:
+Para subir la colección al bucket público de referencias y vincular una imagen con cada estrategia:
 
 ```bash
 npm run references:import -- docs/reference-library.starter-50.json
@@ -38,4 +38,6 @@ El comando requiere `PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`. La clav
 npm run references:import -- /ruta/al/manifiesto.json
 ```
 
-El importador calcula una huella SHA-256, sube cada imagen al bucket privado `creative-references` y guarda fuente, licencia y taxonomía en Supabase. Si el mismo archivo vuelve a importarse, actualiza el registro en vez de duplicarlo.
+El importador calcula una huella SHA-256, sube cada imagen al bucket público `creative-references` y publica un manifiesto sin datos de usuarios. Si la tabla `creative_references` ya existe, también guarda fuente, licencia y taxonomía; si todavía no existe, la aplicación utiliza el manifiesto de Storage. Si el mismo archivo vuelve a importarse, se actualiza en vez de duplicarse.
+
+Este bucket es público porque contiene únicamente material editorial autorizado para la biblioteca. Las fotos de productos, logos y generaciones de usuarios permanecen separadas en `creative-assets`, que debe ser privado.

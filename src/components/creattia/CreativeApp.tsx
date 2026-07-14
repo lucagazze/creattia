@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { catalogTaxonomy, creativeCatalog, creativeNumber, mapTemplateRecord, referencePresets, ringMeta, templatePath } from '../../lib/creattia/catalog';
+import { catalogTaxonomy, creativeCatalog, creativeNumber, mapTemplateRecord, referenceImagePath, referencePresets, ringMeta, templatePath } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
@@ -49,6 +49,7 @@ type CreativeReference = {
 	name: string;
 	description: string;
 	imageUrl: string;
+	storagePath?: string;
 };
 type Product = {
 	id: string;
@@ -797,9 +798,43 @@ function Library({ items, favorites, onChoose, onToggleFavorite }: { items: Crea
 	const [groupId, setGroupId] = useState('');
 	const [branchId, setBranchId] = useState('');
 	const [leafId, setLeafId] = useState('');
+	const [sort, setSort] = useState<'relevant' | 'newest'>('relevant');
+	const [referenceImages, setReferenceImages] = useState<Record<number, string>>({});
 	const activeGroup = catalogTaxonomy.find((group) => group.id === groupId);
 	const activeBranch = activeGroup?.branches.find((branch) => branch.id === branchId);
 	const activeLeaf = activeBranch?.leaves.find((leaf) => leaf.id === leafId);
+
+	useEffect(() => {
+		if (!isSupabaseConfigured || !supabase) return;
+		let active = true;
+		async function loadReferenceImages() {
+			const client = supabase;
+			if (!client) return;
+			const { data } = await client.from('creative_references')
+				.select('template_id,image_path,metadata,sort_order')
+				.eq('is_active', true)
+				.in('rights_status', ['owned', 'licensed', 'public_domain'])
+				.order('sort_order', { ascending: true })
+				.limit(250);
+			const firstStaticByTemplate = new Map<number, string>();
+			for (const item of data || []) {
+				const isStatic = item.metadata?.mediaType === 'static_image' || /\.(png|jpe?g|webp|avif)$/i.test(item.image_path || '');
+				if (isStatic && !firstStaticByTemplate.has(Number(item.template_id))) firstStaticByTemplate.set(Number(item.template_id), item.image_path);
+			}
+			if (!firstStaticByTemplate.size) {
+				const { data: manifestUrl } = client.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
+				const response = await fetch(manifestUrl.publicUrl);
+				if (response.ok) {
+					const remoteManifest = await response.json();
+					for (const item of remoteManifest.items || []) if (!firstStaticByTemplate.has(Number(item.templateId))) firstStaticByTemplate.set(Number(item.templateId), item.imagePath);
+				}
+			}
+			const publicEntries = [...firstStaticByTemplate.entries()].map(([templateId, imagePath]) => [templateId, client.storage.from('creative-references').getPublicUrl(imagePath).data.publicUrl] as const);
+			if (active) setReferenceImages(Object.fromEntries(publicEntries));
+		}
+		void loadReferenceImages();
+		return () => { active = false; };
+	}, []);
 
 	const filtered = useMemo(() => items.filter((creative) => {
 		const path = templatePath(creative);
@@ -809,43 +844,59 @@ function Library({ items, favorites, onChoose, onToggleFavorite }: { items: Crea
 		const matchesLeaf = !leafId || creative.categoryLeaf === activeLeaf?.label.toLowerCase() || activeLeaf?.templateIds.includes(creative.id);
 		const haystack = `${creative.nombre} ${creative.sirve} ${creative.cuando} ${(creative.keywords || []).join(' ')} ${path?.group.label || ''} ${path?.branch.label || ''} ${path?.leaf.label || ''}`.toLowerCase();
 		return matchesFavorite && matchesGroup && matchesBranch && matchesLeaf && haystack.includes(query.toLowerCase().trim());
-	}), [items, favorites, scope, groupId, branchId, leafId, activeBranch, activeLeaf, query]);
+	}).sort((a, b) => sort === 'newest' ? b.id - a.id : Number(Boolean(b.featured)) - Number(Boolean(a.featured)) || (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id)), [items, favorites, scope, groupId, branchId, leafId, activeBranch, activeLeaf, query, sort]);
 
 	function chooseGroup(id: string) {
 		setGroupId(id); setBranchId(''); setLeafId(''); setScope('all');
 	}
 
+	function clearFilters() {
+		setScope('all'); setGroupId(''); setBranchId(''); setLeafId(''); setQuery('');
+	}
+
 	return <>
-		<div className="studio-page-heading"><div><p>BIBLIOTECA DE IDEAS</p><h1>Encontrá la idea exacta.</h1><span>Elegí un objetivo, filtrá por categoría o buscá por palabra.</span></div></div>
-		<div className="studio-library-tools"><label><Icon name="search" size={18}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar oferta, lifestyle, reseña, cuotas…"/></label><span>{filtered.length} {filtered.length === 1 ? 'idea disponible' : 'ideas disponibles'}</span></div>
-		<div className="library-explorer">
-			<aside className="library-category-tree">
-				<button className={!groupId && scope === 'all' ? 'active' : ''} onClick={() => { setScope('all'); setGroupId(''); setBranchId(''); setLeafId(''); }}><Icon name="grid" size={17}/><span><strong>Explorar todo</strong><small>{items.length} ideas</small></span></button>
-				<button className={scope === 'favorites' ? 'active favorite' : 'favorite'} onClick={() => { setScope('favorites'); setGroupId(''); setBranchId(''); setLeafId(''); }}><Icon name="heart" size={17}/><span><strong>Mis guardados</strong><small>{favorites.size} {favorites.size === 1 ? 'favorito' : 'favoritos'}</small></span></button>
-				<p>POR OBJETIVO</p>
-				{catalogTaxonomy.map((group) => <button key={group.id} className={groupId === group.id ? 'active' : ''} onClick={() => chooseGroup(group.id)} style={{ '--tree-accent': group.accent } as React.CSSProperties}><i/><span><strong>{group.label}</strong><small>{group.description}</small></span></button>)}
-			</aside>
-			<div className="library-results">
-				{activeGroup && <div className="library-path-picker">
-					<div className="path-level"><small>2 · ELEGÍ UNA CATEGORÍA</small><div>{activeGroup.branches.map((branch) => <button key={branch.id} className={branchId === branch.id ? 'active' : ''} onClick={() => { setBranchId(branch.id); setLeafId(''); }}>{branch.label}</button>)}</div></div>
-					{activeBranch && <div className="path-level"><small>3 · AFINÁ EL TIPO</small><div>{activeBranch.leaves.map((leaf) => <button key={leaf.id} className={leafId === leaf.id ? 'active' : ''} onClick={() => setLeafId(leaf.id)}>{leaf.label}</button>)}</div></div>}
-				</div>}
-				<div className="library-results-heading"><div><strong>{scope === 'favorites' ? 'Tus ideas guardadas' : activeLeaf?.label || activeBranch?.label || activeGroup?.label || 'Todas las ideas'}</strong><small>{filtered.length} {filtered.length === 1 ? 'resultado' : 'resultados'}</small></div>{(groupId || scope === 'favorites') && <button onClick={() => { setScope('all'); setGroupId(''); setBranchId(''); setLeafId(''); }}>Limpiar filtros</button>}</div>
-				<div className="studio-library-grid">{filtered.map((creative) => {
-					const meta = ringMeta[creative.ring] || ringMeta.demo;
-					const path = templatePath(creative);
-					return <article className="studio-library-card catalog-card-shell" key={creative.id} style={{ '--card-accent': path?.group.accent || meta?.accent } as React.CSSProperties}>
-						<button className={`catalog-favorite ${favorites.has(creative.id) ? 'active' : ''}`} onClick={() => onToggleFavorite(creative.id)} aria-label={favorites.has(creative.id) ? `Quitar ${creative.nombre} de guardados` : `Guardar ${creative.nombre}`}><Icon name="heart" size={15}/></button>
-						<button className="catalog-card-open" onClick={() => onChoose(creative)}>
-							<div className="library-card-top"><span>{creative.featured ? 'DESTACADO' : `IDEA ${creativeNumber(creative.id)}`}</span><b>{creative.n}</b></div>
-							<div className="library-card-art"><i/><span/><b>{creative.nombre.split(' ').slice(0, 3).join(' ')}</b></div>
-						<div className="library-card-copy"><small>{path?.leaf.label || meta?.label}</small><h3>{creative.nombre}</h3><p>{conciseText(creative.sirve)}</p><footer><span>Usar esta idea</span><Icon name="arrow" size={15}/></footer></div>
-						</button>
-					</article>;
-				})}</div>
-				{filtered.length === 0 && <div className="studio-empty"><span><Icon name={scope === 'favorites' ? 'heart' : 'search'}/></span><h3>{scope === 'favorites' ? 'Todavía no guardaste ideas' : 'No encontramos ese tipo'}</h3><p>{scope === 'favorites' ? 'Tocá el corazón de cualquier idea para encontrarla acá.' : 'Probá otra búsqueda o limpiá los filtros.'}</p><button onClick={() => { setScope('all'); setQuery(''); setGroupId(''); setBranchId(''); setLeafId(''); }}>Explorar toda la biblioteca</button></div>}
-			</div>
+		<section className="library-discovery-hero">
+			<div><span><i/> BIBLIOTECA CURADA</span><h1>Anuncios estáticos<br/><em>para crear mejor.</em></h1><p>Explorá estructuras visuales probadas, guardá tus favoritas y adaptalas a tu marca en minutos.</p></div>
+			<div className="library-hero-stats"><span><strong>{items.length}</strong><small>referencias</small></span><i/><span><strong>4:5</strong><small>formato vertical</small></span><i/><span><strong>100%</strong><small>imágenes</small></span></div>
+		</section>
+		<div className="library-format-bar">
+			<div className="library-format-tabs"><button className="active"><Icon name="grid" size={15}/>Imágenes <b>{items.length}</b></button><span>Sin videos</span></div>
+			<div className="library-toolbar-count"><i/>{filtered.length} {filtered.length === 1 ? 'anuncio' : 'anuncios'}</div>
 		</div>
+		<div className="library-search-tools">
+			<label><Icon name="search" size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por ángulo, oferta o formato…"/>{query && <button onClick={() => setQuery('')} aria-label="Limpiar búsqueda">×</button>}</label>
+			<select value={sort} onChange={(event) => setSort(event.target.value as 'relevant' | 'newest')} aria-label="Ordenar biblioteca"><option value="relevant">Más relevantes</option><option value="newest">Más nuevas</option></select>
+		</div>
+		<nav className="library-category-rail" aria-label="Filtrar anuncios por objetivo">
+			<button className={!groupId && scope === 'all' ? 'active' : ''} onClick={() => { setScope('all'); setGroupId(''); setBranchId(''); setLeafId(''); }}><Icon name="grid" size={15}/><span>Todos</span><b>{items.length}</b></button>
+			{catalogTaxonomy.map((group) => {
+				const count = items.filter((creative) => templatePath(creative)?.group.id === group.id).length;
+				return <button key={group.id} className={groupId === group.id ? 'active' : ''} onClick={() => chooseGroup(group.id)} style={{ '--category-accent': group.accent } as React.CSSProperties}><i/><span>{group.label}</span><b>{count}</b></button>;
+			})}
+			<button className={scope === 'favorites' ? 'active saved' : 'saved'} onClick={() => { setScope('favorites'); setGroupId(''); setBranchId(''); setLeafId(''); }}><Icon name="heart" size={15}/><span>Guardados</span><b>{favorites.size}</b></button>
+		</nav>
+		{activeGroup && <div className="library-subfilters">
+			<div><small>CATEGORÍA</small>{activeGroup.branches.map((branch) => <button key={branch.id} className={branchId === branch.id ? 'active' : ''} onClick={() => { setBranchId(branch.id); setLeafId(''); }}>{branch.label}</button>)}</div>
+			{activeBranch && <div><small>TIPO</small>{activeBranch.leaves.map((leaf) => <button key={leaf.id} className={leafId === leaf.id ? 'active' : ''} onClick={() => setLeafId(leaf.id)}>{leaf.label}</button>)}</div>}
+		</div>}
+		<div className="library-results-heading new-library-heading"><div><strong>{scope === 'favorites' ? 'Tus anuncios guardados' : activeLeaf?.label || activeBranch?.label || activeGroup?.label || 'Todos los anuncios'}</strong><small>Elegí una referencia para abrir el generador paso a paso.</small></div>{(groupId || scope === 'favorites' || query) && <button onClick={clearFilters}>Limpiar filtros</button>}</div>
+		<div className="library-ad-grid">{filtered.map((creative) => {
+			const meta = ringMeta[creative.ring] || ringMeta.demo;
+			const path = templatePath(creative);
+			const imageUrl = referenceImages[creative.id] || referenceImagePath(creative);
+			return <article className="library-ad-card" key={creative.id} style={{ '--card-accent': path?.group.accent || meta?.accent } as React.CSSProperties}>
+				<div className="library-ad-visual">
+					<button className="library-ad-open" onClick={() => onChoose(creative)} aria-label={`Usar ${creative.nombre} como referencia`}><img src={imageUrl} alt={`Referencia estática: ${creative.nombre}`} loading="lazy"/><span className="library-ad-overlay"><b>Usar esta referencia</b><Icon name="arrow" size={17}/></span></button>
+					<span className="library-media-badge"><i/> IMAGEN · 4:5</span>
+					<button className={`library-ad-save ${favorites.has(creative.id) ? 'active' : ''}`} onClick={() => onToggleFavorite(creative.id)} aria-label={favorites.has(creative.id) ? `Quitar ${creative.nombre} de guardados` : `Guardar ${creative.nombre}`}><Icon name="heart" size={17}/></button>
+				</div>
+				<div className="library-ad-info">
+					<div className="library-ad-source"><span>{creativeNumber(creative.id)}</span><p><strong>Creattia reference</strong><small>{path?.group.label || meta?.label} · {path?.leaf.label || creative.n}</small></p><b>{creative.featured ? 'DESTACADO' : creative.n}</b></div>
+					<button onClick={() => onChoose(creative)}><h3>{creative.nombre}</h3><p>{conciseText(creative.sirve)}</p><footer><span>Crear con esta idea</span><Icon name="arrow" size={15}/></footer></button>
+				</div>
+			</article>;
+		})}</div>
+		{filtered.length === 0 && <div className="studio-empty library-empty"><span><Icon name={scope === 'favorites' ? 'heart' : 'search'}/></span><h3>{scope === 'favorites' ? 'Todavía no guardaste anuncios' : 'No encontramos ese tipo'}</h3><p>{scope === 'favorites' ? 'Tocá el corazón de una referencia para encontrarla acá.' : 'Probá otra búsqueda o limpiá los filtros.'}</p><button onClick={clearFilters}>Explorar toda la biblioteca</button></div>}
 	</>;
 }
 
@@ -970,11 +1021,28 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 		const client = supabase;
 		void (async () => {
 			const { data } = await client.from('creative_references').select('id,name,image_path,prompt_notes').eq('template_id', creative.id).eq('is_active', true).in('rights_status', ['owned', 'licensed', 'public_domain']).order('sort_order').limit(5);
-			if (!data?.length || cancelled) return;
-			const loaded = (await Promise.all(data.map(async (item) => {
-				const { data: signed } = await client.storage.from('creative-references').createSignedUrl(item.image_path, 3600);
-				return signed?.signedUrl ? { id: item.id, name: item.name, description: item.prompt_notes || 'Composición ganadora validada.', imageUrl: signed.signedUrl } : null;
-			}))).filter((item): item is CreativeReference => Boolean(item));
+			let loaded: CreativeReference[] = (data || []).map((item) => ({
+				id: item.id,
+				name: item.name,
+				description: item.prompt_notes || 'Composición ganadora validada.',
+				imageUrl: client.storage.from('creative-references').getPublicUrl(item.image_path).data.publicUrl,
+				storagePath: item.image_path,
+			}));
+			if (!loaded.length) {
+				const { data: manifestUrl } = client.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
+				const response = await fetch(manifestUrl.publicUrl);
+				if (response.ok) {
+					const remoteManifest = await response.json();
+					loaded = (remoteManifest.items || []).filter((item: any) => Number(item.templateId) === creative.id).slice(0, 5).map((item: any) => ({
+						id: `storage:${item.imagePath}`,
+						name: item.name,
+						description: item.promptNotes || 'Composición estática original.',
+						imageUrl: client.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl,
+						storagePath: item.imagePath,
+					}));
+				}
+			}
+			if (cancelled) return;
 			if (!cancelled) { setReferences(loaded); setReferenceId(loaded[0]?.id || ''); }
 		})();
 		return () => { cancelled = true; };
@@ -1048,7 +1116,10 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 				const form = new FormData();
 				form.set('templateId', String(creative.id)); form.set('templateName', creative.nombre); form.set('purpose', creative.sirve); form.set('usageHint', creative.cuando);
 				form.set('preset', referencePresets.find((item) => item.id === preset)?.name || preset); form.set('imageType', imageType); form.set('format', format); form.set('brief', effectiveBrief);
-				if (referenceId) form.set('referenceId', referenceId); selectedProductIds.forEach((id) => form.append('productIds', id)); form.set('count', String(effectiveCount));
+				const chosenReference = references.find((item) => item.id === referenceId);
+				if (referenceId.startsWith('storage:') && chosenReference?.storagePath) form.set('referencePath', chosenReference.storagePath);
+				else if (referenceId) form.set('referenceId', referenceId);
+				selectedProductIds.forEach((id) => form.append('productIds', id)); form.set('count', String(effectiveCount));
 				if (sourceGeneration) { form.set('sourceGenerationId', sourceGeneration.id); form.set('variationStrength', variationStrength); }
 				const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
 				const payload = await response.json(); if (!response.ok) throw new Error(payload.error || 'No se pudo generar.');

@@ -150,3 +150,9 @@ export function mapTemplateRecord(record: any): Creativo {
 export function creativeNumber(id: number) {
 	return String(id).padStart(2, '0');
 }
+
+export function referenceImagePath(creative: Pick<Creativo, 'id' | 'nombre'>) {
+	const slug = creative.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+	return `/images/creattia/reference-library/${creativeNumber(creative.id)}-${slug}.png`;
+}
