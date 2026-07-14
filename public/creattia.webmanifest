@@ -6,13 +6,13 @@
   "scope": "/",
   "icons": [
     {
-      "src": "/images/creattia/moki-manifest-192.png",
+      "src": "/images/creattia/moki-full-manifest-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/images/creattia/moki-manifest-512.png",
+      "src": "/images/creattia/moki-full-manifest-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

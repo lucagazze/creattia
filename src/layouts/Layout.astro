@@ -20,8 +20,8 @@ const {
   ogTitle = 'Creattia | Imágenes con IA que venden',
   ogDescription = 'Elegí una idea, sumá tu producto y generá una imagen lista para publicar. Sin diseñar ni escribir prompts.',
   ogImage = '/images/creattia/moki-og.jpg',
-  favicon = '/images/creattia/moki-favicon-96.png',
-  appleTouchIcon = '/images/creattia/moki-apple-touch.png',
+  favicon = '/images/creattia/moki-full-favicon-96.png',
+  appleTouchIcon = '/images/creattia/moki-full-apple-touch.png',
   manifest = '/creattia.webmanifest',
 } = Astro.props;
 
@@ -55,6 +55,8 @@ const jsonLd = {
     <meta name="author" content="Creattia" />
     <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow'} />
     <link rel="canonical" href={canonicalURL} />
+    <link rel="icon" type="image/png" href="/images/creattia/moki-full-favicon-32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/images/creattia/moki-full-favicon-48.png" sizes="48x48" />
     <link rel="icon" type="image/png" href={favicon} sizes="96x96" />
     <link rel="apple-touch-icon" sizes="180x180" href={appleTouchIcon} />
     <link rel="manifest" href={manifest} />
