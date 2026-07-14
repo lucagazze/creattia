@@ -29,6 +29,7 @@ export function normalizeExternalUrl(raw: string, kind: 'website' | 'instagram' 
 	if (!/^https?:\/\//i.test(value)) value = `https://${value}`;
 	const url = new URL(value);
 	if (!['http:', 'https:'].includes(url.protocol)) throw new Error('La URL debe comenzar con http o https.');
+	if (url.username || url.password) throw new Error('La URL no puede incluir credenciales.');
 	if (kind === 'instagram' && url.hostname !== 'instagram.com' && !url.hostname.endsWith('.instagram.com')) {
 		throw new Error('El enlace de Instagram debe apuntar a instagram.com.');
 	}

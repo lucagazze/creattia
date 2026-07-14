@@ -1,7 +1,11 @@
 import type { APIRoute } from 'astro';
+import { analyzeCatalogWithAI, scanWebsite, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
+import { mirrorProductImage } from '../../../lib/creattia/product-assets';
+import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
+export const maxDuration = 180;
 
 const mimeExtensions: Record<string, string> = {
 	'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif',
@@ -24,6 +28,84 @@ async function listProducts(userId: string) {
 	}));
 }
 
+function sameProductUrl(left: string, right: string) {
+	try {
+		const a = new URL(left);
+		const b = new URL(right);
+		return a.hostname === b.hostname && a.pathname.replace(/\/$/, '') === b.pathname.replace(/\/$/, '');
+	} catch {
+		return false;
+	}
+}
+
+async function importProductUrls(userId: string, rawUrls: unknown[]) {
+	const admin = getAdminClient();
+	if (!admin) throw new Error('Supabase no está configurado.');
+	const errors: Array<{ url: string; error: string }> = [];
+	const normalized = rawUrls.flatMap((value) => {
+		const raw = String(value).trim().slice(0, 500);
+		try { return raw ? [normalizeExternalUrl(raw)] : []; }
+		catch (error) { errors.push({ url: raw, error: error instanceof Error ? error.message : 'URL inválida.' }); return []; }
+	});
+	const urls = [...new Set(normalized)].slice(0, 10);
+	if (!urls.length) throw new Error('Pegá al menos una URL de producto.');
+
+	const scans = await Promise.allSettled(urls.map((url) => scanWebsite(url)));
+	const found: Array<{ requestedUrl: string; source: Awaited<ReturnType<typeof scanWebsite>>; product: ScannedProduct }> = [];
+	for (let index = 0; index < scans.length; index += 1) {
+		const result = scans[index];
+		if (result.status === 'rejected') {
+			errors.push({ url: urls[index], error: result.reason instanceof Error ? result.reason.message : 'No se pudo leer.' });
+			continue;
+		}
+		const product = result.value.products.find((item) => sameProductUrl(item.productUrl, urls[index]))
+			|| (result.value.products.length === 1 ? result.value.products[0] : undefined);
+		if (!product) {
+			errors.push({ url: urls[index], error: 'No encontramos datos de producto en esa página.' });
+			continue;
+		}
+		found.push({ requestedUrl: urls[index], source: result.value, product });
+	}
+	if (!found.length) return { importedIds: [], errors };
+
+	const analysis = await analyzeCatalogWithAI({
+		sources: found.map((item) => item.source),
+		products: found.map((item) => item.product),
+		apiKey: import.meta.env.OPENAI_API_KEY,
+	});
+	const insights = new Map((analysis.productInsights || []).map((item: any) => [String(item.externalId), item]));
+	const importedIds: string[] = [];
+	for (const item of found) {
+		try {
+			const insight: any = insights.get(item.product.externalId);
+			const { data: stored, error } = await admin.from('creative_products').upsert({
+			user_id: userId,
+			name: item.product.name,
+			description: insight?.description || item.product.description || null,
+			price_text: item.product.priceText || null,
+			currency: item.product.currency || null,
+			product_url: item.product.productUrl || item.requestedUrl,
+			source: 'website',
+			external_id: item.product.externalId || item.product.productUrl || item.requestedUrl,
+			source_image_url: item.product.imageUrl || null,
+			metadata: { ...item.product.metadata, importedFromUrl: item.requestedUrl },
+			analysis: insight ? { category: insight.category, keywords: insight.keywords } : {},
+			is_active: true,
+			updated_at: new Date().toISOString(),
+			synced_at: new Date().toISOString(),
+		}, { onConflict: 'user_id,source,external_id' })
+			.select('id,name,image_path,source_image_url')
+			.single();
+		if (error) throw error;
+		await mirrorProductImage(userId, stored);
+			importedIds.push(stored.id as string);
+		} catch (error) {
+			errors.push({ url: item.requestedUrl, error: error instanceof Error ? error.message : 'No se pudo guardar.' });
+		}
+	}
+	return { importedIds, errors };
+}
+
 export const GET: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error }, 401);
@@ -39,6 +121,15 @@ export const POST: APIRoute = async ({ request }) => {
 
 	let productId = '';
 	try {
+		if ((request.headers.get('content-type') || '').includes('application/json')) {
+			const body = await request.json().catch(() => ({}));
+			const rawUrls = Array.isArray(body.urls) ? body.urls : body.url ? [body.url] : [];
+			if (rawUrls.length > 10) return json({ error: 'Podés importar hasta 10 URLs por vez.' }, 400);
+			const imported = await importProductUrls(auth.user.id, rawUrls);
+			const products = await listProducts(auth.user.id);
+			return json({ ...imported, products }, imported.importedIds.length ? 201 : 422);
+		}
+
 		const form = await request.formData();
 		const name = String(form.get('name') || '').trim().slice(0, 180);
 		const description = String(form.get('description') || '').trim().slice(0, 1600);

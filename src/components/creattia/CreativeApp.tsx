@@ -39,6 +39,9 @@ type Generation = {
 	preset?: string;
 	imageType?: string;
 	productId?: string;
+	productIds?: string[];
+	batchId?: string;
+	outputIndex?: number;
 };
 type VariationStrength = 'exact' | 'light' | 'strong';
 type CreativeReference = {
@@ -376,8 +379,8 @@ export default function CreativeApp() {
 				const { data: favoriteRecords } = await supabase.from('creative_template_favorites').select('template_id');
 				if (favoriteRecords) setFavorites(new Set(favoriteRecords.map((item) => Number(item.template_id))));
 
-				const { data: records } = await supabase.from('creative_generations')
-					.select('id,title,output_path,format,created_at,template_id,user_brief,variant_key,image_type,product_id,settings_snapshot')
+					const { data: records } = await supabase.from('creative_generations')
+						.select('id,title,output_path,format,created_at,template_id,user_brief,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot')
 					.eq('status', 'completed').order('created_at', { ascending: false }).limit(24);
 				if (records?.length) {
 					const signed = await Promise.all(records.map(async (record) => {
@@ -393,8 +396,11 @@ export default function CreativeApp() {
 							templateId: record.template_id,
 							brief: record.user_brief || '',
 							preset: record.variant_key || record.settings_snapshot?.preset || 'fiel',
-							imageType: record.image_type || record.settings_snapshot?.imageType || 'product',
-							productId: record.product_id || record.settings_snapshot?.productId || '',
+								imageType: record.image_type || record.settings_snapshot?.imageType || 'product',
+								productId: record.product_id || record.settings_snapshot?.productId || '',
+								productIds: record.settings_snapshot?.productIds || (record.product_id ? [record.product_id] : []),
+								batchId: record.batch_id || record.id,
+								outputIndex: record.output_index || 1,
 						};
 					}));
 					setHistory(signed.filter((item) => item.imageUrl));
@@ -545,8 +551,8 @@ export default function CreativeApp() {
 		setToast(`${payload.productsFound || 0} productos analizados y guardados.`);
 	}
 
-	function addGeneration(generation: Generation, credits: number) {
-		const nextHistory = [generation, ...history].slice(0, 24);
+	function addGenerations(generations: Generation[], credits: number) {
+		const nextHistory = [...generations, ...history].slice(0, 24);
 		const nextProfile = { ...profile, credits };
 		setHistory(nextHistory);
 		setProfile(nextProfile);
@@ -564,7 +570,7 @@ export default function CreativeApp() {
 			{ id: 'home', label: 'Inicio', icon: 'home' },
 			{ id: 'library', label: 'Biblioteca', icon: 'grid' },
 			{ id: 'products', label: 'Mis productos', icon: 'bag' },
-			{ id: 'studio', label: 'Generador IA', icon: 'spark' },
+			{ id: 'studio', label: 'Crear imagen', icon: 'spark' },
 			{ id: 'history', label: 'Mis imágenes', icon: 'history' },
 		{ id: 'plans', label: 'Planes', icon: 'layers' },
 		{ id: 'brand', label: 'Mi marca', icon: 'brand' },
@@ -576,15 +582,15 @@ export default function CreativeApp() {
 			<div className={`studio-mobile-scrim ${mobileMenu ? 'is-open' : ''}`} onClick={() => setMobileMenu(false)} />
 			<aside className={`studio-sidebar ${mobileMenu ? 'is-open' : ''}`}>
 				<a className="studio-logo" href="/" aria-label="Volver a Creattia">
-					<span><img src="/images/creattia/moki-favicon-96.png" alt=""/></span>
-					<div><strong>Creattia</strong><small>IMÁGENES CON IA</small></div>
+					<span><img src="/images/creattia/moki-mascot.webp" alt=""/></span>
+					<div><strong>Creattia</strong></div>
 				</a>
 				<button className="studio-close-menu" onClick={() => setMobileMenu(false)} aria-label="Cerrar menú"><Icon name="close"/></button>
 				<nav className="studio-nav">
 					<p>ESPACIO DE TRABAJO</p>
 					{navItems.map((item) => (
 						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { setView(item.id); setMobileMenu(false); }}>
-							<Icon name={item.icon}/><span>{item.label}</span>{item.id === 'studio' && <b>IA</b>}
+							<Icon name={item.icon}/><span>{item.label}</span>
 						</button>
 					))}
 				</nav>
@@ -606,7 +612,7 @@ export default function CreativeApp() {
 			<main className="studio-main">
 				<header className="studio-topbar">
 					<button className="studio-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menú"><Icon name="menu"/></button>
-					<div className="studio-top-brand"><img src="/images/creattia/moki-favicon-96.png" alt=""/><strong>Creattia</strong></div>
+					<div className="studio-top-brand"><img src="/images/creattia/moki-mascot.webp" alt=""/><strong>Creattia</strong></div>
 					<div className="studio-mode-badge"><span />{isSupabaseConfigured ? 'Producción' : 'Demo local'}</div>
 					<button className="studio-credit-pill" onClick={() => setView('plans')}><Icon name="spark" size={16}/><b>{profile.credits}</b><span>{profile.credits === 1 ? 'crédito' : 'créditos'}</span></button>
 				</header>
@@ -615,10 +621,10 @@ export default function CreativeApp() {
 					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} history={history} catalog={catalog} favorites={favorites} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
 					{view === 'library' && <Library items={catalog} favorites={favorites} onChoose={chooseCreative} onToggleFavorite={toggleFavorite} />}
 					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onCreate={() => setView('library')} />}
-					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGeneration} onToast={setToast} />}
+					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} />}
 					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} />}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
-					{view === 'brand' && <BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} onSync={syncBrandSources} session={session} onPlans={() => setView('plans')} />}
+					{view === 'brand' && <BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />}
 				</div>
 			</main>
 		</div>
@@ -704,7 +710,7 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 
 	return (
 		<div className="studio-auth">
-			<a href="/" className="studio-auth-logo"><span><img src="/images/creattia/moki-favicon-96.png" alt=""/></span><strong>Creattia <small>Imágenes con IA</small></strong></a>
+			<a href="/" className="studio-auth-logo"><span><img src="/images/creattia/moki-mascot.webp" alt=""/></span><strong>Creattia</strong></a>
 			<section className="studio-auth-panel">
 				<div className="studio-auth-card">
 					<div className="studio-auth-heading">
@@ -743,7 +749,7 @@ function Onboarding({ profile, email, onSave }: { profile: AppProfile; email: st
 	}
 
 	return <div className="studio-onboarding">
-		<header><a href="/"><img src="/images/creattia/moki-favicon-96.png" alt=""/><strong>Creattia</strong></a><span>Paso 1 de 1</span></header>
+		<header><a href="/"><img src="/images/creattia/moki-mascot.webp" alt=""/><strong>Creattia</strong></a><span>Paso 1 de 1</span></header>
 		<main>
 			<div className="studio-onboarding-intro"><span><Icon name="spark"/></span><p>PREPARÁ TU MARCA</p><h1>Conectá tu negocio.<br/>La IA hace el resto.</h1><small>Usamos tu web e Instagram para detectar productos, colores y contexto.</small></div>
 			<div className="studio-onboarding-visual"><Moki className="studio-onboarding-moki"/><div><span><i/> ANALIZANDO TU NEGOCIO</span><strong>Tu catálogo se carga solo.</strong><small>Detectamos productos y la identidad de tu marca.</small><div className="onboarding-source-flow"><b>tumarca.com</b><i/><b>24 productos listos</b></div></div></div>
@@ -843,9 +849,12 @@ function Library({ items, favorites, onChoose, onToggleFavorite }: { items: Crea
 	</>;
 }
 
-function ProductCatalog({ products, profile, onRefresh, onSync, onCreate }: { products: Product[]; profile: AppProfile; session: AppSession; onRefresh: () => Promise<Product[]>; onSync: () => Promise<void>; onCreate: () => void }) {
+function ProductCatalog({ products, profile, session, onRefresh, onSync, onCreate }: { products: Product[]; profile: AppProfile; session: AppSession; onRefresh: () => Promise<Product[]>; onSync: () => Promise<void>; onCreate: () => void }) {
 	const [query, setQuery] = useState('');
 	const [syncing, setSyncing] = useState(false);
+	const [importing, setImporting] = useState(false);
+	const [productUrls, setProductUrls] = useState('');
+	const [importNotice, setImportNotice] = useState('');
 	const [error, setError] = useState('');
 	const filtered = useMemo(() => products.filter((product) => `${product.name} ${product.description} ${product.priceText}`.toLowerCase().includes(query.toLowerCase().trim())), [products, query]);
 	async function sync() {
@@ -854,21 +863,54 @@ function ProductCatalog({ products, profile, onRefresh, onSync, onCreate }: { pr
 		catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo sincronizar.'); }
 		finally { setSyncing(false); }
 	}
+	async function importUrls() {
+		const urls = [...new Set(productUrls.split(/[\n,]/).map((value) => value.trim()).filter(Boolean))];
+		if (!urls.length) { setError('Pegá al menos una URL de producto.'); return; }
+		if (urls.length > 10) { setError('Podés importar hasta 10 URLs por vez.'); return; }
+		setImporting(true); setError(''); setImportNotice('');
+		try {
+			if (!isSupabaseConfigured) {
+				const current = loadLocal<Product[]>(PRODUCTS_KEY, demoProducts);
+				const imported = urls.map((url, index): Product => {
+					let label = `Producto ${current.length + index + 1}`;
+					try { label = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).pathname.split('/').filter(Boolean).pop()?.replace(/[-_]+/g, ' ') || label; } catch { /* demo label */ }
+					return { id: crypto.randomUUID(), name: label, description: 'Producto importado desde una URL individual.', priceText: '', currency: '', productUrl: url, imageUrl: demoProductArt(String(current.length + index + 1).padStart(2, '0'), '#6d35e8'), source: 'website' };
+				});
+				saveLocal(PRODUCTS_KEY, [...imported, ...current]);
+				setImportNotice(`${imported.length} ${imported.length === 1 ? 'producto importado' : 'productos importados'} en la demo.`);
+			} else {
+				const response = await fetch('/api/creativos/products', {
+					method: 'POST',
+					headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
+					body: JSON.stringify({ urls }),
+				});
+				const payload = await response.json();
+				if (!response.ok && !payload.importedIds?.length) throw new Error(payload.error || payload.errors?.[0]?.error || 'No se pudieron importar los productos.');
+				const importedCount = payload.importedIds?.length || 0;
+				setImportNotice(`${importedCount} ${importedCount === 1 ? 'producto quedó listo' : 'productos quedaron listos'}${payload.errors?.length ? ` · ${payload.errors.length} URL no se pudo leer` : ''}.`);
+			}
+			setProductUrls('');
+			await onRefresh();
+		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudieron importar los productos.'); }
+		finally { setImporting(false); }
+	}
 	const statusLabel = profile.catalogStatus === 'ready' ? 'Catálogo sincronizado' : profile.catalogStatus === 'partial' ? 'Sincronización parcial' : profile.catalogStatus === 'failed' ? 'Revisar fuentes' : 'Catálogo pendiente';
 	return <>
 		<div className="studio-page-heading"><div><p>MIS PRODUCTOS</p><h1>Tus productos, listos para usar.</h1><span>La IA toma fotos y datos de tu negocio para crear cada imagen.</span></div><button className="studio-primary-button compact" onClick={onCreate}><Icon name="plus" size={17}/>Crear imagen</button></div>
 		<section className={`product-sync-card status-${profile.catalogStatus}`}><Moki className="product-sync-moki"/><div><span><Icon name={profile.catalogStatus === 'ready' ? 'check' : 'spark'} size={18}/></span><p><small>{statusLabel}</small><strong>{products.length} productos disponibles</strong><em>{profile.website || profile.instagram || 'Conectá tu web o Instagram en Mi marca'}</em></p></div><button onClick={sync} disabled={syncing || (!profile.website && !profile.instagram)}>{syncing ? <><span className="studio-spinner small"/> Analizando…</> : 'Actualizar catálogo'}</button></section>
+		<section className="product-url-importer"><div><span><Icon name="external" size={19}/></span><p><small>PRODUCTOS ESPECÍFICOS</small><strong>Pegá una o varias URLs.</strong><em>Una por línea. Analizamos y guardamos cada producto en tu cuenta.</em></p></div><textarea value={productUrls} onChange={(event) => setProductUrls(event.target.value)} placeholder={'https://tutienda.com/producto-uno\nhttps://tutienda.com/producto-dos'} aria-label="URLs de productos"/><button onClick={importUrls} disabled={importing || !productUrls.trim()}>{importing ? <><span className="studio-spinner small"/> Importando…</> : <><Icon name="plus" size={16}/>Importar productos</>}</button></section>
+		{importNotice && <p className="studio-form-notice product-import-notice"><Icon name="check" size={14}/>{importNotice}</p>}
 		{error && <p className="studio-form-error catalog-error">{error}</p>}
 		<div className="studio-library-tools product-tools"><label><Icon name="search" size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, descripción o precio…"/></label><span>{filtered.length} productos</span></div>
 		{filtered.length ? <div className="product-catalog-grid">{filtered.map((product) => <article key={product.id}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag" size={30}/></span>}<small>{product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</small></div><footer><h3>{product.name}</h3><p>{conciseText(product.description || 'Listo para usar en una imagen.')}</p><span>{product.priceText ? `${product.priceText} ${product.currency}` : 'Sin precio público'}</span></footer></article>)}</div> : <div className="studio-empty large"><span><Icon name="bag"/></span><h3>Todavía no hay productos</h3><p>Conectá tu web o subí una foto al crear una imagen.</p><button onClick={sync}>Analizar mi negocio</button></div>}
 	</>;
 }
 
-function Studio({ creative, reuseSeed, profile, session, products, onProductsChanged, onChooseLibrary, onGenerated, onToast }: { creative: Creativo; reuseSeed: Generation | null; profile: AppProfile; session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onChooseLibrary: () => void; onGenerated: (generation: Generation, credits: number) => void; onToast: (message: string) => void }) {
+function Studio({ creative, reuseSeed, profile, session, products, onProductsChanged, onChooseLibrary, onGenerated, onToast }: { creative: Creativo; reuseSeed: Generation | null; profile: AppProfile; session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onChooseLibrary: () => void; onGenerated: (generations: Generation[], credits: number) => void; onToast: (message: string) => void }) {
 	const [wizardOpen, setWizardOpen] = useState(true);
 	const [step, setStep] = useState(1);
 	const [imageType, setImageType] = useState('product');
-	const [selectedProductId, setSelectedProductId] = useState('');
+	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [productQuery, setProductQuery] = useState('');
 	const [uploadFile, setUploadFile] = useState<File | null>(null);
 	const [uploadPreview, setUploadPreview] = useState('');
@@ -878,15 +920,20 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 	const [references, setReferences] = useState<CreativeReference[]>([]);
 	const [referenceId, setReferenceId] = useState('');
 	const [format, setFormat] = useState('square');
+	const [count, setCount] = useState(1);
 	const [brief, setBrief] = useState('');
 	const [revisionBrief, setRevisionBrief] = useState('');
 	const [variationStrength, setVariationStrength] = useState<VariationStrength>('exact');
 	const [generating, setGenerating] = useState(false);
+	const [results, setResults] = useState<Generation[]>([]);
 	const [result, setResult] = useState<Generation | null>(null);
 	const [error, setError] = useState('');
 	const uploadInput = useRef<HTMLInputElement>(null);
 
-	const selectedProduct = products.find((product) => product.id === selectedProductId) || null;
+	const selectedProducts = selectedProductIds.flatMap((id) => {
+		const product = products.find((item) => item.id === id);
+		return product ? [product] : [];
+	});
 	const filteredProducts = useMemo(() => products.filter((product) => `${product.name} ${product.description}`.toLowerCase().includes(productQuery.toLowerCase().trim())).slice(0, 30), [products, productQuery]);
 	const typeOptions = [
 		{ id: 'product', title: 'Producto protagonista', copy: 'Tu producto ocupa el centro de la imagen.', badge: 'Más usado', icon: 'bag' },
@@ -902,8 +949,9 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 	];
 
 	useEffect(() => {
-		setWizardOpen(true); setStep(reuseSeed ? 5 : 1); setResult(null); setError(''); setRevisionBrief(''); setVariationStrength('exact');
-		setSelectedProductId(reuseSeed?.productId && products.some((item) => item.id === reuseSeed.productId) ? reuseSeed.productId : '');
+		setWizardOpen(true); setStep(reuseSeed ? 5 : 1); setResults([]); setResult(null); setError(''); setRevisionBrief(''); setVariationStrength('exact'); setCount(1);
+		const reusableIds = reuseSeed?.productIds?.length ? reuseSeed.productIds : reuseSeed?.productId ? [reuseSeed.productId] : [];
+		setSelectedProductIds(reusableIds.filter((id) => products.some((item) => item.id === id)).slice(0, 5));
 		setBrief(reuseSeed?.brief || ''); setImageType(reuseSeed?.imageType || 'product'); setPreset(reuseSeed?.preset || 'fiel'); setFormat(reuseSeed?.format || 'square');
 	}, [creative.id, reuseSeed?.id]);
 	useEffect(() => {
@@ -921,7 +969,7 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 		if (!isSupabaseConfigured || !supabase) return;
 		const client = supabase;
 		void (async () => {
-			const { data } = await client.from('creative_references').select('id,name,image_path,prompt_notes').eq('template_id', creative.id).eq('is_active', true).order('sort_order').limit(5);
+			const { data } = await client.from('creative_references').select('id,name,image_path,prompt_notes').eq('template_id', creative.id).eq('is_active', true).in('rights_status', ['owned', 'licensed', 'public_domain']).order('sort_order').limit(5);
 			if (!data?.length || cancelled) return;
 			const loaded = (await Promise.all(data.map(async (item) => {
 				const { data: signed } = await client.storage.from('creative-references').createSignedUrl(item.image_path, 3600);
@@ -938,12 +986,12 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 		try {
 			if (!isSupabaseConfigured) {
 				const newProduct: Product = { id: crypto.randomUUID(), name: uploadName.trim(), description: 'Producto cargado manualmente.', priceText: '', currency: '', productUrl: '', imageUrl: await fileAsDataUrl(uploadFile), source: 'manual' };
-				saveLocal(PRODUCTS_KEY, [newProduct, ...products]); setSelectedProductId(newProduct.id); await onProductsChanged();
+				saveLocal(PRODUCTS_KEY, [newProduct, ...products]); setSelectedProductIds((current) => [...current, newProduct.id].slice(-5)); await onProductsChanged();
 			} else {
 				const form = new FormData(); form.set('name', uploadName.trim()); form.set('image', uploadFile);
 				const response = await fetch('/api/creativos/products', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
 				const payload = await response.json(); if (!response.ok) throw new Error(payload.error || 'No se pudo guardar el producto.');
-				setSelectedProductId(payload.product.id); await onProductsChanged();
+				setSelectedProductIds((current) => [...current, payload.product.id].slice(-5)); await onProductsChanged();
 			}
 			setUploadFile(null); setUploadName(''); onToast('Producto guardado en tu catálogo privado.');
 		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar el producto.'); }
@@ -952,36 +1000,66 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 
 	function nextStep() {
 		setError('');
-		if (step === 2 && imageType !== 'promotion' && !selectedProductId) { setError('Elegí un producto o cargá una foto para continuar.'); return; }
+		if (step === 2 && imageType !== 'promotion' && !selectedProductIds.length) { setError('Elegí al menos un producto o cargá una foto para continuar.'); return; }
 		setStep((current) => Math.min(5, current + 1));
+	}
+
+	function toggleProduct(productId: string) {
+		setError('');
+		setSelectedProductIds((current) => {
+			if (current.includes(productId)) return current.filter((id) => id !== productId);
+			if (current.length >= 5) { setError('Podés combinar hasta 5 productos en una imagen.'); return current; }
+			return [...current, productId];
+		});
 	}
 
 	async function generate(sourceGeneration: Generation | null = null) {
 		setError('');
-		if (profile.credits <= 0) { setError('No te quedan créditos. Activá el plan para seguir generando.'); return; }
-		if (imageType !== 'promotion' && !selectedProduct) { setError('Elegí un producto para generar esta imagen.'); return; }
+		const effectiveCount = sourceGeneration ? 1 : count;
+		if (profile.credits < effectiveCount) { setError(`Necesitás ${effectiveCount} ${effectiveCount === 1 ? 'crédito' : 'créditos'} para generar este lote.`); return; }
+		if (imageType !== 'promotion' && !selectedProducts.length) { setError('Elegí al menos un producto para generar esta imagen.'); return; }
 		const effectiveBrief = sourceGeneration ? revisionBrief.trim() : brief.trim();
-		setGenerating(true); setResult(null);
+		setGenerating(true); if (!sourceGeneration) { setResults([]); setResult(null); }
 		try {
-			let generation: Generation; let credits = profile.credits - 1;
+			let generations: Generation[]; let credits = profile.credits - effectiveCount;
 			if (!isSupabaseConfigured) {
 				await new Promise((resolve) => window.setTimeout(resolve, 1350));
 				let demoFile: File | null = null;
-				if (selectedProduct?.imageUrl.startsWith('data:')) { const blob = await (await fetch(selectedProduct.imageUrl)).blob(); demoFile = new File([blob], `${selectedProduct.name}.svg`, { type: blob.type }); }
-				const imageUrl = await createDemoCreative({ creative, profile, preset, format, brief: effectiveBrief, product: demoFile });
-				generation = { id: crypto.randomUUID(), title: creative.nombre, imageUrl, format, createdAt: new Date().toISOString(), category: ringMeta[creative.ring]?.label || 'Creativo', templateId: creative.id, brief: effectiveBrief, preset, imageType, productId: selectedProductId };
+				const firstProduct = selectedProducts[0];
+				if (firstProduct?.imageUrl.startsWith('data:')) { const blob = await (await fetch(firstProduct.imageUrl)).blob(); demoFile = new File([blob], `${firstProduct.name}.svg`, { type: blob.type }); }
+				const batchId = crypto.randomUUID();
+				generations = await Promise.all(Array.from({ length: effectiveCount }, async (_, index) => ({
+					id: crypto.randomUUID(),
+					title: creative.nombre,
+					imageUrl: await createDemoCreative({ creative, profile, preset, format, brief: `${effectiveBrief}${effectiveCount > 1 ? ` · Variante ${index + 1}` : ''}`, product: demoFile }),
+					format,
+					createdAt: new Date().toISOString(),
+					category: ringMeta[creative.ring]?.label || 'Creativo',
+					templateId: creative.id,
+					brief: effectiveBrief,
+					preset,
+					imageType,
+					productId: selectedProductIds[0],
+					productIds: selectedProductIds,
+					batchId,
+					outputIndex: index + 1,
+				})));
 			} else {
 				const form = new FormData();
 				form.set('templateId', String(creative.id)); form.set('templateName', creative.nombre); form.set('purpose', creative.sirve); form.set('usageHint', creative.cuando);
 				form.set('preset', referencePresets.find((item) => item.id === preset)?.name || preset); form.set('imageType', imageType); form.set('format', format); form.set('brief', effectiveBrief);
-				if (referenceId) form.set('referenceId', referenceId); if (selectedProductId) form.set('productId', selectedProductId);
+				if (referenceId) form.set('referenceId', referenceId); selectedProductIds.forEach((id) => form.append('productIds', id)); form.set('count', String(effectiveCount));
 				if (sourceGeneration) { form.set('sourceGenerationId', sourceGeneration.id); form.set('variationStrength', variationStrength); }
 				const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
 				const payload = await response.json(); if (!response.ok) throw new Error(payload.error || 'No se pudo generar.');
-				credits = payload.creditsRemaining; generation = { id: payload.id, title: creative.nombre, imageUrl: payload.imageUrl, format, createdAt: new Date().toISOString(), category: ringMeta[creative.ring]?.label || 'Creativo', templateId: creative.id, brief: effectiveBrief, preset, imageType, productId: selectedProductId };
+				credits = payload.creditsRemaining;
+				generations = (payload.generations || [{ id: payload.id, imageUrl: payload.imageUrl, outputIndex: 1 }]).map((item: any) => ({
+					id: item.id, title: creative.nombre, imageUrl: item.imageUrl, format, createdAt: new Date().toISOString(), category: ringMeta[creative.ring]?.label || 'Creativo', templateId: creative.id, brief: effectiveBrief, preset, imageType, productId: selectedProductIds[0], productIds: selectedProductIds, batchId: item.batchId, outputIndex: item.outputIndex,
+				}));
 			}
-			setResult(generation); setStep(6); setRevisionBrief(''); onGenerated(generation, credits);
-			onToast(isSupabaseConfigured ? 'Tu imagen está lista y guardada.' : 'Vista demo creada.');
+			const nextResults = sourceGeneration ? [generations[0]] : generations;
+			setResults(nextResults); setResult(nextResults[0]); setStep(6); setRevisionBrief(''); onGenerated(generations, credits);
+			onToast(isSupabaseConfigured ? `${generations.length === 1 ? 'Tu imagen está lista' : `Tus ${generations.length} imágenes están listas`} y guardada${generations.length === 1 ? '' : 's'}.` : 'Vista demo creada.');
 		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo generar la imagen.'); }
 		finally { setGenerating(false); }
 	}
@@ -989,7 +1067,7 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 	const meta = ringMeta[creative.ring] || ringMeta.demo;
 	const currentVariant = references.length ? references.find((item) => item.id === referenceId)?.name : referencePresets.find((item) => item.id === preset)?.name;
 	return <>
-		<div className="studio-page-heading studio-editor-heading"><div><button onClick={onChooseLibrary}>Biblioteca</button><span>/</span><p>Generador IA</p><h1>{creative.nombre}</h1></div><div className="studio-angle-meta"><span style={{ background: meta?.accent }}>{meta?.short}</span><b>#{creativeNumber(creative.id)}</b><b>{creative.n}</b></div></div>
+		<div className="studio-page-heading studio-editor-heading"><div><button onClick={onChooseLibrary}>Biblioteca</button><span>/</span><p>Crear imagen</p><h1>{creative.nombre}</h1></div><div className="studio-angle-meta"><span style={{ background: meta?.accent }}>{meta?.short}</span><b>#{creativeNumber(creative.id)}</b><b>{creative.n}</b></div></div>
 		<section className="wizard-launch-card"><div className="wizard-launch-copy"><span><Icon name="spark"/> PASO A PASO</span><h2>Hacé tu imagen<br/><em>en 5 pasos.</em></h2><p>Elegí tipo, producto, referencia y formato. Al final podés sumar una indicación opcional.</p><button onClick={() => { setWizardOpen(true); if (result) setStep(6); }}>{result ? 'Ver resultado' : 'Empezar'} <Icon name="arrow" size={17}/></button></div><div className="wizard-launch-stack"><article><small>01 · IDEA</small><strong>{creative.nombre}</strong><span>{meta?.label}</span></article><article><small>02 · PRODUCTOS</small><strong>{products.length} listos para usar</strong><span>{profile.catalogStatus === 'ready' ? 'Catálogo actualizado' : 'También podés subir una foto'}</span></article><article><small>03 · FORMATOS</small><strong>4 tamaños</strong><span>Feed, Stories y horizontal</span></article></div></section>
 		<div className="studio-flow-strip wizard-flow"><div><span>1</span><p><strong>Elegí el estilo</strong><small>Cómo querés mostrarlo</small></p></div><i/><div><span>2</span><p><strong>Sumá el producto</strong><small>De tu catálogo o una foto</small></p></div><i/><div><span>3</span><p><strong>Generá la imagen</strong><small>Lista para publicar</small></p></div></div>
 
@@ -998,141 +1076,15 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 			{step <= 5 && <div className="wizard-progress">{['Tipo', 'Producto', 'Estilo', 'Formato', 'Indicación'].map((label, index) => <button key={label} className={step === index + 1 ? 'active' : step > index + 1 ? 'done' : ''} onClick={() => index + 1 < step && setStep(index + 1)}><span>{step > index + 1 ? <Icon name="check" size={11}/> : index + 1}</span><b>{label}</b></button>)}</div>}
 			<div className="wizard-body"><main>
 				{step === 1 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 1 DE 5</span><h2>¿Qué tipo de imagen querés?</h2><p>Elegí cómo mostrar tu producto o promoción.</p></div><div className="wizard-type-grid">{typeOptions.map((item) => <button key={item.id} className={imageType === item.id ? 'active' : ''} onClick={() => setImageType(item.id)}><span><Icon name={item.icon}/></span><em>{item.badge}</em><h3>{item.title}</h3><p>{item.copy}</p>{imageType === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div></section>}
-				{step === 2 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 2 DE 5</span><h2>{imageType === 'promotion' ? '¿Querés sumar un producto?' : 'Elegí el producto'}</h2><p>Buscalo en tu catálogo o subí una foto nueva.</p></div><label className="wizard-product-search"><Icon name="search" size={18}/><input aria-label="Buscar producto" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar producto…"/><span>{filteredProducts.length}</span></label>{imageType === 'promotion' && <button className={`wizard-no-product ${!selectedProductId ? 'active' : ''}`} onClick={() => setSelectedProductId('')}><span><Icon name="spark"/></span><p><strong>Promoción sin producto</strong><small>Creá una oferta general de tu marca</small></p>{!selectedProductId && <b><Icon name="check" size={13}/></b>}</button>}<div className="wizard-product-grid">{filteredProducts.map((product) => <button key={product.id} className={selectedProductId === product.id ? 'active' : ''} onClick={() => setSelectedProductId(product.id)}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag"/></span>}{selectedProductId === product.id && <b><Icon name="check" size={13}/></b>}</div><strong>{product.name}</strong><small>{product.priceText ? `${product.priceText} ${product.currency}` : product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</small></button>)}</div><div className="wizard-upload-product"><input ref={uploadInput} hidden type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setUploadFile(event.target.files?.[0] || null)}/>{uploadFile ? <><img src={uploadPreview} alt="Producto nuevo"/><label>Nombre del producto<input value={uploadName} onChange={(event) => setUploadName(event.target.value)} placeholder="Ej. Zapatilla Urban White"/></label><button onClick={saveUploadedProduct} disabled={uploading}>{uploading ? 'Guardando…' : 'Guardar producto'}</button></> : <button onClick={() => uploadInput.current?.click()}><span><Icon name="upload"/></span><p><strong>¿No aparece?</strong><small>Subí una foto y guardala para la próxima.</small></p><b>Subir producto</b></button>}</div></section>}
+				{step === 2 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 2 DE 5 · HASTA 5</span><h2>{imageType === 'promotion' ? '¿Querés sumar productos?' : 'Elegí uno o varios productos'}</h2><p>Podés crear una pieza individual o una composición con varios productos.</p></div><label className="wizard-product-search"><Icon name="search" size={18}/><input aria-label="Buscar producto" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar producto…"/><span>{selectedProductIds.length}/5</span></label>{imageType === 'promotion' && <button className={`wizard-no-product ${!selectedProductIds.length ? 'active' : ''}`} onClick={() => setSelectedProductIds([])}><span><Icon name="spark"/></span><p><strong>Promoción sin producto</strong><small>Creá una oferta general de tu marca</small></p>{!selectedProductIds.length && <b><Icon name="check" size={13}/></b>}</button>}<div className="wizard-product-grid">{filteredProducts.map((product) => { const selectedIndex = selectedProductIds.indexOf(product.id); return <button key={product.id} className={selectedIndex >= 0 ? 'active' : ''} onClick={() => toggleProduct(product.id)}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag"/></span>}{selectedIndex >= 0 && <b>{selectedIndex + 1}</b>}</div><strong>{product.name}</strong><small>{product.priceText ? `${product.priceText} ${product.currency}` : product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</small></button>; })}</div><div className="wizard-upload-product"><input ref={uploadInput} hidden type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setUploadFile(event.target.files?.[0] || null)}/>{uploadFile ? <><img src={uploadPreview} alt="Producto nuevo"/><label>Nombre del producto<input value={uploadName} onChange={(event) => setUploadName(event.target.value)} placeholder="Ej. Zapatilla Urban White"/></label><button onClick={saveUploadedProduct} disabled={uploading}>{uploading ? 'Guardando…' : 'Guardar producto'}</button></> : <button onClick={() => uploadInput.current?.click()}><span><Icon name="upload"/></span><p><strong>¿No aparece?</strong><small>Subí una foto y guardala para la próxima.</small></p><b>Subir producto</b></button>}</div></section>}
 				{step === 3 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 3 DE 5</span><h2>¿Cómo querés que se vea?</h2><p>{references.length ? 'Elegí una referencia para conservar su composición.' : 'Elegí una versión visual para esta idea.'}</p></div>{references.length ? <div className="wizard-reference-grid">{references.map((item, index) => <button key={item.id} className={referenceId === item.id ? 'active' : ''} onClick={() => setReferenceId(item.id)}><div><img src={item.imageUrl} alt={item.name}/><span>OPCIÓN {String(index + 1).padStart(2, '0')}</span></div><strong>{item.name}</strong><small>{item.description}</small>{referenceId === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div> : <div className="wizard-variant-grid">{referencePresets.map((item, index) => <button key={item.id} className={preset === item.id ? 'active' : ''} onClick={() => setPreset(item.id)}><div className={`preset-preview preset-${index + 1}`}><i/><b/><span/><small/></div><em>{item.label}</em><strong>{item.name}</strong><p>{item.description}</p>{preset === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div>}</section>}
-				{step === 4 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 4 DE 5</span><h2>¿Dónde vas a publicarlo?</h2><p>Elegí el formato final. La composición se adapta automáticamente.</p></div><div className="wizard-format-grid">{formatOptions.map((item) => <button key={item.id} className={format === item.id ? 'active' : ''} onClick={() => setFormat(item.id)}><span className={`format-shape shape-${item.id}`}><i/></span><p><strong>{item.title}</strong><small>{item.copy}</small></p><em>{item.ratio}</em>{format === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div></section>}
+				{step === 4 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 4 DE 5</span><h2>Formato y cantidad</h2><p>Elegí dónde vas a publicar y cuántas variantes querés comparar.</p></div><div className="wizard-format-grid">{formatOptions.map((item) => <button key={item.id} className={format === item.id ? 'active' : ''} onClick={() => setFormat(item.id)}><span className={`format-shape shape-${item.id}`}><i/></span><p><strong>{item.title}</strong><small>{item.copy}</small></p><em>{item.ratio}</em>{format === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div><div className="wizard-output-count"><div><strong>Variantes a generar</strong><small>Cada imagen usa 1 crédito y se guarda por separado.</small></div><div>{[1, 2, 3, 4].map((value) => <button key={value} className={count === value ? 'active' : ''} onClick={() => setCount(value)} disabled={value > profile.credits}>{value}</button>)}</div><p><span>{count} {count === 1 ? 'imagen' : 'imágenes'}</span><b>{count} {count === 1 ? 'crédito' : 'créditos'}</b></p></div></section>}
 				{step === 5 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 5 DE 5 · OPCIONAL</span><h2>¿Querés pedir algo puntual?</h2><p>Podés dejarlo vacío. La IA ya conoce tu marca y el producto elegido.</p></div><label className="wizard-brief"><textarea value={brief} maxLength={500} onChange={(event) => setBrief(event.target.value)} placeholder="Ej: destacar el envío gratis, usar un tono premium o dejar más aire."/><span>{brief.length}/500</span></label><div className="wizard-final-check"><span><Icon name="check" size={14}/></span><p><strong>Tu información ya está cargada</strong><small>Usamos tu web, Instagram y catálogo. Nunca inventamos precios ni beneficios.</small></p></div></section>}
-				{step === 6 && <section className="wizard-result"><div className={`wizard-result-image result-${format}`}>{generating ? <div><span className="studio-spinner"/><h3>Creando tu imagen…</h3></div> : result && <img src={result.imageUrl} alt={`Imagen ${result.title}`}/>}</div>{result && <div className="wizard-result-copy"><span><Icon name="check" size={14}/> IMAGEN GENERADA</span><h2>Lista para publicar.</h2><p>La guardamos en “Mis imágenes”. Descargala o pedí un cambio.</p><div className="wizard-result-actions"><a href={result.imageUrl} download={`creattia-${creative.id}.jpg`}><Icon name="download" size={18}/>Descargar imagen</a><button onClick={() => { setResult(null); setRevisionBrief(''); setStep(1); }}><Icon name="plus" size={17}/>Crear otra</button></div><div className="wizard-revision"><header><span><Icon name="spark" size={16}/></span><p><strong>¿Querés hacer un cambio?</strong><small>Usaremos esta imagen como referencia.</small></p></header><label>Describí el cambio (opcional)<textarea value={revisionBrief} maxLength={500} onChange={(event) => setRevisionBrief(event.target.value)} placeholder="Ej: fondo más claro y beneficio más visible."/></label>{products.length > 0 && <label>Producto de esta versión<select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)}>{imageType === 'promotion' && <option value="">Promoción sin producto</option>}{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>}<div className="wizard-revision-strength">{([{ id: 'exact', title: 'Conservar todo', copy: 'Cambia solo lo que pedís.' }, { id: 'light', title: 'Variar detalles', copy: 'Mantiene el diseño base.' }, { id: 'strong', title: 'Reinterpretar', copy: 'Mismo enfoque, nueva composición.' }] as { id: VariationStrength; title: string; copy: string }[]).map((option) => <button key={option.id} className={variationStrength === option.id ? 'active' : ''} onClick={() => setVariationStrength(option.id)}><span>{variationStrength === option.id && <Icon name="check" size={11}/>}</span><p><strong>{option.title}</strong><small>{option.copy}</small></p></button>)}</div><button className="wizard-revision-generate" onClick={() => void generate(result)} disabled={generating}><Icon name="spark" size={17}/>Generar nueva versión <span>1 crédito</span></button></div></div>}</section>}
+				{step === 6 && <section className="wizard-result"><div className="wizard-result-visual"><div className={`wizard-result-image result-${format}`}>{generating ? <div><span className="studio-spinner"/><h3>Creando tu imagen…</h3></div> : result && <img src={result.imageUrl} alt={`Imagen ${result.title}`}/>}</div>{results.length > 1 && <div className="wizard-result-gallery">{results.map((item, index) => <button key={item.id} className={result?.id === item.id ? 'active' : ''} onClick={() => setResult(item)}><img src={item.imageUrl} alt={`Variante ${index + 1}`}/><span>{index + 1}</span></button>)}</div>}</div>{result && <div className="wizard-result-copy"><span><Icon name="check" size={14}/> {results.length > 1 ? `${results.length} VARIANTES GENERADAS` : 'IMAGEN GENERADA'}</span><h2>Lista para publicar.</h2><p>La guardamos en “Mis imágenes”. Elegí una variante, descargala o pedí un cambio.</p><div className="wizard-result-actions"><a href={result.imageUrl} download={`creattia-${creative.id}-${result.outputIndex || 1}.png`}><Icon name="download" size={18}/>Descargar elegida</a><button onClick={() => { setResults([]); setResult(null); setRevisionBrief(''); setStep(1); }}><Icon name="plus" size={17}/>Crear otra</button></div><div className="wizard-revision"><header><span><Icon name="spark" size={16}/></span><p><strong>¿Querés hacer un cambio?</strong><small>Usaremos la variante elegida como referencia.</small></p></header><label>Describí el cambio (opcional)<textarea value={revisionBrief} maxLength={500} onChange={(event) => setRevisionBrief(event.target.value)} placeholder="Ej: cambiar el fondo, reemplazar un producto o destacar más el beneficio."/></label><div className="wizard-selected-products-note"><Icon name="bag" size={15}/><span><strong>{selectedProducts.length || 0} {selectedProducts.length === 1 ? 'producto seleccionado' : 'productos seleccionados'}</strong><small>Para cambiarlos, empezá otra creación y volvé al paso 2.</small></span></div><div className="wizard-revision-strength">{([{ id: 'exact', title: 'Conservar todo', copy: 'Cambia solo lo que pedís.' }, { id: 'light', title: 'Variar detalles', copy: 'Mantiene el diseño base.' }, { id: 'strong', title: 'Reinterpretar', copy: 'Mismo enfoque, nueva composición.' }] as { id: VariationStrength; title: string; copy: string }[]).map((option) => <button key={option.id} className={variationStrength === option.id ? 'active' : ''} onClick={() => setVariationStrength(option.id)}><span>{variationStrength === option.id && <Icon name="check" size={11}/>}</span><p><strong>{option.title}</strong><small>{option.copy}</small></p></button>)}</div><button className="wizard-revision-generate" onClick={() => void generate(result)} disabled={generating}><Icon name="spark" size={17}/>Generar nueva versión <span>1 crédito</span></button></div></div>}</section>}
 				{error && <p className="wizard-error">{error}</p>}
-			</main>{step <= 5 && <aside className="wizard-summary"><small>RESUMEN</small><div><span style={{ background: meta?.accent }}>{creativeNumber(creative.id)}</span><p><strong>{creative.nombre}</strong><small>{meta?.label} · {creative.n}</small></p></div><ul><li><span>Tipo</span><b>{typeOptions.find((item) => item.id === imageType)?.title}</b></li><li><span>Producto</span><b>{selectedProduct?.name || (imageType === 'promotion' ? 'Promoción sin producto' : 'Sin elegir')}</b></li><li><span>Estilo</span><b>{currentVariant || 'Fiel a la referencia'}</b></li><li><span>Formato</span><b>{formatOptions.find((item) => item.id === format)?.ratio}</b></li></ul><footer><span><Icon name="brand" size={15}/></span><p><strong>{profile.brandName}</strong><small>Marca y catálogo listos</small></p></footer></aside>}</div>
-			{step <= 5 && <footer className="wizard-footer"><button onClick={() => step === 1 ? setWizardOpen(false) : setStep(step - 1)}>{step === 1 ? 'Cancelar' : 'Atrás'}</button>{step < 5 ? <button className="primary" onClick={nextStep}>Continuar <Icon name="arrow" size={17}/></button> : <button className="primary generate" onClick={() => void generate()} disabled={generating}>{generating ? <><span className="studio-spinner small"/> Generando…</> : <><Icon name="spark" size={17}/>Generar imagen <span>1 crédito</span></>}</button>}</footer>}
+			</main>{step <= 5 && <aside className="wizard-summary"><small>RESUMEN</small><div><span style={{ background: meta?.accent }}>{creativeNumber(creative.id)}</span><p><strong>{creative.nombre}</strong><small>{meta?.label} · {creative.n}</small></p></div><ul><li><span>Tipo</span><b>{typeOptions.find((item) => item.id === imageType)?.title}</b></li><li><span>Productos</span><b>{selectedProducts.length ? `${selectedProducts.length} elegidos` : imageType === 'promotion' ? 'Sin producto' : 'Sin elegir'}</b></li><li><span>Estilo</span><b>{currentVariant || 'Fiel a la referencia'}</b></li><li><span>Formato</span><b>{formatOptions.find((item) => item.id === format)?.ratio}</b></li><li><span>Resultado</span><b>{count} {count === 1 ? 'imagen' : 'variantes'}</b></li></ul><footer><span><Icon name="brand" size={15}/></span><p><strong>{profile.brandName}</strong><small>Marca y catálogo listos</small></p></footer></aside>}</div>
+			{step <= 5 && <footer className="wizard-footer"><button onClick={() => step === 1 ? setWizardOpen(false) : setStep(step - 1)}>{step === 1 ? 'Cancelar' : 'Atrás'}</button>{step < 5 ? <button className="primary" onClick={nextStep}>Continuar <Icon name="arrow" size={17}/></button> : <button className="primary generate" onClick={() => void generate()} disabled={generating || profile.credits < count}>{generating ? <><span className="studio-spinner small"/> Generando…</> : <><Icon name="spark" size={17}/>Generar {count === 1 ? 'imagen' : `${count} imágenes`} <span>{count} {count === 1 ? 'crédito' : 'créditos'}</span></>}</button>}</footer>}
 		</div></div>}
-	</>;
-}
-
-function LegacyStudio({ creative, profile, session, onChooseLibrary, onGenerated, onToast }: { creative: Creativo; profile: AppProfile; session: AppSession; onChooseLibrary: () => void; onGenerated: (generation: Generation, credits: number) => void; onToast: (message: string) => void }) {
-	const [preset, setPreset] = useState('fiel');
-	const [references, setReferences] = useState<CreativeReference[]>([]);
-	const [referenceId, setReferenceId] = useState('');
-	const [format, setFormat] = useState('square');
-	const [brief, setBrief] = useState('');
-	const [product, setProduct] = useState<File | null>(null);
-	const [logo, setLogo] = useState<File | null>(null);
-	const [productPreview, setProductPreview] = useState('');
-	const [generating, setGenerating] = useState(false);
-	const [result, setResult] = useState<Generation | null>(null);
-	const [error, setError] = useState('');
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	useEffect(() => { setResult(null); setError(''); }, [creative.id]);
-	useEffect(() => {
-		let cancelled = false;
-		setReferences([]);
-		setReferenceId('');
-		if (!isSupabaseConfigured || !supabase) return;
-		const client = supabase;
-
-		void (async () => {
-			const { data } = await client
-				.from('creative_references')
-				.select('id,name,image_path,prompt_notes')
-				.eq('template_id', creative.id)
-				.eq('is_active', true)
-				.order('sort_order')
-				.limit(5);
-			if (!data?.length || cancelled) return;
-
-			const loaded = (await Promise.all(data.map(async (item) => {
-				const { data: signed } = await client.storage.from('creative-references').createSignedUrl(item.image_path, 3600);
-				return signed?.signedUrl ? {
-					id: item.id,
-					name: item.name,
-					description: item.prompt_notes || 'Composición validada para este ángulo.',
-					imageUrl: signed.signedUrl,
-				} : null;
-			}))).filter((item): item is CreativeReference => Boolean(item));
-
-			if (!cancelled) {
-				setReferences(loaded);
-				setReferenceId(loaded[0]?.id || '');
-			}
-		})();
-
-		return () => { cancelled = true; };
-	}, [creative.id]);
-	useEffect(() => {
-		if (!product) { setProductPreview(''); return; }
-		const url = URL.createObjectURL(product); setProductPreview(url);
-		return () => URL.revokeObjectURL(url);
-	}, [product]);
-
-	async function generate() {
-		setError('');
-		if (profile.credits <= 0) { setError('No te quedan créditos. Activá el plan para seguir generando.'); return; }
-		setGenerating(true); setResult(null);
-		try {
-			let generation: Generation;
-			let credits = profile.credits - 1;
-			if (!isSupabaseConfigured) {
-				await new Promise((resolve) => window.setTimeout(resolve, 1350));
-				const imageUrl = await createDemoCreative({ creative, profile, preset, format, brief, product });
-				generation = { id: crypto.randomUUID(), title: creative.nombre, imageUrl, format, createdAt: new Date().toISOString(), category: ringMeta[creative.ring]?.label || 'Creativo' };
-			} else {
-				if (!supabase) throw new Error('Supabase no disponible.');
-				const { data: authData } = await supabase.auth.getSession();
-				const token = authData.session?.access_token;
-				if (!token) throw new Error('Tu sesión venció. Volvé a ingresar.');
-				const form = new FormData();
-				form.set('templateId', String(creative.id));
-				form.set('templateName', creative.nombre);
-				form.set('purpose', creative.sirve);
-				form.set('usageHint', creative.cuando);
-				form.set('preset', referencePresets.find((item) => item.id === preset)?.name || preset);
-				if (referenceId) form.set('referenceId', referenceId);
-				form.set('brandName', profile.brandName);
-				form.set('website', profile.website);
-				form.set('instagram', profile.instagram);
-				form.set('colors', `${profile.primaryColor}, ${profile.secondaryColor}`);
-				form.set('brief', brief);
-				form.set('format', format);
-				if (product) form.set('product', product);
-				if (logo) form.set('logo', logo);
-				const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
-				const payload = await response.json();
-				if (!response.ok) throw new Error(payload.error || 'No se pudo generar.');
-				credits = payload.creditsRemaining;
-				generation = { id: payload.id, title: creative.nombre, imageUrl: payload.imageUrl, format, createdAt: new Date().toISOString(), category: ringMeta[creative.ring]?.label || 'Creativo' };
-			}
-			setResult(generation);
-			onGenerated(generation, credits);
-			onToast(isSupabaseConfigured ? 'Tu creativo está listo.' : 'Vista demo creada. Conectá la IA para el resultado final.');
-		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'No se pudo generar el creativo.');
-		} finally { setGenerating(false); }
-	}
-
-	const meta = ringMeta[creative.ring];
-	return <>
-		<div className="studio-page-heading studio-editor-heading"><div><button onClick={onChooseLibrary}>Biblioteca</button><span>/</span><p>Estudio IA</p><h1>{creative.nombre}</h1></div><div className="studio-angle-meta"><span style={{ background: meta?.accent }}>{meta?.short}</span><b>#{creativeNumber(creative.id)}</b><b>{creative.n}</b></div></div>
-		<div className="studio-editor-layout">
-			<section className="studio-editor-controls">
-				<div className="studio-editor-summary"><span style={{ '--summary-accent': meta?.accent } as React.CSSProperties}>{creativeNumber(creative.id)}</span><div><small>{meta?.label} · {creative.n}</small><h2>{creative.nombre}</h2><p>{creative.sirve}</p><footer><b>Mejor momento:</b> {creative.cuando}</footer></div></div>
-				<div className="studio-editor-section"><header><span>1</span><div><h3>{references.length ? 'Elegí el anuncio de referencia' : 'Elegí la variante'}</h3><p>{references.length ? `Hay ${references.length} composiciones ganadoras listas para adaptar.` : 'Las tres conservan la lógica del creativo ganador.'}</p></div></header>{references.length ? <div className="studio-reference-grid">{references.map((item, index) => <button key={item.id} onClick={() => setReferenceId(item.id)} className={referenceId === item.id ? 'active' : ''}><div><img src={item.imageUrl} alt={`Referencia ${item.name}`}/><span>Referencia {String(index + 1).padStart(2, '0')}</span></div><footer><span><strong>{item.name}</strong><small>{item.description}</small></span>{referenceId === item.id && <b><Icon name="check" size={12}/></b>}</footer></button>)}</div> : <div className="studio-preset-grid">{referencePresets.map((item, index) => <button key={item.id} onClick={() => setPreset(item.id)} className={preset === item.id ? 'active' : ''}><div className={`preset-preview preset-${index + 1}`}><i/><b/><span/><small/></div><footer><span><strong>{item.name}</strong><small>{item.description}</small></span>{preset === item.id && <b><Icon name="check" size={12}/></b>}</footer><em>{item.label}</em></button>)}</div>}</div>
-				<div className="studio-editor-section"><header><span>2</span><div><h3>Sumá tu producto</h3><p>Opcional. También podés generar una oferta general.</p></div></header><input ref={inputRef} type="file" hidden accept="image/png,image/jpeg,image/webp" onChange={(e) => setProduct(e.target.files?.[0] || null)}/>{product ? <div className="studio-file-selected"><img src={productPreview} alt="Producto seleccionado"/><div><strong>{product.name}</strong><small>{(product.size / 1024 / 1024).toFixed(1)} MB · listo para usar</small></div><button onClick={() => setProduct(null)}>Quitar</button></div> : <button className="studio-dropzone" onClick={() => inputRef.current?.click()}><span><Icon name="upload"/></span><div><strong>Subí una foto del producto</strong><small>PNG, JPG o WebP · ideal con fondo limpio</small></div><b>Elegir</b></button>}<label className="studio-inline-file">Logo para esta generación <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)}/><span>{logo ? logo.name : 'Usar nombre de marca'}</span></label></div>
-				<div className="studio-editor-section"><header><span>3</span><div><h3>Terminá de dirigirlo</h3><p>Una frase alcanza. No necesitás escribir un prompt.</p></div></header><label className="studio-brief"><textarea value={brief} maxLength={500} onChange={(e) => setBrief(e.target.value)} placeholder="Ej: destacar que el envío es gratis desde $80.000 y usar un tono más premium."/><span>{brief.length}/500</span></label><div className="studio-format-row"><small>FORMATO</small>{[{ id: 'square', label: 'Feed', shape: 'square' }, { id: 'story', label: 'Story', shape: 'story' }, { id: 'landscape', label: 'Horizontal', shape: 'landscape' }].map((item) => <button key={item.id} onClick={() => setFormat(item.id)} className={format === item.id ? 'active' : ''}><i className={item.shape}/>{item.label}</button>)}</div></div>
-				{error && <p className="studio-generate-error">{error}</p>}
-				<button className="studio-generate-button" disabled={generating} onClick={generate}>{generating ? <><span className="studio-spinner small"/>Componiendo tu creativo…</> : <><Icon name="spark"/>Generar creativo <span>1 crédito</span></>}</button>
-			</section>
-			<aside className="studio-result-panel">
-				<header><div><span className={result ? 'ready' : ''}/><strong>{result ? 'Resultado listo' : 'Vista de salida'}</strong></div><small>{format === 'story' ? '4:5' : format === 'landscape' ? '1.25:1' : '1:1'}</small></header>
-				<div className={`studio-result-canvas format-${format}`}>
-					{generating ? <div className="studio-generating-state"><span className="generation-orbit"><i/><b><Icon name="spark"/></b></span><h3>Armando la composición</h3><p>Aplicando tu marca, producto y el ángulo {creative.nombre.toLowerCase()}.</p><div><i/><i/><i/></div></div> : result ? <img src={result.imageUrl} alt={`Creativo ${result.title}`}/> : <div className="studio-result-placeholder"><span><Icon name="spark" size={28}/></span><h3>Tu creativo aparece acá</h3><p>Completá los pasos y generá tu primera variante.</p><div className="result-wire"><i/><b/><span/><small/></div></div>}
-				</div>
-				{result && <div className="studio-result-actions"><a href={result.imageUrl} download={`creattia-${creative.id}-${creative.nombre.toLowerCase().replace(/\s+/g, '-')}.jpg`}><Icon name="download" size={18}/>Descargar</a><button onClick={generate}><Icon name="spark" size={17}/>Generar variante</button></div>}
-				<div className="studio-result-trust"><span><Icon name="check" size={12}/></span><p><strong>Tu producto no se comparte.</strong><small>Se usa únicamente para generar este creativo.</small></p></div>
-				{!isSupabaseConfigured && <div className="studio-demo-warning"><b>Demo local</b><p>Esta vista se compone en tu navegador. Al cargar las credenciales, el mismo botón usa GPT Image 2 y guarda el resultado en tu cuenta.</p></div>}
-			</aside>
-		</div>
 	</>;
 }
 
@@ -1171,11 +1123,10 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 	</>;
 }
 
-function BrandSettings({ profile, onSave, onSync, session, onPlans }: { profile: AppProfile; onSave: (profile: AppProfile, logo?: File | null) => Promise<void>; onSync: () => Promise<void>; session: AppSession; onPlans: () => void }) {
+function BrandSettings({ profile, onSave, session, onPlans }: { profile: AppProfile; onSave: (profile: AppProfile, logo?: File | null) => Promise<void>; session: AppSession; onPlans: () => void }) {
 	const [draft, setDraft] = useState(profile);
 	const [logo, setLogo] = useState<File | null>(null);
 	const [saving, setSaving] = useState(false);
-	const [syncing, setSyncing] = useState(false);
 	const [error, setError] = useState('');
 
 	async function save(event: FormEvent) {
@@ -1183,13 +1134,6 @@ function BrandSettings({ profile, onSave, onSync, session, onPlans }: { profile:
 		try { await onSave({ ...draft, onboardingCompleted: true }, logo); }
 		catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar.'); }
 		finally { setSaving(false); }
-	}
-
-	async function syncSources() {
-		setSyncing(true); setError('');
-		try { await onSync(); }
-		catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudieron analizar las fuentes.'); }
-		finally { setSyncing(false); }
 	}
 
 	return <><div className="studio-page-heading"><div><p>MI MARCA</p><h1>Tu marca, lista en cada imagen.</h1><span>Guardá tu web, Instagram, colores y logo una sola vez.</span></div></div><div className="studio-settings-layout"><form className="studio-settings-card" onSubmit={save}><header><span>{(draft.brandName || 'M').slice(0, 1).toUpperCase()}</span><div><h2>Datos de tu marca</h2><p>La IA usa esta información para crear mejor.</p></div></header><div className="studio-form-grid"><label className="wide">Nombre de la marca<input value={draft.brandName} onChange={(e) => setDraft({ ...draft, brandName: e.target.value })} required/></label><label>Tu nombre<input value={draft.fullName} onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}/></label><label>Email<input value={getSessionEmail(session)} disabled/></label><label>Sitio web (opcional)<input type="url" value={draft.website} onChange={(e) => setDraft({ ...draft, website: e.target.value })}/></label><label>Instagram (opcional)<input value={draft.instagram} onChange={(e) => setDraft({ ...draft, instagram: e.target.value })}/></label><label>Color principal<span className="studio-color-input"><input type="color" value={draft.primaryColor} onChange={(e) => setDraft({ ...draft, primaryColor: e.target.value })}/><b>{draft.primaryColor}</b></span></label><label>Color de apoyo<span className="studio-color-input"><input type="color" value={draft.secondaryColor} onChange={(e) => setDraft({ ...draft, secondaryColor: e.target.value })}/><b>{draft.secondaryColor}</b></span></label><label className="wide studio-logo-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)}/><span><Icon name="upload"/></span><div><strong>{logo ? logo.name : 'Actualizar logo'}</strong><small>Queda guardado en tu cuenta privada.</small></div><b>Elegir archivo</b></label></div>{error && <p className="studio-form-error">{error}</p>}<button className="studio-primary-button compact" disabled={saving}>{saving ? <span className="studio-spinner small"/> : 'Guardar cambios'}</button></form><aside className="studio-billing-card"><span className="studio-plan-orb"><Icon name="spark"/></span><small>{profile.subscriptionStatus === 'authorized' ? `PLAN ${profile.planCode.toUpperCase()}` : 'PRUEBA GRATUITA'}</small><h2>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</h2><p>{profile.subscriptionStatus === 'authorized' ? `Tu plan incluye ${profile.monthlyCredits} generaciones mensuales.` : 'Tus 3 pruebas no vencen. Elegí un plan cuando quieras seguir creando.'}</p><ul><li><Icon name="check" size={14}/>Nuevas ideas cada semana</li><li><Icon name="check" size={14}/>Favoritos e imágenes guardadas</li><li><Icon name="check" size={14}/>Marca y productos privados</li></ul><button onClick={onPlans}>Ver los tres planes<Icon name="arrow" size={16}/></button><footer>Pago seguro con Mercado Pago.</footer></aside></div></>;

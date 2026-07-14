@@ -8,6 +8,8 @@ Proyecto independiente de la landing y la aplicación web de Creattia.
 - `/app/` — registro, onboarding y aplicación.
 - `/api/creativos/*` — generación, catálogo, suscripciones y webhook.
 
+La aplicación permite guardar la web e Instagram de cada marca, importar URLs de productos concretos, combinar hasta 5 productos y generar de 1 a 4 variantes por lote. Cada resultado se guarda por separado en el historial.
+
 ## Desarrollo local
 
 ```bash
@@ -30,6 +32,10 @@ La aplicación funciona en modo demo cuando Supabase todavía no está configura
 5. Habilitar Google como proveedor si se usará ese acceso.
 
 La `SUPABASE_SERVICE_ROLE_KEY` es exclusivamente de servidor. Nunca debe llevar el prefijo `PUBLIC_` ni incluirse en código cliente.
+
+## Referencias creativas
+
+Las 50 estrategias originales funcionan aunque todavía no tengan una imagen de referencia. Para cargar anuncios propios o licenciados con fuente y derechos verificables, seguí [docs/REFERENCE_LIBRARY.md](docs/REFERENCE_LIBRARY.md). La aplicación no activa referencias con procedencia sin verificar.
 
 ## Producción
 

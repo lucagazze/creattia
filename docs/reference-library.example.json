@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "templateId": 1,
+      "name": "Envío gratis - composición principal",
+      "localImage": "/ruta/absoluta/a/una-referencia-propia.png",
+      "sourceUrl": "https://tu-dominio.com/archivo-fuente",
+      "sourcePlatform": "archivo_propio",
+      "rightsStatus": "owned",
+      "licenseNotes": "Creada y propiedad de Creattia.",
+      "categoryGroup": "ofertas",
+      "categoryBranch": "beneficios",
+      "categoryLeaf": "envio-gratis",
+      "promptNotes": "Conservar la jerarquía oferta-producto-CTA, sin copiar textos ni marcas.",
+      "sortOrder": 0
+    }
+  ]
+}
