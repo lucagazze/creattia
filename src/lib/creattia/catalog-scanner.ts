@@ -11,6 +11,7 @@ export type ScannedProduct = {
 	currency: string;
 	productUrl: string;
 	imageUrl: string;
+	imageUrls: string[];
 	metadata: Record<string, unknown>;
 };
 
@@ -32,11 +33,30 @@ function absoluteUrl(value: unknown, base: string) {
 	try { return value ? new URL(String(value), base).toString() : ''; } catch { return ''; }
 }
 
+function imageUrls(values: unknown[], base: string, limit = 6) {
+	const urls = values.flatMap((value) => {
+		if (Array.isArray(value)) return value;
+		if (value && typeof value === 'object') {
+			const record = value as Record<string, unknown>;
+			return [record.url, record.contentUrl, record.src];
+		}
+		return [value];
+	}).map((value) => absoluteUrl(value, base)).filter(Boolean);
+	return [...new Set(urls)].slice(0, limit);
+}
+
+function samePageUrl(left: string, right: string) {
+	try {
+		const a = new URL(left); const b = new URL(right);
+		return a.hostname === b.hostname && a.pathname.replace(/\/$/, '') === b.pathname.replace(/\/$/, '');
+	} catch { return false; }
+}
+
 function productFromJsonLd(value: Record<string, any>, base: string, index: number): ScannedProduct | null {
 	const type = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
 	if (!type.some((item: unknown) => String(item).toLowerCase() === 'product')) return null;
 	const offer = Array.isArray(value.offers) ? value.offers[0] : value.offers || {};
-	const imageValue = Array.isArray(value.image) ? value.image[0] : value.image?.url || value.image;
+	const productImages = imageUrls([value.image], base);
 	const name = compact(value.name, 180);
 	if (!name) return null;
 	const productUrl = absoluteUrl(value.url || offer.url, base);
@@ -47,7 +67,8 @@ function productFromJsonLd(value: Record<string, any>, base: string, index: numb
 		priceText: compact(offer.price || offer.lowPrice || '', 60),
 		currency: compact(offer.priceCurrency || '', 12),
 		productUrl,
-		imageUrl: absoluteUrl(imageValue, base),
+		imageUrl: productImages[0] || '',
+		imageUrls: productImages,
 		metadata: { availability: compact(offer.availability, 120), brand: compact(value.brand?.name || value.brand, 100) },
 	};
 }
@@ -88,6 +109,7 @@ async function scanShopify(origin: string) {
 		if (!Array.isArray(payload.products)) return [];
 		return payload.products.map((product: any, index: number): ScannedProduct => {
 			const variant = product.variants?.[0] || {};
+			const productImages = imageUrls([product.image, product.images], origin);
 			return {
 				externalId: compact(product.id || product.handle || index, 240),
 				name: compact(product.title, 180),
@@ -95,7 +117,8 @@ async function scanShopify(origin: string) {
 				priceText: compact(variant.price, 60),
 				currency: '',
 				productUrl: `${origin}/products/${product.handle}`,
-				imageUrl: absoluteUrl(product.image?.src || product.images?.[0]?.src, origin),
+				imageUrl: productImages[0] || '',
+				imageUrls: productImages,
 				metadata: { vendor: compact(product.vendor, 120), productType: compact(product.product_type, 120), tags: product.tags || [] },
 			};
 		});
@@ -108,16 +131,20 @@ async function scanWooCommerce(origin: string) {
 		if (!response.ok || !response.headers.get('content-type')?.includes('json')) return [];
 		const payload = JSON.parse(new TextDecoder().decode(await readLimited(response, 5_000_000)));
 		if (!Array.isArray(payload)) return [];
-		return payload.map((product: any, index: number): ScannedProduct => ({
-			externalId: compact(product.id || product.sku || index, 240),
-			name: compact(product.name, 180),
-			description: compact(cheerio.load(product.short_description || product.description || '').text(), 1600),
-			priceText: compact(wooPrice(product.prices) || product.price_html, 60),
-			currency: compact(product.prices?.currency_code, 12),
-			productUrl: absoluteUrl(product.permalink, origin),
-			imageUrl: absoluteUrl(product.images?.[0]?.src, origin),
-			metadata: { sku: compact(product.sku, 120), categories: product.categories || [] },
-		}));
+		return payload.map((product: any, index: number): ScannedProduct => {
+			const productImages = imageUrls([product.images], origin);
+			return {
+				externalId: compact(product.id || product.sku || index, 240),
+				name: compact(product.name, 180),
+				description: compact(cheerio.load(product.short_description || product.description || '').text(), 1600),
+				priceText: compact(wooPrice(product.prices) || product.price_html, 60),
+				currency: compact(product.prices?.currency_code, 12),
+				productUrl: absoluteUrl(product.permalink, origin),
+				imageUrl: productImages[0] || '',
+				imageUrls: productImages,
+				metadata: { sku: compact(product.sku, 120), categories: product.categories || [] },
+			};
+		});
 	} catch { return []; }
 }
 
@@ -149,11 +176,31 @@ export async function scanWebsite(rawUrl: string): Promise<ScannedSource> {
 			const image = $(element).find('img').first();
 			const name = compact(image.attr('alt') || $(element).find('[class*="title"],h2,h3').first().text(), 180);
 			if (!name || !/\/(products?|tienda|shop)\//i.test(href)) return;
+			const fallbackImages = imageUrls([
+				image.attr('src'), image.attr('data-src'), image.attr('data-lazy-src'), image.attr('srcset')?.split(',').pop()?.trim().split(/\s+/)[0],
+			], canonical || url);
 			products.push({
 				externalId: compact(href || `${name}-${index}`, 240), name, description: '', priceText: compact($(element).find('[class*="price"],.amount').first().text(), 60),
-				currency: '', productUrl: href, imageUrl: absoluteUrl(image.attr('src') || image.attr('data-src'), canonical || url), metadata: {},
+				currency: '', productUrl: href, imageUrl: fallbackImages[0] || '', imageUrls: fallbackImages, metadata: {},
 			});
 		});
+	}
+
+	// Product pages often expose their remaining gallery only in the DOM. Merge it
+	// into the matching structured product so a URL import keeps useful angles.
+	const pageGallery = imageUrls([
+		$('meta[property="og:image"]').attr('content'),
+		$('meta[name="twitter:image"]').attr('content'),
+		...$('main img, [class*="product"] img, [class*="gallery"] img').toArray().flatMap((element) => {
+			const image = $(element);
+			return [image.attr('src'), image.attr('data-src'), image.attr('data-lazy-src')];
+		}),
+	], canonical || url);
+	const currentProduct = products.find((product) => product.productUrl && samePageUrl(product.productUrl, canonical || url))
+		|| (products.length === 1 ? products[0] : undefined);
+	if (currentProduct && pageGallery.length) {
+		currentProduct.imageUrls = [...new Set([...(currentProduct.imageUrls || []), ...pageGallery])].slice(0, 6);
+		currentProduct.imageUrl = currentProduct.imageUrls[0] || currentProduct.imageUrl;
 	}
 
 	return {

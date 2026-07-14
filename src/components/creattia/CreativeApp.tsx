@@ -59,6 +59,8 @@ type Product = {
 	currency: string;
 	productUrl: string;
 	imageUrl: string;
+	imageUrls: string[];
+	imageCount: number;
 	source: string;
 };
 
@@ -93,9 +95,9 @@ function demoProductArt(label: string, color: string) {
 }
 
 const demoProducts: Product[] = [
-	{ id: 'demo-1', name: 'Producto estrella', description: 'El producto principal de tu tienda.', priceText: '$89.900', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('01', '#7c3aed'), source: 'website' },
-	{ id: 'demo-2', name: 'Nueva colección', description: 'Una segunda opción para probar otro enfoque.', priceText: '$64.500', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('02', '#ea580c'), source: 'website' },
-	{ id: 'demo-3', name: 'Best seller', description: 'Producto con buena respuesta comercial.', priceText: '$112.000', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('03', '#059669'), source: 'website' },
+	{ id: 'demo-1', name: 'Producto estrella', description: 'El producto principal de tu tienda.', priceText: '$89.900', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('01', '#7c3aed'), imageUrls: [demoProductArt('01', '#7c3aed')], imageCount: 1, source: 'website' },
+	{ id: 'demo-2', name: 'Nueva colección', description: 'Una segunda opción para probar otro enfoque.', priceText: '$64.500', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('02', '#ea580c'), imageUrls: [demoProductArt('02', '#ea580c')], imageCount: 1, source: 'website' },
+	{ id: 'demo-3', name: 'Best seller', description: 'Producto con buena respuesta comercial.', priceText: '$112.000', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('03', '#059669'), imageUrls: [demoProductArt('03', '#059669')], imageCount: 1, source: 'website' },
 ];
 
 const subscriptionPlans = [
@@ -188,8 +190,20 @@ function mapProduct(record: any): Product {
 		currency: record.currency || '',
 		productUrl: record.product_url || record.productUrl || '',
 		imageUrl: record.imageUrl || '',
+		imageUrls: Array.isArray(record.imageUrls) && record.imageUrls.length ? record.imageUrls : record.imageUrl ? [record.imageUrl] : [],
+		imageCount: Number(record.imageCount || record.imageUrls?.length || (record.imageUrl ? 1 : 0)),
 		source: record.source || 'manual',
 	};
+}
+
+function normalizeProductUrlInput(value: string) {
+	const clean = value.trim();
+	if (!clean) return '';
+	try {
+		const url = new URL(/^https?:\/\//i.test(clean) ? clean : `https://${clean}`);
+		if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
+		return url.toString();
+	} catch { throw new Error('Ingresá una URL válida del producto.'); }
 }
 
 async function fileAsDataUrl(file: File) {
@@ -334,6 +348,7 @@ export default function CreativeApp() {
 	const [history, setHistory] = useState<Generation[]>([]);
 	const [favorites, setFavorites] = useState<Set<number>>(new Set());
 	const [products, setProducts] = useState<Product[]>([]);
+	const [creationProductIds, setCreationProductIds] = useState<string[]>([]);
 	const [toast, setToast] = useState('');
 
 	useEffect(() => {
@@ -478,6 +493,13 @@ export default function CreativeApp() {
 		setSelected(creative);
 		setReuseSeed(null);
 		setView('studio');
+		setMobileMenu(false);
+		window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
+	function startWithProduct(productId: string) {
+		setCreationProductIds([productId]);
+		setView('library');
 		setMobileMenu(false);
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
@@ -654,7 +676,7 @@ export default function CreativeApp() {
 				<nav className="studio-nav">
 					<p>ESPACIO DE TRABAJO</p>
 					{navItems.map((item) => (
-						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { setView(item.id); setMobileMenu(false); }}>
+						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { setView(item.id); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
 							<Icon name={item.icon}/><span>{item.label}</span>
 						</button>
 					))}
@@ -683,10 +705,10 @@ export default function CreativeApp() {
 				</header>
 
 				<div className="studio-content">
-					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} history={history} catalog={catalog} favorites={favorites} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
+					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} productCount={products.length} history={history} catalog={catalog} favorites={favorites} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
 					{view === 'library' && <Library items={catalog} favorites={favorites} onChoose={chooseCreative} onToggleFavorite={toggleFavorite} />}
-					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onRemove={removeProduct} onCreate={() => setView('library')} />}
-					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} />}
+					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onRemove={removeProduct} onCreate={(productId) => productId ? startWithProduct(productId) : setView('library')} />}
+					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} />}
 					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} />}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
 					{view === 'brand' && <BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />}
@@ -836,7 +858,6 @@ function Onboarding({ profile, email, onSave }: { profile: AppProfile; email: st
 		<header><a href="/"><img src="/images/creattia/moki-mascot.webp" alt=""/><strong>Creattia</strong></a><span>Paso 1 de 1</span></header>
 		<main>
 			<div className="studio-onboarding-intro"><span><Icon name="spark"/></span><p>PREPARÁ TU MARCA</p><h1>Conectá tu negocio.<br/>La IA hace el resto.</h1><small>Usamos tu web e Instagram para detectar productos, colores y contexto.</small></div>
-			<div className="studio-onboarding-visual"><Moki className="studio-onboarding-moki"/><div><span><i/> ANALIZANDO TU NEGOCIO</span><strong>Tu catálogo se carga solo.</strong><small>Detectamos productos y la identidad de tu marca.</small><div className="onboarding-source-flow"><b>tumarca.com</b><i/><b>24 productos listos</b></div></div></div>
 			<form onSubmit={submit}>
 				<div className="studio-form-grid">
 					<label className="wide">Nombre de tu marca<input value={draft.brandName} onChange={(e) => setDraft({ ...draft, brandName: e.target.value })} placeholder="Ej. Vitta" required /></label>
@@ -853,17 +874,17 @@ function Onboarding({ profile, email, onSave }: { profile: AppProfile; email: st
 	</div>;
 }
 
-function Dashboard({ profile, email, history, catalog, favorites, onView, onChoose, onReuse }: { profile: AppProfile; email: string; history: Generation[]; catalog: Creativo[]; favorites: Set<number>; onView: (view: View) => void; onChoose: (creative: Creativo) => void; onReuse: (generation: Generation) => void }) {
+function Dashboard({ profile, email, productCount, history, catalog, favorites, onView, onChoose, onReuse }: { profile: AppProfile; email: string; productCount: number; history: Generation[]; catalog: Creativo[]; favorites: Set<number>; onView: (view: View) => void; onChoose: (creative: Creativo) => void; onReuse: (generation: Generation) => void }) {
 	const popular = [18, 22, 1].map((id) => catalog.find((item) => item.id === id)!).filter(Boolean);
+	const hasProducts = productCount > 0;
 	return <>
 		<div className="studio-page-heading"><div><p>INICIO</p><h1>Buen día, {firstName(profile, email)}.</h1><span>¿Qué querés crear hoy?</span></div><button className="studio-primary-button compact" onClick={() => onView('library')}><Icon name="plus" size={17}/>Crear imagen</button></div>
 		<section className="studio-hero-card">
-			<div className="studio-hero-copy"><span className="studio-eyebrow light"><i/><span>TU MARCA YA ESTÁ LISTA</span></span><h2>Elegí una idea.<br/>Generá una imagen <em>que vende.</em></h2><p>Tu marca y tus productos ya están cargados. Solo elegí qué querés comunicar.</p><button onClick={() => onView('library')}>Elegir una idea <Icon name="arrow" size={17}/></button></div>
+			<div className="studio-hero-copy"><span className="studio-eyebrow light"><i/><span>{hasProducts ? 'TODO LISTO PARA CREAR' : 'EMPEZÁ POR TU PRODUCTO'}</span></span><h2>{hasProducts ? <>Elegí una idea.<br/>Generá una imagen <em>que vende.</em></> : <>Cargá tu producto.<br/>Usalo en <em>cualquier idea.</em></>}</h2><p>{hasProducts ? `Tenés ${productCount} ${productCount === 1 ? 'producto listo' : 'productos listos'} para combinar con una referencia.` : 'Pegá su URL o subí entre una y seis fotos. Después Creattia te guía.'}</p><button onClick={() => onView(hasProducts ? 'library' : 'products')}>{hasProducts ? 'Elegir una idea' : 'Agregar producto'} <Icon name="arrow" size={17}/></button></div>
 			<div className="studio-hero-visual studio-hero-render"><Moki className="studio-dashboard-moki"/><span className="hero-render-chip top"><i/>Moki te guía</span><span className="hero-render-chip bottom"><b>Nuevas</b> ideas cada semana</span><span className="hero-render-chip middle">{favorites.size} {favorites.size === 1 ? 'guardada' : 'guardadas'}</span><div className="hero-spark"><Icon name="spark"/></div></div>
 		</section>
 		<div className="studio-section-title"><div><h2>Ideas recomendadas</h2><p>Empezá con una opción probada.</p></div><button onClick={() => onView('library')}>Ver biblioteca <Icon name="arrow" size={15}/></button></div>
 		<div className="studio-popular-grid">{popular.map((creative, index) => <CreativeFeatureCard key={creative.id} creative={creative} index={index} onClick={() => onChoose(creative)} />)}</div>
-		<section className="studio-flow-strip"><div><span>1</span><p><strong>Elegí el objetivo</strong><small>Qué querés comunicar</small></p></div><i/><div><span>2</span><p><strong>Seleccioná el producto</strong><small>De tu catálogo o una foto</small></p></div><i/><div><span>3</span><p><strong>Generá y descargá</strong><small>Lista para publicar</small></p></div></section>
 		{history.length > 0 && <><div className="studio-section-title"><div><h2>Últimas imágenes</h2><p>Descargalas o creá otra versión.</p></div><button onClick={() => onView('history')}>Ver todas <Icon name="arrow" size={15}/></button></div><div className="studio-recent-row">{history.slice(0, 4).map((item) => <GenerationCard key={item.id} item={item} onReuse={() => onReuse(item)}/>)}</div></>}
 	</>;
 }
@@ -940,12 +961,7 @@ function Library({ items, favorites, onChoose, onToggleFavorite }: { items: Crea
 	return <>
 		<section className="library-discovery-hero">
 			<div><span><i/> BIBLIOTECA CURADA</span><h1>Anuncios estáticos<br/><em>para crear mejor.</em></h1><p>Explorá estructuras visuales probadas, guardá tus favoritas y adaptalas a tu marca en minutos.</p></div>
-			<div className="library-hero-stats"><span><strong>{items.length}</strong><small>referencias</small></span><i/><span><strong>4:5</strong><small>formato vertical</small></span><i/><span><strong>100%</strong><small>imágenes</small></span></div>
 		</section>
-		<div className="library-format-bar">
-			<div className="library-format-tabs"><button className="active"><Icon name="grid" size={15}/>Imágenes <b>{items.length}</b></button><span>Sin videos</span></div>
-			<div className="library-toolbar-count"><i/>{filtered.length} {filtered.length === 1 ? 'anuncio' : 'anuncios'}</div>
-		</div>
 		<div className="library-search-tools">
 			<label><Icon name="search" size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por ángulo, oferta o formato…"/>{query && <button onClick={() => setQuery('')} aria-label="Limpiar búsqueda">×</button>}</label>
 			<select value={sort} onChange={(event) => setSort(event.target.value as 'relevant' | 'newest')} aria-label="Ordenar biblioteca"><option value="relevant">Más relevantes</option><option value="newest">Más nuevas</option></select>
@@ -983,13 +999,125 @@ function Library({ items, favorites, onChoose, onToggleFavorite }: { items: Crea
 	</>;
 }
 
-function ProductCatalog({ products, profile, session, onRefresh, onSync, onRemove, onCreate }: { products: Product[]; profile: AppProfile; session: AppSession; onRefresh: () => Promise<Product[]>; onSync: () => Promise<void>; onRemove: (productId: string) => Promise<void>; onCreate: () => void }) {
+function ProductIntake({ session, products, onProductsChanged, onCreated, compact = false }: { session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onCreated: (productIds: string[]) => void; compact?: boolean }) {
+	const [mode, setMode] = useState<'url' | 'manual'>('url');
+	const [productUrl, setProductUrl] = useState('');
+	const [name, setName] = useState('');
+	const [description, setDescription] = useState('');
+	const [priceText, setPriceText] = useState('');
+	const [currency, setCurrency] = useState('ARS');
+	const [files, setFiles] = useState<File[]>([]);
+	const [previews, setPreviews] = useState<string[]>([]);
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState('');
+	const [notice, setNotice] = useState('');
+	const manualInput = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		const urls = files.map((file) => URL.createObjectURL(file));
+		setPreviews(urls);
+		return () => urls.forEach((url) => URL.revokeObjectURL(url));
+	}, [files]);
+
+	function resetManual() {
+		setName(''); setDescription(''); setPriceText(''); setCurrency('ARS'); setProductUrl(''); setFiles([]);
+	}
+
+	async function importUrl() {
+		if (!productUrl.trim()) { setError('Pegá la URL exacta del producto.'); return; }
+		setSaving(true); setError(''); setNotice('');
+		try {
+			const normalizedUrl = normalizeProductUrlInput(productUrl);
+			let ids: string[] = [];
+			if (!isSupabaseConfigured) {
+				const id = crypto.randomUUID();
+				let label = `Producto ${products.length + 1}`;
+				try { label = new URL(normalizedUrl).pathname.split('/').filter(Boolean).pop()?.replace(/[-_]+/g, ' ') || label; } catch { /* demo label */ }
+				const artwork = demoProductArt(String(products.length + 1).padStart(2, '0'), '#6d35e8');
+				const item: Product = { id, name: label, description: 'Producto importado desde su URL.', priceText: '', currency: '', productUrl: normalizedUrl, imageUrl: artwork, imageUrls: [artwork], imageCount: 1, source: 'website' };
+				saveLocal(PRODUCTS_KEY, [item, ...products]); ids = [id];
+			} else {
+				const response = await fetch('/api/creativos/products', {
+					method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
+					body: JSON.stringify({ url: normalizedUrl }),
+				});
+				const payload = await response.json();
+				if (!response.ok || !payload.importedIds?.length) throw new Error(payload.error || payload.errors?.[0]?.error || 'No pudimos leer ese producto. Probá cargar sus fotos.');
+				ids = payload.importedIds;
+			}
+			await onProductsChanged(); onCreated(ids); setProductUrl('');
+			setNotice('Producto listo. Guardamos sus datos y las fotos disponibles.');
+		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo importar el producto.'); }
+		finally { setSaving(false); }
+	}
+
+	async function saveManual() {
+		if (!name.trim()) { setError('Poné el nombre del producto.'); return; }
+		if (!files.length) { setError('Subí al menos una foto del producto.'); return; }
+		if (files.some((file) => !['image/png', 'image/jpeg', 'image/webp', 'image/avif'].includes(file.type))) { setError('Usá imágenes PNG, JPG, WebP o AVIF.'); return; }
+		if (files.some((file) => file.size > 15 * 1024 * 1024)) { setError('Cada imagen debe pesar menos de 15 MB.'); return; }
+		setSaving(true); setError(''); setNotice('');
+		let createdId = '';
+		const uploadedPaths: string[] = [];
+		try {
+			createdId = crypto.randomUUID();
+			const normalizedUrl = normalizeProductUrlInput(productUrl);
+			if (!isSupabaseConfigured) {
+				const imageUrls = await Promise.all(files.map(fileAsDataUrl));
+				const item: Product = { id: createdId, name: name.trim(), description: description.trim(), priceText: priceText.trim(), currency: currency.trim(), productUrl: normalizedUrl, imageUrl: imageUrls[0], imageUrls, imageCount: imageUrls.length, source: 'manual' };
+				saveLocal(PRODUCTS_KEY, [item, ...products]);
+			} else {
+				if (!supabase) throw new Error('Supabase no está disponible.');
+				const { error: insertError } = await supabase.from('creative_products').insert({
+					id: createdId, user_id: getSessionId(session), name: name.trim(), description: description.trim() || null,
+					price_text: priceText.trim() || null, currency: currency.trim() || null, product_url: normalizedUrl || null,
+					source: 'manual', external_id: crypto.randomUUID(), synced_at: new Date().toISOString(),
+				});
+				if (insertError) throw insertError;
+				const imageRows = [];
+				for (let index = 0; index < files.length; index += 1) {
+					const file = files[index];
+					const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif' }[file.type] || 'png';
+					const path = `${getSessionId(session)}/products/${createdId}/${index === 0 ? 'primary' : `angle-${index + 1}`}.${extension}`;
+					const { error: uploadError } = await supabase.storage.from('creative-assets').upload(path, file, { contentType: file.type, upsert: false });
+					if (uploadError) throw uploadError;
+					uploadedPaths.push(path);
+					imageRows.push({ user_id: getSessionId(session), product_id: createdId, storage_path: path, sort_order: index, is_primary: index === 0 });
+				}
+				const { error: imageError } = await supabase.from('creative_product_images').insert(imageRows);
+				if (imageError) throw imageError;
+				const { error: updateError } = await supabase.from('creative_products').update({ image_path: uploadedPaths[0], updated_at: new Date().toISOString() }).eq('id', createdId).eq('user_id', getSessionId(session));
+				if (updateError) throw updateError;
+			}
+			await onProductsChanged(); onCreated([createdId]); resetManual();
+			setNotice(`${files.length} ${files.length === 1 ? 'foto guardada' : 'fotos guardadas'}. El producto ya se puede usar.`);
+		} catch (cause) {
+			if (isSupabaseConfigured && supabase && createdId) {
+				if (uploadedPaths.length) await supabase.storage.from('creative-assets').remove(uploadedPaths);
+				await supabase.from('creative_products').delete().eq('id', createdId).eq('user_id', getSessionId(session));
+			}
+			setError(cause instanceof Error ? cause.message : 'No se pudo guardar el producto.');
+		} finally { setSaving(false); }
+	}
+
+	return <section className={`product-intake ${compact ? 'compact' : ''}`}>
+		<header><div><small>AGREGAR PRODUCTO</small><strong>Elegí la forma más rápida.</strong></div><nav><button className={mode === 'url' ? 'active' : ''} onClick={() => { setMode('url'); setError(''); }}>Desde una URL</button><button className={mode === 'manual' ? 'active' : ''} onClick={() => { setMode('manual'); setError(''); }}>Con fotos</button></nav></header>
+		{mode === 'url' ? <div className="product-intake-url"><label>URL exacta del producto<input value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://mitienda.com/productos/..."/></label><p>Leemos nombre, descripción, precio y hasta 6 imágenes públicas del producto.</p><button onClick={() => void importUrl()} disabled={saving || !productUrl.trim()}>{saving ? <><span className="studio-spinner small"/> Analizando…</> : <><Icon name="external" size={16}/>Analizar y guardar</>}</button></div> : <div className="product-intake-manual">
+			<input ref={manualInput} hidden multiple type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, 6))}/>
+			<button className="product-photo-drop" onClick={() => manualInput.current?.click()}><span><Icon name="upload"/></span><strong>{files.length ? `${files.length} ${files.length === 1 ? 'foto elegida' : 'fotos elegidas'}` : 'Subir entre 1 y 6 fotos'}</strong><small>Frente, dorso, detalle o distintos ángulos.</small></button>
+			{previews.length > 0 && <div className="product-photo-previews">{previews.map((url, index) => <span key={url}><img src={url} alt={`Foto ${index + 1}`}/>{index === 0 && <b>Principal</b>}</span>)}</div>}
+			<div className="product-manual-fields"><label>Nombre *<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ej. Zapatilla Urban White"/></label><label>URL (opcional)<input value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="Link del producto"/></label><label className="wide">Descripción útil para el anuncio<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Material, beneficio real, variante, tamaño o cualquier dato que la IA deba respetar."/></label><label>Precio (opcional)<input value={priceText} onChange={(event) => setPriceText(event.target.value)} placeholder="89.900"/></label><label>Moneda<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="ARS">ARS</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="">Sin moneda</option></select></label></div>
+			<button className="product-save-manual" onClick={() => void saveManual()} disabled={saving || !name.trim() || !files.length}>{saving ? <><span className="studio-spinner small"/> Guardando…</> : <><Icon name="check" size={16}/>Guardar producto</>}</button>
+		</div>}
+		{notice && <p className="studio-form-notice product-intake-message"><Icon name="check" size={14}/>{notice}</p>}
+		{error && <p className="studio-form-error product-intake-message">{error}</p>}
+	</section>;
+}
+
+function ProductCatalog({ products, profile, session, onRefresh, onSync, onRemove, onCreate }: { products: Product[]; profile: AppProfile; session: AppSession; onRefresh: () => Promise<Product[]>; onSync: () => Promise<void>; onRemove: (productId: string) => Promise<void>; onCreate: (productId?: string) => void }) {
 	const [query, setQuery] = useState('');
 	const [syncing, setSyncing] = useState(false);
-	const [importing, setImporting] = useState(false);
 	const [removing, setRemoving] = useState('');
-	const [productUrls, setProductUrls] = useState('');
-	const [importNotice, setImportNotice] = useState('');
 	const [error, setError] = useState('');
 	const filtered = useMemo(() => products.filter((product) => `${product.name} ${product.description} ${product.priceText}`.toLowerCase().includes(query.toLowerCase().trim())), [products, query]);
 	async function sync() {
@@ -998,37 +1126,6 @@ function ProductCatalog({ products, profile, session, onRefresh, onSync, onRemov
 		catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo sincronizar.'); }
 		finally { setSyncing(false); }
 	}
-	async function importUrls() {
-		const urls = [...new Set(productUrls.split(/[\n,]/).map((value) => value.trim()).filter(Boolean))];
-		if (!urls.length) { setError('Pegá al menos una URL de producto.'); return; }
-		if (urls.length > 10) { setError('Podés importar hasta 10 URLs por vez.'); return; }
-		setImporting(true); setError(''); setImportNotice('');
-		try {
-			if (!isSupabaseConfigured) {
-				const current = loadLocal<Product[]>(PRODUCTS_KEY, demoProducts);
-				const imported = urls.map((url, index): Product => {
-					let label = `Producto ${current.length + index + 1}`;
-					try { label = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).pathname.split('/').filter(Boolean).pop()?.replace(/[-_]+/g, ' ') || label; } catch { /* demo label */ }
-					return { id: crypto.randomUUID(), name: label, description: 'Producto importado desde una URL individual.', priceText: '', currency: '', productUrl: url, imageUrl: demoProductArt(String(current.length + index + 1).padStart(2, '0'), '#6d35e8'), source: 'website' };
-				});
-				saveLocal(PRODUCTS_KEY, [...imported, ...current]);
-				setImportNotice(`${imported.length} ${imported.length === 1 ? 'producto importado' : 'productos importados'} en la demo.`);
-			} else {
-				const response = await fetch('/api/creativos/products', {
-					method: 'POST',
-					headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
-					body: JSON.stringify({ urls }),
-				});
-				const payload = await response.json();
-				if (!response.ok && !payload.importedIds?.length) throw new Error(payload.error || payload.errors?.[0]?.error || 'No se pudieron importar los productos.');
-				const importedCount = payload.importedIds?.length || 0;
-				setImportNotice(`${importedCount} ${importedCount === 1 ? 'producto quedó listo' : 'productos quedaron listos'}${payload.errors?.length ? ` · ${payload.errors.length} URL no se pudo leer` : ''}.`);
-			}
-			setProductUrls('');
-			await onRefresh();
-		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudieron importar los productos.'); }
-		finally { setImporting(false); }
-	}
 	async function remove(product: Product) {
 		if (!window.confirm(`¿Quitar “${product.name}” de tu catálogo? Tus imágenes anteriores no se borran.`)) return;
 		setRemoving(product.id); setError('');
@@ -1036,28 +1133,23 @@ function ProductCatalog({ products, profile, session, onRefresh, onSync, onRemov
 		catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo quitar el producto.'); }
 		finally { setRemoving(''); }
 	}
-	const statusLabel = profile.catalogStatus === 'ready' ? 'Catálogo sincronizado' : profile.catalogStatus === 'partial' ? 'Sincronización parcial' : profile.catalogStatus === 'failed' ? 'Revisar fuentes' : 'Catálogo pendiente';
 	return <>
-		<div className="studio-page-heading"><div><p>MIS PRODUCTOS</p><h1>Tus productos, listos para usar.</h1><span>La IA toma fotos y datos de tu negocio para crear cada imagen.</span></div><button className="studio-primary-button compact" onClick={onCreate}><Icon name="plus" size={17}/>Crear imagen</button></div>
-		<section className={`product-sync-card status-${profile.catalogStatus}`}><Moki className="product-sync-moki"/><div><span><Icon name={profile.catalogStatus === 'ready' ? 'check' : 'spark'} size={18}/></span><p><small>{statusLabel}</small><strong>{products.length} productos disponibles</strong><em>{profile.website || profile.instagram || 'Conectá tu web o Instagram en Mi marca'}</em></p></div><button onClick={sync} disabled={syncing || (!profile.website && !profile.instagram)}>{syncing ? <><span className="studio-spinner small"/> Analizando…</> : 'Actualizar catálogo'}</button></section>
-		<section className="product-url-importer"><div><span><Icon name="external" size={19}/></span><p><small>PRODUCTOS ESPECÍFICOS</small><strong>Pegá una o varias URLs.</strong><em>Una por línea. Analizamos y guardamos cada producto en tu cuenta.</em></p></div><textarea value={productUrls} onChange={(event) => setProductUrls(event.target.value)} placeholder={'https://tutienda.com/producto-uno\nhttps://tutienda.com/producto-dos'} aria-label="URLs de productos"/><button onClick={importUrls} disabled={importing || !productUrls.trim()}>{importing ? <><span className="studio-spinner small"/> Importando…</> : <><Icon name="plus" size={16}/>Importar productos</>}</button></section>
-		{importNotice && <p className="studio-form-notice product-import-notice"><Icon name="check" size={14}/>{importNotice}</p>}
+		<div className="studio-page-heading"><div><p>MIS PRODUCTOS</p><h1>Tu catálogo de trabajo.</h1><span>Guardá fotos y datos reales para reutilizarlos en cualquier creativo.</span></div><button className="studio-primary-button compact" onClick={() => onCreate()}><Icon name="plus" size={17}/>Crear imagen</button></div>
+		<ProductIntake session={session} products={products} onProductsChanged={onRefresh} onCreated={() => { /* stays in catalog */ }}/>
+		{(profile.website || profile.instagram) && <section className="catalog-sync-row"><div><span><Icon name={profile.catalogStatus === 'ready' ? 'check' : 'external'} size={16}/></span><p><strong>Sincronización de tienda</strong><small>{profile.website || profile.instagram}</small></p></div><button onClick={sync} disabled={syncing}>{syncing ? <><span className="studio-spinner small"/> Actualizando…</> : 'Actualizar todos'}</button></section>}
 		{error && <p className="studio-form-error catalog-error">{error}</p>}
 		<div className="studio-library-tools product-tools"><label><Icon name="search" size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, descripción o precio…"/></label><span>{filtered.length} productos</span></div>
-		{filtered.length ? <div className="product-catalog-grid">{filtered.map((product) => <article key={product.id}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag" size={30}/></span>}<small>{product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</small><button className="product-remove-button" onClick={() => void remove(product)} disabled={removing === product.id} aria-label={`Quitar ${product.name}`}>{removing === product.id ? <span className="studio-spinner small"/> : <Icon name="close" size={15}/>}</button></div><footer><h3>{product.name}</h3><p>{conciseText(product.description || 'Listo para usar en una imagen.')}</p><span>{product.priceText ? `${product.priceText} ${product.currency}` : 'Sin precio público'}</span></footer></article>)}</div> : <div className="studio-empty large"><span><Icon name="bag"/></span><h3>Todavía no hay productos</h3><p>Conectá tu web o subí una foto al crear una imagen.</p><button onClick={sync}>Analizar mi negocio</button></div>}
+		{filtered.length ? <div className="product-catalog-grid">{filtered.map((product) => <article key={product.id}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag" size={30}/></span>}<small>{product.imageCount || 1} {(product.imageCount || 1) === 1 ? 'foto' : 'fotos'}</small><button className="product-remove-button" onClick={() => void remove(product)} disabled={removing === product.id} aria-label={`Quitar ${product.name}`}>{removing === product.id ? <span className="studio-spinner small"/> : <Icon name="close" size={15}/>}</button></div><footer><h3>{product.name}</h3><p>{conciseText(product.description || 'Listo para usar en una imagen.')}</p><span>{product.priceText ? `${product.priceText} ${product.currency}` : product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</span><nav><button onClick={() => onCreate(product.id)}>Crear con este producto <Icon name="arrow" size={14}/></button>{product.productUrl && <a href={product.productUrl} target="_blank" rel="noreferrer" aria-label={`Abrir ${product.name}`}><Icon name="external" size={14}/></a>}</nav></footer></article>)}</div> : <div className="studio-empty large"><span><Icon name="bag"/></span><h3>Agregá tu primer producto</h3><p>Pegá su URL o subí sus fotos y datos en el formulario de arriba.</p></div>}
 	</>;
 }
 
-function Studio({ creative, reuseSeed, profile, session, products, onProductsChanged, onChooseLibrary, onGenerated, onToast }: { creative: Creativo; reuseSeed: Generation | null; profile: AppProfile; session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onChooseLibrary: () => void; onGenerated: (generations: Generation[], credits: number) => void; onToast: (message: string) => void }) {
+function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profile, session, products, onProductsChanged, onChooseLibrary, onGenerated, onToast }: { creative: Creativo; reuseSeed: Generation | null; initialProductIds: string[]; onSeedConsumed: () => void; profile: AppProfile; session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onChooseLibrary: () => void; onGenerated: (generations: Generation[], credits: number) => void; onToast: (message: string) => void }) {
 	const [wizardOpen, setWizardOpen] = useState(true);
 	const [step, setStep] = useState(1);
 	const [imageType, setImageType] = useState('product');
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [productQuery, setProductQuery] = useState('');
-	const [uploadFile, setUploadFile] = useState<File | null>(null);
-	const [uploadPreview, setUploadPreview] = useState('');
-	const [uploadName, setUploadName] = useState('');
-	const [uploading, setUploading] = useState(false);
+	const [showProductIntake, setShowProductIntake] = useState(false);
 	const [preset, setPreset] = useState('fiel');
 	const [references, setReferences] = useState<CreativeReference[]>([]);
 	const [referenceId, setReferenceId] = useState('');
@@ -1065,12 +1157,12 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 	const [count, setCount] = useState(1);
 	const [brief, setBrief] = useState('');
 	const [revisionBrief, setRevisionBrief] = useState('');
+	const [showRevisionProducts, setShowRevisionProducts] = useState(false);
 	const [variationStrength, setVariationStrength] = useState<VariationStrength>('exact');
 	const [generating, setGenerating] = useState(false);
 	const [results, setResults] = useState<Generation[]>([]);
 	const [result, setResult] = useState<Generation | null>(null);
 	const [error, setError] = useState('');
-	const uploadInput = useRef<HTMLInputElement>(null);
 
 	const selectedProducts = selectedProductIds.flatMap((id) => {
 		const product = products.find((item) => item.id === id);
@@ -1091,9 +1183,10 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 	];
 
 	useEffect(() => {
-		setWizardOpen(true); setStep(reuseSeed ? 5 : 1); setResults([]); setResult(null); setError(''); setRevisionBrief(''); setVariationStrength('exact'); setCount(1);
-		const reusableIds = reuseSeed?.productIds?.length ? reuseSeed.productIds : reuseSeed?.productId ? [reuseSeed.productId] : [];
+		setWizardOpen(true); setStep(reuseSeed ? 5 : 1); setResults([]); setResult(null); setError(''); setRevisionBrief(''); setShowRevisionProducts(false); setVariationStrength('exact'); setCount(1);
+		const reusableIds = reuseSeed?.productIds?.length ? reuseSeed.productIds : reuseSeed?.productId ? [reuseSeed.productId] : initialProductIds;
 		setSelectedProductIds(reusableIds.filter((id) => products.some((item) => item.id === id)).slice(0, 5));
+		if (!reuseSeed && initialProductIds.length) onSeedConsumed();
 		setBrief(reuseSeed?.brief || ''); setImageType(reuseSeed?.imageType || 'product'); setPreset(reuseSeed?.preset || 'fiel'); setFormat(reuseSeed?.format || 'square');
 	}, [creative.id, reuseSeed?.id]);
 	useEffect(() => {
@@ -1101,11 +1194,6 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 		const previous = document.body.style.overflow; document.body.style.overflow = 'hidden';
 		return () => { document.body.style.overflow = previous; };
 	}, [wizardOpen]);
-	useEffect(() => {
-		if (!uploadFile) { setUploadPreview(''); return; }
-		const url = URL.createObjectURL(uploadFile); setUploadPreview(url); setUploadName((current) => current || uploadFile.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '));
-		return () => URL.revokeObjectURL(url);
-	}, [uploadFile]);
 	useEffect(() => {
 		let cancelled = false; setReferences([]); setReferenceId('');
 		if (!isSupabaseConfigured || !supabase) return;
@@ -1138,53 +1226,6 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 		})();
 		return () => { cancelled = true; };
 	}, [creative.id]);
-
-	async function saveUploadedProduct() {
-		if (!uploadFile || !uploadName.trim()) { setError('Elegí una foto y poné el nombre del producto.'); return; }
-		if (!['image/png', 'image/jpeg', 'image/webp', 'image/avif'].includes(uploadFile.type)) { setError('Usá una imagen PNG, JPG, WebP o AVIF.'); return; }
-		if (uploadFile.size > 15 * 1024 * 1024) { setError('La imagen supera los 15 MB.'); return; }
-		setUploading(true); setError('');
-		let createdProductId = '';
-		let uploadedPath = '';
-		try {
-			if (!isSupabaseConfigured) {
-				const newProduct: Product = { id: crypto.randomUUID(), name: uploadName.trim(), description: 'Producto cargado manualmente.', priceText: '', currency: '', productUrl: '', imageUrl: await fileAsDataUrl(uploadFile), source: 'manual' };
-				saveLocal(PRODUCTS_KEY, [newProduct, ...products]); setSelectedProductIds((current) => [...current, newProduct.id].slice(-5)); await onProductsChanged();
-			} else {
-				if (!supabase) throw new Error('Supabase no está disponible.');
-				createdProductId = crypto.randomUUID();
-				const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif' }[uploadFile.type] || 'png';
-				uploadedPath = `${getSessionId(session)}/products/${createdProductId}/primary.${extension}`;
-				const { error: insertError } = await supabase.from('creative_products').insert({
-					id: createdProductId,
-					user_id: getSessionId(session),
-					name: uploadName.trim(),
-					description: 'Producto cargado manualmente.',
-					image_path: uploadedPath,
-					source: 'manual',
-					external_id: crypto.randomUUID(),
-					synced_at: new Date().toISOString(),
-				});
-				if (insertError) throw insertError;
-				const { error: uploadError } = await supabase.storage.from('creative-assets').upload(uploadedPath, uploadFile, { contentType: uploadFile.type, upsert: false });
-				if (uploadError) throw uploadError;
-				const { error: imageError } = await supabase.from('creative_product_images').insert({
-					user_id: getSessionId(session), product_id: createdProductId, storage_path: uploadedPath, sort_order: 0, is_primary: true,
-				});
-				if (imageError) throw imageError;
-				setSelectedProductIds((current) => [...current, createdProductId].slice(-5));
-				await onProductsChanged();
-			}
-			setUploadFile(null); setUploadName(''); onToast('Producto guardado en tu catálogo privado.');
-		} catch (cause) {
-			if (isSupabaseConfigured && supabase && createdProductId) {
-				if (uploadedPath) await supabase.storage.from('creative-assets').remove([uploadedPath]);
-				await supabase.from('creative_products').delete().eq('id', createdProductId).eq('user_id', getSessionId(session));
-			}
-			setError(cause instanceof Error ? cause.message : 'No se pudo guardar el producto.');
-		}
-		finally { setUploading(false); }
-	}
 
 	function nextStep() {
 		setError('');
@@ -1259,19 +1300,37 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 	const currentVariant = references.length ? references.find((item) => item.id === referenceId)?.name : referencePresets.find((item) => item.id === preset)?.name;
 	return <>
 		<div className="studio-page-heading studio-editor-heading"><div><button onClick={onChooseLibrary}>Biblioteca</button><span>/</span><p>Crear imagen</p><h1>{creative.nombre}</h1></div><div className="studio-angle-meta"><span style={{ background: meta?.accent }}>{meta?.short}</span><b>#{creativeNumber(creative.id)}</b><b>{creative.n}</b></div></div>
-		<section className="wizard-launch-card"><div className="wizard-launch-copy"><span><Icon name="spark"/> PASO A PASO</span><h2>Hacé tu imagen<br/><em>en 5 pasos.</em></h2><p>Elegí tipo, producto, referencia y formato. Al final podés sumar una indicación opcional.</p><button onClick={() => { setWizardOpen(true); if (result) setStep(6); }}>{result ? 'Ver resultado' : 'Empezar'} <Icon name="arrow" size={17}/></button></div><div className="wizard-launch-stack"><article><small>01 · IDEA</small><strong>{creative.nombre}</strong><span>{meta?.label}</span></article><article><small>02 · PRODUCTOS</small><strong>{products.length} listos para usar</strong><span>{profile.catalogStatus === 'ready' ? 'Catálogo actualizado' : 'También podés subir una foto'}</span></article><article><small>03 · FORMATOS</small><strong>4 tamaños</strong><span>Feed, Stories y horizontal</span></article></div></section>
-		<div className="studio-flow-strip wizard-flow"><div><span>1</span><p><strong>Elegí el estilo</strong><small>Cómo querés mostrarlo</small></p></div><i/><div><span>2</span><p><strong>Sumá el producto</strong><small>De tu catálogo o una foto</small></p></div><i/><div><span>3</span><p><strong>Generá la imagen</strong><small>Lista para publicar</small></p></div></div>
+		<section className="studio-resume-card">
+			<div><span style={{ background: meta?.accent }}>{creativeNumber(creative.id)}</span><p><small>IDEA ELEGIDA</small><strong>{creative.nombre}</strong><em>{selectedProducts.length ? `${selectedProducts.length} ${selectedProducts.length === 1 ? 'producto elegido' : 'productos elegidos'}` : 'Elegí producto, formato y estilo dentro del generador'}</em></p></div>
+			<button onClick={() => { setWizardOpen(true); if (result) setStep(6); }}>{result ? 'Volver al resultado' : 'Abrir generador'} <Icon name="arrow" size={17}/></button>
+		</section>
 
 		{wizardOpen && <div className="creative-wizard-overlay" role="dialog" aria-modal="true" aria-label="Generador guiado de imágenes"><div className="creative-wizard-modal">
 			<header className="wizard-header"><div><span className="wizard-brand-mark"><Icon name="spark" size={17}/></span><p><small>CREATTIA</small><strong>{step === 6 ? 'Tu imagen está lista' : `Crear · ${creative.nombre}`}</strong></p></div><button onClick={() => setWizardOpen(false)} aria-label="Cerrar generador"><Icon name="close"/></button></header>
 			{step <= 5 && <div className="wizard-progress">{['Tipo', 'Producto', 'Estilo', 'Formato', 'Indicación'].map((label, index) => <button key={label} className={step === index + 1 ? 'active' : step > index + 1 ? 'done' : ''} onClick={() => index + 1 < step && setStep(index + 1)}><span>{step > index + 1 ? <Icon name="check" size={11}/> : index + 1}</span><b>{label}</b></button>)}</div>}
 			<div className="wizard-body"><main>
 				{step === 1 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 1 DE 5</span><h2>¿Qué tipo de imagen querés?</h2><p>Elegí cómo mostrar tu producto o promoción.</p></div><div className="wizard-type-grid">{typeOptions.map((item) => <button key={item.id} className={imageType === item.id ? 'active' : ''} onClick={() => setImageType(item.id)}><span><Icon name={item.icon}/></span><em>{item.badge}</em><h3>{item.title}</h3><p>{item.copy}</p>{imageType === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div></section>}
-				{step === 2 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 2 DE 5 · HASTA 5</span><h2>{imageType === 'promotion' ? '¿Querés sumar productos?' : 'Elegí uno o varios productos'}</h2><p>Podés crear una pieza individual o una composición con varios productos.</p></div><label className="wizard-product-search"><Icon name="search" size={18}/><input aria-label="Buscar producto" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar producto…"/><span>{selectedProductIds.length}/5</span></label>{imageType === 'promotion' && <button className={`wizard-no-product ${!selectedProductIds.length ? 'active' : ''}`} onClick={() => setSelectedProductIds([])}><span><Icon name="spark"/></span><p><strong>Promoción sin producto</strong><small>Creá una oferta general de tu marca</small></p>{!selectedProductIds.length && <b><Icon name="check" size={13}/></b>}</button>}<div className="wizard-product-grid">{filteredProducts.map((product) => { const selectedIndex = selectedProductIds.indexOf(product.id); return <button key={product.id} className={selectedIndex >= 0 ? 'active' : ''} onClick={() => toggleProduct(product.id)}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag"/></span>}{selectedIndex >= 0 && <b>{selectedIndex + 1}</b>}</div><strong>{product.name}</strong><small>{product.priceText ? `${product.priceText} ${product.currency}` : product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</small></button>; })}</div><div className="wizard-upload-product"><input ref={uploadInput} hidden type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setUploadFile(event.target.files?.[0] || null)}/>{uploadFile ? <><img src={uploadPreview} alt="Producto nuevo"/><label>Nombre del producto<input value={uploadName} onChange={(event) => setUploadName(event.target.value)} placeholder="Ej. Zapatilla Urban White"/></label><button onClick={saveUploadedProduct} disabled={uploading}>{uploading ? 'Guardando…' : 'Guardar producto'}</button></> : <button onClick={() => uploadInput.current?.click()}><span><Icon name="upload"/></span><p><strong>¿No aparece?</strong><small>Subí una foto y guardala para la próxima.</small></p><b>Subir producto</b></button>}</div></section>}
+				{step === 2 && <section className="wizard-step">
+					<div className="wizard-step-heading"><span>PASO 2 DE 5 · HASTA 5</span><h2>{imageType === 'promotion' ? '¿Querés sumar productos?' : 'Elegí uno o varios productos'}</h2><p>Elegí los que ya guardaste o agregá uno nuevo sin salir del generador.</p></div>
+					<div className="wizard-product-toolbar"><label className="wizard-product-search"><Icon name="search" size={18}/><input aria-label="Buscar producto" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar producto…"/><span>{selectedProductIds.length}/5</span></label><button className={showProductIntake ? 'active' : ''} onClick={() => setShowProductIntake((current) => !current)}><Icon name="plus" size={15}/>{showProductIntake ? 'Cerrar carga' : 'Agregar producto'}</button></div>
+					{showProductIntake && <ProductIntake
+						compact
+						session={session}
+						products={products}
+						onProductsChanged={onProductsChanged}
+						onCreated={(ids) => {
+							setSelectedProductIds((current) => [...new Set([...current, ...ids])].slice(-5));
+							setShowProductIntake(false);
+							onToast('Producto guardado y seleccionado.');
+						}}
+					/>}
+					{imageType === 'promotion' && <button className={`wizard-no-product ${!selectedProductIds.length ? 'active' : ''}`} onClick={() => setSelectedProductIds([])}><span><Icon name="spark"/></span><p><strong>Promoción sin producto</strong><small>Creá una oferta general de tu marca</small></p>{!selectedProductIds.length && <b><Icon name="check" size={13}/></b>}</button>}
+					{filteredProducts.length ? <div className="wizard-product-grid">{filteredProducts.map((product) => { const selectedIndex = selectedProductIds.indexOf(product.id); return <button key={product.id} className={selectedIndex >= 0 ? 'active' : ''} onClick={() => toggleProduct(product.id)}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag"/></span>}{selectedIndex >= 0 && <b>{selectedIndex + 1}</b>}{product.imageCount > 1 && <em>{product.imageCount} fotos</em>}</div><strong>{product.name}</strong><small>{product.priceText ? `${product.priceText} ${product.currency}` : product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</small></button>; })}</div> : !showProductIntake && <div className="wizard-products-empty"><Icon name="bag"/><strong>No hay productos guardados</strong><p>Agregá uno por URL o subiendo sus fotos.</p><button onClick={() => setShowProductIntake(true)}>Agregar mi producto</button></div>}
+				</section>}
 				{step === 3 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 3 DE 5</span><h2>¿Cómo querés que se vea?</h2><p>{references.length ? 'Elegí una referencia para conservar su composición.' : 'Elegí una versión visual para esta idea.'}</p></div>{references.length ? <div className="wizard-reference-grid">{references.map((item, index) => <button key={item.id} className={referenceId === item.id ? 'active' : ''} onClick={() => setReferenceId(item.id)}><div><img src={item.imageUrl} alt={item.name}/><span>OPCIÓN {String(index + 1).padStart(2, '0')}</span></div><strong>{item.name}</strong><small>{item.description}</small>{referenceId === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div> : <div className="wizard-variant-grid">{referencePresets.map((item, index) => <button key={item.id} className={preset === item.id ? 'active' : ''} onClick={() => setPreset(item.id)}><div className={`preset-preview preset-${index + 1}`}><i/><b/><span/><small/></div><em>{item.label}</em><strong>{item.name}</strong><p>{item.description}</p>{preset === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div>}</section>}
 				{step === 4 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 4 DE 5</span><h2>Formato y cantidad</h2><p>Elegí dónde vas a publicar y cuántas variantes querés comparar.</p></div><div className="wizard-format-grid">{formatOptions.map((item) => <button key={item.id} className={format === item.id ? 'active' : ''} onClick={() => setFormat(item.id)}><span className={`format-shape shape-${item.id}`}><i/></span><p><strong>{item.title}</strong><small>{item.copy}</small></p><em>{item.ratio}</em>{format === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div><div className="wizard-output-count"><div><strong>Variantes a generar</strong><small>Cada imagen usa 1 crédito y se guarda por separado.</small></div><div>{[1, 2, 3, 4].map((value) => <button key={value} className={count === value ? 'active' : ''} onClick={() => setCount(value)} disabled={value > profile.credits}>{value}</button>)}</div><p><span>{count} {count === 1 ? 'imagen' : 'imágenes'}</span><b>{count} {count === 1 ? 'crédito' : 'créditos'}</b></p></div></section>}
 				{step === 5 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 5 DE 5 · OPCIONAL</span><h2>¿Querés pedir algo puntual?</h2><p>Podés dejarlo vacío. La IA ya conoce tu marca y el producto elegido.</p></div><label className="wizard-brief"><textarea value={brief} maxLength={500} onChange={(event) => setBrief(event.target.value)} placeholder="Ej: destacar el envío gratis, usar un tono premium o dejar más aire."/><span>{brief.length}/500</span></label><div className="wizard-final-check"><span><Icon name="check" size={14}/></span><p><strong>Tu información ya está cargada</strong><small>Usamos tu web, Instagram y catálogo. Nunca inventamos precios ni beneficios.</small></p></div></section>}
-				{step === 6 && <section className="wizard-result"><div className="wizard-result-visual"><div className={`wizard-result-image result-${format}`}>{generating ? <div><span className="studio-spinner"/><h3>Creando tu imagen…</h3></div> : result && <img src={result.imageUrl} alt={`Imagen ${result.title}`}/>}</div>{results.length > 1 && <div className="wizard-result-gallery">{results.map((item, index) => <button key={item.id} className={result?.id === item.id ? 'active' : ''} onClick={() => setResult(item)}><img src={item.imageUrl} alt={`Variante ${index + 1}`}/><span>{index + 1}</span></button>)}</div>}</div>{result && <div className="wizard-result-copy"><span><Icon name="check" size={14}/> {results.length > 1 ? `${results.length} VARIANTES GENERADAS` : 'IMAGEN GENERADA'}</span><h2>Lista para publicar.</h2><p>La guardamos en “Mis imágenes”. Elegí una variante, descargala o pedí un cambio.</p><div className="wizard-result-actions"><a href={result.imageUrl} download={`creattia-${creative.id}-${result.outputIndex || 1}.png`}><Icon name="download" size={18}/>Descargar elegida</a><button onClick={() => { setResults([]); setResult(null); setRevisionBrief(''); setStep(1); }}><Icon name="plus" size={17}/>Crear otra</button></div><div className="wizard-revision"><header><span><Icon name="spark" size={16}/></span><p><strong>¿Querés hacer un cambio?</strong><small>Usaremos la variante elegida como referencia.</small></p></header><label>Describí el cambio (opcional)<textarea value={revisionBrief} maxLength={500} onChange={(event) => setRevisionBrief(event.target.value)} placeholder="Ej: cambiar el fondo, reemplazar un producto o destacar más el beneficio."/></label><div className="wizard-selected-products-note"><Icon name="bag" size={15}/><span><strong>{selectedProducts.length || 0} {selectedProducts.length === 1 ? 'producto seleccionado' : 'productos seleccionados'}</strong><small>Para cambiarlos, empezá otra creación y volvé al paso 2.</small></span></div><div className="wizard-revision-strength">{([{ id: 'exact', title: 'Conservar todo', copy: 'Cambia solo lo que pedís.' }, { id: 'light', title: 'Variar detalles', copy: 'Mantiene el diseño base.' }, { id: 'strong', title: 'Reinterpretar', copy: 'Mismo enfoque, nueva composición.' }] as { id: VariationStrength; title: string; copy: string }[]).map((option) => <button key={option.id} className={variationStrength === option.id ? 'active' : ''} onClick={() => setVariationStrength(option.id)}><span>{variationStrength === option.id && <Icon name="check" size={11}/>}</span><p><strong>{option.title}</strong><small>{option.copy}</small></p></button>)}</div><button className="wizard-revision-generate" onClick={() => void generate(result)} disabled={generating}><Icon name="spark" size={17}/>Generar nueva versión <span>1 crédito</span></button></div></div>}</section>}
+				{step === 6 && <section className="wizard-result"><div className="wizard-result-visual"><div className={`wizard-result-image result-${format}`}>{generating ? <div><span className="studio-spinner"/><h3>Creando tu imagen…</h3></div> : result && <img src={result.imageUrl} alt={`Imagen ${result.title}`}/>}</div>{results.length > 1 && <div className="wizard-result-gallery">{results.map((item, index) => <button key={item.id} className={result?.id === item.id ? 'active' : ''} onClick={() => setResult(item)}><img src={item.imageUrl} alt={`Variante ${index + 1}`}/><span>{index + 1}</span></button>)}</div>}</div>{result && <div className="wizard-result-copy"><span><Icon name="check" size={14}/> {results.length > 1 ? `${results.length} VARIANTES GENERADAS` : 'IMAGEN GENERADA'}</span><h2>Lista para publicar.</h2><p>La guardamos en “Mis imágenes”. Elegí una variante, descargala o pedí un cambio.</p><div className="wizard-result-actions"><a href={result.imageUrl} download={`creattia-${creative.id}-${result.outputIndex || 1}.png`}><Icon name="download" size={18}/>Descargar elegida</a><button onClick={() => { setResults([]); setResult(null); setRevisionBrief(''); setStep(1); }}><Icon name="plus" size={17}/>Crear otra</button></div><div className="wizard-revision"><header><span><Icon name="spark" size={16}/></span><p><strong>¿Querés hacer un cambio?</strong><small>Usaremos la variante elegida como referencia.</small></p></header><label>Describí el cambio (opcional)<textarea value={revisionBrief} maxLength={500} onChange={(event) => setRevisionBrief(event.target.value)} placeholder="Ej: cambiar el fondo, reemplazar un producto o destacar más el beneficio."/></label><div className="wizard-selected-products-note"><Icon name="bag" size={15}/><span><strong>{selectedProducts.length || 0} {selectedProducts.length === 1 ? 'producto seleccionado' : 'productos seleccionados'}</strong><small>Podés reemplazarlos antes de generar la nueva versión.</small></span><button onClick={() => setShowRevisionProducts((current) => !current)}>{showRevisionProducts ? 'Listo' : 'Cambiar'}</button></div>{showRevisionProducts && <div className="wizard-revision-products">{products.map((product) => <button key={product.id} className={selectedProductIds.includes(product.id) ? 'active' : ''} onClick={() => toggleProduct(product.id)}>{product.imageUrl ? <img src={product.imageUrl} alt=""/> : <Icon name="bag"/>}<span>{product.name}</span>{selectedProductIds.includes(product.id) && <b><Icon name="check" size={10}/></b>}</button>)}</div>}<div className="wizard-revision-strength">{([{ id: 'exact', title: 'Conservar todo', copy: 'Cambia solo lo que pedís.' }, { id: 'light', title: 'Variar detalles', copy: 'Mantiene el diseño base.' }, { id: 'strong', title: 'Reinterpretar', copy: 'Mismo enfoque, nueva composición.' }] as { id: VariationStrength; title: string; copy: string }[]).map((option) => <button key={option.id} className={variationStrength === option.id ? 'active' : ''} onClick={() => setVariationStrength(option.id)}><span>{variationStrength === option.id && <Icon name="check" size={11}/>}</span><p><strong>{option.title}</strong><small>{option.copy}</small></p></button>)}</div><button className="wizard-revision-generate" onClick={() => void generate(result)} disabled={generating}><Icon name="spark" size={17}/>Generar nueva versión <span>1 crédito</span></button></div></div>}</section>}
 				{error && <p className="wizard-error">{error}</p>}
 			</main>{step <= 5 && <aside className="wizard-summary"><small>RESUMEN</small><div><span style={{ background: meta?.accent }}>{creativeNumber(creative.id)}</span><p><strong>{creative.nombre}</strong><small>{meta?.label} · {creative.n}</small></p></div><ul><li><span>Tipo</span><b>{typeOptions.find((item) => item.id === imageType)?.title}</b></li><li><span>Productos</span><b>{selectedProducts.length ? `${selectedProducts.length} elegidos` : imageType === 'promotion' ? 'Sin producto' : 'Sin elegir'}</b></li><li><span>Estilo</span><b>{currentVariant || 'Fiel a la referencia'}</b></li><li><span>Formato</span><b>{formatOptions.find((item) => item.id === format)?.ratio}</b></li><li><span>Resultado</span><b>{count} {count === 1 ? 'imagen' : 'variantes'}</b></li></ul><footer><span><Icon name="brand" size={15}/></span><p><strong>{profile.brandName}</strong><small>Marca y catálogo listos</small></p></footer></aside>}</div>
 			{step <= 5 && <footer className="wizard-footer"><button onClick={() => step === 1 ? setWizardOpen(false) : setStep(step - 1)}>{step === 1 ? 'Cancelar' : 'Atrás'}</button>{step < 5 ? <button className="primary" onClick={nextStep}>Continuar <Icon name="arrow" size={17}/></button> : <button className="primary generate" onClick={() => void generate()} disabled={generating || profile.credits < count}>{generating ? <><span className="studio-spinner small"/> Generando…</> : <><Icon name="spark" size={17}/>Generar {count === 1 ? 'imagen' : `${count} imágenes`} <span>{count} {count === 1 ? 'crédito' : 'créditos'}</span></>}</button>}</footer>}

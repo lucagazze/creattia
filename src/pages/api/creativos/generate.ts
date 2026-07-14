@@ -45,6 +45,7 @@ function buildPrompt(input: {
 	hasSourceGeneration: boolean;
 	variationStrength: string;
 	replaceProduct: boolean;
+	inputImageMap: string[];
 }) {
 	const revisionRules: Record<string, string> = {
 		exact: 'Use the first input image as the master reference. Preserve its framing, layout, hierarchy, palette, lighting, typography zones and every untouched detail as closely as possible. Apply only the requested change.',
@@ -79,6 +80,9 @@ VERIFIED BRAND CONTEXT
 - Brand voice: ${input.brandVoice || 'Clear and direct.'}
 - Target audience: ${input.targetAudience || 'Not provided.'}
 
+INPUT IMAGE MAP
+${input.inputImageMap.length ? input.inputImageMap.map((label, index) => `- Image ${index + 1}: ${label}`).join('\n') : '- No input images. Build from verified text context only.'}
+
 SELECTED PRODUCTS
 ${productFacts}
 
@@ -91,7 +95,7 @@ ${input.products.length === 0 ? '- Build a brand-level promotion without inventi
 ${input.imageType === 'lifestyle' ? '- Create a believable lifestyle scene. Every real product must remain recognizable and commercially prominent.' : ''}
 ${input.imageType === 'catalog' ? '- Use a clean ecommerce catalog treatment: controlled lighting, precise product edges, minimal environment and premium spacing.' : ''}
 ${input.imageType === 'promotion' ? '- Prioritize the verified offer and brand message. Do not invent a product-specific claim.' : ''}
-${input.hasLogo ? '- The last input image is the brand logo. Preserve it accurately and place it once with comfortable clear space.' : '- Render the brand name as a simple wordmark only if needed.'}
+${input.hasLogo ? '- Use the image identified as the brand logo in the input map. Preserve it accurately and place it once with comfortable clear space.' : '- Render the brand name as a simple wordmark only if needed.'}
 - Write all visible copy in natural Argentine Spanish.
 - Keep copy minimal, accurate and easy to read on a phone.
 - Do not invent prices, percentages, reviews, certifications, deadlines, product features or legal claims.
@@ -168,6 +172,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (profileError) throw profileError;
 
 		let storedProducts: any[] = [];
+		const productImagesById = new Map<string, Array<{ storage_path: string; sort_order: number }>>();
 		if (productIds.length) {
 			const { data, error } = await admin.from('creative_products')
 				.select('id,name,description,price_text,currency,image_path,source_image_url,analysis')
@@ -176,6 +181,13 @@ export const POST: APIRoute = async ({ request }) => {
 			if ((data || []).length !== productIds.length) return json({ error: 'Uno de los productos ya no existe o no pertenece a tu cuenta.' }, 400);
 			const byId = new Map((data || []).map((item) => [item.id, item]));
 			storedProducts = productIds.map((id) => byId.get(id));
+			const { data: productImageRows, error: productImageError } = await admin.from('creative_product_images')
+				.select('product_id,storage_path,sort_order').eq('user_id', auth.user.id).in('product_id', productIds).order('sort_order');
+			if (productImageError) throw productImageError;
+			for (const row of productImageRows || []) {
+				const current = productImagesById.get(row.product_id) || [];
+				current.push(row); productImagesById.set(row.product_id, current);
+			}
 		}
 		if (imageType !== 'promotion' && !storedProducts.length && !(product instanceof File && product.size > 0)) {
 			return json({ error: 'Elegí al menos un producto para este tipo de imagen.' }, 400);
@@ -248,38 +260,64 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const inputs: Awaited<ReturnType<typeof fileToOpenAI>>[] = [];
+		const inputImageMap: string[] = [];
 		let hasReference = false;
 		let hasSourceGeneration = false;
 		if (sourceGeneration?.output_path) {
 			const { data: sourceBlob, error } = await admin.storage.from('creative-assets').download(sourceGeneration.output_path);
 			if (error || !sourceBlob) throw error || new Error('No se pudo recuperar la imagen de referencia.');
 			inputs.push(await blobToOpenAI(sourceBlob, 'source-generation.png'));
+			inputImageMap.push('the previously generated ad to revise; this is the master composition reference');
 			hasReference = true;
 			hasSourceGeneration = true;
 		} else if (storedReference?.image_path) {
 			const { data: referenceBlob, error } = await admin.storage.from('creative-references').download(storedReference.image_path);
 			if (error || !referenceBlob) throw error || new Error('No se pudo recuperar la referencia.');
 			inputs.push(await blobToOpenAI(referenceBlob, 'reference.png'));
+			inputImageMap.push('the curated ad reference; use its selling structure and composition, never its original product identity');
 			hasReference = true;
 		}
 
-		for (let index = 0; index < storedProducts.length; index += 1) {
-			const storedProduct = storedProducts[index];
-			if (!storedProduct.image_path) throw new Error(`${storedProduct.name} todavía no tiene una foto disponible.`);
-			const { data: productBlob, error } = await admin.storage.from('creative-assets').download(storedProduct.image_path);
-			if (error || !productBlob) throw error || new Error(`No se pudo recuperar la foto de ${storedProduct.name}.`);
-			inputs.push(await blobToOpenAI(productBlob, `product-${index + 1}.png`));
+		const productInputPlan: Array<{ product: any; path: string; photoIndex: number }> = [];
+		for (const storedProduct of storedProducts) {
+			const paths = [...new Set([
+				storedProduct.image_path,
+				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
+			].filter(Boolean) as string[])];
+			if (!paths.length) throw new Error(`${storedProduct.name} todavía no tiene una foto disponible.`);
+			productInputPlan.push({ product: storedProduct, path: paths[0], photoIndex: 1 });
 		}
-		if (!storedProducts.length && product instanceof File && product.size > 0) inputs.push(await fileToOpenAI(product, 'product.png'));
+		for (const storedProduct of storedProducts) {
+			if (productInputPlan.length >= 8) break;
+			const paths = [...new Set([
+				storedProduct.image_path,
+				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
+			].filter(Boolean) as string[])];
+			for (let index = 1; index < Math.min(paths.length, 3) && productInputPlan.length < 8; index += 1) {
+				productInputPlan.push({ product: storedProduct, path: paths[index], photoIndex: index + 1 });
+			}
+		}
+		for (const item of productInputPlan) {
+			const { data: productBlob, error } = await admin.storage.from('creative-assets').download(item.path);
+			if (error || !productBlob) throw error || new Error(`No se pudo recuperar una foto de ${item.product.name}.`);
+			inputs.push(await blobToOpenAI(productBlob, `product-${item.product.id}-${item.photoIndex}.png`));
+			inputImageMap.push(`verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
+		}
+		if (!storedProducts.length && product instanceof File && product.size > 0) {
+			inputs.push(await fileToOpenAI(product, 'product.png'));
+			inputImageMap.push('the real product supplied by the user; preserve its packaging, label, shape and color');
+		}
 
 		let hasLogo = false;
 		if (logo instanceof File && logo.size > 0) {
 			inputs.push(await fileToOpenAI(logo, 'logo.png'));
+			inputImageMap.push('the official brand logo; reproduce it accurately once');
 			hasLogo = true;
 		} else if (profile?.logo_path) {
 			const { data: logoBlob } = await admin.storage.from('creative-assets').download(profile.logo_path);
 			if (logoBlob) {
 				inputs.push(await blobToOpenAI(logoBlob, 'logo.png'));
+				inputImageMap.push('the official brand logo; reproduce it accurately once');
 				hasLogo = true;
 			}
 		}
@@ -308,6 +346,7 @@ export const POST: APIRoute = async ({ request }) => {
 			hasSourceGeneration,
 			variationStrength,
 			replaceProduct: Boolean(hasSourceGeneration && sourceGeneration?.product_id !== (storedProducts[0]?.id || null)),
+			inputImageMap,
 		});
 		const { error: promptUpdateError } = await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
 		if (promptUpdateError) throw promptUpdateError;

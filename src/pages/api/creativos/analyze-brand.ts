@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { analyzeCatalogWithAI, scanInstagram, scanWebsite, type ScannedProduct, type ScannedSource } from '../../../lib/creattia/catalog-scanner';
-import { mirrorProductImage } from '../../../lib/creattia/product-assets';
+import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
@@ -80,18 +80,22 @@ export const POST: APIRoute = async ({ request }) => {
 				return {
 					user_id: auth.user!.id, name: product.name, description: insight?.description || product.description || null,
 					price_text: product.priceText || null, currency: product.currency || null, source: 'website', external_id: product.externalId,
-					product_url: product.productUrl || null, source_image_url: product.imageUrl || null, metadata: product.metadata,
+					product_url: product.productUrl || null, source_image_url: product.imageUrl || null, metadata: { ...product.metadata, sourceImageUrls: product.imageUrls },
 					analysis: insight ? { category: insight.category, keywords: insight.keywords } : {}, is_active: true,
 					updated_at: new Date().toISOString(), synced_at: new Date().toISOString(),
 				};
 			});
 			const { data, error } = await admin.from('creative_products').upsert(rows, { onConflict: 'user_id,source,external_id' })
-				.select('id,name,image_path,source_image_url');
+				.select('id,name,image_path,source_image_url,external_id');
 			if (error) throw error;
 			storedProducts = data || [];
+			const scannedByExternalId = new Map(products.map((product) => [product.externalId, product]));
 			for (let index = 0; index < storedProducts.length; index += 4) {
-				const paths = await Promise.all(storedProducts.slice(index, index + 4).map((product) => mirrorProductImage(auth.user!.id, product)));
-				photosSaved += paths.filter(Boolean).length;
+				const paths = await Promise.all(storedProducts.slice(index, index + 4).map((product) => {
+					const scanned = scannedByExternalId.get(product.external_id);
+					return mirrorProductImages(auth.user!.id, product, scanned?.imageUrls?.length ? scanned.imageUrls : [product.source_image_url || '']);
+				}));
+				photosSaved += paths.reduce((total, list) => total + list.length, 0);
 			}
 		}
 

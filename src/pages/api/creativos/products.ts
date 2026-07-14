@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { analyzeCatalogWithAI, scanWebsite, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
-import { mirrorProductImage } from '../../../lib/creattia/product-assets';
+import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
@@ -18,14 +18,33 @@ async function listProducts(userId: string) {
 		.select('id,name,description,price_text,currency,product_url,image_path,source,source_image_url,analysis,updated_at')
 		.eq('user_id', userId).eq('is_active', true).order('updated_at', { ascending: false }).limit(200);
 	if (error) throw error;
-	return Promise.all((data || []).map(async (product) => {
-		let imageUrl = product.source_image_url || '';
-		if (product.image_path) {
-			const { data: signed } = await admin.storage.from('creative-assets').createSignedUrl(product.image_path, 60 * 60);
-			imageUrl = signed?.signedUrl || imageUrl;
-		}
-		return { ...product, imageUrl };
-	}));
+	const ids = (data || []).map((product) => product.id);
+	const { data: imageRows, error: imageError } = ids.length
+		? await admin.from('creative_product_images').select('product_id,storage_path,source_url,sort_order,is_primary').eq('user_id', userId).in('product_id', ids).order('sort_order')
+		: { data: [], error: null };
+	if (imageError) throw imageError;
+	const imagesByProduct = new Map<string, Array<{ storage_path: string; source_url: string | null }>>();
+	for (const row of imageRows || []) {
+		const current = imagesByProduct.get(row.product_id) || [];
+		current.push(row); imagesByProduct.set(row.product_id, current);
+	}
+	const allPaths = [...new Set((data || []).flatMap((product) => [
+		product.image_path,
+		...(imagesByProduct.get(product.id) || []).map((row) => row.storage_path),
+	]).filter(Boolean) as string[])];
+	const signedByPath = new Map<string, string>();
+	if (allPaths.length) {
+		const { data: signedRows } = await admin.storage.from('creative-assets').createSignedUrls(allPaths, 60 * 60);
+		(signedRows || []).forEach((row, index) => { if (row.signedUrl) signedByPath.set(allPaths[index], row.signedUrl); });
+	}
+	return (data || []).map((product) => {
+		const rows = imagesByProduct.get(product.id) || [];
+		const paths = [...new Set([product.image_path, ...rows.map((row) => row.storage_path)].filter(Boolean) as string[])];
+		const imageUrls = paths.map((path, index) => signedByPath.get(path) || rows[index]?.source_url || (index === 0 ? product.source_image_url : '') || '');
+		const usableImageUrls = imageUrls.filter(Boolean);
+		if (!usableImageUrls.length && product.source_image_url) usableImageUrls.push(product.source_image_url);
+		return { ...product, imageUrl: usableImageUrls[0] || '', imageUrls: usableImageUrls, imageCount: usableImageUrls.length };
+	});
 }
 
 function sameProductUrl(left: string, right: string) {
@@ -89,7 +108,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			source: 'website',
 			external_id: item.product.externalId || item.product.productUrl || item.requestedUrl,
 			source_image_url: item.product.imageUrl || null,
-			metadata: { ...item.product.metadata, importedFromUrl: item.requestedUrl },
+			metadata: { ...item.product.metadata, importedFromUrl: item.requestedUrl, sourceImageUrls: item.product.imageUrls },
 			analysis: insight ? { category: insight.category, keywords: insight.keywords } : {},
 			is_active: true,
 			updated_at: new Date().toISOString(),
@@ -98,7 +117,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			.select('id,name,image_path,source_image_url')
 			.single();
 		if (error) throw error;
-		await mirrorProductImage(userId, stored);
+		await mirrorProductImages(userId, stored, item.product.imageUrls?.length ? item.product.imageUrls : [item.product.imageUrl]);
 			importedIds.push(stored.id as string);
 		} catch (error) {
 			errors.push({ url: item.requestedUrl, error: error instanceof Error ? error.message : 'No se pudo guardar.' });
@@ -136,7 +155,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const name = String(form.get('name') || '').trim().slice(0, 180);
 		const description = String(form.get('description') || '').trim().slice(0, 1600);
 		const priceText = String(form.get('priceText') || '').trim().slice(0, 60);
-		const productUrl = String(form.get('productUrl') || '').trim().slice(0, 500);
+		const rawProductUrl = String(form.get('productUrl') || '').trim().slice(0, 500);
+		const productUrl = rawProductUrl ? normalizeExternalUrl(rawProductUrl) : '';
 		const image = form.get('image');
 		if (!name) return json({ error: 'Poné un nombre para el producto.' }, 400);
 		if (!(image instanceof File) || !image.size) return json({ error: 'Subí una imagen del producto.' }, 400);

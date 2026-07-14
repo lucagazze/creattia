@@ -8,7 +8,16 @@ Proyecto independiente de la landing y la aplicación web de Creattia.
 - `/app/` — registro, onboarding y aplicación.
 - `/api/creativos/*` — generación, catálogo, suscripciones y webhook.
 
-La aplicación permite guardar la web e Instagram de cada marca, importar URLs de productos concretos, combinar hasta 5 productos y generar de 1 a 4 variantes por lote. Cada resultado se guarda por separado en el historial.
+La aplicación permite guardar la web e Instagram de cada marca, importar una URL concreta con hasta 6 fotos públicas, cargar manualmente entre 1 y 6 fotos con datos verificados, combinar hasta 5 productos y generar de 1 a 4 variantes por lote. Cada resultado se guarda por separado en el historial y puede usarse como referencia para una nueva versión.
+
+## Flujo del usuario
+
+1. Crear la cuenta e ingresar los datos reales de la marca.
+2. En **Mis productos**, pegar la URL exacta de un producto o subir sus fotos, nombre, descripción y precio.
+3. Tocar **Crear con este producto** o abrir la **Biblioteca** y elegir una estructura de anuncio.
+4. Elegir tipo de imagen, uno o varios productos, referencia, formato y cantidad.
+5. Agregar una indicación solamente si hace falta; la marca y los datos del producto ya se usan automáticamente.
+6. Descargar el resultado o pedir una nueva versión conservando todo, variando detalles o reinterpretando el mismo ángulo. También se puede reemplazar el producto sin perder la composición creada.
 
 ## Desarrollo local
 
@@ -25,6 +34,11 @@ La aplicación funciona en modo demo cuando Supabase todavía no está configura
 1. Crear o elegir un proyecto de Supabase exclusivo para Creattia.
 2. Copiar `.env.example` a `.env` y completar las tres variables de Supabase.
 3. Vincular el proyecto con Supabase CLI y aplicar `supabase/migrations/`.
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref TU_PROJECT_REF
+   npx supabase db push
+   ```
 4. Agregar estas URLs en Authentication → URL Configuration:
    - Site URL: `https://creattia.app`
    - Redirect URL: `https://creattia.app/app/`
