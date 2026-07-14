@@ -42,14 +42,14 @@ const plans = [
 ];
 
 const businessTypes = [
-	['🛍️', 'E-commerce'],
-	['🍽️', 'Gastronomía'],
-	['👟', 'Moda'],
-	['✨', 'Belleza'],
-	['💪', 'Fitness'],
-	['💼', 'Servicios'],
-	['🖥️', 'Productos digitales'],
-	['🚀', 'Apps y SaaS'],
+	{ name: 'E-commerce', color: '#8058e8', icon: 'M3 4h2l2 10h10l2-7H6m3 12a1 1 0 1 0 0 .01M17 19a1 1 0 1 0 0 .01' },
+	{ name: 'Gastronomía', color: '#f07c4f', icon: 'M7 3v7m-2-7v4a2 2 0 0 0 4 0V3M7 10v11m8-18c-2 3-2 7 1 9v9m0-9V3' },
+	{ name: 'Moda', color: '#e4589c', icon: 'M12 7a2 2 0 1 0-2-2m2 2v2L3 17h18L12 9' },
+	{ name: 'Belleza', color: '#b74ee8', icon: 'M12 3c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10m6 1v4m-2-2h4' },
+	{ name: 'Fitness', color: '#2cae7b', icon: 'M4 9v6m3-8v10m10-10v10m3-8v6M7 12h10M2 11v2m20-2v2' },
+	{ name: 'Servicios', color: '#3189e7', icon: 'M9 6V4h6v2m-11 0h16v13H4zM4 11h16M9 11v2h6v-2' },
+	{ name: 'Productos digitales', color: '#d99c24', icon: 'M4 4h16v16H4zM4 8h16m-8 4 4 2.5-4 2.5z' },
+	{ name: 'Apps y SaaS', color: '#6670e8', icon: 'M5 4h5v5H5zm9 0h5v5h-5zM5 14h5v5H5zm9 0h5v5h-5z' },
 ];
 
 const faqs = [
@@ -118,7 +118,6 @@ const faqs = [
 				<h1>La plataforma N°1 para generar <em>imágenes que venden.</em></h1>
 				<div class="hero-actions">
 					<a href="/app/" class="primary-button">Crear 3 imágenes gratis <span>→</span></a>
-					<small>Google o email · Sin tarjeta</small>
 				</div>
 				<div class="hero-video">
 					<video autoplay muted loop playsinline preload="auto" aria-label="Creattia convierte un producto en una imagen lista para vender">
@@ -189,53 +188,6 @@ const faqs = [
 				</div>
 			</section>
 
-			<section class="results-section">
-				<div class="section-heading results-heading">
-					<p>Una forma más simple de crear</p>
-					<h2>Más ideas para probar.<br />Menos tiempo hasta publicar.</h2>
-				</div>
-				<div class="results-grid">
-					<article class="result-card result-speed" data-prompt-id="05">
-						<div class="result-art" aria-hidden="true">
-							<span class="mini-chip chip-one">Elegí</span>
-							<span class="mini-chip chip-two">Generá</span>
-							<span class="mini-chip chip-three">Publicá</span>
-							<div class="result-orb">✦</div>
-						</div>
-						<div>
-							<small>MENOS PASOS</small>
-							<h3>De la idea a la imagen en minutos.</h3>
-						</div>
-					</article>
-
-					<article class="result-card result-brand" data-prompt-id="06">
-						<div class="result-art" aria-hidden="true">
-							<div class="brand-board">
-								<span class="brand-color"></span><span class="brand-color"></span><span class="brand-color"></span>
-								<b>Aa</b>
-								<small>IDENTIDAD APLICADA</small>
-							</div>
-						</div>
-						<div>
-							<small>MISMA IDENTIDAD</small>
-							<h3>Cada resultado se siente parte de tu marca.</h3>
-						</div>
-					</article>
-
-					<article class="result-card result-versions" data-prompt-id="07">
-						<div class="result-art" aria-hidden="true">
-							<div class="version version-one"><b>20% OFF</b></div>
-							<div class="version version-two"><b>ENVÍO GRATIS</b></div>
-							<div class="version version-three"><b>NUEVO</b></div>
-						</div>
-						<div>
-							<small>MÁS VARIANTES</small>
-							<h3>Probá otros mensajes sin empezar de cero.</h3>
-						</div>
-					</article>
-				</div>
-			</section>
-
 			<section class="how-section" id="como-funciona">
 				<div class="section-heading">
 					<p>Sin prompts. Sin diseño. Sin vueltas.</p>
@@ -277,50 +229,6 @@ const faqs = [
 				<div class="workflow-cta"><span>¿Querés verlo con tu marca?</span><a href="/app/">Crear 3 imágenes gratis <b>→</b></a></div>
 			</section>
 
-			<section class="platforms-section">
-				<div class="section-heading">
-					<h2>Usá tu contenido donde<br />más vendés</h2>
-					<p>Generá cada pieza en el formato correcto y publicala en tus canales favoritos.</p>
-				</div>
-				<div class="platforms-grid">
-					<article class="platform-card">
-						<div class="platform-icon meta-icon" aria-hidden="true">
-							<svg viewBox="0 0 58 36"><path d="M4 29C9 10 15 5 22 5c9 0 14 24 23 24 5 0 9-5 9-12S51 5 46 5c-9 0-15 24-24 24-7 0-13-6-18-20" /></svg>
-						</div>
-						<h3>Meta</h3>
-						<span class="platform-status">Listo para usar</span>
-						<p>Imágenes para campañas, anuncios y piezas de venta dentro del ecosistema Meta.</p>
-					</article>
-
-					<article class="platform-card">
-						<div class="platform-icon instagram-icon" aria-hidden="true">
-							<svg viewBox="0 0 48 48"><rect x="6" y="6" width="36" height="36" rx="11" /><circle cx="24" cy="24" r="8.5" /><circle cx="35" cy="13" r="2.2" class="fill-dot" /></svg>
-						</div>
-						<h3>Instagram</h3>
-						<span class="platform-status">Listo para usar</span>
-						<p>Contenido para el feed, historias y formatos verticales que mantienen tu marca.</p>
-					</article>
-
-					<article class="platform-card">
-						<div class="platform-icon facebook-icon" aria-hidden="true">
-							<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" /><path d="M27.8 46V28.7h5.8l.9-6.7h-6.7v-4.3c0-1.9.5-3.3 3.4-3.3h3.6v-6a48 48 0 0 0-5.3-.3c-5.2 0-8.8 3.2-8.8 9.1V22h-5.9v6.7h5.9V46h7.1Z" class="facebook-f" /></svg>
-						</div>
-						<h3>Facebook</h3>
-						<span class="platform-status">Listo para usar</span>
-						<p>Publicaciones y anuncios adaptados para vender con claridad en Facebook.</p>
-					</article>
-
-					<article class="platform-card">
-						<div class="platform-icon tiktok-icon" aria-hidden="true">
-							<svg viewBox="0 0 48 48"><path d="M29 7c1.2 5.8 4.7 9.2 10 9.6v7c-3.9-.1-7.2-1.3-10-3.5v11.8C29 39 24 43 17.8 43 11.7 43 7 38.4 7 32.6c0-6.7 6.1-11.6 13.2-10.4v7.2c-3.2-.9-6.3.7-6.3 3.7 0 2.2 1.8 3.8 4.2 3.8 2.9 0 4.2-2 4.2-5.1V7H29Z" /></svg>
-						</div>
-						<h3>TikTok</h3>
-						<span class="platform-status">Listo para usar</span>
-						<p>Piezas verticales para mostrar productos y captar atención desde el primer segundo.</p>
-					</article>
-				</div>
-			</section>
-
 			<section class="pricing-section" id="planes">
 				<div class="pricing-aurora" aria-hidden="true"></div>
 				<div class="section-heading pricing-heading">
@@ -346,8 +254,8 @@ const faqs = [
 			<section class="business-section">
 				<div class="business-marquee business-top" aria-label="Tipos de negocio">
 					<div class="business-track">
-						<div class="business-set">{businessTypes.map(([emoji, name]) => <span><i>{emoji}</i><b>{name}</b></span>)}</div>
-						<div class="business-set" aria-hidden="true">{businessTypes.map(([emoji, name]) => <span><i>{emoji}</i><b>{name}</b></span>)}</div>
+						<div class="business-set">{businessTypes.map((business) => <span style={'--business-accent:' + business.color}><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d={business.icon} /></svg></i><span class="business-copy"><small>CREATTIA PARA</small><b>{business.name}</b></span><em>↗</em></span>)}</div>
+						<div class="business-set" aria-hidden="true">{businessTypes.map((business) => <span style={'--business-accent:' + business.color}><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d={business.icon} /></svg></i><span class="business-copy"><small>CREATTIA PARA</small><b>{business.name}</b></span><em>↗</em></span>)}</div>
 					</div>
 				</div>
 				<div class="business-heading">
@@ -355,8 +263,8 @@ const faqs = [
 				</div>
 				<div class="business-marquee business-bottom" aria-hidden="true">
 					<div class="business-track">
-						<div class="business-set">{[...businessTypes].reverse().map(([emoji, name]) => <span><i>{emoji}</i><b>{name}</b></span>)}</div>
-						<div class="business-set" aria-hidden="true">{[...businessTypes].reverse().map(([emoji, name]) => <span><i>{emoji}</i><b>{name}</b></span>)}</div>
+						<div class="business-set">{[...businessTypes].reverse().map((business) => <span style={'--business-accent:' + business.color}><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d={business.icon} /></svg></i><span class="business-copy"><small>CREATTIA PARA</small><b>{business.name}</b></span><em>↗</em></span>)}</div>
+						<div class="business-set" aria-hidden="true">{[...businessTypes].reverse().map((business) => <span style={'--business-accent:' + business.color}><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d={business.icon} /></svg></i><span class="business-copy"><small>CREATTIA PARA</small><b>{business.name}</b></span><em>↗</em></span>)}</div>
 					</div>
 				</div>
 			</section>
@@ -381,7 +289,6 @@ const faqs = [
 					<div class="final-copy">
 						<h2>¿Listo para crear imágenes que den ganas de comprar?</h2>
 						<a href="/app/">Crear 3 imágenes gratis <span>→</span></a>
-						<small>Google o email · Sin tarjeta</small>
 					</div>
 				</div>
 			</section>
@@ -508,7 +415,6 @@ const faqs = [
 			transition: transform .2s ease, box-shadow .2s ease;
 		}
 		.primary-button:hover { transform: translateY(-3px); box-shadow: 0 24px 50px rgba(100, 45, 213, .32); }
-		.hero-actions small { color: rgba(13, 21, 34, .48); font-size: 11px; }
 		.hero-video {
 			max-width: 860px;
 			height: auto;
@@ -592,34 +498,6 @@ const faqs = [
 		.library-front { z-index: 2; bottom: -15px; background: #7b4ad2; transform: translateX(-50%); }
 		.library-art img { position: absolute; z-index: 4; width: 210px; height: 210px; left: 50%; bottom: -42px; object-fit: contain; transform: translateX(-50%); filter: drop-shadow(0 26px 25px rgba(0, 0, 0, .25)); }
 
-		.results-section { padding: 112px 40px; background: #fff; }
-		.results-heading h2 { font-size: 36px; font-weight: 500; line-height: 1.2; }
-		.results-grid { max-width: 1200px; margin: 58px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-		.result-card { min-height: 540px; display: flex; flex-direction: column; overflow: hidden; border-radius: 24px; background: #f3f3f3; }
-		.result-art { position: relative; flex: 1; min-height: 350px; display: grid; place-items: center; overflow: hidden; }
-		.result-card > div:last-child { padding: 29px 28px 32px; }
-		.result-card small { color: rgba(13, 21, 34, .45); font-size: 8px; font-weight: 800; letter-spacing: .14em; }
-		.result-card h3 { margin: 10px 0 0; font-size: 25px; font-weight: 800; line-height: 1.12; }
-		.result-speed .result-art { background: radial-gradient(circle, #efe6ff, #f3f3f3 65%); }
-		.result-orb { width: 150px; height: 150px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(145deg, #a97cff, #6134c4); color: #fff; font-size: 52px; box-shadow: inset -20px -25px 45px rgba(42, 17, 90, .22), 0 30px 45px rgba(91, 48, 173, .25); }
-		.mini-chip { position: absolute; padding: 12px 16px; border: 1px solid #eeeaf0; border-radius: 999px; background: rgba(255, 255, 255, .93); color: #0d1522; font-size: 10px; font-weight: 700; box-shadow: 0 14px 30px rgba(35, 27, 42, .1); }
-		.chip-one { left: 36px; top: 88px; transform: rotate(-8deg); }
-		.chip-two { right: 31px; top: 150px; transform: rotate(7deg); }
-		.chip-three { left: 62px; bottom: 59px; transform: rotate(4deg); }
-		.result-brand .result-art { background: linear-gradient(155deg, #edf4ff, #e7dcff); }
-		.brand-board { width: 230px; min-height: 240px; padding: 28px; border: 1px solid rgba(255, 255, 255, .8); border-radius: 26px; background: rgba(255, 255, 255, .65); box-shadow: 0 24px 50px rgba(47, 37, 69, .12); backdrop-filter: blur(14px); transform: rotate(-3deg); }
-		.brand-color { width: 42px; height: 42px; display: inline-block; margin-right: 7px; border-radius: 50%; background: #7442dc; }
-		.brand-color:nth-child(2) { background: #f0b865; }
-		.brand-color:nth-child(3) { background: #ec7f8f; }
-		.brand-board b { display: block; margin-top: 25px; font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 76px; line-height: 1; }
-		.brand-board small { display: block; margin-top: 18px; }
-		.result-versions .result-art { background: radial-gradient(circle at 50% 56%, #ffe9d8, #f3f3f3 69%); }
-		.version { position: absolute; width: 155px; height: 210px; padding: 20px; border: 6px solid #fff; border-radius: 21px; color: #fff; box-shadow: 0 24px 40px rgba(47, 34, 55, .17); }
-		.version b { font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 24px; line-height: .9; }
-		.version-one { left: calc(50% - 165px); background: #e88769; transform: rotate(-13deg); }
-		.version-two { z-index: 2; left: calc(50% - 77px); background: #7950ce; }
-		.version-three { right: calc(50% - 165px); background: #43939b; transform: rotate(13deg); }
-
 		.how-section { padding: 118px 20px 105px; background: #f3f1f6; }
 		.how-section .section-heading { max-width: 880px; margin: 0 auto; }
 		.how-section .section-heading > p { margin-bottom: 16px; color: #7040d0; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
@@ -663,25 +541,6 @@ const faqs = [
 		.workflow-cta > a { padding: 12px 17px; border-radius: 999px; background: #17151a; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
 		.workflow-cta b { margin-left: 8px; }
 
-		.platforms-section { padding: 112px 24px 120px; background: #fff; }
-		.platforms-section .section-heading > p { max-width: 650px; margin: 18px auto 0; color: rgba(13, 21, 34, .58); line-height: 1.65; }
-		.platforms-grid { max-width: 1160px; margin: 62px auto 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-		.platform-card { min-height: 390px; padding: 38px 28px 32px; display: flex; flex-direction: column; align-items: center; border: 1px solid rgba(13, 21, 34, .045); border-radius: 24px; background: #fff; box-shadow: 0 14px 40px rgba(34, 28, 41, .08); text-align: center; transition: transform .2s ease, box-shadow .2s ease; }
-		.platform-card:hover { transform: translateY(-5px); box-shadow: 0 22px 52px rgba(34, 28, 41, .12); }
-		.platform-icon { width: 68px; height: 68px; display: grid; place-items: center; border-radius: 19px; background: #fff; box-shadow: 0 12px 30px rgba(32, 26, 38, .1); }
-		.platform-icon svg { width: 40px; height: 40px; }
-		.meta-icon svg { width: 46px; color: #0878f9; }
-		.meta-icon path { fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
-		.instagram-icon { background: radial-gradient(circle at 32% 105%, #ffd600 0 17%, #ff7a00 32%, #ff0169 58%, #d300c5 78%, #7638fa 100%); }
-		.instagram-icon svg { fill: none; stroke: #fff; stroke-width: 3.4; }
-		.instagram-icon .fill-dot { fill: #fff; stroke: none; }
-		.facebook-icon svg > circle { fill: #1877f2; }
-		.facebook-icon .facebook-f { fill: #fff; }
-		.tiktok-icon svg { fill: #08090b; filter: drop-shadow(-2px 1px 0 #25f4ee) drop-shadow(2px -1px 0 #fe2c55); }
-		.platform-card h3 { margin: 25px 0 14px; font-size: 26px; font-weight: 900; letter-spacing: -.025em; }
-		.platform-status { padding: 8px 13px; border-radius: 999px; background: #0d1522; color: #fff; font-size: 9px; font-weight: 700; }
-		.platform-card > p { margin: 24px 0 0; color: rgba(13, 21, 34, .52); font-size: 12px; line-height: 1.7; }
-
 		.pricing-section { position: relative; padding: 116px 22px 126px; overflow: hidden; background: #fff; }
 		.pricing-aurora { position: absolute; width: 900px; height: 540px; left: 50%; top: 470px; border-radius: 50%; background: #beddff; filter: blur(100px); opacity: .36; transform: translateX(-50%); }
 		.pricing-heading { position: relative; z-index: 2; }
@@ -712,16 +571,21 @@ const faqs = [
 		.plans-grid .featured li { border-color: rgba(255, 255, 255, .17); color: rgba(255, 255, 255, .84); }
 		.plans-grid li i { width: 21px; height: 21px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: #caff25; color: #0d1522; font-size: 9px; font-style: normal; font-weight: 900; }
 
-		.business-section { min-height: 644px; padding: 72px 0; display: flex; flex-direction: column; justify-content: center; overflow: hidden; background: #fff; }
-		.business-heading { max-width: 760px; margin: 46px auto; padding: 0 20px; text-align: center; }
-		.business-heading h2 { margin: 0; font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 60px; font-weight: 900; line-height: 1.22; text-wrap: balance; }
-		.business-marquee { overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
-		.business-track { width: max-content; display: flex; gap: 12px; animation: businessScroll 28s linear infinite; will-change: transform; }
+		.business-section { position: relative; min-height: 760px; padding: 96px 0; display: flex; flex-direction: column; justify-content: center; overflow: hidden; background: radial-gradient(circle at 18% 18%, rgba(128, 88, 232, .12), transparent 29%), radial-gradient(circle at 82% 82%, rgba(49, 137, 231, .1), transparent 28%), #f7f5fa; }
+		.business-section::before { position: absolute; inset: 0; content: ''; background-image: linear-gradient(rgba(79, 54, 116, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(79, 54, 116, .035) 1px, transparent 1px); background-size: 54px 54px; mask-image: linear-gradient(transparent, #000 23%, #000 78%, transparent); }
+		.business-heading { position: relative; z-index: 2; max-width: 800px; margin: 52px auto; padding: 0 20px; text-align: center; }
+		.business-heading h2 { margin: 0; font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 60px; font-weight: 900; line-height: 1.1; letter-spacing: -.035em; text-wrap: balance; }
+		.business-marquee { position: relative; z-index: 2; overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+		.business-track { width: max-content; display: flex; gap: 14px; animation: businessScroll 32s linear infinite; will-change: transform; }
 		.business-bottom .business-track { animation-direction: reverse; }
-		.business-set { display: flex; flex: 0 0 auto; gap: 12px; }
-		.business-set span { height: 68px; padding: 0 24px 0 9px; display: flex; align-items: center; gap: 12px; border: 1px solid #e9e7eb; border-radius: 999px; background: #f7f7f8; box-shadow: 0 12px 26px rgba(35, 30, 41, .05); font-size: 12px; }
-		.business-set i { width: 50px; height: 50px; display: grid; place-items: center; border-radius: 50%; background: #fff; font-size: 23px; font-style: normal; }
-		.business-set b { white-space: nowrap; }
+		.business-set { display: flex; flex: 0 0 auto; gap: 14px; }
+		.business-set > span { width: 288px; height: 92px; padding: 10px 14px 10px 10px; display: flex; align-items: center; gap: 13px; border: 1px solid rgba(13, 21, 34, .065); border-radius: 24px; background: rgba(255, 255, 255, .9); box-shadow: 0 18px 42px rgba(39, 31, 48, .08), inset 0 1px rgba(255, 255, 255, .95); backdrop-filter: blur(14px); }
+		.business-set > span > i { width: 70px; height: 70px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 19px; background: color-mix(in srgb, var(--business-accent) 13%, #fff); color: var(--business-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--business-accent) 12%, transparent); font-style: normal; }
+		.business-set svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+		.business-copy { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 5px; }
+		.business-copy small { color: rgba(13, 21, 34, .35); font-size: 6px; font-weight: 800; letter-spacing: .14em; }
+		.business-copy b { font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 15px; font-weight: 800; line-height: 1.05; white-space: nowrap; }
+		.business-set > span > em { width: 28px; height: 28px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: color-mix(in srgb, var(--business-accent) 10%, #fff); color: var(--business-accent); font-size: 10px; font-style: normal; }
 
 		.faq-section { padding: 80px 16px; background: #fff; }
 		.faq-section .section-heading h2 { font-size: 36px; }
@@ -741,19 +605,16 @@ const faqs = [
 		.final-copy { position: relative; z-index: 3; max-width: 790px; padding: 50px 24px; }
 		.final-copy h2 { margin: 0; font-size: 48px; font-weight: 900; line-height: 1.05; text-wrap: balance; }
 		.final-copy > a { min-height: 52px; margin-top: 26px; padding: 0 30px; display: inline-flex; align-items: center; gap: 12px; border-radius: 999px; background: rgba(255, 255, 255, .15); color: #fff; font-size: 14px; font-weight: 800; text-decoration: none; box-shadow: 0 6px 20px rgba(0, 0, 0, .08), inset 0 1px rgba(255, 255, 255, .38); backdrop-filter: blur(12px); }
-		.final-copy small { display: block; margin-top: 15px; color: rgba(255, 255, 255, .48); font-size: 9px; }
 
 		@keyframes businessScroll { to { transform: translate3d(calc(-50% - 6px), 0, 0); } }
 
 		@media (max-width: 1100px) {
-			.platforms-grid { grid-template-columns: repeat(2, 1fr); max-width: 760px; }
 			.plans-grid { grid-template-columns: repeat(2, 1fr); max-width: 760px; }
 			.plans-grid article.featured { margin-top: 0; min-height: 675px; }
 		}
 
 		@media (max-width: 980px) {
 			.hero-video { max-width: 720px; height: auto; }
-			.result-card h3 { font-size: 22px; }
 			.workflow-grid { grid-template-columns: 1fr; max-width: 700px; }
 			.workflow-card { min-height: 460px; }
 			.workflow-visual { height: 205px; }
@@ -771,7 +632,7 @@ const faqs = [
 			.hero-label { font-size: 8px; }
 			.hero h1 { margin-top: 18px; font-size: 35px; font-weight: 760; line-height: 1.045; letter-spacing: -.03em; }
 			.hero-actions { flex-direction: column; gap: 10px; }
-			.primary-button { width: 100%; }
+			.primary-button { width: auto; min-width: 248px; }
 			.hero-video { height: auto; margin-top: 31px; aspect-ratio: 4 / 3; border-radius: 20px; }
 
 			.use-cases { padding: 8px; }
@@ -785,14 +646,7 @@ const faqs = [
 			.ad-panel { width: 315px; }
 			.product-art { transform: scale(.9); transform-origin: bottom center; }
 
-			.results-section { padding: 80px 8px; }
-			.results-heading { padding: 0 16px; }
-			.results-heading > p { font-size: 13px; }
-			.results-heading h2 { font-size: 29px; }
-			.results-grid { grid-template-columns: 1fr; margin-top: 43px; gap: 8px; }
-			.result-card { min-height: 500px; border-radius: 22px; }
-
-			.how-section, .platforms-section, .faq-section { padding: 76px 14px; }
+			.how-section, .faq-section { padding: 76px 14px; }
 			.how-section .section-heading h2 { font-size: 32px; }
 			.workflow-grid { max-width: none; margin: 40px -14px 0; padding: 0 14px 14px; display: flex; gap: 9px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
 			.workflow-grid::-webkit-scrollbar { display: none; }
@@ -801,15 +655,6 @@ const faqs = [
 			.workflow-visual { height: 205px; }
 			.workflow-cta { width: 100%; padding: 9px; flex-direction: column; gap: 9px; border-radius: 21px; text-align: center; }
 			.workflow-cta > a { width: 100%; }
-			.platforms-section .section-heading > p { font-size: 13px; }
-			.platforms-grid { grid-template-columns: repeat(2, 1fr); margin-top: 44px; gap: 9px; }
-			.platform-card { min-height: 315px; padding: 25px 16px; border-radius: 22px; }
-			.platform-icon { width: 58px; height: 58px; border-radius: 17px; }
-			.platform-icon svg { width: 35px; height: 35px; }
-			.platform-card h3 { margin-top: 20px; font-size: 20px; }
-			.platform-status { padding: 7px 9px; font-size: 7px; }
-			.platform-card > p { margin-top: 18px; font-size: 10px; line-height: 1.6; }
-
 			.pricing-section { padding: 78px 14px; }
 			.pricing-heading > p { font-size: 13px; }
 			.billing-toggle { font-size: 10px; }
@@ -818,12 +663,15 @@ const faqs = [
 			.plans-grid::-webkit-scrollbar { display: none; }
 			.plans-grid article, .plans-grid article.featured { min-height: 650px; padding: 27px; flex: 0 0 calc(100vw - 48px); border-radius: 23px; scroll-snap-align: center; }
 
-			.business-section { min-height: 620px; padding: 68px 0; }
-			.business-heading { margin: 42px auto; }
-			.business-heading h2 { font-size: 42px; line-height: 1.12; }
+			.business-section { min-height: 680px; padding: 78px 0; }
+			.business-heading { margin: 46px auto; }
+			.business-heading h2 { font-size: 42px; line-height: 1.05; }
 			.business-marquee { mask-image: none; }
-			.business-set span { height: 62px; }
-			.business-set i { width: 45px; height: 45px; }
+			.business-set > span { width: 252px; height: 78px; padding: 8px 11px 8px 8px; border-radius: 20px; }
+			.business-set > span > i { width: 60px; height: 60px; border-radius: 16px; }
+			.business-set svg { width: 25px; height: 25px; }
+			.business-copy b { font-size: 13px; }
+			.business-set > span > em { width: 25px; height: 25px; }
 
 			.faq-section .section-heading h2 { font-size: 30px; }
 			.faq-list { margin-top: 36px; }

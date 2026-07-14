@@ -2,7 +2,7 @@
 
 La landing ya reserva cada espacio con un atributo data-prompt-id. Este documento indica qué imagen generar para cada uno. Los prompts están pensados para crear recursos originales de Creattia; no deben copiar personajes, composiciones ni activos de otras marcas.
 
-> Estado actual: los prompts 01–07 y 14 corresponden a espacios activos de la landing. Los prompts 08–13 quedan como alternativas futuras; “Cómo funciona”, plataformas y precios ahora usan recursos de interfaz construidos directamente en código.
+> Estado actual: los prompts 01–04 y 14 corresponden a espacios activos de la landing. Los prompts 05–13 quedan como alternativas futuras; “Cómo funciona” y precios ahora usan recursos de interfaz construidos directamente en código.
 
 ## Dirección visual global
 
