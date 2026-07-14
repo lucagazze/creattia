@@ -11,6 +11,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
+    "production:verify": "node --env-file-if-exists=.env scripts/verify-creattia-production.mjs",
     "references:import": "node --env-file-if-exists=.env scripts/import-reference-library.mjs",
     "references:manifest": "node scripts/build-reference-starter-manifest.mjs"
   },

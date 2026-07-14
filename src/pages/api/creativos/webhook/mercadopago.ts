@@ -66,10 +66,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 	const status = mappedStatus[subscription.status] || 'pending';
 	if (userId) {
 		const admin = getAdminClient();
+		if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+			return json({ error: 'La suscripción no tiene una cuenta válida asociada.' }, 400);
+		}
 		const nextPeriod = subscription.next_payment_date || null;
-		const { data: currentProfile } = await admin?.from('creative_profiles')
+		const { data: currentProfile, error: profileReadError } = await admin.from('creative_profiles')
 			.select('subscription_status,subscription_period_end')
-			.eq('user_id', userId).maybeSingle() || { data: null };
+			.eq('user_id', userId).maybeSingle();
+		if (profileReadError || !currentProfile) return json({ error: profileReadError?.message || 'Perfil no encontrado.' }, 500);
 		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile?.subscription_period_end);
 		const shouldRefill = status === 'authorized' && (currentProfile?.subscription_status !== 'authorized' || periodChanged);
 		const monthlyCredits = planCredits[planCode] || planCredits.creator;
@@ -85,7 +90,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 			profileUpdate.credits_remaining = monthlyCredits;
 			profileUpdate.last_credit_refill_at = new Date().toISOString();
 		}
-		await admin?.from('creative_subscriptions').upsert({
+		const { error: subscriptionError } = await admin.from('creative_subscriptions').upsert({
 			user_id: userId,
 			provider: 'mercado_pago',
 			provider_subscription_id: subscription.id,
@@ -96,7 +101,10 @@ export const POST: APIRoute = async ({ request, url }) => {
 			last_event_id: String(dataId),
 			updated_at: new Date().toISOString(),
 		}, { onConflict: 'user_id,provider' });
-		await admin?.from('creative_profiles').update(profileUpdate).eq('user_id', userId);
+		if (subscriptionError) return json({ error: subscriptionError.message }, 500);
+		const { data: updatedProfile, error: profileUpdateError } = await admin.from('creative_profiles')
+			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
+		if (profileUpdateError || !updatedProfile) return json({ error: profileUpdateError?.message || 'Perfil no encontrado.' }, 500);
 	}
 
 	return json({ received: true });

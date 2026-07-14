@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { createHash } from 'node:crypto';
 import OpenAI from 'openai';
 import { normalizeExternalUrl, readLimited, safeExternalFetch } from './safe-fetch';
 
@@ -124,6 +125,10 @@ export async function scanWebsite(rawUrl: string): Promise<ScannedSource> {
 	const url = normalizeExternalUrl(rawUrl);
 	const response = await safeExternalFetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
 	if (!response.ok) throw new Error(`El sitio respondió con estado ${response.status}.`);
+	const contentType = (response.headers.get('content-type') || '').toLowerCase();
+	if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+		throw new Error('La URL no apunta a una página web compatible.');
+	}
 	const html = new TextDecoder().decode(await readLimited(response, 4_000_000));
 	const $ = cheerio.load(html);
 	const canonical = absoluteUrl($('link[rel="canonical"]').attr('href') || response.url || url, url);
@@ -177,7 +182,7 @@ export async function scanInstagram(rawUrl: string): Promise<ScannedSource> {
 	};
 }
 
-export async function analyzeCatalogWithAI(input: { sources: ScannedSource[]; products: ScannedProduct[]; apiKey?: string }) {
+export async function analyzeCatalogWithAI(input: { sources: ScannedSource[]; products: ScannedProduct[]; apiKey?: string; endUserId?: string }) {
 	const fallback = {
 		brandSummary: compact(input.sources.map((source) => `${source.title}. ${source.description}`).join(' '), 1800),
 		brandVoice: 'Claro, directo y coherente con el contenido público de la marca.',
@@ -196,7 +201,9 @@ export async function analyzeCatalogWithAI(input: { sources: ScannedSource[]; pr
 		catalogContent.push({ type: 'input_image', image_url: product.imageUrl, detail: 'low' });
 	}
 	const response = await client.responses.create({
-		model: import.meta.env.OPENAI_ANALYSIS_MODEL || 'gpt-5.4-mini',
+		model: import.meta.env.OPENAI_ANALYSIS_MODEL || 'gpt-5.6-luna',
+		reasoning: { effort: 'none' },
+		...(input.endUserId ? { safety_identifier: createHash('sha256').update(input.endUserId).digest('hex') } : {}),
 		input: [
 			{ role: 'system', content: 'Analizá información pública de una tienda para preparar anuncios honestos. No inventes atributos, precios, beneficios, audiencia ni claims. Respondé solamente con el esquema solicitado y en español.' },
 			{ role: 'user', content: catalogContent },

@@ -7,20 +7,21 @@ export const maxDuration = 300;
 
 const formatSizes = {
 	square: '1024x1024',
-	portrait: '1024x1536',
-	story: '1024x1536',
-	landscape: '1536x1024',
+	portrait: '1024x1280',
+	story: '1008x1792',
+	landscape: '1280x1024',
 } as const;
 const imageTypes = new Set(['product', 'promotion', 'lifestyle', 'catalog']);
 const formats = new Set(Object.keys(formatSizes));
 const variationStrengths = new Set(['exact', 'light', 'strong']);
+const acceptedInputTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
 
 function clean(value: FormDataEntryValue | null, max = 500) {
 	return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
 function uniqueIds(values: string[]) {
-	return [...new Set(values.map((value) => value.trim()).filter(Boolean))].slice(0, 5);
+	return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 function buildPrompt(input: {
@@ -111,11 +112,10 @@ async function blobToOpenAI(blob: Blob, fallbackName: string) {
 }
 
 export const POST: APIRoute = async ({ request }) => {
-	const openAIKey = import.meta.env.OPENAI_API_KEY;
-	if (!openAIKey) return json({ error: 'Falta configurar OPENAI_API_KEY.', requiresConfiguration: true }, 503);
-
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error }, 401);
+	const openAIKey = import.meta.env.OPENAI_API_KEY;
+	if (!openAIKey) return json({ error: 'Falta configurar OPENAI_API_KEY.', requiresConfiguration: true }, 503);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
@@ -153,6 +153,8 @@ export const POST: APIRoute = async ({ request }) => {
 		if (productIds.length > 5) return json({ error: 'Podés usar hasta 5 productos en una imagen.' }, 400);
 		if (product instanceof File && product.size > 15 * 1024 * 1024) return json({ error: 'La imagen del producto supera los 15 MB.' }, 413);
 		if (logo instanceof File && logo.size > 10 * 1024 * 1024) return json({ error: 'El logo supera los 10 MB.' }, 413);
+		if (product instanceof File && product.size > 0 && !acceptedInputTypes.has(product.type)) return json({ error: 'La foto del producto debe ser PNG, JPG, WebP o AVIF.' }, 415);
+		if (logo instanceof File && logo.size > 0 && !acceptedInputTypes.has(logo.type)) return json({ error: 'El logo debe ser PNG, JPG, WebP o AVIF.' }, 415);
 
 		const { data: template, error: templateError } = await admin.from('creative_templates')
 			.select('id,name,purpose,usage_hint').eq('id', templateId).eq('is_active', true).maybeSingle();
@@ -307,7 +309,8 @@ export const POST: APIRoute = async ({ request }) => {
 			variationStrength,
 			replaceProduct: Boolean(hasSourceGeneration && sourceGeneration?.product_id !== (storedProducts[0]?.id || null)),
 		});
-		await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
+		const { error: promptUpdateError } = await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
+		if (promptUpdateError) throw promptUpdateError;
 
 		const openai = new OpenAI({ apiKey: openAIKey });
 		const model = import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
@@ -329,12 +332,19 @@ export const POST: APIRoute = async ({ request }) => {
 			);
 			if (uploadError) throw uploadError;
 			const { data: signed, error: signedError } = await admin.storage.from('creative-assets').createSignedUrl(outputPath, 60 * 60);
-			if (signedError || !signed?.signedUrl) throw signedError || new Error('No se pudo firmar la imagen generada.');
-			await admin.from('creative_generations').update({
+			if (signedError || !signed?.signedUrl) {
+				await admin.storage.from('creative-assets').remove([outputPath]);
+				throw signedError || new Error('No se pudo firmar la imagen generada.');
+			}
+			const { error: completionError } = await admin.from('creative_generations').update({
 				status: 'completed',
 				output_path: outputPath,
 				completed_at: new Date().toISOString(),
 			}).eq('id', generationId);
+			if (completionError) {
+				await admin.storage.from('creative-assets').remove([outputPath]);
+				throw completionError;
+			}
 			completedIds.add(generationId);
 			responseGenerations.push({ id: generationId, imageUrl: signed.signedUrl, outputIndex: index + 1, batchId });
 		}
@@ -342,12 +352,14 @@ export const POST: APIRoute = async ({ request }) => {
 		const missingCount = count - responseGenerations.length;
 		if (missingCount > 0) {
 			const missingIds = generationIds.filter((id) => !completedIds.has(id));
-			await admin.from('creative_generations').update({
+			const { error: missingUpdateError } = await admin.from('creative_generations').update({
 				status: 'failed',
 				error_code: 'La API devolvió menos imágenes de las solicitadas.',
 				completed_at: new Date().toISOString(),
 			}).in('id', missingIds);
-			await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: missingCount });
+			if (missingUpdateError) throw missingUpdateError;
+			const { error: missingRefundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: missingCount });
+			if (missingRefundError) throw missingRefundError;
 			reservedCount -= missingCount;
 		}
 
@@ -368,7 +380,14 @@ export const POST: APIRoute = async ({ request }) => {
 			}).in('id', failedIds);
 		}
 		const refundAmount = Math.max(0, reservedCount - completedIds.size);
-		if (refundAmount > 0) await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: refundAmount });
-		return json({ error: 'No pudimos terminar esta generación. Los créditos no usados fueron devueltos.', detail: message }, 500);
+		const { error: refundError } = refundAmount > 0
+			? await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: refundAmount })
+			: { error: null };
+		return json({
+			error: refundError
+				? 'No pudimos terminar la generación ni devolver los créditos automáticamente. Contactá a soporte con el detalle.'
+				: 'No pudimos terminar esta generación. Los créditos no usados fueron devueltos.',
+			detail: refundError?.message || message,
+		}, 500);
 	}
 };

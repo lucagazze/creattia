@@ -72,6 +72,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 		sources: found.map((item) => item.source),
 		products: found.map((item) => item.product),
 		apiKey: import.meta.env.OPENAI_API_KEY,
+		endUserId: userId,
 	});
 	const insights = new Map((analysis.productInsights || []).map((item: any) => [String(item.externalId), item]));
 	const importedIds: string[] = [];
@@ -120,6 +121,7 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	let productId = '';
+	let uploadedPath = '';
 	try {
 		if ((request.headers.get('content-type') || '').includes('application/json')) {
 			const body = await request.json().catch(() => ({}));
@@ -152,6 +154,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const bytes = new Uint8Array(await image.arrayBuffer());
 		const { error: uploadError } = await admin.storage.from('creative-assets').upload(path, bytes, { contentType: image.type, upsert: true });
 		if (uploadError) throw uploadError;
+		uploadedPath = path;
 		const { error: updateError } = await admin.from('creative_products').update({ image_path: path, updated_at: new Date().toISOString() }).eq('id', product.id).eq('user_id', auth.user.id);
 		if (updateError) throw updateError;
 		const { error: imageError } = await admin.from('creative_product_images').upsert({
@@ -161,6 +164,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const { data: signed } = await admin.storage.from('creative-assets').createSignedUrl(path, 60 * 60);
 		return json({ product: { id: product.id, name, description, price_text: priceText, product_url: productUrl, image_path: path, source: 'manual', imageUrl: signed?.signedUrl || '' } }, 201);
 	} catch (error) {
+		if (uploadedPath) await admin.storage.from('creative-assets').remove([uploadedPath]);
 		if (productId) await admin.from('creative_products').delete().eq('id', productId).eq('user_id', auth.user.id);
 		return json({ error: error instanceof Error ? error.message : 'No se pudo guardar el producto.' }, 500);
 	}
@@ -173,9 +177,14 @@ export const DELETE: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 	const id = new URL(request.url).searchParams.get('id') || '';
 	if (!id) return json({ error: 'Producto inválido.' }, 400);
-	const { data: product } = await admin.from('creative_products').select('image_path').eq('id', id).eq('user_id', auth.user.id).maybeSingle();
+	const { data: product, error: findError } = await admin.from('creative_products').select('id').eq('id', id).eq('user_id', auth.user.id).eq('is_active', true).maybeSingle();
+	if (findError) return json({ error: findError.message }, 500);
 	if (!product) return json({ error: 'Producto no encontrado.' }, 404);
-	if (product.image_path) await admin.storage.from('creative-assets').remove([product.image_path]);
-	const { error } = await admin.from('creative_products').delete().eq('id', id).eq('user_id', auth.user.id);
+	// Keep the product and its private source image for generation history and revisions.
+	// The catalog is user-facing soft-deleted so foreign-key provenance remains intact.
+	const { error } = await admin.from('creative_products').update({
+		is_active: false,
+		updated_at: new Date().toISOString(),
+	}).eq('id', id).eq('user_id', auth.user.id);
 	return error ? json({ error: error.message }, 500) : json({ ok: true });
 };

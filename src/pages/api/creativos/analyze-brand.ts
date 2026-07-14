@@ -19,17 +19,21 @@ export const POST: APIRoute = async ({ request }) => {
 		const instagram = body.instagram ? normalizeExternalUrl(String(body.instagram).slice(0, 300), 'instagram') : '';
 		if (!website && !instagram) return json({ error: 'Agregá la web o el Instagram de la marca.' }, 400);
 
-		await admin.from('creative_profiles').update({
+		const { error: profileStartError } = await admin.from('creative_profiles').upsert({
+			user_id: auth.user.id,
 			website_url: website || null, instagram_handle: instagram || null, catalog_status: 'scanning', catalog_error: null, updated_at: new Date().toISOString(),
-		}).eq('user_id', auth.user.id);
+		}, { onConflict: 'user_id' });
+		if (profileStartError) throw profileStartError;
 
 		const requested = [
 			...(website ? [{ type: 'website' as const, url: website, scan: () => scanWebsite(website) }] : []),
 			...(instagram ? [{ type: 'instagram' as const, url: instagram, scan: () => scanInstagram(instagram) }] : []),
 		];
-		await Promise.all(requested.map((source) => admin.from('creative_brand_sources').upsert({
+		const sourceWrites = await Promise.all(requested.map((source) => admin.from('creative_brand_sources').upsert({
 			user_id: auth.user!.id, source_type: source.type, source_url: source.url, status: 'scanning', error_message: null, updated_at: new Date().toISOString(),
 		}, { onConflict: 'user_id,source_type' })));
+		const sourceWriteError = sourceWrites.find((result) => result.error)?.error;
+		if (sourceWriteError) throw sourceWriteError;
 
 		const settled = await Promise.allSettled(requested.map((source) => source.scan()));
 		const sources: ScannedSource[] = [];
@@ -39,16 +43,18 @@ export const POST: APIRoute = async ({ request }) => {
 			const source = requested[index];
 			if (outcome.status === 'fulfilled') {
 				sources.push(outcome.value);
-				await admin.from('creative_brand_sources').update({
+				const { error: sourceUpdateError } = await admin.from('creative_brand_sources').update({
 					status: source.type === 'instagram' && !outcome.value.description ? 'partial' : 'ready', title: outcome.value.title || null,
 					summary: outcome.value.description || null, metadata: { ...outcome.value.metadata, imageUrl: outcome.value.imageUrl, colors: outcome.value.colors },
 					error_message: null, last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
 				}).eq('user_id', auth.user.id).eq('source_type', source.type);
+				if (sourceUpdateError) throw sourceUpdateError;
 			} else {
 				const message = outcome.reason instanceof Error ? outcome.reason.message : 'No se pudo leer la fuente.';
 				errors.push(`${source.type}: ${message}`);
-				await admin.from('creative_brand_sources').update({ status: 'failed', error_message: message.slice(0, 500), updated_at: new Date().toISOString() })
+				const { error: sourceUpdateError } = await admin.from('creative_brand_sources').update({ status: 'failed', error_message: message.slice(0, 500), updated_at: new Date().toISOString() })
 					.eq('user_id', auth.user.id).eq('source_type', source.type);
+				if (sourceUpdateError) throw sourceUpdateError;
 			}
 		}
 
@@ -63,7 +69,7 @@ export const POST: APIRoute = async ({ request }) => {
 			if (seen.has(product.externalId)) continue;
 			seen.add(product.externalId); products.push(product);
 		}
-		const analysis = await analyzeCatalogWithAI({ sources, products, apiKey: import.meta.env.OPENAI_API_KEY });
+		const analysis = await analyzeCatalogWithAI({ sources, products, apiKey: import.meta.env.OPENAI_API_KEY, endUserId: auth.user.id });
 		const insightMap = new Map((analysis.productInsights || []).map((item: any) => [String(item.externalId), item]));
 
 		let storedProducts: any[] = [];
@@ -90,8 +96,9 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const status = products.length ? (errors.length ? 'partial' : 'ready') : 'partial';
-		const { data: currentProfile } = await admin.from('creative_profiles').select('brand_name').eq('user_id', auth.user.id).maybeSingle();
-		await admin.from('creative_profiles').update({
+		const { data: currentProfile, error: profileReadError } = await admin.from('creative_profiles').select('brand_name').eq('user_id', auth.user.id).maybeSingle();
+		if (profileReadError) throw profileReadError;
+		const { error: profileUpdateError } = await admin.from('creative_profiles').update({
 			brand_name: currentProfile?.brand_name || sources[0]?.title || null,
 			brand_summary: String(analysis.brandSummary || '').slice(0, 3000) || null,
 			brand_voice: String(analysis.brandVoice || '').slice(0, 1000) || null,
@@ -99,6 +106,7 @@ export const POST: APIRoute = async ({ request }) => {
 			catalog_status: status, catalog_error: errors.join(' · ').slice(0, 1000) || null,
 			catalog_last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
 		}).eq('user_id', auth.user.id);
+		if (profileUpdateError) throw profileUpdateError;
 
 		return json({
 			status, analysisMode: analysis.mode, sources: sources.map((source) => ({ url: source.url, title: source.title })),

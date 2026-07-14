@@ -48,9 +48,19 @@ Para conocer el criterio de investigación, los derechos y cómo cargar nuevas p
 
 - Configurar las variables de `.env.example` en Vercel.
 - Definir `PUBLIC_SITE_URL=https://creattia.app`.
+- Configurar `OPENAI_API_KEY`; la generación usa `gpt-image-2` y el análisis de catálogo usa `gpt-5.6-luna` por defecto.
+- Crear los tres planes recurrentes de Mercado Pago y completar sus IDs, el access token y el secreto del webhook.
 - Configurar el webhook de Mercado Pago en:
   `https://creattia.app/api/creativos/webhook/mercadopago`
 - Conectar `creattia.app` como dominio del nuevo proyecto.
+
+Después de aplicar las migraciones e importar la biblioteca, ejecutar:
+
+```bash
+npm run production:verify
+```
+
+El comando comprueba proveedores de Auth, tablas y buckets, las 50 referencias estáticas y la configuración de OpenAI y Mercado Pago sin imprimir secretos.
 
 ## Git nuevo
 

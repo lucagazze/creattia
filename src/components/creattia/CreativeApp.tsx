@@ -151,6 +151,14 @@ function firstName(profile: AppProfile, email = '') {
 	return profile.fullName.trim().split(' ')[0] || email.split('@')[0] || 'hola';
 }
 
+function planLabel(profile: AppProfile) {
+	if (profile.subscriptionStatus === 'authorized') return `Plan ${profile.planCode.charAt(0).toUpperCase()}${profile.planCode.slice(1)}`;
+	if (profile.subscriptionStatus === 'pending') return 'Activación pendiente';
+	if (profile.subscriptionStatus === 'paused') return 'Plan pausado';
+	if (profile.subscriptionStatus === 'cancelled') return 'Plan cancelado';
+	return 'Prueba gratuita';
+}
+
 function conciseText(value: string, maxLength = 105) {
 	const clean = value.replace(/\s+/g, ' ').trim();
 	const firstSentence = clean.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || clean;
@@ -314,6 +322,8 @@ async function createDemoCreative(options: {
 
 export default function CreativeApp() {
 	const [booting, setBooting] = useState(true);
+	const [accountLoading, setAccountLoading] = useState(true);
+	const [accountError, setAccountError] = useState('');
 	const [session, setSession] = useState<AppSession | null>(null);
 	const [profile, setProfile] = useState<AppProfile>(defaultProfile);
 	const [view, setView] = useState<View>(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('plan') ? 'plans' : 'home');
@@ -340,22 +350,49 @@ export default function CreativeApp() {
 		}
 		boot();
 		if (!supabase) return () => { active = false; };
-		const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession));
+		const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+			setAccountLoading(Boolean(nextSession));
+			setSession(nextSession);
+		});
 		return () => { active = false; listener.subscription.unsubscribe(); };
 	}, []);
 
 	useEffect(() => {
-		if (!session) return;
+		if (!session) {
+			setAccountLoading(false);
+			setAccountError('');
+			return;
+		}
+		const activeSession = session;
+		let active = true;
 		async function loadAccount() {
-			if (isSupabaseConfigured && supabase) {
-				const client = supabase;
-				let loadedCatalog = creativeCatalog;
-				const { data: templateRecords } = await client.from('creative_templates').select('*').eq('is_active', true).order('sort_order', { ascending: true });
+			setAccountLoading(true);
+			setAccountError('');
+			setProfile(defaultProfile);
+			setHistory([]);
+			setFavorites(new Set());
+			setProducts([]);
+			try {
+				if (isSupabaseConfigured && supabase) {
+					const client = supabase;
+					let loadedCatalog = creativeCatalog;
+					const { data: templateRecords, error: templateError } = await client.from('creative_templates').select('*').eq('is_active', true).order('sort_order', { ascending: true });
+					if (templateError) throw templateError;
 				if (templateRecords?.length) {
 					loadedCatalog = templateRecords.map(mapTemplateRecord);
 					setCatalog(loadedCatalog);
 				}
-				const { data } = await supabase.from('creative_profiles').select('*').eq('user_id', getSessionId(session)).maybeSingle();
+				const profileId = getSessionId(activeSession);
+				let { data, error: profileError } = await supabase.from('creative_profiles').select('*').eq('user_id', profileId).maybeSingle();
+				if (profileError) throw profileError;
+				if (!data) {
+					const created = await supabase.from('creative_profiles').upsert({
+						user_id: profileId,
+						full_name: ('user_metadata' in activeSession.user ? String(activeSession.user.user_metadata?.full_name || '') : ''),
+					}, { onConflict: 'user_id' }).select('*').single();
+					if (created.error) throw created.error;
+					data = created.data;
+				}
 				if (data) {
 					setProfile({
 						fullName: data.full_name || '',
@@ -377,12 +414,14 @@ export default function CreativeApp() {
 					});
 				}
 
-				const { data: favoriteRecords } = await supabase.from('creative_template_favorites').select('template_id');
+				const { data: favoriteRecords, error: favoritesError } = await supabase.from('creative_template_favorites').select('template_id');
+				if (favoritesError) throw favoritesError;
 				if (favoriteRecords) setFavorites(new Set(favoriteRecords.map((item) => Number(item.template_id))));
 
-					const { data: records } = await supabase.from('creative_generations')
+					const { data: records, error: generationsError } = await supabase.from('creative_generations')
 						.select('id,title,output_path,format,created_at,template_id,user_brief,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot')
 					.eq('status', 'completed').order('created_at', { ascending: false }).limit(24);
+				if (generationsError) throw generationsError;
 				if (records?.length) {
 					const signed = await Promise.all(records.map(async (record) => {
 						const { data: url } = await client.storage.from('creative-assets').createSignedUrl(record.output_path, 3600);
@@ -406,22 +445,27 @@ export default function CreativeApp() {
 					}));
 					setHistory(signed.filter((item) => item.imageUrl));
 				}
-				const token = getSessionToken(session);
+				const token = getSessionToken(activeSession);
 				if (token) {
 					const response = await fetch('/api/creativos/products', { headers: { authorization: `Bearer ${token}` } });
-					if (response.ok) {
-						const payload = await response.json();
-						setProducts((payload.products || []).map(mapProduct));
-					}
+					const payload = await response.json();
+					if (!response.ok) throw new Error(payload.error || 'No se pudo cargar el catálogo.');
+					setProducts((payload.products || []).map(mapProduct));
 				}
-			} else {
-				setProfile({ ...defaultProfile, ...loadLocal(PROFILE_KEY, defaultProfile) });
-				setHistory(loadLocal(HISTORY_KEY, []));
-				setFavorites(new Set(loadLocal<number[]>(FAVORITES_KEY, [])));
-				setProducts(loadLocal(PRODUCTS_KEY, demoProducts));
+				} else {
+					setProfile({ ...defaultProfile, ...loadLocal(PROFILE_KEY, defaultProfile) });
+					setHistory(loadLocal(HISTORY_KEY, []));
+					setFavorites(new Set(loadLocal<number[]>(FAVORITES_KEY, [])));
+					setProducts(loadLocal(PRODUCTS_KEY, demoProducts));
+				}
+			} catch (cause) {
+				if (active) setAccountError(cause instanceof Error ? cause.message : 'No se pudo preparar tu cuenta.');
+			} finally {
+				if (active) setAccountLoading(false);
 			}
 		}
-		loadAccount();
+		void loadAccount();
+		return () => { active = false; };
 	}, [session]);
 
 	useEffect(() => {
@@ -493,7 +537,8 @@ export default function CreativeApp() {
 				const { error } = await supabase.storage.from('creative-assets').upload(logoPath, logo, { upsert: true });
 				if (error) throw error;
 			}
-			const { error } = await supabase.from('creative_profiles').update({
+			const { error } = await supabase.from('creative_profiles').upsert({
+				user_id: getSessionId(session),
 				full_name: finalProfile.fullName,
 				brand_name: finalProfile.brandName,
 				website_url: finalProfile.website,
@@ -502,7 +547,7 @@ export default function CreativeApp() {
 				onboarding_completed: true,
 				...(logoPath ? { logo_path: logoPath } : {}),
 				updated_at: new Date().toISOString(),
-			}).eq('user_id', getSessionId(session));
+			}, { onConflict: 'user_id' });
 			if (error) throw error;
 			if (shouldSync) {
 				const token = getSessionToken(session);
@@ -535,6 +580,24 @@ export default function CreativeApp() {
 		setProducts(mapped); return mapped;
 	}
 
+	async function removeProduct(productId: string) {
+		if (!isSupabaseConfigured) {
+			const next = products.filter((product) => product.id !== productId);
+			saveLocal(PRODUCTS_KEY, next);
+			setProducts(next);
+			setToast('Producto quitado del catálogo.');
+			return;
+		}
+		const response = await fetch(`/api/creativos/products?id=${encodeURIComponent(productId)}`, {
+			method: 'DELETE',
+			headers: { authorization: `Bearer ${getSessionToken(session)}` },
+		});
+		const payload = await response.json();
+		if (!response.ok) throw new Error(payload.error || 'No se pudo quitar el producto.');
+		setProducts((current) => current.filter((product) => product.id !== productId));
+		setToast('Producto quitado del catálogo.');
+	}
+
 	async function syncBrandSources() {
 		if (!isSupabaseConfigured) {
 			setProfile({ ...profile, catalogStatus: 'ready', catalogLastSyncedAt: new Date().toISOString() });
@@ -563,8 +626,9 @@ export default function CreativeApp() {
 		}
 	}
 
-	if (booting) return <div className="studio-boot"><span className="studio-spinner"/><p>Preparando tu estudio…</p></div>;
-	if (!session) return <AuthScreen onSession={setSession} />;
+	if (booting || (session && accountLoading)) return <div className="studio-boot"><span className="studio-spinner"/><p>Preparando tu estudio…</p></div>;
+	if (!session) return <AuthScreen onSession={(nextSession) => { setAccountLoading(true); setSession(nextSession); }} />;
+	if (accountError) return <AccountSetupError message={accountError} onRetry={() => window.location.reload()} onLogout={logout} />;
 	if (!profile.onboardingCompleted) return <Onboarding profile={profile} email={getSessionEmail(session)} onSave={updateProfile} />;
 
 		const navItems: Array<{ id: View; label: string; icon: string }> = [
@@ -598,7 +662,7 @@ export default function CreativeApp() {
 				<div className="studio-sidebar-bottom">
 					<div className="studio-plan-card">
 						<div><span className="studio-plan-orb"><Icon name="spark" size={15}/></span><small>PLAN ACTUAL</small></div>
-						<strong>{profile.subscriptionStatus === 'authorized' ? profile.planCode.charAt(0).toUpperCase() + profile.planCode.slice(1) : 'Prueba gratuita'}</strong>
+					<strong>{planLabel(profile)}</strong>
 						<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 3) * 100)}%` }}/></p>
 						<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => setView('plans')}>Ver planes</button></footer>
 					</div>
@@ -614,14 +678,14 @@ export default function CreativeApp() {
 				<header className="studio-topbar">
 					<button className="studio-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menú"><Icon name="menu"/></button>
 					<div className="studio-top-brand"><img src="/images/creattia/moki-mascot.webp" alt=""/><strong>Creattia</strong></div>
-					<div className="studio-mode-badge"><span />{isSupabaseConfigured ? 'Producción' : 'Demo local'}</div>
+					<div className="studio-mode-badge"><span />{isSupabaseConfigured ? 'Cuenta conectada' : 'Demo local'}</div>
 					<button className="studio-credit-pill" onClick={() => setView('plans')}><Icon name="spark" size={16}/><b>{profile.credits}</b><span>{profile.credits === 1 ? 'crédito' : 'créditos'}</span></button>
 				</header>
 
 				<div className="studio-content">
 					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} history={history} catalog={catalog} favorites={favorites} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
 					{view === 'library' && <Library items={catalog} favorites={favorites} onChoose={chooseCreative} onToggleFavorite={toggleFavorite} />}
-					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onCreate={() => setView('library')} />}
+					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onRemove={removeProduct} onCreate={() => setView('library')} />}
 					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} />}
 					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} />}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
@@ -734,6 +798,20 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 			<div className="studio-auth-moki" aria-hidden="true"><span>Te guío paso a paso.</span><img src="/images/creattia/moki-mascot.webp" alt=""/></div>
 		</div>
 	);
+}
+
+function AccountSetupError({ message, onRetry, onLogout }: { message: string; onRetry: () => void; onLogout: () => void }) {
+	const missingSchema = /creative_|schema cache|does not exist|relation/i.test(message);
+	return <div className="studio-account-error">
+		<a href="/" className="studio-auth-logo"><span><img src="/images/creattia/moki-mascot.webp" alt=""/></span><strong>Creattia</strong></a>
+		<section>
+			<Moki className="studio-account-error-moki" label="Moki esperando que el espacio esté listo"/>
+			<span><Icon name="spark" size={18}/></span>
+			<h1>{missingSchema ? 'Estamos preparando tu espacio.' : 'No pudimos cargar tu cuenta.'}</h1>
+			<p>{missingSchema ? 'Tu acceso ya funciona. Falta terminar la configuración segura de tu espacio antes de guardar productos e imágenes.' : 'Reintentá en unos segundos. Si el problema continúa, volvé a ingresar.'}</p>
+			<div><button onClick={onRetry}>Reintentar</button><button onClick={onLogout}>Cerrar sesión</button></div>
+		</section>
+	</div>;
 }
 
 function Onboarding({ profile, email, onSave }: { profile: AppProfile; email: string; onSave: (profile: AppProfile, logo?: File | null) => Promise<void> }) {
@@ -900,10 +978,11 @@ function Library({ items, favorites, onChoose, onToggleFavorite }: { items: Crea
 	</>;
 }
 
-function ProductCatalog({ products, profile, session, onRefresh, onSync, onCreate }: { products: Product[]; profile: AppProfile; session: AppSession; onRefresh: () => Promise<Product[]>; onSync: () => Promise<void>; onCreate: () => void }) {
+function ProductCatalog({ products, profile, session, onRefresh, onSync, onRemove, onCreate }: { products: Product[]; profile: AppProfile; session: AppSession; onRefresh: () => Promise<Product[]>; onSync: () => Promise<void>; onRemove: (productId: string) => Promise<void>; onCreate: () => void }) {
 	const [query, setQuery] = useState('');
 	const [syncing, setSyncing] = useState(false);
 	const [importing, setImporting] = useState(false);
+	const [removing, setRemoving] = useState('');
 	const [productUrls, setProductUrls] = useState('');
 	const [importNotice, setImportNotice] = useState('');
 	const [error, setError] = useState('');
@@ -945,6 +1024,13 @@ function ProductCatalog({ products, profile, session, onRefresh, onSync, onCreat
 		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudieron importar los productos.'); }
 		finally { setImporting(false); }
 	}
+	async function remove(product: Product) {
+		if (!window.confirm(`¿Quitar “${product.name}” de tu catálogo? Tus imágenes anteriores no se borran.`)) return;
+		setRemoving(product.id); setError('');
+		try { await onRemove(product.id); }
+		catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo quitar el producto.'); }
+		finally { setRemoving(''); }
+	}
 	const statusLabel = profile.catalogStatus === 'ready' ? 'Catálogo sincronizado' : profile.catalogStatus === 'partial' ? 'Sincronización parcial' : profile.catalogStatus === 'failed' ? 'Revisar fuentes' : 'Catálogo pendiente';
 	return <>
 		<div className="studio-page-heading"><div><p>MIS PRODUCTOS</p><h1>Tus productos, listos para usar.</h1><span>La IA toma fotos y datos de tu negocio para crear cada imagen.</span></div><button className="studio-primary-button compact" onClick={onCreate}><Icon name="plus" size={17}/>Crear imagen</button></div>
@@ -953,7 +1039,7 @@ function ProductCatalog({ products, profile, session, onRefresh, onSync, onCreat
 		{importNotice && <p className="studio-form-notice product-import-notice"><Icon name="check" size={14}/>{importNotice}</p>}
 		{error && <p className="studio-form-error catalog-error">{error}</p>}
 		<div className="studio-library-tools product-tools"><label><Icon name="search" size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, descripción o precio…"/></label><span>{filtered.length} productos</span></div>
-		{filtered.length ? <div className="product-catalog-grid">{filtered.map((product) => <article key={product.id}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag" size={30}/></span>}<small>{product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</small></div><footer><h3>{product.name}</h3><p>{conciseText(product.description || 'Listo para usar en una imagen.')}</p><span>{product.priceText ? `${product.priceText} ${product.currency}` : 'Sin precio público'}</span></footer></article>)}</div> : <div className="studio-empty large"><span><Icon name="bag"/></span><h3>Todavía no hay productos</h3><p>Conectá tu web o subí una foto al crear una imagen.</p><button onClick={sync}>Analizar mi negocio</button></div>}
+		{filtered.length ? <div className="product-catalog-grid">{filtered.map((product) => <article key={product.id}><div>{product.imageUrl ? <img src={product.imageUrl} alt={product.name}/> : <span><Icon name="bag" size={30}/></span>}<small>{product.source === 'manual' ? 'Cargado por vos' : 'Desde tu tienda'}</small><button className="product-remove-button" onClick={() => void remove(product)} disabled={removing === product.id} aria-label={`Quitar ${product.name}`}>{removing === product.id ? <span className="studio-spinner small"/> : <Icon name="close" size={15}/>}</button></div><footer><h3>{product.name}</h3><p>{conciseText(product.description || 'Listo para usar en una imagen.')}</p><span>{product.priceText ? `${product.priceText} ${product.currency}` : 'Sin precio público'}</span></footer></article>)}</div> : <div className="studio-empty large"><span><Icon name="bag"/></span><h3>Todavía no hay productos</h3><p>Conectá tu web o subí una foto al crear una imagen.</p><button onClick={sync}>Analizar mi negocio</button></div>}
 	</>;
 }
 
@@ -993,10 +1079,10 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 		{ id: 'catalog', title: 'Foto de catálogo', copy: 'Fondo limpio y foco total en el producto.', badge: 'E-commerce', icon: 'grid' },
 	];
 	const formatOptions = [
-		{ id: 'square', title: 'Feed cuadrado', ratio: '1:1', copy: '1080 × 1080' },
-		{ id: 'portrait', title: 'Feed vertical', ratio: '4:5', copy: '1080 × 1350' },
-		{ id: 'story', title: 'Stories / Reels', ratio: '9:16', copy: '1080 × 1920' },
-		{ id: 'landscape', title: 'Horizontal', ratio: '5:4', copy: '1350 × 1080' },
+		{ id: 'square', title: 'Feed cuadrado', ratio: '1:1', copy: '1024 × 1024' },
+		{ id: 'portrait', title: 'Feed vertical', ratio: '4:5', copy: '1024 × 1280' },
+		{ id: 'story', title: 'Stories / Reels', ratio: '9:16', copy: '1008 × 1792' },
+		{ id: 'landscape', title: 'Horizontal', ratio: '5:4', copy: '1280 × 1024' },
 	];
 
 	useEffect(() => {
@@ -1050,19 +1136,48 @@ function Studio({ creative, reuseSeed, profile, session, products, onProductsCha
 
 	async function saveUploadedProduct() {
 		if (!uploadFile || !uploadName.trim()) { setError('Elegí una foto y poné el nombre del producto.'); return; }
+		if (!['image/png', 'image/jpeg', 'image/webp', 'image/avif'].includes(uploadFile.type)) { setError('Usá una imagen PNG, JPG, WebP o AVIF.'); return; }
+		if (uploadFile.size > 15 * 1024 * 1024) { setError('La imagen supera los 15 MB.'); return; }
 		setUploading(true); setError('');
+		let createdProductId = '';
+		let uploadedPath = '';
 		try {
 			if (!isSupabaseConfigured) {
 				const newProduct: Product = { id: crypto.randomUUID(), name: uploadName.trim(), description: 'Producto cargado manualmente.', priceText: '', currency: '', productUrl: '', imageUrl: await fileAsDataUrl(uploadFile), source: 'manual' };
 				saveLocal(PRODUCTS_KEY, [newProduct, ...products]); setSelectedProductIds((current) => [...current, newProduct.id].slice(-5)); await onProductsChanged();
 			} else {
-				const form = new FormData(); form.set('name', uploadName.trim()); form.set('image', uploadFile);
-				const response = await fetch('/api/creativos/products', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
-				const payload = await response.json(); if (!response.ok) throw new Error(payload.error || 'No se pudo guardar el producto.');
-				setSelectedProductIds((current) => [...current, payload.product.id].slice(-5)); await onProductsChanged();
+				if (!supabase) throw new Error('Supabase no está disponible.');
+				createdProductId = crypto.randomUUID();
+				const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif' }[uploadFile.type] || 'png';
+				uploadedPath = `${getSessionId(session)}/products/${createdProductId}/primary.${extension}`;
+				const { error: insertError } = await supabase.from('creative_products').insert({
+					id: createdProductId,
+					user_id: getSessionId(session),
+					name: uploadName.trim(),
+					description: 'Producto cargado manualmente.',
+					image_path: uploadedPath,
+					source: 'manual',
+					external_id: crypto.randomUUID(),
+					synced_at: new Date().toISOString(),
+				});
+				if (insertError) throw insertError;
+				const { error: uploadError } = await supabase.storage.from('creative-assets').upload(uploadedPath, uploadFile, { contentType: uploadFile.type, upsert: false });
+				if (uploadError) throw uploadError;
+				const { error: imageError } = await supabase.from('creative_product_images').insert({
+					user_id: getSessionId(session), product_id: createdProductId, storage_path: uploadedPath, sort_order: 0, is_primary: true,
+				});
+				if (imageError) throw imageError;
+				setSelectedProductIds((current) => [...current, createdProductId].slice(-5));
+				await onProductsChanged();
 			}
 			setUploadFile(null); setUploadName(''); onToast('Producto guardado en tu catálogo privado.');
-		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar el producto.'); }
+		} catch (cause) {
+			if (isSupabaseConfigured && supabase && createdProductId) {
+				if (uploadedPath) await supabase.storage.from('creative-assets').remove([uploadedPath]);
+				await supabase.from('creative_products').delete().eq('id', createdProductId).eq('user_id', getSessionId(session));
+			}
+			setError(cause instanceof Error ? cause.message : 'No se pudo guardar el producto.');
+		}
 		finally { setUploading(false); }
 	}
 
@@ -1169,10 +1284,16 @@ function GenerationCard({ item, onReuse }: { item: Generation; onReuse?: () => v
 
 function Plans({ profile, session }: { profile: AppProfile; session: AppSession }) {
 	const [billing, setBilling] = useState('');
+	const [cancelling, setCancelling] = useState(false);
 	const [error, setError] = useState('');
+	const [notice, setNotice] = useState('');
 
 	async function subscribe(planCode: string) {
 		if (!isSupabaseConfigured || !supabase) { setError('Para activar pagos faltan las credenciales de Supabase y Mercado Pago.'); return; }
+		if (['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus)) {
+			setError('Primero cancelá la renovación actual. Después vas a poder elegir otro plan sin riesgo de duplicar el cobro.');
+			return;
+		}
 		setBilling(planCode); setError('');
 		try {
 			const response = await fetch('/api/creativos/subscribe', {
@@ -1186,11 +1307,31 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo abrir el pago.'); setBilling(''); }
 	}
 
+	async function cancelSubscription() {
+		if (!window.confirm('¿Cancelar la renovación mensual? Conservás tus créditos actuales, pero no se renovarán el próximo mes.')) return;
+		setCancelling(true); setError(''); setNotice('');
+		try {
+			const response = await fetch('/api/creativos/subscribe', {
+				method: 'DELETE',
+				headers: { authorization: `Bearer ${getSessionToken(session)}` },
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo cancelar la suscripción.');
+			setNotice('Renovación cancelada. Tus créditos actuales siguen disponibles.');
+			window.setTimeout(() => window.location.reload(), 700);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'No se pudo cancelar la suscripción.');
+			setCancelling(false);
+		}
+	}
+
 	return <><div className="studio-page-heading"><div><p>PLANES</p><h1>Elegí cuántas imágenes querés crear.</h1><span>Todos los planes incluyen las mismas herramientas. Solo cambia la cantidad mensual.</span></div></div>
-		<div className="studio-current-credits"><span><Icon name="spark"/></span><p><small>TU SALDO ACTUAL</small><strong>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</strong></p><em>{profile.subscriptionStatus === 'authorized' ? `Plan ${profile.planCode}` : 'Prueba gratuita'}</em></div>
+		<div className="studio-current-credits"><span><Icon name="spark"/></span><p><small>TU SALDO ACTUAL</small><strong>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</strong></p><em>{planLabel(profile)}</em></div>
 		{error && <p className="studio-form-error">{error}</p>}
-		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span>MÁS ELEGIDO</span>}<small>PLAN {plan.name.toUpperCase()}</small><h2><b>USD</b>{plan.price}<em>/mes</em></h2><p>{plan.description}</p><strong>{plan.credits} generaciones por mes</strong><ul><li><Icon name="check" size={14}/>Todas las ideas y actualizaciones</li><li><Icon name="check" size={14}/>Marca y catálogo siempre listos</li><li><Icon name="check" size={14}/>Historial, favoritos y ajustes</li></ul><button onClick={() => subscribe(plan.code)} disabled={Boolean(billing) || (profile.subscriptionStatus === 'authorized' && profile.planCode === plan.code)}>{profile.subscriptionStatus === 'authorized' && profile.planCode === plan.code ? 'Plan actual' : billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`}</button></article>)}</div>
+		{notice && <p className="studio-form-notice">{notice}</p>}
+		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => { const currentPlan = ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span>MÁS ELEGIDO</span>}<small>PLAN {plan.name.toUpperCase()}</small><h2><b>USD</b>{plan.price}<em>/mes</em></h2><p>{plan.description}</p><strong>{plan.credits} generaciones por mes</strong><ul><li><Icon name="check" size={14}/>Todas las ideas y actualizaciones</li><li><Icon name="check" size={14}/>Marca y catálogo siempre listos</li><li><Icon name="check" size={14}/>Historial, favoritos y ajustes</li></ul><button onClick={() => subscribe(plan.code)} disabled={Boolean(billing) || currentPlan}>{currentPlan ? profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile) : billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`}</button></article>; })}</div>
 		<p className="studio-plan-note">Los créditos se renuevan cada mes. Podés cambiar o cancelar tu plan desde tu cuenta.</p>
+		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? 'Cancelando…' : 'Cancelar renovación'}</button>}
 	</>;
 }
 
@@ -1207,5 +1348,5 @@ function BrandSettings({ profile, onSave, session, onPlans }: { profile: AppProf
 		finally { setSaving(false); }
 	}
 
-	return <><div className="studio-page-heading"><div><p>MI MARCA</p><h1>Tu marca, lista en cada imagen.</h1><span>Guardá tu web, Instagram, colores y logo una sola vez.</span></div></div><div className="studio-settings-layout"><form className="studio-settings-card" onSubmit={save}><header><span>{(draft.brandName || 'M').slice(0, 1).toUpperCase()}</span><div><h2>Datos de tu marca</h2><p>La IA usa esta información para crear mejor.</p></div></header><div className="studio-form-grid"><label className="wide">Nombre de la marca<input value={draft.brandName} onChange={(e) => setDraft({ ...draft, brandName: e.target.value })} required/></label><label>Tu nombre<input value={draft.fullName} onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}/></label><label>Email<input value={getSessionEmail(session)} disabled/></label><label>Sitio web (opcional)<input type="url" value={draft.website} onChange={(e) => setDraft({ ...draft, website: e.target.value })}/></label><label>Instagram (opcional)<input value={draft.instagram} onChange={(e) => setDraft({ ...draft, instagram: e.target.value })}/></label><label>Color principal<span className="studio-color-input"><input type="color" value={draft.primaryColor} onChange={(e) => setDraft({ ...draft, primaryColor: e.target.value })}/><b>{draft.primaryColor}</b></span></label><label>Color de apoyo<span className="studio-color-input"><input type="color" value={draft.secondaryColor} onChange={(e) => setDraft({ ...draft, secondaryColor: e.target.value })}/><b>{draft.secondaryColor}</b></span></label><label className="wide studio-logo-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)}/><span><Icon name="upload"/></span><div><strong>{logo ? logo.name : 'Actualizar logo'}</strong><small>Queda guardado en tu cuenta privada.</small></div><b>Elegir archivo</b></label></div>{error && <p className="studio-form-error">{error}</p>}<button className="studio-primary-button compact" disabled={saving}>{saving ? <span className="studio-spinner small"/> : 'Guardar cambios'}</button></form><aside className="studio-billing-card"><span className="studio-plan-orb"><Icon name="spark"/></span><small>{profile.subscriptionStatus === 'authorized' ? `PLAN ${profile.planCode.toUpperCase()}` : 'PRUEBA GRATUITA'}</small><h2>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</h2><p>{profile.subscriptionStatus === 'authorized' ? `Tu plan incluye ${profile.monthlyCredits} generaciones mensuales.` : 'Tus 3 pruebas no vencen. Elegí un plan cuando quieras seguir creando.'}</p><ul><li><Icon name="check" size={14}/>Nuevas ideas cada semana</li><li><Icon name="check" size={14}/>Favoritos e imágenes guardadas</li><li><Icon name="check" size={14}/>Marca y productos privados</li></ul><button onClick={onPlans}>Ver los tres planes<Icon name="arrow" size={16}/></button><footer>Pago seguro con Mercado Pago.</footer></aside></div></>;
+	return <><div className="studio-page-heading"><div><p>MI MARCA</p><h1>Tu marca, lista en cada imagen.</h1><span>Guardá tu web, Instagram, colores y logo una sola vez.</span></div></div><div className="studio-settings-layout"><form className="studio-settings-card" onSubmit={save}><header><span>{(draft.brandName || 'M').slice(0, 1).toUpperCase()}</span><div><h2>Datos de tu marca</h2><p>La IA usa esta información para crear mejor.</p></div></header><div className="studio-form-grid"><label className="wide">Nombre de la marca<input value={draft.brandName} onChange={(e) => setDraft({ ...draft, brandName: e.target.value })} required/></label><label>Tu nombre<input value={draft.fullName} onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}/></label><label>Email<input value={getSessionEmail(session)} disabled/></label><label>Sitio web (opcional)<input type="url" value={draft.website} onChange={(e) => setDraft({ ...draft, website: e.target.value })}/></label><label>Instagram (opcional)<input value={draft.instagram} onChange={(e) => setDraft({ ...draft, instagram: e.target.value })}/></label><label>Color principal<span className="studio-color-input"><input type="color" value={draft.primaryColor} onChange={(e) => setDraft({ ...draft, primaryColor: e.target.value })}/><b>{draft.primaryColor}</b></span></label><label>Color de apoyo<span className="studio-color-input"><input type="color" value={draft.secondaryColor} onChange={(e) => setDraft({ ...draft, secondaryColor: e.target.value })}/><b>{draft.secondaryColor}</b></span></label><label className="wide studio-logo-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)}/><span><Icon name="upload"/></span><div><strong>{logo ? logo.name : 'Actualizar logo'}</strong><small>Queda guardado en tu cuenta privada.</small></div><b>Elegir archivo</b></label></div>{error && <p className="studio-form-error">{error}</p>}<button className="studio-primary-button compact" disabled={saving}>{saving ? <span className="studio-spinner small"/> : 'Guardar cambios'}</button></form><aside className="studio-billing-card"><span className="studio-plan-orb"><Icon name="spark"/></span><small>{planLabel(profile).toUpperCase()}</small><h2>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</h2><p>{profile.subscriptionStatus === 'authorized' ? `Tu plan incluye ${profile.monthlyCredits} generaciones mensuales.` : profile.subscriptionStatus === 'cancelled' ? 'La renovación está cancelada. Tus créditos actuales siguen disponibles.' : 'Tus 3 pruebas no vencen. Elegí un plan cuando quieras seguir creando.'}</p><ul><li><Icon name="check" size={14}/>Nuevas ideas cada semana</li><li><Icon name="check" size={14}/>Favoritos e imágenes guardadas</li><li><Icon name="check" size={14}/>Marca y productos privados</li></ul><button onClick={onPlans}>Ver los tres planes<Icon name="arrow" size={16}/></button><footer>Pago seguro con Mercado Pago.</footer></aside></div></>;
 }
