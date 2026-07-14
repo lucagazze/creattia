@@ -696,6 +696,11 @@ export default function CreativeApp() {
 	);
 }
 
+function authRedirectUrl() {
+	const productionSite = import.meta.env.PROD ? String(import.meta.env.PUBLIC_SITE_URL || '').trim() : '';
+	return new URL('/app/', productionSite || window.location.origin).toString();
+}
+
 function AuthScreen({ onSession }: { onSession: (session: AppSession) => void }) {
 	const [mode, setMode] = useState<'signup' | 'login'>('signup');
 	const [authStep, setAuthStep] = useState<'email' | 'credentials'>('email');
@@ -717,7 +722,7 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 		try {
 			if (isSupabaseConfigured && supabase) {
 				if (mode === 'signup') {
-					const { data, error: authError } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: `${window.location.origin}/app/` } });
+					const { data, error: authError } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: authRedirectUrl() } });
 					if (authError) throw authError;
 					if (data.session) onSession(data.session);
 					else setNotice('Revisá tu email para confirmar la cuenta y después ingresá.');
@@ -764,7 +769,7 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 		try {
 			const { error: authError } = await supabase.auth.signInWithOAuth({
 				provider: 'google',
-				options: { redirectTo: `${window.location.origin}/app/` },
+				options: { redirectTo: authRedirectUrl() },
 			});
 			if (authError) throw authError;
 		} catch (cause) {
