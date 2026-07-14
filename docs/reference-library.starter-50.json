@@ -1,0 +1,1356 @@
+{
+  "version": 1,
+  "collection": "starter-static-50",
+  "items": [
+    {
+      "templateId": 1,
+      "name": "01 · Tweet · Referencia estática",
+      "localImage": "references/starter-50/01-tweet.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de tweet, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Tweet",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "AKT London",
+          "sourceAd": "Starter Set — oferta + prueba social + autoridad",
+          "signal": "48 M de impresiones y 1,2 M de visualizaciones",
+          "pattern": "Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 2,
+      "name": "02 · Reseña 5 estrellas · Referencia estática",
+      "localImage": "references/starter-50/02-resena-5-estrellas.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de reseña 5 estrellas, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Rostro experto, producto y varias pruebas de confianza.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Reseña 5 estrellas",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Fabulous Pharmacist",
+          "sourceAd": "Love your vulva — autoridad + reseñas",
+          "signal": "84 días activa, USD 9.600 de inversión y 1,1 M de impresiones",
+          "pattern": "Rostro experto, producto y varias pruebas de confianza.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 3,
+      "name": "03 · Muro de reseñas · Referencia estática",
+      "localImage": "references/starter-50/03-muro-de-resenas.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de muro de reseñas, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Muro de reseñas",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "AKT London",
+          "sourceAd": "Starter Set — oferta + prueba social + autoridad",
+          "signal": "48 M de impresiones y 1,2 M de visualizaciones",
+          "pattern": "Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 4,
+      "name": "04 · Captura de WhatsApp · Referencia estática",
+      "localImage": "references/starter-50/04-captura-de-whatsapp.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de captura de whatsapp, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Lifestyle aspiracional acompañado por frustraciones reconocibles.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Captura de WhatsApp",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "X5",
+          "sourceAd": "Tanning Spray — dolor repetido + resultado",
+          "signal": "1,8 M de visualizaciones y 10 duplicados",
+          "pattern": "Lifestyle aspiracional acompañado por frustraciones reconocibles.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 5,
+      "name": "05 · Comentario destacado · Referencia estática",
+      "localImage": "references/starter-50/05-comentario-destacado.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de comentario destacado, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Comentario destacado",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "AKT London",
+          "sourceAd": "Starter Set — oferta + prueba social + autoridad",
+          "signal": "48 M de impresiones y 1,2 M de visualizaciones",
+          "pattern": "Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 6,
+      "name": "06 · Antes y después · Referencia estática",
+      "localImage": "references/starter-50/06-antes-y-despues.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de antes y después, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Lifestyle aspiracional acompañado por frustraciones reconocibles.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Antes y después",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "X5",
+          "sourceAd": "Tanning Spray — dolor repetido + resultado",
+          "signal": "1,8 M de visualizaciones y 10 duplicados",
+          "pattern": "Lifestyle aspiracional acompañado por frustraciones reconocibles.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 7,
+      "name": "07 · Testimonial con rostro · Referencia estática",
+      "localImage": "references/starter-50/07-testimonial-con-rostro.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de testimonial con rostro, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La presencia humana y el fondo neutro superaron al producto aislado.",
+      "sortOrder": 1,
+      "sourceUrl": "https://adbuffs.com/case-studies/knya/",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Testimonial con rostro",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "KNYA",
+          "sourceAd": "Modelo sobre fondo gris — auditoría de estáticos",
+          "signal": "5,24x ROAS en estáticos con modelo y 6,49x en rebranding",
+          "pattern": "La presencia humana y el fondo neutro superaron al producto aislado.",
+          "evidenceUrl": "https://adbuffs.com/case-studies/knya/",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 8,
+      "name": "08 · DM “¿queda stock?” · Referencia estática",
+      "localImage": "references/starter-50/08-dm-queda-stock.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de dm “¿queda stock?”, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La urgencia visual convierte una promoción en un evento.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.stackadapt.com/case-studies/the-stable-ecommerce-sales-with-creative-ads",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "DM “¿queda stock?”",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Pit Viper",
+          "sourceAd": "Countdown de promoción",
+          "signal": "CTR +110%, ROAS +246% y conversión +387%",
+          "pattern": "La urgencia visual convierte una promoción en un evento.",
+          "evidenceUrl": "https://www.stackadapt.com/case-studies/the-stable-ecommerce-sales-with-creative-ads",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 9,
+      "name": "09 · Contador social · Referencia estática",
+      "localImage": "references/starter-50/09-contador-social.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de contador social, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Contador social",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Shopify",
+          "sourceAd": "Kickstart your business — identidad del comprador",
+          "signal": "2.345 anuncios activos y 5 duplicados de la pieza",
+          "pattern": "La persona se reconoce antes de leer la propuesta.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 10,
+      "name": "10 · Como se vio en · Referencia estática",
+      "localImage": "references/starter-50/10-como-se-vio-en.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de como se vio en, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Rostro experto, producto y varias pruebas de confianza.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Como se vio en",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Fabulous Pharmacist",
+          "sourceAd": "Love your vulva — autoridad + reseñas",
+          "signal": "84 días activa, USD 9.600 de inversión y 1,1 M de impresiones",
+          "pattern": "Rostro experto, producto y varias pruebas de confianza.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 11,
+      "name": "11 · Review de marketplace · Referencia estática",
+      "localImage": "references/starter-50/11-review-de-marketplace.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de review de marketplace, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "Review de marketplace",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "AKT London",
+          "sourceAd": "Starter Set — oferta + prueba social + autoridad",
+          "signal": "48 M de impresiones y 1,2 M de visualizaciones",
+          "pattern": "Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 12,
+      "name": "12 · UGC con producto en mano · Referencia estática",
+      "localImage": "references/starter-50/12-ugc-con-producto-en-mano.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de ugc con producto en mano, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Lifestyle aspiracional acompañado por frustraciones reconocibles.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Prueba social",
+      "categoryBranch": "Reseñas y comunidad",
+      "categoryLeaf": "UGC con producto en mano",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "X5",
+          "sourceAd": "Tanning Spray — dolor repetido + resultado",
+          "signal": "1,8 M de visualizaciones y 10 duplicados",
+          "pattern": "Lifestyle aspiracional acompañado por frustraciones reconocibles.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 13,
+      "name": "13 · Precio tachado · Referencia estática",
+      "localImage": "references/starter-50/13-precio-tachado.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de precio tachado, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Fotografía editorial con una oferta imposible de ignorar.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Precio tachado",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "COS",
+          "sourceAd": "Further reductions — editorial + oferta",
+          "signal": "1,5 M de impresiones, USD 13.900 de inversión y 23 duplicados",
+          "pattern": "Fotografía editorial con una oferta imposible de ignorar.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 14,
+      "name": "14 · Bundle / Kit · Referencia estática",
+      "localImage": "references/starter-50/14-bundle-kit.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de bundle / kit, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Bundle de alto margen presentado como una oferta simple.",
+      "sortOrder": 1,
+      "sourceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Bundle / Kit",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "E-commerce de textiles",
+          "sourceAd": "Producto bundle en single image",
+          "signal": "ROAS 18,13; CPA USD 2,74; piezas individuales con ROAS 22x–54x",
+          "pattern": "Bundle de alto margen presentado como una oferta simple.",
+          "evidenceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 15,
+      "name": "15 · Fecha límite · Referencia estática",
+      "localImage": "references/starter-50/15-fecha-limite.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de fecha límite, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La urgencia visual convierte una promoción en un evento.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.stackadapt.com/case-studies/the-stable-ecommerce-sales-with-creative-ads",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Fecha límite",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Pit Viper",
+          "sourceAd": "Countdown de promoción",
+          "signal": "CTR +110%, ROAS +246% y conversión +387%",
+          "pattern": "La urgencia visual convierte una promoción en un evento.",
+          "evidenceUrl": "https://www.stackadapt.com/case-studies/the-stable-ecommerce-sales-with-creative-ads",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 16,
+      "name": "16 · Regalo con la compra · Referencia estática",
+      "localImage": "references/starter-50/16-regalo-con-la-compra.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de regalo con la compra, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Varios productos ordenados, oferta y confianza sin ruido.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Regalo con la compra",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "SURI",
+          "sourceAd": "Gift set — línea de productos + ocasión de compra",
+          "signal": "2,7 M de visualizaciones y USD 24.100 de inversión",
+          "pattern": "Varios productos ordenados, oferta y confianza sin ruido.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 17,
+      "name": "17 · 2x1 / 3x2 · Referencia estática",
+      "localImage": "references/starter-50/17-2x1-3x2.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de 2x1 / 3x2, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Bundle de alto margen presentado como una oferta simple.",
+      "sortOrder": 1,
+      "sourceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "2x1 / 3x2",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "E-commerce de textiles",
+          "sourceAd": "Producto bundle en single image",
+          "signal": "ROAS 18,13; CPA USD 2,74; piezas individuales con ROAS 22x–54x",
+          "pattern": "Bundle de alto margen presentado como una oferta simple.",
+          "evidenceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 18,
+      "name": "18 · Envío gratis · Referencia estática",
+      "localImage": "references/starter-50/18-envio-gratis.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de envío gratis, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Fotografía editorial con una oferta imposible de ignorar.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Envío gratis",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "COS",
+          "sourceAd": "Further reductions — editorial + oferta",
+          "signal": "1,5 M de impresiones, USD 13.900 de inversión y 23 duplicados",
+          "pattern": "Fotografía editorial con una oferta imposible de ignorar.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 19,
+      "name": "19 · Cupón visual · Referencia estática",
+      "localImage": "references/starter-50/19-cupon-visual.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de cupón visual, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Cupón visual",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "AKT London",
+          "sourceAd": "Starter Set — oferta + prueba social + autoridad",
+          "signal": "48 M de impresiones y 1,2 M de visualizaciones",
+          "pattern": "Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 20,
+      "name": "20 · Escalera de precio · Referencia estática",
+      "localImage": "references/starter-50/20-escalera-de-precio.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de escalera de precio, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Varios productos ordenados, oferta y confianza sin ruido.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Escalera de precio",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "SURI",
+          "sourceAd": "Gift set — línea de productos + ocasión de compra",
+          "signal": "2,7 M de visualizaciones y USD 24.100 de inversión",
+          "pattern": "Varios productos ordenados, oferta y confianza sin ruido.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 21,
+      "name": "21 · Sello de garantía · Referencia estática",
+      "localImage": "references/starter-50/21-sello-de-garantia.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de sello de garantía, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Sello de garantía",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "AKT London",
+          "sourceAd": "Starter Set — oferta + prueba social + autoridad",
+          "signal": "48 M de impresiones y 1,2 M de visualizaciones",
+          "pattern": "Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 22,
+      "name": "22 · Cuotas sin interés · Referencia estática",
+      "localImage": "references/starter-50/22-cuotas-sin-interes.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de cuotas sin interés, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Bundle de alto margen presentado como una oferta simple.",
+      "sortOrder": 1,
+      "sourceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Oferta",
+      "categoryBranch": "Promociones y urgencia",
+      "categoryLeaf": "Cuotas sin interés",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "E-commerce de textiles",
+          "sourceAd": "Producto bundle en single image",
+          "signal": "ROAS 18,13; CPA USD 2,74; piezas individuales con ROAS 22x–54x",
+          "pattern": "Bundle de alto margen presentado como una oferta simple.",
+          "evidenceUrl": "https://hpanov-digital.com/en/portfolio/facebook-e-commerce-73-purchases-roas-18-13-and-cpa-2-74-all-in-just-4-days-of-collaboration/",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 23,
+      "name": "23 · Nosotros vs Ellos · Referencia estática",
+      "localImage": "references/starter-50/23-nosotros-vs-ellos.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de nosotros vs ellos, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Hooks, beneficios y pruebas se testean como un sistema repetible.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.statiq.club/case-studies/shaan-puri",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Comparación",
+      "categoryBranch": "Decisión y valor",
+      "categoryLeaf": "Nosotros vs Ellos",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "VKTRY Gear",
+          "sourceAd": "Sistema de estáticos para performance gear",
+          "signal": "4,6x ROAS, USD 1,2 M de ingresos y CPA 38% menor",
+          "pattern": "Hooks, beneficios y pruebas se testean como un sistema repetible.",
+          "evidenceUrl": "https://www.statiq.club/case-studies/shaan-puri",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 24,
+      "name": "24 · Lado a lado · Referencia estática",
+      "localImage": "references/starter-50/24-lado-a-lado.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de lado a lado, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Comparación",
+      "categoryBranch": "Decisión y valor",
+      "categoryLeaf": "Lado a lado",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "The Body Shop",
+          "sourceAd": "Ginger Shampoo — promesa temporal + prueba de ingredientes",
+          "signal": "1,0 M de visualizaciones y 7 duplicados",
+          "pattern": "Una promesa concreta respaldada por tres pruebas visuales.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 25,
+      "name": "25 · Comparación de costo · Referencia estática",
+      "localImage": "references/starter-50/25-comparacion-de-costo.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de comparación de costo, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Hooks, beneficios y pruebas se testean como un sistema repetible.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.statiq.club/case-studies/shaan-puri",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Comparación",
+      "categoryBranch": "Decisión y valor",
+      "categoryLeaf": "Comparación de costo",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "VKTRY Gear",
+          "sourceAd": "Sistema de estáticos para performance gear",
+          "signal": "4,6x ROAS, USD 1,2 M de ingresos y CPA 38% menor",
+          "pattern": "Hooks, beneficios y pruebas se testean como un sistema repetible.",
+          "evidenceUrl": "https://www.statiq.club/case-studies/shaan-puri",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 26,
+      "name": "26 · Pagás X, recibís Y · Referencia estática",
+      "localImage": "references/starter-50/26-pagas-x-recibis-y.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de pagás x, recibís y, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Varios productos ordenados, oferta y confianza sin ruido.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Comparación",
+      "categoryBranch": "Decisión y valor",
+      "categoryLeaf": "Pagás X, recibís Y",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "SURI",
+          "sourceAd": "Gift set — línea de productos + ocasión de compra",
+          "signal": "2,7 M de visualizaciones y USD 24.100 de inversión",
+          "pattern": "Varios productos ordenados, oferta y confianza sin ruido.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 27,
+      "name": "27 · Checklist de compra · Referencia estática",
+      "localImage": "references/starter-50/27-checklist-de-compra.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de checklist de compra, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Comparación",
+      "categoryBranch": "Decisión y valor",
+      "categoryLeaf": "Checklist de compra",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "The Body Shop",
+          "sourceAd": "Ginger Shampoo — promesa temporal + prueba de ingredientes",
+          "signal": "1,0 M de visualizaciones y 7 duplicados",
+          "pattern": "Una promesa concreta respaldada por tres pruebas visuales.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 28,
+      "name": "28 · Composición comparada · Referencia estática",
+      "localImage": "references/starter-50/28-composicion-comparada.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de composición comparada, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Comparación",
+      "categoryBranch": "Decisión y valor",
+      "categoryLeaf": "Composición comparada",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "The Body Shop",
+          "sourceAd": "Ginger Shampoo — promesa temporal + prueba de ingredientes",
+          "signal": "1,0 M de visualizaciones y 7 duplicados",
+          "pattern": "Una promesa concreta respaldada por tres pruebas visuales.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 29,
+      "name": "29 · Con vs sin · Referencia estática",
+      "localImage": "references/starter-50/29-con-vs-sin.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de con vs sin, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Lifestyle aspiracional acompañado por frustraciones reconocibles.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Comparación",
+      "categoryBranch": "Decisión y valor",
+      "categoryLeaf": "Con vs sin",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "X5",
+          "sourceAd": "Tanning Spray — dolor repetido + resultado",
+          "signal": "1,8 M de visualizaciones y 10 duplicados",
+          "pattern": "Lifestyle aspiracional acompañado por frustraciones reconocibles.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 30,
+      "name": "30 · Listicle · Referencia estática",
+      "localImage": "references/starter-50/30-listicle.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de listicle, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Listicle",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Shopify",
+          "sourceAd": "Kickstart your business — identidad del comprador",
+          "signal": "2.345 anuncios activos y 5 duplicados de la pieza",
+          "pattern": "La persona se reconoce antes de leer la propuesta.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 31,
+      "name": "31 · Estadística brutal · Referencia estática",
+      "localImage": "references/starter-50/31-estadistica-brutal.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de estadística brutal, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Hooks, beneficios y pruebas se testean como un sistema repetible.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.statiq.club/case-studies/shaan-puri",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Estadística brutal",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "VKTRY Gear",
+          "sourceAd": "Sistema de estáticos para performance gear",
+          "signal": "4,6x ROAS, USD 1,2 M de ingresos y CPA 38% menor",
+          "pattern": "Hooks, beneficios y pruebas se testean como un sistema repetible.",
+          "evidenceUrl": "https://www.statiq.club/case-studies/shaan-puri",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 32,
+      "name": "32 · Mito vs realidad · Referencia estática",
+      "localImage": "references/starter-50/32-mito-vs-realidad.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de mito vs realidad, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Mito vs realidad",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "The Body Shop",
+          "sourceAd": "Ginger Shampoo — promesa temporal + prueba de ingredientes",
+          "signal": "1,0 M de visualizaciones y 7 duplicados",
+          "pattern": "Una promesa concreta respaldada por tres pruebas visuales.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 33,
+      "name": "33 · Diagrama señalado · Referencia estática",
+      "localImage": "references/starter-50/33-diagrama-senalado.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de diagrama señalado, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Producto lateral, fondo limpio y una decisión de compra directa.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Diagrama señalado",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Helly Hansen",
+          "sourceAd": "Skagen F-1 — producto único con espacio negativo",
+          "signal": "1,1 M de visualizaciones y USD 10.000 de inversión",
+          "pattern": "Producto lateral, fondo limpio y una decisión de compra directa.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 34,
+      "name": "34 · Pregunta directa · Referencia estática",
+      "localImage": "references/starter-50/34-pregunta-directa.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de pregunta directa, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Pregunta directa",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Shopify",
+          "sourceAd": "Kickstart your business — identidad del comprador",
+          "signal": "2.345 anuncios activos y 5 duplicados de la pieza",
+          "pattern": "La persona se reconoce antes de leer la propuesta.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 35,
+      "name": "35 · Meme · Referencia estática",
+      "localImage": "references/starter-50/35-meme.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de meme, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Meme",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Shopify",
+          "sourceAd": "Kickstart your business — identidad del comprador",
+          "signal": "2.345 anuncios activos y 5 duplicados de la pieza",
+          "pattern": "La persona se reconoce antes de leer la propuesta.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 36,
+      "name": "36 · Comic · Referencia estática",
+      "localImage": "references/starter-50/36-comic.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de comic, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Comic",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Shopify",
+          "sourceAd": "Kickstart your business — identidad del comprador",
+          "signal": "2.345 anuncios activos y 5 duplicados de la pieza",
+          "pattern": "La persona se reconoce antes de leer la propuesta.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 37,
+      "name": "37 · Sí / No · Referencia estática",
+      "localImage": "references/starter-50/37-si-no.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de sí / no, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Una promesa concreta respaldada por tres pruebas visuales.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Sí / No",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "The Body Shop",
+          "sourceAd": "Ginger Shampoo — promesa temporal + prueba de ingredientes",
+          "signal": "1,0 M de visualizaciones y 7 duplicados",
+          "pattern": "Una promesa concreta respaldada por tres pruebas visuales.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 38,
+      "name": "38 · Definición · Referencia estática",
+      "localImage": "references/starter-50/38-definicion.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de definición, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: El contexto visual hace que el precio premium se sienta lógico.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Definición",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Bose",
+          "sourceAd": "QuietComfort Ultra — universo premium",
+          "signal": "290,5 M de impresiones y campaña de 49 días",
+          "pattern": "El contexto visual hace que el precio premium se sienta lógico.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 39,
+      "name": "39 · Nota manuscrita · Referencia estática",
+      "localImage": "references/starter-50/39-nota-manuscrita.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de nota manuscrita, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Rostro experto, producto y varias pruebas de confianza.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Educación",
+      "categoryBranch": "Ideas y objeciones",
+      "categoryLeaf": "Nota manuscrita",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Fabulous Pharmacist",
+          "sourceAd": "Love your vulva — autoridad + reseñas",
+          "signal": "84 días activa, USD 9.600 de inversión y 1,1 M de impresiones",
+          "pattern": "Rostro experto, producto y varias pruebas de confianza.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 40,
+      "name": "40 · Hero limpio · Referencia estática",
+      "localImage": "references/starter-50/40-hero-limpio.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de hero limpio, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Producto lateral, fondo limpio y una decisión de compra directa.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Producto",
+      "categoryBranch": "Demostración visual",
+      "categoryLeaf": "Hero limpio",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Helly Hansen",
+          "sourceAd": "Skagen F-1 — producto único con espacio negativo",
+          "signal": "1,1 M de visualizaciones y USD 10.000 de inversión",
+          "pattern": "Producto lateral, fondo limpio y una decisión de compra directa.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 41,
+      "name": "41 · Features señaladas · Referencia estática",
+      "localImage": "references/starter-50/41-features-senaladas.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de features señaladas, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Producto lateral, fondo limpio y una decisión de compra directa.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Producto",
+      "categoryBranch": "Demostración visual",
+      "categoryLeaf": "Features señaladas",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Helly Hansen",
+          "sourceAd": "Skagen F-1 — producto único con espacio negativo",
+          "signal": "1,1 M de visualizaciones y USD 10.000 de inversión",
+          "pattern": "Producto lateral, fondo limpio y una decisión de compra directa.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 42,
+      "name": "42 · Lifestyle en uso · Referencia estática",
+      "localImage": "references/starter-50/42-lifestyle-en-uso.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de lifestyle en uso, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Uso real, fondo neutro y mensaje corto centrado en el fit.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Producto",
+      "categoryBranch": "Demostración visual",
+      "categoryLeaf": "Lifestyle en uso",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Nike",
+          "sourceAd": "Challenger Shorts — producto en una persona real",
+          "signal": "1,8 M de visualizaciones y USD 15.800 de inversión",
+          "pattern": "Uso real, fondo neutro y mensaje corto centrado en el fit.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 43,
+      "name": "43 · Despiece · Referencia estática",
+      "localImage": "references/starter-50/43-despiece.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de despiece, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: El contexto visual hace que el precio premium se sienta lógico.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Producto",
+      "categoryBranch": "Demostración visual",
+      "categoryLeaf": "Despiece",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Bose",
+          "sourceAd": "QuietComfort Ultra — universo premium",
+          "signal": "290,5 M de impresiones y campaña de 49 días",
+          "pattern": "El contexto visual hace que el precio premium se sienta lógico.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 44,
+      "name": "44 · Escala real · Referencia estática",
+      "localImage": "references/starter-50/44-escala-real.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de escala real, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Producto lateral, fondo limpio y una decisión de compra directa.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Producto",
+      "categoryBranch": "Demostración visual",
+      "categoryLeaf": "Escala real",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Helly Hansen",
+          "sourceAd": "Skagen F-1 — producto único con espacio negativo",
+          "signal": "1,1 M de visualizaciones y USD 10.000 de inversión",
+          "pattern": "Producto lateral, fondo limpio y una decisión de compra directa.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 45,
+      "name": "45 · Paso a paso 1-2-3 · Referencia estática",
+      "localImage": "references/starter-50/45-paso-a-paso-1-2-3.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de paso a paso 1-2-3, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La persona se reconoce antes de leer la propuesta.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Producto",
+      "categoryBranch": "Demostración visual",
+      "categoryLeaf": "Paso a paso 1-2-3",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Shopify",
+          "sourceAd": "Kickstart your business — identidad del comprador",
+          "signal": "2.345 anuncios activos y 5 duplicados de la pieza",
+          "pattern": "La persona se reconoce antes de leer la propuesta.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 46,
+      "name": "46 · Qué viene en la caja · Referencia estática",
+      "localImage": "references/starter-50/46-que-viene-en-la-caja.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de qué viene en la caja, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Varios productos ordenados, oferta y confianza sin ruido.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Producto",
+      "categoryBranch": "Demostración visual",
+      "categoryLeaf": "Qué viene en la caja",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "SURI",
+          "sourceAd": "Gift set — línea de productos + ocasión de compra",
+          "signal": "2,7 M de visualizaciones y USD 24.100 de inversión",
+          "pattern": "Varios productos ordenados, oferta y confianza sin ruido.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 47,
+      "name": "47 · Secuencia de 3 frames · Referencia estática",
+      "localImage": "references/starter-50/47-secuencia-de-3-frames.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de secuencia de 3 frames, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Uso real, fondo neutro y mensaje corto centrado en el fit.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Producto",
+      "categoryBranch": "Demostración visual",
+      "categoryLeaf": "Secuencia de 3 frames",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Nike",
+          "sourceAd": "Challenger Shorts — producto en una persona real",
+          "signal": "1,8 M de visualizaciones y USD 15.800 de inversión",
+          "pattern": "Uso real, fondo neutro y mensaje corto centrado en el fit.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 48,
+      "name": "48 · Aval de experto · Referencia estática",
+      "localImage": "references/starter-50/48-aval-de-experto.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de aval de experto, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Rostro experto, producto y varias pruebas de confianza.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Autoridad",
+      "categoryBranch": "Respaldo y confianza",
+      "categoryLeaf": "Aval de experto",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "Fabulous Pharmacist",
+          "sourceAd": "Love your vulva — autoridad + reseñas",
+          "signal": "84 días activa, USD 9.600 de inversión y 1,1 M de impresiones",
+          "pattern": "Rostro experto, producto y varias pruebas de confianza.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 49,
+      "name": "49 · Sellos y certificaciones · Referencia estática",
+      "localImage": "references/starter-50/49-sellos-y-certificaciones.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de sellos y certificaciones, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+      "sortOrder": 1,
+      "sourceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Autoridad",
+      "categoryBranch": "Respaldo y confianza",
+      "categoryLeaf": "Sellos y certificaciones",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "AKT London",
+          "sourceAd": "Starter Set — oferta + prueba social + autoridad",
+          "signal": "48 M de impresiones y 1,2 M de visualizaciones",
+          "pattern": "Oferta visible, volumen de reseñas y autoridad en un solo cuadro.",
+          "evidenceUrl": "https://www.trendtrack.io/blog-post/static-ads-examples",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    },
+    {
+      "templateId": 50,
+      "name": "50 · Carta del fundador · Referencia estática",
+      "localImage": "references/starter-50/50-carta-del-fundador.png",
+      "promptNotes": "Referencia estática original. Conservar la jerarquía de carta del fundador, adaptar el producto y la identidad de la marca, y evitar copiar textos o identidades de terceros. Patrón investigado: La presencia humana y el fondo neutro superaron al producto aislado.",
+      "sortOrder": 1,
+      "sourceUrl": "https://adbuffs.com/case-studies/knya/",
+      "sourcePlatform": "research-derived",
+      "rightsStatus": "owned",
+      "licenseNotes": "Composición original renderizada por Creattia. No contiene imágenes, logos, textos ni productos de la marca investigada.",
+      "categoryGroup": "Autoridad",
+      "categoryBranch": "Respaldo y confianza",
+      "categoryLeaf": "Carta del fundador",
+      "metadata": {
+        "mediaType": "static_image",
+        "originalAsset": true,
+        "format": "4:5",
+        "performanceEvidence": {
+          "sourceBrand": "KNYA",
+          "sourceAd": "Modelo sobre fondo gris — auditoría de estáticos",
+          "signal": "5,24x ROAS en estáticos con modelo y 6,49x en rebranding",
+          "pattern": "La presencia humana y el fondo neutro superaron al producto aislado.",
+          "evidenceUrl": "https://adbuffs.com/case-studies/knya/",
+          "researchedAt": "2026-07-14"
+        }
+      }
+    }
+  ]
+}

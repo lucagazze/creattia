@@ -35,7 +35,14 @@ La `SUPABASE_SERVICE_ROLE_KEY` es exclusivamente de servidor. Nunca debe llevar 
 
 ## Referencias creativas
 
-Las 50 estrategias originales funcionan aunque todavía no tengan una imagen de referencia. Para cargar anuncios propios o licenciados con fuente y derechos verificables, seguí [docs/REFERENCE_LIBRARY.md](docs/REFERENCE_LIBRARY.md). La aplicación no activa referencias con procedencia sin verificar.
+Las 50 estrategias originales funcionan aunque todavía no tengan una imagen de referencia. El repositorio también incluye 50 anuncios estáticos originales, uno por estrategia, listos para importar desde `docs/reference-library.starter-50.json`.
+
+```bash
+npm run references:manifest
+npm run references:import -- docs/reference-library.starter-50.json
+```
+
+Para conocer el criterio de investigación, los derechos y cómo cargar nuevas piezas propias o licenciadas, seguí [docs/REFERENCE_LIBRARY.md](docs/REFERENCE_LIBRARY.md). La aplicación no activa referencias con procedencia sin verificar.
 
 ## Producción
 

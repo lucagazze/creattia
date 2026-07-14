@@ -79,7 +79,11 @@ for (const [index, item] of manifest.items.entries()) {
 		category_group: String(item.categoryGroup || '').trim().slice(0, 120) || null,
 		category_branch: String(item.categoryBranch || '').trim().slice(0, 120) || null,
 		category_leaf: String(item.categoryLeaf || '').trim().slice(0, 120) || null,
-		metadata: { importedBy: 'scripts/import-reference-library.mjs', fingerprint },
+		metadata: {
+			...(item.metadata && typeof item.metadata === 'object' ? item.metadata : {}),
+			importedBy: 'scripts/import-reference-library.mjs',
+			fingerprint,
+		},
 		updated_at: new Date().toISOString(),
 	};
 	const query = existing
