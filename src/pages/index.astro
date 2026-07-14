@@ -6,12 +6,21 @@ import '@fontsource-variable/plus-jakarta-sans';
 
 const plans = [
 	{
+		code: 'free',
+		name: 'Gratis',
+		price: 0,
+		credits: 3,
+		copy: 'Probá la experiencia completa sin compromiso.',
+		features: ['1 marca conectada', '3 imágenes de prueba', 'Sin tarjeta', 'Acceso a la biblioteca'],
+		trial: true,
+	},
+	{
 		code: 'creator',
 		name: 'Creator',
 		price: 19,
 		credits: 40,
 		copy: 'Para crear contenido todas las semanas.',
-		features: ['40 imágenes por mes', '1 marca conectada', 'Biblioteca completa', 'Historial y favoritos'],
+		features: ['40 imágenes por mes', '1 marca conectada', 'Biblioteca completa', 'Historial y favoritos', 'Variaciones de imágenes'],
 	},
 	{
 		code: 'pro',
@@ -19,7 +28,7 @@ const plans = [
 		price: 39,
 		credits: 120,
 		copy: 'Para probar más ideas y encontrar qué vende.',
-		features: ['120 imágenes por mes', 'Hasta 3 marcas', 'Variaciones de imágenes', 'Prioridad de generación'],
+		features: ['120 imágenes por mes', 'Hasta 3 marcas', 'Variaciones de imágenes', 'Prioridad de generación', 'Modelos Pro de IA'],
 		featured: true,
 	},
 	{
@@ -28,7 +37,7 @@ const plans = [
 		price: 79,
 		credits: 300,
 		copy: 'Para equipos con producción constante.',
-		features: ['300 imágenes por mes', 'Hasta 10 marcas', 'Todo lo incluido en Pro', 'Uso para equipos'],
+		features: ['300 imágenes por mes', 'Hasta 10 marcas', 'Todo lo incluido en Pro', 'Uso para equipos', 'Soporte prioritario'],
 	},
 ];
 
@@ -105,9 +114,8 @@ const faqs = [
 			<div class="hero-grid" aria-hidden="true"></div>
 			<div class="hero-glow" aria-hidden="true"></div>
 			<div class="hero-inner">
-				<span class="hero-label">IMÁGENES CON IA PARA NEGOCIOS</span>
+				<span class="hero-label"><i></i>+10.000 Cuentas Registradas</span>
 				<h1>La plataforma N°1 para generar <em>imágenes que venden.</em></h1>
-				<p>Elegí una idea, sumá tu producto y creá una imagen lista para publicar. Sin diseñar ni escribir prompts.</p>
 				<div class="hero-actions">
 					<a href="/app/" class="primary-button">Crear 3 imágenes gratis <span>→</span></a>
 					<small>Google o email · Sin tarjeta</small>
@@ -230,59 +238,85 @@ const faqs = [
 
 			<section class="how-section" id="como-funciona">
 				<div class="section-heading">
-					<h2>Cómo funciona</h2>
+					<p>Sin prompts. Sin diseño. Sin vueltas.</p>
+					<h2>De tu producto a una imagen<br />lista para vender en 3 pasos</h2>
 				</div>
-				<div class="steps-grid">
-					<article class="step-card">
-						<div class="step-art connect-art" data-prompt-id="08" aria-hidden="true">
-							<div class="orbit orbit-a"></div>
-							<div class="orbit orbit-b"></div>
-							<img src="/images/creattia/moki-mascot.webp" alt="" width="1254" height="1254" loading="lazy" />
-							<span class="source source-web">↗ Web</span>
-							<span class="source source-ig">◎ Instagram</span>
+				<div class="workflow-grid">
+					<article class="workflow-card">
+						<div class="workflow-top"><b>01</b><span>CONECTÁ</span></div>
+						<h3>Tu marca, lista una sola vez.</h3>
+						<p>Pegá tu web e Instagram. Creattia entiende tu identidad y organiza tus productos.</p>
+						<div class="workflow-visual connect-demo" aria-hidden="true">
+							<div><i>↗</i><span><small>SITIO WEB</small><b>tienda.com</b></span><em>✓</em></div>
+							<div><i>◎</i><span><small>INSTAGRAM</small><b>@tu.marca</b></span><em>✓</em></div>
+							<strong><span>✦</span> Marca analizada</strong>
 						</div>
-						<div class="step-pill"><b>1</b><span>Conectá tu negocio y Creattia entiende tu marca.</span></div>
 					</article>
 
-					<article class="step-card">
-						<div class="step-art choose-art" data-prompt-id="09" aria-hidden="true">
-							<div class="choice choice-a"><small>OBJETIVO</small><b>Vender más</b></div>
-							<div class="choice choice-b"><small>CATEGORÍA</small><b>Promociones</b></div>
-							<div class="choice choice-c"><small>IDEA</small><b>Envío gratis</b><i>✓</i></div>
+					<article class="workflow-card">
+						<div class="workflow-top"><b>02</b><span>ELEGÍ</span></div>
+						<h3>Encontrá la idea que necesitás.</h3>
+						<p>Elegí el objetivo, la categoría, el producto y el formato. Todo guiado y en pocos clics.</p>
+						<div class="workflow-visual choose-demo" aria-hidden="true">
+							<div><small>OBJETIVO</small><b>Vender más</b><i>⌄</i></div>
+							<div><small>IDEA</small><b>Envío gratis</b><i>⌄</i></div>
+							<div class="selected"><small>FORMATO</small><b>Instagram 4:5</b><i>✓</i></div>
 						</div>
-						<div class="step-pill"><b>2</b><span>Elegí una idea, tu producto y el formato.</span></div>
 					</article>
 
-					<article class="step-card">
-						<div class="step-art generate-art" data-prompt-id="10" aria-hidden="true">
-							<div class="generate-glow"></div>
-							<div class="generated-piece"><small>LISTO PARA PUBLICAR</small><strong>ENVÍO<br />GRATIS</strong><i></i></div>
-							<span>✦</span>
+					<article class="workflow-card workflow-card-final">
+						<div class="workflow-top"><b>03</b><span>GENERÁ</span></div>
+						<h3>Descargá, ajustá o creá otra versión.</h3>
+						<p>Tu imagen sale lista para usar. Si querés, cambiá el producto, el texto o cuánto debe variar.</p>
+						<div class="workflow-visual generate-demo" aria-hidden="true">
+							<div class="mini-creative"><small>SOLO HOY</small><strong>ENVÍO<br />GRATIS</strong><i></i></div>
+							<div class="generate-actions"><span>Descargar</span><span>Crear variante</span></div>
 						</div>
-						<div class="step-pill"><b>3</b><span>Generá, descargá o pedí una nueva versión.</span></div>
 					</article>
 				</div>
+				<div class="workflow-cta"><span>¿Querés verlo con tu marca?</span><a href="/app/">Crear 3 imágenes gratis <b>→</b></a></div>
 			</section>
 
-			<section class="formats-section">
+			<section class="platforms-section">
 				<div class="section-heading">
-					<h2>Creá para los formatos<br />que tu negocio necesita</h2>
-					<p>Elegís la proporción antes de generar. El resultado sale listo para usar donde quieras.</p>
+					<h2>Usá tu contenido donde<br />más vendés</h2>
+					<p>Generá cada pieza en el formato correcto y publicala en tus canales favoritos.</p>
 				</div>
-				<div class="formats-grid">
-					<article>
-						<div class="format-copy">
-							<span class="meta-mark">∞</span>
-							<div><h3>Feed y anuncios</h3><p>Cuadrado o vertical para tus campañas y publicaciones.</p></div>
+				<div class="platforms-grid">
+					<article class="platform-card">
+						<div class="platform-icon meta-icon" aria-hidden="true">
+							<svg viewBox="0 0 58 36"><path d="M4 29C9 10 15 5 22 5c9 0 14 24 23 24 5 0 9-5 9-12S51 5 46 5c-9 0-15 24-24 24-7 0-13-6-18-20" /></svg>
 						</div>
-						<div class="format-preview feed-preview" data-prompt-id="11" aria-hidden="true"><div>1:1</div><div>4:5</div></div>
+						<h3>Meta</h3>
+						<span class="platform-status">Listo para usar</span>
+						<p>Imágenes para campañas, anuncios y piezas de venta dentro del ecosistema Meta.</p>
 					</article>
-					<article>
-						<div class="format-copy">
-							<span class="story-mark">◉</span>
-							<div><h3>Historias y contenido vertical</h3><p>Formato 9:16 para ocupar toda la pantalla.</p></div>
+
+					<article class="platform-card">
+						<div class="platform-icon instagram-icon" aria-hidden="true">
+							<svg viewBox="0 0 48 48"><rect x="6" y="6" width="36" height="36" rx="11" /><circle cx="24" cy="24" r="8.5" /><circle cx="35" cy="13" r="2.2" class="fill-dot" /></svg>
 						</div>
-						<div class="format-preview story-preview" data-prompt-id="12" aria-hidden="true"><div>9:16</div><i>✦</i></div>
+						<h3>Instagram</h3>
+						<span class="platform-status">Listo para usar</span>
+						<p>Contenido para el feed, historias y formatos verticales que mantienen tu marca.</p>
+					</article>
+
+					<article class="platform-card">
+						<div class="platform-icon facebook-icon" aria-hidden="true">
+							<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" /><path d="M27.8 46V28.7h5.8l.9-6.7h-6.7v-4.3c0-1.9.5-3.3 3.4-3.3h3.6v-6a48 48 0 0 0-5.3-.3c-5.2 0-8.8 3.2-8.8 9.1V22h-5.9v6.7h5.9V46h7.1Z" class="facebook-f" /></svg>
+						</div>
+						<h3>Facebook</h3>
+						<span class="platform-status">Listo para usar</span>
+						<p>Publicaciones y anuncios adaptados para vender con claridad en Facebook.</p>
+					</article>
+
+					<article class="platform-card">
+						<div class="platform-icon tiktok-icon" aria-hidden="true">
+							<svg viewBox="0 0 48 48"><path d="M29 7c1.2 5.8 4.7 9.2 10 9.6v7c-3.9-.1-7.2-1.3-10-3.5v11.8C29 39 24 43 17.8 43 11.7 43 7 38.4 7 32.6c0-6.7 6.1-11.6 13.2-10.4v7.2c-3.2-.9-6.3.7-6.3 3.7 0 2.2 1.8 3.8 4.2 3.8 2.9 0 4.2-2 4.2-5.1V7H29Z" /></svg>
+						</div>
+						<h3>TikTok</h3>
+						<span class="platform-status">Listo para usar</span>
+						<p>Piezas verticales para mostrar productos y captar atención desde el primer segundo.</p>
 					</article>
 				</div>
 			</section>
@@ -293,20 +327,20 @@ const faqs = [
 					<h2>Precios simples</h2>
 					<p>Elegí cuántas imágenes querés generar por mes.</p>
 					<div class="billing-toggle"><b>Mensual</b><span>Cancelá cuando quieras</span></div>
+					<small class="plans-swipe">Deslizá para comparar los planes →</small>
 				</div>
 				<div class="plans-grid">
 					{plans.map((plan) => (
-						<article class:list={{ featured: plan.featured }}>
+						<article class:list={{ featured: plan.featured, trial: plan.trial }}>
 							{plan.featured && <span class="popular">MÁS ELEGIDO</span>}
 							<header><h3>{plan.name}</h3><p>{plan.copy}</p></header>
 							<div class="price"><small>USD</small><b>{plan.price}</b><span>/mes</span></div>
-							<strong>{plan.credits} imágenes por mes</strong>
-							<a href={'/app/?plan=' + plan.code}>Elegir {plan.name} <span>→</span></a>
-							<ul>{plan.features.map((feature) => <li><i>✓</i>{feature}</li>)}</ul>
+							<strong>{plan.trial ? '3 imágenes gratis' : plan.credits + ' imágenes por mes'}</strong>
+							<a href={'/app/?plan=' + plan.code}>{plan.trial ? 'Probar gratis' : 'Elegir ' + plan.name} <span>→</span></a>
+							<ul>{plan.features.map((feature) => <li><span>{feature}</span><i>✓</i></li>)}</ul>
 						</article>
 					))}
 				</div>
-				<p class="trial-note">Primero probá 3 imágenes gratis. Sin tarjeta.</p>
 			</section>
 
 			<section class="business-section">
@@ -323,40 +357,6 @@ const faqs = [
 					<div class="business-track">
 						<div class="business-set">{[...businessTypes].reverse().map(([emoji, name]) => <span><i>{emoji}</i><b>{name}</b></span>)}</div>
 						<div class="business-set" aria-hidden="true">{[...businessTypes].reverse().map(([emoji, name]) => <span><i>{emoji}</i><b>{name}</b></span>)}</div>
-					</div>
-				</div>
-			</section>
-
-			<section class="why-section">
-				<div class="section-heading why-heading">
-					<p>Pensada para vender sin complicarte</p>
-					<h2>¿Por qué Creattia?</h2>
-				</div>
-				<div class="why-grid">
-					<article class="why-main" data-prompt-id="13">
-						<div class="why-art" aria-hidden="true">
-							<div class="why-sphere"></div>
-							<img src="/images/creattia/moki-mascot.webp" alt="" width="1254" height="1254" loading="lazy" />
-						</div>
-						<div class="why-copy">
-							<small>CREAR SIN APRENDER IA</small>
-							<h3>La tecnología trabaja por detrás. Vos solo elegís qué querés vender.</h3>
-							<p>Sin prompts largos, configuraciones difíciles ni herramientas separadas.</p>
-						</div>
-					</article>
-					<div class="why-stack">
-						<article>
-							<span>01</span>
-							<div><h3>Tu marca queda lista</h3><p>Conectala una vez y reutilizá productos, estilo e información.</p></div>
-						</article>
-						<article>
-							<span>02</span>
-							<div><h3>Siempre podés iterar</h3><p>Volvé a una creación, cambiá algo y generá la siguiente versión.</p></div>
-						</article>
-						<article>
-							<span>03</span>
-							<div><h3>La biblioteca sigue creciendo</h3><p>Nuevas ideas, categorías y formatos para probar.</p></div>
-						</article>
 					</div>
 				</div>
 			</section>
@@ -478,27 +478,20 @@ const faqs = [
 			opacity: .35;
 		}
 		.hero-inner { position: relative; z-index: 2; width: min(1180px, calc(100% - 40px)); margin: auto; text-align: center; }
-		.hero-label { color: #7543da; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+		.hero-label { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid rgba(103, 58, 197, .12); border-radius: 999px; background: rgba(255, 255, 255, .72); color: #6b3bc7; font-size: 10px; font-weight: 700; letter-spacing: .045em; box-shadow: 0 8px 24px rgba(66, 37, 88, .06); backdrop-filter: blur(10px); }
+		.hero-label i { width: 7px; height: 7px; border-radius: 50%; background: #2fc77d; box-shadow: 0 0 0 5px rgba(47, 199, 125, .11); }
 		.hero h1 {
-			max-width: 800px;
-			margin: 18px auto 16px;
+			max-width: 880px;
+			margin: 21px auto 0;
 			font-family: 'Outfit Variable', Outfit, sans-serif;
-			font-size: clamp(42px, 4.5vw, 60px);
-			font-weight: 900;
-			line-height: .98;
-			letter-spacing: -.05em;
+			font-size: clamp(42px, 4.65vw, 62px);
+			font-weight: 780;
+			line-height: 1.045;
+			letter-spacing: -.035em;
 			text-wrap: balance;
 		}
 		.hero h1 em { color: #7442dc; font-style: normal; }
-		.hero > div > p {
-			max-width: 615px;
-			margin: 0 auto;
-			color: rgba(13, 21, 34, .62);
-			font-size: 15px;
-			line-height: 1.6;
-			text-wrap: balance;
-		}
-		.hero-actions { margin-top: 23px; display: flex; align-items: center; justify-content: center; gap: 16px; }
+		.hero-actions { margin-top: 27px; display: flex; align-items: center; justify-content: center; gap: 16px; }
 		.primary-button {
 			min-height: 56px;
 			padding: 0 26px;
@@ -626,83 +619,97 @@ const faqs = [
 		.version-two { z-index: 2; left: calc(50% - 77px); background: #7950ce; }
 		.version-three { right: calc(50% - 165px); background: #43939b; transform: rotate(13deg); }
 
-		.how-section { padding: 80px 16px; background: #fff; }
-		.steps-grid { max-width: 1200px; margin: 66px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-		.step-card { position: relative; min-height: 940px; display: grid; place-items: center; }
-		.step-art { position: relative; width: 100%; height: 700px; display: grid; place-items: center; overflow: hidden; border-radius: 48%; }
-		.step-pill { position: absolute; z-index: 10; left: 50%; bottom: 112px; min-height: 62px; padding: 9px 21px 9px 9px; display: flex; align-items: center; gap: 13px; border: 1px solid #ece9ee; border-radius: 999px; background: rgba(255, 255, 255, .95); box-shadow: 0 16px 38px rgba(39, 30, 47, .12); font-size: 13px; font-weight: 600; white-space: nowrap; transform: translateX(-50%); backdrop-filter: blur(12px); }
-		.step-pill b { width: 42px; height: 42px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: #efe9fa; color: #6733c7; font-size: 11px; }
-		.connect-art { background: radial-gradient(circle, #eee4ff, #fff 67%); }
-		.connect-art img { position: relative; z-index: 3; width: 225px; height: 225px; object-fit: contain; filter: drop-shadow(0 25px 28px rgba(77, 46, 104, .18)); animation: mokiFloat 4.4s ease-in-out infinite; }
-		.orbit { position: absolute; border: 1px solid rgba(114, 69, 204, .17); border-radius: 50%; }
-		.orbit-a { width: 330px; height: 190px; transform: rotate(15deg); }
-		.orbit-b { width: 300px; height: 160px; transform: rotate(-25deg); }
-		.source { position: absolute; z-index: 5; padding: 11px 15px; border: 1px solid #e9e2ef; border-radius: 999px; background: #fff; box-shadow: 0 12px 28px rgba(39, 29, 47, .1); font-size: 10px; font-weight: 700; }
-		.source-web { left: 16px; top: 178px; transform: rotate(-7deg); }
-		.source-ig { right: 8px; top: 210px; transform: rotate(8deg); }
-		.choose-art { background: radial-gradient(circle, #e7f4ff, #fff 68%); }
-		.choice { position: absolute; width: 245px; padding: 22px; border: 1px solid rgba(90, 72, 105, .12); border-radius: 21px; background: rgba(255, 255, 255, .93); box-shadow: 0 24px 48px rgba(50, 37, 63, .12); }
-		.choice small { color: #9a919e; font-size: 7px; font-weight: 800; letter-spacing: .14em; }
-		.choice b { display: block; margin-top: 8px; font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 18px; }
-		.choice-a { left: 38px; top: 145px; transform: rotate(-11deg); opacity: .75; }
-		.choice-b { right: 20px; top: 210px; transform: rotate(9deg); opacity: .9; }
-		.choice-c { z-index: 3; left: 72px; top: 280px; border-color: rgba(120, 70, 219, .24); }
-		.choice-c i { position: absolute; right: 18px; top: 27px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #7340df; color: #fff; font-size: 10px; font-style: normal; }
-		.generate-art { background: radial-gradient(circle, #ede4ff, #fff 68%); }
-		.generate-glow { position: absolute; width: 270px; height: 270px; border-radius: 50%; background: linear-gradient(145deg, #a97cff, #6333c6); box-shadow: inset -30px -35px 55px rgba(54, 19, 107, .24), 0 32px 55px rgba(93, 51, 177, .24); }
-		.generated-piece { position: relative; z-index: 3; width: 205px; height: 270px; padding: 22px; overflow: hidden; border: 8px solid #fff; border-radius: 24px; background: linear-gradient(145deg, #ffe69d, #ff8c78 55%, #7b42d2); color: #fff; box-shadow: 0 26px 50px rgba(58, 27, 93, .28); transform: rotate(-4deg); }
-		.generated-piece small { font-size: 6px; font-weight: 800; letter-spacing: .14em; }
-		.generated-piece strong { display: block; margin-top: 10px; font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 30px; line-height: .88; }
-		.generated-piece i { position: absolute; width: 75px; height: 130px; right: 15px; bottom: -6px; border-radius: 22px 22px 30px 30px; background: linear-gradient(100deg, #fff, #d7c8ec); transform: rotate(8deg); }
-		.generate-art > span { position: absolute; z-index: 4; left: 45px; top: 148px; color: #fff; font-size: 34px; text-shadow: 0 10px 22px rgba(63, 27, 105, .25); }
+		.how-section { padding: 118px 20px 105px; background: #f3f1f6; }
+		.how-section .section-heading { max-width: 880px; margin: 0 auto; }
+		.how-section .section-heading > p { margin-bottom: 16px; color: #7040d0; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+		.how-section .section-heading h2 { font-size: 52px; line-height: 1.02; }
+		.workflow-grid { max-width: 1180px; margin: 58px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+		.workflow-card { min-height: 510px; padding: 31px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(13, 21, 34, .055); border-radius: 28px; background: rgba(255, 255, 255, .94); box-shadow: 0 18px 40px rgba(44, 33, 54, .055); }
+		.workflow-top { display: flex; align-items: center; justify-content: space-between; }
+		.workflow-top > b { width: 43px; height: 43px; display: grid; place-items: center; border-radius: 50%; background: #eee7fb; color: #6935c8; font-size: 10px; }
+		.workflow-top > span { color: rgba(13, 21, 34, .36); font-size: 8px; font-weight: 800; letter-spacing: .16em; }
+		.workflow-card > h3 { margin: 27px 0 12px; font-size: 29px; font-weight: 800; line-height: 1.04; letter-spacing: -.025em; }
+		.workflow-card > p { margin: 0; color: rgba(13, 21, 34, .57); font-size: 12px; line-height: 1.7; }
+		.workflow-visual { height: 220px; margin-top: auto; padding: 20px; overflow: hidden; border-radius: 20px; background: #f4f1f7; }
+		.connect-demo { display: flex; flex-direction: column; justify-content: center; gap: 10px; background: radial-gradient(circle at 85% 15%, #e5d8fb, transparent 36%), #f5f2f7; }
+		.connect-demo > div { min-height: 55px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(13, 21, 34, .06); border-radius: 13px; background: rgba(255, 255, 255, .9); box-shadow: 0 8px 20px rgba(29, 22, 35, .05); }
+		.connect-demo > div > i { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #eee7fb; color: #6f3bcf; font-style: normal; }
+		.connect-demo > div > span { display: flex; flex: 1; flex-direction: column; gap: 3px; }
+		.connect-demo small, .choose-demo small { color: rgba(13, 21, 34, .35); font-size: 6px; font-weight: 800; letter-spacing: .12em; }
+		.connect-demo > div b, .choose-demo b { font-size: 10px; }
+		.connect-demo em { color: #20aa6b; font-size: 10px; font-style: normal; font-weight: 900; }
+		.connect-demo > strong { align-self: center; padding: 9px 13px; border-radius: 999px; background: #17151a; color: #fff; font-size: 8px; box-shadow: 0 10px 22px rgba(23, 21, 26, .18); }
+		.connect-demo > strong span { color: #bd9cf8; }
+		.choose-demo { display: flex; flex-direction: column; justify-content: center; gap: 8px; background: radial-gradient(circle at 10% 90%, #dceeff, transparent 40%), #f5f2f7; }
+		.choose-demo > div { min-height: 50px; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 3px 10px; border: 1px solid rgba(13, 21, 34, .06); border-radius: 13px; background: rgba(255, 255, 255, .9); }
+		.choose-demo small { grid-column: 1; }
+		.choose-demo b { grid-column: 1; }
+		.choose-demo i { grid-column: 2; grid-row: 1 / 3; color: #7240d2; font-size: 10px; font-style: normal; }
+		.choose-demo .selected { border-color: rgba(112, 64, 208, .25); box-shadow: 0 9px 22px rgba(86, 47, 163, .1); }
+		.workflow-card-final { border-color: transparent; background: radial-gradient(circle at 50% 120%, rgba(121, 71, 223, .46), transparent 42%), #0d0c11; color: #fff; box-shadow: 0 24px 52px rgba(24, 15, 33, .18); }
+		.workflow-card-final .workflow-top > b { background: rgba(255, 255, 255, .12); color: #d4c1fa; }
+		.workflow-card-final .workflow-top > span { color: rgba(255, 255, 255, .35); }
+		.workflow-card-final > p { color: rgba(255, 255, 255, .58); }
+		.generate-demo { position: relative; display: flex; align-items: center; justify-content: center; gap: 18px; background: rgba(255, 255, 255, .06); }
+		.mini-creative { position: relative; width: 125px; height: 165px; padding: 16px; overflow: hidden; border: 5px solid #fff; border-radius: 16px; background: linear-gradient(145deg, #ffc97a, #f17d73 50%, #7544cd); color: #fff; box-shadow: 0 18px 32px rgba(0, 0, 0, .24); transform: rotate(-4deg); }
+		.mini-creative small { font-size: 5px; font-weight: 800; letter-spacing: .12em; }
+		.mini-creative strong { display: block; margin-top: 7px; font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 20px; line-height: .88; }
+		.mini-creative i { position: absolute; width: 45px; height: 76px; right: 10px; bottom: -6px; border-radius: 13px 13px 18px 18px; background: #f3edf9; transform: rotate(8deg); }
+		.generate-actions { display: flex; flex-direction: column; gap: 9px; }
+		.generate-actions span { padding: 11px 13px; border: 1px solid rgba(255, 255, 255, .12); border-radius: 10px; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .74); font-size: 8px; white-space: nowrap; }
+		.workflow-cta { width: fit-content; margin: 34px auto 0; padding: 7px 7px 7px 18px; display: flex; align-items: center; gap: 18px; border: 1px solid rgba(13, 21, 34, .08); border-radius: 999px; background: rgba(255, 255, 255, .72); box-shadow: 0 12px 30px rgba(33, 25, 41, .06); }
+		.workflow-cta > span { color: rgba(13, 21, 34, .5); font-size: 10px; }
+		.workflow-cta > a { padding: 12px 17px; border-radius: 999px; background: #17151a; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
+		.workflow-cta b { margin-left: 8px; }
 
-		.formats-section { padding: 80px 16px; background: #fff; }
-		.formats-section .section-heading > p { max-width: 672px; margin: 16px auto 0; color: rgba(13, 21, 34, .62); line-height: 1.62; }
-		.formats-grid { max-width: 1100px; margin: 58px auto 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-		.formats-grid article { min-height: 300px; padding: 30px; overflow: hidden; border-radius: 24px; background: #f3f3f3; }
-		.format-copy { display: flex; align-items: center; gap: 16px; }
-		.format-copy > span { width: 52px; height: 52px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 15px; color: #fff; font-size: 25px; font-weight: 800; }
-		.meta-mark { background: #1268f2; }
-		.story-mark { background: linear-gradient(145deg, #fa7d51, #a73de1); }
-		.format-copy h3 { margin: 0; font-size: 22px; font-weight: 800; }
-		.format-copy p { margin: 5px 0 0; color: rgba(13, 21, 34, .55); font-size: 12px; line-height: 1.5; }
-		.format-preview { height: 175px; margin-top: 25px; display: flex; align-items: end; justify-content: center; gap: 14px; overflow: hidden; }
-		.feed-preview div { width: 150px; display: grid; place-items: center; border: 6px solid #fff; border-radius: 20px 20px 0 0; background: linear-gradient(145deg, #f8c27c, #8559db); color: #fff; font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 28px; font-weight: 900; box-shadow: 0 20px 34px rgba(46, 35, 56, .16); }
-		.feed-preview div:first-child { height: 150px; transform: rotate(-4deg); }
-		.feed-preview div:last-child { height: 175px; transform: rotate(4deg); }
-		.story-preview { position: relative; }
-		.story-preview div { width: 105px; height: 190px; display: grid; place-items: center; border: 6px solid #fff; border-radius: 20px 20px 0 0; background: linear-gradient(145deg, #81d9db, #7041ca); color: #fff; font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 26px; font-weight: 900; box-shadow: 0 20px 34px rgba(46, 35, 56, .16); }
-		.story-preview i { position: absolute; right: 100px; top: 42px; color: #7a48d4; font-size: 34px; font-style: normal; }
+		.platforms-section { padding: 112px 24px 120px; background: #fff; }
+		.platforms-section .section-heading > p { max-width: 650px; margin: 18px auto 0; color: rgba(13, 21, 34, .58); line-height: 1.65; }
+		.platforms-grid { max-width: 1160px; margin: 62px auto 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+		.platform-card { min-height: 390px; padding: 38px 28px 32px; display: flex; flex-direction: column; align-items: center; border: 1px solid rgba(13, 21, 34, .045); border-radius: 24px; background: #fff; box-shadow: 0 14px 40px rgba(34, 28, 41, .08); text-align: center; transition: transform .2s ease, box-shadow .2s ease; }
+		.platform-card:hover { transform: translateY(-5px); box-shadow: 0 22px 52px rgba(34, 28, 41, .12); }
+		.platform-icon { width: 68px; height: 68px; display: grid; place-items: center; border-radius: 19px; background: #fff; box-shadow: 0 12px 30px rgba(32, 26, 38, .1); }
+		.platform-icon svg { width: 40px; height: 40px; }
+		.meta-icon svg { width: 46px; color: #0878f9; }
+		.meta-icon path { fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+		.instagram-icon { background: radial-gradient(circle at 32% 105%, #ffd600 0 17%, #ff7a00 32%, #ff0169 58%, #d300c5 78%, #7638fa 100%); }
+		.instagram-icon svg { fill: none; stroke: #fff; stroke-width: 3.4; }
+		.instagram-icon .fill-dot { fill: #fff; stroke: none; }
+		.facebook-icon svg > circle { fill: #1877f2; }
+		.facebook-icon .facebook-f { fill: #fff; }
+		.tiktok-icon svg { fill: #08090b; filter: drop-shadow(-2px 1px 0 #25f4ee) drop-shadow(2px -1px 0 #fe2c55); }
+		.platform-card h3 { margin: 25px 0 14px; font-size: 26px; font-weight: 900; letter-spacing: -.025em; }
+		.platform-status { padding: 8px 13px; border-radius: 999px; background: #0d1522; color: #fff; font-size: 9px; font-weight: 700; }
+		.platform-card > p { margin: 24px 0 0; color: rgba(13, 21, 34, .52); font-size: 12px; line-height: 1.7; }
 
-		.pricing-section { position: relative; padding: 96px 24px; overflow: hidden; background: #f2f0f5; }
-		.pricing-aurora { position: absolute; width: 820px; height: 540px; left: 50%; top: -360px; border-radius: 50%; background: #d8c6f6; filter: blur(90px); opacity: .7; transform: translateX(-50%); }
+		.pricing-section { position: relative; padding: 116px 22px 126px; overflow: hidden; background: #fff; }
+		.pricing-aurora { position: absolute; width: 900px; height: 540px; left: 50%; top: 470px; border-radius: 50%; background: #beddff; filter: blur(100px); opacity: .36; transform: translateX(-50%); }
 		.pricing-heading { position: relative; z-index: 2; }
 		.pricing-heading > p { margin: 15px 0 0; color: rgba(13, 21, 34, .6); }
-		.billing-toggle { width: fit-content; margin: 28px auto 0; padding: 5px; display: flex; align-items: center; gap: 5px; border: 1px solid rgba(13, 21, 34, .08); border-radius: 999px; background: rgba(255, 255, 255, .45); color: rgba(13, 21, 34, .55); font-size: 12px; }
-		.billing-toggle b { padding: 9px 17px; border-radius: 999px; background: #fff; color: #0d1522; box-shadow: 0 6px 15px rgba(13, 21, 34, .08); }
+		.billing-toggle { width: fit-content; margin: 29px auto 0; padding: 5px; display: flex; align-items: center; gap: 5px; border-radius: 999px; background: #f0f0f2; color: rgba(13, 21, 34, .5); font-size: 12px; }
+		.billing-toggle b { padding: 10px 18px; border-radius: 999px; background: #fff; color: #0d1522; box-shadow: 0 6px 15px rgba(13, 21, 34, .08); }
 		.billing-toggle span { padding: 0 12px 0 4px; }
-		.plans-grid { position: relative; z-index: 2; max-width: 920px; margin: 62px auto 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-		.plans-grid article { position: relative; min-height: 555px; padding: 25px; display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, .75); border-radius: 24px; background: rgba(255, 255, 255, .58); box-shadow: 0 4px 32px rgba(0, 0, 0, .06); backdrop-filter: blur(18px); }
-		.plans-grid article.featured { margin-top: -16px; min-height: 585px; background: linear-gradient(160deg, #8052dc, #4f2a9d); color: #fff; box-shadow: 0 26px 55px rgba(71, 37, 139, .23); }
-		.popular { position: absolute; right: 21px; top: 21px; padding: 8px 10px; border-radius: 999px; background: rgba(255, 255, 255, .16); font-size: 7px; font-weight: 800; letter-spacing: .1em; }
-		.plans-grid header h3 { margin: 0; font-size: 20px; font-weight: 800; }
-		.plans-grid header p { min-height: 58px; margin: 10px 0 0; color: rgba(13, 21, 34, .6); font-size: 12px; line-height: 1.65; }
-		.plans-grid .featured header p { color: rgba(255, 255, 255, .68); }
-		.price { margin-top: 27px; display: flex; align-items: baseline; gap: 4px; }
+		.plans-swipe { display: none; }
+		.plans-grid { position: relative; z-index: 2; max-width: 1232px; margin: 86px auto 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; align-items: start; }
+		.plans-grid article { position: relative; min-height: 675px; padding: 30px; display: flex; flex-direction: column; border: 1px solid rgba(13, 21, 34, .035); border-radius: 28px; background: #fff; box-shadow: 0 15px 46px rgba(32, 27, 39, .08); }
+		.plans-grid article.featured { margin-top: -42px; min-height: 755px; background: linear-gradient(165deg, #218df2 0%, #35a9ec 52%, #45c4e5 100%); color: #fff; box-shadow: 0 28px 70px rgba(29, 139, 227, .29); }
+		.popular { position: absolute; right: 25px; top: 25px; padding: 9px 13px; border-radius: 999px; background: #caff25; color: #07101b; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+		.plans-grid header h3 { margin: 0; font-size: 31px; font-weight: 900; }
+		.plans-grid header p { min-height: 62px; margin: 18px 0 0; color: rgba(13, 21, 34, .56); font-size: 12px; line-height: 1.65; }
+		.plans-grid .featured header p { color: rgba(255, 255, 255, .75); }
+		.price { margin-top: 34px; display: flex; align-items: baseline; gap: 5px; }
 		.price small { font-size: 8px; font-weight: 800; }
-		.price b { font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 54px; line-height: 1; letter-spacing: -.05em; }
-		.price span { color: rgba(13, 21, 34, .48); font-size: 10px; }
-		.featured .price span { color: rgba(255, 255, 255, .58); }
-		.plans-grid article > strong { margin-top: 23px; padding: 13px; border-radius: 12px; background: #f0eafa; color: #6331c2; font-size: 10px; text-align: center; }
+		.price b { font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 55px; line-height: 1; letter-spacing: -.045em; }
+		.price span { color: rgba(13, 21, 34, .45); font-size: 10px; }
+		.featured .price b { color: #caff25; }
+		.featured .price span { color: rgba(255, 255, 255, .68); }
+		.plans-grid article > strong { margin-top: 25px; padding: 14px; border-radius: 13px; background: #f3f3f4; color: #0d1522; font-size: 10px; text-align: center; }
 		.plans-grid .featured > strong { background: rgba(255, 255, 255, .14); color: #fff; }
-		.plans-grid article > a { min-height: 48px; margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 12px; background: #0d1522; color: #fff; font-size: 11px; font-weight: 800; text-decoration: none; }
-		.plans-grid .featured > a { background: #fff; color: #5f2fb7; }
-		.plans-grid ul { padding: 0; margin: 25px 0 0; display: flex; flex-direction: column; gap: 14px; list-style: none; }
-		.plans-grid li { display: flex; align-items: center; gap: 8px; color: rgba(13, 21, 34, .65); font-size: 10px; }
-		.plans-grid .featured li { color: rgba(255, 255, 255, .74); }
-		.plans-grid li i { color: #6d3bc8; font-style: normal; font-weight: 800; }
-		.plans-grid .featured li i { color: #fff; }
-		.trial-note { position: relative; z-index: 2; margin: 31px 0 0; color: rgba(13, 21, 34, .55); font-size: 11px; text-align: center; }
+		.plans-grid article > a { min-height: 50px; margin-top: 19px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; background: #eff0f1; color: #0d1522; font-size: 11px; font-weight: 800; text-decoration: none; }
+		.plans-grid .featured > a { background: #caff25; color: #0d1522; box-shadow: 0 13px 28px rgba(103, 172, 0, .18); }
+		.plans-grid ul { padding: 0; margin: 34px 0 0; list-style: none; }
+		.plans-grid li { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid rgba(13, 21, 34, .08); color: rgba(13, 21, 34, .66); font-size: 10px; }
+		.plans-grid .featured li { border-color: rgba(255, 255, 255, .17); color: rgba(255, 255, 255, .84); }
+		.plans-grid li i { width: 21px; height: 21px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: #caff25; color: #0d1522; font-size: 9px; font-style: normal; font-weight: 900; }
 
 		.business-section { min-height: 644px; padding: 72px 0; display: flex; flex-direction: column; justify-content: center; overflow: hidden; background: #fff; }
 		.business-heading { max-width: 760px; margin: 46px auto; padding: 0 20px; text-align: center; }
@@ -714,23 +721,6 @@ const faqs = [
 		.business-set span { height: 68px; padding: 0 24px 0 9px; display: flex; align-items: center; gap: 12px; border: 1px solid #e9e7eb; border-radius: 999px; background: #f7f7f8; box-shadow: 0 12px 26px rgba(35, 30, 41, .05); font-size: 12px; }
 		.business-set i { width: 50px; height: 50px; display: grid; place-items: center; border-radius: 50%; background: #fff; font-size: 23px; font-style: normal; }
 		.business-set b { white-space: nowrap; }
-
-		.why-section { padding: 112px 24px; background: #fff; }
-		.why-heading > p { margin-bottom: 14px; }
-		.why-grid { max-width: 1152px; margin: 62px auto 0; display: grid; grid-template-columns: 1.18fr .82fr; gap: 12px; }
-		.why-main { min-height: 700px; overflow: hidden; border-radius: 24px; background: #0d0c11; color: #fff; }
-		.why-art { position: relative; height: 400px; display: grid; place-items: center; overflow: hidden; }
-		.why-sphere { position: absolute; width: 430px; height: 430px; top: -185px; border-radius: 50%; background: linear-gradient(145deg, #9a70ec, #5222aa); filter: blur(2px); box-shadow: inset -50px -60px 90px rgba(39, 11, 93, .28); }
-		.why-art img { position: relative; z-index: 2; width: 305px; height: 305px; margin-top: 120px; object-fit: contain; filter: drop-shadow(0 30px 35px rgba(0, 0, 0, .28)); }
-		.why-copy { padding: 42px; }
-		.why-copy small { color: #bda4ed; font-size: 8px; font-weight: 800; letter-spacing: .14em; }
-		.why-copy h3 { margin: 14px 0 16px; font-size: 35px; font-weight: 800; line-height: 1.04; }
-		.why-copy p { margin: 0; color: rgba(255, 255, 255, .58); font-size: 13px; line-height: 1.7; }
-		.why-stack { display: grid; gap: 12px; }
-		.why-stack article { min-height: 225px; padding: 31px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 24px; background: #f3f3f3; }
-		.why-stack article > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: #e9e1f8; color: #6736c3; font-size: 10px; font-weight: 800; }
-		.why-stack h3 { margin: 0; font-size: 25px; font-weight: 800; }
-		.why-stack p { margin: 7px 0 0; color: rgba(13, 21, 34, .58); font-size: 12px; line-height: 1.6; }
 
 		.faq-section { padding: 80px 16px; background: #fff; }
 		.faq-section .section-heading h2 { font-size: 36px; }
@@ -753,17 +743,19 @@ const faqs = [
 		.final-copy small { display: block; margin-top: 15px; color: rgba(255, 255, 255, .48); font-size: 9px; }
 
 		@keyframes businessScroll { to { transform: translate3d(calc(-50% - 6px), 0, 0); } }
-		@keyframes mokiFloat { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(2deg); } }
+
+		@media (max-width: 1100px) {
+			.platforms-grid { grid-template-columns: repeat(2, 1fr); max-width: 760px; }
+			.plans-grid { grid-template-columns: repeat(2, 1fr); max-width: 760px; }
+			.plans-grid article.featured { margin-top: 0; min-height: 675px; }
+		}
 
 		@media (max-width: 980px) {
 			.hero-video { max-width: 720px; height: 460px; }
 			.result-card h3 { font-size: 22px; }
-			.steps-grid { grid-template-columns: 1fr; max-width: 620px; }
-			.step-card { min-height: 610px; }
-			.step-art { height: 520px; }
-			.plans-grid { max-width: 560px; grid-template-columns: 1fr; gap: 18px; }
-			.plans-grid article.featured { margin-top: 0; }
-			.why-grid { grid-template-columns: 1fr; max-width: 700px; }
+			.workflow-grid { grid-template-columns: 1fr; max-width: 700px; }
+			.workflow-card { min-height: 460px; }
+			.workflow-visual { height: 205px; }
 		}
 
 		@media (max-width: 720px) {
@@ -776,8 +768,7 @@ const faqs = [
 			.hero { padding: 94px 0 8px; }
 			.hero-inner { width: calc(100% - 28px); }
 			.hero-label { font-size: 8px; }
-			.hero h1 { margin-top: 17px; font-size: 34px; line-height: 1; }
-			.hero > div > p { font-size: 13px; line-height: 1.55; }
+			.hero h1 { margin-top: 18px; font-size: 35px; font-weight: 760; line-height: 1.045; letter-spacing: -.03em; }
 			.hero-actions { flex-direction: column; gap: 10px; }
 			.primary-button { width: 100%; }
 			.hero-video { height: auto; margin-top: 31px; aspect-ratio: 1; border-radius: 20px; }
@@ -800,22 +791,31 @@ const faqs = [
 			.results-grid { grid-template-columns: 1fr; margin-top: 43px; gap: 8px; }
 			.result-card { min-height: 500px; border-radius: 22px; }
 
-			.how-section, .formats-section, .faq-section { padding: 72px 14px; }
-			.steps-grid { margin-top: 34px; gap: 0; }
-			.step-card { min-height: 545px; }
-			.step-art { width: 390px; height: 480px; max-width: 112%; }
-			.step-pill { width: calc(100% - 8px); bottom: 44px; padding-right: 16px; font-size: 11px; white-space: normal; }
-			.step-pill span { flex: 1; }
-			.formats-section .section-heading > p { font-size: 13px; }
-			.formats-grid { grid-template-columns: 1fr; margin-top: 42px; gap: 8px; }
-			.formats-grid article { min-height: 290px; padding: 24px; border-radius: 22px; }
+			.how-section, .platforms-section, .faq-section { padding: 76px 14px; }
+			.how-section .section-heading h2 { font-size: 32px; }
+			.workflow-grid { max-width: none; margin: 40px -14px 0; padding: 0 14px 14px; display: flex; gap: 9px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+			.workflow-grid::-webkit-scrollbar { display: none; }
+			.workflow-card { min-height: 465px; padding: 26px; flex: 0 0 calc(100vw - 48px); border-radius: 23px; scroll-snap-align: center; }
+			.workflow-card > h3 { font-size: 27px; }
+			.workflow-visual { height: 205px; }
+			.workflow-cta { width: 100%; padding: 9px; flex-direction: column; gap: 9px; border-radius: 21px; text-align: center; }
+			.workflow-cta > a { width: 100%; }
+			.platforms-section .section-heading > p { font-size: 13px; }
+			.platforms-grid { grid-template-columns: repeat(2, 1fr); margin-top: 44px; gap: 9px; }
+			.platform-card { min-height: 315px; padding: 25px 16px; border-radius: 22px; }
+			.platform-icon { width: 58px; height: 58px; border-radius: 17px; }
+			.platform-icon svg { width: 35px; height: 35px; }
+			.platform-card h3 { margin-top: 20px; font-size: 20px; }
+			.platform-status { padding: 7px 9px; font-size: 7px; }
+			.platform-card > p { margin-top: 18px; font-size: 10px; line-height: 1.6; }
 
 			.pricing-section { padding: 78px 14px; }
 			.pricing-heading > p { font-size: 13px; }
 			.billing-toggle { font-size: 10px; }
-			.plans-grid { margin-top: 46px; }
-			.plans-grid article { min-height: auto; padding: 24px; border-radius: 22px; }
-			.plans-grid article.featured { min-height: auto; }
+			.plans-swipe { margin-top: 18px; display: block; color: rgba(13, 21, 34, .45); font-size: 9px; }
+			.plans-grid { max-width: none; margin: 55px -14px 0; padding: 0 14px 16px; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+			.plans-grid::-webkit-scrollbar { display: none; }
+			.plans-grid article, .plans-grid article.featured { min-height: 650px; padding: 27px; flex: 0 0 calc(100vw - 48px); border-radius: 23px; scroll-snap-align: center; }
 
 			.business-section { min-height: 620px; padding: 68px 0; }
 			.business-heading { margin: 42px auto; }
@@ -823,17 +823,6 @@ const faqs = [
 			.business-marquee { mask-image: none; }
 			.business-set span { height: 62px; }
 			.business-set i { width: 45px; height: 45px; }
-
-			.why-section { padding: 76px 8px; }
-			.why-heading { padding: 0 16px; }
-			.why-heading > p { font-size: 13px; }
-			.why-grid { margin-top: 42px; gap: 8px; }
-			.why-main { min-height: 650px; border-radius: 22px; }
-			.why-art { height: 360px; }
-			.why-copy { padding: 30px; }
-			.why-copy h3 { font-size: 29px; }
-			.why-stack { gap: 8px; }
-			.why-stack article { min-height: 210px; padding: 27px; border-radius: 22px; }
 
 			.faq-section .section-heading h2 { font-size: 30px; }
 			.faq-list { margin-top: 36px; }
@@ -850,7 +839,7 @@ const faqs = [
 
 		@media (prefers-reduced-motion: reduce) {
 			:global(html) { scroll-behavior: auto; }
-			.business-track, .connect-art img { animation: none; }
+			.business-track { animation: none; }
 			.primary-button, .nav-cta { transition: none; }
 		}
 	</style>
