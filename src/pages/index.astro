@@ -2,8 +2,6 @@
 export const prerender = true;
 import Layout from '../layouts/Layout.astro';
 
-const currentYear = new Date().getFullYear();
-
 const plans = [
 	{ code: 'creator', name: 'Creator', price: 19, credits: 40, copy: 'Para crear contenido todas las semanas.', featured: false },
 	{ code: 'pro', name: 'Pro', price: 39, credits: 120, copy: 'Para probar más ideas y anuncios.', featured: true },
@@ -61,7 +59,7 @@ const faqs = [
 	<header class="nav-shell">
 		<div class="nav-inner">
 			<a href="#top" class="brand" aria-label="Creattia, volver al inicio">
-				<img src="/images/creattia/moki-favicon-96.png" alt="" width="96" height="96" />
+				<img src="/images/creattia/moki-mascot.webp" alt="" width="1254" height="1254" />
 				<b>Creattia</b>
 			</a>
 			<a href="/app/" class="button button-small">
@@ -171,17 +169,6 @@ const faqs = [
 						<li><b>03</b><span><strong>Versiones sin empezar de cero</strong><small>Cambiá el producto o ajustá la imagen anterior.</small></span></li>
 					</ul>
 				</div>
-				<div class="brand-panel" aria-label="Ejemplo de negocio conectado en Creattia">
-					<div class="panel-top">
-						<div><img src="/images/creattia/moki-favicon-96.png" alt="" width="96" height="96" /><span><strong>Mi negocio</strong><small>Todo listo para crear</small></span></div>
-						<b>ACTIVO</b>
-					</div>
-					<div class="panel-progress"><span></span></div>
-					<div class="source-card"><i>↗</i><span><strong>tienda.com</strong><small>Identidad analizada</small></span><b>✓</b></div>
-					<div class="source-card"><i>◎</i><span><strong>@mi.negocio</strong><small>Instagram conectado</small></span><b>✓</b></div>
-					<div class="source-card"><i>◇</i><span><strong>128 productos</strong><small>Catálogo sincronizado</small></span><b>✓</b></div>
-					<div class="panel-ready"><span>✦</span><div><strong>Tu marca está lista</strong><small>Elegí una idea y empezá a crear.</small></div></div>
-				</div>
 			</div>
 		</section>
 
@@ -249,15 +236,6 @@ const faqs = [
 		</section>
 	</main>
 
-	<footer class="site-footer">
-		<div class="section-inner footer-inner">
-			<a href="#top" class="brand footer-brand"><img src="/images/creattia/moki-favicon-96.png" alt="" width="96" height="96" /><b>Creattia</b></a>
-			<p>Imágenes con IA listas para vender.</p>
-			<nav aria-label="Información legal"><a href="/legal/terminos/">Términos</a><a href="/legal/privacidad/">Privacidad</a></nav>
-			<small>© {currentYear} Creattia</small>
-		</div>
-	</footer>
-
 	<style>
 		:global(html) { scroll-behavior: smooth; }
 		:global(body) { margin: 0; background: #fff; color: #1d1921; font-family: Inter, system-ui, sans-serif; }
@@ -274,7 +252,7 @@ const faqs = [
 		.nav-shell { position: absolute; z-index: 100; inset: 0 0 auto; background: transparent; }
 		.nav-inner { width: min(1180px, calc(100% - 40px)); height: 82px; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 		.brand { display: inline-flex; align-items: center; gap: 10px; color: #211d24; text-decoration: none; }
-		.brand img { width: 43px; height: 43px; object-fit: contain; filter: none; }
+		.brand img { width: 50px; height: 50px; object-fit: contain; object-position: center; filter: none; }
 		.brand b { font-size: 17px; letter-spacing: -.025em; }
 		.button-small { min-height: 46px; padding: 0 20px; border-radius: 13px; background: linear-gradient(135deg, #8250ea, #5c29c8); box-shadow: 0 13px 30px rgba(100, 49, 205, .2); font-size: 12px; transition: transform .2s ease, box-shadow .2s ease; }
 		.button-small:hover { transform: translateY(-2px); box-shadow: 0 18px 36px rgba(100, 49, 205, .28); }
@@ -342,37 +320,16 @@ const faqs = [
 		.steps p { margin: 0; color: #918a96; font-size: 11px; line-height: 1.62; }
 
 		.memory-section { padding: 120px 0; background: #fff; }
-		.memory-grid { display: grid; grid-template-columns: .95fr 1.05fr; gap: 88px; align-items: center; }
+		.memory-grid { display: block; }
+		.memory-copy { max-width: 940px; margin-inline: auto; }
 		.memory-copy h2 { max-width: 570px; }
-		.memory-copy > p { max-width: 560px; margin: 25px 0 33px; color: #6e6873; font-size: 15px; line-height: 1.75; }
-		.memory-copy ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 11px; }
+		.memory-copy > p { max-width: 690px; margin: 25px 0 42px; color: #6e6873; font-size: 15px; line-height: 1.75; }
+		.memory-copy ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 		.memory-copy li { display: flex; align-items: flex-start; gap: 14px; padding: 15px 0; border-top: 1px solid #eee9f0; }
 		.memory-copy li > b { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 10px; background: #f0eafb; color: #6d35e8; font-size: 8px; }
 		.memory-copy li > span { display: flex; flex-direction: column; gap: 5px; }
 		.memory-copy li strong { font-size: 13px; }
 		.memory-copy li small { color: #89828d; font-size: 10px; line-height: 1.5; }
-		.brand-panel { position: relative; padding: 25px; border: 1px solid #e5dfe8; border-radius: 28px; background: linear-gradient(150deg, #fff, #f8f4fb); box-shadow: 0 35px 80px rgba(47, 31, 59, .12); }
-		.brand-panel::before { content: ''; position: absolute; z-index: -1; inset: 12% -8% -8% 10%; border-radius: 50%; background: rgba(126, 78, 233, .18); filter: blur(60px); }
-		.panel-top, .panel-top > div, .source-card, .panel-ready { display: flex; align-items: center; }
-		.panel-top { justify-content: space-between; gap: 20px; }
-		.panel-top > div { gap: 12px; }
-		.panel-top img { width: 44px; height: 44px; object-fit: contain; }
-		.panel-top span, .source-card span, .panel-ready div { display: flex; flex-direction: column; gap: 4px; }
-		.panel-top strong { font-size: 14px; }
-		.panel-top small, .source-card small, .panel-ready small { color: #8d8591; font-size: 9px; }
-		.panel-top > b { padding: 7px 9px; border-radius: 999px; background: #e9f8f0; color: #249461; font-size: 7px; letter-spacing: .1em; }
-		.panel-progress { height: 5px; margin: 21px 0; overflow: hidden; border-radius: 99px; background: #ebe5ef; }
-		.panel-progress span { width: 100%; height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #8b5bed, #5fcf9c); }
-		.source-card { min-height: 72px; gap: 14px; margin-top: 10px; padding: 13px; border: 1px solid #ebe5ee; border-radius: 15px; background: rgba(255, 255, 255, .9); }
-		.source-card > i { width: 39px; height: 39px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 11px; background: #f0eafa; color: #7040cf; font-size: 16px; font-style: normal; }
-		.source-card span { flex: 1; }
-		.source-card strong { font-size: 12px; }
-		.source-card > b { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; background: #e8f8ef; color: #279762; font-size: 9px; }
-		.panel-ready { gap: 13px; margin-top: 19px; padding: 17px; border-radius: 16px; background: #17131c; color: #fff; }
-		.panel-ready > span { width: 39px; height: 39px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 11px; background: linear-gradient(135deg, #8451e9, #632ec8); }
-		.panel-ready strong { font-size: 12px; }
-		.panel-ready small { color: #948c99; }
-
 		.business-section { padding: 112px 0; overflow: hidden; background: #0b090e; color: #fff; }
 		.business-heading { display: grid; grid-template-columns: 1fr .58fr; column-gap: 90px; align-items: end; }
 		.business-heading .section-kicker { grid-column: 1 / -1; }
@@ -429,21 +386,12 @@ const faqs = [
 		.final-moki { position: absolute; z-index: 1; right: -105px; bottom: -135px; width: 455px; height: 455px; opacity: .68; }
 		.final-moki img { width: 100%; height: 100%; object-fit: contain; }
 
-		.site-footer { padding: 0 0 34px; background: #f7f5f9; color: #726b76; }
-		.footer-inner { min-height: 92px; padding: 24px 0 0; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 30px; border-top: 1px solid #e2dce5; }
-		.footer-brand img { width: 36px; height: 36px; }
-		.footer-brand b { font-size: 15px; }
-		.footer-inner p, .footer-inner small { margin: 0; font-size: 10px; }
-		.footer-inner nav { display: flex; gap: 22px; }
-		.footer-inner nav a { color: #726b76; text-decoration: none; font-size: 10px; }
-		.footer-inner nav a:hover { color: #6d35e8; }
-
 		@keyframes businessScroll { to { transform: translate3d(calc(-50% - 6px), 0, 0); } }
 
 		@media (max-width: 900px) {
 			.hero-copy h1 { font-size: clamp(54px, 8.6vw, 75px); }
 			.showcase-video { height: 580px; }
-			.split-heading, .faq-grid, .business-heading, .memory-grid { grid-template-columns: 1fr; gap: 40px; }
+			.split-heading, .faq-grid, .business-heading { grid-template-columns: 1fr; gap: 40px; }
 			.category-grid { grid-template-columns: repeat(2, 1fr); }
 			.taxonomy-demo { grid-template-columns: 1fr; }
 			.steps { grid-template-columns: repeat(2, 1fr); }
@@ -451,8 +399,6 @@ const faqs = [
 			.plans-grid { grid-template-columns: 1fr; max-width: 540px; margin-inline: auto; margin-top: 58px; }
 			.plans-grid article.featured { transform: none; }
 			.faq-grid > div:first-child { position: static; }
-			.footer-inner { grid-template-columns: auto 1fr auto; }
-			.footer-inner p { display: none; }
 		}
 
 		@media (max-width: 600px) {
@@ -460,7 +406,7 @@ const faqs = [
 			.section-kicker, .eyebrow { font-size: 8px; }
 			.nav-inner { width: calc(100% - 28px); height: 70px; }
 			.brand { gap: 7px; }
-			.brand img { width: 38px; height: 38px; }
+			.brand img { width: 43px; height: 43px; }
 			.brand b { font-size: 16px; }
 			.button-small { min-height: 40px; padding: 0 14px; font-size: 10px; }
 			.hero { padding: 116px 0 74px; }
@@ -487,8 +433,7 @@ const faqs = [
 			.steps { grid-template-columns: 1fr; margin-top: 42px; }
 			.steps article { min-height: 240px; }
 			.step-icon { margin-top: 29px; }
-			.memory-grid { gap: 45px; }
-			.brand-panel { padding: 17px; border-radius: 22px; }
+			.memory-copy ul { display: flex; flex-direction: column; gap: 11px; }
 			.business-marquee { margin-top: 46px; }
 			.plans-grid article { padding: 25px; }
 			.faq-grid { gap: 22px; }
@@ -498,9 +443,6 @@ const faqs = [
 			.final-copy h2 { font-size: 42px; }
 			.final-copy .button { width: 100%; }
 			.final-moki { right: 50%; bottom: -170px; width: 350px; height: 350px; transform: translateX(50%); opacity: .58; }
-			.footer-inner { min-height: 145px; grid-template-columns: 1fr auto; gap: 18px; }
-			.footer-inner nav { grid-column: 1 / -1; grid-row: 2; }
-			.footer-inner > small { grid-column: 2; grid-row: 1; }
 		}
 
 		@media (prefers-reduced-motion: reduce) {
