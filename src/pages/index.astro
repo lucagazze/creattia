@@ -52,6 +52,40 @@ const businessTypes = [
 	{ name: 'Apps y SaaS', color: '#6670e8', icon: 'M5 4h5v5H5zm9 0h5v5h-5zM5 14h5v5H5zm9 0h5v5h-5z' },
 ];
 
+const showcaseCategories = [
+	{ id: 'tendencias', label: 'Más elegidos', title: 'Los estáticos del momento' },
+	{ id: 'ofertas', label: 'Ofertas', title: 'Promociones que se entienden rápido' },
+	{ id: 'social', label: 'Prueba social', title: 'Creativos que construyen confianza' },
+	{ id: 'producto', label: 'Producto', title: 'Tu producto como protagonista' },
+	{ id: 'comparativas', label: 'Comparativas', title: 'Razones visuales para elegirte' },
+	{ id: 'educativos', label: 'Educativos', title: 'Ideas que explican y convencen' },
+];
+
+const showcaseItems = [
+	{ title: 'Envío gratis', category: 'Oferta', badge: 'MUY ELEGIDO', image: '/images/creattia/reference-library/18-envio-gratis.png', groups: ['tendencias', 'ofertas'], copy: 'Convertí el envío en el beneficio principal.' },
+	{ title: '3x2 · 2x1', category: 'Oferta', badge: 'PROMOCIÓN', image: '/images/creattia/reference-library/17-2x1-3x2.png', groups: ['tendencias', 'ofertas'], copy: 'Mostrá una promoción imposible de pasar por alto.' },
+	{ title: 'Cuotas sin interés', category: 'Oferta', badge: 'VENTA DIRECTA', image: '/images/creattia/reference-library/22-cuotas-sin-interes.png', groups: ['tendencias', 'ofertas'], copy: 'Hacé que el precio se sienta más accesible.' },
+	{ title: 'Precio tachado', category: 'Oferta', badge: 'DESCUENTO', image: '/images/creattia/reference-library/13-precio-tachado.png', groups: ['tendencias', 'ofertas'], copy: 'Comunicá el ahorro con una jerarquía clara.' },
+	{ title: 'Bundle o kit', category: 'Oferta', badge: 'MÁS VALOR', image: '/images/creattia/reference-library/14-bundle-kit.png', groups: ['ofertas'], copy: 'Vendé varios productos como una sola oportunidad.' },
+	{ title: 'Regalo con la compra', category: 'Oferta', badge: 'BONUS', image: '/images/creattia/reference-library/16-regalo-con-la-compra.png', groups: ['ofertas'], copy: 'Sumá valor sin depender solamente del descuento.' },
+	{ title: 'Reseña 5 estrellas', category: 'Prueba social', badge: 'CONFIANZA', image: '/images/creattia/reference-library/02-resena-5-estrellas.png', groups: ['social'], copy: 'Convertí una buena experiencia en una razón para comprar.' },
+	{ title: 'Captura de WhatsApp', category: 'Prueba social', badge: 'REAL', image: '/images/creattia/reference-library/04-captura-de-whatsapp.png', groups: ['social'], copy: 'Mostrá la voz de un cliente de forma familiar.' },
+	{ title: 'UGC con producto', category: 'Prueba social', badge: 'UGC', image: '/images/creattia/reference-library/12-ugc-con-producto-en-mano.png', groups: ['social'], copy: 'Poné el producto en manos de una persona real.' },
+	{ title: 'Muro de reseñas', category: 'Prueba social', badge: 'VALIDACIÓN', image: '/images/creattia/reference-library/03-muro-de-resenas.png', groups: ['social'], copy: 'Reuní varias opiniones en una sola pieza.' },
+	{ title: 'Hero limpio', category: 'Producto', badge: 'E-COMMERCE', image: '/images/creattia/reference-library/40-hero-limpio.png', groups: ['producto'], copy: 'Producto, beneficio y marca sin distracciones.' },
+	{ title: 'Lifestyle en uso', category: 'Producto', badge: 'CONTEXTO', image: '/images/creattia/reference-library/42-lifestyle-en-uso.png', groups: ['producto'], copy: 'Mostrá cómo se integra el producto en la vida real.' },
+	{ title: 'Despiece', category: 'Producto', badge: 'DETALLE', image: '/images/creattia/reference-library/43-despiece.png', groups: ['producto'], copy: 'Explicá visualmente cada parte del producto.' },
+	{ title: 'Qué viene en la caja', category: 'Producto', badge: 'CONTENIDO', image: '/images/creattia/reference-library/46-que-viene-en-la-caja.png', groups: ['producto'], copy: 'Dejá claro todo lo que recibe el cliente.' },
+	{ title: 'Nosotros vs. ellos', category: 'Comparativa', badge: 'DIFERENCIACIÓN', image: '/images/creattia/reference-library/23-nosotros-vs-ellos.png', groups: ['comparativas'], copy: 'Hacé visible por qué tu propuesta es diferente.' },
+	{ title: 'Con vs. sin', category: 'Comparativa', badge: 'CONTRASTE', image: '/images/creattia/reference-library/29-con-vs-sin.png', groups: ['comparativas'], copy: 'Mostrá el cambio que produce tu solución.' },
+	{ title: 'Comparación de costo', category: 'Comparativa', badge: 'VALOR', image: '/images/creattia/reference-library/25-comparacion-de-costo.png', groups: ['comparativas'], copy: 'Poné el precio dentro de una comparación útil.' },
+	{ title: 'Pagás X, recibís Y', category: 'Comparativa', badge: 'BENEFICIO', image: '/images/creattia/reference-library/26-pagas-x-recibis-y.png', groups: ['comparativas'], copy: 'Resumí todo el valor de la compra.' },
+	{ title: 'Listicle', category: 'Educativo', badge: 'LISTA', image: '/images/creattia/reference-library/30-listicle.png', groups: ['educativos'], copy: 'Ordená beneficios o motivos en una pieza escaneable.' },
+	{ title: 'Mito vs. realidad', category: 'Educativo', badge: 'OBJECIONES', image: '/images/creattia/reference-library/32-mito-vs-realidad.png', groups: ['educativos'], copy: 'Respondé una duda antes de que frene la compra.' },
+	{ title: 'Diagrama señalado', category: 'Educativo', badge: 'EXPLICATIVO', image: '/images/creattia/reference-library/33-diagrama-senalado.png', groups: ['educativos'], copy: 'Explicá características sin llenar la imagen de texto.' },
+	{ title: 'Paso a paso', category: 'Educativo', badge: 'CÓMO FUNCIONA', image: '/images/creattia/reference-library/45-paso-a-paso-1-2-3.png', groups: ['educativos'], copy: 'Hacé simple un proceso en tres momentos.' },
+];
+
 const faqs = [
 	{
 		q: '¿Qué es Creattia?',
@@ -128,63 +162,60 @@ const faqs = [
 		</section>
 
 		<div class="reference-system">
-			<section class="use-cases" aria-label="Qué podés crear con Creattia">
-				<div class="use-grid">
-					<article class="use-card">
-						<header>
-							<h2>Contenido para redes</h2>
-							<p>Para que no pierdas tiempo pensando qué publicar.</p>
-						</header>
-						<div class="use-art social-art" data-prompt-id="01" aria-hidden="true">
-							<div class="social-post post-a"><small>NUEVO</small><strong>20% OFF</strong><i></i></div>
-							<div class="social-post post-b"><small>SOLO HOY</small><strong>ENVÍO GRATIS</strong><i></i></div>
-							<div class="social-post post-c"><small>3 CUOTAS</small><strong>SIN INTERÉS</strong><i></i></div>
+			<section class="creative-showcase" id="biblioteca" aria-labelledby="showcase-title">
+				<div class="showcase-shell">
+					<header class="showcase-heading">
+						<div>
+							<span><i></i>BIBLIOTECA DE ESTÁTICOS</span>
+							<h2 id="showcase-title">Encontrá el anuncio<br />que querés crear.</h2>
 						</div>
-					</article>
+						<p>Elegí una categoría y mirá ejemplos reales de las estructuras que vas a encontrar dentro de Creattia.</p>
+					</header>
 
-					<article class="use-card">
-						<header>
-							<h2>Imágenes para anuncios</h2>
-							<p>Para probar más ángulos sin depender de una agencia.</p>
-						</header>
-						<div class="use-art ads-art" data-prompt-id="02" aria-hidden="true">
-							<div class="ad-panel">
-								<span>LANZAMIENTO</span>
-								<strong>Tu producto.<br />Más deseable.</strong>
-								<div class="ad-product"><i></i></div>
-								<small>COMPRAR AHORA</small>
-							</div>
-						</div>
-					</article>
+					<div class="showcase-tabs" role="tablist" aria-label="Categorías de creativos">
+						{showcaseCategories.map((category, index) => (
+							<button
+								type="button"
+								role="tab"
+								data-showcase-tab={category.id}
+								data-showcase-title={category.title}
+								aria-selected={index === 0 ? 'true' : 'false'}
+								class:list={{ active: index === 0 }}
+							>
+								<span>{String(index + 1).padStart(2, '0')}</span>{category.label}
+							</button>
+						))}
+					</div>
 
-					<article class="use-card">
-						<header>
-							<h2>Fotos de producto</h2>
-							<p>Para mostrar lo que vendés con una imagen profesional.</p>
-						</header>
-						<div class="use-art product-art" data-prompt-id="03" aria-hidden="true">
-							<div class="product-halo"></div>
-							<div class="product-pedestal"></div>
-							<div class="product-object"><i></i><b>CREATTIA</b></div>
-							<span class="spark spark-one">✦</span>
-							<span class="spark spark-two">✦</span>
-						</div>
-					</article>
+					<div class="showcase-result-heading" aria-live="polite">
+						<div><span>VIENDO AHORA</span><h3 data-showcase-result-title>{showcaseCategories[0].title}</h3></div>
+						<small><b data-showcase-count>4</b> ideas para explorar</small>
+					</div>
 
-					<article class="use-card use-card-dark">
-						<header>
-							<h2>Una biblioteca que crece</h2>
-							<p>Para que siempre tengas una nueva idea para probar.</p>
-						</header>
-						<div class="use-art library-art" data-prompt-id="04" aria-hidden="true">
-							<div class="library-glow"></div>
-							<div class="library-card library-back">LANZAMIENTO</div>
-							<div class="library-card library-mid">PROMOCIÓN</div>
-							<div class="library-card library-front">ENVÍO GRATIS</div>
-							<img src="/images/creattia/moki-mascot.webp" alt="" width="1254" height="1254" loading="lazy" />
-						</div>
-						<a href="/app/">Explorar ideas <span>→</span></a>
-					</article>
+					<div class="showcase-grid">
+						{showcaseItems.map((item) => (
+							<article data-showcase-item data-categories={item.groups.join(' ')} hidden={!item.groups.includes('tendencias')}>
+								<a href="/app/" aria-label={`Crear una imagen con la estructura ${item.title}`}>
+									<div class="showcase-visual">
+										<img src={item.image} alt={`Ejemplo de creativo: ${item.title}`} width="1024" height="1280" loading="lazy" />
+										<span>{item.badge}</span>
+										<em>IMAGEN · 4:5</em>
+									</div>
+									<footer>
+										<small>{item.category}</small>
+										<h3>{item.title}</h3>
+										<p>{item.copy}</p>
+										<span>Usar esta idea <b>→</b></span>
+									</footer>
+								</a>
+							</article>
+						))}
+					</div>
+
+					<div class="showcase-cta">
+						<div><span>✦</span><p><strong>Esto es solo una muestra.</strong><small>Dentro podés guardar ideas, sumar tu producto y generar nuevas versiones.</small></p></div>
+						<a href="/app/">Explorar la biblioteca <span>→</span></a>
+					</div>
 				</div>
 			</section>
 
@@ -294,6 +325,35 @@ const faqs = [
 			</section>
 		</div>
 	</main>
+
+	<script>
+		const showcase = document.querySelector<HTMLElement>('.creative-showcase');
+		if (showcase) {
+			const tabs = [...showcase.querySelectorAll<HTMLButtonElement>('[data-showcase-tab]')];
+			const items = [...showcase.querySelectorAll<HTMLElement>('[data-showcase-item]')];
+			const resultTitle = showcase.querySelector<HTMLElement>('[data-showcase-result-title]');
+			const resultCount = showcase.querySelector<HTMLElement>('[data-showcase-count]');
+
+			function selectCategory(tab: HTMLButtonElement) {
+				const category = tab.dataset.showcaseTab || 'tendencias';
+				let visible = 0;
+				tabs.forEach((button) => {
+					const active = button === tab;
+					button.classList.toggle('active', active);
+					button.setAttribute('aria-selected', String(active));
+				});
+				items.forEach((item) => {
+					const matches = (item.dataset.categories || '').split(' ').includes(category);
+					item.hidden = !matches;
+					if (matches) visible += 1;
+				});
+				if (resultTitle) resultTitle.textContent = tab.dataset.showcaseTitle || tab.textContent?.trim() || '';
+				if (resultCount) resultCount.textContent = String(visible);
+			}
+
+			tabs.forEach((tab) => tab.addEventListener('click', () => selectCategory(tab)));
+		}
+	</script>
 
 	<style>
 		:global(html) { scroll-behavior: smooth; }
@@ -498,6 +558,58 @@ const faqs = [
 		.library-front { z-index: 2; bottom: -15px; background: #7b4ad2; transform: translateX(-50%); }
 		.library-art img { position: absolute; z-index: 4; width: 210px; height: 210px; left: 50%; bottom: -42px; object-fit: contain; transform: translateX(-50%); filter: drop-shadow(0 26px 25px rgba(0, 0, 0, .25)); }
 
+		.creative-showcase {
+			position: relative;
+			padding: 108px 20px 112px;
+			overflow: hidden;
+			background: radial-gradient(circle at 86% 3%, rgba(128, 75, 238, .25), transparent 29%), radial-gradient(circle at 4% 55%, rgba(77, 39, 151, .17), transparent 24%), #0d0b11;
+			color: #fff;
+		}
+		.creative-showcase::before { position: absolute; inset: 0; content: ''; opacity: .12; background-image: linear-gradient(rgba(255, 255, 255, .08) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .08) 1px, transparent 1px); background-size: 52px 52px; mask-image: linear-gradient(#000, transparent 88%); pointer-events: none; }
+		.showcase-shell { position: relative; z-index: 2; max-width: 1220px; margin: 0 auto; }
+		.showcase-heading { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr); align-items: end; gap: 60px; }
+		.showcase-heading > div > span { display: flex; align-items: center; gap: 9px; color: #bba1f6; font-size: 9px; font-weight: 850; letter-spacing: .14em; }
+		.showcase-heading > div > span i { width: 7px; height: 7px; border-radius: 50%; background: #ad7cff; box-shadow: 0 0 0 6px rgba(173, 124, 255, .12); }
+		.showcase-heading h2 { margin: 18px 0 0; font-size: 56px; font-weight: 850; line-height: .97; letter-spacing: -.04em; }
+		.showcase-heading > p { max-width: 430px; margin: 0 0 4px; color: rgba(255, 255, 255, .54); font-size: 14px; line-height: 1.72; }
+		.showcase-tabs { margin-top: 55px; padding: 7px; display: flex; gap: 6px; overflow-x: auto; border: 1px solid rgba(255, 255, 255, .09); border-radius: 17px; background: rgba(255, 255, 255, .055); scrollbar-width: none; backdrop-filter: blur(18px); }
+		.showcase-tabs::-webkit-scrollbar { display: none; }
+		.showcase-tabs button { min-height: 47px; padding: 0 16px; display: flex; align-items: center; gap: 8px; flex: 1 0 auto; border: 0; border-radius: 11px; background: transparent; color: rgba(255, 255, 255, .53); font: inherit; font-size: 10px; font-weight: 750; cursor: pointer; transition: .2s ease; }
+		.showcase-tabs button span { color: rgba(255, 255, 255, .28); font-size: 7px; font-weight: 850; }
+		.showcase-tabs button:hover { color: #fff; background: rgba(255, 255, 255, .06); }
+		.showcase-tabs button.active { background: #fff; color: #17121c; box-shadow: 0 12px 26px rgba(0, 0, 0, .18); }
+		.showcase-tabs button.active span { color: #7442dc; }
+		.showcase-result-heading { min-height: 105px; display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; padding: 32px 2px 20px; border-bottom: 1px solid rgba(255, 255, 255, .1); }
+		.showcase-result-heading > div { display: flex; flex-direction: column; gap: 7px; }
+		.showcase-result-heading > div > span { color: #a987ed; font-size: 7px; font-weight: 850; letter-spacing: .14em; }
+		.showcase-result-heading h3 { margin: 0; font-size: 24px; font-weight: 750; letter-spacing: -.025em; }
+		.showcase-result-heading > small { color: rgba(255, 255, 255, .42); font-size: 9px; }
+		.showcase-result-heading > small b { color: #fff; font-size: 12px; }
+		.showcase-grid { margin-top: 22px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
+		.showcase-grid article[hidden] { display: none !important; }
+		.showcase-grid article { min-width: 0; overflow: hidden; border: 1px solid rgba(255, 255, 255, .1); border-radius: 19px; background: #17141b; box-shadow: 0 18px 45px rgba(0, 0, 0, .2); animation: showcaseCardIn .28s ease both; transition: transform .22s ease, border-color .22s ease; }
+		.showcase-grid article:hover { transform: translateY(-5px); border-color: rgba(190, 155, 255, .42); }
+		.showcase-grid article > a { height: 100%; display: flex; flex-direction: column; color: inherit; text-decoration: none; }
+		.showcase-visual { position: relative; margin: 8px 8px 0; overflow: hidden; border-radius: 13px; background: #26212c; }
+		.showcase-visual img { width: 100%; aspect-ratio: 4 / 5; display: block; object-fit: cover; transition: transform .45s cubic-bezier(.2,.7,.2,1); }
+		.showcase-grid article:hover .showcase-visual img { transform: scale(1.025); }
+		.showcase-visual > span { position: absolute; left: 10px; top: 10px; padding: 7px 9px; border: 1px solid rgba(255, 255, 255, .2); border-radius: 7px; background: rgba(18, 13, 22, .75); color: #fff; font-size: 6px; font-weight: 850; letter-spacing: .08em; backdrop-filter: blur(10px); }
+		.showcase-visual > em { position: absolute; right: 10px; bottom: 10px; padding: 6px 8px; border-radius: 7px; background: rgba(18, 13, 22, .78); color: rgba(255, 255, 255, .75); font-size: 5.5px; font-style: normal; font-weight: 800; letter-spacing: .07em; backdrop-filter: blur(10px); }
+		.showcase-grid footer { min-height: 176px; padding: 19px 18px 18px; display: flex; flex-direction: column; }
+		.showcase-grid footer > small { color: #aa86ef; font-size: 6px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+		.showcase-grid footer h3 { margin: 8px 0 7px; font-size: 19px; font-weight: 750; letter-spacing: -.02em; }
+		.showcase-grid footer p { margin: 0; color: rgba(255, 255, 255, .46); font-size: 9px; line-height: 1.52; }
+		.showcase-grid footer > span { margin-top: auto; padding-top: 16px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .8); font-size: 8px; font-weight: 750; }
+		.showcase-grid footer > span b { color: #b995ff; font-size: 13px; }
+		.showcase-cta { min-height: 82px; margin-top: 20px; padding: 13px 13px 13px 18px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid rgba(255, 255, 255, .1); border-radius: 17px; background: rgba(255, 255, 255, .055); backdrop-filter: blur(15px); }
+		.showcase-cta > div { display: flex; align-items: center; gap: 11px; }
+		.showcase-cta > div > span { width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 12px; background: rgba(170, 128, 255, .16); color: #bd9bff; }
+		.showcase-cta p { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+		.showcase-cta strong { font-size: 10px; }.showcase-cta small { color: rgba(255, 255, 255, .44); font-size: 8px; line-height: 1.4; }
+		.showcase-cta > a { min-height: 47px; padding: 0 17px; display: flex; align-items: center; gap: 13px; flex: 0 0 auto; border-radius: 11px; background: #fff; color: #17121c; font-size: 9px; font-weight: 850; text-decoration: none; }
+		.showcase-cta > a span { color: #7442dc; font-size: 14px; }
+		@keyframes showcaseCardIn { from { opacity: 0; transform: translateY(8px); } }
+
 		.how-section { padding: 118px 20px 105px; background: #f3f1f6; }
 		.how-section .section-heading { max-width: 880px; margin: 0 auto; }
 		.how-section .section-heading > p { margin-bottom: 16px; color: #7040d0; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
@@ -615,6 +727,9 @@ const faqs = [
 
 		@media (max-width: 980px) {
 			.hero-video { max-width: 720px; height: auto; }
+			.showcase-heading { grid-template-columns: 1fr; gap: 20px; }
+			.showcase-heading > p { max-width: 620px; }
+			.showcase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 			.workflow-grid { grid-template-columns: 1fr; max-width: 700px; }
 			.workflow-card { min-height: 460px; }
 			.workflow-visual { height: 205px; }
@@ -634,6 +749,20 @@ const faqs = [
 			.hero-actions { flex-direction: column; gap: 10px; }
 			.primary-button { width: auto; min-width: 248px; }
 			.hero-video { height: auto; margin-top: 31px; aspect-ratio: 4 / 3; border-radius: 20px; }
+
+			.creative-showcase { padding: 74px 12px 76px; }
+			.showcase-heading h2 { font-size: 38px; line-height: 1; }
+			.showcase-heading > p { font-size: 12px; }
+			.showcase-tabs { margin: 37px -12px 0; padding: 7px 12px; border-right: 0; border-left: 0; border-radius: 0; }
+			.showcase-tabs button { min-height: 43px; padding: 0 14px; flex: 0 0 auto; }
+			.showcase-result-heading { min-height: 0; padding: 27px 2px 16px; align-items: flex-start; flex-direction: column; gap: 8px; }
+			.showcase-result-heading h3 { font-size: 21px; }
+			.showcase-grid { margin: 17px -12px 0; padding: 0 12px 14px; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+			.showcase-grid::-webkit-scrollbar { display: none; }
+			.showcase-grid article { flex: 0 0 min(78vw, 310px); scroll-snap-align: center; }
+			.showcase-grid footer { min-height: 164px; }
+			.showcase-cta { padding: 15px; align-items: flex-start; flex-direction: column; }
+			.showcase-cta > a { width: 100%; justify-content: center; }
 
 			.use-cases { padding: 8px; }
 			.use-grid { grid-template-columns: 1fr; gap: 8px; }
