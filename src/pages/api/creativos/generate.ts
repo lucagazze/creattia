@@ -406,7 +406,11 @@ export const POST: APIRoute = async ({ request }) => {
 
 			if (!falRes.ok) {
 				const errText = await falRes.text().catch(() => '');
-				throw new Error(`Fal.ai respondió con ${falRes.status}: ${errText.slice(0, 200)}`);
+				// Detect out-of-balance error and show a clear user-facing message
+				if (falRes.status === 403 && errText.includes('Exhausted balance')) {
+					throw new Error('Tu saldo de Fal.ai se agotó. Recargá en fal.ai/dashboard/billing para continuar generando imágenes.');
+				}
+				throw new Error(`Error al generar la imagen (${falRes.status}). Revisá tu saldo en fal.ai/dashboard/billing.`);
 			}
 
 			const falData: any = await falRes.json();
