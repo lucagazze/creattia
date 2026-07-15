@@ -903,3 +903,677 @@
 	.creative-app-shell *, .studio-auth *, .studio-onboarding * { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
 	.moki-character-blink { display:none; }
 }
+
+/* ========================================================
+   PREMIUM DARK MODE OVERRIDES & SATOSHI FONT SYSTEM
+   ======================================================== */
+@font-face {
+	font-family: 'Satoshi';
+	src: url('https://tryholo.ai/fonts/Satoshi-Variable.woff2') format('woff2');
+	font-weight: 300 900;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Satoshi';
+	src: url('https://tryholo.ai/fonts/Satoshi-VariableItalic.woff2') format('woff2');
+	font-weight: 300 900;
+	font-display: swap;
+	font-style: italic;
+}
+
+@font-face {
+	font-family: 'Wonderkids Regular';
+	src: url('https://tryholo.ai/fonts/Wonderkids-Regular.ttf') format('truetype');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+/* Redefine main variables for deep dark space look */
+:root {
+	--studio-ink: #f3eff6;
+	--studio-muted: #8b8490;
+	--studio-line: rgba(255, 255, 255, 0.08);
+	--studio-purple: #8b5cf6;
+	--studio-purple-dark: #6d35e8;
+	--studio-soft: #110d17;
+}
+
+/* Global font assignment */
+.creative-app-shell, .studio-auth, .studio-onboarding, .studio-boot, .studio-topbar, .studio-sidebar, .studio-content {
+	font-family: 'Satoshi', 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* App Background overrides */
+.creative-app-shell {
+	background: 
+		radial-gradient(circle at 78% 8%, rgba(139, 92, 246, 0.06), transparent 24%),
+		radial-gradient(circle at 10% 80%, rgba(255, 65, 133, 0.04), transparent 24%),
+		#08060a !important;
+	color: #f3eff6 !important;
+}
+
+.studio-main {
+	background: transparent !important;
+}
+
+/* Topbar override */
+.studio-topbar {
+	background: rgba(8, 6, 10, 0.88) !important;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #f3eff6 !important;
+}
+.studio-mode-badge {
+	border: 1px solid rgba(255, 255, 255, 0.08) !important;
+	background: rgba(255, 255, 255, 0.04) !important;
+	color: #8b8490 !important;
+}
+.studio-credit-pill {
+	border: 1px solid rgba(255, 255, 255, 0.08) !important;
+	background: #15121c !important;
+	color: #b89cff !important;
+	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+}
+.studio-credit-pill span {
+	color: #8b8490 !important;
+}
+
+/* Sidebar override */
+.studio-sidebar {
+	border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Dashboard & Cards overrides */
+.studio-page-heading h1 {
+	color: #fff !important;
+}
+.studio-page-heading > div > span {
+	color: #8b8490 !important;
+}
+
+.studio-section-title h2 {
+	color: #fff !important;
+}
+.studio-section-title p {
+	color: #8b8490 !important;
+}
+
+.studio-flow-strip {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #f3eff6 !important;
+}
+.studio-flow-strip p strong {
+	color: #fff !important;
+}
+.studio-flow-strip p small {
+	color: #8b8490 !important;
+}
+.studio-flow-strip > div > span {
+	background: #251d33 !important;
+	color: #ad8cff !important;
+}
+
+.studio-feature-card {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #f3eff6 !important;
+	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25) !important;
+}
+.studio-feature-card:hover {
+	border-color: rgba(255, 255, 255, 0.15) !important;
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35) !important;
+}
+.studio-feature-info h3 {
+	color: #fff !important;
+}
+.studio-feature-info p {
+	color: #8b8490 !important;
+}
+.studio-feature-preview {
+	background: #231c2d !important;
+}
+.studio-feature-preview.variant-2 {
+	background: #1b202e !important;
+}
+.studio-feature-preview.variant-3 {
+	background: #0d0a10 !important;
+}
+.feature-tag {
+	background: rgba(255, 255, 255, 0.08) !important;
+	color: #fff !important;
+}
+
+/* Product Sync Card */
+.product-sync-card {
+	background: linear-gradient(135deg, #110d17 0%, #15101f 100%) !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3) !important;
+}
+.product-sync-card p strong {
+	color: #fff !important;
+}
+.product-sync-card p em {
+	color: #8b8490 !important;
+}
+.product-sync-card > button {
+	background: #1c1726 !important;
+	border: 1px solid rgba(255, 255, 255, 0.1) !important;
+	color: #f3eff6 !important;
+}
+.product-sync-card > div > span {
+	background: #231c2d !important;
+	color: #ad8cff !important;
+}
+
+/* Tools & Filters */
+.studio-library-tools label {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #8b8490 !important;
+}
+.studio-library-tools input {
+	color: #fff !important;
+}
+.studio-library-tools > span {
+	color: #8b8490 !important;
+}
+
+.studio-filter-row button, .library-category-rail button {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #8b8490 !important;
+}
+.studio-filter-row button:hover, .library-category-rail button:hover {
+	border-color: rgba(255, 255, 255, 0.15) !important;
+	color: #fff !important;
+}
+.studio-filter-row button.active, .library-category-rail button.active {
+	background: var(--holo-gradient) !important;
+	border-color: transparent !important;
+	color: #fff !important;
+	box-shadow: 0 6px 15px rgba(255, 65, 133, 0.25) !important;
+}
+
+/* Library card overrides */
+.studio-library-card {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #fff !important;
+}
+.studio-library-card:hover {
+	border-color: rgba(255, 255, 255, 0.15) !important;
+}
+.library-card-art {
+	background: rgba(255, 255, 255, 0.02) !important;
+}
+.library-card-art i {
+	background: rgba(255, 255, 255, 0.04) !important;
+}
+.library-card-art > span {
+	background: #15121c !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4) !important;
+}
+.library-card-art b {
+	color: #fff !important;
+}
+.library-card-copy h3 {
+	color: #fff !important;
+}
+.library-card-copy p {
+	color: #8b8490 !important;
+}
+.library-card-copy footer {
+	border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #8b8490 !important;
+}
+
+.studio-empty {
+	background: rgba(255, 255, 255, 0.02) !important;
+	border: 1px dashed rgba(255, 255, 255, 0.1) !important;
+}
+.studio-empty h3 {
+	color: #fff !important;
+}
+.studio-empty p {
+	color: #8b8490 !important;
+}
+.studio-empty > span {
+	background: #231c2d !important;
+	color: #ad8cff !important;
+}
+
+/* Product Catalog page overrides */
+.product-catalog-grid article {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+}
+.product-catalog-grid article footer h3 {
+	color: #fff !important;
+}
+.product-catalog-grid article footer p {
+	color: #8b8490 !important;
+}
+.product-catalog-grid article footer span {
+	color: #ad8cff !important;
+}
+.product-catalog-grid article footer nav button {
+	background: #1e1828 !important;
+	border: 1px solid rgba(255, 255, 255, 0.1) !important;
+	color: #ad8cff !important;
+}
+.product-remove-button {
+	background: rgba(220, 38, 38, 0.15) !important;
+	color: #fca5a5 !important;
+}
+
+/* Wizard / Generator overrides */
+.wizard-footer {
+	background: #110d17 !important;
+	border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.wizard-footer > button {
+	background: #1c1726 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #8b8490 !important;
+}
+.wizard-footer > button.primary {
+	background: var(--holo-gradient) !important;
+	border: 0 !important;
+	color: #fff !important;
+	box-shadow: 0 8px 24px rgba(255, 65, 133, 0.25) !important;
+}
+.wizard-progress {
+	background: #110d17 !important;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.wizard-progress button {
+	color: #8b8490 !important;
+}
+.wizard-progress button.active {
+	color: #fff !important;
+}
+.wizard-progress button.active b {
+	background: #ad8cff !important;
+	color: #fff !important;
+}
+.wizard-progress button b {
+	background: #251d33 !important;
+	color: #8b8490 !important;
+}
+.wizard-progress button:not(:last-child):after {
+	background: rgba(255, 255, 255, 0.07) !important;
+}
+
+.wizard-body > main {
+	background: #08060a !important;
+}
+.wizard-summary {
+	background: #110d17 !important;
+	border-left: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.wizard-summary > small {
+	color: #8b8490 !important;
+}
+.wizard-summary > div {
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.wizard-summary > div > span {
+	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3) !important;
+}
+.wizard-summary p strong {
+	color: #fff !important;
+}
+.wizard-summary p small {
+	color: #8b8490 !important;
+}
+.wizard-summary li {
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #fff !important;
+}
+.wizard-summary li span {
+	color: #8b8490 !important;
+}
+.wizard-summary li b {
+	color: #fff !important;
+}
+.wizard-summary footer {
+	background: #15121c !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.wizard-summary footer > span {
+	background: #251d33 !important;
+	color: #ad8cff !important;
+}
+
+.wizard-step-heading h2 {
+	color: #fff !important;
+}
+.wizard-step-heading p {
+	color: #8b8490 !important;
+}
+
+.wizard-type-grid button, .wizard-variant-grid > button, .wizard-reference-grid > button, .wizard-format-grid button, .wizard-no-product {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #fff !important;
+}
+.wizard-type-grid button:hover, .wizard-variant-grid > button:hover, .wizard-reference-grid > button:hover, .wizard-format-grid button:hover, .wizard-no-product:hover {
+	border-color: rgba(255, 255, 255, 0.15) !important;
+}
+.wizard-type-grid button.active, .wizard-variant-grid > button.active, .wizard-reference-grid > button.active, .wizard-format-grid button.active, .wizard-no-product.active {
+	border-color: #8b5cf6 !important;
+	box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+}
+.wizard-type-grid button > span, .wizard-no-product > span {
+	background: #251d33 !important;
+	color: #ad8cff !important;
+}
+.wizard-type-grid em, .wizard-variant-grid em, .wizard-reference-grid em {
+	background: #251d33 !important;
+	color: #ad8cff !important;
+}
+.wizard-type-grid p, .wizard-variant-grid p, .wizard-reference-grid > button > small, .wizard-format-grid small, .wizard-no-product small {
+	color: #8b8490 !important;
+}
+
+.wizard-product-search {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.wizard-product-search input {
+	color: #fff !important;
+}
+.wizard-product-search > span {
+	background: #251d33 !important;
+	color: #ad8cff !important;
+}
+
+.wizard-product-toolbar > button {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #8b8490 !important;
+}
+.wizard-product-toolbar > button.active {
+	background: #251d33 !important;
+	border-color: #8b5cf6 !important;
+	color: #ad8cff !important;
+}
+
+.wizard-product-grid > button {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #fff !important;
+}
+.wizard-product-grid > button.active {
+	border-color: #8b5cf6 !important;
+	box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+}
+.wizard-product-grid > button > strong {
+	color: #fff !important;
+}
+.wizard-product-grid > button > small {
+	color: #8b8490 !important;
+}
+.wizard-product-grid > button > div {
+	background: #1c1626 !important;
+}
+
+.wizard-upload-product > button {
+	background: rgba(255, 255, 255, 0.01) !important;
+	border: 1px dashed rgba(255, 255, 255, 0.1) !important;
+}
+.wizard-upload-product > button > span {
+	background: #251d33 !important;
+	color: #ad8cff !important;
+}
+.wizard-upload-product > button strong {
+	color: #fff !important;
+}
+.wizard-upload-product > button small {
+	color: #8b8490 !important;
+}
+.wizard-upload-product:has(> img) {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.wizard-upload-product > label {
+	color: #8b8490 !important;
+}
+.wizard-upload-product > label input {
+	background: #15121c !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #fff !important;
+}
+
+.format-shape {
+	background: #251d33 !important;
+}
+.format-shape i {
+	border-color: #ad8cff !important;
+}
+
+.wizard-output-count {
+	background: linear-gradient(135deg, #110d17, #15121c) !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.wizard-output-count > div:first-child strong {
+	color: #fff !important;
+}
+.wizard-output-count > div:first-child small {
+	color: #8b8490 !important;
+}
+.wizard-output-count button {
+	background: #1c1726 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #8b8490 !important;
+}
+.wizard-output-count button.active {
+	background: #8b5cf6 !important;
+	border-color: transparent !important;
+	color: #fff !important;
+}
+.wizard-output-count > p {
+	border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #8b8490 !important;
+}
+.wizard-output-count > p b {
+	color: #ad8cff !important;
+}
+
+.wizard-brief textarea {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #fff !important;
+}
+
+.wizard-result-panel, .studio-editor-controls {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.studio-editor-summary {
+	background: #15121c !important;
+}
+.studio-editor-summary h2 {
+	color: #fff !important;
+}
+.studio-editor-summary p {
+	color: #8b8490 !important;
+}
+.studio-editor-summary footer {
+	color: #8b8490 !important;
+}
+.studio-editor-summary footer b {
+	color: #fff !important;
+}
+.studio-editor-summary > span {
+	background: #251d33 !important;
+}
+
+.studio-form-grid label {
+	color: #8b8490 !important;
+}
+.studio-form-grid input:not([type="color"]), .studio-form-grid textarea, .studio-form-grid select {
+	background: #15121c !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #fff !important;
+}
+.studio-form-grid input:focus, .studio-form-grid textarea:focus, .studio-form-grid select:focus {
+	border-color: #8b5cf6 !important;
+	box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+}
+
+.product-intake > header nav button {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	color: #8b8490 !important;
+}
+.product-intake > header nav button.active {
+	background: #251d33 !important;
+	border-color: #8b5cf6 !important;
+	color: #ad8cff !important;
+}
+
+/* History / Generations page */
+.studio-history-grid article footer {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+	border-top: 0 !important;
+}
+.studio-history-grid article footer strong {
+	color: #fff !important;
+}
+.studio-history-grid article footer p {
+	color: #8b8490 !important;
+}
+
+/* Plans Page overrides */
+.plans-tier-card {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.plans-tier-card.featured {
+	border-color: #8b5cf6 !important;
+	box-shadow: 0 10px 40px rgba(139, 92, 246, 0.15) !important;
+}
+.plans-tier-card h3 {
+	color: #fff !important;
+}
+.plans-tier-card p {
+	color: #8b8490 !important;
+}
+
+/* Auth / Login Page Overrides */
+.studio-auth {
+	background: #08060a !important;
+	color: #fff !important;
+}
+.studio-auth::before {
+	background: rgba(139, 92, 246, 0.1) !important;
+	filter: blur(80px) !important;
+}
+.studio-auth::after {
+	background: rgba(255, 65, 133, 0.06) !important;
+	filter: blur(80px) !important;
+}
+.studio-auth-logo {
+	color: #fff !important;
+}
+.studio-auth-card {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.08) !important;
+	box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6) !important;
+}
+.studio-auth-heading h2 {
+	color: #fff !important;
+}
+.studio-auth-heading p {
+	color: #8b8490 !important;
+}
+.studio-auth-heading p strong {
+	color: #fff !important;
+}
+.studio-google-button {
+	background: #15121c !important;
+	border: 1px solid rgba(255, 255, 255, 0.08) !important;
+	color: #fff !important;
+}
+.studio-google-button:hover {
+	background: #1c1826 !important;
+}
+.studio-auth-divider::before {
+	background: rgba(255, 255, 255, 0.08) !important;
+}
+.studio-auth-divider span {
+	background: #110d17 !important;
+	color: #8b8490 !important;
+}
+.studio-auth-card form label {
+	color: #8b8490 !important;
+}
+.studio-auth-card form input {
+	background: #15121c !important;
+	border: 1.5px solid rgba(255, 255, 255, 0.08) !important;
+	color: #fff !important;
+}
+.studio-auth-card form input:focus {
+	border-color: #8b5cf6 !important;
+	box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2) !important;
+}
+.studio-demo-entry {
+	background: #15121c !important;
+	border: 1px solid rgba(255, 255, 255, 0.08) !important;
+	color: #fff !important;
+}
+.studio-demo-entry:hover {
+	background: #1c1826 !important;
+}
+.studio-auth-switch {
+	color: #8b8490 !important;
+}
+.studio-auth-switch button {
+	color: #ad8cff !important;
+}
+.studio-terms {
+	color: #716d79 !important;
+}
+.studio-terms a {
+	color: #ad8cff !important;
+}
+
+/* Onboarding Overrides */
+.studio-onboarding {
+	background: #08060a !important;
+}
+.studio-onboarding-card {
+	background: #110d17 !important;
+	border: 1px solid rgba(255, 255, 255, 0.08) !important;
+	box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6) !important;
+}
+.studio-onboarding-heading h1 {
+	color: #fff !important;
+}
+.studio-onboarding-heading p {
+	color: #8b8490 !important;
+}
+.studio-onboarding-visual {
+	background: #15121c !important;
+	border: 1px solid rgba(255, 255, 255, 0.07) !important;
+}
+.studio-onboarding-visual strong {
+	color: #fff !important;
+}
+.studio-onboarding-visual p {
+	color: #8b8490 !important;
+}
+
+/* Boot / Loader screen */
+.studio-boot {
+	background: #08060a !important;
+	color: #8b8490 !important;
+}
+

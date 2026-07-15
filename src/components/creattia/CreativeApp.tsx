@@ -1166,6 +1166,8 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 	const [results, setResults] = useState<Generation[]>([]);
 	const [result, setResult] = useState<Generation | null>(null);
 	const [error, setError] = useState('');
+	const [fastUrl, setFastUrl] = useState('');
+	const [fastImporting, setFastImporting] = useState(false);
 
 	const selectedProducts = selectedProductIds.flatMap((id) => {
 		const product = products.find((item) => item.id === id);
@@ -1245,6 +1247,39 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 		});
 	}
 
+	async function handleFastImport() {
+		if (!fastUrl.trim()) return;
+		setFastImporting(true); setError('');
+		try {
+			const normalizedUrl = normalizeProductUrlInput(fastUrl);
+			let ids: string[] = [];
+			if (!isSupabaseConfigured) {
+				const id = crypto.randomUUID();
+				let label = `Producto ${products.length + 1}`;
+				try { label = new URL(normalizedUrl).pathname.split('/').filter(Boolean).pop()?.replace(/[-_]+/g, ' ') || label; } catch {}
+				const artwork = demoProductArt(String(products.length + 1).padStart(2, '0'), '#6d35e8');
+				const item: Product = { id, name: label, description: 'Producto importado desde su URL.', priceText: '', currency: '', productUrl: normalizedUrl, imageUrl: artwork, imageUrls: [artwork], imageCount: 1, source: 'website' };
+				saveLocal(PRODUCTS_KEY, [item, ...products]); ids = [id];
+			} else {
+				const response = await fetch('/api/creativos/products', {
+					method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
+					body: JSON.stringify({ url: normalizedUrl }),
+				});
+				const payload = await response.json();
+				if (!response.ok || !payload.importedIds?.length) throw new Error(payload.error || payload.errors?.[0]?.error || 'No pudimos analizar ese producto. Probá cargarlo con fotos.');
+				ids = payload.importedIds;
+			}
+			await onProductsChanged();
+			setSelectedProductIds((current) => [...new Set([...current, ...ids])].slice(-5));
+			setFastUrl('');
+			onToast('Producto importado y seleccionado con éxito.');
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'No se pudo importar.');
+		} finally {
+			setFastImporting(false);
+		}
+	}
+
 	async function generate(sourceGeneration: Generation | null = null) {
 		setError('');
 		const effectiveCount = sourceGeneration ? 1 : count;
@@ -1315,6 +1350,30 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 				{step === 1 && <section className="wizard-step"><div className="wizard-step-heading"><span>PASO 1 DE 5</span><h2>¿Qué tipo de imagen querés?</h2><p>Elegí cómo mostrar tu producto o promoción.</p></div><div className="wizard-type-grid">{typeOptions.map((item) => <button key={item.id} className={imageType === item.id ? 'active' : ''} onClick={() => setImageType(item.id)}><span><Icon name={item.icon}/></span><em>{item.badge}</em><h3>{item.title}</h3><p>{item.copy}</p>{imageType === item.id && <b><Icon name="check" size={13}/></b>}</button>)}</div></section>}
 				{step === 2 && <section className="wizard-step">
 					<div className="wizard-step-heading"><span>PASO 2 DE 5 · HASTA 5</span><h2>{imageType === 'promotion' ? '¿Querés sumar productos?' : 'Elegí uno o varios productos'}</h2><p>Elegí los que ya guardaste o agregá uno nuevo sin salir del generador.</p></div>
+					
+					{/* Fast Product URL Import Box */}
+					<div className="fast-url-import-box" style={{ background: '#110d17', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+						<strong style={{ fontSize: '11px', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="spark" size={13} /> ¿Querés crear con un producto nuevo?</strong>
+						<p style={{ margin: 0, fontSize: '9px', color: '#8b8490', lineHeight: 1.4 }}>Pegá la URL del producto de tu tienda. Analizaremos las imágenes, el copy y los estilos automáticamente para la generación.</p>
+						<div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+							<input 
+								type="text" 
+								placeholder="https://mitienda.com/productos/zapato-urban" 
+								value={fastUrl}
+								onChange={(e) => setFastUrl(e.target.value)}
+								style={{ flex: 1, height: '36px', background: '#15121c', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff', padding: '0 10px', fontSize: '10.5px', outline: 'none' }}
+							/>
+							<button 
+								type="button"
+								onClick={handleFastImport}
+								disabled={fastImporting || !fastUrl.trim()}
+								style={{ height: '36px', padding: '0 16px', background: '#6d35e8', border: 0, borderRadius: '8px', color: '#fff', fontSize: '10.5px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+							>
+								{fastImporting ? <span className="studio-spinner small" /> : <><Icon name="external" size={14}/> Analizar</>}
+							</button>
+						</div>
+					</div>
+
 					<div className="wizard-product-toolbar"><label className="wizard-product-search"><Icon name="search" size={18}/><input aria-label="Buscar producto" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar producto…"/><span>{selectedProductIds.length}/5</span></label><button className={showProductIntake ? 'active' : ''} onClick={() => setShowProductIntake((current) => !current)}><Icon name="plus" size={15}/>{showProductIntake ? 'Cerrar carga' : 'Agregar producto'}</button></div>
 					{showProductIntake && <ProductIntake
 						compact
