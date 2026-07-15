@@ -28,20 +28,20 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 // Supported Winners Categories
 const winnersCategories = [
 	{ id: 'todos', label: 'Miles de ideas disponibles', templateIds: [] },
-	{ id: 'vs', label: 'Nosotros vs Ellos', templateIds: [23, 24] },
-	{ id: 'testimonios', label: 'Testimonios', templateIds: [1, 2, 3, 6, 7, 11, 12] },
-	{ id: 'mas-vendidos', label: 'Más vendidos', templateIds: [9, 14, 17, 18, 19, 20] },
-	{ id: 'multimedia', label: 'Multimedia', templateIds: [10] },
-	{ id: 'gancho-negativo', label: 'Gancho negativo', templateIds: [31] },
-	{ id: 'mitos', label: 'Cazador de mitos', templateIds: [32, 33, 37] },
-	{ id: 'caracteristicas', label: 'Características', templateIds: [41, 43, 46] },
-	{ id: 'notas', label: 'Notas', templateIds: [4, 5, 8, 39] },
-	{ id: 'contenido', label: 'Qué contiene', templateIds: [41, 43] },
-	{ id: 'preguntas', label: 'Preguntas frecuentes', templateIds: [30] },
-	{ id: 'antes-despues', label: 'Antes y después', templateIds: [28, 29] },
-	{ id: 'top-razones', label: 'Top razones', templateIds: [38] },
-	{ id: 'problema-solucion', label: 'Problema-solución', templateIds: [30, 31, 34] },
-	{ id: 'estadisticas', label: 'Estadísticas', templateIds: [9, 38] }
+	{ id: 'vs', label: 'Nosotros vs Ellos', templateIds: [23, 24, 25, 26, 27, 28, 29] },
+	{ id: 'testimonios', label: 'Testimonios', templateIds: [1, 2, 3, 4, 5, 6, 7, 11, 12, 48] },
+	{ id: 'mas-vendidos', label: 'Más vendidos', templateIds: [9, 14, 17, 18, 19, 20, 40] },
+	{ id: 'multimedia', label: 'Multimedia', templateIds: [10, 40, 45, 47] },
+	{ id: 'gancho-negativo', label: 'Gancho negativo', templateIds: [8, 30, 31, 32, 34] },
+	{ id: 'mitos', label: 'Cazador de mitos', templateIds: [31, 32, 33, 37] },
+	{ id: 'caracteristicas', label: 'Características', templateIds: [40, 41, 43, 44, 46] },
+	{ id: 'notas', label: 'Notas', templateIds: [4, 5, 8, 35, 36, 38, 39, 40] },
+	{ id: 'contenido', label: 'Qué contiene', templateIds: [40, 41, 43, 46] },
+	{ id: 'preguntas', label: 'Preguntas frecuentes', templateIds: [30, 32, 33, 37] },
+	{ id: 'antes-despues', label: 'Antes y después', templateIds: [6, 23, 28, 29] },
+	{ id: 'top-razones', label: 'Top razones', templateIds: [30, 31, 32, 38, 41] },
+	{ id: 'problema-solucion', label: 'Problema-solución', templateIds: [23, 24, 25, 29, 30, 31, 34] },
+	{ id: 'estadisticas', label: 'Estadísticas', templateIds: [9, 31, 32, 38] }
 ];
 
 type WinnerItem = {
@@ -257,22 +257,18 @@ export default function WinnersLibrary({
 					<button onClick={() => { setActiveCategory('todos'); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (
-				<div className="library-ad-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
+				<div className="library-ad-grid-masonry">
 					{filteredItems.map((item, idx) => {
 						const imageUrl = supabase 
 							? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
-							: `/scraped_ads/${item.imagePath}`;
+							: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`;
 						const templateName = creativeCatalog.find(c => c.id === item.templateId)?.nombre || 'Idea Creativa';
 						
 						return (
 							<article 
-								className="library-ad-card" 
+								className="library-ad-card-masonry" 
 								key={item.imagePath || idx}
 								style={{ 
-									background: '#fff', 
-									borderRadius: '16px', 
-									border: '1px solid #e5dfe8', 
-									overflow: 'hidden',
 									display: 'flex',
 									flexDirection: 'column',
 									position: 'relative'
@@ -335,7 +331,6 @@ export default function WinnersLibrary({
 								{/* Image visual */}
 								<div 
 									style={{ 
-										aspectRatio: '9/16', 
 										background: '#f8f6fb', 
 										position: 'relative',
 										overflow: 'hidden' 
@@ -344,7 +339,7 @@ export default function WinnersLibrary({
 									<img 
 										src={imageUrl} 
 										alt={item.name} 
-										style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+										style={{ width: '100%', height: 'auto', display: 'block' }} 
 										loading="lazy" 
 									/>
 									<span 
