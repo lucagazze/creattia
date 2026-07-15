@@ -12,7 +12,12 @@ const showcase = [
 	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/1d58518c1d718dd4.webp', label: 'Cuidado Personal' },
 	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/1/af32ca5ec7697330.webp', label: 'Gourmet' },
 	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/dae50b9af9994bbc.webp', label: 'Cosmética' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/1/dcaf28871a7a4904.webp', label: 'Accesorios' }
+	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/1/dcaf28871a7a4904.webp', label: 'Accesorios' },
+	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/ece227e7e0c07477.webp', label: 'Moda' },
+	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/9c8d4a8001b24d29.webp', label: 'Belleza' },
+	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/6115528cf8820436.webp', label: 'Cuidado Piel' },
+	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/2712b3774b326865.webp', label: 'Deporte' },
+	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/e00a8677f0d13e45.webp', label: 'Estilo' }
 ];
 
 const ideasRow1 = [
@@ -851,6 +856,7 @@ const faqs = [
 
 		track.addEventListener('mousedown', (e: MouseEvent) => {
 			isDown = true;
+			track.style.scrollBehavior = 'auto'; // Disable smooth-scroll animation during dragging
 			track.style.cursor = 'grabbing';
 			track.style.userSelect = 'none';
 			startX = e.pageX - track.offsetLeft;
@@ -861,6 +867,7 @@ const faqs = [
 		track.addEventListener('mouseleave', () => {
 			if (isDown) {
 				isDown = false;
+				track.style.scrollBehavior = 'smooth';
 				track.style.cursor = 'grab';
 				track.style.userSelect = '';
 				resetAutoScroll(); // Resume auto-scroll
@@ -870,6 +877,7 @@ const faqs = [
 		track.addEventListener('mouseup', () => {
 			if (isDown) {
 				isDown = false;
+				track.style.scrollBehavior = 'smooth';
 				track.style.cursor = 'grab';
 				track.style.userSelect = '';
 				resetAutoScroll(); // Resume auto-scroll
@@ -887,6 +895,7 @@ const faqs = [
 		// Touch events
 		track.addEventListener('touchstart', (e: TouchEvent) => {
 			isDown = true;
+			track.style.scrollBehavior = 'auto'; // Disable smooth-scroll during touch drag
 			startX = e.touches[0].pageX - track.offsetLeft;
 			scrollLeft = track.scrollLeft;
 			clearInterval(autoScrollInterval);
@@ -895,6 +904,7 @@ const faqs = [
 		track.addEventListener('touchend', () => {
 			if (isDown) {
 				isDown = false;
+				track.style.scrollBehavior = 'smooth';
 				resetAutoScroll();
 			}
 		});
