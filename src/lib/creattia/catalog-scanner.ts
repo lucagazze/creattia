@@ -423,16 +423,22 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 	$('script, style, noscript, nav, footer, header, aside, [class*="breadcrumb"], [class*="cookie"], [class*="popup"], [class*="modal"], [class*="cart"], [class*="related"], [class*="recommend"]').remove();
 	const bodyText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 7000);
 
-	// 5. Build AI prompt with page text + top images
-	const client = new OpenAI({ apiKey });
+	// 5. Build AI prompt with page text
+	const groqApiKey = (typeof import.meta.env !== 'undefined' && import.meta.env.GROQ_API_KEY) || process.env.GROQ_API_KEY;
 
-	const messages: any[] = [
-		{
-			role: 'user',
-			content: [
-				{
-					type: 'text',
-					text: `Analizá esta página de producto y extraé la información del ítem que se vende. Usá únicamente lo que está en el contenido de la página, no inventes nada.
+	let extracted: any = {};
+	try {
+		if (groqApiKey) {
+			const client = new OpenAI({
+				apiKey: groqApiKey,
+				baseURL: 'https://api.groq.com/openai/v1',
+			});
+			const aiResponse = await client.chat.completions.create({
+				model: 'llama-3.3-70b-versatile',
+				messages: [
+					{
+						role: 'user',
+						content: `Analizá esta página de producto y extraé la información del ítem que se vende. Usá únicamente lo que está en el contenido de la página, no inventes nada.
 
 URL: ${base}
 Título: ${pageTitle}
@@ -454,28 +460,62 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
   "targetAudience": "descripción del público objetivo del producto"
 }`,
-				},
-				// Attach main image for visual context if available
-				...(finalImages[0]
-					? [{ type: 'image_url', image_url: { url: finalImages[0], detail: 'low' as const } }]
-					: []),
-				// Attach a couple more product images if available
-				...(finalImages[1]
-					? [{ type: 'image_url', image_url: { url: finalImages[1], detail: 'low' as const } }]
-					: []),
-			],
-		},
-	];
+					}
+				],
+				response_format: { type: 'json_object' },
+				max_tokens: 1000,
+			});
+			extracted = JSON.parse(aiResponse.choices[0]?.message?.content || '{}');
+		} else {
+			const client = new OpenAI({ apiKey });
+			const messages: any[] = [
+				{
+					role: 'user',
+					content: [
+						{
+							type: 'text',
+							text: `Analizá esta página de producto y extraé la información del ítem que se vende. Usá únicamente lo que está en el contenido de la página, no inventes nada.
 
-	let extracted: any = {};
-	try {
-		const aiResponse = await client.chat.completions.create({
-			model: 'gpt-4o-mini',
-			messages,
-			response_format: { type: 'json_object' },
-			max_tokens: 1000,
-		});
-		extracted = JSON.parse(aiResponse.choices[0]?.message?.content || '{}');
+URL: ${base}
+Título: ${pageTitle}
+Meta descripción: ${pageDesc}
+
+Texto completo de la página:
+---
+${bodyText}
+---
+
+Respondé SOLO con JSON válido con esta estructura exacta:
+{
+  "name": "nombre exacto del producto tal como aparece en la página",
+  "description": "descripción detallada con todos los detalles relevantes: beneficios, características, materiales, ingredientes, especificaciones técnicas, etc. Incluí todo lo que pueda ayudar a hacer un anuncio efectivo.",
+  "price": "precio exacto con símbolo de moneda tal como aparece (ej: $15.990 o USD 29.99) o null si no aparece",
+  "currency": "código de moneda (ARS, USD, EUR, etc.) o null",
+  "brand": "marca o nombre de la empresa vendedora",
+  "category": "categoría del producto (ej: skincare, calzado, suplementos, etc.)",
+  "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
+  "targetAudience": "descripción del público objetivo del producto"
+}`,
+						},
+						// Attach main image for visual context if available
+						...(finalImages[0]
+							? [{ type: 'image_url', image_url: { url: finalImages[0], detail: 'low' as const } }]
+							: []),
+						// Attach a couple more product images if available
+						...(finalImages[1]
+							? [{ type: 'image_url', image_url: { url: finalImages[1], detail: 'low' as const } }]
+							: []),
+					],
+				},
+			];
+			const aiResponse = await client.chat.completions.create({
+				model: 'gpt-4o-mini',
+				messages,
+				response_format: { type: 'json_object' },
+				max_tokens: 1000,
+			});
+			extracted = JSON.parse(aiResponse.choices[0]?.message?.content || '{}');
+		}
 	} catch (err) {
 		// If AI fails, fall back to meta info so we always return something
 		console.error('extractProductPageWithAI: AI step failed, using meta fallback:', err);

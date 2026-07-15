@@ -50,6 +50,22 @@ async function assertPublicUrl(url: URL) {
 }
 
 export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, timeoutMs = 12_000) {
+	const scraperApiKey = (typeof import.meta.env !== 'undefined' && import.meta.env.SCRAPER_API_KEY) || process.env.SCRAPER_API_KEY;
+	if (scraperApiKey && !rawUrl.includes('localhost') && !rawUrl.includes('127.0.0.1')) {
+		const proxyUrl = `http://api.scraperapi.com?api_key=${scraperApiKey}&url=${encodeURIComponent(rawUrl)}`;
+		try {
+			return await fetch(proxyUrl, {
+				signal: AbortSignal.timeout(timeoutMs + 8000), // ScraperAPI takes slightly longer
+				headers: {
+					accept: 'text/html,application/xhtml+xml,application/xml;q=0.9',
+					'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+				},
+			});
+		} catch (e) {
+			console.error('ScraperAPI fetch failed, falling back to direct fetch:', e);
+		}
+	}
+
 	let current = new URL(rawUrl);
 	for (let redirects = 0; redirects < 4; redirects += 1) {
 		await assertPublicUrl(current);
