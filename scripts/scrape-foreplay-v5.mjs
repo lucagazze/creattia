@@ -623,12 +623,22 @@ async function main() {
     console.log(`\n✅ Downloaded: ${downloaded}, Skipped (existing): ${skipped}, Failed: ${failed}`);
 
     if (toSave.length > 0) {
+      const seen = new Set();
+      const cleanItems = [];
+      const combined = [...existingManifest.items, ...toSave];
+      for (const item of combined) {
+        if (!item.imagePath) continue;
+        if (seen.has(item.imagePath)) continue;
+        seen.add(item.imagePath);
+        cleanItems.push(item);
+      }
+
       const updatedManifest = {
         ...existingManifest,
-        items: [...existingManifest.items, ...toSave],
+        items: cleanItems,
       };
       await writeFile(MANIFEST_PATH, JSON.stringify(updatedManifest, null, 2));
-      console.log(`📄 Manifest: ${updatedManifest.items.length} total (+${toSave.length} new)`);
+      console.log(`📄 Manifest: ${updatedManifest.items.length} total (+${toSave.length} new, unique: ${cleanItems.length})`);
 
       // Upload updated manifest file to Supabase Storage
       if (admin) {
