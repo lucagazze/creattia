@@ -87,14 +87,20 @@ export default function WinnersLibrary({
 	const isAdmin = userEmail.toLowerCase().trim() === 'lucagazze1@gmail.com';
 
 	const loadWinners = async () => {
-		if (!supabase) return;
 		try {
 			setLoading(true);
-			const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
-			const res = await fetch(manifestUrl.publicUrl + '?t=' + Date.now());
-			if (!res.ok) throw new Error('No se pudo descargar el catálogo de ganadores.');
-			const data = await res.json();
-			setItems(data.items || []);
+			if (supabase) {
+				const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
+				const res = await fetch(manifestUrl.publicUrl + '?t=' + Date.now());
+				if (!res.ok) throw new Error('No se pudo descargar el catálogo de ganadores.');
+				const data = await res.json();
+				setItems(data.items || []);
+			} else {
+				const res = await fetch('/scraped_ads/manifest.json');
+				if (!res.ok) throw new Error('No se pudo cargar el catálogo local.');
+				const data = await res.json();
+				setItems(data.items || []);
+			}
 		} catch (err: any) {
 			setError(err.message || 'Error cargando ganadores.');
 		} finally {
@@ -255,7 +261,7 @@ export default function WinnersLibrary({
 					{filteredItems.map((item, idx) => {
 						const imageUrl = supabase 
 							? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
-							: '';
+							: `/scraped_ads/${item.imagePath}`;
 						const templateName = creativeCatalog.find(c => c.id === item.templateId)?.nombre || 'Idea Creativa';
 						
 						return (
