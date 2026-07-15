@@ -359,7 +359,7 @@ export const POST: APIRoute = async ({ request }) => {
 		// ── Image generation ────────────────────────────────────────────────
 		// Primary: Flux via Fal.ai (cheapest + highest quality)
 		// Fallback: OpenAI gpt-image-2
-		const falKey: string | undefined = import.meta.env.FAL_KEY;
+		const falKey: string | undefined = process.env.FAL_KEY || (typeof import.meta.env !== 'undefined' && import.meta.env.FAL_KEY);
 		const falFormatSizes: Record<string, { width: number; height: number }> = {
 			square:    { width: 1024, height: 1024 },
 			portrait:  { width: 1024, height: 1280 },
