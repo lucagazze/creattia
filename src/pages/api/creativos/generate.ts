@@ -356,22 +356,90 @@ export const POST: APIRoute = async ({ request }) => {
 		const { error: promptUpdateError } = await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
 		if (promptUpdateError) throw promptUpdateError;
 
-		const openai = new OpenAI({ apiKey: openAIKey });
-		const model = import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
-		const size = formatSizes[format];
-		const result = inputs.length
-			? await openai.images.edit({ model, image: inputs, prompt, size, quality: 'high', n: count })
-			: await openai.images.generate({ model, prompt, size, quality: 'high', n: count });
-		const outputs = (result.data || []).flatMap((item) => item.b64_json ? [item.b64_json] : []);
-		if (!outputs.length) throw new Error('La API no devolvió ninguna imagen.');
+		// ── Image generation ────────────────────────────────────────────────
+		// Primary: Flux via Fal.ai (cheapest + highest quality)
+		// Fallback: OpenAI gpt-image-2
+		const falKey: string | undefined = import.meta.env.FAL_KEY;
+		const falFormatSizes: Record<string, { width: number; height: number }> = {
+			square:    { width: 1024, height: 1024 },
+			portrait:  { width: 1024, height: 1280 },
+			story:     { width: 1008, height: 1792 },
+			landscape: { width: 1280, height: 1024 },
+		};
+
+		// Collect all output images as raw buffers
+		const outputBuffers: Buffer[] = [];
+
+		if (falKey) {
+			// Build image_url for Fal (base64 data URL of the first input image, if any)
+			let falImageUrl: string | undefined;
+			if (inputs.length) {
+				// inputs[0] is a FileLike with arrayBuffer()
+				const buf = Buffer.from(await (inputs[0] as any).arrayBuffer());
+				falImageUrl = `data:image/png;base64,${buf.toString('base64')}`;
+			}
+
+			const falSize = falFormatSizes[format] || falFormatSizes.square;
+			const falModel = falImageUrl
+				? 'fal-ai/flux/dev/image-to-image'
+				: 'fal-ai/flux/dev';
+
+			const falBody: Record<string, unknown> = {
+				prompt,
+				num_images: count,
+				output_format: 'png',
+				...falSize,
+			};
+			if (falImageUrl) {
+				falBody.image_url = falImageUrl;
+				falBody.strength = 0.85;
+			}
+
+			const falRes = await fetch(`https://fal.run/${falModel}`, {
+				method: 'POST',
+				headers: {
+					'Authorization': `Key ${falKey}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(falBody),
+			});
+
+			if (!falRes.ok) {
+				const errText = await falRes.text().catch(() => '');
+				throw new Error(`Fal.ai respondió con ${falRes.status}: ${errText.slice(0, 200)}`);
+			}
+
+			const falData: any = await falRes.json();
+			const falImages: Array<{ url: string }> = falData.images || [];
+			if (!falImages.length) throw new Error('Fal.ai no devolvió ninguna imagen.');
+
+			for (const img of falImages.slice(0, count)) {
+				const imgRes = await fetch(img.url);
+				if (!imgRes.ok) throw new Error('No se pudo descargar la imagen generada.');
+				outputBuffers.push(Buffer.from(await imgRes.arrayBuffer()));
+			}
+		} else {
+			// Fallback: OpenAI
+			const openai = new OpenAI({ apiKey: openAIKey });
+			const model = import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
+			const size = formatSizes[format];
+			const result = inputs.length
+				? await openai.images.edit({ model, image: inputs, prompt, size, quality: 'high', n: count })
+				: await openai.images.generate({ model, prompt, size, quality: 'high', n: count });
+			const outputs = (result.data || []).flatMap((item) => item.b64_json ? [item.b64_json] : []);
+			if (!outputs.length) throw new Error('La API no devolvió ninguna imagen.');
+			for (const b64 of outputs) outputBuffers.push(Buffer.from(b64, 'base64'));
+		}
+
+		if (!outputBuffers.length) throw new Error('No se generaron imágenes.');
 
 		const responseGenerations: Array<{ id: string; imageUrl: string; outputIndex: number; batchId: string }> = [];
-		for (let index = 0; index < Math.min(outputs.length, generationIds.length); index += 1) {
+		for (let index = 0; index < Math.min(outputBuffers.length, generationIds.length); index += 1) {
 			const generationId = generationIds[index];
 			const outputPath = `${auth.user.id}/generations/${batchId}/${index + 1}.png`;
 			const { error: uploadError } = await admin.storage.from('creative-assets').upload(
 				outputPath,
-				Buffer.from(outputs[index], 'base64'),
+				outputBuffers[index],
 				{ contentType: 'image/png', upsert: false },
 			);
 			if (uploadError) throw uploadError;
