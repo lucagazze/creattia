@@ -384,6 +384,9 @@ export default function CreativeApp() {
 	const [products, setProducts] = useState<Product[]>([]);
 	const [creationProductIds, setCreationProductIds] = useState<string[]>([]);
 	const [toast, setToast] = useState('');
+	const [preselectedTemplateId, setPreselectedTemplateId] = useState<number | null>(null);
+	const [sidebarMinimized, setSidebarMinimized] = useState(false);
+	const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
 	useEffect(() => {
 		let active = true;
@@ -529,9 +532,9 @@ export default function CreativeApp() {
 	}, [toast]);
 
 	function chooseCreative(creative: Creativo) {
-		setSelected(creative);
 		setReuseSeed(null);
-		setView('studio');
+		setPreselectedTemplateId(creative.id);
+		setView('winners');
 		setMobileMenu(false);
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
@@ -690,46 +693,120 @@ export default function CreativeApp() {
 	if (booting || (session && accountLoading)) return <div className="studio-boot"><span className="studio-spinner"/><p>Preparando tu estudio…</p></div>;
 	if (!session) return <AuthScreen onSession={(nextSession) => { setAccountLoading(true); setSession(nextSession); }} />;
 	if (accountError) return <AccountSetupError message={accountError} onRetry={() => window.location.reload()} onLogout={logout} />;
-	if (!profile.onboardingCompleted) return <Onboarding profile={profile} email={getSessionEmail(session)} onSave={updateProfile} />;
-
 		const navItems: Array<{ id: View; label: string; icon: string }> = [
 			{ id: 'home', label: 'Inicio', icon: 'home' },
 			{ id: 'winners', label: 'Biblioteca de ganadores', icon: 'spark' },
 			{ id: 'products', label: 'Mis productos', icon: 'bag' },
 			{ id: 'history', label: 'Mis imágenes', icon: 'history' },
-			{ id: 'plans', label: 'Planes', icon: 'layers' },
-			{ id: 'brand', label: 'Mi marca', icon: 'brand' },
 		];
 
 	return (
-		<div className="creative-app-shell">
+		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
 			<div className={`studio-mobile-scrim ${mobileMenu ? 'is-open' : ''}`} onClick={() => setMobileMenu(false)} />
 			<aside className={`studio-sidebar ${mobileMenu ? 'is-open' : ''}`}>
-				<a className="studio-logo" href="/" aria-label="Volver a Creattia">
-					<span><img src="/images/creattia/moki-mascot.webp" alt=""/></span>
-					<div><strong>Creattia</strong></div>
-				</a>
+				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: sidebarMinimized ? 0 : '10px', marginBottom: '10px' }}>
+					<a className="studio-logo" href="/" aria-label="Volver a Creattia" style={{ marginBottom: 0 }}>
+						<span><img src="/images/creattia/moki-mascot.webp" alt=""/></span>
+						{!sidebarMinimized && <div><strong>Creattia</strong></div>}
+					</a>
+					<button 
+						onClick={() => setSidebarMinimized(!sidebarMinimized)}
+						style={{
+							border: 0,
+							background: 'transparent',
+							cursor: 'pointer',
+							color: '#716d79',
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							padding: '6px'
+						}}
+						title={sidebarMinimized ? "Expandir menú" : "Colapsar menú"}
+					>
+						<span style={{ display: 'inline-flex', transform: sidebarMinimized ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}><Icon name="arrow" size={16} /></span>
+					</button>
+				</div>
 				<button className="studio-close-menu" onClick={() => setMobileMenu(false)} aria-label="Cerrar menú"><Icon name="close"/></button>
 				<nav className="studio-nav">
-					<p>ESPACIO DE TRABAJO</p>
+					{!sidebarMinimized && <p>ESPACIO DE TRABAJO</p>}
 					{navItems.map((item) => (
 						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { setView(item.id); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-							<Icon name={item.icon}/><span>{item.label}</span>
+							<Icon name={item.icon}/>{!sidebarMinimized && <span>{item.label}</span>}
 						</button>
 					))}
 				</nav>
 				<div className="studio-sidebar-bottom">
-					<div className="studio-plan-card">
-						<div><span className="studio-plan-orb"><Icon name="spark" size={15}/></span><small>PLAN ACTUAL</small></div>
-					<strong>{planLabel(profile)}</strong>
-						<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 3) * 100)}%` }}/></p>
-						<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => setView('plans')}>Ver planes</button></footer>
-					</div>
-					<div className="studio-user">
+					{!sidebarMinimized && (
+						<div className="studio-plan-card">
+							<div><span className="studio-plan-orb"><Icon name="spark" size={15}/></span><small>PLAN ACTUAL</small></div>
+							<strong>{planLabel(profile)}</strong>
+							<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 3) * 100)}%` }}/></p>
+							<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => setView('plans')}>Ver planes</button></footer>
+						</div>
+					)}
+					
+					{profileMenuOpen && (
+						<div 
+							style={{
+								position: 'absolute',
+								bottom: '70px',
+								left: '16px',
+								right: '16px',
+								background: '#fff',
+								border: '1px solid #e9e6ed',
+								borderRadius: '12px',
+								boxShadow: '0 10px 25px rgba(52, 40, 79, 0.1)',
+								padding: '8px',
+								zIndex: 10,
+								display: 'flex',
+								flexDirection: 'column',
+								gap: '4px'
+							}}
+						>
+							<button 
+								onClick={() => { setView('plans'); setProfileMenuOpen(false); }}
+								style={{ padding: '8px 12px', border: 0, background: 'transparent', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: '#19171d', fontWeight: 700 }}
+							>
+								💳 Planes y Suscripción
+							</button>
+							<button 
+								onClick={() => { setView('brand'); setProfileMenuOpen(false); }}
+								style={{ padding: '8px 12px', border: 0, background: 'transparent', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: '#19171d', fontWeight: 700 }}
+							>
+								⚙️ Mi Marca / Ajustes
+							</button>
+							<button 
+								onClick={() => { alert('Historial de pagos: No tenés facturas pendientes en tu demo.'); setProfileMenuOpen(false); }}
+								style={{ padding: '8px 12px', border: 0, background: 'transparent', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: '#19171d', fontWeight: 700 }}
+							>
+								📄 Historial de Pagos
+							</button>
+							<div style={{ height: '1px', background: '#f3eff6', margin: '4px 0' }} />
+							<button 
+								onClick={() => { logout(); setProfileMenuOpen(false); }}
+								style={{ padding: '8px 12px', border: 0, background: 'transparent', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: '#dc2626', fontWeight: 700 }}
+							>
+								🚪 Cerrar sesión
+							</button>
+						</div>
+					)}
+
+					<div 
+						className="studio-user" 
+						onClick={() => setProfileMenuOpen(!profileMenuOpen)} 
+						style={{ cursor: 'pointer', position: 'relative' }}
+					>
 						<span>{firstName(profile, getSessionEmail(session)).slice(0, 1).toUpperCase()}</span>
-						<div><strong>{profile.fullName || 'Mi cuenta'}</strong><small>{getSessionEmail(session)}</small></div>
-						<button onClick={logout} aria-label="Cerrar sesión"><Icon name="logout" size={18}/></button>
+						{!sidebarMinimized && (
+							<>
+								<div style={{ flex: 1, minWidth: 0, paddingRight: '10px' }}>
+									<strong style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{profile.fullName || 'Mi cuenta'}</strong>
+									<small style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getSessionEmail(session)}</small>
+								</div>
+								<span style={{ display: 'inline-flex', transform: 'rotate(90deg)', color: '#716d79' }}><Icon name="arrow" size={12} /></span>
+							</>
+						)}
 					</div>
 				</div>
 			</aside>
@@ -745,7 +822,21 @@ export default function CreativeApp() {
 				<div className="studio-content">
 					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} history={history} catalog={catalog} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
 					{view === 'library' && <Library items={catalog} favorites={favorites} onChoose={chooseCreative} onToggleFavorite={toggleFavorite} />}
-					{view === 'winners' && <WinnersLibrary session={session} profile={profile} onGenerated={addGenerations} isSupabaseConfigured={isSupabaseConfigured} onToast={setToast} />}
+					{view === 'winners' && (
+						<WinnersLibrary 
+							session={session} 
+							profile={profile} 
+							onGenerated={addGenerations} 
+							isSupabaseConfigured={isSupabaseConfigured} 
+							onToast={setToast} 
+							preselectedTemplateId={preselectedTemplateId}
+							onClearPreselected={() => setPreselectedTemplateId(null)}
+							onUpdateProfile={updateProfile}
+							historyCount={history.length}
+							favorites={favorites}
+							onToggleFavorite={toggleFavorite}
+						/>
+					)}
 					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onRemove={removeProduct} onCreate={(productId) => productId ? startWithProduct(productId) : setView('library')} />}
 					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} />}
 					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} />}
@@ -877,39 +968,6 @@ function AccountSetupError({ message, onRetry, onLogout }: { message: string; on
 			<p>{missingSchema ? 'Tu acceso ya funciona. Falta terminar la configuración segura de tu espacio antes de guardar productos e imágenes.' : 'Reintentá en unos segundos. Si el problema continúa, volvé a ingresar.'}</p>
 			<div><button onClick={onRetry}>Reintentar</button><button onClick={onLogout}>Cerrar sesión</button></div>
 		</section>
-	</div>;
-}
-
-function Onboarding({ profile, email, onSave }: { profile: AppProfile; email: string; onSave: (profile: AppProfile, logo?: File | null) => Promise<void> }) {
-	const [draft, setDraft] = useState({ ...profile, fullName: profile.fullName || email.split('@')[0] });
-	const [logo, setLogo] = useState<File | null>(null);
-	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState('');
-
-	async function submit(event: FormEvent) {
-		event.preventDefault(); setSaving(true); setError('');
-		try { await onSave({ ...draft, onboardingCompleted: true }, logo); }
-		catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar.'); }
-		finally { setSaving(false); }
-	}
-
-	return <div className="studio-onboarding">
-		<header><a href="/"><img src="/images/creattia/moki-mascot.webp" alt=""/><strong>Creattia</strong></a><span>Paso 1 de 1</span></header>
-		<main>
-			<div className="studio-onboarding-intro"><span><Icon name="spark"/></span><p>PREPARÁ TU MARCA</p><h1>Conectá tu negocio.<br/>La IA hace el resto.</h1><small>Usamos tu web e Instagram para detectar productos, colores y contexto.</small></div>
-			<form onSubmit={submit}>
-				<div className="studio-form-grid">
-					<label className="wide">Nombre de tu marca<input value={draft.brandName} onChange={(e) => setDraft({ ...draft, brandName: e.target.value })} placeholder="Ej. Vitta" required /></label>
-					<label>Sitio web (opcional)<input type="url" value={draft.website} onChange={(e) => setDraft({ ...draft, website: e.target.value })} placeholder="https://tumarca.com" /></label>
-					<label>Instagram (opcional)<input value={draft.instagram} onChange={(e) => setDraft({ ...draft, instagram: e.target.value })} placeholder="https://instagram.com/tumarca" /></label>
-					<label>Color principal<span className="studio-color-input"><input type="color" value={draft.primaryColor} onChange={(e) => setDraft({ ...draft, primaryColor: e.target.value })}/><b>{draft.primaryColor}</b></span></label>
-					<label>Color de apoyo<span className="studio-color-input"><input type="color" value={draft.secondaryColor} onChange={(e) => setDraft({ ...draft, secondaryColor: e.target.value })}/><b>{draft.secondaryColor}</b></span></label>
-					<label className="wide studio-logo-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)}/><span><Icon name="upload"/></span><div><strong>{logo ? logo.name : 'Subí tu logo'}</strong><small>PNG o WebP con fondo transparente. También podés hacerlo después.</small></div><b>{logo ? 'Cambiar' : 'Elegir archivo'}</b></label>
-				</div>
-				{error && <p className="studio-form-error">{error}</p>}
-				<button className="studio-primary-button" disabled={saving}>{saving ? <><span className="studio-spinner small"/>Preparando tu marca…</> : <>Guardar y empezar a crear<Icon name="arrow" size={18}/></>}</button>
-			</form>
-		</main>
 	</div>;
 }
 

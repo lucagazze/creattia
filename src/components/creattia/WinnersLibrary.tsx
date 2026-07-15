@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
 
-function Icon({ name, size = 20 }: { name: string; size?: number }) {
-	const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
+function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
+	const common = { width: size, height: size, viewBox: '0 0 24 24', fill, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
 	if (name === 'home') return <svg {...common}><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-6h5v6"/></svg>;
 	if (name === 'grid') return <svg {...common}><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>;
 	if (name === 'spark') return <svg {...common}><path d="m12 3 1.2 4.1a5 5 0 0 0 3.4 3.4L21 12l-4.4 1.5a5 5 0 0 0-3.4 3.4L12 21l-1.2-4.1a5 5 0 0 0-3.4-3.4L3 12l4.4-1.5a5 5 0 0 0 3.4-3.4L12 3Z"/></svg>;
@@ -20,7 +20,7 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 	if (name === 'close') return <svg {...common}><path d="m6 6 12 12M18 6 6 18"/></svg>;
 	if (name === 'plus') return <svg {...common}><path d="M12 5v14M5 12h14"/></svg>;
 	if (name === 'external') return <svg {...common}><path d="M14 5h5v5M19 5l-8 8"/><path d="M18 13v6H5V6h6"/></svg>;
-	if (name === 'heart') return <svg {...common}><path d="M20.8 5.8a5.4 5.4 0 0 0-7.6 0L12 7l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 22l8.8-8.6a5.4 5.4 0 0 0 0-7.6Z"/></svg>;
+	if (name === 'heart') return <svg {...common} fill={fill}><path d="M20.8 5.8a5.4 5.4 0 0 0-7.6 0L12 7l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 22l8.8-8.6a5.4 5.4 0 0 0 0-7.6Z"/></svg>;
 	if (name === 'layers') return <svg {...common}><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg>;
 	return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
 }
@@ -28,6 +28,7 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 // Supported Winners Categories
 const winnersCategories = [
 	{ id: 'todos', label: 'Miles de ideas disponibles' },
+	{ id: 'guardados', label: '❤️ Guardados' },
 	{ id: 'vs', label: 'Nosotros vs Ellos' },
 	{ id: 'testimonios', label: 'Testimonios' },
 	{ id: 'mas-vendidos', label: 'Más vendidos' },
@@ -43,6 +44,94 @@ const winnersCategories = [
 	{ id: 'problema-solucion', label: 'Problema-solución' },
 	{ id: 'estadisticas', label: 'Estadísticas' }
 ];
+
+function classifyItem(item: any): string {
+	const notes = (item.promptNotes || '').toLowerCase();
+	const tid = item.templateId;
+
+	if (tid === 23 || notes.includes(' vs ') || notes.includes('versus') || notes.includes('unlike') || notes.includes('better than')) {
+		return 'vs';
+	}
+	if (tid === 1 || notes.includes('review') || notes.includes('love') || notes.includes('testimonial') || notes.includes('customer') || notes.includes('“') || notes.includes('"') || notes.includes('says')) {
+		return 'testimonios';
+	}
+	if (notes.includes('before') || notes.includes('after') || notes.includes('antes') || notes.includes('después')) {
+		return 'antes-despues';
+	}
+	if (tid === 32 || notes.includes('myth') || notes.includes('truth') || notes.includes('fact') || notes.includes('real') || notes.includes('fake')) {
+		return 'mitos';
+	}
+	if (notes.includes('stop') || notes.includes('don\'t') || notes.includes('mistake') || notes.includes('avoid') || notes.includes('hate') || notes.includes('worst') || notes.includes('never')) {
+		return 'gancho-negativo';
+	}
+	if (notes.includes('?') || notes.includes('how do') || notes.includes('why do') || notes.includes('what is') || notes.includes('question')) {
+		return 'preguntas';
+	}
+	if (notes.includes('reason') || notes.includes('reasons') || notes.includes('why you need') || notes.includes('top 3') || notes.includes('top 5')) {
+		return 'top-razones';
+	}
+	if (notes.includes('%') || notes.includes('10x') || notes.includes('3x') || notes.includes('5x') || /\b\d{1,3}%\b/.test(notes) || notes.includes('stats') || notes.includes('numbers')) {
+		return 'estadisticas';
+	}
+	if (notes.includes('what\'s inside') || notes.includes('ingredients') || notes.includes('contains') || notes.includes('what you get') || notes.includes('box') || notes.includes('pack')) {
+		return 'contenido';
+	}
+	if (notes.includes('tired of') || notes.includes('struggle') || notes.includes('solution') || notes.includes('finally') || notes.includes('save time') || notes.includes('easy way')) {
+		return 'problema-solucion';
+	}
+	if (notes.includes('note:') || notes.includes('memo') || notes.includes('tweet') || notes.includes('slack') || notes.includes('post-it')) {
+		return 'notas';
+	}
+	if (notes.includes('video') || notes.includes('watch') || notes.includes('media') || notes.includes('show') || notes.includes('gif')) {
+		return 'multimedia';
+	}
+	if (tid === 13 || tid === 15 || tid === 18 || notes.includes('free') || notes.includes('shipping') || notes.includes('off') || notes.includes('save') || notes.includes('sale') || notes.includes('discount') || notes.includes('price') || notes.includes('best seller') || notes.includes('popular')) {
+		return 'mas-vendidos';
+	}
+	return 'caracteristicas';
+}
+
+function getTags(item: any, category: string): string[] {
+	const name = (item.name || '').toLowerCase();
+	const notes = (item.promptNotes || '').toLowerCase();
+	const ind = ((item.metadata && item.metadata.industry) || '').toLowerCase();
+	const tags = new Set<string>();
+
+	if (category === 'vs') tags.add('Comparación').add('VS');
+	if (category === 'testimonios') tags.add('Testimonial').add('Opinión').add('Social Proof');
+	if (category === 'mas-vendidos') tags.add('Oferta').add('Descuento').add('Promo');
+	if (category === 'mitos') tags.add('Mitos').add('Educativo');
+	if (category === 'caracteristicas') tags.add('Producto').add('Llamativo');
+	if (category === 'notas') tags.add('Tweet').add('Texto');
+	if (category === 'preguntas') tags.add('Preguntas').add('FAQ');
+	if (category === 'estadisticas') tags.add('Métricas').add('Números');
+	if (category === 'antes-despues') tags.add('Antes/Después').add('Resultados');
+	if (category === 'problema-solucion') tags.add('Solución').add('Beneficios');
+
+	if (item.templateId === 40) tags.add('Minimalista').add('Clean');
+	if (item.templateId === 13) tags.add('Precio').add('Tachado');
+	if (item.templateId === 15) tags.add('Fecha Límite').add('Urgencia');
+	if (item.templateId === 18) tags.add('Envío Gratis').add('Beneficio');
+
+	if (ind.includes('b2b') || ind.includes('saas') || ind.includes('software') || name.includes('notion') || name.includes('figma') || name.includes('zapier')) {
+		tags.add('SaaS').add('B2B').add('Tecnología');
+	} else {
+		tags.add('E-commerce').add('Físico');
+	}
+	if (ind.includes('health') || ind.includes('wellness') || ind.includes('beauty') || ind.includes('collagen') || name.includes('billie')) {
+		tags.add('Estilo de Vida').add('Salud').add('Belleza');
+	}
+	if (ind.includes('food') || ind.includes('snack') || name.includes('flings')) {
+		tags.add('Comida').add('Snacks');
+	}
+
+	if (notes.includes('bold') || name.includes('bold')) tags.add('Llamativo').add('Bold');
+	if (notes.includes('simple') || notes.includes('minimal')) tags.add('Minimalista');
+	if (notes.includes('premium') || notes.includes('luxury')) tags.add('Premium');
+	if (notes.includes('modern') || notes.includes('next-gen')) tags.add('Moderno');
+
+	return Array.from(tags);
+}
 
 type WinnerItem = {
 	templateId: number;
@@ -67,13 +156,25 @@ export default function WinnersLibrary({
 	profile,
 	onGenerated,
 	isSupabaseConfigured,
-	onToast
+	onToast,
+	preselectedTemplateId = null,
+	onClearPreselected,
+	onUpdateProfile,
+	historyCount = 0,
+	favorites = new Set(),
+	onToggleFavorite
 }: {
 	session: any;
 	profile?: any;
 	onGenerated?: (generations: any[], credits: number) => void;
 	isSupabaseConfigured?: boolean;
 	onToast?: (message: string) => void;
+	preselectedTemplateId?: number | null;
+	onClearPreselected?: () => void;
+	onUpdateProfile?: (profile: any) => Promise<void>;
+	historyCount?: number;
+	favorites?: Set<number>;
+	onToggleFavorite?: (id: number) => void;
 }) {
 	const [items, setItems] = useState<WinnerItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -103,6 +204,14 @@ export default function WinnersLibrary({
 	
 	// Fidelity option: 1 = Muy fiel, 2 = Estética marca, 3 = Híbrido
 	const [fidelity, setFidelity] = useState(3);
+
+	// Optional onboarding step states inside modal
+	const [onboardingShow, setOnboardingShow] = useState(false);
+	const [onboardingSkippedOrDone, setOnboardingSkippedOrDone] = useState(false);
+	const [onboardingBrandName, setOnboardingBrandName] = useState(profile?.brandName || '');
+	const [onboardingWebsite, setOnboardingWebsite] = useState(profile?.website || '');
+	const [onboardingInstagram, setOnboardingInstagram] = useState(profile?.instagram || '');
+	const [onboardingSaving, setOnboardingSaving] = useState(false);
 	
 	// Output results
 	const [generating, setGenerating] = useState(false);
@@ -220,6 +329,12 @@ export default function WinnersLibrary({
 
 	const handleGenerateFromModal = async () => {
 		if (!activeAd) return;
+		
+		if (profile && !profile.onboardingCompleted && historyCount === 0 && !onboardingSkippedOrDone) {
+			setOnboardingShow(true);
+			return;
+		}
+
 		setGenerating(true);
 		setGenerationError('');
 		setGeneratedResult('');
@@ -235,10 +350,14 @@ export default function WinnersLibrary({
 			form.set('imageType', 'product');
 			form.set('referencePath', activeAd.imagePath);
 			
+			const brandName = onboardingBrandName || (profile ? profile.brandName : '');
+			const website = onboardingWebsite || (profile ? profile.website : '');
+			const instagram = onboardingInstagram || (profile ? profile.instagram : '');
+			
+			form.set('brandName', brandName);
+			form.set('website', website);
+			form.set('instagram', instagram);
 			if (profile) {
-				form.set('brandName', profile.brandName || '');
-				form.set('website', profile.website || '');
-				form.set('instagram', profile.instagram || '');
 				form.set('colors', `${profile.primaryColor || ''}, ${profile.secondaryColor || ''}`);
 			}
 			
@@ -308,18 +427,25 @@ export default function WinnersLibrary({
 	const loadWinners = async () => {
 		try {
 			setLoading(true);
+			let rawItems: any[] = [];
 			if (supabase) {
 				const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
 				const res = await fetch(manifestUrl.publicUrl + '?t=' + Date.now());
 				if (!res.ok) throw new Error('No se pudo descargar el catálogo de ganadores.');
 				const data = await res.json();
-				setItems(data.items || []);
+				rawItems = data.items || [];
 			} else {
 				const res = await fetch('/scraped_ads/manifest.json');
 				if (!res.ok) throw new Error('No se pudo cargar el catálogo local.');
 				const data = await res.json();
-				setItems(data.items || []);
+				rawItems = data.items || [];
 			}
+			const classified = rawItems.map(item => {
+				const category = classifyItem(item);
+				const tags = getTags(item, category);
+				return { ...item, category, tags };
+			});
+			setItems(classified);
 		} catch (err: any) {
 			setError(err.message || 'Error cargando ganadores.');
 		} finally {
@@ -331,11 +457,23 @@ export default function WinnersLibrary({
 		void loadWinners();
 	}, []);
 
+	useEffect(() => {
+		if (preselectedTemplateId && items.length > 0) {
+			const match = items.find(item => item.templateId === preselectedTemplateId);
+			if (match) {
+				handleUseIdea(match);
+			}
+			if (onClearPreselected) onClearPreselected();
+		}
+	}, [preselectedTemplateId, items]);
+
 	// Filter items
 	const filteredItems = useMemo(() => {
 		return items.filter(item => {
 			// Category filter
-			const matchesCategory = activeCategory === 'todos' || item.category === activeCategory;
+			const matchesCategory = activeCategory === 'guardados'
+				? favorites.has(item.templateId)
+				: (activeCategory === 'todos' || item.category === activeCategory);
 
 			// Search query filter
 			const search = query.toLowerCase().trim();
@@ -481,8 +619,7 @@ export default function WinnersLibrary({
 						const imageUrl = supabase 
 							? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
 							: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`;
-						const templateName = creativeCatalog.find(c => c.id === item.templateId)?.nombre || 'Idea Creativa';
-						
+
 						return (
 							<article 
 								className="library-ad-card-masonry" 
@@ -572,6 +709,35 @@ export default function WinnersLibrary({
 										onContextMenu={(e) => e.preventDefault()}
 										onDragStart={(e) => e.preventDefault()}
 									/>
+									
+									{/* Heart Button */}
+									<button 
+										onClick={(e) => {
+											e.stopPropagation();
+											if (onToggleFavorite) onToggleFavorite(item.templateId);
+										}}
+										style={{ 
+											position: 'absolute',
+											top: '10px',
+											right: '10px',
+											zIndex: 4,
+											border: 0,
+											background: 'rgba(255,255,255,0.85)',
+											color: favorites.has(item.templateId) ? '#ff4185' : '#716d79',
+											borderRadius: '50%',
+											width: '30px',
+											height: '30px',
+											display: 'grid',
+											placeItems: 'center',
+											cursor: 'pointer',
+											boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+											outline: 0
+										}}
+										title={favorites.has(item.templateId) ? "Quitar de guardados" : "Guardar idea"}
+									>
+										<Icon name="heart" size={15} fill={favorites.has(item.templateId) ? '#ff4185' : 'none'} />
+									</button>
+
 									<img 
 										src={imageUrl} 
 										alt={item.name} 
@@ -580,22 +746,6 @@ export default function WinnersLibrary({
 										onContextMenu={(e) => e.preventDefault()}
 										onDragStart={(e) => e.preventDefault()}
 									/>
-									<span 
-										style={{ 
-											position: 'absolute', 
-											left: '10px', 
-											bottom: '10px', 
-											fontSize: '9px', 
-											background: 'rgba(28,21,32,.78)', 
-											color: '#fff', 
-											padding: '4px 8px', 
-											borderRadius: '6px',
-											fontWeight: 700,
-											zIndex: 3
-										}}
-									>
-										{templateName}
-									</span>
 								</div>
 
 								{/* Copy text and actions */}
@@ -821,6 +971,115 @@ export default function WinnersLibrary({
 										style={{ height: '42px', padding: '0 20px', borderRadius: '10px', border: '1px solid #e9e6ed', background: '#fff', color: '#19171d', cursor: 'pointer', fontWeight: 700 }}
 									>
 										Crear otra versión
+									</button>
+								</div>
+							</div>
+						) : onboardingShow ? (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+								<div style={{ textAlign: 'center', marginBottom: '10px' }}>
+									<h4 style={{ fontSize: '16px', fontWeight: 800, color: '#19171d', margin: 0 }}>⚙️ Configuración de tu Marca (Opcional)</h4>
+									<p style={{ fontSize: '12px', color: '#716d79', margin: '4px 0 0' }}>Completá estos datos una sola vez para que Moki personalice tus anuncios.</p>
+								</div>
+								
+								<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
+									Nombre de tu marca
+									<input 
+										type="text" 
+										value={onboardingBrandName} 
+										onChange={(e) => setOnboardingBrandName(e.target.value)}
+										placeholder="ej. Vitta, Nike, Bold"
+										style={{ height: '42px', padding: '0 12px', border: '1px solid #aaa4b0', borderRadius: '10px', outline: 0, fontSize: '14px' }}
+									/>
+								</label>
+
+								<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
+									Sitio web (opcional)
+									<input 
+										type="url" 
+										value={onboardingWebsite} 
+										onChange={(e) => setOnboardingWebsite(e.target.value)}
+										placeholder="https://tumarca.com"
+										style={{ height: '42px', padding: '0 12px', border: '1px solid #aaa4b0', borderRadius: '10px', outline: 0, fontSize: '14px' }}
+									/>
+								</label>
+
+								<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
+									Instagram (opcional)
+									<input 
+										type="text" 
+										value={onboardingInstagram} 
+										onChange={(e) => setOnboardingInstagram(e.target.value)}
+										placeholder="https://instagram.com/tumarca"
+										style={{ height: '42px', padding: '0 12px', border: '1px solid #aaa4b0', borderRadius: '10px', outline: 0, fontSize: '14px' }}
+									/>
+								</label>
+
+								{generationError && (
+									<p style={{ margin: '0', padding: '10px 12px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '8px', color: '#a43f3f', fontSize: '12px' }}>
+										{generationError}
+									</p>
+								)}
+
+								<div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+									<button
+										type="button"
+										onClick={async () => {
+											setOnboardingSaving(true);
+											setGenerationError('');
+											try {
+												if (onUpdateProfile) {
+													await onUpdateProfile({
+														...profile,
+														onboardingCompleted: true
+													});
+												}
+												setOnboardingSkippedOrDone(true);
+												setOnboardingShow(false);
+												setTimeout(() => {
+													void handleGenerateFromModal();
+												}, 100);
+											} catch (err: any) {
+												setGenerationError(err.message || 'Error al guardar.');
+											} finally {
+												setOnboardingSaving(false);
+											}
+										}}
+										style={{ flex: 1, height: '44px', borderRadius: '10px', border: '1px solid #e9e6ed', background: '#fff', color: '#716d79', cursor: 'pointer', fontWeight: 700 }}
+										disabled={onboardingSaving}
+									>
+										Omitir y Generar
+									</button>
+									<button
+										type="button"
+										onClick={async () => {
+											setOnboardingSaving(true);
+											setGenerationError('');
+											try {
+												if (onUpdateProfile) {
+													await onUpdateProfile({
+														...profile,
+														brandName: onboardingBrandName,
+														website: onboardingWebsite,
+														instagram: onboardingInstagram,
+														onboardingCompleted: true
+													});
+												}
+												setOnboardingSkippedOrDone(true);
+												setOnboardingShow(false);
+												setTimeout(() => {
+													void handleGenerateFromModal();
+												}, 100);
+											} catch (err: any) {
+												setGenerationError(err.message || 'Error al guardar.');
+											} finally {
+												setOnboardingSaving(false);
+											}
+										}}
+										className="studio-primary-button"
+										style={{ flex: 1, height: '44px', background: 'var(--holo-gradient)', color: '#fff', border: 0 }}
+										disabled={onboardingSaving || !onboardingBrandName.trim()}
+									>
+										{onboardingSaving ? 'Guardando...' : 'Guardar y Generar'}
 									</button>
 								</div>
 							</div>

@@ -2069,5 +2069,48 @@
 	color: #6d35e8 !important;
 }
 
+/* ========================================================
+   MINIMIZED SIDEBAR AND RESPONSIVE GRID OVERRIDES
+   ======================================================== */
+@media (min-width: 992px) {
+	.creative-app-shell.sidebar-minimized .studio-sidebar {
+		width: 72px !important;
+		padding: 16px 10px !important;
+	}
+	.creative-app-shell.sidebar-minimized .studio-main {
+		margin-left: 72px !important;
+		width: calc(100% - 72px) !important;
+	}
+	.creative-app-shell.sidebar-minimized .studio-sidebar-brand div,
+	.creative-app-shell.sidebar-minimized .studio-nav p,
+	.creative-app-shell.sidebar-minimized .studio-nav button span,
+	.creative-app-shell.sidebar-minimized .studio-plan-card,
+	.creative-app-shell.sidebar-minimized .studio-user div,
+	.creative-app-shell.sidebar-minimized .studio-user svg:last-child {
+		display: none !important;
+	}
+	.creative-app-shell.sidebar-minimized .studio-logo {
+		justify-content: center !important;
+	}
+	.creative-app-shell.sidebar-minimized .studio-nav button {
+		justify-content: center !important;
+		padding: 12px 0 !important;
+		gap: 0 !important;
+	}
+	.creative-app-shell.sidebar-minimized .studio-user {
+		justify-content: center !important;
+		padding: 10px 0 !important;
+		width: 44px !important;
+		height: 44px !important;
+		border-radius: 50% !important;
+		margin: 0 auto !important;
+		border: 0 !important;
+		background: #fbfafc !important;
+	}
+	.creative-app-shell.sidebar-minimized .studio-user span {
+		margin: 0 !important;
+	}
+}
+
 
 
