@@ -152,7 +152,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const logo = form.get('logo');
 
 		if (!Number.isInteger(templateId) || templateId < 1) return json({ error: 'El creativo elegido no es válido.' }, 400);
-		if (referencePath && !new RegExp(`^${templateId}/[a-f0-9]{16}\\.(png|jpe?g|webp|avif)$`, 'i').test(referencePath)) return json({ error: 'La ruta de referencia no es válida.' }, 400);
+		// Relaxed validation: accept any path matching the known scraped format (numberPrefix/16hexchars.ext)
+		if (referencePath && !/^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(referencePath)) return json({ error: 'La ruta de referencia no es válida.' }, 400);
 		if (!Number.isInteger(count) || count < 1 || count > 4) return json({ error: 'Elegí entre 1 y 4 imágenes.' }, 400);
 		if (productIds.length > 5) return json({ error: 'Podés usar hasta 5 productos en una imagen.' }, 400);
 		if (product instanceof File && product.size > 15 * 1024 * 1024) return json({ error: 'La imagen del producto supera los 15 MB.' }, 413);
@@ -163,8 +164,10 @@ export const POST: APIRoute = async ({ request }) => {
 		const { data: template, error: templateError } = await admin.from('creative_templates')
 			.select('id,name,purpose,usage_hint').eq('id', templateId).eq('is_active', true).maybeSingle();
 		if (templateError) throw templateError;
-		if (!template) return json({ error: 'Esta idea ya no está disponible. Elegí otra de la biblioteca.' }, 400);
-		const templateName = template.name || requestedTemplateName || 'Creativo';
+		// Fall back gracefully when template is from the winners library (not in Supabase catalog)
+		const templateName = template?.name || requestedTemplateName || 'Anuncio Ganador';
+		const templatePurpose = template?.purpose || 'Crear un anuncio de alto rendimiento inspirado en el diseño de referencia';
+		const templateUsageHint = template?.usage_hint || 'Usar cuando se quiere replicar el estilo de un anuncio probado';
 
 		const { data: profile, error: profileError } = await admin.from('creative_profiles')
 			.select('brand_name,website_url,instagram_handle,brand_colors,logo_path,brand_summary,brand_voice,target_audience')
@@ -189,8 +192,10 @@ export const POST: APIRoute = async ({ request }) => {
 				current.push(row); productImagesById.set(row.product_id, current);
 			}
 		}
-		if (imageType !== 'promotion' && !storedProducts.length && !(product instanceof File && product.size > 0)) {
-			return json({ error: 'Elegí al menos un producto para este tipo de imagen.' }, 400);
+		// Allow generation without product when a reference image is provided (winner library mode)
+		const hasReferenceOrSource = !!(referencePath || sourceGenerationId);
+		if (imageType !== 'promotion' && !hasReferenceOrSource && !storedProducts.length && !(product instanceof File && product.size > 0)) {
+			return json({ error: 'Elegí al menos un producto para este tipo de imagen, o seleccioná un anuncio de referencia.' }, 400);
 		}
 
 		let sourceGeneration: { id: string; output_path: string; product_id: string | null } | null = null;
@@ -324,8 +329,8 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const prompt = buildPrompt({
 			templateName,
-			purpose: template.purpose || '',
-			usageHint: template.usage_hint || '',
+			purpose: templatePurpose,
+			usageHint: templateUsageHint,
 			preset,
 			brandName: profile?.brand_name || clean(form.get('brandName'), 80),
 			website: profile?.website_url || clean(form.get('website'), 300),

@@ -140,8 +140,8 @@ const subscriptionPlans = [
 	}
 ];
 
-function Icon({ name, size = 20 }: { name: string; size?: number }) {
-	const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
+function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
+	const common = { width: size, height: size, viewBox: '0 0 24 24', fill, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
 	if (name === 'home') return <svg {...common}><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-6h5v6"/></svg>;
 	if (name === 'grid') return <svg {...common}><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>;
 	if (name === 'spark') return <svg {...common}><path d="m12 3 1.2 4.1a5 5 0 0 0 3.4 3.4L21 12l-4.4 1.5a5 5 0 0 0-3.4 3.4L12 21l-1.2-4.1a5 5 0 0 0-3.4-3.4L3 12l4.4-1.5a5 5 0 0 0 3.4-3.4L12 3Z"/></svg>;
@@ -387,6 +387,40 @@ export default function CreativeApp() {
 	const [preselectedTemplateId, setPreselectedTemplateId] = useState<number | null>(null);
 	const [sidebarMinimized, setSidebarMinimized] = useState(false);
 	const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+	const [randomWinners, setRandomWinners] = useState<any[]>([]);
+	const [scrapedWinners, setScrapedWinners] = useState<any[]>([]);
+	const [likedScrapedPaths, setLikedScrapedPaths] = useState<Set<string>>(new Set());
+	const [preselectedWinnerPath, setPreselectedWinnerPath] = useState<string | null>(null);
+
+	// Load 5 random winners from manifest and initialize liked scraped ads
+	useEffect(() => {
+		const loadedLikes = loadLocal<string[]>('creattia-liked-scraped-v1', []);
+		setLikedScrapedPaths(new Set(loadedLikes));
+
+		async function loadRandomWinners() {
+			try {
+				const res = await fetch('/scraped_ads/manifest.json');
+				if (!res.ok) return;
+				const data = await res.json();
+				const items: any[] = data.items || [];
+				setScrapedWinners(items);
+				// Pick 5 random static image items with valid imagePath
+				const staticItems = items.filter((i: any) => i.imagePath && (i.metadata?.mediaType === 'static_image' || !i.metadata?.mediaType));
+				// Deduplicate first to make sure randomWinners doesn't get duplicate images
+				const seen = new Set();
+				const uniqueStatic = staticItems.filter((i: any) => {
+					if (!i.imagePath || seen.has(i.imagePath)) return false;
+					seen.add(i.imagePath);
+					return true;
+				});
+				const shuffled = [...uniqueStatic].sort(() => Math.random() - 0.5);
+				setRandomWinners(shuffled.slice(0, 5));
+			} catch {
+				// silent fail — winners are optional on dashboard
+			}
+		}
+		void loadRandomWinners();
+	}, []);
 
 	useEffect(() => {
 		let active = true;
@@ -578,6 +612,29 @@ export default function CreativeApp() {
 		}
 	}
 
+	const toggleLikedScraped = (path: string) => {
+		const next = new Set(likedScrapedPaths);
+		const wasLiked = next.has(path);
+		if (wasLiked) {
+			next.delete(path);
+		} else {
+			next.add(path);
+		}
+		setLikedScrapedPaths(next);
+		saveLocal('creattia-liked-scraped-v1', Array.from(next));
+		setToast(wasLiked ? 'Quitado de guardados.' : 'Guardado en tu biblioteca.');
+	};
+
+	const likedWinners = useMemo(() => {
+		const seen = new Set();
+		return scrapedWinners.filter(item => {
+			if (!item.imagePath || !likedScrapedPaths.has(item.imagePath)) return false;
+			if (seen.has(item.imagePath)) return false;
+			seen.add(item.imagePath);
+			return true;
+		});
+	}, [scrapedWinners, likedScrapedPaths]);
+
 	async function logout() {
 		if (supabase) await supabase.auth.signOut();
 		else localStorage.removeItem(SESSION_KEY);
@@ -749,43 +806,43 @@ export default function CreativeApp() {
 					{profileMenuOpen && (
 						<div 
 							style={{
-								position: 'absolute',
+								position: 'fixed',
 								bottom: '70px',
-								left: '16px',
-								right: '16px',
+								left: sidebarMinimized ? '72px' : '190px',
 								background: '#fff',
 								border: '1px solid #e9e6ed',
 								borderRadius: '12px',
-								boxShadow: '0 10px 25px rgba(52, 40, 79, 0.1)',
+								boxShadow: '0 10px 30px rgba(52, 40, 79, 0.15)',
 								padding: '8px',
-								zIndex: 10,
+								zIndex: 200,
 								display: 'flex',
 								flexDirection: 'column',
-								gap: '4px'
+								gap: '4px',
+								minWidth: '200px',
 							}}
 						>
 							<button 
 								onClick={() => { setView('plans'); setProfileMenuOpen(false); }}
-								style={{ padding: '8px 12px', border: 0, background: 'transparent', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: '#19171d', fontWeight: 700 }}
+								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#19171d', fontWeight: 700, whiteSpace: 'nowrap' }}
 							>
 								💳 Planes y Suscripción
 							</button>
 							<button 
 								onClick={() => { setView('brand'); setProfileMenuOpen(false); }}
-								style={{ padding: '8px 12px', border: 0, background: 'transparent', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: '#19171d', fontWeight: 700 }}
+								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#19171d', fontWeight: 700, whiteSpace: 'nowrap' }}
 							>
 								⚙️ Mi Marca / Ajustes
 							</button>
 							<button 
 								onClick={() => { alert('Historial de pagos: No tenés facturas pendientes en tu demo.'); setProfileMenuOpen(false); }}
-								style={{ padding: '8px 12px', border: 0, background: 'transparent', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: '#19171d', fontWeight: 700 }}
+								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#19171d', fontWeight: 700, whiteSpace: 'nowrap' }}
 							>
 								📄 Historial de Pagos
 							</button>
 							<div style={{ height: '1px', background: '#f3eff6', margin: '4px 0' }} />
 							<button 
 								onClick={() => { logout(); setProfileMenuOpen(false); }}
-								style={{ padding: '8px 12px', border: 0, background: 'transparent', borderRadius: '6px', textAlign: 'left', cursor: 'pointer', fontSize: '12px', color: '#dc2626', fontWeight: 700 }}
+								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#dc2626', fontWeight: 700, whiteSpace: 'nowrap' }}
 							>
 								🚪 Cerrar sesión
 							</button>
@@ -820,7 +877,25 @@ export default function CreativeApp() {
 				</header>
 
 				<div className="studio-content">
-					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} history={history} catalog={catalog} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
+					{view === 'home' && (
+						<Dashboard 
+							profile={profile} 
+							email={getSessionEmail(session)} 
+							history={history} 
+							catalog={catalog} 
+							onView={setView} 
+							onChoose={chooseCreative} 
+							onReuse={reuseGeneration} 
+							randomWinners={randomWinners} 
+							likedWinners={likedWinners}
+							likedScrapedPaths={likedScrapedPaths}
+							onToggleLikedScraped={toggleLikedScraped}
+							onUseScrapedWinner={(path) => {
+								setPreselectedWinnerPath(path);
+								setView('winners');
+							}}
+						/>
+					)}
 					{view === 'library' && <Library items={catalog} favorites={favorites} onChoose={chooseCreative} onToggleFavorite={toggleFavorite} />}
 					{view === 'winners' && (
 						<WinnersLibrary 
@@ -831,6 +906,10 @@ export default function CreativeApp() {
 							onToast={setToast} 
 							preselectedTemplateId={preselectedTemplateId}
 							onClearPreselected={() => setPreselectedTemplateId(null)}
+							preselectedWinnerPath={preselectedWinnerPath}
+							onClearPreselectedWinner={() => setPreselectedWinnerPath(null)}
+							likedScrapedPaths={likedScrapedPaths}
+							onToggleLikedScraped={toggleLikedScraped}
 							onUpdateProfile={updateProfile}
 							historyCount={history.length}
 							favorites={favorites}
@@ -971,21 +1050,410 @@ function AccountSetupError({ message, onRetry, onLogout }: { message: string; on
 	</div>;
 }
 
-function Dashboard({ profile, email, history, catalog, onView, onChoose, onReuse }: { profile: AppProfile; email: string; history: Generation[]; catalog: Creativo[]; onView: (view: View) => void; onChoose: (creative: Creativo) => void; onReuse: (generation: Generation) => void }) {
-	const popular = [18, 22, 1].map((id) => catalog.find((item) => item.id === id)!).filter(Boolean);
-	return <>
-		<div className="studio-page-heading"><div><p>INICIO</p><h1>Buen día, {firstName(profile, email)}.</h1><span>¿Qué querés crear hoy?</span></div><button className="studio-primary-button compact" onClick={() => onView('library')}><Icon name="plus" size={17}/>Crear imagen</button></div>
-		<div className="studio-section-title"><div><h2>Ideas recomendadas</h2><p>Empezá con una opción probada.</p></div><button onClick={() => onView('library')}>Ver biblioteca <Icon name="arrow" size={15}/></button></div>
-		<div className="studio-popular-grid">{popular.map((creative, index) => <CreativeFeatureCard key={creative.id} creative={creative} index={index} onClick={() => onChoose(creative)} />)}</div>
-		{history.length > 0 && <><div className="studio-section-title"><div><h2>Últimas imágenes</h2><p>Descargalas o creá otra versión.</p></div><button onClick={() => onView('history')}>Ver todas <Icon name="arrow" size={15}/></button></div><div className="studio-recent-row">{history.slice(0, 4).map((item) => <GenerationCard key={item.id} item={item} onReuse={() => onReuse(item)}/>)}</div></>}
-	</>;
+function Dashboard({
+	profile,
+	email,
+	history,
+	catalog,
+	onView,
+	onChoose,
+	onReuse,
+	randomWinners = [],
+	likedWinners = [],
+	likedScrapedPaths,
+	onToggleLikedScraped,
+	onUseScrapedWinner
+}: {
+	profile: AppProfile;
+	email: string;
+	history: Generation[];
+	catalog: Creativo[];
+	onView: (view: View) => void;
+	onChoose: (creative: Creativo) => void;
+	onReuse: (generation: Generation) => void;
+	randomWinners?: any[];
+	likedWinners?: any[];
+	likedScrapedPaths: Set<string>;
+	onToggleLikedScraped: (path: string) => void;
+	onUseScrapedWinner: (path: string) => void;
+}) {
+	return (
+		<>
+			<div className="studio-page-heading">
+				<div>
+					<p>INICIO</p>
+					<h1>Buen día, {firstName(profile, email)}.</h1>
+					<span>¿Qué querés crear hoy?</span>
+				</div>
+				<button className="studio-primary-button compact" onClick={() => onView('winners')}>
+					<Icon name="plus" size={17} />
+					Crear imagen
+				</button>
+			</div>
+
+			{/* ── Random winners inspiration ── */}
+			{randomWinners.length > 0 && (
+				<>
+					<div className="studio-section-title">
+						<div>
+							<h2>Inspiración del día</h2>
+							<p>Anuncios ganadores en tamaño real para inspirar tus diseños.</p>
+						</div>
+						<button onClick={() => onView('winners')}>
+							Ver biblioteca <Icon name="arrow" size={15} />
+						</button>
+					</div>
+					<div className="library-ad-grid-masonry dashboard-masonry" style={{ columnGap: '16px', marginBottom: '40px' }}>
+						{randomWinners.map((winner, idx) => {
+							const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
+							const imageUrl = winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath;
+							const isLiked = likedScrapedPaths.has(winner.imagePath);
+
+							return (
+								<article
+									className="library-ad-card-masonry"
+									key={winner.imagePath || idx}
+									style={{
+										display: 'flex',
+										flexDirection: 'column',
+										position: 'relative',
+										cursor: 'pointer'
+									}}
+									onClick={() => onUseScrapedWinner(winner.imagePath)}
+								>
+									{/* Card header */}
+									<div
+										style={{
+											padding: '12px',
+											display: 'flex',
+											alignItems: 'center',
+											gap: '10px',
+											borderBottom: '1px solid #f3eff6'
+										}}
+									>
+										<span
+											style={{
+												width: '32px',
+												height: '32px',
+												borderRadius: '50%',
+												background: '#ece7f4',
+												color: '#6d35e8',
+												fontWeight: 'bold',
+												display: 'grid',
+												placeItems: 'center',
+												fontSize: '11px',
+												overflow: 'hidden'
+											}}
+										>
+											{winner.metadata?.logoUrl ? (
+												<img src={winner.metadata.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+											) : (
+												(winner.name || 'F').slice(0, 1).toUpperCase()
+											)}
+										</span>
+										<div style={{ flex: 1, minWidth: 0 }}>
+											<strong style={{ display: 'block', fontSize: '11.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+												{winner.name || 'Foreplay Ad'}
+											</strong>
+											<span style={{ fontSize: '9px', color: '#918b95' }}>Patrocinado</span>
+										</div>
+									</div>
+
+									{/* Image Container with Heart */}
+									<div style={{ background: '#f8f6fb', position: 'relative', overflow: 'hidden' }}>
+										{/* Protection overlay */}
+										<div
+											style={{
+												position: 'absolute',
+												inset: 0,
+												zIndex: 2,
+												background: 'transparent'
+											}}
+											onContextMenu={(e) => e.preventDefault()}
+											onDragStart={(e) => e.preventDefault()}
+										/>
+										
+										{/* Heart Button */}
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												onToggleLikedScraped(winner.imagePath);
+											}}
+											style={{
+												position: 'absolute',
+												top: '10px',
+												right: '10px',
+												zIndex: 4,
+												border: 0,
+												background: 'rgba(255,255,255,0.85)',
+												color: isLiked ? '#ff4185' : '#716d79',
+												borderRadius: '50%',
+												width: '30px',
+												height: '30px',
+												display: 'grid',
+												placeItems: 'center',
+												cursor: 'pointer',
+												boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+												outline: 0
+											}}
+											title={isLiked ? "Quitar de guardados" : "Guardar idea"}
+										>
+											<Icon name="heart" size={15} fill={isLiked ? '#ff4185' : 'none'} />
+										</button>
+
+										<img
+											src={imageUrl}
+											alt={winner.name}
+											style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
+											loading="lazy"
+											onContextMenu={(e) => e.preventDefault()}
+											onDragStart={(e) => e.preventDefault()}
+										/>
+									</div>
+
+									{/* Footer with prompt details */}
+									<div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+										<p
+											style={{
+												fontSize: '11px',
+												color: '#4a444f',
+												margin: '0 0 12px 0',
+												lineHeight: '1.45',
+												maxHeight: '44px',
+												overflow: 'hidden',
+												display: '-webkit-box',
+												WebkitLineClamp: 2,
+												WebkitBoxOrient: 'vertical'
+											}}
+										>
+											{winner.promptNotes || 'Inspiración publicitaria ganadora.'}
+										</p>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												onUseScrapedWinner(winner.imagePath);
+											}}
+											style={{
+												width: '100%',
+												height: '35px',
+												background: '#f2ecfc',
+												border: 0,
+												borderRadius: '8px',
+												color: '#6d35e8',
+												fontWeight: 'bold',
+												fontSize: '10.5px',
+												cursor: 'pointer',
+												display: 'flex',
+												alignItems: 'center',
+												justifyContent: 'center',
+												gap: '6px'
+											}}
+										>
+											Usar esta idea
+											<Icon name="arrow" size={13} />
+										</button>
+									</div>
+								</article>
+							);
+						})}
+					</div>
+				</>
+			)}
+
+			{/* ── User's generated history ── */}
+			{history.length > 0 && (
+				<>
+					<div className="studio-section-title">
+						<div>
+							<h2>Últimas imágenes</h2>
+							<p>Descargalas o creá otra versión.</p>
+						</div>
+						<button onClick={() => onView('history')}>
+							Ver todas <Icon name="arrow" size={15} />
+						</button>
+					</div>
+					<div className="studio-recent-row" style={{ marginBottom: '40px' }}>
+						{history.slice(0, 4).map((item) => (
+							<GenerationCard key={item.id} item={item} onReuse={() => onReuse(item)} />
+						))}
+					</div>
+				</>
+			)}
+
+			{/* ── Liked scraped ads from library ── */}
+			{likedWinners.length > 0 && (
+				<>
+					<div className="studio-section-title">
+						<div>
+							<h2>Anuncios guardados de la biblioteca</h2>
+							<p>Tus ideas ganadoras favoritas para tener a mano.</p>
+						</div>
+						<button onClick={() => onView('winners')}>
+							Biblioteca completa <Icon name="arrow" size={15} />
+						</button>
+					</div>
+					<div className="library-ad-grid-masonry dashboard-masonry" style={{ columnGap: '16px' }}>
+						{likedWinners.map((winner, idx) => {
+							const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
+							const imageUrl = winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath;
+							const isLiked = likedScrapedPaths.has(winner.imagePath);
+
+							return (
+								<article
+									className="library-ad-card-masonry"
+									key={winner.imagePath || idx}
+									style={{
+										display: 'flex',
+										flexDirection: 'column',
+										position: 'relative',
+										cursor: 'pointer'
+									}}
+									onClick={() => onUseScrapedWinner(winner.imagePath)}
+								>
+									{/* Card header */}
+									<div
+										style={{
+											padding: '12px',
+											display: 'flex',
+											alignItems: 'center',
+											gap: '10px',
+											borderBottom: '1px solid #f3eff6'
+										}}
+									>
+										<span
+											style={{
+												width: '32px',
+												height: '32px',
+												borderRadius: '50%',
+												background: '#ece7f4',
+												color: '#6d35e8',
+												fontWeight: 'bold',
+												display: 'grid',
+												placeItems: 'center',
+												fontSize: '11px',
+												overflow: 'hidden'
+											}}
+										>
+											{winner.metadata?.logoUrl ? (
+												<img src={winner.metadata.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+											) : (
+												(winner.name || 'F').slice(0, 1).toUpperCase()
+											)}
+										</span>
+										<div style={{ flex: 1, minWidth: 0 }}>
+											<strong style={{ display: 'block', fontSize: '11.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+												{winner.name || 'Foreplay Ad'}
+											</strong>
+											<span style={{ fontSize: '9px', color: '#918b95' }}>Patrocinado</span>
+										</div>
+									</div>
+
+									{/* Image Container with Heart */}
+									<div style={{ background: '#f8f6fb', position: 'relative', overflow: 'hidden' }}>
+										{/* Protection overlay */}
+										<div
+											style={{
+												position: 'absolute',
+												inset: 0,
+												zIndex: 2,
+												background: 'transparent'
+											}}
+											onContextMenu={(e) => e.preventDefault()}
+											onDragStart={(e) => e.preventDefault()}
+										/>
+										
+										{/* Heart Button */}
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												onToggleLikedScraped(winner.imagePath);
+											}}
+											style={{
+												position: 'absolute',
+												top: '10px',
+												right: '10px',
+												zIndex: 4,
+												border: 0,
+												background: 'rgba(255,255,255,0.85)',
+												color: isLiked ? '#ff4185' : '#716d79',
+												borderRadius: '50%',
+												width: '30px',
+												height: '30px',
+												display: 'grid',
+												placeItems: 'center',
+												cursor: 'pointer',
+												boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+												outline: 0
+											}}
+											title={isLiked ? "Quitar de guardados" : "Guardar idea"}
+										>
+											<Icon name="heart" size={15} fill={isLiked ? '#ff4185' : 'none'} />
+										</button>
+
+										<img
+											src={imageUrl}
+											alt={winner.name}
+											style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
+											loading="lazy"
+											onContextMenu={(e) => e.preventDefault()}
+											onDragStart={(e) => e.preventDefault()}
+										/>
+									</div>
+
+									{/* Footer with prompt details */}
+									<div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+										<p
+											style={{
+												fontSize: '11px',
+												color: '#4a444f',
+												margin: '0 0 12px 0',
+												lineHeight: '1.45',
+												maxHeight: '44px',
+												overflow: 'hidden',
+												display: '-webkit-box',
+												WebkitLineClamp: 2,
+												WebkitBoxOrient: 'vertical'
+											}}
+										>
+											{winner.promptNotes || 'Inspiración publicitaria ganadora.'}
+										</p>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												onUseScrapedWinner(winner.imagePath);
+											}}
+											style={{
+												width: '100%',
+												height: '35px',
+												background: '#f2ecfc',
+												border: 0,
+												borderRadius: '8px',
+												color: '#6d35e8',
+												fontWeight: 'bold',
+												fontSize: '10.5px',
+												cursor: 'pointer',
+												display: 'flex',
+												alignItems: 'center',
+												justifyContent: 'center',
+												gap: '6px'
+											}}
+										>
+											Usar esta idea
+											<Icon name="arrow" size={13} />
+										</button>
+									</div>
+								</article>
+							);
+						})}
+					</div>
+				</>
+			)}
+		</>
+	);
 }
 
 function CreativeFeatureCard({ creative, index, onClick }: { creative: Creativo; index: number; onClick: () => void }) {
-	return <button className={`studio-feature-card variant-${index + 1}`} onClick={onClick}>
-		<div className="studio-feature-preview"><span className="feature-tag">{ringMeta[creative.ring]?.short}</span><div className="feature-art"><i/><b>{index === 0 ? 'ENVÍO\nGRATIS' : index === 1 ? '3 CUOTAS' : '“LO AMO”'}</b><small>{index === 0 ? 'en compras seleccionadas' : index === 1 ? 'sin interés' : '— Cliente verificado'}</small></div></div>
-		<div className="studio-feature-info"><span>#{creativeNumber(creative.id)} · {creative.n}</span><h3>{creative.nombre}</h3><p>{conciseText(creative.cuando)}</p><footer>Usar esta idea <Icon name="arrow" size={15}/></footer></div>
-	</button>;
+	return null;
 }
 
 function Library({ items, favorites, onChoose, onToggleFavorite }: { items: Creativo[]; favorites: Set<number>; onChoose: (creative: Creativo) => void; onToggleFavorite: (id: number) => void }) {
