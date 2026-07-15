@@ -745,7 +745,7 @@ export default function CreativeApp() {
 				</header>
 
 				<div className="studio-content">
-					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} productCount={products.length} history={history} catalog={catalog} favorites={favorites} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
+					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} history={history} catalog={catalog} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
 					{view === 'library' && <Library items={catalog} favorites={favorites} onChoose={chooseCreative} onToggleFavorite={toggleFavorite} />}
 					{view === 'winners' && <WinnersLibrary session={session} onChoose={chooseCreative} onView={setView} />}
 					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onRemove={removeProduct} onCreate={(productId) => productId ? startWithProduct(productId) : setView('library')} />}
@@ -915,15 +915,10 @@ function Onboarding({ profile, email, onSave }: { profile: AppProfile; email: st
 	</div>;
 }
 
-function Dashboard({ profile, email, productCount, history, catalog, favorites, onView, onChoose, onReuse }: { profile: AppProfile; email: string; productCount: number; history: Generation[]; catalog: Creativo[]; favorites: Set<number>; onView: (view: View) => void; onChoose: (creative: Creativo) => void; onReuse: (generation: Generation) => void }) {
+function Dashboard({ profile, email, history, catalog, onView, onChoose, onReuse }: { profile: AppProfile; email: string; history: Generation[]; catalog: Creativo[]; onView: (view: View) => void; onChoose: (creative: Creativo) => void; onReuse: (generation: Generation) => void }) {
 	const popular = [18, 22, 1].map((id) => catalog.find((item) => item.id === id)!).filter(Boolean);
-	const hasProducts = productCount > 0;
 	return <>
 		<div className="studio-page-heading"><div><p>INICIO</p><h1>Buen día, {firstName(profile, email)}.</h1><span>¿Qué querés crear hoy?</span></div><button className="studio-primary-button compact" onClick={() => onView('library')}><Icon name="plus" size={17}/>Crear imagen</button></div>
-		<section className="studio-hero-card">
-			<div className="studio-hero-copy"><span className="studio-eyebrow light"><i/><span>{hasProducts ? 'TODO LISTO PARA CREAR' : 'EMPEZÁ POR TU PRODUCTO'}</span></span><h2>{hasProducts ? <>Elegí una idea.<br/>Generá una imagen <em>que vende.</em></> : <>Cargá tu producto.<br/>Usalo en <em>cualquier idea.</em></>}</h2><p>{hasProducts ? `Tenés ${productCount} ${productCount === 1 ? 'producto listo' : 'productos listos'} para combinar con una referencia.` : 'Pegá su URL o subí entre una y seis fotos. Después Creattia te guía.'}</p><button onClick={() => onView(hasProducts ? 'library' : 'products')}>{hasProducts ? 'Elegir una idea' : 'Agregar producto'} <Icon name="arrow" size={17}/></button></div>
-			<div className="studio-hero-visual studio-hero-render"><Moki className="studio-dashboard-moki"/><span className="hero-render-chip top"><i/>Moki te guía</span><span className="hero-render-chip bottom"><b>Nuevas</b> ideas cada semana</span><span className="hero-render-chip middle">{favorites.size} {favorites.size === 1 ? 'guardada' : 'guardadas'}</span><div className="hero-spark"><Icon name="spark"/></div></div>
-		</section>
 		<div className="studio-section-title"><div><h2>Ideas recomendadas</h2><p>Empezá con una opción probada.</p></div><button onClick={() => onView('library')}>Ver biblioteca <Icon name="arrow" size={15}/></button></div>
 		<div className="studio-popular-grid">{popular.map((creative, index) => <CreativeFeatureCard key={creative.id} creative={creative} index={index} onClick={() => onChoose(creative)} />)}</div>
 		{history.length > 0 && <><div className="studio-section-title"><div><h2>Últimas imágenes</h2><p>Descargalas o creá otra versión.</p></div><button onClick={() => onView('history')}>Ver todas <Icon name="arrow" size={15}/></button></div><div className="studio-recent-row">{history.slice(0, 4).map((item) => <GenerationCard key={item.id} item={item} onReuse={() => onReuse(item)}/>)}</div></>}

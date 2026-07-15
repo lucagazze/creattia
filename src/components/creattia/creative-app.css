@@ -1905,4 +1905,149 @@
 	}
 }
 
+/* ========================================================
+   LANDING BRAND UNIFICATION (AUTH, SIDEBAR & PLAN CARDS)
+   ======================================================== */
+/* Auth / Login Page Overrides */
+.studio-auth {
+	background: radial-gradient(circle at 10% 20%, rgba(255, 126, 64, 0.05), transparent 40%), radial-gradient(circle at 90% 80%, rgba(162, 93, 247, 0.06), transparent 40%), #fcfbfe !important;
+}
+.studio-auth::before,
+.studio-auth::after {
+	display: none !important;
+}
+.studio-auth-card {
+	background: #fff !important;
+	border: 1px solid #e9e6ed !important;
+	box-shadow: 0 25px 75px rgba(52, 40, 79, 0.05) !important;
+}
+.studio-auth-heading h2 {
+	color: #19171d !important;
+}
+.studio-auth-heading p {
+	color: #716d79 !important;
+}
+.studio-auth-heading p button {
+	color: #e13b7a !important;
+}
+.studio-demo-label {
+	background: #fbfafc !important;
+	border: 1px solid #e9e6ed !important;
+	color: #a25df7 !important;
+}
+.studio-demo-label i {
+	background: #a25df7 !important;
+}
+.studio-google-button {
+	background: #fff !important;
+	border: 1px solid #e9e6ed !important;
+	color: #19171d !important;
+}
+.studio-google-button:hover {
+	border-color: #a25df7 !important;
+	background: #fcfbfe !important;
+}
+.studio-auth-card form input {
+	border: 1px solid #aaa4b0 !important;
+	background: #fff !important;
+	color: #19171d !important;
+}
+.studio-auth-card form input:focus {
+	border-color: #ff4185 !important;
+	box-shadow: 0 0 0 4px rgba(255, 65, 133, 0.1) !important;
+}
+.studio-auth-card .studio-primary-button {
+	background: var(--holo-gradient) !important;
+	color: #fff !important;
+	border: 0 !important;
+}
+.studio-demo-entry {
+	color: #a25df7 !important;
+}
+.studio-demo-entry:hover {
+	color: #ff4185 !important;
+}
+.studio-terms a {
+	color: #a25df7 !important;
+}
+.studio-auth-switch {
+	color: #716d79 !important;
+}
+.studio-auth-switch button {
+	color: #a25df7 !important;
+}
+.studio-auth-switch button:hover {
+	color: #ff4185 !important;
+	text-decoration: underline !important;
+}
+
+/* Sidebar Plan Card & Profile Light Mode Overrides */
+.studio-plan-card {
+	background: #fbfafc !important;
+	border: 1px solid #e9e6ed !important;
+	box-shadow: 0 4px 15px rgba(52, 40, 79, 0.03) !important;
+}
+.studio-plan-card > strong {
+	color: #19171d !important;
+}
+.studio-plan-card > p {
+	background: #eee6f3 !important;
+}
+.studio-plan-card > p span {
+	background: var(--holo-gradient) !important;
+}
+.studio-plan-card footer {
+	color: #716d79 !important;
+}
+.studio-plan-card footer button {
+	color: #a25df7 !important;
+}
+.studio-plan-card footer button:hover {
+	color: #ff4185 !important;
+}
+.studio-user {
+	border-top: 1px solid #e9e6ed !important;
+}
+.studio-user > span {
+	background: #f4effb !important;
+	color: #6d35e8 !important;
+}
+.studio-user strong {
+	color: #19171d !important;
+}
+.studio-user small {
+	color: #716d79 !important;
+}
+
+/* Plans Page Cards Uniformity */
+.studio-plans-grid article {
+	border: 1px solid #e9e6ed !important;
+	background: #fff !important;
+	color: #19171d !important;
+	box-shadow: 0 12px 34px rgba(52, 40, 79, 0.035) !important;
+}
+.studio-plans-grid article.featured {
+	border: 2px solid #a25df7 !important;
+	box-shadow: 0 16px 45px rgba(162, 93, 247, 0.08) !important;
+}
+.studio-plans-grid article.featured > h3 {
+	color: #19171d !important;
+}
+.studio-plans-grid .featured .plan-description {
+	color: #716d79 !important;
+}
+.studio-plans-grid .featured .plan-price-val {
+	color: #19171d !important;
+}
+.studio-plans-grid .featured .plan-price-freq {
+	color: #716d79 !important;
+}
+.studio-plans-grid .featured li {
+	color: #4b4452 !important;
+}
+.studio-plans-grid .featured li svg {
+	color: #6d35e8 !important;
+}
+
+
 

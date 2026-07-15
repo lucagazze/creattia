@@ -1083,7 +1083,7 @@ const faqs = [
 	.nav-links {
 		display: none;
 		align-items: center;
-		gap: 24px;
+		gap: clamp(12px, 2vw, 24px);
 	}
 
 	@media (min-width: 810px) {
@@ -2720,7 +2720,7 @@ const faqs = [
 
 	.plans-grid {
 		display: grid;
-		grid-template-columns: 1fr;
+		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 		gap: 24px;
 		max-width: 1200px;
 		margin: 60px auto 0;
@@ -2729,11 +2729,11 @@ const faqs = [
 
 	@media (min-width: 768px) {
 		.plans-grid {
-			grid-template-columns: repeat(2, 1fr);
+			grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 		}
 	}
 
-	@media (min-width: 1024px) {
+	@media (min-width: 1100px) {
 		.plans-grid {
 			grid-template-columns: repeat(4, 1fr);
 		}
