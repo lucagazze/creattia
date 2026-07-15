@@ -148,6 +148,73 @@ async function scanWooCommerce(origin: string) {
 	} catch { return []; }
 }
 
+async function scanTiendanube(origin: string) {
+	try {
+		// Tiendanube stores expose /productos.json (similar to Shopify)
+		const response = await safeExternalFetch(`${origin}/productos.json?per_page=60`, { headers: { accept: 'application/json' } });
+		if (!response.ok || !response.headers.get('content-type')?.includes('json')) return [];
+		const payload = JSON.parse(new TextDecoder().decode(await readLimited(response, 4_000_000)));
+		const items = Array.isArray(payload) ? payload : Array.isArray(payload.products) ? payload.products : [];
+		if (!items.length) return [];
+		return items.map((product: any, index: number): ScannedProduct => {
+			const variant = product.variants?.[0] || {};
+			const priceRaw = variant.price || product.price || '';
+			const productImages = imageUrls(
+				[product.images, product.image].flat().filter(Boolean),
+				origin,
+			);
+			const name = compact(
+				(typeof product.name === 'object' ? Object.values(product.name)[0] : product.name) || '',
+				180,
+			);
+			const description = compact(
+				(typeof product.description === 'object'
+					? Object.values(product.description)[0]
+					: product.description) || '',
+				1600,
+			);
+			return {
+				externalId: compact(product.id || product.handle || index, 240),
+				name: name || `Producto ${index + 1}`,
+				description: cheerio.load(description || '').text(),
+				priceText: compact(priceRaw, 60),
+				currency: compact(product.currency || variant.currency || '', 12),
+				productUrl: `${origin}/${product.canonical_url || product.handle || product.id}`,
+				imageUrl: productImages[0] || '',
+				imageUrls: productImages,
+				metadata: { brand: compact(product.brand, 120), tags: product.tags || [] },
+			};
+		});
+	} catch { return []; }
+}
+
+async function scanMercadoLibreItem(rawUrl: string): Promise<ScannedProduct | null> {
+	try {
+		// Extract item ID from ML URL patterns:
+		// https://www.mercadolibre.com.ar/p/MLA123, https://articulo.mercadolibre.com.ar/MLA-123
+		const mlMatch = rawUrl.match(/\b(ML[A-Z]-?\d+)\b/i);
+		if (!mlMatch) return null;
+		const itemId = mlMatch[1].replace('-', '');
+		const apiUrl = `https://api.mercadolibre.com/items/${itemId}`;
+		const response = await safeExternalFetch(apiUrl, { headers: { accept: 'application/json' } });
+		if (!response.ok) return null;
+		const item = JSON.parse(new TextDecoder().decode(await readLimited(response, 2_000_000)));
+		if (!item?.title) return null;
+		const pics = (item.pictures || []).map((p: any) => absoluteUrl(p.secure_url || p.url, apiUrl)).filter(Boolean);
+		return {
+			externalId: compact(item.id, 240),
+			name: compact(item.title, 180),
+			description: compact(item.subtitle || '', 1600),
+			priceText: item.price ? String(item.price) : '',
+			currency: compact(item.currency_id || '', 12),
+			productUrl: item.permalink || rawUrl,
+			imageUrl: pics[0] || '',
+			imageUrls: pics.slice(0, 6),
+			metadata: { condition: item.condition, categoryId: item.category_id, sellerId: item.seller_id },
+		};
+	} catch { return null; }
+}
+
 export async function scanWebsite(rawUrl: string): Promise<ScannedSource> {
 	const url = normalizeExternalUrl(rawUrl);
 	const response = await safeExternalFetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
@@ -166,8 +233,13 @@ export async function scanWebsite(rawUrl: string): Promise<ScannedSource> {
 		try { walkJsonLd(JSON.parse($(element).text()), canonical || url, products); } catch { /* malformed merchant data */ }
 	});
 
-	const [shopify, woo] = await Promise.all([scanShopify(origin), scanWooCommerce(origin)]);
-	products.push(...shopify, ...woo);
+	const mlProduct = await scanMercadoLibreItem(url);
+	if (mlProduct) products.push(mlProduct);
+
+	const [shopify, woo, tiendanube] = await Promise.all([
+		scanShopify(origin), scanWooCommerce(origin), scanTiendanube(origin),
+	]);
+	products.push(...shopify, ...woo, ...tiendanube);
 
 	if (products.length < 6) {
 		$('a[href]').each((index, element) => {
@@ -248,7 +320,7 @@ export async function analyzeCatalogWithAI(input: { sources: ScannedSource[]; pr
 			catalogContent.push({ type: 'input_text', text: `Imagen pública del producto ${product.externalId}: ${product.name}` });
 			catalogContent.push({ type: 'input_image', image_url: product.imageUrl, detail: 'low' });
 		}
-		const model = (typeof import.meta.env !== 'undefined' && import.meta.env.OPENAI_ANALYSIS_MODEL) || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5.6-luna';
+		const model = (typeof import.meta.env !== 'undefined' && import.meta.env.OPENAI_ANALYSIS_MODEL) || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o-mini';
 		const response = await client.responses.create({
 			model,
 			reasoning: { effort: 'none' },
@@ -277,3 +349,163 @@ export async function analyzeCatalogWithAI(input: { sources: ScannedSource[]; pr
 		return { ...fallback, mode: 'metadata' as const };
 	}
 }
+
+/**
+ * AI-first product extractor: fetches a product page, extracts all visible text and images,
+ * and uses GPT-4o-mini (with vision) to understand and structure the product information.
+ * Works with any e-commerce platform without relying on platform-specific APIs.
+ */
+export async function extractProductPageWithAI(rawUrl: string, apiKey: string): Promise<ScannedProduct> {
+	const url = normalizeExternalUrl(rawUrl);
+
+	// 1. Fetch the page HTML
+	const response = await safeExternalFetch(url, {
+		headers: {
+			accept: 'text/html,application/xhtml+xml',
+			'user-agent': 'Mozilla/5.0 (compatible; CreattiaBot/1.0)',
+		},
+	});
+	if (!response.ok) throw new Error(`El sitio respondió con estado ${response.status}.`);
+	const contentType = (response.headers.get('content-type') || '').toLowerCase();
+	if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+		throw new Error('La URL no apunta a una página web compatible.');
+	}
+
+	const html = new TextDecoder().decode(await readLimited(response, 4_000_000));
+	const $ = cheerio.load(html);
+	const canonical = absoluteUrl($('link[rel="canonical"]').attr('href') || response.url || url, url);
+	const base = canonical || url;
+
+	// 2. Extract meta info
+	const pageTitle = compact(
+		$('meta[property="og:title"]').attr('content') || $('meta[name="twitter:title"]').attr('content') || $('title').text(),
+		200,
+	);
+	const pageDesc = compact(
+		$('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || '',
+		1000,
+	);
+
+	// 3. Collect product images (OG first, then DOM images in product sections)
+	const productImages: string[] = [];
+	const addImage = (src: unknown) => {
+		const abs = absoluteUrl(src, base);
+		if (abs && !productImages.includes(abs) && !/\/(icon|logo|sprite|avatar|favicon|pixel|tracking)/i.test(abs)) {
+			productImages.push(abs);
+		}
+	};
+	addImage($('meta[property="og:image"]').attr('content'));
+	addImage($('meta[name="twitter:image"]').attr('content'));
+	// Check JSON-LD for product images
+	$('script[type="application/ld+json"]').each((_i, el) => {
+		try {
+			const data = JSON.parse($(el).text());
+			const walk = (node: any) => {
+				if (!node || typeof node !== 'object') return;
+				if (Array.isArray(node)) { node.forEach(walk); return; }
+				if (node['@type'] && String(node['@type']).toLowerCase() === 'product') {
+					const imgs = imageUrls([node.image], base, 6);
+					imgs.forEach(addImage);
+				}
+				Object.values(node).forEach(walk);
+			};
+			walk(data);
+		} catch { /* malformed */ }
+	});
+	// DOM images in likely product containers
+	$('main img, [class*="product"] img, [class*="gallery"] img, [class*="swiper"] img, [class*="slider"] img, [id*="product"] img').each((_i, el) => {
+		addImage($(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src') || $(el).attr('data-original'));
+	});
+	// Deduplicate and limit
+	const finalImages = [...new Set(productImages)].slice(0, 8);
+
+	// 4. Extract clean text content (remove chrome, keep product content)
+	$('script, style, noscript, nav, footer, header, aside, [class*="breadcrumb"], [class*="cookie"], [class*="popup"], [class*="modal"], [class*="cart"], [class*="related"], [class*="recommend"]').remove();
+	const bodyText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 7000);
+
+	// 5. Build AI prompt with page text + top images
+	const client = new OpenAI({ apiKey });
+
+	const messages: any[] = [
+		{
+			role: 'user',
+			content: [
+				{
+					type: 'text',
+					text: `Analizá esta página de producto y extraé la información del ítem que se vende. Usá únicamente lo que está en el contenido de la página, no inventes nada.
+
+URL: ${base}
+Título: ${pageTitle}
+Meta descripción: ${pageDesc}
+
+Texto completo de la página:
+---
+${bodyText}
+---
+
+Respondé SOLO con JSON válido con esta estructura exacta:
+{
+  "name": "nombre exacto del producto tal como aparece en la página",
+  "description": "descripción detallada con todos los detalles relevantes: beneficios, características, materiales, ingredientes, especificaciones técnicas, etc. Incluí todo lo que pueda ayudar a hacer un anuncio efectivo.",
+  "price": "precio exacto con símbolo de moneda tal como aparece (ej: $15.990 o USD 29.99) o null si no aparece",
+  "currency": "código de moneda (ARS, USD, EUR, etc.) o null",
+  "brand": "marca o nombre de la empresa vendedora",
+  "category": "categoría del producto (ej: skincare, calzado, suplementos, etc.)",
+  "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
+  "targetAudience": "descripción del público objetivo del producto"
+}`,
+				},
+				// Attach main image for visual context if available
+				...(finalImages[0]
+					? [{ type: 'image_url', image_url: { url: finalImages[0], detail: 'low' as const } }]
+					: []),
+				// Attach a couple more product images if available
+				...(finalImages[1]
+					? [{ type: 'image_url', image_url: { url: finalImages[1], detail: 'low' as const } }]
+					: []),
+			],
+		},
+	];
+
+	let extracted: any = {};
+	try {
+		const aiResponse = await client.chat.completions.create({
+			model: 'gpt-4o-mini',
+			messages,
+			response_format: { type: 'json_object' },
+			max_tokens: 1000,
+		});
+		extracted = JSON.parse(aiResponse.choices[0]?.message?.content || '{}');
+	} catch (err) {
+		// If AI fails, fall back to meta info so we always return something
+		console.error('extractProductPageWithAI: AI step failed, using meta fallback:', err);
+	}
+
+	const name = compact(extracted.name || pageTitle || new URL(url).hostname, 180);
+	const description = compact(
+		[
+			extracted.description,
+			extracted.keyBenefits?.length ? `Beneficios: ${extracted.keyBenefits.join(' · ')}` : '',
+			extracted.targetAudience ? `Para: ${extracted.targetAudience}` : '',
+		].filter(Boolean).join('\n\n'),
+		1600,
+	);
+
+	return {
+		externalId: base,
+		name,
+		description,
+		priceText: compact(extracted.price || '', 60),
+		currency: compact(extracted.currency || '', 12),
+		productUrl: base,
+		imageUrl: finalImages[0] || '',
+		imageUrls: finalImages,
+		metadata: {
+			brand: compact(extracted.brand || '', 120),
+			category: compact(extracted.category || '', 100),
+			aiExtracted: true,
+			sourceUrl: url,
+		},
+	};
+}
+

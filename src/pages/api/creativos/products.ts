@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { analyzeCatalogWithAI, scanWebsite, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
+import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
@@ -60,71 +60,71 @@ function sameProductUrl(left: string, right: string) {
 async function importProductUrls(userId: string, rawUrls: unknown[]) {
 	const admin = getAdminClient();
 	if (!admin) throw new Error('Supabase no está configurado.');
+	const apiKey: string = import.meta.env.OPENAI_API_KEY;
+	if (!apiKey) throw new Error('Falta configurar la API de IA.');
+
 	const errors: Array<{ url: string; error: string }> = [];
 	const normalized = rawUrls.flatMap((value) => {
 		const raw = String(value).trim().slice(0, 500);
 		try { return raw ? [normalizeExternalUrl(raw)] : []; }
 		catch (error) { errors.push({ url: raw, error: error instanceof Error ? error.message : 'URL inválida.' }); return []; }
 	});
-	const urls = [...new Set(normalized)].slice(0, 10);
+	const urls = [...new Set(normalized)].slice(0, 5);
 	if (!urls.length) throw new Error('Pegá al menos una URL de producto.');
 
-	const scans = await Promise.allSettled(urls.map((url) => scanWebsite(url)));
-	const found: Array<{ requestedUrl: string; source: Awaited<ReturnType<typeof scanWebsite>>; product: ScannedProduct }> = [];
-	for (let index = 0; index < scans.length; index += 1) {
-		const result = scans[index];
-		if (result.status === 'rejected') {
-			errors.push({ url: urls[index], error: result.reason instanceof Error ? result.reason.message : 'No se pudo leer.' });
-			continue;
-		}
-		const product = result.value.products.find((item) => sameProductUrl(item.productUrl, urls[index]))
-			|| (result.value.products.length === 1 ? result.value.products[0] : undefined);
-		if (!product) {
-			errors.push({ url: urls[index], error: 'No encontramos datos de producto en esa página.' });
-			continue;
-		}
-		found.push({ requestedUrl: urls[index], source: result.value, product });
-	}
-	if (!found.length) return { importedIds: [], errors };
-
-	const analysis = await analyzeCatalogWithAI({
-		sources: found.map((item) => item.source),
-		products: found.map((item) => item.product),
-		apiKey: import.meta.env.OPENAI_API_KEY,
-		endUserId: userId,
-	});
-	const insights = new Map((analysis.productInsights || []).map((item: any) => [String(item.externalId), item]));
+	// AI-first extraction: each URL is analyzed independently by GPT-4o-mini
 	const importedIds: string[] = [];
-	for (const item of found) {
+	for (const url of urls) {
 		try {
-			const insight: any = insights.get(item.product.externalId);
+			// 1. Extract product data using AI (reads full page text + images)
+			const product: ScannedProduct = await extractProductPageWithAI(url, apiKey);
+
+			// 2. Upsert into DB
 			const { data: stored, error } = await admin.from('creative_products').upsert({
-			user_id: userId,
-			name: item.product.name,
-			description: insight?.description || item.product.description || null,
-			price_text: item.product.priceText || null,
-			currency: item.product.currency || null,
-			product_url: item.product.productUrl || item.requestedUrl,
-			source: 'website',
-			external_id: item.product.externalId || item.product.productUrl || item.requestedUrl,
-			source_image_url: item.product.imageUrl || null,
-			metadata: { ...item.product.metadata, importedFromUrl: item.requestedUrl, sourceImageUrls: item.product.imageUrls },
-			analysis: insight ? { category: insight.category, keywords: insight.keywords } : {},
-			is_active: true,
-			updated_at: new Date().toISOString(),
-			synced_at: new Date().toISOString(),
-		}, { onConflict: 'user_id,source,external_id' })
-			.select('id,name,image_path,source_image_url')
-			.single();
-		if (error) throw error;
-		await mirrorProductImages(userId, stored, item.product.imageUrls?.length ? item.product.imageUrls : [item.product.imageUrl]);
+				user_id: userId,
+				name: product.name,
+				description: product.description || null,
+				price_text: product.priceText || null,
+				currency: product.currency || null,
+				product_url: product.productUrl || url,
+				source: 'website',
+				external_id: product.externalId || url,
+				source_image_url: product.imageUrl || null,
+				metadata: {
+					...product.metadata,
+					importedFromUrl: url,
+					sourceImageUrls: product.imageUrls,
+					aiExtracted: true,
+				},
+				analysis: {
+					category: product.metadata?.category || '',
+					keywords: [],
+				},
+				is_active: true,
+				updated_at: new Date().toISOString(),
+				synced_at: new Date().toISOString(),
+			}, { onConflict: 'user_id,source,external_id' })
+				.select('id,name,image_path,source_image_url')
+				.single();
+
+			if (error) throw error;
+
+			// 3. Mirror product images into Supabase Storage
+			if (product.imageUrls?.length) {
+				await mirrorProductImages(userId, stored, product.imageUrls);
+			} else if (product.imageUrl) {
+				await mirrorProductImages(userId, stored, [product.imageUrl]);
+			}
+
 			importedIds.push(stored.id as string);
-		} catch (error) {
-			errors.push({ url: item.requestedUrl, error: error instanceof Error ? error.message : 'No se pudo guardar.' });
+		} catch (err) {
+			errors.push({ url, error: err instanceof Error ? err.message : 'No se pudo analizar el producto.' });
 		}
 	}
+
 	return { importedIds, errors };
 }
+
 
 export const GET: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
