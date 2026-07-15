@@ -207,7 +207,7 @@ if (accessToken) {
   // Test: URL product scanning with a real Argentine e-commerce product page
   console.log('\n── Scanning de URL de producto ──');
   try {
-    const testProductUrl = 'https://www.tiendamia.com/ar/producto/B09NFHDDQT';
+    const testProductUrl = 'https://www.samsung.com/ar/smartphones/galaxy-s/';
     const scanRes = await fetch(`${BASE_URL}/api/creativos/products`, {
       method: 'POST',
       headers: {
