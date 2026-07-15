@@ -1,312 +1,3128 @@
 ---
 export const prerender = true;
 import Layout from '../layouts/Layout.astro';
-import localManifest from '../../docs/reference-library.starter-50.json';
 
-type StoredReference = { templateId: number; imagePath: string };
 
-const supabaseUrl = String(import.meta.env.PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-const localById = new Map(localManifest.items.map((item) => [item.templateId, item.localImage.replace(/^public/, '')]));
-const storedById = new Map<number, string>();
-
-if (supabaseUrl) {
-	try {
-		const manifestResponse = await fetch(`${supabaseUrl}/storage/v1/object/public/creative-references/manifests/starter-static-50.json`);
-		if (manifestResponse.ok) {
-			const manifest = await manifestResponse.json() as { items?: StoredReference[] } | StoredReference[];
-			const items = Array.isArray(manifest) ? manifest : (manifest.items || []);
-			for (const item of items) storedById.set(item.templateId, `${supabaseUrl}/storage/v1/object/public/creative-references/${item.imagePath}`);
-		}
-	} catch {
-		// The bundled originals keep the landing available if Storage is temporarily unreachable.
-	}
-}
-
-const reference = (id: number) => storedById.get(id) || localById.get(id) || '';
-
+// Data matching the new cloned layout translated to Spanish
 const showcase = [
-	{ id: 18, label: 'Envío gratis' }, { id: 2, label: 'Reseñas' }, { id: 40, label: 'Producto' },
-	{ id: 23, label: 'Comparativas' }, { id: 30, label: 'Listas' }, { id: 17, label: '3x2' },
-	{ id: 42, label: 'Lifestyle' }, { id: 6, label: 'Antes y después' },
+	{ type: 'image', src: 'https://tryholo.ai/rootPage/assets/featuresCarousel/1.avif', label: 'Anuncio' },
+	{ type: 'image', src: 'https://tryholo.ai/rootPage/assets/AllInOneMarketing/ads/1.avif', label: 'Creativo' },
+	{ type: 'image', src: 'https://tryholo.ai/rootPage/assets/AllInOneMarketing/socials/2.avif', label: 'Redes' },
+	{ type: 'image', src: 'https://tryholo.ai/rootPage/assets/featuresCarousel/4.avif', label: 'Variante' },
+	{ type: 'image', src: 'https://tryholo.ai/rootPage/assets/AllInOneMarketing/ads/2.avif', label: 'Promoción' },
+	{ type: 'image', src: 'https://tryholo.ai/rootPage/assets/featuresCarousel/6.webp', label: 'Diseño' },
+	{ type: 'image', src: 'https://tryholo.ai/rootPage/assets/AllInOneMarketing/socials/1.avif', label: 'Imagen' },
+	{ type: 'image', src: 'https://tryholo.ai/rootPage/assets/featuresCarousel/8.avif', label: 'Social' }
+];
+
+const ideasRow1 = [
+	{ text: 'Nosotros vs Ellos', color: '#8b5cf6' },
+	{ text: 'Testimonios', color: '#f97316' },
+	{ text: 'Más vendidos', color: '#3b82f6' },
+	{ text: 'Multimedia', color: '#a855f7' },
+	{ text: 'Gancho negativo', color: '#ef4444' },
+	{ text: 'Cazador de mitos', color: '#ec4899' },
+	{ text: 'Características', color: '#d946ef' }
+];
+
+const ideasRow2 = [
+	{ text: 'Notas', color: '#14b8a6' },
+	{ text: 'Qué contiene', color: '#f43f5e' },
+	{ text: 'Preguntas frecuentes', color: '#06b6d4' },
+	{ text: 'Antes y después', color: '#6366f1' },
+	{ text: 'Top razones', color: '#2563eb' },
+	{ text: 'Problema-solución', color: '#ea580c' },
+	{ text: 'Estadísticas', color: '#0284c7' }
 ];
 
 const steps = [
-	{ number: '01', title: 'Pegá tu URL', copy: 'Creattia aprende tu identidad, tus productos y la información importante de tu negocio.', kind: 'url' },
-	{ number: '02', title: 'Explorá ideas', copy: 'Recorré categorías de venta y guardá las estructuras que mejor encajan con tu objetivo.', kind: 'ideas' },
-	{ number: '03', title: 'Elegí tus productos', copy: 'Usá uno, combiná varios o creá una pieza general de toda tu marca.', kind: 'products' },
-	{ number: '04', title: 'Generá y publicá', copy: 'Recibí de una a cuatro imágenes, descargalas o pedí una nueva variante.', kind: 'result' },
+	{ number: '01', title: 'Ingresá tu URL', copy: 'Pegá el enlace de tu web y la IA de Creattia aprenderá tu marca en minutos.', kind: 'url' },
+	{ number: '02', title: 'Deslizá ideas', copy: 'Nuestro creador de contenido con IA te entrega ideas frescas todos los días.', kind: 'ideas' },
+	{ number: '03', title: 'Editá y personalizá', copy: 'Cambiá cualquier detalle de la pieza, no necesitas habilidades de diseño.', kind: 'edit' },
+	{ number: '04', title: 'Descargá y publicá', copy: 'Lanzá 10x más contenido, 75% más rápido.', kind: 'publish' },
 ];
 
-const toolTabs = [
-	{ id: 'ads', label: 'Anuncios', eyebrow: 'CAMPAÑAS DE VENTA', title: 'Estáticos pensados para detener el scroll.', copy: 'Ofertas, beneficios y argumentos comerciales listos para adaptar a tu producto.', ids: [18, 22, 13, 14, 16] },
-	{ id: 'product', label: 'Producto', eyebrow: 'TU PRODUCTO PRIMERO', title: 'Mostrá qué vendés con absoluta claridad.', copy: 'Heroes limpios, escenas de uso, despieces y comparativas que explican el valor.', ids: [40, 42, 43, 46, 44] },
-	{ id: 'education', label: 'Contenido', eyebrow: 'EDUCAR PARA CONVERTIR', title: 'Convertí información en contenido fácil de guardar.', copy: 'Listas, preguntas, datos, diagramas y tutoriales con la identidad de tu negocio.', ids: [30, 32, 33, 31, 45] },
-	{ id: 'trust', label: 'Confianza', eyebrow: 'PRUEBA SOCIAL', title: 'Dale a cada compra una razón para sentirse segura.', copy: 'Reseñas, testimonios, autoridad y garantías presentadas con una jerarquía clara.', ids: [2, 3, 7, 11, 48] },
-];
-
-const businesses = ['E-commerce', 'Moda', 'Belleza', 'Gastronomía', 'Fitness', 'Servicios', 'Productos digitales', 'Apps y SaaS'];
-const ideaTags = ['Envío gratis', '3x2', 'Cuotas', 'Reseñas', 'Comparativas', 'Antes y después', 'Bundles', 'Listas', 'Mitos', 'Lifestyle', 'Garantías', 'Lanzamientos', 'Preguntas', 'Despieces'];
-
-const comparison = [
-	{ feature: 'Ideas de venta organizadas', creattia: true, chat: false, canva: false, image: false },
-	{ feature: 'Identidad de marca aplicada', creattia: true, chat: 'Parcial', canva: 'Manual', image: 'Parcial' },
-	{ feature: 'Productos guardados y reutilizables', creattia: true, chat: false, canva: false, image: false },
-	{ feature: 'Sin prompts ni diseño', creattia: true, chat: false, canva: false, image: false },
-	{ feature: 'Variantes e historial', creattia: true, chat: 'Parcial', canva: 'Manual', image: 'Parcial' },
+const cylinderImages = [
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/ads/1.avif',
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/socials/1.avif',
+	'https://tryholo.ai/rootPage/assets/featuresCarousel/4.avif',
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/ads/2.avif',
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/socials/2.avif',
+	'https://tryholo.ai/rootPage/assets/featuresCarousel/6.webp',
+	'https://tryholo.ai/rootPage/assets/featuresCarousel/8.avif',
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/ads/3.webp',
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/socials/3.avif',
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/ads/4.avif',
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/socials/4.avif',
+	'https://tryholo.ai/rootPage/assets/AllInOneMarketing/emails/3.avif'
 ];
 
 const plans = [
-	{ name: 'Gratis', price: '0', description: 'Probá el flujo completo antes de elegir.', credits: '3 imágenes', href: '/app/?plan=free', features: ['1 marca', 'Biblioteca completa', 'Sin tarjeta'] },
+	{ name: 'Gratis', price: '0', description: 'Probá el flujo completo antes de elegir.', credits: '3 imágenes', href: '/app/?plan=free', features: ['1 marca conectada', 'Biblioteca completa', 'Sin tarjeta de crédito'] },
 	{ name: 'Pro', price: '39', description: 'Para crear y probar nuevas ideas cada semana.', credits: '120 imágenes/mes', href: '/app/?plan=pro', features: ['1 marca conectada', 'Hasta 5 productos por pieza', 'Historial, favoritos y variantes'], featured: true },
 	{ name: 'Escala', price: '79', description: 'Para negocios con más volumen creativo.', credits: '300 imágenes/mes', href: '/app/?plan=scale', features: ['Todo lo de Pro', 'Mayor volumen mensual', 'Flujo de trabajo prioritario'] },
+	{ name: 'Agencia', price: '149', description: 'Para agencias y marcas en rápido crecimiento.', credits: '800 imágenes/mes', href: '/app/?plan=agency', features: ['Marcas ilimitadas', 'Soporte premium 24/7', 'Acceso anticipado a funciones', 'API de generación'] }
+];
+
+
+const testimonials = [
+	{ name: 'Anna Clark', country: 'CA', date: '6 Mar 2026', text: 'Llevo todo sola y Creattia básicamente me salvó la vida jaja. Publicaciones, anuncios, todo listo sin tener que estar encima. 10/10.' },
+	{ name: 'David Wilson', country: 'US', date: '2 Mar 2026', text: 'Me preocupaba que fuera como otras herramientas de IA, pero realmente suena como mi marca. Gran herramienta para fundadores ocupados.' },
+	{ name: 'Sophie Adams', country: 'UK', date: '15 Mar 2026', text: 'Tenía pocas expectativas porque otras herramientas de IA que probé se sentían súper robóticas. Creattia fue diferente. Capturó exactamente cómo le hablamos a nuestros clientes.' },
+	{ name: 'Isaac Fisher', country: 'US', date: '14 Mar 2026', text: 'Nos ahorró un montón de dinero en freelancers. El tono de voz coincide muy bien en todos los anuncios.' },
+	{ name: 'Nicole Harris', country: 'US', date: '23 Mar 2026', text: '¿Campañas completas listas en un par de horas en lugar de semanas? Honestamente no lo creía hasta que lo vi pasar. Me encanta que no sean solo plantillas.' },
+	{ name: 'Jacob Allen', country: 'UK', date: '17 Feb 2026', text: 'Probé varias herramientas antes, pero esta es mucho más fácil de usar que las demás. En general, es 100% más amigable.' }
 ];
 
 const faqs = [
-	{ q: '¿Qué crea Creattia?', a: 'Imágenes publicitarias estáticas para anuncios, redes sociales y tiendas online usando tu marca y tus productos.' },
-	{ q: '¿Necesito saber diseñar o escribir prompts?', a: 'No. Elegís una idea, el producto, el formato y cuántas variantes querés. Creattia organiza el resto.' },
-	{ q: '¿Puedo usar más de un producto?', a: 'Sí. Podés elegir uno, combinar varios o crear una comunicación general sin seleccionar un producto.' },
-	{ q: '¿Puedo modificar una imagen generada?', a: 'Sí. Podés reutilizarla como referencia, pedir un cambio y decidir si querés conservarla, variarla un poco o explorar otra versión.' },
-	{ q: '¿De dónde salen las ideas?', a: 'La biblioteca reúne estructuras visuales organizadas por objetivo: ofertas, prueba social, educación, comparativas, producto y autoridad.' },
-	{ q: '¿La prueba gratis necesita tarjeta?', a: 'No. Creás tu cuenta y recibís tres imágenes para probar el flujo completo.' },
+	{ q: '¿Qué es Creattia?', a: 'Creattia es tu herramienta de marketing todo en uno con IA. Crea anuncios, publicaciones para redes sociales e imágenes de producto que suenan y se ven como si vinieran de tu propio equipo. Sin plantillas. Sin relleno genérico. Solo campañas perfectas listas para lanzar.' },
+	{ q: '¿Cómo se diferencia Creattia de otras herramientas de IA?', a: 'Creattia está construida para rendimiento real de marketing, no para resultados genéricos. Aprende el ADN de tu marca (estilo, disparadores de compra y público objetivo), está entrenada en más de 19,000 anuncios de alto rendimiento y soporta múltiples formatos listos para usar sin necesidad de redactar prompts.' },
+	{ q: '¿Necesito conocimientos técnicos o de diseño?', a: 'No. Creattia fue diseñada para fundadores, creadores y profesionales de marketing que buscan velocidad y resultados reales sin curvas de aprendizaje complejas.' },
+	{ q: '¿Qué tipo de contenido puede generar?', a: 'Genera anuncios estáticos, imágenes para redes sociales e imágenes de productos, todo alineado con la identidad y el tono de tu marca.' },
+	{ q: '¿Puedo gestionar múltiples marcas en una sola cuenta?', a: 'Sí. Podés configurar y gestionar múltiples marcas en tu cuenta, cada una con su propio ADN de marca, biblioteca de productos y plantillas separadas.' },
+	{ q: '¿Tienen prueba gratis?', a: 'Sí. Podés registrarte de forma gratuita y obtener 3 imágenes de prueba sin necesidad de tarjeta para experimentar el flujo de trabajo completo.' }
 ];
+
 ---
 
 <Layout
-	title="Creattia | La plataforma para crear imágenes que venden"
+	title="Creattia | La plataforma N°1 para generar imágenes que venden"
 	description="Convertí tu web y tus productos en imágenes publicitarias listas para vender. Sin diseñar ni escribir prompts."
 	ogTitle="Creattia | Imágenes publicitarias para tu negocio"
 	ogDescription="Elegí una idea, sumá tu producto y generá imágenes listas para publicar."
-	ogImage="/images/creattia/moki-og.jpg"
 >
+	<link rel="preload" href="https://tryholo.ai/fonts/Satoshi-Variable.woff2" as="font" crossorigin="anonymous" type="font/woff2" slot="head" />
+	<link rel="preload" href="https://tryholo.ai/fonts/Satoshi-VariableItalic.woff2" as="font" crossorigin="anonymous" type="font/woff2" slot="head" />
+	<link rel="preload" href="https://tryholo.ai/fonts/Wonderkids-Regular.ttf" as="font" crossorigin="anonymous" type="font/ttf" slot="head" />
+
+	<!-- Header de Navegación -->
 	<header class="floating-header" aria-label="Navegación principal">
-		<a class="logo-bubble" href="#inicio" aria-label="Creattia, volver al inicio"><img src="/images/creattia/moki-mascot.webp" alt="" width="1254" height="1254" /></a>
-		<nav>
+		<a class="logo-bubble" href="#inicio" aria-label="Creattia, volver al inicio">
+			<img src="/images/creattia/moki-mascot.webp" alt="Creattia Logo" width="1254" height="1254" />
+		</a>
+		<nav class="nav-links">
 			<a href="#como-funciona">Cómo funciona</a>
 			<a href="#biblioteca">Biblioteca</a>
 			<a href="#precios">Precios</a>
 			<a href="/app/">Ingresar</a>
 		</nav>
 		<a class="outline-cta" href="/app/">Empezar gratis <span>→</span></a>
+		<button class="mobile-menu-toggle" aria-label="Abrir menú" id="mobile-toggle">
+			<span></span><span></span><span></span>
+		</button>
 	</header>
 
-	<main>
-		<section class="hero" id="inicio">
-			<div class="hero-copy">
-				<span class="gradient-pill">IMÁGENES CON IA PARA TU NEGOCIO</span>
-				<h1>La plataforma N°1 para generar imágenes que venden.</h1>
-				<p>Convertí tu web y tus productos en anuncios listos para publicar. Sin diseñar, sin escribir prompts y sin empezar de cero.</p>
-				<a class="gradient-cta" href="/app/">Crear 3 imágenes gratis <b>→</b></a>
-				<div class="hero-proof">
-					<span><i>✦</i><b>50 estructuras</b><small>listas para explorar</small></span>
-					<span><i>✦</i><b>1–4 imágenes</b><small>por cada creación</small></span>
+	<!-- Menú móvil colapsable -->
+	<div class="mobile-nav-overlay" id="mobile-overlay">
+		<nav class="mobile-nav">
+			<a href="#como-funciona" class="mobile-nav-link">Cómo funciona</a>
+			<a href="#biblioteca" class="mobile-nav-link">Biblioteca</a>
+			<a href="#precios" class="mobile-nav-link">Precios</a>
+			<a href="/app/" class="mobile-nav-link">Ingresar</a>
+			<a class="mobile-cta" href="/app/">Empezar gratis</a>
+		</nav>
+	</div>
+
+	<main class="landing-content">
+		<!-- Hero Section -->
+		<section class="hero-section" id="inicio">
+			<div class="hero-wrapper">
+				<div class="hero-content-block">
+					<div class="hero-badge-container">
+						<div class="hero-badge">
+							<span class="hero-badge-text">IA PARA MARKETING</span>
+						</div>
+					</div>
+					<h1 class="hero-title">Lanzá 10x más<br/>contenido. 75% más rápido.</h1>
+					<p class="hero-subtitle">Creattia convierte tu web en anuncios e imágenes listas para redes sociales. Cientos de piezas de contenido generadas mientras dormís.</p>
+					<div class="hero-actions">
+						<a class="gradient-cta" href="/app/">
+							<span>Empezar gratis</span>
+							<svg class="cta-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path></svg>
+						</a>
+					</div>
+					</div>
+				<!-- Hero Video Container matching TryHolo look -->
+				<div class="hero-video-container">
+					<div class="video-border-effect"></div>
+					<video autoplay muted loop playsinline preload="metadata" aria-label="Demostración de Creattia">
+						<source src="/videos/creattia-hero-4x3.mp4" type="video/mp4" />
+					</video>
 				</div>
-			</div>
-			<div class="hero-video">
-				<video autoplay muted loop playsinline preload="metadata" aria-label="Demostración de Creattia">
-					<source src="/videos/creattia-hero-4x3.mp4" type="video/mp4" />
-				</video>
+
+				<div class="hero-rating-wrapper">
+					<div class="rating-stars">
+						<div class="avatars-group">
+							<img class="rating-avatar-img" src="https://tryholo.ai/rootPage/assets/SocialProof/footer-1.webp" alt="User 1" />
+							<img class="rating-avatar-img" src="https://tryholo.ai/rootPage/assets/SocialProof/footer-2.webp" alt="User 2" />
+							<img class="rating-avatar-img" src="https://tryholo.ai/rootPage/assets/SocialProof/footer-3.webp" alt="User 3" />
+							<img class="rating-avatar-img" src="https://tryholo.ai/rootPage/assets/SocialProof/footer-4.webp" alt="User 4" />
+						</div>
+						<span class="rating-text"><strong>4.9</strong>/5 de más de <strong>4268</strong> clientes</span>
+						<img class="rating-star-icon" src="https://tryholo.ai/rootPage/assets/SocialProof/startIcon.avif" alt="Star" />
+					</div>
+				</div>
 			</div>
 		</section>
 
-		<section class="showcase" id="biblioteca">
-			<div class="two-line-heading"><h2>Probablemente ya viste anuncios así.</h2><h2>Ahora pueden llevar tu producto.</h2></div>
-			<div class="image-marquee" aria-label="Ejemplos de la biblioteca de Creattia">
-				<div class="image-track">
-					{[...showcase, ...showcase].map((item, index) => (
-						<a class:list={{ 'reference-card': true, lifted: index % 3 === 1 }} href="/app/">
-							<img src={reference(item.id)} alt={`Ejemplo de ${item.label}`} width="1080" height="1350" loading={index < showcase.length ? 'eager' : 'lazy'} />
-							<span>{item.label}<b>↗</b></span>
-						</a>
+		<!-- Showcase Section (TryHolo Clone) -->
+		<section class="showcase-section" id="biblioteca">
+			<div class="showcase-container">
+				<div class="showcase-header-wrapper">
+					<h2 class="banner-heading">Probablemente ya viste nuestro trabajo.<br/>Solo que no sabías que era IA.</h2>
+				</div>
+
+				<div class="showcase-marquee" aria-label="Ejemplos de la biblioteca de Creattia">
+					<div class="showcase-track">
+						{showcase.map((item) => (
+							<div class="showcase-card">
+								<img src={item.src} alt={`Ejemplo de ${item.label}`} loading="lazy" />
+							</div>
+						))}
+					</div>
+				</div>
+				
+				<div class="showcase-footer-nav">
+					<div class="carousel-nav-arrows">
+						<button class="arrow-nav-btn prev-btn" aria-label="Anterior">
+							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
+						</button>
+						<button class="arrow-nav-btn next-btn" aria-label="Siguiente">
+							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+						</button>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Manifesto Section with Inline Animating Videos (TryHolo Clone) -->
+		<section class="manifesto-section">
+			<div class="manifesto-container">
+				<p class="manifesto-line">
+					En Creattia estamos revolucionando cómo los creadores producen
+					<span class="inline-video-wrapper">
+						<video autoplay loop muted playsinline preload="metadata">
+							<source src="https://tryholo.ai/rootPage/assets/integrationText/Bulb.mp4" type="video/mp4" />
+						</video>
+					</span>
+					contenido.
+				</p>
+				<p class="manifesto-line">
+					Usando los últimos modelos de IA capturamos
+					<span class="inline-video-wrapper">
+						<video autoplay loop muted playsinline preload="metadata">
+							<source src="https://tryholo.ai/rootPage/assets/integrationText/brain.mp4" type="video/mp4" />
+						</video>
+					</span>
+					la esencia de tu marca para entregar creativos de nivel de agencia en todas las
+					<span class="inline-video-wrapper">
+						<video autoplay loop muted playsinline preload="metadata">
+							<source src="https://tryholo.ai/rootPage/assets/integrationText/socials.mp4" type="video/mp4" />
+						</video>
+					</span>
+					plataformas.
+				</p>
+				<p class="manifesto-line">
+					Para que puedas hacer el trabajo de un equipo completo
+					<span class="inline-video-wrapper">
+						<video autoplay loop muted playsinline preload="metadata">
+							<source src="https://tryholo.ai/rootPage/assets/integrationText/team.mp4" type="video/mp4" />
+						</video>
+					</span>
+					sin contratar uno.
+				</p>
+			</div>
+		</section>
+
+		<!-- Product Video Walkthrough Section (TryHolo Clone) -->
+		<section class="walkthrough-video-section">
+			<div class="walkthrough-video-wrapper">
+				<div class="walkthrough-video-container">
+					<video autoplay muted loop playsinline preload="metadata">
+						<source src="https://4nwyzzasvzexmkq0.public.blob.vercel-storage.com/howItWorks/videoCompressed.mp4" type="video/mp4" />
+					</video>
+				</div>
+			</div>
+		</section>
+
+		<!-- How It Works Section (TryHolo Vertical Clone) -->
+		<section class="how-it-works" id="como-funciona">
+			<div class="section-header">
+				<span class="section-tag font-bold">CÓMO FUNCIONA</span>
+				<h2>De tu web a una imagen lista para vender.</h2>
+			</div>
+			
+			<div class="steps-vertical-container">
+				{steps.map((step, idx) => (
+					<div class="step-vertical-row">
+						<!-- Left indicator column -->
+						<div class="step-left-line-col">
+							<span class="step-vertical-number">{step.number}</span>
+							{idx < steps.length - 1 && (
+								<div class="step-vertical-line" style={`background-image: linear-gradient(to bottom, ${idx === 0 ? '#3e86c6, #a666aa' : idx === 1 ? '#a666aa, #ec4492' : '#ee4454, #f05427'})`}></div>
+							)}
+						</div>
+						
+						<!-- Content and Demo columns -->
+						<div class="step-vertical-content-wrapper">
+							<div class="step-vertical-text">
+								<h3>{step.title}</h3>
+								<p>{step.copy}</p>
+							</div>
+							
+							{step.kind !== 'publish' && (
+								<div class="step-vertical-demo-box">
+									{step.kind === 'url' && (
+										<video autoplay loop muted playsinline class="step-video-demo">
+											<source src="https://tryholo.ai/rootPage/assets/howItWorks/inputUrl.webm" type="video/webm" />
+										</video>
+									)}
+									{step.kind === 'ideas' && (
+										<video autoplay loop muted playsinline class="step-video-demo">
+											<source src="https://tryholo.ai/rootPage/assets/howItWorks/SwipeIdeas.webm" type="video/webm" />
+										</video>
+									)}
+									{step.kind === 'edit' && (
+										<video autoplay loop muted playsinline class="step-video-demo">
+											<source src="https://tryholo.ai/rootPage/assets/howItWorks/Edit.webm" type="video/webm" />
+										</video>
+									)}
+								</div>
+							)}
+						</div>
+					</div>
+				))}
+			</div>
+		</section>
+
+		<!-- The All-in-One Marketing Tool Section (TryHolo 3D Cylinder Clone) -->
+		<section class="all-in-one-section">
+			<div class="section-header max-w-[800px] margin-auto">
+				<span class="section-tag">LA HERRAMIENTA TODO EN UNO</span>
+				<h2>La herramienta de marketing todo en uno.</h2>
+				<p class="section-desc">Olvidate de las herramientas complejas, plantillas y pestañas. Creattia es la IA para tu marketing, diseñada para escalar tu negocio en piloto automático.</p>
+			</div>
+
+			<div class="cylinder-carousel-container">
+				<div class="carousel-cylinder">
+					{cylinderImages.map((src, idx) => {
+						const angle = idx * 30; // 12 cards * 30deg = 360deg
+						return (
+							<div 
+								class="cylinder-card" 
+								style={`transform: rotateY(${angle}deg) translateZ(var(--carousel-radius));`}
+							>
+								<img src={src} alt={`Ejemplo creativo ${idx + 1}`} loading="lazy" />
+							</div>
+						);
+					})}
+				</div>
+			</div>
+		</section>
+
+		<!-- Brand DNA Section -->
+		<section class="brand-dna-section">
+			<div class="section-header max-w-[800px] margin-auto">
+				<span class="section-tag">IMPULSADO POR</span>
+				<h2>El ADN de tu marca.</h2>
+				<p class="section-desc">Creattia aprende lo que hace reconocible a tu negocio y lo reutiliza automáticamente cada vez que creás.</p>
+			</div>
+
+			<div class="dna-grid">
+				<article class="dna-card style-card">
+					<h3>Captura tu Estilo</h3>
+					<p>Colores, tono, composición y forma de presentar tus productos.</p>
+					<div class="color-dots-simulate">
+						<span style="background: #3e86c6"></span>
+						<span style="background: #a666aa"></span>
+						<span style="background: #ec4492"></span>
+						<span style="background: #ee4454"></span>
+						<span style="background: #f05427"></span>
+					</div>
+				</article>
+
+				<article class="dna-card triggers-card">
+					<h3>Aprende Disparadores</h3>
+					<p>Beneficios, urgencia, prueba social y argumentos comerciales de tu marca.</p>
+					<div class="triggers-row" style="display: flex; gap: 8px; margin-top: 16px;">
+						<img src="https://tryholo.ai/rootPage/assets/brandDna/triggerGreen.avif" alt="Disparador Verde" style="height: 32px; width: auto;" />
+						<img src="https://tryholo.ai/rootPage/assets/brandDna/triggerYellow.avif" alt="Disparador Amarillo" style="height: 32px; width: auto;" />
+						<img src="https://tryholo.ai/rootPage/assets/brandDna/triggerRed.avif" alt="Disparador Rojo" style="height: 32px; width: auto;" />
+					</div>
+				</article>
+
+				<div class="dna-mascot-card">
+					<div class="mascot-bg-glow"></div>
+					<video autoplay muted loop playsinline class="dna-mascot-video" style="width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 20px;">
+						<source src="https://tryholo.ai/rootPage/assets/brandDna/mascotVideo.mp4" type="video/mp4" />
+					</video>
+				</div>
+
+				<article class="dna-card audience-card">
+					<h3>Conoce a tu Audiencia</h3>
+					<p>Adapta la jerarquía visual al tipo de comunicación y al cliente ideal.</p>
+					<div class="social-icons-row" style="display: flex; gap: 10px; margin-top: 16px;">
+						<img src="https://tryholo.ai/rootPage/assets/brandDna/fb.avif" alt="Facebook" style="width: 30px; height: 30px; border-radius: 6px;" />
+						<img src="https://tryholo.ai/rootPage/assets/brandDna/ig.avif" alt="Instagram" style="width: 30px; height: 30px; border-radius: 6px;" />
+						<img src="https://tryholo.ai/rootPage/assets/brandDna/tiktok.avif" alt="TikTok" style="width: 30px; height: 30px; border-radius: 6px;" />
+						<img src="https://tryholo.ai/rootPage/assets/brandDna/twitter.avif" alt="Twitter" style="width: 30px; height: 30px; border-radius: 6px;" />
+					</div>
+				</article>
+
+				<article class="dna-card private-card">
+					<h3>Datos 100% Privados</h3>
+					<p>Tus productos, marca y piezas generadas están seguras en tu espacio de trabajo.</p>
+					<div class="privacy-lock-row" style="display: flex; align-items: center; gap: 8px; margin-top: 16px;">
+						<div class="lock-pill" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; border: 1px solid var(--border-color); background: #FFF;">
+							<img src="https://tryholo.ai/rootPage/assets/brandDna/lock.avif" alt="Lock" style="width: 20px; height: 20px;" />
+							<span style="font-size: 12px; font-weight: 700; color: var(--text-dark);">Privacidad Total</span>
+						</div>
+					</div>
+				</article>
+			</div>
+		</section>
+
+		<!-- 1000's of Available Ideas Marquee Section (TryHolo Clone) -->
+		<section class="ideas-marquee-section">
+			<h2 class="ideas-marquee-title">Miles de ideas disponibles</h2>
+			
+			<div class="ideas-marquee marquee-ltr">
+				<div class="ideas-track">
+					{[...ideasRow1, ...ideasRow1, ...ideasRow1, ...ideasRow1].map((tag) => (
+						<div class="idea-pill" style={`color: ${tag.color}; border-color: ${tag.color}33;`}>
+							{tag.text}
+						</div>
 					))}
 				</div>
 			</div>
-			<a class="simple-link" href="/app/">Ver todas las ideas <span>→</span></a>
-		</section>
 
-		<section class="manifesto">
-			<div>
-				<p>En Creattia estamos cambiando cómo los negocios <em>crean imágenes.</em></p>
-				<p>La plataforma entiende tu marca, tus productos y el objetivo de cada pieza.</p>
-				<p>Así producís como un equipo creativo completo, <em>sin contratar uno.</em></p>
-			</div>
-			<img src="/images/creattia/moki-mascot.webp" alt="Moki, la mascota de Creattia" width="1254" height="1254" loading="lazy" />
-		</section>
-
-		<section class="how-it-works" id="como-funciona">
-			<div class="center-heading"><span>CÓMO FUNCIONA</span><h2>De tu web a una imagen lista para vender.</h2></div>
-			<div class="step-list">
-				{steps.map((step) => (
-					<article class="step-row">
-						<div class="step-number"><b>{step.number}</b></div>
-						<div class="step-copy"><h3>{step.title}</h3><p>{step.copy}</p></div>
-						<div class:list={{ 'step-demo': true, [step.kind]: true }}>
-							{step.kind === 'url' && <div class="browser-demo"><span class="browser-dots"><i></i><i></i><i></i></span><div class="url-field"><b>⌕</b><span>tumarca.com</span><i>→</i></div><small>Analizando identidad y catálogo…</small></div>}
-							{step.kind === 'ideas' && <div class="idea-stack">{[18, 23, 30].map((id) => <img src={reference(id)} alt="" width="1080" height="1350" loading="lazy" />)}</div>}
-							{step.kind === 'products' && <div class="product-picker"><span>Elegí qué querés mostrar</span><div>{[40, 42, 46].map((id, index) => <button type="button" aria-label={`Producto ${index + 1}`}><img src={reference(id)} alt="" width="1080" height="1350" loading="lazy" /><i>{index < 2 ? '✓' : '+'}</i></button>)}</div><small>2 productos seleccionados</small></div>}
-							{step.kind === 'result' && <div class="result-demo"><img src={reference(18)} alt="" width="1080" height="1350" loading="lazy" /><div><button type="button">Descargar</button><button type="button">Nueva variante</button></div></div>}
+			<div class="ideas-marquee marquee-rtl">
+				<div class="ideas-track">
+					{[...ideasRow2, ...ideasRow2, ...ideasRow2, ...ideasRow2].map((tag) => (
+						<div class="idea-pill" style={`color: ${tag.color}; border-color: ${tag.color}33;`}>
+							{tag.text}
 						</div>
+					))}
+				</div>
+			</div>
+		</section>
+
+		<!-- Content Calendar & Swipe -->
+		<section class="calendar-swipe-section">
+			<div class="swipe-container">
+				<div class="swipe-copy">
+					<span class="section-tag">BIBLIOTECA CREATTIA</span>
+					<h2>Llená tu calendario de anuncios en minutos.</h2>
+					<p>Vos descansás, Creattia no. Nuestra IA genera constantemente ideas visuales en segundo plano basadas en tu catálogo. Deslizá por la mañana, guardá lo que te gusta y publicá antes de comer.</p>
+					<div class="moki-tip-bubble">
+						<img src="/images/creattia/moki-mascot.webp" alt="Moki" />
+						<p>"Como deslizar ideas en Tinder, pero para multiplicar tus ventas."</p>
+					</div>
+				</div>
+
+				<div class="swipe-phone-mockup">
+					<div class="phone-frame">
+						<div class="phone-notch"></div>
+						<div class="phone-screen-content">
+							<div class="phone-header">
+								<span>Creattia App</span>
+								<small>Idea 12 de 50</small>
+							</div>
+							<div class="phone-card-image">
+								<img src="https://tryholo.ai/rootPage/assets/contentCalendar/tinderImage.avif" alt="Swipe card example" />
+							</div>
+							<div class="phone-actions">
+								<button class="btn-swipe-dislike">×</button>
+								<button class="btn-swipe-like">♥</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+
+
+		<!-- Comparison Section (1 Tool to Do It All) -->
+		<section class="comparison-section">
+			<div class="section-header max-w-[800px] margin-auto">
+				<h2>1 sola herramienta para todo</h2>
+				<p class="section-desc">Ahorrá $400/mes. Simplemente usá Creattia.</p>
+			</div>
+
+			<div class="comparison-table-wrapper">
+				<table class="comparison-table">
+					<thead>
+						<tr>
+							<th class="col-feature"></th>
+							<th class="col-creattia">
+								<img class="header-logo creattia-logo" src="https://tryholo.ai/rootPage/assets/comparisonTable/holoMuscle.avif" alt="Creattia" />
+							</th>
+							<th class="col-competitor">
+								<img class="header-logo" src="https://tryholo.ai/rootPage/assets/comparisonTable/chatgpt.avif" alt="ChatGPT" />
+							</th>
+							<th class="col-competitor">
+								<img class="header-logo" src="https://tryholo.ai/rootPage/assets/comparisonTable/canvas.avif" alt="Canva" />
+							</th>
+							<th class="col-competitor">
+								<img class="header-logo" src="https://tryholo.ai/rootPage/assets/comparisonTable/midjourney.avif" alt="Midjourney" />
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td class="cell-feature">Diseños de alto rendimiento</td>
+							<td class="cell-val">
+								<span class="comparison-badge check-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<td class="cell-feature">Personalizado para tu marca</td>
+							<td class="cell-val">
+								<span class="comparison-badge check-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge check-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<td class="cell-feature">Trabaja mientras dormís</td>
+							<td class="cell-val">
+								<span class="comparison-badge check-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<td class="cell-feature">Plataforma divertida y fácil</td>
+							<td class="cell-val">
+								<span class="comparison-badge check-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge check-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge check-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+								</span>
+							</td>
+						</tr>
+						<tr>
+							<td class="cell-feature">Soporte multi-idioma</td>
+							<td class="cell-val">
+								<span class="comparison-badge check-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+							<td class="cell-val">
+								<span class="comparison-badge cross-badge">
+									<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><path d="M18 6L6 18M6 6l12 12"/></svg>
+								</span>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
+
+		<!-- Privacy Section -->
+		<section class="privacy-section">
+			<div class="privacy-layout">
+				<div class="privacy-heading">
+					<span class="section-tag">PRIVACIDAD ASEGURADA</span>
+					<h2>El gran poder creativo viene con una <em>gran privacidad.</em></h2>
+					<p>Tus productos, datos de catálogo y creaciones son activos clave de tu negocio. Creattia los protege activamente bajo estrictos estándares de seguridad.</p>
+				</div>
+				<div class="privacy-graphic">
+					<div class="graphic-shield">
+						<span class="shield-icon">🔒</span>
+						<h4>Encriptación Completa</h4>
+						<p>Tus datos no se usan para entrenar modelos públicos externos.</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Testimonials Grid -->
+		<section class="testimonials-section">
+			<div class="section-header">
+				<span class="section-tag">TESTIMONIOS</span>
+				<h2>Lo que dicen quienes ya usan Creattia</h2>
+			</div>
+
+			<div class="testimonials-grid">
+				{testimonials.map((t) => (
+					<article class="testimonial-card">
+						<div class="testimonial-header">
+							<div>
+								<h4>{t.name}</h4>
+								<small>{t.country} — {t.date}</small>
+							</div>
+							<span class="stars">★★★★★</span>
+						</div>
+						<p class="testimonial-text">"{t.text}"</p>
 					</article>
 				))}
 			</div>
 		</section>
 
-		<section class="all-in-one">
-			<div class="center-heading wide"><span>TODO EN UN SOLO LUGAR</span><h2>Una plataforma para todas tus imágenes.</h2><p><em>Dejá de saltar entre herramientas, plantillas y pestañas.</em> Creattia reúne el proceso completo para pasar de una idea a una pieza lista.</p></div>
-			<div class="tool-panels">
-				{toolTabs.map((tab, tabIndex) => (
-					<article data-tool-panel={tab.id} hidden={tabIndex !== 0}>
-						<div class="tool-images">{tab.ids.map((id, imageIndex) => <img src={reference(id)} alt={`Ejemplo ${imageIndex + 1} de ${tab.label}`} width="1080" height="1350" loading={tabIndex === 0 ? 'eager' : 'lazy'} />)}</div>
-						<div class="tool-description"><span>{tab.eyebrow}</span><h3>{tab.title}</h3><p>{tab.copy}</p><a href="/app/">Crear una imagen <b>→</b></a></div>
+		<!-- Pricing Section -->
+		<section class="pricing-section" id="precios">
+			<div class="section-header max-w-[800px] margin-auto">
+				<span class="section-tag">PRECIOS CLAROS</span>
+				<h2>Elegí el volumen de creación que necesitás.</h2>
+				<p class="section-desc">Todos los planes incluyen acceso a nuestra biblioteca completa de ideas y flujos inteligentes.</p>
+			</div>
+
+			<div class="plans-grid">
+				{plans.map((plan) => (
+					<article class={`plan-card ${plan.featured ? 'featured' : ''}`}>
+						{plan.featured && <span class="featured-badge">MÁS ELEGIDO</span>}
+						<h3>{plan.name}</h3>
+						<p class="plan-desc">{plan.description}</p>
+						
+						<div class="plan-price">
+							<span class="currency">USD</span>
+							<b class="amount">${plan.price}</b>
+							<span class="period">/mes</span>
+						</div>
+
+						<strong class="plan-credits">{plan.credits}</strong>
+
+						<a href={plan.href} class="plan-cta">
+							<span>Elegir {plan.name}</span>
+							<span>→</span>
+						</a>
+
+						<ul class="plan-features">
+							{plan.features.map((feature) => (
+								<li><i>✓</i> {feature}</li>
+							))}
+						</ul>
 					</article>
 				))}
 			</div>
-			<div class="tool-tabs" role="tablist" aria-label="Tipos de imágenes">
-				{toolTabs.map((tab, index) => <button type="button" role="tab" data-tool-tab={tab.id} aria-selected={index === 0 ? 'true' : 'false'}>{tab.label}</button>)}
+		</section>
+
+		<!-- FAQs Section -->
+		<section class="faq-section">
+			<div class="section-header">
+				<span class="section-tag">PREGUNTAS FRECUENTES</span>
+				<h2>Todo lo que necesitás saber.</h2>
+			</div>
+
+			<div class="faq-list">
+				{faqs.map((faq, idx) => (
+					<details class="faq-item" open={idx === 0}>
+						<summary class="faq-question">
+							<span>{faq.q}</span>
+							<span class="faq-toggle-icon">+</span>
+						</summary>
+						<div class="faq-answer">
+							<p>{faq.a}</p>
+						</div>
+					</details>
+				))}
 			</div>
 		</section>
 
-		<section class="brand-dna">
-			<div class="center-heading"><span>IMPULSADA POR</span><h2>El ADN de tu marca.</h2><p>Creattia aprende lo que hace reconocible a tu negocio y lo reutiliza cada vez que creás.</p></div>
-			<div class="dna-grid">
-				<article class="dna-style"><h3>Captura tu estilo</h3><p>Colores, tono, composición y forma de presentar tus productos.</p><div class="color-dots"><i></i><i></i><i></i><i></i><i></i></div></article>
-				<article class="dna-triggers"><h3>Entiende qué hace comprar</h3><p>Beneficios, objeciones, urgencia y argumentos comerciales de tu negocio.</p><div class="trigger-meter"><i></i><i></i><i></i><i></i></div></article>
-				<div class="dna-mascot"><div></div><img src="/images/creattia/moki-mascot.webp" alt="Moki representa el ADN de marca dentro de Creattia" width="1254" height="1254" loading="lazy" /></div>
-				<article class="dna-audience"><h3>Conoce a tu audiencia</h3><p>Adapta la jerarquía visual al objetivo y al tipo de comunicación.</p><div class="channel-dots"><i>f</i><i>◎</i><i>▶</i><i>✉</i></div></article>
-				<article class="dna-private"><h3>Mantiene tus datos privados</h3><p>Tu identidad, productos y generaciones permanecen dentro de tu espacio.</p><span>▣ &nbsp; Tu espacio privado</span></article>
-			</div>
-		</section>
-
-		<section class="business-types">
-			<div class="center-heading"><span>HECHA PARA NEGOCIOS REALES</span><h2>Funciona para cualquier tipo de negocio.</h2></div>
-			<div class="business-marquee"><div class="business-track">{[...businesses, ...businesses].map((business, index) => <span><i>{String((index % businesses.length) + 1).padStart(2, '0')}</i><b>{business}</b><em>↗</em></span>)}</div></div>
-		</section>
-
-		<section class="content-calendar">
-			<div class="calendar-copy"><span>IDEAS SIEMPRE DISPONIBLES</span><h2>Llená tu calendario de anuncios con meses de anticipación.</h2><p>Guardá lo que te gusta, descartá lo que no encaja y volvé a usar una estructura cuando la necesites.</p><div class="moki-tip"><img src="/images/creattia/moki-mascot.webp" alt="" width="1254" height="1254" loading="lazy" /><span>Como deslizar ideas, pero para vender.</span></div></div>
-			<div class="phone-stage">
-				<div class="phone"><div class="phone-top"></div><div class="phone-screen"><span>Creattia <small>12 de 50</small></span><img src={reference(23)} alt="Ejemplo de comparativa dentro de Creattia" width="1080" height="1350" loading="lazy" /><div><button type="button">×</button><button type="button">♥</button></div></div></div>
-			</div>
-			<div class="idea-library"><h3>50 estructuras listas para explorar</h3><div>{[...ideaTags, ...ideaTags].map((tag) => <span>{tag}</span>)}</div></div>
-		</section>
-
-		<section class="intelligence">
-			<div class="center-heading wide"><span>BIBLIOTECA CREATTIA</span><h2>Ideas organizadas para que nunca empieces desde una pantalla vacía.</h2><p>Cada estructura tiene un objetivo claro y te ayuda a decidir qué crear antes de generar.</p></div>
-			<div class="category-nodes" aria-label="Familias de ideas"><span>OF</span><span>PS</span><span>PR</span><span>ED</span><span>VS</span><span>AU</span></div>
-			<div class="engine-stage">
-				<div class="engine-device"><span>Tu próxima idea</span><img src={reference(33)} alt="Ejemplo educativo de Creattia" width="1080" height="1350" loading="lazy" /><b>Lista para adaptar</b></div>
-				<div class="insight-card insight-one"><i>✦</i><span><b>Jerarquía clara</b><small>El mensaje principal se entiende primero.</small></span></div>
-				<div class="insight-card insight-two"><i>✓</i><span><b>Ángulo organizado</b><small>Producto, oferta y objetivo alineados.</small></span></div>
-				<div class="insight-card insight-three"><i>↗</i><span><b>Fácil de iterar</b><small>Generá otra versión sin volver a empezar.</small></span></div>
-			</div>
-			<div class="truthful-stats"><div><b>50</b><span>estructuras iniciales</span></div><div><b>6</b><span>familias principales</span></div><div><b>1–4</b><span>imágenes por creación</span></div><div><b>3</b><span>formatos principales</span></div></div>
-		</section>
-
-		<section class="channels">
-			<div class="center-heading"><span>LISTA PARA PUBLICAR</span><h2>Usá tus imágenes donde ya vendés.</h2><p>Elegí el formato correcto y llevá la misma identidad a todos tus canales.</p></div>
-			<div class="channel-grid"><article><i class="meta">∞</i><h3>Meta Ads</h3><p>Campañas y remarketing.</p></article><article><i class="instagram">◎</i><h3>Instagram</h3><p>Feed e historias.</p></article><article><i class="facebook">f</i><h3>Facebook</h3><p>Anuncios y publicaciones.</p></article><article><i class="store">↗</i><h3>Tu tienda</h3><p>Banners y promociones.</p></article></div>
-		</section>
-
-		<section class="comparison">
-			<div class="center-heading"><span>UNA SOLA PLATAFORMA</span><h2>Todo lo necesario para crear estáticos.</h2><p>Menos herramientas abiertas. Más claridad para decidir y publicar.</p></div>
-			<div class="compare-table" role="table" aria-label="Comparación de herramientas">
-				<div class="compare-row compare-head" role="row"><span></span><b><img src="/images/creattia/moki-mascot.webp" alt="Creattia" width="1254" height="1254" /></b><b>Chat general</b><b>Editor manual</b><b>Generador de imagen</b></div>
-				{comparison.map((row) => <div class="compare-row" role="row"><strong>{row.feature}</strong>{[row.creattia,row.chat,row.canva,row.image].map((value,index) => <span class:list={{ yes: value === true, creattia: index === 0 }}>{value === true ? '✓' : value === false ? '×' : value}</span>)}</div>)}
-			</div>
-		</section>
-
-		<section class="privacy">
-			<div class="privacy-heading"><span>PRIVACIDAD DESDE EL DISEÑO</span><h2>Una gran marca merece una gran <em>privacidad.</em></h2></div>
-			<div class="privacy-intro"><p>Tu identidad y tus productos son activos del negocio. Creattia los mantiene organizados dentro de tu cuenta.</p><p>Vos decidís qué conectar, qué guardar, qué eliminar y qué volver a utilizar en cada creación.</p></div>
-			<div class="privacy-panel"><div class="privacy-points"><article><i>01</i><span><b>Datos separados</b><small>Cada cuenta trabaja con su propia biblioteca.</small></span></article><article><i>02</i><span><b>Productos bajo control</b><small>Elegís qué información usar en cada pieza.</small></span></article><article><i>03</i><span><b>Historial reutilizable</b><small>Volvé a tus resultados sin perder contexto.</small></span></article></div><div class="privacy-mascot"><img src="/images/creattia/moki-mascot.webp" alt="Moki protege tu espacio de trabajo" width="1254" height="1254" loading="lazy" /><span>▣ &nbsp; Tu espacio. Tus imágenes.</span></div></div>
-		</section>
-
-		<section class="for-people">
-			<div class="center-heading"><span>PARA QUIEN ESTÁ HACIENDO EL TRABAJO</span><h2>Creada para vender más. No para aprender otra herramienta.</h2></div>
-			<div class="people-grid"><article><span>01</span><h3>Dueños de e-commerce</h3><p>Pasá de una promoción a una imagen sin depender de un diseñador para cada prueba.</p><small>PRODUCTO → CAMPAÑA</small></article><article><span>02</span><h3>Equipos de marketing</h3><p>Probá más ángulos y mantené una identidad coherente en cada nueva pieza.</p><small>IDEA → VARIANTES</small></article><article><span>03</span><h3>Agencias y freelancers</h3><p>Organizá referencias y acelerá la producción mensual de cada marca.</p><small>MARCA → ESCALA</small></article></div>
-		</section>
-
-		<section class="pricing" id="precios">
-			<div class="center-heading"><span>PRECIOS SIMPLES</span><h2>Elegí cuánto querés crear.</h2><p>Tres planes claros. La misma biblioteca y el mismo flujo guiado.</p></div>
-			<div class="plans">{plans.map((plan) => <article class:list={{ featured: plan.featured }}><span>{plan.featured ? 'MÁS ELEGIDO' : 'CREATTIA'}</span><h3>{plan.name}</h3><p>{plan.description}</p><div class="price"><small>USD</small><b>${plan.price}</b><em>/mes</em></div><strong>{plan.credits}</strong><a href={plan.href}>Elegir {plan.name} <b>→</b></a><ul>{plan.features.map((feature) => <li><i>✓</i>{feature}</li>)}</ul></article>)}</div>
-		</section>
-
-		<section class="faq">
-			<div class="center-heading"><span>PREGUNTAS FRECUENTES</span><h2>Todo lo que necesitás saber.</h2></div>
-			<div class="faq-list">{faqs.map((item, index) => <details open={index === 0}><summary>{item.q}<i>+</i></summary><p>{item.a}</p></details>)}</div>
-		</section>
-
-		<section class="final-cta">
-			<div><span>LISTO PARA CREAR</span><h2>Tu próxima imagen puede empezar ahora.</h2><p>Conectá tu negocio, elegí una idea y probá el flujo completo.</p><a href="/app/">Crear 3 imágenes gratis <b>→</b></a></div>
-			<img src="/images/creattia/moki-mascot.webp" alt="Moki te invita a probar Creattia" width="1254" height="1254" loading="lazy" />
+		<!-- Final CTA Section (TryHolo Clone) -->
+		<section class="final-cta-section">
+			<h2>¿Listo para crear contenido de nivel de agencia?</h2>
+			<p class="final-cta-sub">(Sin los altos costos)</p>
+			<a class="final-cta-button" href="/app/">
+				<span class="relative z-10">Empezar gratis</span>
+				<svg class="relative z-10" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+				<div class="inset-shadow-overlay"></div>
+			</a>
 		</section>
 	</main>
 
-	<footer><a href="#inicio"><img src="/images/creattia/moki-mascot.webp" alt="" width="1254" height="1254" /><strong>Creattia</strong></a><p>Imágenes publicitarias para negocios que quieren crear más.</p><nav><a href="/legal/privacidad/">Privacidad</a><a href="/legal/terminos/">Términos</a><a href="/app/">Ingresar</a></nav></footer>
+	<!-- Footer -->
+	<footer class="main-footer">
+		<div class="footer-brand">
+			<a href="#inicio" class="footer-logo">
+				<img src="/images/creattia/moki-mascot.webp" alt="Creattia Logo" />
+				<strong>Creattia</strong>
+			</a>
+			<p>Imágenes y creativos publicitarios que aceleran las ventas de tu negocio.</p>
+		</div>
+		
+		<div class="footer-col">
+			<h4>Compañía</h4>
+			<a href="#como-funciona">Cómo funciona</a>
+			<a href="#precios">Precios</a>
+			<a href="/sobre-nosotros/">Sobre nosotros</a>
+		</div>
+		<div class="footer-col">
+			<h4>Recursos</h4>
+			<a href="/app/">Biblioteca de ideas</a>
+			<a href="/blog/">Blog</a>
+		</div>
+		<div class="footer-col">
+			<h4>Legal</h4>
+			<a href="/privacidad/">Privacidad</a>
+			<a href="/terminos/">Términos</a>
+		</div>
+
+		<div class="footer-bottom">
+			<p>© 2026 Creattia. Todos los derechos reservados.</p>
+		</div>
+	</footer>
 </Layout>
 
 <script>
-	const tabs = [...document.querySelectorAll<HTMLButtonElement>('[data-tool-tab]')];
-	const panels = [...document.querySelectorAll<HTMLElement>('[data-tool-panel]')];
-	for (const tab of tabs) tab.addEventListener('click', () => {
-		const selected = tab.dataset.toolTab;
-		for (const button of tabs) button.setAttribute('aria-selected', String(button === tab));
-		for (const panel of panels) panel.hidden = panel.dataset.toolPanel !== selected;
+	// Lógica interactiva para cambiar de pestañas en "All-in-One"
+	const tabButtons = document.querySelectorAll('[data-tab-target]');
+	const tabPanels = document.querySelectorAll('[data-tab-panel]');
+
+	tabButtons.forEach(button => {
+		button.addEventListener('click', () => {
+			const targetId = button.getAttribute('data-tab-target');
+
+			// Actualizar botones
+			tabButtons.forEach(btn => {
+				btn.setAttribute('aria-selected', btn === button ? 'true' : 'false');
+			});
+
+			// Actualizar paneles
+			tabPanels.forEach(panel => {
+				if (panel.id === targetId) {
+					panel.removeAttribute('hidden');
+				} else {
+					panel.setAttribute('hidden', '');
+				}
+			});
+		});
 	});
+
+	// Menú móvil
+	const mobileToggle = document.getElementById('mobile-toggle');
+	const mobileOverlay = document.getElementById('mobile-overlay');
+
+	if (mobileToggle && mobileOverlay) {
+		mobileToggle.addEventListener('click', () => {
+			mobileToggle.classList.toggle('active');
+			mobileOverlay.classList.toggle('active');
+			document.body.classList.toggle('menu-open');
+		});
+
+		// Cerrar menú al hacer clic en enlaces del menú
+		const mobileLinks = mobileOverlay.querySelectorAll('.mobile-nav-link');
+		mobileLinks.forEach(link => {
+			link.addEventListener('click', () => {
+				mobileToggle.classList.remove('active');
+				mobileOverlay.classList.remove('active');
+				document.body.classList.remove('menu-open');
+			});
+		});
+	}
+
+	// Efecto 3D Scroll Perspective en el Video Walkthrough
+	const walkthroughVideo = document.querySelector('.walkthrough-video-container') as HTMLElement | null;
+	if (walkthroughVideo) {
+		const updatePerspective = () => {
+			const rect = walkthroughVideo.getBoundingClientRect();
+			const windowHeight = window.innerHeight;
+			const progress = Math.min(Math.max((windowHeight - rect.top) / (0.8 * windowHeight), 0), 1);
+			const inverse = 1 - progress;
+			const scale = 1 + 0.12 * inverse;
+			const rotateX = 15 * inverse;
+			
+			walkthroughVideo.style.transform = `perspective(1000px) rotateX(${rotateX}deg) scale(${scale})`;
+			walkthroughVideo.style.opacity = String(0.4 + 0.6 * progress);
+			walkthroughVideo.style.transition = 'transform 0.1s ease-out, opacity 0.1s ease-out';
+		};
+		window.addEventListener('scroll', updatePerspective);
+		window.addEventListener('resize', updatePerspective);
+		updatePerspective();
+	}
+
+	// Lógica de Scroll de Showcase Carousel (Auto-scroll + Manual + Drag)
+	const track = document.querySelector('.showcase-marquee') as HTMLElement | null;
+	const prevBtn = document.querySelector('.prev-btn');
+	const nextBtn = document.querySelector('.next-btn');
+	if (track && prevBtn && nextBtn) {
+		const cardWidth = 300; // 280px card + 20px gap
+		
+		const scrollNext = () => {
+			const maxScrollLeft = track.scrollWidth - track.clientWidth;
+			if (track.scrollLeft >= maxScrollLeft - 10) {
+				track.scrollTo({ left: 0, behavior: 'smooth' });
+			} else {
+				track.scrollBy({ left: cardWidth, behavior: 'smooth' });
+			}
+		};
+		
+		const scrollPrev = () => {
+			if (track.scrollLeft <= 10) {
+				track.scrollTo({ left: track.scrollWidth, behavior: 'smooth' });
+			} else {
+				track.scrollBy({ left: -cardWidth, behavior: 'smooth' });
+			}
+		};
+		
+		prevBtn.addEventListener('click', () => {
+			scrollPrev();
+			resetAutoScroll();
+		});
+		nextBtn.addEventListener('click', () => {
+			scrollNext();
+			resetAutoScroll();
+		});
+		
+		// Auto-scroll cada 3 segundos
+		let autoScrollInterval = setInterval(scrollNext, 3000);
+		
+		const resetAutoScroll = () => {
+			clearInterval(autoScrollInterval);
+			autoScrollInterval = setInterval(scrollNext, 3000);
+		};
+
+		// DRAG-TO-SCROLL (Grab to slide)
+		let isDown = false;
+		let startX: number;
+		let scrollLeft: number;
+
+		track.addEventListener('mousedown', (e: MouseEvent) => {
+			isDown = true;
+			track.style.cursor = 'grabbing';
+			track.style.userSelect = 'none';
+			startX = e.pageX - track.offsetLeft;
+			scrollLeft = track.scrollLeft;
+			clearInterval(autoScrollInterval); // Pause auto-scroll while dragging
+		});
+
+		track.addEventListener('mouseleave', () => {
+			if (isDown) {
+				isDown = false;
+				track.style.cursor = 'grab';
+				track.style.userSelect = '';
+				resetAutoScroll(); // Resume auto-scroll
+			}
+		});
+
+		track.addEventListener('mouseup', () => {
+			if (isDown) {
+				isDown = false;
+				track.style.cursor = 'grab';
+				track.style.userSelect = '';
+				resetAutoScroll(); // Resume auto-scroll
+			}
+		});
+
+		track.addEventListener('mousemove', (e: MouseEvent) => {
+			if (!isDown) return;
+			e.preventDefault();
+			const x = e.pageX - track.offsetLeft;
+			const walk = (x - startX) * 1.5; // multiplier for speed
+			track.scrollLeft = scrollLeft - walk;
+		});
+
+		// Touch events
+		track.addEventListener('touchstart', (e: TouchEvent) => {
+			isDown = true;
+			startX = e.touches[0].pageX - track.offsetLeft;
+			scrollLeft = track.scrollLeft;
+			clearInterval(autoScrollInterval);
+		}, { passive: true });
+
+		track.addEventListener('touchend', () => {
+			if (isDown) {
+				isDown = false;
+				resetAutoScroll();
+			}
+		});
+
+		track.addEventListener('touchmove', (e: TouchEvent) => {
+			if (!isDown) return;
+			const x = e.touches[0].pageX - track.offsetLeft;
+			const walk = (x - startX) * 1.5;
+			track.scrollLeft = scrollLeft - walk;
+		}, { passive: true });
+	}
+
+	// Lógica de Rotación 3D del Cylinder Carousel (All-in-One)
+	const cylinder = document.querySelector('.carousel-cylinder') as HTMLElement | null;
+	if (cylinder) {
+		let angle = 0;
+		let lastTime = performance.now();
+		
+		const animate = (time: number) => {
+			const delta = time - lastTime;
+			lastTime = time;
+			
+			// Rotar la base por una cantidad fija por milisegundo (-0.006 grados/ms)
+			angle = (angle - 0.006 * delta) % 360;
+			cylinder.style.transform = `rotateY(${angle}deg)`;
+			
+			requestAnimationFrame(animate);
+		};
+		
+		requestAnimationFrame(animate);
+	}
 </script>
 
 <style>
-	:global(html){scroll-behavior:smooth;background:#fff}
-	:global(body){overflow-x:hidden;background:#fff;color:#1d1d1f;font-family:'Inter Variable',Inter,system-ui,sans-serif}
-	:global(a),:global(button){-webkit-tap-highlight-color:transparent}
-	.floating-header{width:min(680px,calc(100% - 28px));height:58px;position:fixed;z-index:50;left:50%;top:28px;display:flex;gap:8px;transform:translateX(-50%)}
-	.logo-bubble{width:58px;height:58px;flex:0 0 58px;display:grid;place-items:center;border:1px solid #e5e5e6;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 16px 38px rgba(24,24,28,.07);backdrop-filter:blur(18px)}
-	.logo-bubble img{width:47px;height:47px;object-fit:contain}
-	.floating-header nav{height:58px;padding:0 24px;display:flex;flex:1;align-items:center;justify-content:center;gap:28px;border:1px solid #e5e5e6;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 16px 38px rgba(24,24,28,.07);backdrop-filter:blur(18px)}
-	.floating-header nav a{color:#48484c;font-size:11px;font-weight:520;text-decoration:none}
-	.outline-cta{height:58px;padding:0 23px;display:flex;align-items:center;gap:18px;flex:0 0 auto;border:1px solid transparent;border-radius:999px;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(110deg,#4b7ee8,#da5ed2,#ff724f) border-box;color:#1d1d1f;font-size:11px;font-weight:730;text-decoration:none;box-shadow:0 16px 38px rgba(24,24,28,.07)}
-	.outline-cta span{font-size:18px}
-	.hero{min-height:1120px;padding:142px 20px 95px;overflow:hidden;text-align:center;background:#fff}
-	.hero-copy{max-width:930px;margin:auto}.gradient-pill,.center-heading>span,.calendar-copy>span,.privacy-heading>span,.final-cta>div>span{padding:8px 13px;display:inline-flex;border:1px solid transparent;border-radius:999px;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(110deg,#4b7ee8,#d860d4,#ff7b4f) border-box;color:#706c72;font-size:8px;font-weight:760;letter-spacing:.1em}
-	.hero h1{max-width:1000px;margin:31px auto 0;font-size:clamp(52px,5.15vw,70px);font-weight:710;line-height:1.02;letter-spacing:-.06em;text-wrap:balance}
-	.hero-copy>p{max-width:750px;margin:27px auto 0;color:#717176;font-size:clamp(16px,1.55vw,20px);line-height:1.52;text-wrap:balance}
-	.gradient-cta{min-height:58px;margin-top:29px;padding:0 27px;display:inline-flex;align-items:center;gap:24px;border-radius:999px;background:linear-gradient(105deg,#5678ef,#9a58e6 50%,#ff745d);color:#fff;box-shadow:0 18px 36px rgba(116,75,222,.23);font-size:12px;font-weight:720;text-decoration:none}.gradient-cta b{font-size:18px}
-	.hero-proof{margin-top:29px;display:flex;justify-content:center;gap:34px}.hero-proof>span{display:grid;grid-template-columns:25px auto;grid-template-rows:auto auto;text-align:left}.hero-proof i{width:25px;height:25px;grid-row:1/3;margin-right:8px;display:grid;place-items:center;border-radius:8px;background:#f0edf4;color:#7145d2;font-size:9px;font-style:normal}.hero-proof b{font-size:10px}.hero-proof small{color:#8b888d;font-size:7px}
-	.hero-video{width:min(780px,calc(100% - 24px));margin:58px auto 0}.hero-video video{width:100%;aspect-ratio:4/3;display:block;object-fit:cover;border:0;background:#fff}
-	.showcase{padding:125px 0 130px;overflow:hidden;background:#fff}.two-line-heading{width:min(1120px,calc(100% - 40px));margin:auto}.two-line-heading h2{margin:0;font-size:clamp(34px,3.8vw,51px);font-weight:670;line-height:1.08;letter-spacing:-.05em}.two-line-heading h2:last-child{color:#99969b}
-	.image-marquee{margin-top:70px;overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}.image-track{width:max-content;padding:30px 0 36px;display:flex;gap:17px;animation:imageRail 44s linear infinite}.image-track:hover{animation-play-state:paused}.reference-card{width:270px;padding:7px;overflow:hidden;border:1px solid #ecebed;border-radius:24px;background:#fff;box-shadow:0 18px 45px rgba(27,27,31,.08);color:#1d1d1f;text-decoration:none}.reference-card.lifted{transform:translateY(-24px) rotate(1.4deg)}.reference-card img{width:100%;aspect-ratio:4/5;display:block;object-fit:cover;border-radius:18px}.reference-card span{height:50px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:660}.reference-card span b{color:#7546d5;font-size:16px}.simple-link{width:max-content;margin:20px auto 0;display:flex;align-items:center;gap:13px;color:#27272a;font-size:11px;font-weight:720;text-decoration:none}.simple-link span{color:#7546d5;font-size:17px}
-	.manifesto{min-height:1020px;padding:160px 20px 70px;position:relative;overflow:hidden;display:grid;place-items:center;background:#fff}.manifesto>div{max-width:1000px}.manifesto p{margin:0 0 48px;color:#a09da2;font-size:clamp(36px,4.5vw,60px);font-weight:620;line-height:1.18;letter-spacing:-.055em;text-align:center;text-wrap:balance}.manifesto p em{color:#1d1d1f;font-style:normal}.manifesto>img{width:235px;height:235px;margin-bottom:-125px;object-fit:contain;filter:drop-shadow(0 24px 32px rgba(52,40,64,.15))}
-	.how-it-works,.all-in-one,.brand-dna,.business-types,.intelligence,.channels,.comparison,.privacy,.for-people,.pricing,.faq{padding:145px 20px;background:#fff}.center-heading{max-width:850px;margin:auto;text-align:center}.center-heading.wide{max-width:940px}.center-heading h2,.privacy-heading h2{margin:20px 0 0;font-size:clamp(41px,4.6vw,61px);font-weight:680;line-height:1.04;letter-spacing:-.055em;text-wrap:balance}.center-heading>p{max-width:680px;margin:22px auto 0;color:#747176;font-size:15px;line-height:1.62}.center-heading>p em{font-style:italic}
-	.step-list{max-width:960px;margin:75px auto 0}.step-row{min-height:350px;padding:58px 0;display:grid;grid-template-columns:82px minmax(240px,.85fr) minmax(350px,1.25fr);grid-template-rows:auto 1fr;column-gap:34px;border-bottom:1px solid #ecebed}.step-row:last-child{border-bottom:0}.step-number{grid-column:1;grid-row:1/3;position:relative;text-align:center}.step-number::after{content:'';width:2px;position:absolute;top:51px;bottom:-59px;left:50%;background:linear-gradient(#4e83e7,#d65dd7,#ff7655)}.step-row:last-child .step-number::after{display:none}.step-number b{position:relative;z-index:2;padding:0 4px;background:#fff;font-size:30px;line-height:1}.step-copy{grid-column:2;grid-row:1/3}.step-copy h3{margin:0;font-size:34px;font-weight:650;line-height:1.06;letter-spacing:-.04em}.step-copy p{margin:16px 0 0;color:#777479;font-size:13px;line-height:1.65}.step-demo{height:245px;grid-column:3;grid-row:1/3;padding:20px;overflow:hidden;border:1px solid #ecebed;border-radius:27px;background:#fbfbfb;box-shadow:0 22px 55px rgba(26,26,30,.07)}
-	.browser-demo{height:100%;padding:18px;display:flex;flex-direction:column;border:1px solid #e5e3e6;border-radius:18px;background:#fff}.browser-dots{display:flex;gap:6px}.browser-dots i{width:9px;height:9px;border-radius:50%;background:#ff7381}.browser-dots i:nth-child(2){background:#ffd56e}.browser-dots i:nth-child(3){background:#81d07d}.url-field{height:58px;margin-top:43px;padding:0 14px;display:flex;align-items:center;gap:10px;border:1px solid transparent;border-radius:999px;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(110deg,#4b7ee8,#da5ed2,#ff724f) border-box;box-shadow:0 12px 28px rgba(28,28,32,.06)}.url-field>b{font-size:24px}.url-field span{color:#8a878c;font-size:11px}.url-field i{width:32px;height:32px;margin-left:auto;display:grid;place-items:center;border-radius:50%;background:#1d1d1f;color:#fff;font-style:normal}.browser-demo small{margin:15px auto 0;color:#98959a;font-size:8px}
-	.idea-stack{height:100%;display:flex;align-items:center;justify-content:center}.idea-stack img{width:130px;height:163px;object-fit:cover;border:5px solid #fff;border-radius:17px;box-shadow:0 15px 32px rgba(32,28,36,.16)}.idea-stack img:nth-child(1){transform:rotate(-9deg) translateX(18px)}.idea-stack img:nth-child(2){z-index:2;transform:translateY(-10px)}.idea-stack img:nth-child(3){transform:rotate(9deg) translateX(-18px)}
-	.product-picker{height:100%;display:flex;flex-direction:column}.product-picker>span{font-size:11px;font-weight:690}.product-picker>div{margin-top:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.product-picker button{height:145px;padding:5px;position:relative;overflow:hidden;border:1px solid #e5e2e7;border-radius:15px;background:#fff}.product-picker button img{width:100%;height:100%;object-fit:cover;border-radius:11px}.product-picker button i{width:24px;height:24px;position:absolute;right:9px;top:9px;display:grid;place-items:center;border-radius:50%;background:#fff;color:#7042ce;font-size:9px;font-style:normal;font-weight:800}.product-picker small{margin:10px 0 0;color:#858187;font-size:8px}
-	.result-demo{height:100%;display:grid;grid-template-columns:1fr 130px;gap:10px}.result-demo>img{width:100%;height:100%;object-fit:cover;border-radius:17px}.result-demo>div{display:flex;flex-direction:column;justify-content:flex-end;gap:8px}.result-demo button{height:48px;border:0;border-radius:13px;background:#fff;color:#49454d;font-size:8px;font-weight:660}.result-demo button:last-child{background:#7343d5;color:#fff}
-	.all-in-one{overflow:hidden}.tool-panels{max-width:1280px;margin:68px auto 0}.tool-panels article{min-height:555px;background:#fff}.tool-panels article[hidden]{display:none}.tool-images{height:360px;display:flex;align-items:center;justify-content:center;gap:14px}.tool-images img{width:210px;height:263px;flex:0 0 auto;object-fit:cover;border-radius:18px;box-shadow:0 20px 50px rgba(30,27,34,.16)}.tool-images img:nth-child(1){transform:translateY(20px) rotate(-7deg)}.tool-images img:nth-child(2){transform:translateY(-12px) rotate(-3deg)}.tool-images img:nth-child(3){z-index:2;transform:translateY(-32px)}.tool-images img:nth-child(4){transform:translateY(-10px) rotate(3deg)}.tool-images img:nth-child(5){transform:translateY(20px) rotate(7deg)}.tool-description{max-width:690px;margin:26px auto 0;text-align:center}.tool-description>span{color:#7444d2;font-size:8px;font-weight:770;letter-spacing:.12em}.tool-description h3{margin:12px 0 0;font-size:28px;line-height:1.1;letter-spacing:-.04em}.tool-description p{margin:12px auto 0;color:#767278;font-size:12px;line-height:1.6}.tool-description a{min-height:45px;margin-top:18px;padding:0 19px;display:inline-flex;align-items:center;gap:20px;border-radius:999px;background:#f1eff3;color:#1d1d1f;font-size:10px;font-weight:700;text-decoration:none}.tool-description a b{color:#7444d2;font-size:16px}.tool-tabs{width:min(1020px,100%);margin:34px auto 0;display:grid;grid-template-columns:repeat(4,1fr)}.tool-tabs button{height:64px;border:0;border-bottom:2px solid #e4e2e5;background:transparent;color:#8b878d;font:inherit;font-size:14px;font-weight:620;cursor:pointer}.tool-tabs button[aria-selected="true"]{background:linear-gradient(90deg,#4b7ee8,#d75fd4,#ff724f) left bottom/100% 3px no-repeat;color:#1d1d1f}
-	.brand-dna{background:#fff}.dna-grid{max-width:1180px;min-height:560px;margin:72px auto 0;display:grid;grid-template-columns:1fr 1.18fr 1fr;grid-template-rows:1fr 1fr;grid-template-areas:'style mascot audience' 'triggers mascot private';gap:14px}.dna-grid article{padding:28px;border:1px solid #eeecef;border-radius:25px;background:#fff;box-shadow:0 15px 42px rgba(26,26,30,.045)}.dna-grid h3{margin:0;font-size:20px;font-weight:620;letter-spacing:-.03em}.dna-grid p{margin:13px 0 0;color:#777479;font-size:11px;line-height:1.65}.dna-style{grid-area:style}.dna-triggers{grid-area:triggers}.dna-audience{grid-area:audience}.dna-private{grid-area:private}.dna-mascot{grid-area:mascot;position:relative;display:grid;place-items:center;overflow:hidden;border:1px solid #eeecef;border-radius:30px;background:#fafafa}.dna-mascot>div{width:380px;height:380px;position:absolute;border:1px solid #ddd9e1;border-radius:50%;background:radial-gradient(circle,#f0e7ff,transparent 68%)}.dna-mascot img{width:340px;height:340px;position:relative;z-index:2;object-fit:contain;filter:drop-shadow(0 26px 35px rgba(55,41,67,.15))}.color-dots{margin-top:29px;display:flex}.color-dots i{width:32px;height:32px;margin-left:-7px;border:2px solid #fff;border-radius:50%;background:#5d9ce1}.color-dots i:first-child{margin-left:0}.color-dots i:nth-child(2){background:#a961dc}.color-dots i:nth-child(3){background:#ee6aaf}.color-dots i:nth-child(4){background:#ff7069}.color-dots i:nth-child(5){background:#ff9559}.trigger-meter{height:18px;margin-top:30px;display:grid;grid-template-columns:repeat(4,1fr);overflow:hidden;border:2px solid #fff;border-radius:999px;box-shadow:0 0 0 1px #dedbe0}.trigger-meter i:nth-child(1){background:#ef6969}.trigger-meter i:nth-child(2){background:#ffd975}.trigger-meter i:nth-child(3){background:#9ad56f}.trigger-meter i:nth-child(4){background:#4ecb75}.channel-dots{margin-top:30px;display:flex;gap:8px}.channel-dots i{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:#f2f0f3;color:#7043d0;font-size:13px;font-style:normal;font-weight:800}.dna-private>span{margin-top:31px;padding:10px 13px;display:inline-flex;border:1px solid transparent;border-radius:999px;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(110deg,#4b7ee8,#d860d4,#ff7b4f) border-box;font-size:8px;font-weight:700}
-	.business-types{overflow:hidden}.business-marquee{margin:65px -20px 0;mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}.business-track{width:max-content;display:flex;gap:12px;animation:businessRail 32s linear infinite}.business-track span{width:270px;height:90px;padding:13px;display:flex;align-items:center;gap:14px;border:1px solid #ebe9ec;border-radius:23px;background:#fff;box-shadow:0 12px 30px rgba(28,28,32,.045)}.business-track i{width:60px;height:60px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(145deg,#eef5ff,#ddd1ff);color:#7043d0;font-size:9px;font-style:normal}.business-track b{font-size:14px}.business-track em{width:30px;height:30px;margin-left:auto;display:grid;place-items:center;border-radius:50%;background:#f4f2f5;color:#7043d0;font-size:13px;font-style:normal}
-	.content-calendar{min-height:1050px;padding:145px max(20px,calc((100vw - 1120px)/2));position:relative;display:grid;grid-template-columns:.9fr 1.1fr;align-items:start;gap:70px;overflow:hidden;background:#fff}.calendar-copy{padding-top:45px}.calendar-copy h2{margin:20px 0 0;font-size:56px;font-weight:650;line-height:1.04;letter-spacing:-.055em}.calendar-copy>p{margin:25px 0 0;color:#747176;font-size:15px;line-height:1.65}.moki-tip{margin-top:42px;display:flex;align-items:center;gap:14px}.moki-tip img{width:90px;height:90px;object-fit:contain}.moki-tip span{max-width:190px;font-size:11px;line-height:1.5}.phone-stage{min-height:690px;display:grid;place-items:start center}.phone{width:370px;height:720px;padding:13px;position:relative;border:8px solid #19191b;border-radius:48px;background:#fff;box-shadow:0 38px 90px rgba(30,27,34,.18);transform:rotate(8deg) translateY(-55px)}.phone-top{width:115px;height:27px;position:absolute;z-index:3;left:50%;top:7px;border-radius:0 0 18px 18px;background:#19191b;transform:translateX(-50%)}.phone-screen{height:100%;padding:32px 8px 12px;display:flex;flex-direction:column}.phone-screen>span{height:38px;display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:720}.phone-screen small{color:#969398;font-size:8px}.phone-screen>img{width:100%;height:540px;object-fit:cover;border-radius:28px}.phone-screen>div{padding-top:14px;display:flex;justify-content:space-around}.phone-screen button{width:55px;height:55px;border:1px solid transparent;border-radius:50%;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(110deg,#4b7ee8,#d860d4,#ff7b4f) border-box;font-size:22px}.phone-screen button:last-child{color:#ef5a78}.idea-library{grid-column:1/3;margin-top:-90px;text-align:center}.idea-library h3{font-size:28px;font-weight:580}.idea-library>div{height:190px;margin:34px -180px 0;display:flex;align-content:flex-start;justify-content:center;gap:12px;flex-wrap:wrap;overflow:hidden}.idea-library span{height:78px;padding:0 31px;display:flex;align-items:center;border:1px solid #eceaec;border-radius:24px;background:#fff;color:#6d6870;font-size:13px;font-weight:620;box-shadow:0 12px 28px rgba(28,28,32,.045)}.idea-library span:nth-child(4n+1){color:#e55f55}.idea-library span:nth-child(4n+2){color:#9f57c8}.idea-library span:nth-child(4n+3){color:#3786ac}
-	.category-nodes{max-width:590px;margin:70px auto 0;display:flex;align-items:center;justify-content:space-between}.category-nodes span{width:58px;height:58px;display:grid;place-items:center;border-radius:17px;background:#fff;box-shadow:0 14px 34px rgba(27,27,31,.1);font-size:11px;font-weight:780}.engine-stage{width:min(920px,100%);height:620px;margin:0 auto;position:relative}.engine-stage::before{content:'';width:620px;height:270px;position:absolute;left:50%;top:0;border-top:1px solid #dedbe1;border-radius:50%;transform:translateX(-50%)}.engine-device{width:315px;height:520px;padding:16px;position:absolute;left:50%;top:88px;display:flex;flex-direction:column;border:7px solid #1c1c1f;border-radius:41px;background:#fff;box-shadow:0 30px 75px rgba(27,27,31,.17);transform:translateX(-50%)}.engine-device>span{height:34px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:720}.engine-device img{width:100%;height:410px;object-fit:cover;border-radius:24px}.engine-device>b{height:38px;display:flex;align-items:end;justify-content:center;color:#6d6870;font-size:8px}.insight-card{min-width:270px;padding:16px;position:absolute;display:flex;align-items:center;gap:12px;border:1px solid #ebe9ec;border-radius:16px;background:#fff;box-shadow:0 15px 35px rgba(27,27,31,.09)}.insight-card>i{width:31px;height:31px;display:grid;place-items:center;border-radius:10px;background:#f0ebf9;color:#7444d2;font-size:11px;font-style:normal}.insight-card>span{display:flex;flex-direction:column;gap:4px}.insight-card b{font-size:10px}.insight-card small{color:#8b878d;font-size:8px}.insight-one{left:0;top:190px}.insight-two{right:0;top:145px}.insight-three{right:40px;bottom:70px}.truthful-stats{max-width:1050px;margin:35px auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.truthful-stats div{min-height:130px;padding:23px;display:flex;flex-direction:column;justify-content:flex-end;border:1px solid #ebe9ec;border-radius:22px;background:#fff}.truthful-stats b{font-size:34px;font-weight:660}.truthful-stats span{margin-top:6px;color:#817d83;font-size:10px}
-	.channel-grid{max-width:1120px;margin:65px auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.channel-grid article{min-height:300px;padding:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid #ebe9ec;border-radius:27px;background:#fff;text-align:center;box-shadow:0 14px 36px rgba(28,28,32,.045)}.channel-grid i{width:76px;height:76px;display:grid;place-items:center;border-radius:21px;background:#fff;box-shadow:0 13px 30px rgba(28,28,32,.09);font-size:34px;font-style:normal;font-weight:780}.channel-grid i.meta{color:#1c77e9}.channel-grid i.instagram{color:#e44891}.channel-grid i.facebook{color:#286ed5}.channel-grid i.store{color:#7545d3}.channel-grid h3{margin:24px 0 8px;font-size:20px}.channel-grid p{margin:0;color:#807c82;font-size:10px}
-	.compare-table{max-width:1120px;margin:65px auto 0;overflow:hidden;border:1px solid #ebe9ec;border-radius:28px;background:#fff;box-shadow:0 16px 45px rgba(28,28,32,.06)}.compare-row{min-height:72px;display:grid;grid-template-columns:1.55fr repeat(4,1fr);align-items:center;border-top:1px solid #efedef}.compare-row>*{height:100%;padding:0 18px;display:flex;align-items:center;justify-content:center;border-left:1px solid #efedef;text-align:center}.compare-row>*:first-child{justify-content:flex-start;border-left:0}.compare-head{min-height:110px;border-top:0}.compare-head b{font-size:10px}.compare-head img{width:65px;height:65px;object-fit:contain}.compare-row strong{font-size:10px}.compare-row span{color:#9a969c;font-size:9px}.compare-row span.yes{color:#32a75d;font-size:21px;font-weight:800}.compare-row span:not(.yes):not(.creattia){color:#d7364c}.compare-row span.creattia{background:#fbf8ff}
-	.privacy-heading{max-width:850px;margin:auto;text-align:center}.privacy-heading h2 em{background:linear-gradient(110deg,#4b7ee8,#d860d4,#ff704f);background-clip:text;color:transparent;font-style:normal}.privacy-intro{max-width:720px;margin:30px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:40px}.privacy-intro p{margin:0;color:#777479;font-size:13px;line-height:1.7;text-align:center}.privacy-panel{max-width:1120px;margin:95px auto 0;display:grid;grid-template-columns:.78fr 1.22fr;gap:16px}.privacy-points{display:flex;flex-direction:column;gap:12px}.privacy-points article{min-height:120px;padding:20px;display:flex;align-items:center;gap:18px;border:1px solid #ebe9ec;border-radius:23px;background:#fff;box-shadow:0 13px 32px rgba(28,28,32,.045)}.privacy-points i{width:46px;height:46px;display:grid;place-items:center;border-radius:15px;background:#f0ebf9;color:#7444d2;font-size:9px;font-style:normal}.privacy-points span{display:flex;flex-direction:column;gap:6px}.privacy-points b{font-size:12px}.privacy-points small{color:#817d83;font-size:9px}.privacy-mascot{min-height:385px;position:relative;display:grid;place-items:center;overflow:hidden;border:1px solid #ebe9ec;border-radius:28px;background:radial-gradient(circle at 50% 90%,#f0e5ff,transparent 56%),#fff}.privacy-mascot img{width:330px;height:330px;object-fit:contain}.privacy-mascot span{position:absolute;left:50%;bottom:24px;padding:11px 15px;border:1px solid transparent;border-radius:999px;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(110deg,#4b7ee8,#d860d4,#ff7b4f) border-box;font-size:9px;font-weight:700;transform:translateX(-50%)}
-	.people-grid{max-width:1120px;margin:65px auto 0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.people-grid article{min-height:390px;padding:34px;display:flex;flex-direction:column;border:1px solid #ebe9ec;border-radius:28px;background:#fff;box-shadow:0 14px 36px rgba(28,28,32,.04)}.people-grid>article>span{width:47px;height:47px;display:grid;place-items:center;border-radius:50%;background:#f0ebf9;color:#7444d2;font-size:9px;font-weight:780}.people-grid h3{margin:72px 0 14px;font-size:29px;line-height:1.08;letter-spacing:-.045em}.people-grid p{margin:0;color:#777479;font-size:11px;line-height:1.7}.people-grid small{margin-top:auto;padding-top:24px;border-top:1px solid #eceaec;color:#7545d3;font-size:7px;font-weight:800;letter-spacing:.13em}
-	.pricing{background:#f8f7f8}.plans{max-width:1080px;margin:65px auto 0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:stretch}.plans article{min-height:610px;padding:34px;position:relative;display:flex;flex-direction:column;border:1px solid #e7e4e8;border-radius:30px;background:#fff}.plans article.featured{border-color:#7043d0;background:linear-gradient(155deg,#8b56e8,#50229c);color:#fff;box-shadow:0 24px 55px rgba(84,41,164,.2)}.plans>article>span{font-size:7px;font-weight:800;letter-spacing:.12em}.plans h3{margin:18px 0 0;font-size:34px}.plans>article>p{min-height:45px;margin:13px 0 0;color:#817d83;font-size:10px;line-height:1.55}.plans article.featured>p{color:rgba(255,255,255,.65)}.price{margin-top:36px;display:flex;align-items:flex-end;gap:5px}.price small{margin-bottom:9px;color:#8d8990;font-size:7px}.price b{font-size:56px;line-height:1;letter-spacing:-.06em}.price em{margin-bottom:8px;color:#8d8990;font-size:9px;font-style:normal}.plans article.featured .price small,.plans article.featured .price em{color:rgba(255,255,255,.65)}.plans>article>strong{margin-top:16px;font-size:12px}.plans a{height:53px;margin-top:28px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;border-radius:999px;background:#1d1d1f;color:#fff;font-size:10px;font-weight:720;text-decoration:none}.plans article.featured a{background:#fff;color:#4b1b8f}.plans a b{font-size:17px}.plans ul{margin:28px 0 0;padding:25px 0 0;display:flex;flex-direction:column;gap:16px;border-top:1px solid #eceaec;list-style:none}.plans li{display:flex;align-items:center;gap:10px;color:#656167;font-size:9px}.plans article.featured li{color:rgba(255,255,255,.77)}.plans li i{width:21px;height:21px;display:grid;place-items:center;border-radius:50%;background:#eee8f7;color:#7143d0;font-size:7px;font-style:normal}.plans article.featured li i{background:rgba(255,255,255,.16);color:#fff}
-	.faq-list{max-width:900px;margin:60px auto 0}.faq-list details{border-bottom:1px solid #e9e7ea}.faq-list summary{min-height:86px;display:flex;align-items:center;justify-content:space-between;gap:25px;cursor:pointer;list-style:none;font-size:15px;font-weight:620}.faq-list summary::-webkit-details-marker{display:none}.faq-list summary i{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#f1eff2;color:#7143d0;font-size:18px;font-style:normal;font-weight:400;transition:transform .2s}.faq-list details[open] summary i{transform:rotate(45deg)}.faq-list details p{max-width:700px;margin:-4px 60px 25px 0;color:#777479;font-size:12px;line-height:1.7}
-	.final-cta{min-height:700px;padding:95px 20px;position:relative;overflow:hidden;display:grid;place-items:center;background:#1b191d;color:#fff;text-align:center}.final-cta::before{content:'';width:900px;height:900px;position:absolute;left:50%;top:-720px;border-radius:50%;background:#7950d8;filter:blur(100px);opacity:.68;transform:translateX(-50%)}.final-cta>div{max-width:840px;position:relative;z-index:2}.final-cta>div>span{background:linear-gradient(#1b191d,#1b191d) padding-box,linear-gradient(110deg,#6c91ff,#da68da,#ff795c) border-box;color:#c6b6e8}.final-cta h2{margin:22px 0 0;font-size:63px;line-height:1.02;letter-spacing:-.058em}.final-cta p{margin:23px 0 0;color:rgba(255,255,255,.6);font-size:14px}.final-cta a{height:59px;margin-top:30px;padding:0 25px;display:inline-flex;align-items:center;gap:28px;border-radius:999px;background:#fff;color:#1d1d1f;font-size:11px;font-weight:720;text-decoration:none}.final-cta a b{color:#7444d2;font-size:18px}.final-cta>img{width:240px;height:240px;position:absolute;right:-25px;bottom:-60px;object-fit:contain;filter:drop-shadow(0 25px 35px rgba(0,0,0,.25))}
-	footer{min-height:115px;padding:25px max(20px,calc((100vw - 1120px)/2));display:flex;align-items:center;gap:28px;background:#fff;color:#777479}footer>a{display:flex;align-items:center;gap:8px;color:#1d1d1f;text-decoration:none}footer>a img{width:44px;height:44px;object-fit:contain}footer>a strong{font-size:16px;letter-spacing:-.04em}footer p{margin:0;font-size:9px}footer nav{margin-left:auto;display:flex;gap:23px}footer nav a{color:#68646a;font-size:9px;font-weight:650;text-decoration:none}
-	@keyframes imageRail{to{transform:translateX(calc(-50% - 8.5px))}}@keyframes businessRail{to{transform:translateX(calc(-50% - 6px))}}
-	@media(max-width:980px){.step-row{grid-template-columns:70px minmax(200px,.7fr) minmax(300px,1fr);column-gap:24px}.tool-images img{width:175px;height:219px}.dna-grid{grid-template-columns:1fr 1fr;grid-template-rows:auto 430px auto;grid-template-areas:'style audience' 'mascot mascot' 'triggers private'}.content-calendar{grid-template-columns:1fr;gap:30px}.calendar-copy{max-width:780px;margin:auto;text-align:center}.phone-stage{min-height:670px}.idea-library{grid-column:1;margin-top:-60px}.truthful-stats{grid-template-columns:repeat(2,1fr)}.compare-row{grid-template-columns:1.5fr repeat(4,1fr)}.plans{grid-template-columns:repeat(3,1fr)}}
-	@media(max-width:760px){
-		.floating-header{width:calc(100% - 24px);height:54px;top:11px}.logo-bubble{width:54px;height:54px;flex-basis:54px}.logo-bubble img{width:43px;height:43px}.floating-header nav{display:none}.outline-cta{height:54px;margin-left:auto;padding:0 18px;font-size:9px}
-		.hero{min-height:0;padding:112px 14px 75px}.hero h1{font-size:43px;line-height:1.02}.hero-copy>p{font-size:13px}.gradient-cta{width:min(330px,100%);justify-content:center}.hero-proof{gap:17px}.hero-video{width:100%;margin-top:44px}
-		.showcase{padding:90px 0}.two-line-heading{width:calc(100% - 28px)}.two-line-heading h2{font-size:34px}.image-marquee{margin-top:48px;mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}.reference-card{width:210px}.manifesto{min-height:760px;padding:105px 14px 50px}.manifesto p{font-size:34px}.manifesto>img{width:185px;height:185px;margin-bottom:-95px}
-		.how-it-works,.all-in-one,.brand-dna,.business-types,.intelligence,.channels,.comparison,.privacy,.for-people,.pricing,.faq{padding:96px 14px}.center-heading h2,.privacy-heading h2{font-size:39px}.center-heading>p{font-size:12px}
-		.step-list{margin-top:48px}.step-row{min-height:0;padding:40px 0;grid-template-columns:48px 1fr;grid-template-rows:auto auto auto;column-gap:15px}.step-number{grid-column:1;grid-row:1/3}.step-number::after{top:42px;bottom:-41px}.step-number b{font-size:22px}.step-copy{grid-column:2;grid-row:1/3}.step-copy h3{font-size:27px}.step-copy p{font-size:10px}.step-demo{height:230px;grid-column:1/3;grid-row:3;margin-top:28px;border-radius:21px}.idea-stack img{width:105px;height:132px}.product-picker button{height:132px}.result-demo{grid-template-columns:1fr 102px}
-		.tool-panels{width:calc(100% + 28px);margin:52px 0 0 -14px;overflow:hidden}.tool-panels article{min-height:470px}.tool-images{width:680px;height:250px;margin-left:50%;gap:9px;transform:translateX(-50%)}.tool-images img{width:126px;height:158px;border-radius:13px}.tool-description{width:calc(100vw - 42px);margin-top:18px}.tool-description h3{font-size:24px}.tool-tabs{width:calc(100% + 28px);margin-left:-14px;padding:0 14px;display:flex;overflow-x:auto}.tool-tabs button{min-width:145px;flex:0 0 145px}
-		.dna-grid{min-height:0;margin-top:48px;grid-template-columns:1fr;grid-template-rows:auto;grid-template-areas:'style' 'mascot' 'audience' 'triggers' 'private'}.dna-mascot{height:380px}.dna-mascot>div{width:310px;height:310px}.dna-mascot img{width:250px;height:250px}.dna-grid article{min-height:200px}.business-marquee{margin-top:48px}.business-track span{width:235px}
-		.content-calendar{min-height:0;padding:100px 14px;grid-template-columns:1fr}.calendar-copy{padding-top:0}.calendar-copy h2{font-size:40px}.calendar-copy>p{font-size:12px}.moki-tip{justify-content:center}.phone-stage{min-height:610px}.phone{width:310px;height:610px;transform:rotate(5deg) translateY(0)}.phone-screen>img{height:440px}.idea-library{margin-top:0}.idea-library h3{font-size:24px}.idea-library>div{height:185px;margin:28px -80px 0;flex-wrap:nowrap;justify-content:flex-start;overflow:hidden}.idea-library span{height:70px;padding:0 24px;flex:0 0 auto}
-		.category-nodes{margin-top:50px}.category-nodes span{width:45px;height:45px;border-radius:14px}.engine-stage{height:520px}.engine-stage::before{width:410px}.engine-device{width:260px;height:440px;top:65px}.engine-device img{height:330px}.insight-card{min-width:0;width:210px;padding:12px}.insight-card small{font-size:7px}.insight-one{left:-25px;top:175px}.insight-two{right:-25px;top:105px}.insight-three{right:-18px;bottom:35px}.truthful-stats{grid-template-columns:1fr 1fr}.truthful-stats div{min-height:110px}
-		.channel-grid{grid-template-columns:1fr}.channel-grid article{min-height:235px}.compare-table{overflow-x:auto}.compare-row{min-width:760px}.privacy-intro{grid-template-columns:1fr;gap:12px}.privacy-panel{margin-top:55px;grid-template-columns:1fr}.privacy-mascot{min-height:350px}.privacy-mascot img{width:260px;height:260px}.people-grid{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}.people-grid article{flex:0 0 calc(100vw - 44px);scroll-snap-align:center}.plans{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}.plans article{flex:0 0 calc(100vw - 44px);scroll-snap-align:center}.faq-list summary{font-size:13px}.final-cta{min-height:650px;padding:90px 14px 150px}.final-cta h2{font-size:42px}.final-cta p{font-size:12px}.final-cta a{width:100%;justify-content:center}.final-cta>img{width:205px;height:205px;right:50%;bottom:-65px;transform:translateX(50%)}footer{padding:23px 14px;flex-wrap:wrap}footer p{width:calc(100% - 82px)}footer nav{width:100%;margin-left:0;padding-top:18px;border-top:1px solid #eceaec;justify-content:space-between}
+	/* ==========================================
+	   SISTEMA DE DISEÑO Y CONFIGURACIÓN PREMIUM
+	   ========================================== */
+	/* ==========================================
+	   FUENTES SATOSHI Y WONDERKIDS (TryHolo Clone)
+	   ========================================== */
+	@font-face {
+		font-family: 'Satoshi';
+		src: url('https://tryholo.ai/fonts/Satoshi-Variable.woff2') format('woff2');
+		font-weight: 300 900;
+		font-display: swap;
+		font-style: normal;
 	}
-	@media(prefers-reduced-motion:reduce){:global(html){scroll-behavior:auto}.image-track,.business-track{animation:none}}
+
+	@font-face {
+		font-family: 'Satoshi';
+		src: url('https://tryholo.ai/fonts/Satoshi-VariableItalic.woff2') format('woff2');
+		font-weight: 300 900;
+		font-display: swap;
+		font-style: italic;
+	}
+
+	@font-face {
+		font-family: 'Wonderkids Regular';
+		src: url('https://tryholo.ai/fonts/Wonderkids-Regular.ttf') format('truetype');
+		font-weight: 400;
+		font-style: normal;
+		font-display: swap;
+	}
+
+	:global(html) {
+		scroll-behavior: smooth;
+		background-color: #FFF;
+	}
+	
+	:global(body) {
+		color: #1D1D1F;
+		font-family: 'Satoshi', 'Inter Variable', Inter, system-ui, sans-serif;
+		background-color: #FFF;
+		overflow-x: hidden;
+		margin: 0;
+	}
+
+	:global(body.menu-open) {
+		overflow: hidden;
+	}
+
+	/* ==========================================
+	   TIPOGRAFÍA GLOBAL SATOSHI (TryHolo Clone)
+	   ========================================== */
+	:global(h1), :global(.type-h1) {
+		font-family: 'Satoshi', sans-serif;
+		font-size: clamp(38px, 6vw, 68px);
+		font-weight: 800;
+		line-height: 1.05;
+		letter-spacing: -0.04em;
+	}
+
+	:global(h2), :global(.type-h2) {
+		font-family: 'Satoshi', sans-serif;
+		font-size: clamp(28px, 4vw, 48px);
+		font-weight: 700;
+		line-height: 1.15;
+		letter-spacing: -0.03em;
+	}
+
+	:global(h3), :global(.type-h3) {
+		font-family: 'Satoshi', sans-serif;
+		font-size: clamp(20px, 3vw, 28px);
+		font-weight: 700;
+		line-height: 1.2;
+		letter-spacing: -0.02em;
+	}
+
+	:global(p), :global(.type-body) {
+		font-family: 'Satoshi', sans-serif;
+		font-size: 16px;
+		font-weight: 450;
+		line-height: 1.5;
+		letter-spacing: -0.01em;
+	}
+
+	.landing-content {
+		position: relative;
+		z-index: 10;
+	}
+
+	/* Gradiente de Acento de TryHolo */
+	:root {
+		--holo-gradient: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%);
+		--border-color: #E6E6E7;
+		--bg-light: #FBFBFB;
+		--text-dark: #1D1D1F;
+		--text-grey: #6E6E73;
+		--shadow-premium: 0 20px 48px -10px rgba(29, 29, 31, 0.08);
+		--shadow-hover: 0 30px 60px -12px rgba(29, 29, 31, 0.15);
+	}
+
+	/* ==========================================
+	   HEADER DE NAVEGACIÓN (TryHolo Clone)
+	   ========================================== */
+	.floating-header {
+		width: min(1000px, calc(100% - 32px));
+		height: 64px;
+		position: fixed;
+		z-index: 100;
+		left: 50%;
+		top: 20px;
+		transform: translateX(-50%);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 8px 0 16px;
+		background: rgba(251, 251, 251, 0.85);
+		border: 1px solid var(--border-color);
+		border-radius: 33px;
+		backdrop-filter: blur(20px);
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+	}
+
+	.logo-bubble {
+		width: 42px;
+		height: 42px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		overflow: hidden;
+		transition: transform 0.2s ease;
+	}
+
+	.logo-bubble:hover {
+		transform: scale(1.05);
+	}
+
+	.logo-bubble img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.nav-links {
+		display: none;
+		align-items: center;
+		gap: 24px;
+	}
+
+	@media (min-width: 810px) {
+		.nav-links {
+			display: flex;
+		}
+	}
+
+	.nav-links a {
+		font-size: 15px;
+		font-weight: 500;
+		color: var(--text-dark);
+		text-decoration: none;
+		opacity: 0.8;
+		transition: opacity 0.2s ease;
+	}
+
+	.nav-links a:hover {
+		opacity: 1;
+	}
+
+	.outline-cta {
+		display: none;
+		height: 48px;
+		padding: 0 24px;
+		align-items: center;
+		gap: 8px;
+		border-radius: 24px;
+		background: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%);
+		border: none;
+		color: #FFF;
+		font-size: 15px;
+		font-weight: 700;
+		text-decoration: none;
+		box-shadow: 0 4px 15px rgba(236, 68, 146, 0.2);
+		transition: all 0.2s ease;
+	}
+
+	@media (min-width: 810px) {
+		.outline-cta {
+			display: inline-flex;
+		}
+	}
+
+	.outline-cta:hover {
+		transform: scale(1.03);
+		box-shadow: 0 6px 20px rgba(236, 68, 146, 0.35);
+	}
+
+	.mobile-menu-toggle {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		width: 44px;
+		height: 44px;
+		padding: 13px 11px;
+		border-radius: 50%;
+		border: 1px solid var(--border-color);
+		background: #FFF;
+		cursor: pointer;
+	}
+
+	@media (min-width: 810px) {
+		.mobile-menu-toggle {
+			display: none;
+		}
+	}
+
+	.mobile-menu-toggle span {
+		width: 100%;
+		height: 2px;
+		background-color: var(--text-dark);
+		border-radius: 1px;
+		transition: all 0.3s ease;
+	}
+
+	.mobile-menu-toggle.active span:nth-child(1) {
+		transform: translateY(6px) rotate(45deg);
+	}
+
+	.mobile-menu-toggle.active span:nth-child(2) {
+		opacity: 0;
+	}
+
+	.mobile-menu-toggle.active span:nth-child(3) {
+		transform: translateY(-6px) rotate(-45deg);
+	}
+
+	/* Menú móvil */
+	.mobile-nav-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 90;
+		background: var(--bg-light);
+		padding: 120px 24px 40px;
+		opacity: 0;
+		pointer-events: none;
+		transform: translateY(-10px);
+		transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+
+	.mobile-nav-overlay.active {
+		opacity: 1;
+		pointer-events: auto;
+		transform: translateY(0);
+	}
+
+	.mobile-nav {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.mobile-nav-link {
+		font-size: 28px;
+		font-weight: 700;
+		color: var(--text-dark);
+		text-decoration: none;
+		padding: 10px 0;
+		border-bottom: 1px solid rgba(0,0,0,0.05);
+	}
+
+	.mobile-cta {
+		margin-top: 30px;
+		height: 56px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--text-dark);
+		color: #FFF;
+		font-size: 18px;
+		font-weight: 700;
+		text-decoration: none;
+		border-radius: 28px;
+	}
+
+	/* ==========================================
+	   HERO SECTION
+	   ========================================== */
+	.hero-section {
+		padding: 120px 20px 20px;
+		text-align: center;
+		background: #FFF;
+	}
+
+	@media (min-width: 1024px) {
+		.hero-section {
+			padding: 180px 20px 30px;
+		}
+	}
+
+	.hero-wrapper {
+		max-width: 960px;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.hero-content-block {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		order: 2; /* In mobile, video is at the top (order: 1) and content is underneath (order: 2) */
+	}
+
+	.hero-badge-container {
+		display: inline-flex;
+		padding: 1px;
+		border-radius: 99px;
+		background: var(--holo-gradient);
+		margin-bottom: 24px;
+	}
+
+	.hero-badge {
+		background: var(--bg-light);
+		padding: 6px 16px;
+		border-radius: 99px;
+	}
+
+	.hero-badge-text {
+		font-size: 13px;
+		font-weight: 800;
+		letter-spacing: 0.05em;
+		background: var(--holo-gradient);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+
+	.hero-title {
+		font-size: clamp(38px, 6vw, 68px);
+		font-weight: 800;
+		line-height: 1.05;
+		letter-spacing: -0.04em;
+		margin: 0 0 24px;
+		color: var(--text-dark);
+	}
+
+	.hero-subtitle {
+		font-size: clamp(16px, 2.5vw, 21px);
+		font-weight: 450;
+		line-height: 1.5;
+		color: var(--text-grey);
+		max-width: 720px;
+		margin: 0 auto 36px;
+	}
+
+	.hero-actions {
+		margin-bottom: 40px;
+	}
+
+	.gradient-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 12px;
+		height: 56px;
+		padding: 0 32px;
+		border-radius: 28px;
+		background: var(--holo-gradient);
+		color: #FFF;
+		font-size: 17px;
+		font-weight: 700;
+		text-decoration: none;
+		box-shadow: 0 15px 35px -5px rgba(236, 68, 146, 0.3);
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.gradient-cta:hover {
+		transform: scale(1.03);
+		box-shadow: 0 20px 40px -5px rgba(236, 68, 146, 0.45);
+	}
+
+	.cta-arrow {
+		width: 18px;
+		height: 18px;
+	}
+
+	.hero-trust {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 60px;
+	}
+
+	@media (min-width: 640px) {
+		.hero-trust {
+			flex-direction: row;
+			gap: 40px;
+		}
+	}
+
+	.trust-item {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		text-align: left;
+	}
+
+	.trust-icon {
+		width: 32px;
+		height: 32px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(0,0,0,0.04);
+		border-radius: 8px;
+		color: #744bde;
+		font-weight: bold;
+		font-size: 14px;
+	}
+
+	.trust-copy {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.trust-title {
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--text-dark);
+	}
+
+	.trust-desc {
+		font-size: 12px;
+		color: var(--text-grey);
+	}
+
+	/* Contenedor del video del Hero */
+	.hero-video-container {
+		width: 100%;
+		max-width: 800px;
+		border-radius: 24px;
+		overflow: hidden;
+		aspect-ratio: 4/3;
+		position: relative;
+		border: 1px solid var(--border-color);
+		box-shadow: 0 40px 100px -20px rgba(0,0,0,0.12);
+		background: #FFF;
+		order: 1; /* In mobile, video is at the top */
+		margin-bottom: 40px; /* spacing below video in mobile */
+	}
+
+	@media (min-width: 1024px) {
+		.hero-content-block {
+			order: 1; /* In desktop, content is at the top */
+		}
+		.hero-video-container {
+			order: 2; /* In desktop, video is at the bottom */
+			margin-bottom: 0;
+			margin-top: 60px; /* spacing above video in desktop */
+		}
+	}
+
+	.hero-video-container video {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.hero-rating-wrapper {
+		display: flex;
+		justify-content: center;
+		margin-top: 40px;
+		width: 100%;
+		order: 3;
+	}
+
+	@media (min-width: 1024px) {
+		.hero-rating-wrapper {
+			order: 3;
+			margin-top: 60px;
+		}
+	}
+
+	/* ==========================================
+	   SECCIÓN MANIFIESTO (TryHolo Inline Videos)
+	   ========================================== */
+	.manifesto-section {
+		background: #FFF;
+		padding: 96px 20px;
+	}
+
+	.manifesto-container {
+		width: 100%;
+		max-width: 355px;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		gap: 36px;
+	}
+
+	@media (min-width: 810px) {
+		.manifesto-container {
+			max-width: 488px;
+		}
+	}
+
+	@media (min-width: 1200px) {
+		.manifesto-container {
+			max-width: 583px;
+		}
+	}
+
+	.manifesto-line {
+		font-size: clamp(24px, 3.5vw, 38px);
+		font-weight: 600;
+		line-height: 1.35;
+		letter-spacing: -0.03em;
+		color: #1D1D1F;
+		margin: 0;
+	}
+
+	.inline-video-wrapper {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		vertical-align: middle;
+		width: 48px;
+		height: 48px;
+		border-radius: 12px;
+		overflow: hidden;
+		background: transparent;
+		margin: 0 4px;
+		position: relative;
+		top: -4px;
+	}
+
+	.inline-video-wrapper video {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		background: transparent;
+	}
+
+	.showcase-section {
+		padding: 20px 20px 80px;
+		background: #FFF;
+	}
+
+	.showcase-container {
+		max-width: 1120px;
+		margin: 0 auto;
+		width: 100%;
+		overflow: hidden;
+	}
+
+	.showcase-header-wrapper {
+		width: 100%;
+		margin: 0 0 40px;
+		text-align: left;
+	}
+
+	.rating-stars {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		margin-bottom: 24px;
+		padding: 6px 16px;
+		background: #FFF;
+		border-radius: 99px;
+		border: 1px solid #e6e6e7;
+	}
+
+	.avatars-group {
+		display: flex;
+	}
+
+	.rating-avatar-img {
+		width: 29px;
+		height: 29px;
+		border-radius: 50%;
+		border: 2px solid #FFF;
+		margin-right: -8px;
+		object-fit: cover;
+	}
+
+	.rating-avatar-img:last-child {
+		margin-right: 0;
+	}
+
+	.rating-text {
+		font-size: 13px;
+		font-weight: 500;
+		color: #1D1D1F;
+	}
+
+	.rating-text strong {
+		font-weight: 700;
+	}
+
+	.rating-star-icon {
+		width: 20px;
+		height: 20px;
+		object-fit: contain;
+		margin-left: 2px;
+	}
+
+	.banner-heading {
+		font-size: clamp(22px, 3vw, 32px);
+		font-weight: 700;
+		line-height: 1.25;
+		letter-spacing: -0.02em;
+		color: var(--text-dark);
+		margin: 0;
+	}
+
+	.showcase-marquee {
+		width: 100%;
+		overflow-x: auto;
+		scroll-behavior: smooth;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none; /* Hide scrollbar Firefox */
+		padding: 20px 0;
+	}
+
+	.showcase-marquee::-webkit-scrollbar {
+		display: none; /* Hide scrollbar Chrome/Safari */
+	}
+
+	.showcase-track {
+		display: flex;
+		gap: 20px;
+		width: max-content;
+	}
+
+	.showcase-card {
+		width: 280px;
+		aspect-ratio: 3/4;
+		border-radius: 24px;
+		overflow: hidden;
+		background: transparent;
+		cursor: grab;
+		user-select: none;
+	}
+
+	.showcase-card:hover {
+		transform: translateY(-6px);
+	}
+
+	.showcase-card img {
+		width: 100%;
+		height: 100%;
+		display: block;
+		object-fit: cover;
+		border-radius: 24px;
+		pointer-events: none;
+	}
+
+	.card-footer {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px 8px;
+		font-size: 13px;
+		font-weight: 700;
+	}
+
+	.card-arrow {
+		color: #744bde;
+		font-size: 14px;
+	}
+
+	.showcase-footer-nav {
+		width: 100%;
+		margin: 30px auto 0;
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.carousel-nav-arrows {
+		display: flex;
+		gap: 8px;
+	}
+
+	.arrow-nav-btn {
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		border: 1px solid #e6e6e7;
+		background: #FFF;
+		color: #1D1D1F;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+		user-select: none;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+	}
+
+	.arrow-nav-btn:hover {
+		background: #F8F9FA;
+		transform: scale(1.05);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+	}
+
+	@keyframes imageRail {
+		0% { transform: translateX(0); }
+		100% { transform: translateX(calc(-33.33% - 7px)); }
+	}
+
+	/* ==========================================
+	   SECCIÓN COMO FUNCIONA
+	   ========================================== */
+	.how-it-works {
+		padding: 80px 20px;
+		max-width: 1200px;
+		margin: 0 auto;
+	}
+
+	.section-header {
+		text-align: center;
+		margin-bottom: 60px;
+	}
+
+	.section-tag {
+		display: inline-block;
+		padding: 5px 12px;
+		border-radius: 99px;
+		background: #FFF;
+		border: 1px solid var(--border-color);
+		font-size: 11px;
+		letter-spacing: 0.05em;
+		color: var(--text-grey);
+		margin-bottom: 16px;
+	}
+
+	.section-header h2 {
+		font-size: clamp(28px, 4vw, 48px);
+		font-weight: 800;
+		letter-spacing: -0.03em;
+		color: var(--text-dark);
+		margin: 0;
+	}
+
+	.section-desc {
+		font-size: 16px;
+		color: var(--text-grey);
+		margin-top: 16px;
+	}
+
+	/* ==========================================
+	   HOW IT WORKS VERTICAL CONNECTING TIMELINE
+	   ========================================== */
+	.steps-vertical-container {
+		width: 100%;
+		max-width: 946px;
+		margin: 40px auto 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.step-vertical-row {
+		display: flex;
+		gap: 20px;
+	}
+
+	.step-left-line-col {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		width: 48px;
+		flex-shrink: 0;
+	}
+
+	@media (min-width: 810px) {
+		.step-left-line-col {
+			width: 72px;
+		}
+	}
+
+	.step-vertical-number {
+		font-size: clamp(24px, 3.5vw, 38px);
+		font-weight: 700;
+		color: var(--text-dark);
+		text-align: center;
+		line-height: 1;
+	}
+
+	.step-vertical-line {
+		width: 3px;
+		flex: 1;
+		margin-top: 12px;
+		border-radius: 99px;
+		min-height: 120px;
+	}
+
+	.step-vertical-content-wrapper {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		padding-bottom: 32px;
+	}
+
+	@media (min-width: 810px) {
+		.step-vertical-content-wrapper {
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: flex-start;
+			padding-bottom: 48px;
+		}
+	}
+
+	.step-vertical-text {
+		max-width: 364px;
+		text-align: left;
+	}
+
+	.step-vertical-text h3 {
+		font-size: clamp(20px, 3vw, 28px);
+		font-weight: 700;
+		margin: 0 0 8px;
+		letter-spacing: -0.02em;
+		color: var(--text-dark);
+	}
+
+	.step-vertical-text p {
+		font-size: 16px;
+		color: var(--text-grey);
+		line-height: 1.5;
+		letter-spacing: -0.015em;
+		margin: 0;
+	}
+
+	.step-vertical-demo-box {
+		width: 100%;
+		max-width: 380px;
+		height: auto;
+		margin-top: 24px;
+	}
+
+	@media (min-width: 810px) {
+		.step-vertical-demo-box {
+			margin-top: 0;
+			width: 300px;
+			flex-shrink: 0;
+		}
+	}
+
+	@media (min-width: 1200px) {
+		.step-vertical-demo-box {
+			width: 380px;
+		}
+	}
+
+	.step-video-demo {
+		width: 100%;
+		height: auto;
+		display: block;
+		border-radius: 16px;
+		border: 1px solid rgba(0,0,0,0.03);
+		box-shadow: 0 8px 25px rgba(0,0,0,0.03);
+	}
+
+	.btn-download {
+		background: #FFF;
+		border: 1px solid var(--border-color);
+		color: var(--text-dark);
+	}
+
+	.btn-variant {
+		background: #744bde;
+		color: #FFF;
+	}
+
+	/* ==========================================
+	   THE ALL-IN-ONE TOOL SECTION
+	   ========================================== */
+	.all-in-one-section {
+		padding: 100px 20px;
+		background: #FFF;
+	}
+
+	/* ==========================================
+	   3D CYLINDER CAROUSEL (TryHolo Clone)
+	   ========================================== */
+	.cylinder-carousel-container {
+		width: 100%;
+		max-width: min(100vw - 1.5rem, 1920px);
+		margin: 60px auto 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		overflow: visible;
+		perspective: var(--carousel-perspective);
+		height: var(--carousel-height);
+		--carousel-card-w: 220px;
+		--carousel-card-h: 330px;
+		--carousel-radius: 420px;
+		--carousel-perspective: 1240px;
+		--carousel-height: 480px;
+	}
+
+	@media (max-width: 809px) {
+		.cylinder-carousel-container {
+			--carousel-card-w: 140px;
+			--carousel-card-h: 210px;
+			--carousel-radius: 280px;
+			--carousel-perspective: 1000px;
+			--carousel-height: 320px;
+		}
+	}
+
+	.carousel-cylinder {
+		position: relative;
+		transform-style: preserve-3d;
+		width: 0;
+		height: 0;
+		will-change: transform;
+	}
+
+	.cylinder-card {
+		position: absolute;
+		border-radius: 20px;
+		overflow: hidden;
+		box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+		border: 1px solid var(--border-color);
+		background: #FAF9FB;
+		width: var(--carousel-card-w);
+		height: var(--carousel-card-h);
+		left: calc(var(--carousel-card-w) / -2);
+		top: calc(var(--carousel-card-h) / -2);
+		backface-visibility: visible;
+		transition: transform 0.1s ease-out;
+	}
+
+	.cylinder-card img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	@keyframes fadeIn {
+		from { opacity: 0; transform: translateY(5px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+
+	/* ==========================================
+	   BRAND DNA SECTION
+	   ========================================== */
+	.brand-dna-section {
+		padding: 100px 20px;
+		max-width: 1200px;
+		margin: 0 auto;
+	}
+
+	.dna-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 20px;
+		margin-top: 60px;
+	}
+
+	@media (min-width: 768px) {
+		.dna-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.dna-grid {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+
+	.dna-card {
+		background: #FFF;
+		border: 1px solid var(--border-color);
+		border-radius: 28px;
+		padding: 32px;
+		display: flex;
+		flex-direction: column;
+		box-shadow: var(--shadow-premium);
+		transition: all 0.2s ease;
+	}
+
+	.dna-card:hover {
+		transform: translateY(-4px);
+		box-shadow: var(--shadow-hover);
+	}
+
+	.dna-card h3 {
+		font-size: 20px;
+		font-weight: 800;
+		margin: 0 0 12px;
+	}
+
+	.dna-card p {
+		font-size: 14px;
+		line-height: 1.6;
+		color: var(--text-grey);
+		margin: 0;
+	}
+
+	/* Simulación de contenido en tarjetas de ADN */
+	.color-dots-simulate {
+		display: flex;
+		gap: 8px;
+		margin-top: 30px;
+	}
+
+	.color-dots-simulate span {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		border: 2px solid #FFF;
+		box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+	}
+
+	.trigger-bar-simulate {
+		height: 14px;
+		background: #FAF9FB;
+		border-radius: 7px;
+		border: 1px solid var(--border-color);
+		margin-top: 30px;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.trigger-bar-simulate .fill-bar {
+		height: 100%;
+		background: var(--holo-gradient);
+		border-radius: 7px;
+	}
+
+	.audience-badge-simulate {
+		display: flex;
+		gap: 10px;
+		margin-top: 30px;
+	}
+
+	.audience-badge-simulate span {
+		padding: 6px 12px;
+		background: #F0EDF3;
+		border-radius: 8px;
+		font-size: 11px;
+		font-weight: bold;
+		color: #744bde;
+	}
+
+	.privacy-badge {
+		display: inline-flex;
+		padding: 6px 12px;
+		border-radius: 20px;
+		background: #F8F9FA;
+		border: 1px solid var(--border-color);
+		font-size: 11px;
+		font-weight: bold;
+		color: #27c93f;
+		width: max-content;
+		margin-top: 30px;
+	}
+
+	/* Mascot card central */
+	.dna-mascot-card {
+		grid-row: span 2;
+		background: #FAF9FB;
+		border: 1px solid var(--border-color);
+		border-radius: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		overflow: hidden;
+		min-height: 300px;
+	}
+
+	.mascot-bg-glow {
+		position: absolute;
+		width: 80%;
+		height: 80%;
+		border-radius: 50%;
+		background: radial-gradient(circle, rgba(236,68,146,0.15) 0%, transparent 60%);
+	}
+
+	.dna-mascot-card video {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		z-index: 2;
+		display: block;
+	}
+
+	@keyframes floatMascot {
+		0% { transform: translateY(0); }
+		100% { transform: translateY(-10px); }
+	}
+
+	/* ==========================================
+	   BUSINESS MARQUEE SECTION
+	   ========================================== */
+	.business-marquee-section {
+		padding: 80px 0;
+		overflow: hidden;
+		background: #FFF;
+		text-align: center;
+	}
+
+	.marquee-title {
+		font-size: 22px;
+		font-weight: 800;
+		margin-bottom: 40px;
+		color: var(--text-dark);
+	}
+
+	.business-marquee {
+		width: 100%;
+		overflow: hidden;
+		mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+	}
+
+	.business-track {
+		display: flex;
+		gap: 16px;
+		width: max-content;
+		animation: businessRail 25s linear infinite;
+	}
+
+	.business-tag {
+		display: inline-flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px 28px;
+		background: #FAF9FB;
+		border: 1px solid var(--border-color);
+		border-radius: 20px;
+		box-shadow: 0 4px 15px rgba(0,0,0,0.01);
+	}
+
+	.tag-number {
+		font-size: 11px;
+		font-weight: 800;
+		color: #744bde;
+		background: #F0EDF3;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.tag-text {
+		font-size: 16px;
+		font-weight: 700;
+	}
+
+	.tag-icon {
+		color: #999;
+	}
+
+	@keyframes businessRail {
+		0% { transform: translateX(0); }
+		100% { transform: translateX(calc(-50% - 8px)); }
+	}
+
+	/* ==========================================
+	   CALENDAR & SWIPE SECTION
+	   ========================================== */
+	.calendar-swipe-section {
+		padding: 100px 20px;
+		max-width: 1100px;
+		margin: 0 auto;
+	}
+
+	.swipe-container {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 60px;
+		align-items: center;
+		margin-bottom: 80px;
+	}
+
+	@media (min-width: 810px) {
+		.swipe-container {
+			grid-template-columns: 1.1fr 0.9fr;
+		}
+	}
+
+	.swipe-copy {
+		text-align: left;
+	}
+
+	.swipe-copy h2 {
+		font-size: clamp(28px, 4vw, 48px);
+		font-weight: 800;
+		line-height: 1.1;
+		margin: 20px 0;
+	}
+
+	.swipe-copy p {
+		font-size: 16px;
+		line-height: 1.6;
+		color: var(--text-grey);
+		margin-bottom: 30px;
+	}
+
+	.moki-tip-bubble {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		background: #FFF;
+		border: 1px solid var(--border-color);
+		border-radius: 20px;
+		padding: 16px;
+		box-shadow: var(--shadow-premium);
+	}
+
+	.moki-tip-bubble img {
+		width: 48px;
+		height: 48px;
+		object-fit: contain;
+	}
+
+	.moki-tip-bubble p {
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--text-dark);
+		line-height: 1.4;
+		margin: 0;
+	}
+
+	/* Phone Mockup */
+	.swipe-phone-mockup {
+		display: flex;
+		justify-content: center;
+	}
+
+	.phone-frame {
+		width: 370px;
+		height: 720px;
+		border: 12px solid #1D1D1F;
+		border-radius: 48px;
+		background: #FFF;
+		box-shadow: 0 40px 90px rgba(30,27,34,.18);
+		padding: 13px;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		transform: rotate(8deg);
+	}
+
+	.phone-notch {
+		width: 100px;
+		height: 20px;
+		background: #1D1D1F;
+		border-radius: 0 0 14px 14px;
+		position: absolute;
+		top: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 10;
+	}
+
+	.phone-screen-content {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+	}
+
+	.phone-header {
+		padding: 16px 0 8px;
+		display: flex;
+		justify-content: space-between;
+		font-size: 11px;
+		font-weight: bold;
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	.phone-header small {
+		color: #744bde;
+	}
+
+	.phone-card-image {
+		flex: 1;
+		margin: 12px 0;
+		border-radius: 20px;
+		overflow: hidden;
+		box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+		border: 1px solid var(--border-color);
+	}
+
+	.phone-card-image img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		background: #FFF;
+	}
+
+	.phone-actions {
+		display: flex;
+		justify-content: space-around;
+		padding-bottom: 8px;
+	}
+
+	.phone-actions button {
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		border: 1px solid var(--border-color);
+		background: #FFF;
+		font-size: 18px;
+		cursor: pointer;
+		box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+	}
+
+	.btn-swipe-dislike { color: #ff5f56; }
+	.btn-swipe-like { color: #ec4492; }
+
+	/* Tag Cloud */
+	/* ==========================================
+	   1000's of IDEAS MARQUEE SECTION
+	   ========================================== */
+	.ideas-marquee-section {
+		padding: 80px 0;
+		background: #FFF;
+		overflow: hidden;
+		text-align: center;
+	}
+
+	.ideas-marquee-title {
+		font-size: clamp(24px, 3.5vw, 36px);
+		font-weight: 700;
+		margin-bottom: 40px;
+		color: var(--text-dark);
+		letter-spacing: -0.02em;
+	}
+
+	.ideas-marquee {
+		width: 100%;
+		overflow: hidden;
+		margin-bottom: 20px;
+		mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+	}
+
+	.ideas-track {
+		display: flex;
+		gap: 16px;
+		width: max-content;
+	}
+
+	.idea-pill {
+		padding: 12px 28px;
+		border-radius: 99px;
+		border: 1px solid currentColor;
+		background: #FFF;
+		font-size: 15px;
+		font-weight: 700;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+		white-space: nowrap;
+	}
+
+	.marquee-ltr .ideas-track {
+		animation: marqueeLTR 24s linear infinite;
+	}
+
+	.marquee-rtl .ideas-track {
+		animation: marqueeRTL 24s linear infinite;
+	}
+
+	@keyframes marqueeLTR {
+		0% { transform: translateX(calc(-50% - 8px)); }
+		100% { transform: translateX(0); }
+	}
+
+	@keyframes marqueeRTL {
+		0% { transform: translateX(0); }
+		100% { transform: translateX(calc(-50% - 8px)); }
+	}
+
+	/* ==========================================
+	   STATS SECTION
+	   ========================================== */
+	.stats-section {
+		padding: 100px 20px;
+		background: #FFF;
+	}
+
+	.stats-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 20px;
+		max-width: 1000px;
+		margin: 60px auto 0;
+	}
+
+	@media (min-width: 640px) {
+		.stats-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.stats-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.stat-card {
+		background: #FAF9FB;
+		border: 1px solid var(--border-color);
+		border-radius: 20px;
+		padding: 24px;
+		text-align: left;
+	}
+
+	.stat-value {
+		font-size: 40px;
+		font-weight: 800;
+		display: block;
+		margin-bottom: 10px;
+		background: var(--holo-gradient);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+
+	.stat-label {
+		font-size: 15px;
+		font-weight: 800;
+		margin: 0 0 4px;
+	}
+
+	.stat-desc {
+		font-size: 12px;
+		color: var(--text-grey);
+		margin: 0;
+	}
+
+	/* ==========================================
+	   COMPARISON TABLE SECTION (1 Tool to Do It All)
+	   ========================================== */
+	.comparison-section {
+		padding: 100px 20px;
+		background: #FFF;
+		text-align: center;
+	}
+
+	.comparison-table-wrapper {
+		max-width: 880px;
+		margin: 60px auto 0;
+		background: #FFF;
+		border-radius: 32px;
+		border: 1px solid var(--border-color);
+		box-shadow: 0 16px 48px rgba(0, 0, 0, 0.04);
+		overflow-x: auto;
+		padding: 24px;
+	}
+
+	.comparison-table {
+		width: 100%;
+		border-collapse: collapse;
+		text-align: left;
+	}
+
+	.comparison-table th, 
+	.comparison-table td {
+		padding: 20px 16px;
+		border-bottom: 1px solid var(--border-color);
+		vertical-align: middle;
+	}
+
+	.comparison-table thead tr th {
+		border-bottom: 2px solid var(--border-color);
+		padding-bottom: 24px;
+	}
+
+	.comparison-table tbody tr:last-child td {
+		border-bottom: none;
+	}
+
+	.col-feature {
+		width: 40%;
+	}
+
+	.col-creattia, .col-competitor {
+		width: 15%;
+		text-align: center;
+	}
+
+	.header-logo {
+		max-width: 32px;
+		height: 32px;
+		object-fit: contain;
+		display: inline-block;
+		vertical-align: middle;
+	}
+
+	.creattia-logo {
+		transform: scale(1.4);
+	}
+
+	.cell-feature {
+		font-size: 15px;
+		font-weight: 700;
+		color: var(--text-dark);
+	}
+
+	.cell-val {
+		text-align: center;
+	}
+
+	.comparison-badge {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.check-badge {
+		background: #EAFDF3;
+		color: #00B159;
+	}
+
+	.cross-badge {
+		background: #FFF2F2;
+		color: #FF3B30;
+	}
+
+	/* ==========================================
+	   PRIVACY SECTION
+	   ========================================== */
+	.privacy-section {
+		padding: 80px 20px;
+		background: #FFF;
+	}
+
+	.privacy-layout {
+		max-width: 1000px;
+		margin: 0 auto;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 40px;
+		align-items: center;
+	}
+
+	@media (min-width: 768px) {
+		.privacy-layout {
+			grid-template-columns: 1.2fr 0.8fr;
+		}
+	}
+
+	.privacy-heading {
+		text-align: left;
+	}
+
+	.privacy-heading h2 {
+		font-size: clamp(26px, 4vw, 44px);
+		font-weight: 800;
+		line-height: 1.15;
+		margin: 20px 0;
+	}
+
+	.privacy-heading h2 em {
+		background: var(--holo-gradient);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		font-style: normal;
+	}
+
+	.privacy-heading p {
+		font-size: 16px;
+		line-height: 1.6;
+		color: var(--text-grey);
+	}
+
+	.privacy-graphic {
+		display: flex;
+		justify-content: center;
+	}
+
+	.graphic-shield {
+		width: 100%;
+		max-width: 280px;
+		padding: 30px;
+		background: #FAF9FB;
+		border: 1px solid var(--border-color);
+		border-radius: 24px;
+		text-align: center;
+		box-shadow: var(--shadow-premium);
+	}
+
+	.shield-icon {
+		font-size: 40px;
+		display: block;
+		margin-bottom: 16px;
+	}
+
+	.graphic-shield h4 {
+		font-size: 16px;
+		font-weight: bold;
+		margin: 0 0 8px;
+	}
+
+	.graphic-shield p {
+		font-size: 12px;
+		color: var(--text-grey);
+		margin: 0;
+	}
+
+	/* ==========================================
+	   TEAM SECTION
+	   ========================================== */
+	.team-section {
+		padding: 100px 20px;
+		max-width: 1000px;
+		margin: 0 auto;
+		text-align: center;
+	}
+
+	.team-header {
+		margin-bottom: 50px;
+	}
+
+	.team-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 20px;
+		margin-bottom: 40px;
+	}
+
+	@media (min-width: 768px) {
+		.team-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.team-card-member {
+		background: #FFF;
+		border: 1px solid var(--border-color);
+		border-radius: 20px;
+		padding: 24px;
+		box-shadow: var(--shadow-premium);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		transition: transform 0.2s;
+	}
+
+	.team-card-member:hover {
+		transform: translateY(-4px);
+	}
+
+	.member-avatar {
+		width: 100px;
+		height: 100px;
+		border-radius: 50%;
+		overflow: hidden;
+		background: #F0EDF3;
+		margin-bottom: 16px;
+	}
+
+	.member-avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.team-card-member h4 {
+		font-size: 15px;
+		font-weight: bold;
+		margin: 0 0 4px;
+	}
+
+	.member-role {
+		font-size: 12px;
+		color: var(--text-grey);
+	}
+
+	.team-story {
+		max-width: 760px;
+		margin: 0 auto;
+		text-align: left;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.team-story p {
+		font-size: 15px;
+		line-height: 1.6;
+		color: var(--text-grey);
+		margin: 0;
+	}
+
+	/* ==========================================
+	   TESTIMONIALS SECTION
+	   ========================================== */
+	.testimonials-section {
+		padding: 100px 20px;
+		max-width: 1200px;
+		margin: 0 auto;
+	}
+
+	.testimonials-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 20px;
+		margin-top: 50px;
+	}
+
+	@media (min-width: 768px) {
+		.testimonials-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.testimonials-grid {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+
+	.testimonial-card {
+		background: #FFF;
+		border: 1px solid var(--border-color);
+		border-radius: 20px;
+		padding: 24px;
+		box-shadow: 0 4px 20px rgba(0,0,0,0.01);
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+	}
+
+	.testimonial-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 16px;
+	}
+
+	.testimonial-header h4 {
+		font-size: 15px;
+		font-weight: 700;
+		margin: 0;
+	}
+
+	.testimonial-header small {
+		font-size: 11px;
+		color: var(--text-grey);
+	}
+
+	.stars {
+		color: #ffbd2e;
+		font-size: 12px;
+	}
+
+	.testimonial-text {
+		font-size: 14px;
+		line-height: 1.5;
+		color: var(--text-dark);
+		margin: 0;
+		font-style: italic;
+	}
+
+	/* ==========================================
+	   PRICING SECTION
+	   ========================================== */
+	.pricing-section {
+		padding: 100px 20px;
+		background: #FFF;
+	}
+
+	.plans-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 24px;
+		max-width: 1200px;
+		margin: 60px auto 0;
+		align-items: stretch;
+	}
+
+	@media (min-width: 768px) {
+		.plans-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.plans-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.plan-card {
+		background: #FFF;
+		border: 1px solid var(--border-color);
+		border-radius: 32px;
+		padding: 40px 32px;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+		transition: transform 0.2s, box-shadow 0.2s;
+	}
+
+	.plan-card:hover {
+		transform: translateY(-4px);
+		box-shadow: var(--shadow-hover);
+	}
+
+	.plan-card.featured {
+		border: 2px solid rgb(236, 68, 146);
+		box-shadow: 0 20px 45px -10px rgba(236, 68, 146, 0.15);
+	}
+
+	.featured-badge {
+		position: absolute;
+		top: -12px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%);
+		color: #FFF;
+		font-size: 10px;
+		font-weight: 800;
+		padding: 4px 12px;
+		border-radius: 99px;
+		letter-spacing: 0.05em;
+	}
+
+	.plan-card h3 {
+		font-size: 24px;
+		font-weight: 800;
+		margin: 0 0 10px;
+	}
+
+	.plan-desc {
+		font-size: 13px;
+		color: var(--text-grey);
+		line-height: 1.5;
+		margin: 0 0 30px;
+		min-height: 40px;
+	}
+
+	.plan-price {
+		display: flex;
+		align-items: flex-end;
+		gap: 6px;
+		margin-bottom: 20px;
+	}
+
+	.plan-price .currency {
+		font-size: 14px;
+		font-weight: bold;
+		color: var(--text-grey);
+		margin-bottom: 8px;
+	}
+
+	.plan-price .amount {
+		font-size: 54px;
+		font-weight: 800;
+		line-height: 1;
+		letter-spacing: -0.04em;
+	}
+
+	.plan-price .period {
+		font-size: 14px;
+		color: var(--text-grey);
+		margin-bottom: 8px;
+	}
+
+	.plan-credits {
+		display: block;
+		font-size: 16px;
+		font-weight: 700;
+		margin-bottom: 24px;
+	}
+
+	.plan-cta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: 52px;
+		padding: 0 24px;
+		border-radius: 26px;
+		background: var(--text-dark);
+		color: #FFF;
+		font-weight: bold;
+		text-decoration: none;
+		font-size: 14px;
+		margin-bottom: 30px;
+		transition: opacity 0.2s;
+	}
+
+	.plan-card.featured .plan-cta {
+		background: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%);
+	}
+
+	.plan-cta:hover {
+		opacity: 0.95;
+	}
+
+	.plan-features {
+		list-style: none;
+		padding: 24px 0 0;
+		margin: 0;
+		border-top: 1px solid var(--border-color);
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+
+	.plan-features li {
+		font-size: 13px;
+		font-weight: 500;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		color: var(--text-dark);
+	}
+
+	.plan-features li i {
+		width: 18px;
+		height: 18px;
+		background: #F0EDF3;
+		color: #744bde;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 9px;
+		font-style: normal;
+		font-weight: bold;
+	}
+
+	/* ==========================================
+	   FAQ SECTION
+	   ========================================== */
+	.faq-section {
+		padding: 100px 20px;
+		max-width: 800px;
+		margin: 0 auto;
+	}
+
+	.faq-list {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		margin-top: 50px;
+	}
+
+	.faq-item {
+		border-bottom: 1px solid var(--border-color);
+		padding-bottom: 16px;
+	}
+
+	.faq-question {
+		font-size: 17px;
+		font-weight: 700;
+		padding: 16px 0;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		cursor: pointer;
+		user-select: none;
+		list-style: none;
+	}
+
+	.faq-question::-webkit-details-marker {
+		display: none;
+	}
+
+	.faq-toggle-icon {
+		width: 32px;
+		height: 32px;
+		background: #FAF9FB;
+		border: 1px solid var(--border-color);
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 16px;
+		font-weight: bold;
+		color: #744bde;
+		transition: transform 0.2s;
+	}
+
+	.faq-item[open] .faq-toggle-icon {
+		transform: rotate(45deg);
+	}
+
+	.faq-answer {
+		padding: 0 0 16px;
+		font-size: 15px;
+		line-height: 1.6;
+		color: var(--text-grey);
+	}
+
+	/* ==========================================
+	   FINAL CTA SECTION
+	   ========================================== */
+	.final-cta-section {
+		margin: 80px 20px 100px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		gap: 16px;
+		background: #FFF;
+	}
+
+	.final-cta-section h2 {
+		font-size: clamp(28px, 4vw, 42px);
+		font-weight: 700;
+		color: #1D1D1F;
+		margin: 0;
+		letter-spacing: -0.02em;
+	}
+
+	.final-cta-sub {
+		font-size: 20px;
+		color: #6E6E73;
+		font-weight: 450;
+		margin: 0 0 10px;
+	}
+
+	.final-cta-button {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		height: 48px;
+		padding: 0 24px;
+		background-image: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%);
+		color: #FFF;
+		font-weight: 700;
+		text-decoration: none;
+		border-radius: 99px;
+		font-size: 15px;
+		position: relative;
+		overflow: hidden;
+		transition: transform 0.2s ease;
+	}
+
+	.final-cta-button:hover {
+		transform: scale(1.05);
+	}
+
+	.inset-shadow-overlay {
+		position: absolute;
+		inset: 0;
+		border-radius: 99px;
+		box-shadow: inset 0 0 12px 2px rgba(255,255,255,0.6);
+		pointer-events: none;
+	}
+
+	.final-cta-mascot {
+		position: absolute;
+		right: 40px;
+		bottom: -50px;
+		width: 140px;
+		opacity: 0.15;
+		pointer-events: none;
+	}
+
+	@media (min-width: 810px) {
+		.final-cta-mascot {
+			opacity: 0.85;
+			bottom: -30px;
+			width: 180px;
+		}
+	}
+
+	.final-cta-mascot img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+
+	/* ==========================================
+	   FOOTER
+	   ========================================== */
+	.main-footer {
+		background: #FFF;
+		padding: 80px 20px 40px;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 40px;
+		max-width: 1100px;
+		margin: 0 auto;
+	}
+
+	@media (min-width: 768px) {
+		.main-footer {
+			grid-template-columns: 1.5fr repeat(3, 1fr);
+		}
+	}
+
+	.footer-brand {
+		text-align: left;
+	}
+
+	.footer-logo {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		text-decoration: none;
+		color: var(--text-dark);
+		margin-bottom: 20px;
+	}
+
+	.footer-logo img {
+		width: 32px;
+		height: 32px;
+		object-fit: cover;
+		border-radius: 50%;
+	}
+
+	.footer-logo strong {
+		font-size: 20px;
+		font-weight: 800;
+	}
+
+	.footer-brand p {
+		font-size: 13px;
+		color: var(--text-grey);
+		line-height: 1.5;
+	}
+
+	.footer-col {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		text-align: left;
+	}
+
+	.footer-col h4 {
+		font-size: 14px;
+		font-weight: bold;
+		margin: 0 0 8px;
+		color: var(--text-grey);
+	}
+
+	.footer-col a {
+		font-size: 13px;
+		color: var(--text-dark);
+		text-decoration: none;
+		transition: color 0.2s;
+	}
+
+	.footer-col a:hover {
+		color: #744bde;
+	}
+
+	.footer-bottom {
+		grid-column: 1 / -1;
+		border-top: 1px solid var(--border-color);
+		padding-top: 30px;
+		text-align: center;
+		font-size: 12px;
+		color: var(--text-grey);
+	}
+
+	/* ==========================================
+	   PRODUCT WALKTHROUGH VIDEO
+	   ========================================== */
+	.walkthrough-video-section {
+		background: #FFF;
+		padding: 40px 20px 80px;
+		display: flex;
+		justify-content: center;
+	}
+
+	.walkthrough-video-wrapper {
+		width: 100%;
+		max-width: 960px;
+		margin: 0 auto;
+	}
+
+	.walkthrough-video-container {
+		position: relative;
+		aspect-ratio: 16/9;
+		border-radius: 20px;
+		overflow: hidden;
+		box-shadow: 0 0 0 6px white, 0 15px 40px 0 rgba(173, 181, 190, 0.5);
+		background: #000;
+	}
+
+	.walkthrough-video-container video {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
 </style>

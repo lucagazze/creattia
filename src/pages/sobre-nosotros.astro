@@ -1,0 +1,266 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Sobre Nosotros | Creattia" description="Conocé al equipo y la historia detrás de Creattia, la plataforma líder de creación de contenido con IA.">
+	<header class="floating-header">
+		<a class="logo-bubble" href="/" aria-label="Creattia, volver al inicio">
+			<img src="/images/creattia/moki-mascot.webp" alt="Creattia Logo" width="1254" height="1254" />
+		</a>
+		<nav class="nav-links">
+			<a href="/#como-funciona">Cómo funciona</a>
+			<a href="/#biblioteca">Biblioteca</a>
+			<a href="/#precios">Precios</a>
+			<a href="/app/">Ingresar</a>
+		</nav>
+		<a class="outline-cta" href="/app/">Empezar gratis <span>→</span></a>
+	</header>
+
+	<main class="about-page">
+		<section class="about-content">
+			<h1>Sobre Nosotros</h1>
+			<p class="subtitle">Creando el futuro del marketing de rendimiento.</p>
+
+			<p>En Creattia, somos apasionados por resolver problemas complejos de escala creativa. Ayudamos a marcas de e-commerce y agencias a automatizar la producción de imágenes publicitarias sin sacrificar el ADN ni el tono de su marca.</p>
+
+			<h2>Nuestra Misión</h2>
+			<p>Nuestra misión es democratizar el diseño publicitario de alto rendimiento. Creemos que los fundadores y profesionales del marketing no deberían perder semanas diseñando variaciones de anuncios ni gastar miles de dólares en agencias creativas lentas. Diseñamos una herramienta que automatiza todo el proceso creativo en segundos, dejándote libre para escalar tu negocio.</p>
+
+			<h2>Nuestra Tecnología</h2>
+			<p>Creattia combina algoritmos avanzados de visión por computadora y modelos de lenguaje de última generación. Esto nos permite entender el contexto de tus productos y catálogos, aislar la identidad de tu marca y producir constantemente estructuras creativas listas para usar y publicar.</p>
+		</section>
+	</main>
+
+	<footer class="main-footer">
+		<div class="footer-brand">
+			<a class="logo-bubble" href="/">
+				<img src="/images/creattia/moki-mascot.webp" alt="Creattia" />
+			</a>
+			<h3>Creattia</h3>
+			<p>Imágenes y creativos publicitarios que aceleran las ventas de tu negocio.</p>
+		</div>
+		<div class="links-group">
+			<h4>Compañía</h4>
+			<a href="/#como-funciona">Cómo funciona</a>
+			<a href="/#precios">Precios</a>
+			<a href="/sobre-nosotros/">Sobre nosotros</a>
+		</div>
+		<div class="links-group">
+			<h4>Recursos</h4>
+			<a href="/app/">Biblioteca de ideas</a>
+			<a href="/blog/">Blog</a>
+		</div>
+		<div class="links-group">
+			<h4>Legal</h4>
+			<a href="/privacidad/">Privacidad</a>
+			<a href="/terminos/">Términos</a>
+		</div>
+		<div class="footer-bottom">
+			<p>© 2026 Creattia. Todos los derechos reservados.</p>
+		</div>
+	</footer>
+</Layout>
+
+<style>
+	:global(html) {
+		background-color: #FFF;
+	}
+	
+	:global(body) {
+		background-color: #FFF;
+	}
+
+	.floating-header {
+		position: fixed;
+		top: 20px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(1120px, calc(100% - 40px));
+		height: 70px;
+		background: rgba(255, 255, 255, 0.8);
+		backdrop-filter: blur(12px);
+		border: 1px solid rgba(0,0,0,0.06);
+		border-radius: 35px;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 10px 0 20px;
+		z-index: 100;
+	}
+
+	.logo-bubble {
+		display: flex;
+		align-items: center;
+		text-decoration: none;
+	}
+
+	.logo-bubble img {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+	}
+
+	.nav-links {
+		display: none;
+		align-items: center;
+		gap: 24px;
+	}
+
+	@media (min-width: 810px) {
+		.nav-links {
+			display: flex;
+		}
+	}
+
+	.nav-links a {
+		font-size: 14px;
+		font-weight: 500;
+		color: #1D1D1F;
+		text-decoration: none;
+		transition: opacity 0.2s;
+	}
+
+	.nav-links a:hover {
+		opacity: 0.7;
+	}
+
+	.outline-cta {
+		display: none;
+		height: 48px;
+		padding: 0 24px;
+		align-items: center;
+		gap: 8px;
+		border-radius: 24px;
+		background: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%);
+		border: none;
+		color: #FFF;
+		font-size: 15px;
+		font-weight: 700;
+		text-decoration: none;
+		box-shadow: 0 4px 15px rgba(236, 68, 146, 0.2);
+		transition: all 0.2s ease;
+	}
+
+	@media (min-width: 810px) {
+		.outline-cta {
+			display: inline-flex;
+		}
+	}
+
+	.outline-cta:hover {
+		transform: scale(1.03);
+		box-shadow: 0 6px 20px rgba(236, 68, 146, 0.35);
+	}
+
+	.about-page {
+		padding: 140px 20px 80px;
+		background: #FFF;
+	}
+
+	.about-content {
+		max-width: 780px;
+		margin: 0 auto;
+		font-family: 'Satoshi', sans-serif;
+		color: #1D1D1F;
+		line-height: 1.6;
+	}
+
+	.about-content h1 {
+		font-size: clamp(32px, 5vw, 48px);
+		font-weight: 700;
+		margin-bottom: 8px;
+		letter-spacing: -0.03em;
+	}
+
+	.subtitle {
+		font-size: 18px;
+		color: #6E6E73;
+		margin-bottom: 40px;
+		font-weight: 500;
+	}
+
+	.about-content h2 {
+		font-size: clamp(20px, 3vw, 24px);
+		font-weight: 700;
+		margin: 40px 0 16px;
+		letter-spacing: -0.02em;
+	}
+
+	.about-content p {
+		font-size: 16px;
+		margin-bottom: 20px;
+	}
+
+	.main-footer {
+		background: #FFF;
+		padding: 80px 20px 40px;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 40px;
+		max-width: 1100px;
+		margin: 0 auto;
+		font-family: 'Satoshi', sans-serif;
+	}
+
+	@media (min-width: 768px) {
+		.main-footer {
+			grid-template-columns: 1.5fr repeat(3, 1fr);
+		}
+	}
+
+	.footer-brand {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.footer-brand h3 {
+		font-size: 18px;
+		font-weight: 700;
+		margin: 0;
+	}
+
+	.footer-brand p {
+		font-size: 14px;
+		color: #6E6E73;
+		margin: 0;
+		max-width: 240px;
+	}
+
+	.links-group {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.links-group h4 {
+		font-size: 14px;
+		font-weight: 700;
+		color: #1D1D1F;
+		margin: 0 0 4px;
+	}
+
+	.links-group a {
+		font-size: 14px;
+		color: #6E6E73;
+		text-decoration: none;
+		transition: color 0.2s;
+	}
+
+	.links-group a:hover {
+		color: #1D1D1F;
+	}
+
+	.footer-bottom {
+		grid-column: 1 / -1;
+		border-top: 1px solid #E6E6E7;
+		padding-top: 30px;
+		text-align: center;
+	}
+
+	.footer-bottom p {
+		font-size: 13px;
+		color: #8E8E93;
+		margin: 0;
+	}
+</style>
