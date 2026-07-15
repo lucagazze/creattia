@@ -355,14 +355,19 @@ export default function CreativeApp() {
 	useEffect(() => {
 		let active = true;
 		async function boot() {
-			if (isSupabaseConfigured && supabase) {
-				const { data } = await supabase.auth.getSession();
-				if (active) setSession(data.session);
-			} else {
-				const localSession = loadLocal<DemoSession | null>(SESSION_KEY, null);
-				if (active) setSession(localSession);
+			try {
+				if (isSupabaseConfigured && supabase) {
+					const { data } = await supabase.auth.getSession();
+					if (active) setSession(data.session);
+				} else {
+					const localSession = loadLocal<DemoSession | null>(SESSION_KEY, null);
+					if (active) setSession(localSession);
+				}
+			} catch (err) {
+				console.error('Error during boot:', err);
+			} finally {
+				if (active) setBooting(false);
 			}
-			if (active) setBooting(false);
 		}
 		boot();
 		if (!supabase) return () => { active = false; };
