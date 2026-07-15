@@ -102,9 +102,42 @@ const demoProducts: Product[] = [
 ];
 
 const subscriptionPlans = [
-	{ code: 'creator', name: 'Creator', price: 19, credits: 40, description: 'Para crear contenido todas las semanas.', featured: false },
-	{ code: 'pro', name: 'Pro', price: 39, credits: 120, description: 'Para probar más ideas y anuncios.', featured: true },
-	{ code: 'scale', name: 'Scale', price: 79, credits: 300, description: 'Para equipos que producen a diario.', featured: false },
+	{ 
+		code: 'creator', 
+		name: 'Starter', 
+		price: 29, 
+		oldPrice: 48, 
+		saving: 'Save $19 / yr',
+		credits: 200, 
+		description: 'For first-time content-creators', 
+		featured: false,
+		features: [
+			{ name: '200 creatives every month', active: true },
+			{ name: '$0.06 per ad', active: true },
+			{ name: 'Up to 2 concurrent generations', active: true },
+			{ name: 'Selected models & features', active: true },
+			{ name: 'Standard email support', active: true },
+			{ name: 'Early access to new models', active: false }
+		]
+	},
+	{ 
+		code: 'pro', 
+		name: 'Scale', 
+		price: 59, 
+		oldPrice: 98, 
+		saving: 'Save $39 / yr',
+		credits: 650, 
+		description: 'For consistent and easy content creation', 
+		featured: true,
+		features: [
+			{ name: '650 creatives every month', active: true },
+			{ name: '≈ $0.04 per ad — lowest cost', active: true },
+			{ name: 'Up to 6 concurrent generations', active: true },
+			{ name: 'All models & features', active: true },
+			{ name: 'Priority support', active: true },
+			{ name: 'Early access to new models & AI features', active: true }
+		]
+	}
 ];
 
 function Icon({ name, size = 20 }: { name: string; size?: number }) {
@@ -1460,7 +1493,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		<div className="studio-current-credits"><span><Icon name="spark"/></span><p><small>TU SALDO ACTUAL</small><strong>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</strong></p><em>{planLabel(profile)}</em></div>
 		{error && <p className="studio-form-error">{error}</p>}
 		{notice && <p className="studio-form-notice">{notice}</p>}
-		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => { const currentPlan = ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span>MÁS ELEGIDO</span>}<small>PLAN {plan.name.toUpperCase()}</small><h2><b>USD</b>{plan.price}<em>/mes</em></h2><p>{plan.description}</p><strong>{plan.credits} generaciones por mes</strong><ul><li><Icon name="check" size={14}/>Todas las ideas y actualizaciones</li><li><Icon name="check" size={14}/>Marca y catálogo siempre listos</li><li><Icon name="check" size={14}/>Historial, favoritos y ajustes</li></ul><button onClick={() => subscribe(plan.code)} disabled={Boolean(billing) || currentPlan}>{currentPlan ? profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile) : billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`}</button></article>; })}</div>
+		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => { const currentPlan = ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MOST POPULAR</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{plan.oldPrice && <span className="plan-old-price">${plan.oldPrice}</span>}<span className="plan-price-val"><b>$</b>{plan.price}</span><span className="plan-price-freq">/mo</span>{plan.saving && <span className="plan-save-badge">{plan.saving}</span>}</div><button className="plan-subscribe-btn" onClick={() => subscribe(plan.code)} disabled={Boolean(billing) || currentPlan}>{currentPlan ? profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile) : billing === plan.code ? 'Abriendo pago…' : `Get ${plan.name}`}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>; })}</div>
 		<p className="studio-plan-note">Los créditos se renuevan cada mes. Podés cambiar o cancelar tu plan desde tu cuenta.</p>
 		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? 'Cancelando…' : 'Cancelar renovación'}</button>}
 	</>;
