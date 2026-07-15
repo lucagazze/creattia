@@ -176,7 +176,66 @@ export default function WinnersLibrary({
 	const [activeNiche, setActiveNiche] = useState('todos');
 	const [query, setQuery] = useState('');
 	const [error, setError] = useState('');
-	
+	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+	const getFallbackImage = (templateId: number) => {
+		const numStr = String(templateId).padStart(2, '0');
+		const map: Record<string, string> = {
+			'01': '01-tweet.png',
+			'02': '02-resena-5-estrellas.png',
+			'03': '03-muro-de-resenas.png',
+			'04': '04-captura-de-whatsapp.png',
+			'05': '05-comentario-destacado.png',
+			'06': '06-antes-y-despues.png',
+			'07': '07-testimonial-con-rostro.png',
+			'08': '08-dm-queda-stock.png',
+			'09': '09-contador-social.png',
+			'10': '10-como-se-vio-en.png',
+			'11': '11-review-de-marketplace.png',
+			'12': '12-ugc-con-producto-en-mano.png',
+			'13': '13-precio-tachado.png',
+			'14': '14-bundle-kit.png',
+			'15': '15-fecha-limite.png',
+			'16': '16-regalo-con-la-compra.png',
+			'17': '17-2x1-3x2.png',
+			'18': '18-envio-gratis.png',
+			'19': '19-cupon-visual.png',
+			'20': '20-escalera-de-precio.png',
+			'21': '21-sello-de-garantia.png',
+			'22': '22-cuotas-sin-interes.png',
+			'23': '23-nosotros-vs-ellos.png',
+			'24': '24-lado-a-lado.png',
+			'25': '25-comparacion-de-costo.png',
+			'26': '26-pagas-x-recibis-y.png',
+			'27': '27-checklist-de-compra.png',
+			'28': '28-composicion-comparada.png',
+			'29': '29-con-vs-sin.png',
+			'30': '30-listicle.png',
+			'31': '31-estadistica-brutal.png',
+			'32': '32-mito-vs-realidad.png',
+			'33': '33-diagrama-senalado.png',
+			'34': '34-pregunta-directa.png',
+			'35': '35-meme.png',
+			'36': '36-comic.png',
+			'37': '37-si-no.png',
+			'38': '38-definicion.png',
+			'39': '39-nota-manuscrita.png',
+			'40': '40-hero-limpio.png',
+			'41': '41-features-senaladas.png',
+			'42': '42-lifestyle-en-uso.png',
+			'43': '43-despiece.png',
+			'44': '44-escala-real.png',
+			'45': '45-paso-a-paso-1-2-3.png',
+			'46': '46-que-viene-en-la-caja.png',
+			'47': '47-secuencia-de-3-frames.png',
+			'48': '48-aval-de-experto.png',
+			'49': '49-sellos-y-certificaciones.png',
+			'50': '50-carta-del-fundador.png',
+		};
+		const file = map[numStr] || '40-hero-limpio.png';
+		return `/images/creattia/reference-library/${file}`;
+	};
+
 	// Admin form states
 	const [showAddModal, setShowAddModal] = useState(false);
 	const [newAdName, setNewAdName] = useState('');
@@ -746,9 +805,12 @@ export default function WinnersLibrary({
 			) : (
 				<div className="library-ad-grid-masonry">
 					{filteredItems.map((item, idx) => {
-						const imageUrl = supabase 
-							? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
-							: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`;
+						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
+						const imageUrl = hasFailed 
+							? getFallbackImage(item.templateId)
+							: (supabase 
+								? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
+								: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`);
 
 						return (
 							<article 
@@ -902,6 +964,15 @@ export default function WinnersLibrary({
 										alt={item.name} 
 										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} 
 										loading="lazy" 
+										onError={() => {
+											if (item.imagePath && !failedImages.has(item.imagePath)) {
+												setFailedImages(prev => {
+													const next = new Set(prev);
+													next.add(item.imagePath);
+													return next;
+												});
+											}
+										}}
 										onContextMenu={(e) => e.preventDefault()}
 										onDragStart={(e) => e.preventDefault()}
 									/>
