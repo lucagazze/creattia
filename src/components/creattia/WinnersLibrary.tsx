@@ -1125,7 +1125,6 @@ export default function WinnersLibrary({
 			{/* Interactive Generation Modal */}
 			{activeAd && (
 				<div 
-					onClick={() => setActiveAd(null)}
 					style={{
 						position: 'fixed',
 						inset: 0,

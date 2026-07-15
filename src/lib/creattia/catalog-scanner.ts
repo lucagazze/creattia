@@ -238,36 +238,42 @@ export async function analyzeCatalogWithAI(input: { sources: ScannedSource[]; pr
 	};
 	if (!input.apiKey) return { ...fallback, mode: 'metadata' as const };
 
-	const client = new OpenAI({ apiKey: input.apiKey });
-	const catalogContent: any[] = [{ type: 'input_text', text: JSON.stringify({
-		sources: input.sources.map(({ title, description, url, metadata }) => ({ title, description, url, metadata })),
-		products: input.products.slice(0, 60).map(({ externalId, name, description, priceText, currency, metadata }) => ({ externalId, name, description, priceText, currency, metadata })),
-	}) }];
-	for (const product of input.products.filter((item) => item.imageUrl).slice(0, 8)) {
-		catalogContent.push({ type: 'input_text', text: `Imagen pública del producto ${product.externalId}: ${product.name}` });
-		catalogContent.push({ type: 'input_image', image_url: product.imageUrl, detail: 'low' });
+	try {
+		const client = new OpenAI({ apiKey: input.apiKey });
+		const catalogContent: any[] = [{ type: 'input_text', text: JSON.stringify({
+			sources: input.sources.map(({ title, description, url, metadata }) => ({ title, description, url, metadata })),
+			products: input.products.slice(0, 60).map(({ externalId, name, description, priceText, currency, metadata }) => ({ externalId, name, description, priceText, currency, metadata })),
+		}) }];
+		for (const product of input.products.filter((item) => item.imageUrl).slice(0, 8)) {
+			catalogContent.push({ type: 'input_text', text: `Imagen pública del producto ${product.externalId}: ${product.name}` });
+			catalogContent.push({ type: 'input_image', image_url: product.imageUrl, detail: 'low' });
+		}
+		const model = (typeof import.meta.env !== 'undefined' && import.meta.env.OPENAI_ANALYSIS_MODEL) || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5.6-luna';
+		const response = await client.responses.create({
+			model,
+			reasoning: { effort: 'none' },
+			...(input.endUserId ? { safety_identifier: createHash('sha256').update(input.endUserId).digest('hex') } : {}),
+			input: [
+				{ role: 'system', content: 'Analizá información pública de una tienda para preparar anuncios honestos. No inventes atributos, precios, beneficios, audiencia ni claims. Respondé solamente con el esquema solicitado y en español.' },
+				{ role: 'user', content: catalogContent },
+			],
+			text: { format: {
+				type: 'json_schema', name: 'brand_catalog_analysis', strict: true,
+				schema: {
+					type: 'object', additionalProperties: false,
+					properties: {
+						brandSummary: { type: 'string' }, brandVoice: { type: 'string' }, targetAudience: { type: 'string' },
+						productInsights: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
+							externalId: { type: 'string' }, description: { type: 'string' }, category: { type: 'string' }, keywords: { type: 'array', items: { type: 'string' } },
+						}, required: ['externalId', 'description', 'category', 'keywords'] } },
+					}, required: ['brandSummary', 'brandVoice', 'targetAudience', 'productInsights'],
+				},
+			} },
+			max_output_tokens: 8000,
+		});
+		return { ...JSON.parse(response.output_text), mode: 'ai' as const };
+	} catch (error) {
+		console.error('Error during analyzeCatalogWithAI, falling back to metadata:', error);
+		return { ...fallback, mode: 'metadata' as const };
 	}
-	const response = await client.responses.create({
-		model: import.meta.env.OPENAI_ANALYSIS_MODEL || 'gpt-5.6-luna',
-		reasoning: { effort: 'none' },
-		...(input.endUserId ? { safety_identifier: createHash('sha256').update(input.endUserId).digest('hex') } : {}),
-		input: [
-			{ role: 'system', content: 'Analizá información pública de una tienda para preparar anuncios honestos. No inventes atributos, precios, beneficios, audiencia ni claims. Respondé solamente con el esquema solicitado y en español.' },
-			{ role: 'user', content: catalogContent },
-		],
-		text: { format: {
-			type: 'json_schema', name: 'brand_catalog_analysis', strict: true,
-			schema: {
-				type: 'object', additionalProperties: false,
-				properties: {
-					brandSummary: { type: 'string' }, brandVoice: { type: 'string' }, targetAudience: { type: 'string' },
-					productInsights: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
-						externalId: { type: 'string' }, description: { type: 'string' }, category: { type: 'string' }, keywords: { type: 'array', items: { type: 'string' } },
-					}, required: ['externalId', 'description', 'category', 'keywords'] } },
-				}, required: ['brandSummary', 'brandVoice', 'targetAudience', 'productInsights'],
-			},
-		} },
-		max_output_tokens: 8000,
-	});
-	try { return { ...JSON.parse(response.output_text), mode: 'ai' as const }; } catch { return { ...fallback, mode: 'metadata' as const }; }
 }
