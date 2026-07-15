@@ -1872,15 +1872,15 @@
    MASONRY GRID LAYOUT FOR WINNERS LIBRARY
    ======================================================== */
 .library-ad-grid-masonry {
-	column-count: 3 !important;
-	column-gap: 20px !important;
+	column-count: 4 !important;
+	column-gap: 16px !important;
 	width: 100% !important;
 	padding: 5px 0 !important;
 }
 .library-ad-card-masonry {
 	display: inline-block !important;
 	width: 100% !important;
-	margin-bottom: 20px !important;
+	margin-bottom: 16px !important;
 	break-inside: avoid !important;
 	background: #fff !important;
 	border-radius: 16px !important;
@@ -1894,12 +1894,32 @@
 	box-shadow: 0 8px 30px rgba(52, 40, 79, 0.08) !important;
 }
 
-@media (max-width: 1100px) {
+/* Category Filter Tags Wrap */
+.winners-library-container .studio-filter-row {
+	display: flex !important;
+	flex-wrap: wrap !important;
+	gap: 8px !important;
+	overflow: visible !important;
+	white-space: normal !important;
+	margin-bottom: 25px !important;
+	padding: 4px 0 !important;
+}
+.winners-library-container .studio-filter-row button {
+	margin-bottom: 2px !important;
+	flex: 0 0 auto !important;
+}
+
+@media (max-width: 1200px) {
+	.library-ad-grid-masonry {
+		column-count: 3 !important;
+	}
+}
+@media (max-width: 900px) {
 	.library-ad-grid-masonry {
 		column-count: 2 !important;
 	}
 }
-@media (max-width: 700px) {
+@media (max-width: 600px) {
 	.library-ad-grid-masonry {
 		column-count: 1 !important;
 	}

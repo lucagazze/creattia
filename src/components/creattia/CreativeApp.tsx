@@ -694,10 +694,8 @@ export default function CreativeApp() {
 
 		const navItems: Array<{ id: View; label: string; icon: string }> = [
 			{ id: 'home', label: 'Inicio', icon: 'home' },
-			{ id: 'library', label: 'Biblioteca', icon: 'grid' },
 			{ id: 'winners', label: 'Biblioteca de ganadores', icon: 'spark' },
 			{ id: 'products', label: 'Mis productos', icon: 'bag' },
-			{ id: 'studio', label: 'Crear imagen', icon: 'spark' },
 			{ id: 'history', label: 'Mis imágenes', icon: 'history' },
 			{ id: 'plans', label: 'Planes', icon: 'layers' },
 			{ id: 'brand', label: 'Mi marca', icon: 'brand' },
@@ -747,7 +745,7 @@ export default function CreativeApp() {
 				<div className="studio-content">
 					{view === 'home' && <Dashboard profile={profile} email={getSessionEmail(session)} history={history} catalog={catalog} onView={setView} onChoose={chooseCreative} onReuse={reuseGeneration} />}
 					{view === 'library' && <Library items={catalog} favorites={favorites} onChoose={chooseCreative} onToggleFavorite={toggleFavorite} />}
-					{view === 'winners' && <WinnersLibrary session={session} onChoose={chooseCreative} onView={setView} />}
+					{view === 'winners' && <WinnersLibrary session={session} profile={profile} onGenerated={addGenerations} isSupabaseConfigured={isSupabaseConfigured} onToast={setToast} />}
 					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onRemove={removeProduct} onCreate={(productId) => productId ? startWithProduct(productId) : setView('library')} />}
 					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} />}
 					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} />}

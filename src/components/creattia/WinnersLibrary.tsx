@@ -27,21 +27,21 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
 
 // Supported Winners Categories
 const winnersCategories = [
-	{ id: 'todos', label: 'Miles de ideas disponibles', templateIds: [] },
-	{ id: 'vs', label: 'Nosotros vs Ellos', templateIds: [23, 24, 25, 26, 27, 28, 29] },
-	{ id: 'testimonios', label: 'Testimonios', templateIds: [1, 2, 3, 4, 5, 6, 7, 11, 12, 48] },
-	{ id: 'mas-vendidos', label: 'Más vendidos', templateIds: [9, 14, 17, 18, 19, 20, 40] },
-	{ id: 'multimedia', label: 'Multimedia', templateIds: [10, 40, 45, 47] },
-	{ id: 'gancho-negativo', label: 'Gancho negativo', templateIds: [8, 30, 31, 32, 34] },
-	{ id: 'mitos', label: 'Cazador de mitos', templateIds: [31, 32, 33, 37] },
-	{ id: 'caracteristicas', label: 'Características', templateIds: [40, 41, 43, 44, 46] },
-	{ id: 'notas', label: 'Notas', templateIds: [4, 5, 8, 35, 36, 38, 39, 40] },
-	{ id: 'contenido', label: 'Qué contiene', templateIds: [40, 41, 43, 46] },
-	{ id: 'preguntas', label: 'Preguntas frecuentes', templateIds: [30, 32, 33, 37] },
-	{ id: 'antes-despues', label: 'Antes y después', templateIds: [6, 23, 28, 29] },
-	{ id: 'top-razones', label: 'Top razones', templateIds: [30, 31, 32, 38, 41] },
-	{ id: 'problema-solucion', label: 'Problema-solución', templateIds: [23, 24, 25, 29, 30, 31, 34] },
-	{ id: 'estadisticas', label: 'Estadísticas', templateIds: [9, 31, 32, 38] }
+	{ id: 'todos', label: 'Miles de ideas disponibles' },
+	{ id: 'vs', label: 'Nosotros vs Ellos' },
+	{ id: 'testimonios', label: 'Testimonios' },
+	{ id: 'mas-vendidos', label: 'Más vendidos' },
+	{ id: 'multimedia', label: 'Multimedia' },
+	{ id: 'gancho-negativo', label: 'Gancho negativo' },
+	{ id: 'mitos', label: 'Cazador de mitos' },
+	{ id: 'caracteristicas', label: 'Características' },
+	{ id: 'notas', label: 'Notas' },
+	{ id: 'contenido', label: 'Qué contiene' },
+	{ id: 'preguntas', label: 'Preguntas frecuentes' },
+	{ id: 'antes-despues', label: 'Antes y después' },
+	{ id: 'top-razones', label: 'Top razones' },
+	{ id: 'problema-solucion', label: 'Problema-solución' },
+	{ id: 'estadisticas', label: 'Estadísticas' }
 ];
 
 type WinnerItem = {
@@ -52,6 +52,8 @@ type WinnerItem = {
 	categoryGroup: string | null;
 	categoryBranch: string | null;
 	categoryLeaf: string | null;
+	category?: string;
+	tags?: string[];
 	metadata: {
 		scrapedAt?: string;
 		addedBy?: string;
@@ -62,12 +64,16 @@ type WinnerItem = {
 
 export default function WinnersLibrary({
 	session,
-	onChoose,
-	onView
+	profile,
+	onGenerated,
+	isSupabaseConfigured,
+	onToast
 }: {
 	session: any;
-	onChoose: (creative: any) => void;
-	onView: (view: any) => void;
+	profile?: any;
+	onGenerated?: (generations: any[], credits: number) => void;
+	isSupabaseConfigured?: boolean;
+	onToast?: (message: string) => void;
 }) {
 	const [items, setItems] = useState<WinnerItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -83,8 +89,221 @@ export default function WinnersLibrary({
 	const [newAdFile, setNewAdFile] = useState<File | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
+	// Interactive generation modal states
+	const [activeAd, setActiveAd] = useState<WinnerItem | null>(null);
+	const [fastUrls, setFastUrls] = useState('');
+	const [manualFiles, setManualFiles] = useState<File[]>([]);
+	const [manualDesc, setManualDesc] = useState('');
+	const [isUrlMode, setIsUrlMode] = useState(true);
+	const [scanning, setScanning] = useState(false);
+	
+	// Multiple Choice options after scan
+	const [scannedOptions, setScannedOptions] = useState<string[]>([]);
+	const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+	
+	// Fidelity option: 1 = Muy fiel, 2 = Estética marca, 3 = Híbrido
+	const [fidelity, setFidelity] = useState(3);
+	
+	// Output results
+	const [generating, setGenerating] = useState(false);
+	const [generatedResult, setGeneratedResult] = useState('');
+	const [generationError, setGenerationError] = useState('');
+
 	const userEmail = session?.user?.email || '';
 	const isAdmin = userEmail.toLowerCase().trim() === 'lucagazze1@gmail.com';
+
+	const getSessionToken = (sess: any) => sess?.access_token || '';
+
+	const normalizeProductUrl = (value: string) => {
+		let raw = value.trim();
+		if (!raw) return '';
+		if (!/^https?:\/\//i.test(raw)) {
+			raw = 'https://' + raw;
+		}
+		return raw;
+	};
+
+	const handleUseIdea = (item: WinnerItem) => {
+		setActiveAd(item);
+		setFastUrls('');
+		setManualFiles([]);
+		setManualDesc('');
+		setIsUrlMode(true);
+		setScanning(false);
+		setScannedOptions([]);
+		setSelectedOptions([]);
+		setFidelity(3);
+		setGeneratedResult('');
+		setGenerationError('');
+	};
+
+	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		if (e.target.files) {
+			const filesArr = Array.from(e.target.files).slice(0, 5);
+			setManualFiles(filesArr);
+		}
+	};
+
+	const handleScanUrls = async () => {
+		if (!fastUrls.trim()) return;
+		setScanning(true);
+		setGenerationError('');
+		try {
+			const urlsList = fastUrls.split(',').map(u => u.trim()).filter(Boolean);
+			if (!isSupabaseConfigured || !supabase) {
+				await new Promise(resolve => setTimeout(resolve, 1500));
+				const options: string[] = [];
+				urlsList.forEach((url, i) => {
+					let label = `Producto ${i + 1}`;
+					try {
+						label = new URL(url).hostname.replace('www.', '').split('.')[0];
+						label = label.charAt(0).toUpperCase() + label.slice(1);
+					} catch {}
+					options.push(`Mostrar el producto principal (${label})`);
+					options.push(`Destacar oferta o beneficios de (${label})`);
+				});
+				options.push("Enfatizar los colores y el logotipo de mi marca");
+				options.push("Incluir nota/reseña de cliente verificado");
+				setScannedOptions(options);
+				setSelectedOptions([options[0]]);
+			} else {
+				const ids: string[] = [];
+				const options: string[] = [];
+				for (const rawUrl of urlsList.slice(0, 5)) {
+					const normalizedUrl = normalizeProductUrl(rawUrl);
+					const response = await fetch('/api/creativos/products', {
+						method: 'POST',
+						headers: {
+							authorization: `Bearer ${getSessionToken(session)}`,
+							'content-type': 'application/json'
+						},
+						body: JSON.stringify({ url: normalizedUrl }),
+					});
+					const payload = await response.json();
+					if (response.ok && payload.importedIds?.length) {
+						ids.push(...payload.importedIds);
+					}
+				}
+				if (!ids.length) {
+					throw new Error('No pudimos analizar los productos de las URLs. Probá ingresando una descripción manual.');
+				}
+				const { data: prodData, error: dbErr } = await supabase
+					.from('creative_products')
+					.select('id,name,description')
+					.in('id', ids);
+				
+				if (!dbErr && prodData?.length) {
+					prodData.forEach(p => {
+						options.push(`Mostrar el producto principal (${p.name})`);
+						if (p.description) {
+							options.push(`Destacar características de (${p.name})`);
+						}
+					});
+					options.push("Enfatizar los colores y el logotipo de mi marca");
+					options.push("Incluir nota/reseña de cliente verificado");
+					setScannedOptions(options);
+					setSelectedOptions([options[0]]);
+				} else {
+					urlsList.forEach((_, i) => {
+						options.push(`Mostrar el producto principal (Producto ${i+1})`);
+					});
+					setScannedOptions(options);
+					setSelectedOptions([options[0]]);
+				}
+			}
+		} catch (err: any) {
+			setGenerationError(err.message || 'Error al escanear la URL.');
+		} finally {
+			setScanning(false);
+		}
+	};
+
+	const handleGenerateFromModal = async () => {
+		if (!activeAd) return;
+		setGenerating(true);
+		setGenerationError('');
+		setGeneratedResult('');
+		try {
+			const form = new FormData();
+			const creative = creativeCatalog.find(c => c.id === activeAd.templateId) || creativeCatalog[0];
+			
+			form.set('templateId', String(creative.id));
+			form.set('templateName', creative.nombre);
+			form.set('purpose', creative.sirve);
+			form.set('usageHint', creative.cuando);
+			form.set('format', 'square');
+			form.set('imageType', 'product');
+			form.set('referencePath', activeAd.imagePath);
+			
+			if (profile) {
+				form.set('brandName', profile.brandName || '');
+				form.set('website', profile.website || '');
+				form.set('instagram', profile.instagram || '');
+				form.set('colors', `${profile.primaryColor || ''}, ${profile.secondaryColor || ''}`);
+			}
+			
+			let briefText = '';
+			if (isUrlMode) {
+				briefText = `URLs de referencia del producto: ${fastUrls}. `;
+				if (selectedOptions.length) {
+					briefText += `Enfoque publicitario seleccionado: ${selectedOptions.join(' · ')}. `;
+				}
+			} else {
+				briefText = `Descripción del producto/servicio: ${manualDesc}. `;
+				if (manualFiles.length) {
+					form.append('product', manualFiles[0]);
+				}
+			}
+			
+			const fidelityInstructions: Record<number, string> = {
+				1: 'ART DIRECTION STYLE: SUPER FAITHFUL TO THE REFERENCED DESIGN. Preserve visual structure, color choices, card positions, typography framing, and exact layout composition of the reference image as closely as possible.',
+				2: 'ART DIRECTION STYLE: BRAND IDENTITY INTEGRATION. Use the brand logo and colors (Primary, Secondary) to style the background and text overlays, blending them with the reference layout.',
+				3: 'ART DIRECTION STYLE: OPTIMIZED HYBRID. Merge the visual elements of the winning reference layout with the brand aesthetics in a high-performing composition recommended by Moki.'
+			};
+			
+			form.set('brief', `${briefText}\n\n${fidelityInstructions[fidelity]}`);
+			form.set('preset', 'Fiel al ganador');
+			form.set('count', '1');
+			
+			if (!isSupabaseConfigured || !supabase) {
+				await new Promise(resolve => setTimeout(resolve, 3000));
+				setGeneratedResult(`https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${activeAd.imagePath}`);
+				if (onToast) onToast('¡Vista demo creada con éxito!');
+			} else {
+				const response = await fetch('/api/creativos/generate', {
+					method: 'POST',
+					headers: {
+						authorization: `Bearer ${getSessionToken(session)}`
+					},
+					body: form
+				});
+				const payload = await response.json();
+				if (!response.ok) throw new Error(payload.error || 'Error al generar la imagen.');
+				
+				const genResult = payload.generations?.[0] || { imageUrl: payload.imageUrl };
+				if (genResult.imageUrl) {
+					setGeneratedResult(genResult.imageUrl);
+					if (onGenerated) {
+						onGenerated(payload.generations || [{
+							id: payload.id,
+							imageUrl: payload.imageUrl,
+							outputIndex: 1,
+							createdAt: new Date().toISOString(),
+							title: creative.nombre,
+							format: 'square'
+						}], payload.creditsRemaining);
+					}
+					if (onToast) onToast('¡Tu anuncio ganador ha sido generado con éxito!');
+				} else {
+					throw new Error('La respuesta de generación no contiene imágenes.');
+				}
+			}
+		} catch (err: any) {
+			setGenerationError(err.message || 'Error al generar la imagen.');
+		} finally {
+			setGenerating(false);
+		}
+	};
 
 	const loadWinners = async () => {
 		try {
@@ -116,15 +335,15 @@ export default function WinnersLibrary({
 	const filteredItems = useMemo(() => {
 		return items.filter(item => {
 			// Category filter
-			const cat = winnersCategories.find(c => c.id === activeCategory);
-			const matchesCategory = !cat || cat.id === 'todos' || cat.templateIds.includes(item.templateId);
+			const matchesCategory = activeCategory === 'todos' || item.category === activeCategory;
 
 			// Search query filter
 			const search = query.toLowerCase().trim();
 			const matchesSearch = !search || 
 				item.name.toLowerCase().includes(search) || 
 				(item.promptNotes || '').toLowerCase().includes(search) ||
-				(item.categoryLeaf || '').toLowerCase().includes(search);
+				(item.categoryLeaf || '').toLowerCase().includes(search) ||
+				(item.tags || []).some(t => t.toLowerCase().includes(search));
 
 			return matchesCategory && matchesSearch;
 		});
@@ -271,8 +490,10 @@ export default function WinnersLibrary({
 								style={{ 
 									display: 'flex',
 									flexDirection: 'column',
-									position: 'relative'
+									position: 'relative',
+									cursor: 'pointer'
 								}}
+								onClick={() => handleUseIdea(item)}
 							>
 								{/* Card header (Social Proof looks like FB ad) */}
 								<div 
@@ -313,13 +534,17 @@ export default function WinnersLibrary({
 
 									{isAdmin && (
 										<button 
-											onClick={() => handleDelete(item.imagePath)}
+											onClick={(e) => {
+												e.stopPropagation();
+												handleDelete(item.imagePath);
+											}}
 											style={{ 
 												border: 0, 
 												background: 'transparent', 
 												color: '#dc2626', 
 												cursor: 'pointer',
-												padding: '4px'
+												padding: '4px',
+												zIndex: 5
 											}}
 											title="Eliminar ganador"
 										>
@@ -328,7 +553,7 @@ export default function WinnersLibrary({
 									)}
 								</div>
 
-								{/* Image visual */}
+								{/* Image visual with download protection */}
 								<div 
 									style={{ 
 										background: '#f8f6fb', 
@@ -336,11 +561,24 @@ export default function WinnersLibrary({
 										overflow: 'hidden' 
 									}}
 								>
+									{/* Protection overlay */}
+									<div 
+										style={{
+											position: 'absolute',
+											inset: 0,
+											zIndex: 2,
+											background: 'transparent'
+										}}
+										onContextMenu={(e) => e.preventDefault()}
+										onDragStart={(e) => e.preventDefault()}
+									/>
 									<img 
 										src={imageUrl} 
 										alt={item.name} 
-										style={{ width: '100%', height: 'auto', display: 'block' }} 
+										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} 
 										loading="lazy" 
+										onContextMenu={(e) => e.preventDefault()}
+										onDragStart={(e) => e.preventDefault()}
 									/>
 									<span 
 										style={{ 
@@ -352,7 +590,8 @@ export default function WinnersLibrary({
 											color: '#fff', 
 											padding: '4px 8px', 
 											borderRadius: '6px',
-											fontWeight: 700 
+											fontWeight: 700,
+											zIndex: 3
 										}}
 									>
 										{templateName}
@@ -377,10 +616,9 @@ export default function WinnersLibrary({
 										{item.promptNotes || 'Inspiración publicitaria ganadora.'}
 									</p>
 									<button 
-										onClick={() => {
-											// Open the studio using this template
-											const creative = creativeCatalog.find(c => c.id === item.templateId) || creativeCatalog[0];
-											onChoose(creative);
+										onClick={(e) => {
+											e.stopPropagation();
+											handleUseIdea(item);
 										}}
 										style={{ 
 											width: '100%', 
@@ -398,7 +636,7 @@ export default function WinnersLibrary({
 											gap: '6px'
 										}}
 									>
-										Crear con esta idea
+										Usar esta idea
 										<Icon name="arrow" size={13} />
 									</button>
 								</div>
@@ -503,6 +741,239 @@ export default function WinnersLibrary({
 					</div>
 				</div>
 			)}
+
+			{/* Interactive Generation Modal */}
+			{activeAd && (
+				<div 
+					style={{
+						position: 'fixed',
+						inset: 0,
+						background: 'rgba(0,0,0,0.5)',
+						display: 'grid',
+						placeItems: 'center',
+						zIndex: 100,
+						backdropFilter: 'blur(4px)',
+						padding: '20px'
+					}}
+				>
+					<div 
+						style={{
+							background: '#fff',
+							padding: '24px',
+							borderRadius: '16px',
+							width: '100%',
+							maxWidth: '560px',
+							maxHeight: '90vh',
+							overflowY: 'auto',
+							border: '1px solid #e9e6ed',
+							boxShadow: '0 25px 75px rgba(52, 40, 79, 0.08)',
+							position: 'relative'
+						}}
+					>
+						<header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #f3eff6', paddingBottom: '12px' }}>
+							<div>
+								<h3 style={{ margin: 0, fontSize: '18px', color: '#19171d', fontWeight: 800 }}>
+									Crear con este diseño
+								</h3>
+								<p style={{ margin: '2px 0 0', fontSize: '12px', color: '#716d79' }}>
+									Inspirado en el anuncio de <strong>{activeAd.name}</strong>
+								</p>
+							</div>
+							<button 
+								onClick={() => setActiveAd(null)}
+								style={{ border: 0, background: 'transparent', cursor: 'pointer', marginLeft: 'auto', padding: '6px', color: '#716d79' }}
+							>
+								<Icon name="close" size={20} />
+							</button>
+						</header>
+
+						{generating ? (
+							<div style={{ textAlign: 'center', padding: '40px 0' }}>
+								<span className="studio-spinner" style={{ width: '40px', height: '40px', margin: '0 auto 20px' }} />
+								<h4 style={{ fontSize: '16px', fontWeight: 800, color: '#19171d', marginBottom: '8px' }}>Moki está diseñando tu anuncio...</h4>
+								<p style={{ fontSize: '13px', color: '#716d79' }}>Esto puede demorar hasta 30 segundos. ¡No cierres el modal!</p>
+							</div>
+						) : generatedResult ? (
+							<div style={{ textAlign: 'center', padding: '10px 0' }}>
+								<div style={{ width: '28px', height: '28px', background: '#e6f9ed', color: '#137333', borderRadius: '50%', display: 'grid', placeItems: 'center', margin: '0 auto 12px' }}>
+									<Icon name="check" size={16} />
+								</div>
+								<h4 style={{ fontSize: '16px', fontWeight: 800, color: '#19171d', marginBottom: '15px' }}>¡Tu anuncio está listo!</h4>
+								
+								<div style={{ width: '100%', maxWidth: '280px', margin: '0 auto 20px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e9e6ed', boxShadow: '0 8px 24px rgba(0,0,0,0.05)' }}>
+									<img src={generatedResult} alt="Resultado" style={{ width: '100%', height: 'auto', display: 'block' }} />
+								</div>
+
+								<div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+									<a 
+										href={generatedResult} 
+										download="anuncio-creattia.png" 
+										target="_blank" 
+										rel="noreferrer"
+										className="studio-primary-button" 
+										style={{ textDecoration: 'none', height: '42px', padding: '0 24px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+									>
+										<Icon name="download" size={16} />
+										Descargar imagen
+									</a>
+									<button 
+										onClick={() => setGeneratedResult('')}
+										style={{ height: '42px', padding: '0 20px', borderRadius: '10px', border: '1px solid #e9e6ed', background: '#fff', color: '#19171d', cursor: 'pointer', fontWeight: 700 }}
+									>
+										Crear otra versión
+									</button>
+								</div>
+							</div>
+						) : (
+							<div>
+								{/* Step 1: Input URLs or manual details */}
+								<div style={{ display: 'flex', gap: '8px', padding: '4px', background: '#f5f2f7', borderRadius: '10px', marginBottom: '20px' }}>
+									<button 
+										type="button" 
+										onClick={() => setIsUrlMode(true)}
+										style={{ flex: 1, height: '34px', border: 0, borderRadius: '7px', background: isUrlMode ? '#fff' : 'transparent', color: isUrlMode ? '#19171d' : '#716d79', fontWeight: 800, cursor: 'pointer', boxShadow: isUrlMode ? '0 2px 6px rgba(0,0,0,0.05)' : 'none' }}
+									>
+										Analizar URLs
+									</button>
+									<button 
+										type="button" 
+										onClick={() => setIsUrlMode(false)}
+										style={{ flex: 1, height: '34px', border: 0, borderRadius: '7px', background: !isUrlMode ? '#fff' : 'transparent', color: !isUrlMode ? '#19171d' : '#716d79', fontWeight: 800, cursor: 'pointer', boxShadow: !isUrlMode ? '0 2px 6px rgba(0,0,0,0.05)' : 'none' }}
+									>
+										Subida manual
+									</button>
+								</div>
+
+								{isUrlMode ? (
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+										<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
+											Ingresá las URLs de tus productos (hasta 5 separadas por coma)
+											<input 
+												type="text" 
+												value={fastUrls} 
+												onChange={(e) => setFastUrls(e.target.value)}
+												placeholder="https://tutienda.com/producto-1, https://tutienda.com/producto-2"
+												style={{ height: '42px', padding: '0 12px', border: '1px solid #aaa4b0', borderRadius: '10px', outline: 0, fontSize: '14px' }}
+											/>
+										</label>
+										
+										<button 
+											type="button" 
+											onClick={handleScanUrls}
+											disabled={scanning || !fastUrls.trim()}
+											className="studio-primary-button"
+											style={{ height: '42px', background: '#19171d' }}
+										>
+											{scanning ? 'Analizando con IA...' : 'Analizar URLs'}
+										</button>
+									</div>
+								) : (
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+										<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
+											Descripción de tu producto o servicio
+											<textarea 
+												value={manualDesc}
+												onChange={(e) => setManualDesc(e.target.value)}
+												placeholder="ej. Remera clásica de algodón peinado, corte regular fit..."
+												style={{ minHeight: '80px', padding: '12px', border: '1px solid #aaa4b0', borderRadius: '10px', resize: 'none', fontSize: '14px' }}
+											/>
+										</label>
+
+										<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
+											Subí fotos de tus productos (opcional, hasta 5)
+											<input 
+												type="file" 
+												multiple
+												accept="image/*"
+												onChange={handleFileChange}
+												style={{ fontSize: '13px' }}
+											/>
+										</label>
+									</div>
+								)}
+
+								{/* Step 2: Multiple Choice Questions */}
+								{scannedOptions.length > 0 && (
+									<div style={{ marginTop: '20px', borderTop: '1px solid #f3eff6', paddingTop: '15px' }}>
+										<strong style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '10px' }}>
+											¿Qué querés mostrar en el anuncio? (Opción múltiple)
+										</strong>
+										<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+											{scannedOptions.map((opt, idx) => (
+												<label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#4b4452', cursor: 'pointer', fontWeight: 'normal' }}>
+													<input 
+														type="checkbox" 
+														checked={selectedOptions.includes(opt)}
+														onChange={(e) => {
+															if (e.target.checked) {
+																setSelectedOptions([...selectedOptions, opt]);
+															} else {
+																setSelectedOptions(selectedOptions.filter(o => o !== opt));
+															}
+														}}
+														style={{ width: '16px', height: '16px', accentColor: '#a25df7' }}
+													/>
+													{opt}
+												</label>
+											))}
+										</div>
+									</div>
+								)}
+
+								{/* Step 3: Fidelity selector */}
+								<div style={{ marginTop: '20px', borderTop: '1px solid #f3eff6', paddingTop: '15px', marginBottom: '25px' }}>
+									<strong style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '10px' }}>
+										Fidelidad del diseño final
+									</strong>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+										{[
+											{ id: 1, title: '1. Super fiel al diseño', desc: 'Mantiene la estructura y fondo de la imagen de referencia.' },
+											{ id: 2, title: '2. Estética de tu marca', desc: 'Usa tus colores y logotipo para vestir el diseño.' },
+											{ id: 3, title: '3. Híbrido optimizado (Recomendado)', desc: 'Moki combina inteligentemente el ganador y tu marca.' }
+										].map(f => (
+											<button
+												key={f.id}
+												type="button"
+												onClick={() => setFidelity(f.id)}
+												style={{
+													padding: '10px 12px',
+													borderRadius: '8px',
+													border: fidelity === f.id ? '2px solid #a25df7' : '1px solid #e9e6ed',
+													background: fidelity === f.id ? '#fcfbfe' : '#fff',
+													textAlign: 'left',
+													cursor: 'pointer',
+													outline: 0
+												}}
+											>
+												<strong style={{ display: 'block', fontSize: '13px', color: '#19171d' }}>{f.title}</strong>
+												<p style={{ margin: '2px 0 0', fontSize: '11px', color: '#716d79' }}>{f.desc}</p>
+											</button>
+										))}
+									</div>
+								</div>
+
+								{generationError && (
+									<p style={{ margin: '0 0 15px', padding: '10px 12px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '8px', color: '#a43f3f', fontSize: '12px' }}>
+										{generationError}
+									</p>
+								)}
+
+								{/* Step 4: Submit button */}
+								<button 
+									type="button"
+									onClick={handleGenerateFromModal}
+									disabled={isUrlMode && scannedOptions.length === 0}
+									className="studio-primary-button"
+									style={{ width: '100%', height: '46px', background: 'var(--holo-gradient)', color: '#fff', border: 0 }}
+								>
+									Generar imagen ganadora
+								</button>
+							</div>
+						)}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
+
