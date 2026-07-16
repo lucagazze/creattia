@@ -452,9 +452,14 @@ export const POST: APIRoute = async ({ request }) => {
 				productInputPlan.push({ product: storedProduct, path: paths[index], photoIndex: index + 1 });
 			}
 		}
+		// Revisión sutil: el usuario pidió un cambio puntual sobre una imagen ya
+		// generada. Solo se manda la imagen original + el pedido; re-adjuntar
+		// producto/logo/contexto hace que el modelo rediseñe todo.
+		const isExactRevision = hasSourceGeneration && variationStrength === 'exact' && Boolean(brief);
+
 		let primaryProductBuffer: Buffer | null = null;
 		let primaryProductMime = 'image/png';
-		for (const item of productInputPlan) {
+		if (!isExactRevision) for (const item of productInputPlan) {
 			const { data: productBlob, error } = await admin.storage.from('creative-assets').download(item.path);
 			if (error || !productBlob) throw error || new Error(`No se pudo recuperar una foto de ${item.product.name}.`);
 			const normalized = await normalizeImageInput(Buffer.from(await productBlob.arrayBuffer()));
@@ -482,7 +487,7 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 			await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
 		}
-		if (!storedProducts.length && product instanceof File && product.size > 0) {
+		if (!isExactRevision && !storedProducts.length && product instanceof File && product.size > 0) {
 			const normalized = await normalizeImageInput(Buffer.from(await product.arrayBuffer()));
 			if (!normalized) throw new Error('La foto del producto no se pudo procesar. Probá con otra imagen.');
 			primaryProductBuffer = normalized.buffer;
@@ -501,7 +506,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!storedProducts.length && product instanceof File && product.size > 0) hasUploadedProduct = true;
 
 		let hasLogo = false;
-		if (!includeLogo) {
+		if (!includeLogo || isExactRevision) {
 			// El usuario pidió sin logo: no se adjunta ninguno.
 		} else if (logo instanceof File && logo.size > 0) {
 			const normalized = await normalizeImageInput(Buffer.from(await logo.arrayBuffer()));
@@ -607,7 +612,17 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 			}
 		}
 
-		const prompt = useClonePrompt ? buildReferenceClonePrompt({
+		const revisionPrompt = `The input image is a FINISHED advertisement. Reproduce it EXACTLY — same layout, same texts, same colors, same product, same typography, same background, every single detail identical — applying ONLY this modification:
+
+${brief}
+
+Rules:
+- Change ONLY what the modification asks. Everything else must remain pixel-faithful to the input image.
+- Do not redesign, do not rewrite or move any other text, do not change the palette, the product or the composition.
+- Render all text sharp and correctly spelled.
+The result must look like the same image with only that one adjustment applied.`;
+
+		const prompt = isExactRevision ? revisionPrompt : useClonePrompt ? buildReferenceClonePrompt({
 			productNames: storedProducts.map((item) => item.name),
 			brandName: profile?.brand_name || clean(form.get('brandName'), 80),
 			hasLogo,
