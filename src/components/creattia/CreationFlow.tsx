@@ -46,7 +46,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const label = { display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '9px', letterSpacing: '.01em' } as const;
 	const chip = (active: boolean) => ({
 		padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-		border: active ? '2px solid #6d35e8' : '1px solid #e2dde9', background: active ? '#f4effd' : '#fff', color: active ? '#5927c8' : '#3f3a48',
+		border: active ? '2px solid #19171d' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#19171d' : '#3f3a48',
 	} as const);
 
 	async function scanUrl(): Promise<any | null> {
@@ -236,8 +236,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									>
 										<span style={{
 											display: 'block', width: `${item.w}px`, height: `${item.h}px`, borderRadius: '4px',
-											border: `2px ${item.dashed ? 'dashed' : 'solid'} ${format === item.id ? '#6d35e8' : '#b9b3c2'}`,
-											background: format === item.id ? 'rgba(109,53,232,0.12)' : '#f6f4f9',
+											border: `2px ${item.dashed ? 'dashed' : 'solid'} ${format === item.id ? '#19171d' : '#b9b3c2'}`,
+											background: format === item.id ? 'rgba(25,23,29,0.12)' : '#f6f4f9',
 										}} />
 										<b style={{ fontSize: '12px', lineHeight: 1 }}>{item.text}</b>
 										<small style={{ fontSize: '10px', color: '#8b8490', lineHeight: 1 }}>{item.desc}</small>
@@ -272,9 +272,9 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										{languageOpen && (
 											<div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1px solid #e2dde9', borderRadius: '12px', boxShadow: '0 16px 40px rgba(25,23,29,0.14)', zIndex: 30, overflow: 'hidden' }}>
 												{LANGS.map((item) => (
-													<button key={item.id} type="button" onClick={() => { setLanguage(item.id); setLanguageOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', border: 0, background: language === item.id ? '#f4effd' : '#fff', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d', textAlign: 'left' }}>
+													<button key={item.id} type="button" onClick={() => { setLanguage(item.id); setLanguageOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', border: 0, background: language === item.id ? '#f4f2f6' : '#fff', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d', textAlign: 'left' }}>
 														{flag(item.cc)}{item.name}
-														{language === item.id && <span style={{ marginLeft: 'auto', color: '#5927c8', fontWeight: 800 }}>✓</span>}
+														{language === item.id && <span style={{ marginLeft: 'auto', color: '#19171d', fontWeight: 800 }}>✓</span>}
 													</button>
 												))}
 											</div>
@@ -330,7 +330,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							onClick={() => void requestPlan()}
 							disabled={phase === 'planning'}
 							className="studio-primary-button"
-							style={{ width: '100%', height: '50px', background: 'linear-gradient(135deg, #7542eb, #5927c8)', color: '#fff', border: 0, fontSize: '15px', fontWeight: 800, borderRadius: '11px', cursor: 'pointer', opacity: phase === 'planning' ? 0.6 : 1 }}
+							style={{ width: '100%', height: '50px', background: '#19171d', color: '#fff', border: 0, fontSize: '15px', fontWeight: 800, borderRadius: '11px', cursor: 'pointer', opacity: phase === 'planning' ? 0.6 : 1 }}
 						>
 							{phase === 'planning' ? 'Analizando el ganador y escribiendo los textos…' : 'Generar textos del anuncio →'}
 						</button>
@@ -390,7 +390,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								onClick={() => void approveAndGenerate()}
 								disabled={phase === 'starting'}
 								className="studio-primary-button"
-								style={{ flex: 1, height: '52px', background: 'linear-gradient(135deg, #7542eb, #5927c8)', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'starting' ? 0.6 : 1 }}
+								style={{ flex: 1, height: '52px', background: '#19171d', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'starting' ? 0.6 : 1 }}
 							>
 								{phase === 'starting' ? 'Iniciando generación…' : 'Aprobar textos y generar imagen ✓'}
 							</button>
