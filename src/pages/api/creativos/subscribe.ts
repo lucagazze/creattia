@@ -4,9 +4,24 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 export const prerender = false;
 
 const plans = {
-	creator: { env: 'MERCADO_PAGO_PLAN_CREATOR_ID', fallback: 'MERCADO_PAGO_PLAN_ID', credits: 40, reason: 'Creattia — Creator' },
-	pro: { env: 'MERCADO_PAGO_PLAN_PRO_ID', credits: 120, reason: 'Creattia — Pro' },
-	scale: { env: 'MERCADO_PAGO_PLAN_SCALE_ID', credits: 300, reason: 'Creattia — Scale' },
+	creator: { 
+		monthly: { env: 'MERCADO_PAGO_PLAN_CREATOR_ID', fallback: 'MERCADO_PAGO_PLAN_ID' },
+		yearly: { env: 'MERCADO_PAGO_PLAN_CREATOR_YEARLY_ID', fallback: 'MERCADO_PAGO_PLAN_YEARLY_ID' },
+		credits: 40, 
+		reason: 'Creattia — Creator' 
+	},
+	pro: { 
+		monthly: { env: 'MERCADO_PAGO_PLAN_PRO_ID' },
+		yearly: { env: 'MERCADO_PAGO_PLAN_PRO_YEARLY_ID' },
+		credits: 120, 
+		reason: 'Creattia — Pro' 
+	},
+	scale: { 
+		monthly: { env: 'MERCADO_PAGO_PLAN_SCALE_ID' },
+		yearly: { env: 'MERCADO_PAGO_PLAN_SCALE_YEARLY_ID' },
+		credits: 300, 
+		reason: 'Creattia — Scale' 
+	},
 } as const;
 
 async function cancelProviderSubscription(subscriptionId: string, accessToken: string) {
@@ -25,13 +40,16 @@ export const POST: APIRoute = async ({ request, url }) => {
 	const accessToken = import.meta.env.MERCADO_PAGO_ACCESS_TOKEN;
 	const body = await request.json().catch(() => ({}));
 	const planCode = String(body.planCode || 'creator') as keyof typeof plans;
+	const billingCycle = String(body.billingCycle || 'monthly') as 'monthly' | 'yearly';
 	const plan = plans[planCode];
 	if (!plan) return json({ error: 'El plan elegido no existe.' }, 400);
 	const auth = await authenticateRequest(request);
 	if (!auth.user?.email) return json({ error: auth.error || 'La cuenta necesita un email válido.' }, 401);
-	const planId = import.meta.env[plan.env] || ('fallback' in plan ? import.meta.env[plan.fallback] : '');
+	
+	const cycleInfo = plan[billingCycle];
+	const planId = import.meta.env[cycleInfo.env] || ('fallback' in cycleInfo ? import.meta.env[cycleInfo.fallback] : '');
 	if (!accessToken || !planId) {
-		return json({ error: `Mercado Pago todavía no está configurado para el plan ${planCode}.`, requiresConfiguration: true }, 503);
+		return json({ error: `Mercado Pago todavía no está configurado para el plan ${planCode} (${billingCycle}).`, requiresConfiguration: true }, 503);
 	}
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);

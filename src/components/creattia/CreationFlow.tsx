@@ -31,6 +31,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
 	const [includeLogo, setIncludeLogo] = useState(false);
 	const [extra, setExtra] = useState('');
+	const [count, setCount] = useState(1);
 
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
@@ -43,10 +44,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const selectedProduct = products.find((item) => item.id === selectedProductId) || null;
 	const hasProduct = Boolean(selectedProduct || uploadFile);
 
-	const label = { display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '9px', letterSpacing: '.01em' } as const;
+	const label = { display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '9px', letterSpacing: '.01em' } as const;
 	const chip = (active: boolean) => ({
 		padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-		border: active ? '2px solid #19171d' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#19171d' : '#3f3a48',
+		border: active ? '2px solid #744bde' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#744bde' : '#3f3a48',
 	} as const);
 
 	async function scanUrl(): Promise<any | null> {
@@ -117,7 +118,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('imageType', 'promotion');
 			form.set('fidelity', '1');
 			form.set('preset', 'Fiel al ganador');
-			form.set('count', '1');
+			form.set('count', String(count));
 			form.set('format', format);
 			if (language !== 'auto') form.set('language', language);
 			form.set('colorMode', colorMode);
@@ -125,7 +126,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('includeLogo', includeLogo ? '1' : '0');
 			if (selectedProduct) form.set('productIds', selectedProduct.id);
 			else if (uploadFile) form.set('product', uploadFile);
-			const brief = [extra.trim(), pickedOptions.length ? `Enfoques elegidos: ${pickedOptions.join(' · ')}` : ''].filter(Boolean).join('\n');
+			const brief = extra.trim();
 			form.set('brief', brief);
 			form.set('plan', JSON.stringify({ ...plan, textZones: zones }));
 
@@ -137,7 +138,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					batchId: payload.batchId,
 					title: selectedProduct?.name ? `${selectedProduct.name} · ${ad.name}` : ad.name,
 					referenceUrl,
-					count: 1,
+					count,
 				});
 				onBack();
 			}
@@ -312,9 +313,34 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							</div>
 						</div>
 
-						{/* 5. Indicación extra */}
+						{/* 5. Cantidad de variantes */}
 						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>5 · Indicación extra (opcional)</strong>
+							<strong style={label}>5 · Cantidad de variantes</strong>
+							<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+								{[1, 2, 3, 4].map((val) => (
+									<button
+										key={val}
+										type="button"
+										onClick={() => setCount(val)}
+										style={{
+											...chip(count === val),
+											padding: '10px 18px',
+											fontSize: '14px',
+											fontWeight: 700,
+										}}
+									>
+										{val}
+									</button>
+								))}
+								<span style={{ fontSize: '13px', color: '#716d79', marginLeft: '8px', fontWeight: 600 }}>
+									{count === 1 ? 'Usa 1 crédito' : `Usa ${count} créditos`}
+								</span>
+							</div>
+						</div>
+
+						{/* 6. Indicación extra */}
+						<div style={{ marginBottom: '20px' }}>
+							<strong style={label}>6 · Indicación extra (opcional)</strong>
 							<textarea
 								value={extra}
 								onChange={(event) => setExtra(event.target.value)}
@@ -330,7 +356,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							onClick={() => void requestPlan()}
 							disabled={phase === 'planning'}
 							className="studio-primary-button"
-							style={{ width: '100%', height: '50px', background: '#19171d', color: '#fff', border: 0, fontSize: '15px', fontWeight: 800, borderRadius: '11px', cursor: 'pointer', opacity: phase === 'planning' ? 0.6 : 1 }}
+							style={{ width: '100%', height: '50px', background: '#744bde', color: '#fff', border: 0, fontSize: '15px', fontWeight: 800, borderRadius: '11px', cursor: 'pointer', opacity: phase === 'planning' ? 0.6 : 1 }}
 						>
 							{phase === 'planning' ? 'Analizando el ganador y escribiendo los textos…' : 'Generar textos del anuncio →'}
 						</button>
@@ -338,6 +364,58 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					</>}
 
 					{(phase === 'review' || phase === 'starting') && plan && <>
+						{plan.templateHasLogoSlot && !includeLogo && (
+							<div style={{ 
+								display: 'flex', 
+								alignItems: 'center', 
+								justifyContent: 'space-between', 
+								gap: '12px', 
+								flexWrap: 'wrap', 
+								padding: '12px 16px', 
+								background: '#f4f0ff', 
+								border: '1px solid #dcd2ff', 
+								borderRadius: '11px', 
+								marginBottom: '16px' 
+							}}>
+								<span style={{ fontSize: '13.5px', color: '#522cbd', fontWeight: 600 }}>
+									💡 Este diseño tiene un espacio ideal para colocar tu logo o nombre de marca.
+								</span>
+								<button 
+									type="button" 
+									onClick={() => setIncludeLogo(true)} 
+									style={{ 
+										padding: '6px 12px', 
+										borderRadius: '8px', 
+										border: 0, 
+										background: '#744bde', 
+										color: '#fff', 
+										fontSize: '13px', 
+										fontWeight: 700, 
+										cursor: 'pointer' 
+									}}
+								>
+									Incluir mi logo
+								</button>
+							</div>
+						)}
+						{plan.templateHasLogoSlot && includeLogo && (
+							<div style={{ 
+								display: 'flex', 
+								alignItems: 'center', 
+								gap: '8px', 
+								padding: '12px 16px', 
+								background: '#e8f9f0', 
+								border: '1px solid #c1eed6', 
+								borderRadius: '11px', 
+								marginBottom: '16px',
+								fontSize: '13.5px',
+								color: '#1e7e4a',
+								fontWeight: 600
+							}}>
+								<span>✓ Incluiremos el logo de tu marca en el espacio del diseño.</span>
+							</div>
+						)}
+
 						<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
 							<strong style={{ ...label, marginBottom: 0 }}>Textos del anuncio</strong>
 							<div style={{ display: 'flex', gap: '8px' }}>
@@ -368,29 +446,16 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							))}
 						</div>
 
-						{creativeOptions.length > 0 && (
-							<div style={{ marginBottom: '22px' }}>
-								<strong style={label}>Enfoques sugeridos para este anuncio (opcional)</strong>
-								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-									{creativeOptions.map((option) => (
-										<button key={option} type="button" onClick={() => setPickedOptions(pickedOptions.includes(option) ? pickedOptions.filter((item) => item !== option) : [...pickedOptions, option])} style={{ ...chip(pickedOptions.includes(option)), fontSize: '12.5px', lineHeight: 1.35, textAlign: 'left', padding: '8px 12px' }}>
-											{pickedOptions.includes(option) ? '✓ ' : ''}{option}
-										</button>
-									))}
-								</div>
-							</div>
-						)}
-
 						{error && <p style={{ margin: '0 0 14px', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}
 
 						<div style={{ display: 'flex', gap: '10px' }}>
-							<button type="button" onClick={() => setPhase('setup')} style={{ flex: '0 0 auto', padding: '0 22px', height: '52px', borderRadius: '12px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>← Ajustes</button>
+							<button type="button" onClick={() => setPhase('setup')} style={{ flex: '0 0 auto', padding: '0 22px', height: '52px', borderRadius: '12px', border: '1px solid #744bde', background: '#fff', color: '#744bde', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>← Ajustes</button>
 							<button
 								type="button"
 								onClick={() => void approveAndGenerate()}
 								disabled={phase === 'starting'}
 								className="studio-primary-button"
-								style={{ flex: 1, height: '52px', background: '#19171d', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'starting' ? 0.6 : 1 }}
+								style={{ flex: 1, height: '52px', background: '#744bde', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'starting' ? 0.6 : 1 }}
 							>
 								{phase === 'starting' ? 'Iniciando generación…' : 'Aprobar textos y generar imagen ✓'}
 							</button>

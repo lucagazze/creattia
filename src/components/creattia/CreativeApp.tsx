@@ -403,6 +403,7 @@ export default function CreativeApp() {
 	const [toast, setToast] = useState('');
 	const [preselectedTemplateId, setPreselectedTemplateId] = useState<number | null>(null);
 	const [sidebarMinimized, setSidebarMinimized] = useState(false);
+	const [manualOpen, setManualOpen] = useState(false);
 	const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 	const [randomWinners, setRandomWinners] = useState<any[]>([]);
 	const [scrapedWinners, setScrapedWinners] = useState<any[]>([]);
@@ -795,7 +796,7 @@ export default function CreativeApp() {
 	function startBatchTracking(batch: { batchId: string; title: string; referenceUrl?: string; count: number }) {
 		const record: ActiveBatch = { ...batch, startedAt: Date.now(), status: 'processing', results: [] };
 		setActiveBatch(record);
-		setView('generation');
+		setView('history');
 		try {
 			window.localStorage.setItem(ACTIVE_BATCH_KEY, JSON.stringify({
 				batchId: batch.batchId, title: batch.title, referenceUrl: batch.referenceUrl || '', count: batch.count, startedAt: record.startedAt,
@@ -926,6 +927,29 @@ export default function CreativeApp() {
 					))}
 				</nav>
 				<div className="studio-sidebar-bottom">
+					<button 
+						className={`studio-brand-nav-btn ${view === 'brand' ? 'active' : ''}`}
+						onClick={() => { setView('brand'); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: '12px',
+							width: '100%',
+							padding: '10px 14px',
+							background: view === 'brand' ? '#ece9f1' : 'transparent',
+							border: 0,
+							borderRadius: '10px',
+							cursor: 'pointer',
+							color: view === 'brand' ? '#744bde' : '#5b5561',
+							fontWeight: 700,
+							fontSize: '14px',
+							marginBottom: '10px',
+							textAlign: 'left'
+						}}
+					>
+						<Icon name="brand"/>
+						{!sidebarMinimized && <span>Mi marca</span>}
+					</button>
 					{!sidebarMinimized && (
 						<div className="studio-plan-card">
 							<div><span className="studio-plan-orb"><Icon name="spark" size={15}/></span><small>PLAN ACTUAL</small></div>
@@ -958,12 +982,6 @@ export default function CreativeApp() {
 								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#19171d', fontWeight: 700, whiteSpace: 'nowrap' }}
 							>
 								💳 Planes y Suscripción
-							</button>
-							<button 
-								onClick={() => { setView('brand'); setProfileMenuOpen(false); }}
-								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#19171d', fontWeight: 700, whiteSpace: 'nowrap' }}
-							>
-								⚙️ Mi Marca / Ajustes
 							</button>
 							<button 
 								onClick={() => { alert('Historial de pagos: No tenés facturas pendientes en tu demo.'); setProfileMenuOpen(false); }}
@@ -1063,10 +1081,41 @@ export default function CreativeApp() {
 					{view === 'plans' && <Plans profile={profile} session={session} />}
 					{view === 'brand' && <>
 					<BrandsManager session={session} planCode={profile.planCode} onPlans={() => setView('plans')} />
-					<details style={{ marginTop: '28px' }}>
-						<summary style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 700, color: '#716d79', marginBottom: '14px' }}>Ajustes manuales de la marca activa</summary>
-						<BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />
-					</details>
+					<div style={{ marginTop: '28px' }}>
+						<button 
+							onClick={() => setManualOpen(!manualOpen)} 
+							style={{ 
+								display: 'flex', 
+								alignItems: 'center', 
+								justifyContent: 'space-between',
+								width: '100%',
+								background: 'transparent',
+								border: 0,
+								cursor: 'pointer', 
+								fontSize: '14px', 
+								fontWeight: 700, 
+								color: '#716d79', 
+								marginBottom: '14px',
+								padding: '8px 0',
+								borderBottom: '1px solid #e9e6ed'
+							}}
+						>
+							<span>⚙️ Ajustes manuales de la marca activa</span>
+							<span style={{ 
+								display: 'inline-flex', 
+								transform: manualOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+								transition: 'transform 0.2s ease',
+								color: '#716d79' 
+							}}>
+								<Icon name="arrow" size={16} />
+							</span>
+						</button>
+						{manualOpen && (
+							<div style={{ animation: 'fadeIn 0.2s ease' }}>
+								<BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />
+							</div>
+						)}
+					</div>
 				</>}
 				</div>
 			</main>
@@ -2185,13 +2234,29 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 	</>;
 }
 
-function History({ history, onCreate, onReuse, onExpand, pending, onViewProgress }: { history: Generation[]; onCreate: () => void; onReuse: (item: Generation) => void; onExpand?: (item: Generation) => void; pending?: { count: number; title: string; referenceUrl?: string } | null; onViewProgress?: () => void }) {
+function History({ history, onCreate, onReuse, onExpand, pending, onViewProgress }: { history: Generation[]; onCreate: () => void; onReuse: (item: Generation) => void; onExpand?: (item: Generation) => void; pending?: { count: number; title: string; referenceUrl?: string; startedAt?: number } | null; onViewProgress?: () => void }) {
 	const hasContent = history.length > 0 || Boolean(pending);
-	return <><div className="studio-page-heading"><div><p>MIS IMÁGENES</p><h1>Todo lo que creaste.</h1><span>Tocá una imagen para verla grande, descargarla o crear otra versión.</span></div><button className="studio-primary-button compact" onClick={onCreate}><Icon name="plus" size={17}/>Crear imagen</button></div>{hasContent ? <div className="studio-history-grid">{pending && Array.from({ length: pending.count }, (_, index) => <PendingGenerationCard key={`pending-${index}`} title={pending.title} referenceUrl={pending.referenceUrl} onClick={onViewProgress} />)}{history.map((item) => <GenerationCard key={item.id} item={item} onExpand={onExpand ? () => onExpand(item) : undefined} onReuse={() => onReuse(item)}/>)}</div> : <div className="studio-empty large"><span><Icon name="history"/></span><h3>Todavía no creaste imágenes</h3><p>Elegí una idea de la biblioteca para empezar.</p><button onClick={onCreate}>Elegir una idea</button></div>}</>;
+	return <><div className="studio-page-heading"><div><p>MIS IMÁGENES</p><h1>Todo lo que creaste.</h1><span>Tocá una imagen para verla grande, descargarla o crear otra versión.</span></div><button className="studio-primary-button compact" onClick={onCreate} style={{ background: '#744bde' }}><Icon name="plus" size={17}/>Crear imagen</button></div>{hasContent ? <div className="studio-history-grid">{pending && Array.from({ length: pending.count }, (_, index) => <PendingGenerationCard key={`pending-${index}`} title={pending.title} referenceUrl={pending.referenceUrl} startedAt={pending.startedAt} onClick={onViewProgress} />)}{history.map((item) => <GenerationCard key={item.id} item={item} onExpand={onExpand ? () => onExpand(item) : undefined} onReuse={() => onReuse(item)}/>)}</div> : <div className="studio-empty large"><span><Icon name="history"/></span><h3>Todavía no creaste imágenes</h3><p>Elegí una idea de la biblioteca para empezar.</p><button onClick={onCreate} style={{ background: '#744bde' }}>Elegir una idea</button></div>}</>;
 }
 
 // Tarjeta placeholder mientras una imagen se está generando en el servidor.
-function PendingGenerationCard({ title, referenceUrl, onClick }: { title: string; referenceUrl?: string; onClick?: () => void }) {
+function PendingGenerationCard({ title, referenceUrl, startedAt, onClick }: { title: string; referenceUrl?: string; startedAt?: number; onClick?: () => void }) {
+	const [progress, setProgress] = useState(0);
+
+	useEffect(() => {
+		if (!startedAt) {
+			setProgress(10);
+			return;
+		}
+		const interval = setInterval(() => {
+			const elapsedMs = Date.now() - startedAt;
+			const estimatedDurationMs = 30000; // 30 seconds estimated
+			const pct = Math.min(95, Math.round((elapsedMs / estimatedDurationMs) * 100));
+			setProgress(pct);
+		}, 300);
+		return () => clearInterval(interval);
+	}, [startedAt]);
+
 	return (
 		<article className="studio-generation-card" style={{ cursor: onClick ? 'pointer' : 'default' }} onClick={onClick}>
 			<div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#f4f0f8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
@@ -2202,13 +2267,29 @@ function PendingGenerationCard({ title, referenceUrl, onClick }: { title: string
 				</div>
 			</div>
 			<div style={{ padding: '13px 14px 14px' }}>
-				<span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#eceaef', color: '#19171d', fontSize: '11px', fontWeight: 800, letterSpacing: '.06em' }}>
-					<span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#19171d', animation: 'pulse 1.4s ease-in-out infinite' }} />
+				<span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#eceaef', color: '#744bde', fontSize: '11px', fontWeight: 800, letterSpacing: '.06em' }}>
+					<span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#744bde', animation: 'pulse 1.4s ease-in-out infinite' }} />
 					EN PROCESO
 				</span>
 				<h3 style={{ margin: '9px 0 0', fontSize: '15px', color: '#19171d', lineHeight: 1.3 }}>{title}</h3>
+				
+				{/* Simulated premium progress bar */}
+				<div style={{ marginTop: '16px', background: '#eceaef', borderRadius: '999px', height: '6px', overflow: 'hidden', position: 'relative' }}>
+					<div style={{
+						background: 'linear-gradient(90deg, #744bde 0%, #ec4492 100%)',
+						height: '100%',
+						width: `${progress}%`,
+						borderRadius: '999px',
+						transition: 'width 0.3s ease-out'
+					}} />
+				</div>
+				<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#716d79', marginTop: '6px', fontWeight: 600 }}>
+					<span>Generando imagen...</span>
+					<span>{progress}%</span>
+				</div>
+
 				{onClick && (
-					<button onClick={(event) => { event.stopPropagation(); onClick(); }} style={{ marginTop: '12px', width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}>
+					<button onClick={(event) => { event.stopPropagation(); onClick(); }} style={{ marginTop: '12px', width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}>
 						<Icon name="spark" size={14}/>Ver progreso en vivo
 					</button>
 				)}
@@ -2331,11 +2412,116 @@ function ImageLightbox({ item, session, onClose, onStarted }: {
 	);
 }
 
+function BuyCreditsSection({ session }: { session: AppSession }) {
+	const [config, setConfig] = useState<any>(null);
+	const [buying, setBuying] = useState<number | null>(null);
+	const [error, setError] = useState('');
+
+	useEffect(() => {
+		let active = true;
+		fetch('/api/creativos/buy-credits', {
+			headers: { authorization: `Bearer ${getSessionToken(session)}` }
+		})
+		.then(r => r.json())
+		.then(data => {
+			if (active) setConfig(data);
+		})
+		.catch(() => null);
+		return () => { active = false; };
+	}, [session]);
+
+	async function buy(quantity: number) {
+		setBuying(quantity); setError('');
+		try {
+			const response = await fetch('/api/creativos/buy-credits', {
+				method: 'POST',
+				headers: { 
+					authorization: `Bearer ${getSessionToken(session)}`,
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({ quantity })
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar la compra.');
+			window.location.href = payload.checkoutUrl;
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Error al conectar con Mercado Pago.');
+			setBuying(null);
+		}
+	}
+
+	if (!config || !config.configured) return null;
+
+	const symbol = config.currency === 'USD' ? 'u$s' : '$';
+
+	return (
+		<div style={{ marginTop: '36px', padding: '24px', background: '#f5f2f9', border: '1px solid #e2dee8', borderRadius: '16px' }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+				<span style={{ fontSize: '20px' }}>⚡</span>
+				<h2 style={{ margin: 0, fontSize: '18px', color: '#19171d' }}>Pago único (Sin suscripción)</h2>
+			</div>
+			<p style={{ margin: '0 0 16px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
+				¿Querés probar una imagen rápida o no querés una membresía mensual? Comprá créditos individuales y usalos cuando quieras. 
+				<strong> El precio unitario es de {symbol}{config.unitPrice} {config.currency}</strong> (el doble de lo que sale en la suscripción, ¡ideal para empezar!).
+			</p>
+			
+			{error && <p style={{ color: '#dc2626', fontSize: '13px', margin: '0 0 12px', fontWeight: 600 }}>{error}</p>}
+
+			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+				{config.packs.map((qty: number) => (
+					<div 
+						key={qty} 
+						style={{ 
+							background: '#fff', 
+							border: '1px solid #e9e6ed', 
+							borderRadius: '12px', 
+							padding: '16px', 
+							display: 'flex', 
+							flexDirection: 'column', 
+							alignItems: 'center',
+							boxShadow: '0 4px 12px rgba(25, 23, 29, 0.03)'
+						}}
+					>
+						<strong style={{ fontSize: '18px', color: '#19171d', marginBottom: '4px' }}>
+							{qty} {qty === 1 ? 'Imagen' : 'Imágenes'}
+						</strong>
+						<span style={{ fontSize: '12px', color: '#716d79', marginBottom: '12px' }}>
+							{qty === 1 ? '1 crédito' : `${qty} créditos`}
+						</span>
+						<div style={{ fontSize: '22px', fontWeight: 800, color: '#744bde', marginBottom: '16px' }}>
+							{symbol}{config.unitPrice * qty}
+						</div>
+						<button 
+							onClick={() => void buy(qty)}
+							disabled={buying !== null}
+							style={{ 
+								width: '100%', 
+								height: '38px', 
+								borderRadius: '8px', 
+								border: 0, 
+								background: '#744bde', 
+								color: '#fff', 
+								fontWeight: 700, 
+								fontSize: '13px', 
+								cursor: 'pointer',
+								opacity: buying === qty ? 0.6 : 1
+							}}
+						>
+							{buying === qty ? 'Abriendo Mercado Pago...' : 'Comprar ahora'}
+						</button>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
 function Plans({ profile, session }: { profile: AppProfile; session: AppSession }) {
 	const [billing, setBilling] = useState('');
 	const [cancelling, setCancelling] = useState(false);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
+	const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
 	async function subscribe(planCode: string) {
 		if (!isSupabaseConfigured || !supabase) { setError('Para activar pagos faltan las credenciales de Supabase y Mercado Pago.'); return; }
@@ -2348,7 +2534,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 			const response = await fetch('/api/creativos/subscribe', {
 				method: 'POST',
 				headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
-				body: JSON.stringify({ planCode }),
+				body: JSON.stringify({ planCode, billingCycle }),
 			});
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar la suscripción.');
@@ -2357,7 +2543,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 	}
 
 	async function cancelSubscription() {
-		if (!window.confirm('¿Cancelar la renovación mensual? Conservás tus créditos actuales, pero no se renovarán el próximo mes.')) return;
+		if (!window.confirm('¿Cancelar la renovación? Conservás tus créditos actuales, pero no se renovarán el próximo período.')) return;
 		setCancelling(true); setError(''); setNotice('');
 		try {
 			const response = await fetch('/api/creativos/subscribe', {
@@ -2376,11 +2562,53 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 
 	return <><div className="studio-page-heading"><div><p>PLANES</p><h1>Elegí cuántas imágenes querés crear.</h1><span>Todos los planes incluyen las mismas herramientas. Solo cambia la cantidad mensual.</span></div></div>
 		<div className="studio-current-credits"><span><Icon name="spark"/></span><p><small>TU SALDO ACTUAL</small><strong>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</strong></p><em>{planLabel(profile)}</em></div>
+		
+		{/* Toggle Facturación Mensual / Anual */}
+		<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '28px', marginTop: '16px' }}>
+			<span style={{ fontSize: '14px', fontWeight: billingCycle === 'monthly' ? 700 : 500, color: billingCycle === 'monthly' ? '#744bde' : '#716d79' }}>Mensual</span>
+			<button 
+				type="button" 
+				onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')} 
+				style={{
+					width: '50px',
+					height: '26px',
+					borderRadius: '999px',
+					background: '#744bde',
+					border: 0,
+					cursor: 'pointer',
+					position: 'relative',
+					padding: '2px'
+				}}
+			>
+				<span style={{
+					display: 'block',
+					width: '22px',
+					height: '22px',
+					borderRadius: '50%',
+					background: '#fff',
+					transition: 'transform 0.2s',
+					transform: billingCycle === 'yearly' ? 'translateX(24px)' : 'translateX(0)'
+				}} />
+			</button>
+			<span style={{ fontSize: '14px', fontWeight: billingCycle === 'yearly' ? 700 : 500, color: billingCycle === 'yearly' ? '#744bde' : '#716d79', display: 'flex', alignItems: 'center', gap: '6px' }}>
+				Anual <span style={{ background: '#e8f9f0', color: '#1e7e4a', fontSize: '11px', fontWeight: 800, padding: '2px 6px', borderRadius: '999px' }}>Ahorrá 20%</span>
+			</span>
+		</div>
+
 		{error && <p className="studio-form-error">{error}</p>}
 		{notice && <p className="studio-form-notice">{notice}</p>}
-		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => { const currentPlan = ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MOST POPULAR</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{plan.oldPrice && <span className="plan-old-price">${plan.oldPrice}</span>}<span className="plan-price-val"><b>$</b>{plan.price}</span><span className="plan-price-freq">/mo</span>{plan.saving && <span className="plan-save-badge">{plan.saving}</span>}</div><button className="plan-subscribe-btn" onClick={() => subscribe(plan.code)} disabled={Boolean(billing) || currentPlan}>{currentPlan ? profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile) : billing === plan.code ? 'Abriendo pago…' : `Get ${plan.name}`}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>; })}</div>
+		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => { 
+			const currentPlan = ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; 
+			const price = billingCycle === 'monthly' ? plan.price : Math.round(plan.price * 0.8);
+			const frequencyText = billingCycle === 'monthly' ? '/mes' : '/mes (anual)';
+			const savingLabel = billingCycle === 'yearly' ? plan.saving : '';
+
+			return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MOST POPULAR</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{plan.oldPrice && <span className="plan-old-price">${plan.oldPrice}</span>}<span className="plan-price-val"><b>$</b>{price}</span><span className="plan-price-freq">{frequencyText}</span>{savingLabel && <span className="plan-save-badge">{savingLabel}</span>}</div><button className="plan-subscribe-btn" style={{ background: '#744bde' }} onClick={() => subscribe(plan.code)} disabled={Boolean(billing) || currentPlan}>{currentPlan ? profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile) : billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>; 
+		})}</div>
 		<p className="studio-plan-note">Los créditos se renuevan cada mes. Podés cambiar o cancelar tu plan desde tu cuenta.</p>
 		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? 'Cancelando…' : 'Cancelar renovación'}</button>}
+		
+		<BuyCreditsSection session={session} />
 	</>;
 }
 
@@ -2394,6 +2622,7 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 	const [scanning, setScanning] = useState(false);
 	const [error, setError] = useState('');
 	const [loaded, setLoaded] = useState(false);
+	const [expandedBrandId, setExpandedBrandId] = useState<string | null>(null);
 
 	useEffect(() => {
 		let active = true;
@@ -2451,10 +2680,10 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 	return (
 		<section style={{ background: '#fff', border: '1px solid #e5e1e8', borderRadius: '16px', padding: '24px' }}>
 			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
-				<h2 style={{ margin: 0, fontSize: '18px', color: '#19171d' }}>Tus negocios</h2>
+				<h2 style={{ margin: 0, fontSize: '18px', color: '#744bde' }}>Tus negocios</h2>
 				<span style={{ fontSize: '13px', color: '#716d79' }}>
 					{brands.length}/{limit} {limit === 1 ? 'marca' : 'marcas'} del plan
-					{brands.length >= limit && <button onClick={onPlans} style={{ marginLeft: '8px', border: 0, background: 'transparent', color: '#19171d', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Mejorar plan</button>}
+					{brands.length >= limit && <button onClick={onPlans} style={{ marginLeft: '8px', border: 0, background: 'transparent', color: '#744bde', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Mejorar plan</button>}
 				</span>
 			</div>
 			<p style={{ margin: '0 0 16px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
@@ -2471,7 +2700,7 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 				<button
 					onClick={() => void scan()}
 					disabled={scanning || !url.trim() || brands.length >= limit}
-					style={{ padding: '0 20px', height: '44px', borderRadius: '10px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: scanning || brands.length >= limit ? 0.55 : 1 }}
+					style={{ padding: '0 20px', height: '44px', borderRadius: '10px', border: 0, background: '#744bde', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: scanning || brands.length >= limit ? 0.55 : 1 }}
 				>
 					{scanning ? 'Analizando tu negocio…' : 'Analizar con IA'}
 				</button>
@@ -2487,13 +2716,14 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 					{brands.map((brand) => {
 						const isActive = brand.id === activeBrandId;
 						const style = brand.brand_style || {};
+						const isExpanded = expandedBrandId === brand.id;
 						return (
-							<article key={brand.id} style={{ position: 'relative', border: isActive ? '2px solid #19171d' : '1px solid #e5e1e8', borderRadius: '14px', padding: '16px', background: isActive ? '#faf9fb' : '#fff' }}>
+							<article key={brand.id} style={{ position: 'relative', border: isActive ? '2px solid #744bde' : '1px solid #e5e1e8', borderRadius: '14px', padding: '16px', background: isActive ? '#faf9fb' : '#fff' }}>
 								<button onClick={() => void remove(brand.id)} aria-label="Eliminar marca" style={{ position: 'absolute', top: '10px', right: '10px', width: '22px', height: '22px', border: 0, borderRadius: '50%', background: 'transparent', color: '#b0a8b8', fontSize: '15px', cursor: 'pointer' }}>×</button>
 								<div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
 									{brand.logoUrl
 										? <img src={brand.logoUrl} alt="" style={{ width: '44px', height: '44px', objectFit: 'contain', borderRadius: '10px', background: '#f4f2f6', padding: '4px' }} />
-										: <span style={{ width: '44px', height: '44px', display: 'grid', placeItems: 'center', borderRadius: '10px', background: '#f4f2f6', fontWeight: 800, color: '#19171d' }}>{(brand.name || '?').slice(0, 1).toUpperCase()}</span>}
+										: <span style={{ width: '44px', height: '44px', display: 'grid', placeItems: 'center', borderRadius: '10px', background: '#f4f2f6', fontWeight: 800, color: '#744bde' }}>{(brand.name || '?').slice(0, 1).toUpperCase()}</span>}
 									<div style={{ minWidth: 0 }}>
 										<strong style={{ display: 'block', fontSize: '15px', color: '#19171d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brand.name}</strong>
 										<span style={{ fontSize: '12px', color: '#8b8490' }}>{String(brand.website_url || '').replace(/^https?:[/][/]/, '').replace(/[/]$/, '')}</span>
@@ -2505,10 +2735,86 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 									))}
 									{style.typography?.headings && <span style={{ marginLeft: '6px', fontSize: '12px', color: '#716d79' }}>{style.typography.headings}{style.typography.body ? ` · ${style.typography.body}` : ''}</span>}
 								</div>
+								
 								{style.brandVoice && <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#716d79', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{style.brandVoice}</p>}
-								{isActive
-									? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#128a51' }}>● Marca activa</span>
-									: <button onClick={() => void activate(brand.id)} style={{ padding: '8px 14px', borderRadius: '9px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Usar esta marca</button>}
+								
+								<button 
+									onClick={() => setExpandedBrandId(isExpanded ? null : brand.id)}
+									style={{
+										background: 'transparent',
+										border: 0,
+										color: '#744bde',
+										fontSize: '12.5px',
+										fontWeight: 700,
+										cursor: 'pointer',
+										display: 'flex',
+										alignItems: 'center',
+										gap: '4px',
+										marginTop: '10px',
+										marginBottom: '12px',
+										padding: '4px 0'
+									}}
+								>
+									{isExpanded ? 'Ocultar detalles ▲' : 'Ver detalles de diseño ▼'}
+								</button>
+
+								{isExpanded && (
+									<div style={{
+										marginTop: '4px',
+										marginBottom: '14px',
+										padding: '12px',
+										background: '#fcfbfe',
+										border: '1px dashed #dcd2ff',
+										borderRadius: '10px',
+										fontSize: '12.5px',
+										color: '#5b5561',
+										display: 'flex',
+										flexDirection: 'column',
+										gap: '10px'
+									}}>
+										{style.styleSummary && (
+											<div>
+												<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>✨ Estilo General</strong>
+												<span>{style.styleSummary}</span>
+											</div>
+										)}
+										{style.brandPersonality && (
+											<div>
+												<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🧠 Personalidad</strong>
+												<span>{style.brandPersonality}</span>
+											</div>
+										)}
+										{style.brandVoice && (
+											<div>
+												<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🗣️ Voz y Tono</strong>
+												<span>{style.brandVoice}</span>
+											</div>
+										)}
+										{style.buttonStyle && (
+											<div>
+												<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🖱️ Estilo de Botones</strong>
+												<span>{style.buttonStyle}</span>
+											</div>
+										)}
+										<div>
+											<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🎨 Paleta de colores</strong>
+											<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+												{(brand.brand_colors || []).map((color: string) => (
+													<span key={color} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff', border: '1px solid #e5e1e8', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
+														<span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+														{color}
+													</span>
+												))}
+											</div>
+										</div>
+									</div>
+								)}
+
+								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+									{isActive
+										? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#128a51' }}>● Marca activa</span>
+										: <button onClick={() => void activate(brand.id)} style={{ padding: '8px 14px', borderRadius: '9px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Usar esta marca</button>}
+								</div>
 							</article>
 						);
 					})}
