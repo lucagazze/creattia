@@ -110,7 +110,7 @@ ${adCopyBlock}
 ART DIRECTION
 ${compositionRule}
 ${input.hasSourceGeneration && input.replaceProduct ? '- Replace the product or products visible in the source generation with the selected product inputs. Do not blend old and new products.' : ''}
-${input.hasReference && input.products.length > 0 ? `- In the reference image layout, replace the original product (the box, packaging, bottle, or item) in the composition with the user's selected product: ${input.products[0].name}. Do not draw the template's original product.` : ''}
+${input.hasReference && input.products.length > 0 ? `- The first image is the WINNING AD TEMPLATE (reference layout). The second image is the REAL PRODUCT to feature. Create a new professional advertisement by using the EXACT COMPOSITION, color scheme, background aesthetic, alignment, speech bubbles, and layout of the first image (winning ad template), but replacing its original product with the real product shown in the second image. Do not draw the template's original product/packaging.` : ''}
 ${input.products.length > 1 ? `- This is a multi-product creative with ${input.products.length} distinct products. Show every supplied product clearly in one intentional group shot or collection composition. Preserve the real shape, packaging, logo and colors of each one.` : ''}
 ${input.products.length === 1 ? '- The selected product is supplied as an input image. Preserve its real shape, packaging, logo and colors with high fidelity.' : ''}
 ${input.products.length === 0 ? '- Build a brand-level promotion without inventing a specific packaged product.' : ''}

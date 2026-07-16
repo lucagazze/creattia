@@ -422,16 +422,28 @@ export default function CreativeApp() {
 		void loadRandomWinners();
 	}, []);
 
+	const sessionUserIdRef = useRef<string | undefined>(undefined);
+
+	useEffect(() => {
+		sessionUserIdRef.current = session?.user?.id;
+	}, [session]);
+
 	useEffect(() => {
 		let active = true;
 		async function boot() {
 			try {
 				if (isSupabaseConfigured && supabase) {
 					const { data } = await supabase.auth.getSession();
-					if (active) setSession(data.session);
+					if (active) {
+						sessionUserIdRef.current = data.session?.user?.id;
+						setSession(data.session);
+					}
 				} else {
 					const localSession = loadLocal<DemoSession | null>(SESSION_KEY, null);
-					if (active) setSession(localSession);
+					if (active) {
+						sessionUserIdRef.current = localSession?.user?.id;
+						setSession(localSession);
+					}
 				}
 			} catch (err) {
 				console.error('Error during boot:', err);
@@ -442,8 +454,11 @@ export default function CreativeApp() {
 		boot();
 		if (!supabase) return () => { active = false; };
 		const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-			setAccountLoading(Boolean(nextSession));
-			setSession(nextSession);
+			const nextUserId = nextSession?.user?.id;
+			if (sessionUserIdRef.current !== nextUserId) {
+				setAccountLoading(Boolean(nextSession));
+				setSession(nextSession);
+			}
 		});
 		return () => { active = false; listener.subscription.unsubscribe(); };
 	}, []);
