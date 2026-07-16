@@ -189,7 +189,8 @@ ${input.brief || (input.hasSourceGeneration ? 'No specific edit was requested. P
 }
 
 type LayoutAnalysis = {
-	textZones?: Array<{ where?: string; onProduct?: boolean; original?: string; replacement?: string }>;
+	messageStrategy?: string;
+	textZones?: Array<{ where?: string; onProduct?: boolean; original?: string; messageRole?: string; replacement?: string }>;
 	productHasPackaging?: boolean;
 	productPlacement?: string;
 	language?: string;
@@ -211,11 +212,13 @@ async function analyzeReferenceLayout(keys: { openAIKey?: string; googleKey?: st
 
 Return STRICT JSON:
 {
+  "messageStrategy": "2-3 sentences decoding the template's persuasion: which emotion it triggers, which objection it kills, what promise it makes and through which mechanism (nostalgia, guilt-removal, social proof, price anchor, before/after, authority, scarcity...)",
   "textZones": [
     { "where": "short position description (e.g. 'main headline, top center, two lines')",
       "onProduct": true|false,
       "original": "exact original text in the template",
-      "replacement": "new text for the target product, similar length so it fits the same space, honest (no invented prices/claims beyond the provided facts)" }
+      "messageRole": "the persuasive job this text does (e.g. 'emotional hook: nostalgia + guilt removal', 'social proof: enthusiastic customer quote', 'spec badge: reassurance with a concrete number', 'CTA: low-friction action')",
+      "replacement": "new text for the target product that performs the SAME persuasive job, similar length so it fits the same space, honest (no invented prices/claims beyond the provided facts)" }
   ],
   "productHasPackaging": true|false,
   "productPlacement": "precise description of where/how the template's product sits: position, scale relative to canvas, angle, cropping, lighting, shadow",
@@ -224,6 +227,7 @@ Return STRICT JSON:
 }
 
 Rules:
+- FIRST decode the template's message strategy. THEN write every replacement so it performs the SAME persuasive job for the target product: same emotional angle, same rhetorical device (paradox, contrast, question, quote, number), same energy and tone. An emotional hook must stay an emotional hook adapted to the new product — never flatten it into a generic benefit statement.
 - Enumerate EVERY visible text zone in the template (headline, subcopy, review, badges, pills, CTA, small print). None may be missed.
 - "onProduct": true when the text is printed ON the product/packaging itself; false when it belongs to the ad layout (headline, cards, pills, buttons).
 - "productHasPackaging": look at the REAL product photo — true only if the real product has printed packaging/labels of its own.
@@ -322,7 +326,7 @@ function buildReferenceClonePrompt(input: {
 	const droppedOnProduct = (input.analysis?.textZones?.length || 0) - zones.length;
 	let textSwap = '';
 	if (zones.length) {
-		textSwap = zones.map((zone, index) => `${index + 1}. [${zone.where}] Replace "${zone.original}" with "${zone.replacement}"`).join('\n');
+		textSwap = zones.map((zone, index) => `${index + 1}. [${zone.where}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original}" with "${zone.replacement}"`).join('\n');
 	} else if (input.adCopy) {
 		textSwap = [
 			input.adCopy.headline ? `- Headline: "${input.adCopy.headline}"` : '',
@@ -339,7 +343,12 @@ function buildReferenceClonePrompt(input: {
 		? `\nCRITICAL: the real product has NO printed packaging. Its surface must stay completely clean — do NOT print any words, logos, badges, spec bubbles or graphics on the product itself.${droppedOnProduct > 0 ? " The template's on-package texts are intentionally omitted; do not recreate or relocate them." : ''} All copy lives only in the ad layout's text zones.`
 		: '';
 
+	const strategyBlock = input.analysis?.messageStrategy
+		? `\nMESSAGE STRATEGY OF THE WINNING AD (the new copy must deliver the same persuasion, adapted to ${productLabel}): ${input.analysis.messageStrategy}\n`
+		: '';
+
 	return `The first input image is a WINNING AD TEMPLATE. Recreate this exact advertisement, keeping its layout, composition, background, color palette, graphic devices (badges, stars, speech bubbles, banners, buttons), text block positions and typographic hierarchy visually identical to the template. Apply ONLY these replacements:
+${strategyBlock}
 
 1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. RE-RENDER the product as a professional studio hero shot fully integrated into the scene: give it real volume and dimension, adapt its angle, perspective and lighting to match the template's product treatment, ground it with a soft contact shadow, and let it overlap the surrounding elements exactly like the template's product does. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}
 
