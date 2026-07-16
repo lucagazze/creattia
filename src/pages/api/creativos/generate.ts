@@ -26,6 +26,43 @@ function snapSizeForGptImage1(size: string) {
 	if (width === height) return '1024x1024';
 	return height > width ? '1024x1536' : '1536x1024';
 }
+
+const geminiAspectRatios: Record<string, string> = {
+	'1:1': '1:1', '3:4': '3:4', '9:16': '9:16', '4:3': '4:3', '16:9': '16:9',
+	square: '1:1', portrait: '3:4', story: '9:16', landscape: '4:3',
+};
+
+// Motor primario: Gemini image (nano-banana). ~6x más barato y ~10x más rápido
+// que gpt-image en calidad alta, con excelente fidelidad de producto y texto.
+async function generateWithGemini(input: {
+	apiKey: string;
+	model: string;
+	prompt: string;
+	images: Array<{ buffer: Buffer; type: string }>;
+	aspectRatio: string;
+	count: number;
+}): Promise<Buffer[]> {
+	const parts = [
+		{ text: input.prompt },
+		...input.images.map((image) => ({ inline_data: { mime_type: image.type, data: image.buffer.toString('base64') } })),
+	];
+	const generateOne = async () => {
+		const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent?key=${input.apiKey}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				contents: [{ parts }],
+				generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: input.aspectRatio } },
+			}),
+		});
+		const data: any = await response.json().catch(() => ({}));
+		if (!response.ok) throw new Error(`Gemini ${response.status}: ${JSON.stringify(data.error || data).slice(0, 180)}`);
+		const part = data.candidates?.[0]?.content?.parts?.find((item: any) => item.inlineData?.data || item.inline_data?.data);
+		if (!part) throw new Error(`Gemini no devolvió imagen (${data.candidates?.[0]?.finishReason || 'sin candidatos'}).`);
+		return Buffer.from(part.inlineData?.data || part.inline_data?.data, 'base64');
+	};
+	return Promise.all(Array.from({ length: input.count }, generateOne));
+}
 const imageTypes = new Set(['product', 'promotion', 'lifestyle', 'catalog']);
 const formats = new Set(Object.keys(formatSizes));
 const variationStrengths = new Set(['exact', 'light', 'strong']);
@@ -160,7 +197,8 @@ type LayoutAnalysis = {
 
 // Analiza el anuncio ganador + la foto real del producto con un modelo de visión:
 // enumera CADA zona de texto con su reemplazo y describe cómo presentar el producto.
-async function analyzeReferenceLayout(openai: OpenAI, input: {
+// Intenta OpenAI primero y cae a Gemini si falla (p. ej. sin crédito).
+async function analyzeReferenceLayout(keys: { openAIKey?: string; googleKey?: string }, input: {
 	referenceB64: string;
 	referenceMime: string;
 	productB64: string;
@@ -169,14 +207,7 @@ async function analyzeReferenceLayout(openai: OpenAI, input: {
 	productFacts: string;
 	brandName: string;
 }): Promise<LayoutAnalysis | null> {
-	const model = import.meta.env.OPENAI_ANALYSIS_MODEL || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o';
-	const response = await openai.chat.completions.create({
-		model,
-		response_format: { type: 'json_object' },
-		messages: [
-			{
-				role: 'system',
-				content: `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image, (2) a real product photo, (3) verified product facts.
+	const systemPrompt = `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image, (2) a real product photo, (3) verified product facts.
 
 Return STRICT JSON:
 {
@@ -198,23 +229,72 @@ Rules:
 - "productHasPackaging": look at the REAL product photo — true only if the real product has printed packaging/labels of its own.
 - Replacements: write them in the SAME language as the product facts ("language" field), punchy direct-response copy, roughly the same character count as the original so the layout doesn't break. Spanish must be natural Argentine Spanish.
 - If a zone shows a spec/number (e.g. "10G PROTEIN"), replace it with a REAL fact of the target product formatted the same way.
-- Never use the template's brand name in replacements.${input.brandName ? ` The advertiser brand is "${input.brandName}".` : ''}`,
-			},
-			{
-				role: 'user',
-				content: [
-					{ type: 'text', text: `Target product: ${input.productName}. Verified facts: ${input.productFacts || 'Only the product photo is available.'}` },
-					{ type: 'text', text: 'TEMPLATE:' },
-					{ type: 'image_url', image_url: { url: `data:${input.referenceMime};base64,${input.referenceB64}` } },
-					{ type: 'text', text: 'REAL PRODUCT PHOTO:' },
-					{ type: 'image_url', image_url: { url: `data:${input.productMime};base64,${input.productB64}` } },
+- Never use the template's brand name in replacements.${input.brandName ? ` The advertiser brand is "${input.brandName}".` : ''}`;
+	const userText = `Target product: ${input.productName}. Verified facts: ${input.productFacts || 'Only the product photo is available.'}`;
+
+	const validate = (raw: string | null | undefined): LayoutAnalysis | null => {
+		try {
+			const parsed = JSON.parse(raw || 'null');
+			if (!parsed || !Array.isArray(parsed.textZones) || !parsed.textZones.length) return null;
+			return parsed as LayoutAnalysis;
+		} catch { return null; }
+	};
+
+	if (keys.openAIKey) {
+		try {
+			const openai = new OpenAI({ apiKey: keys.openAIKey });
+			const model = import.meta.env.OPENAI_ANALYSIS_MODEL || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o';
+			const response = await openai.chat.completions.create({
+				model,
+				response_format: { type: 'json_object' },
+				messages: [
+					{ role: 'system', content: systemPrompt },
+					{
+						role: 'user',
+						content: [
+							{ type: 'text', text: userText },
+							{ type: 'text', text: 'TEMPLATE:' },
+							{ type: 'image_url', image_url: { url: `data:${input.referenceMime};base64,${input.referenceB64}` } },
+							{ type: 'text', text: 'REAL PRODUCT PHOTO:' },
+							{ type: 'image_url', image_url: { url: `data:${input.productMime};base64,${input.productB64}` } },
+						],
+					},
 				],
-			},
-		],
-	});
-	const parsed = JSON.parse(response.choices[0]?.message?.content || 'null');
-	if (!parsed || !Array.isArray(parsed.textZones) || !parsed.textZones.length) return null;
-	return parsed as LayoutAnalysis;
+			});
+			const parsed = validate(response.choices[0]?.message?.content);
+			if (parsed) return parsed;
+		} catch (openAIError) {
+			console.error('OpenAI layout analysis failed, trying Gemini:', openAIError);
+		}
+	}
+
+	if (keys.googleKey) {
+		try {
+			const model = import.meta.env.GEMINI_ANALYSIS_MODEL || process.env.GEMINI_ANALYSIS_MODEL || 'gemini-2.5-flash';
+			const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keys.googleKey}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					contents: [{
+						parts: [
+							{ text: `${systemPrompt}\n\n${userText}\n\nThe first image is the TEMPLATE, the second is the REAL PRODUCT PHOTO.` },
+							{ inline_data: { mime_type: input.referenceMime, data: input.referenceB64 } },
+							{ inline_data: { mime_type: input.productMime, data: input.productB64 } },
+						],
+					}],
+					generationConfig: { responseMimeType: 'application/json' },
+				}),
+			});
+			const data: any = await response.json().catch(() => ({}));
+			if (!response.ok) throw new Error(`Gemini ${response.status}: ${JSON.stringify(data.error || data).slice(0, 160)}`);
+			const parsed = validate(data.candidates?.[0]?.content?.parts?.map((part: any) => part.text || '').join(''));
+			if (parsed) return parsed;
+		} catch (geminiError) {
+			console.error('Gemini layout analysis failed:', geminiError);
+		}
+	}
+
+	return null;
 }
 
 // Prompt corto y sin contradicciones para el modo "Fiel al ganador":
@@ -267,9 +347,9 @@ function buildReferenceClonePrompt(input: {
 ${textSwap || `- Adapt every template text block honestly to ${productLabel}, in natural ${language}, keeping the same message structure.`}
 If a template text block has no replacement listed, adapt its message honestly to the new product. Do not invent prices, percentages, reviews, certifications or claims. Render all text sharp, correctly spelled, no gibberish or distorted words.
 
-3. BRAND SWAP — Remove the template's original brand names and logos. ${input.hasLogo ? 'Place the provided brand logo (last input image) once, where the template shows its brand.' : input.brandName ? `If the template displays a brand name, use "${input.brandName}" as a simple wordmark.` : 'Leave the brand area clean if there is no replacement.'}
+3. BRAND SWAP — Remove the template's original brand names and logos. ${input.hasLogo ? 'If the layout needs a brand mark, place the provided brand logo (last input image) EXACTLY as it is, once, small and discreet. Never redraw the logo, never invent badges, seals, flags or emblems.' : input.brandName ? `If the template displays a brand name, use "${input.brandName}" as a simple wordmark. Never invent logos, badges or seals.` : 'Leave the brand area clean if there is no replacement. Never invent logos, badges or seals.'}
 
-Do not change the background color or palette. Do not add new elements. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template, now selling ${productLabel}.
+4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template, now selling ${productLabel}.
 
 USER DIRECTION
 ${input.brief || 'None.'}`;
@@ -307,8 +387,9 @@ async function normalizeImageInput(buffer: Buffer): Promise<{ buffer: Buffer; ty
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error }, 401);
-	const openAIKey = import.meta.env.OPENAI_API_KEY;
-	if (!openAIKey) return json({ error: 'Falta configurar OPENAI_API_KEY.', requiresConfiguration: true }, 503);
+	const openAIKey = import.meta.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+	const googleKey = import.meta.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY || '';
+	if (!openAIKey && !googleKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY u OPENAI_API_KEY.', requiresConfiguration: true }, 503);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
@@ -468,8 +549,15 @@ export const POST: APIRoute = async ({ request }) => {
 		// (análisis, copy, generación, upload) sigue en background con waitUntil.
 		// El frontend sigue el progreso leyendo creative_generations por batch_id.
 		const runPipeline = async () => {
+		// inputBuffers alimenta a Gemini (inline_data); inputs a OpenAI (toFile).
+		const inputBuffers: Array<{ buffer: Buffer; type: string }> = [];
 		const inputs: Awaited<ReturnType<typeof fileToOpenAI>>[] = [];
 		const inputImageMap: string[] = [];
+		const pushInput = async (buffer: Buffer, type: string, name: string, label: string) => {
+			inputBuffers.push({ buffer, type });
+			inputs.push(await toFile(buffer, name, { type }));
+			inputImageMap.push(label);
+		};
 		let hasReference = false;
 		let hasSourceGeneration = false;
 		let referenceBuffer: Buffer | null = null;
@@ -477,8 +565,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (sourceGeneration?.output_path) {
 			const { data: sourceBlob, error } = await admin.storage.from('creative-assets').download(sourceGeneration.output_path);
 			if (error || !sourceBlob) throw error || new Error('No se pudo recuperar la imagen de referencia.');
-			inputs.push(await blobToOpenAI(sourceBlob, 'source-generation.png'));
-			inputImageMap.push('the previously generated ad to revise; this is the master composition reference');
+			await pushInput(Buffer.from(await sourceBlob.arrayBuffer()), sourceBlob.type || 'image/png', 'source-generation.png', 'the previously generated ad to revise; this is the master composition reference');
 			hasReference = true;
 			hasSourceGeneration = true;
 		} else if (storedReference?.image_path) {
@@ -488,8 +575,7 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!normalizedReference) throw new Error('La imagen de referencia no se pudo procesar.');
 			referenceBuffer = normalizedReference.buffer;
 			referenceMime = normalizedReference.type;
-			inputs.push(await toFile(referenceBuffer, 'reference.png', { type: referenceMime }));
-			inputImageMap.push('the curated ad reference; use its selling structure and composition, never its original product identity');
+			await pushInput(referenceBuffer, referenceMime, 'reference.png', 'the curated ad reference; use its selling structure and composition, never its original product identity');
 			hasReference = true;
 		}
 
@@ -523,16 +609,14 @@ export const POST: APIRoute = async ({ request }) => {
 				primaryProductBuffer = normalized.buffer;
 				primaryProductMime = normalized.type;
 			}
-			inputs.push(await toFile(normalized.buffer, `product-${item.product.id}-${item.photoIndex}.png`, { type: normalized.type }));
-			inputImageMap.push(`verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
+			await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
 		}
 		if (!storedProducts.length && product instanceof File && product.size > 0) {
 			const normalized = await normalizeImageInput(Buffer.from(await product.arrayBuffer()));
 			if (!normalized) throw new Error('La foto del producto no se pudo procesar. Probá con otra imagen.');
 			primaryProductBuffer = normalized.buffer;
 			primaryProductMime = normalized.type;
-			inputs.push(await toFile(normalized.buffer, 'product.png', { type: normalized.type }));
-			inputImageMap.push('the real product supplied by the user; preserve its packaging, label, shape and color');
+			await pushInput(normalized.buffer, normalized.type, 'product.png', 'the real product supplied by the user; preserve its packaging, label, shape and color');
 		}
 
 		let hasUploadedProduct = false;
@@ -542,8 +626,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (logo instanceof File && logo.size > 0) {
 			const normalized = await normalizeImageInput(Buffer.from(await logo.arrayBuffer()));
 			if (normalized) {
-				inputs.push(await toFile(normalized.buffer, 'logo.png', { type: normalized.type }));
-				inputImageMap.push('the official brand logo; reproduce it accurately once');
+				await pushInput(normalized.buffer, normalized.type, 'logo.png', 'the official brand logo; reproduce it accurately once');
 				hasLogo = true;
 			}
 		} else if (profile?.logo_path) {
@@ -551,8 +634,7 @@ export const POST: APIRoute = async ({ request }) => {
 			const normalized = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
 			// Un logo ilegible se omite: nunca puede tumbar la generación entera.
 			if (normalized) {
-				inputs.push(await toFile(normalized.buffer, 'logo.png', { type: normalized.type }));
-				inputImageMap.push('the official brand logo; reproduce it accurately once');
+				await pushInput(normalized.buffer, normalized.type, 'logo.png', 'the official brand logo; reproduce it accurately once');
 				hasLogo = true;
 			}
 		}
@@ -568,7 +650,7 @@ export const POST: APIRoute = async ({ request }) => {
 				const productFacts = storedProducts.length
 					? [storedProducts[0].description, storedProducts[0].price_text && `${storedProducts[0].price_text} ${storedProducts[0].currency || ''}`, storedProducts[0].analysis?.category].filter(Boolean).join(' · ')
 					: brief;
-				layoutAnalysis = await analyzeReferenceLayout(new OpenAI({ apiKey: openAIKey }), {
+				layoutAnalysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 					referenceB64: referenceBuffer.toString('base64'),
 					referenceMime,
 					productB64: primaryProductBuffer.toString('base64'),
@@ -671,14 +753,31 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 		if (promptUpdateError) throw promptUpdateError;
 
 		// ── Image generation ────────────────────────────────────────────────
-		// Primary: OpenAI (modelo de OPENAI_IMAGE_MODEL, default gpt-image-1)
-		// Fallback: Flux via Fal.ai
+		// Primario: Gemini (nano-banana pro) — barato, rápido y excelente con texto.
+		// Fallback: OpenAI gpt-image. Fal/Flux solo si no hay ninguno de los dos.
 		const falKey: string | undefined = process.env.FAL_KEY || (typeof import.meta.env !== 'undefined' && import.meta.env.FAL_KEY);
 
 		// Collect all output images as raw buffers
 		const outputBuffers: Buffer[] = [];
 
-		if (openAIKey) {
+		if (googleKey) {
+			try {
+				const geminiModel = import.meta.env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL || 'gemini-3-pro-image-preview';
+				const buffers = await generateWithGemini({
+					apiKey: googleKey,
+					model: geminiModel,
+					prompt,
+					images: inputBuffers,
+					aspectRatio: geminiAspectRatios[format] || '1:1',
+					count,
+				});
+				outputBuffers.push(...buffers);
+			} catch (geminiError) {
+				console.error('Gemini generation failed, falling back to OpenAI:', geminiError);
+			}
+		}
+
+		if (!outputBuffers.length && openAIKey) {
 			// Cuando hay imágenes de input (referencia ganadora, fotos del producto, logo)
 			// usamos images.edit para que el modelo VEA las imágenes reales.
 			const openai = new OpenAI({ apiKey: openAIKey });
@@ -721,13 +820,13 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 				}
 			}
 
-			// Si OpenAI falló, NO caer a Flux: con anuncios cargados de texto genera
-			// resultados ilegibles. Mejor error claro + créditos devueltos.
+			// Si OpenAI también falló, NO caer a Flux: con anuncios cargados de texto
+			// genera resultados ilegibles. Mejor error claro + créditos devueltos.
 			if (openaiError) throw openaiError;
-		} else if (falKey) {
+		} else if (!outputBuffers.length && !openAIKey && falKey) {
 			await runFalFallback();
-		} else {
-			throw new Error('No hay ninguna API de generación de imágenes configurada (FAL_KEY o OPENAI_API_KEY).');
+		} else if (!outputBuffers.length) {
+			throw new Error('No se pudo generar con ningún motor configurado (Gemini/OpenAI).');
 		}
 
 		async function runFalFallback() {
