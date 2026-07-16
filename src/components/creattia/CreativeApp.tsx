@@ -467,6 +467,27 @@ export default function CreativeApp() {
 		);
 	}
 
+	async function deleteImage(imgId: string) {
+		const confirmDelete = window.confirm("¿Estás seguro de que quieres eliminar esta imagen?");
+		if (!confirmDelete) return;
+
+		try {
+			if (isSupabaseConfigured && supabase) {
+				const { error } = await supabase.from('creative_generations').delete().eq('id', imgId);
+				if (error) throw error;
+			}
+			// Remove from history state
+			const nextHistory = history.filter(item => item.id !== imgId);
+			setHistory(nextHistory);
+			if (!isSupabaseConfigured) {
+				saveLocal(HISTORY_KEY, nextHistory);
+			}
+			setToast("Imagen eliminada correctamente.");
+		} catch (err) {
+			alert(err instanceof Error ? err.message : "Error al eliminar la imagen.");
+		}
+	}
+
 	function navigateTo(nextView: View) {
 		setViewHistory((prev) => [...prev, view]);
 		setView(nextView);
@@ -1239,6 +1260,7 @@ export default function CreativeApp() {
 							onCreateFolder={(name) => {
 								setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, imageIds: [] }]);
 							}}
+							onDeleteImage={deleteImage}
 						/>
 					)}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
@@ -2374,7 +2396,8 @@ function History({
 	folders = [],
 	onToggleFolder,
 	onRemoveFolder,
-	onCreateFolder
+	onCreateFolder,
+	onDeleteImage
 }: { 
 	history: Generation[]; 
 	onCreate: () => void; 
@@ -2388,6 +2411,7 @@ function History({
 	onToggleFolder?: (imgId: string, folderId: string) => void;
 	onRemoveFolder?: (folderId: string) => void;
 	onCreateFolder?: (name: string) => void;
+	onDeleteImage?: (imgId: string) => void;
 }) {
 	const [currentFolderId, setCurrentFolderId] = useState<string>('all');
 	const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -2439,6 +2463,13 @@ function History({
 				</button>
 				<button 
 					onClick={() => setCurrentFolderId('liked')} 
+					onDragOver={(e) => e.preventDefault()}
+					onDrop={(e) => {
+						const imgId = e.dataTransfer.getData("text/plain");
+						if (imgId && onToggleLike && !likedImageIds.includes(imgId)) {
+							onToggleLike(imgId);
+						}
+					}}
 					style={{
 						padding: '6px 12px', borderRadius: '8px', border: 0,
 						background: currentFolderId === 'liked' ? '#ff4185' : '#f0eef4',
@@ -2450,7 +2481,20 @@ function History({
 				</button>
 
 				{folders.map(folder => (
-					<div key={folder.id} style={{ display: 'flex', alignItems: 'center', background: currentFolderId === folder.id ? '#744bde' : '#f0eef4', borderRadius: '8px', overflow: 'hidden' }}>
+					<div 
+						key={folder.id} 
+						onDragOver={(e) => e.preventDefault()}
+						onDrop={(e) => {
+							const imgId = e.dataTransfer.getData("text/plain");
+							if (imgId && onToggleFolder) {
+								const fObj = folders.find(f => f.id === folder.id);
+								if (fObj && !fObj.imageIds.includes(imgId)) {
+									onToggleFolder(imgId, folder.id);
+								}
+							}
+						}}
+						style={{ display: 'flex', alignItems: 'center', background: currentFolderId === folder.id ? '#744bde' : '#f0eef4', borderRadius: '8px', overflow: 'hidden' }}
+					>
 						<button 
 							onClick={() => setCurrentFolderId(folder.id)}
 							style={{
@@ -2477,7 +2521,7 @@ function History({
 				))}
 
 				{showCreateFolder ? (
-					<div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+					<div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '20px' }}>
 						<input 
 							value={newFolderName}
 							onChange={(e) => setNewFolderName(e.target.value)}
@@ -2495,7 +2539,8 @@ function History({
 							padding: '6px 12px', borderRadius: '8px', border: '1px dashed #744bde',
 							background: 'transparent',
 							color: '#744bde',
-							fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+							fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+							marginBottom: '20px'
 						}}
 					>
 						+ Nueva carpeta
@@ -2526,6 +2571,7 @@ function History({
 							onToggleFolder={onToggleFolder ? (fid) => onToggleFolder(item.id, fid) : undefined} 
 							onExpand={onExpand ? () => onExpand(item) : undefined} 
 							onReuse={() => onReuse(item)}
+							onDeleteImage={onDeleteImage}
 						/>
 					))}
 				</div>
@@ -2604,21 +2650,24 @@ async function downloadImage(url: string, name: string) {
 function GenerationCard({ 
 	item, 
 	onReuse, 
-	onExpand,
+	onExpand, 
 	isLiked,
 	onToggleLike,
 	folders = [],
-	onToggleFolder
+	onToggleFolder,
+	onDeleteImage
 }: { 
 	item: Generation; 
 	onReuse?: () => void; 
-	onExpand?: () => void;
+	onExpand?: () => void; 
 	isLiked?: boolean;
 	onToggleLike?: () => void;
 	folders?: Array<{ id: string; name: string; imageIds: string[] }>;
 	onToggleFolder?: (folderId: string) => void;
+	onDeleteImage?: (imgId: string) => void;
 }) {
 	const [showFolderDropdown, setShowFolderDropdown] = useState(false);
+	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
 	useEffect(() => {
 		if (!showFolderDropdown) return;
@@ -2627,8 +2676,30 @@ function GenerationCard({
 		return () => window.removeEventListener('click', close);
 	}, [showFolderDropdown]);
 
+	useEffect(() => {
+		if (!contextMenu) return;
+		const close = () => setContextMenu(null);
+		window.addEventListener('click', close);
+		window.addEventListener('contextmenu', close);
+		return () => {
+			window.removeEventListener('click', close);
+			window.removeEventListener('contextmenu', close);
+		};
+	}, [contextMenu]);
+
 	return (
-		<article className="studio-generation-card">
+		<article 
+			className="studio-generation-card"
+			draggable="true"
+			onDragStart={(e) => {
+				e.dataTransfer.setData("text/plain", item.id);
+			}}
+			onContextMenu={(e) => {
+				e.preventDefault();
+				setContextMenu({ x: e.clientX, y: e.clientY });
+			}}
+			style={{ position: 'relative' }}
+		>
 			<div style={{ cursor: onExpand ? 'zoom-in' : 'default', position: 'relative' }} onClick={onExpand}>
 				{onToggleLike && (
 					<button
@@ -2732,6 +2803,104 @@ function GenerationCard({
 				<span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>
 				{(onExpand || onReuse) && <button onClick={onExpand || onReuse}><Icon name="history" size={14}/>Crear otra versión</button>}
 			</footer>
+
+			{/* Context menu for right-click premium features */}
+			{contextMenu && (
+				<div 
+					style={{
+						position: 'fixed',
+						top: `${contextMenu.y}px`,
+						left: `${contextMenu.x}px`,
+						zIndex: 1000,
+						background: '#fff',
+						border: '1px solid #e9e6ed',
+						borderRadius: '12px',
+						boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+						padding: '6px',
+						minWidth: '180px',
+						display: 'flex',
+						flexDirection: 'column',
+						gap: '2px'
+					}}
+					onClick={(e) => e.stopPropagation()}
+				>
+					<div style={{ padding: '6px 10px', fontSize: '11px', color: '#8b8490', fontWeight: 'bold', borderBottom: '1px solid #f4eff6', marginBottom: '4px' }}>
+						OPCIONES DE ANUNCIO
+					</div>
+					
+					{folders.length > 0 && (
+						<>
+							<div style={{ padding: '6px 10px', fontSize: '11.5px', color: '#716d79', fontWeight: 700 }}>
+								📁 Clasificar en carpeta:
+							</div>
+							{folders.map(f => {
+								const inFolder = f.imageIds.includes(item.id);
+								return (
+									<button
+										key={f.id}
+										type="button"
+										onClick={() => {
+											if (onToggleFolder) onToggleFolder(f.id);
+											setContextMenu(null);
+										}}
+										style={{
+											display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px',
+											background: inFolder ? '#f3efff' : 'transparent', border: 0,
+											borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: inFolder ? '#744bde' : '#19171d',
+											fontWeight: inFolder ? 700 : 500, textAlign: 'left', width: '100%', fontFamily: 'inherit'
+										}}
+									>
+										<input 
+											type="checkbox" 
+											checked={inFolder} 
+											readOnly 
+											style={{ pointerEvents: 'none' }}
+										/>
+										{f.name}
+									</button>
+								);
+							})}
+							<div style={{ height: '1px', background: '#f4eff6', margin: '4px 0' }} />
+						</>
+					)}
+					
+					{onToggleLike && (
+						<button
+							type="button"
+							onClick={() => {
+								onToggleLike();
+								setContextMenu(null);
+							}}
+							style={{
+								display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
+								background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer',
+								fontSize: '12.5px', color: '#19171d', fontWeight: 500, textAlign: 'left', width: '100%', fontFamily: 'inherit'
+							}}
+						>
+							<Icon name="heart" size={13} fill={isLiked ? '#ff4185' : 'none'} />
+							{isLiked ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+						</button>
+					)}
+					
+					{onDeleteImage && (
+						<button
+							type="button"
+							onClick={() => {
+								onDeleteImage(item.id);
+								setContextMenu(null);
+							}}
+							style={{
+								display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
+								background: '#fff0f0', border: 0, borderRadius: '6px', cursor: 'pointer',
+								fontSize: '12.5px', color: '#a43f3f', fontWeight: 700, textAlign: 'left', width: '100%',
+								marginTop: '4px', fontFamily: 'inherit'
+							}}
+						>
+							🗑️ Eliminar imagen
+						</button>
+					)}
+				</div>
+			)}
 		</article>
 	);
 }
