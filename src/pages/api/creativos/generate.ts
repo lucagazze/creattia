@@ -312,6 +312,22 @@ export const POST: APIRoute = async ({ request }) => {
 				current.push(row); productImagesById.set(row.product_id, current);
 			}
 		}
+
+		const manualProductName = clean(form.get('productName'), 120);
+		const manualProductFacts = clean(form.get('productFacts'), 1200);
+
+		if (!storedProducts.length && manualProductName) {
+			storedProducts = [{
+				id: 'manual',
+				name: manualProductName,
+				description: manualProductFacts,
+				price_text: '',
+				currency: '',
+				image_path: null,
+				source_image_url: null,
+				analysis: { category: '' }
+			}];
+		}
 		// Allow generation without product when a reference image is provided (winner library mode)
 		const hasReferenceOrSource = !!(referencePath || sourceGenerationId);
 		if (imageType !== 'promotion' && !hasReferenceOrSource && !storedProducts.length && !(product instanceof File && product.size > 0)) {
@@ -365,7 +381,7 @@ export const POST: APIRoute = async ({ request }) => {
 			format,
 			image_type: imageType,
 			variant_key: preset,
-			product_id: storedProducts[0]?.id || null,
+			product_id: storedProducts[0]?.id && storedProducts[0].id !== 'manual' ? storedProducts[0].id : null,
 			user_brief: brief || null,
 			batch_id: batchId,
 			output_index: index + 1,
@@ -386,8 +402,9 @@ export const POST: APIRoute = async ({ request }) => {
 		generationIds = orderedGenerations.map((item) => item.id);
 		if (generationIds.length !== count) throw new Error('No se pudo preparar el lote completo.');
 
-		if (storedProducts.length) {
-			const joinRows = generationIds.flatMap((generationId) => storedProducts.map((item, index) => ({
+		const dbProducts = storedProducts.filter(p => p.id !== 'manual');
+		if (dbProducts.length) {
+			const joinRows = generationIds.flatMap((generationId) => dbProducts.map((item, index) => ({
 				generation_id: generationId,
 				product_id: item.id,
 				user_id: auth.user!.id,
@@ -436,6 +453,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const productInputPlan: Array<{ product: any; path: string; photoIndex: number }> = [];
 		for (const storedProduct of storedProducts) {
+			if (storedProduct.id === 'manual') continue;
 			const paths = [...new Set([
 				storedProduct.image_path,
 				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
@@ -444,6 +462,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productInputPlan.push({ product: storedProduct, path: paths[0], photoIndex: 1 });
 		}
 		for (const storedProduct of storedProducts) {
+			if (storedProduct.id === 'manual') continue;
 			if (productInputPlan.length >= 8) break;
 			const paths = [...new Set([
 				storedProduct.image_path,

@@ -32,6 +32,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [includeLogo, setIncludeLogo] = useState(false);
 	const [extra, setExtra] = useState('');
 	const [count, setCount] = useState(1);
+	const [manualProductName, setManualProductName] = useState('');
+	const [manualProductFacts, setManualProductFacts] = useState('');
 
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
@@ -78,7 +80,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		try {
 			// Si pegó una URL pero no la escaneó, se escanea acá mismo.
 			let productForPlan = selectedProduct;
-			if (!productForPlan && !uploadFile && urlValue.trim()) {
+			if (!productForPlan && !uploadFile && !manualProductName.trim() && urlValue.trim()) {
 				productForPlan = await scanUrl();
 				if (!productForPlan) { setPhase('setup'); return; }
 			}
@@ -89,13 +91,16 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			else if (uploadFile) {
 				form.set('product', uploadFile);
 				form.set('productFacts', extra);
+			} else {
+				form.set('productName', manualProductName.trim());
+				form.set('productFacts', manualProductFacts.trim());
 			}
 			const response = await fetch('/api/creativos/plan', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudieron generar los textos.');
 			const analysis = payload.analysis || {};
-			if (analysis.referenceHasProduct !== false && !productForPlan && !uploadFile) {
-				throw new Error('Este anuncio ganador muestra un producto: elegí o subí el tuyo para reemplazarlo.');
+			if (analysis.referenceHasProduct !== false && !productForPlan && !uploadFile && !manualProductName.trim()) {
+				throw new Error('Este anuncio ganador muestra un producto: elegí, subí o describí el tuyo para reemplazarlo.');
 			}
 			setPlan(analysis);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
@@ -126,6 +131,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('includeLogo', includeLogo ? '1' : '0');
 			if (selectedProduct) form.set('productIds', selectedProduct.id);
 			else if (uploadFile) form.set('product', uploadFile);
+			else {
+				form.set('productName', manualProductName.trim());
+				form.set('productFacts', manualProductFacts.trim());
+			}
 			const brief = extra.trim();
 			form.set('brief', brief);
 			form.set('plan', JSON.stringify({ ...plan, textZones: zones }));
@@ -215,6 +224,35 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								</label>
 							</div>
 							{uploadPreview && <img src={uploadPreview} alt="" style={{ marginTop: '10px', width: '84px', height: '84px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2dde9' }} />}
+
+							{!selectedProductId && !uploadFile && (
+								<div style={{ 
+									marginTop: '12px', 
+									padding: '12px 14px', 
+									background: '#f8f6fc', 
+									border: '1px dashed #dcd2ff', 
+									borderRadius: '10px' 
+								}}>
+									<span style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#744bde', marginBottom: '8px' }}>
+										✍️ O describí tu servicio o producto manualmente:
+									</span>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+										<input
+											value={manualProductName}
+											onChange={(e) => setManualProductName(e.target.value)}
+											placeholder="Nombre del servicio o producto (ej: Limpieza Dental, Clases de Yoga...)"
+											style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }}
+										/>
+										<textarea
+											value={manualProductFacts}
+											onChange={(e) => setManualProductFacts(e.target.value)}
+											placeholder="Información clave, descripción, beneficios, o textos para el anuncio..."
+											rows={3}
+											style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }}
+										/>
+									</div>
+								</div>
+							)}
 						</div>
 
 						{/* 2. Formato */}

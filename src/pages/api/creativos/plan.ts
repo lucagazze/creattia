@@ -79,6 +79,9 @@ export const POST: APIRoute = async ({ request }) => {
 				productName = clean(form.get('productName'), 120) || 'the product in the supplied photo';
 				productFacts = clean(form.get('productFacts'), 1200);
 			}
+		} else {
+			productName = clean(form.get('productName'), 120);
+			productFacts = clean(form.get('productFacts'), 1200);
 		}
 
 		const { data: profile } = await admin.from('creative_profiles')
