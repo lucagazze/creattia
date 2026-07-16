@@ -134,7 +134,7 @@ export const POST: APIRoute = async ({ request }) => {
 	}
 };
 
-// Activar una marca (sus colores/tipografía/logo pasan a usarse en la generación)
+// Activar o editar una marca
 export const PATCH: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error }, 401);
@@ -147,9 +147,36 @@ export const PATCH: APIRoute = async ({ request }) => {
 		.eq('id', brandId).eq('user_id', auth.user.id).eq('is_active', true).maybeSingle();
 	if (error) return json({ error: error.message }, 500);
 	if (!brand) return json({ error: 'La marca no existe.' }, 404);
+
+	if (body.action === 'update') {
+		const updates: any = {};
+		if (typeof body.name === 'string') updates.name = clean(body.name, 120);
+		if (typeof body.website_url === 'string') updates.website_url = clean(body.website_url, 500);
+		if (Array.isArray(body.brand_colors)) updates.brand_colors = body.brand_colors.map((c: any) => clean(c, 20)).filter(Boolean);
+		if (body.brand_style && typeof body.brand_style === 'object') {
+			updates.brand_style = {
+				...brand.brand_style,
+				...body.brand_style,
+			};
+		}
+		const { data: updatedBrand, error: updateError } = await admin.from('creative_brands')
+			.update({ ...updates, updated_at: new Date().toISOString() })
+			.eq('id', brandId)
+			.select('*')
+			.single();
+		if (updateError) return json({ error: updateError.message }, 500);
+
+		// Si es la marca activa del perfil, sincronizarla
+		const { data: profile } = await admin.from('creative_profiles').select('active_brand_id').eq('user_id', auth.user.id).maybeSingle();
+		if (profile?.active_brand_id === brandId) {
+			await activateBrand(admin, auth.user.id, updatedBrand);
+		}
+		return json({ ok: true, brand: updatedBrand });
+	}
+
 	await activateBrand(admin, auth.user.id, brand);
 	return json({ ok: true });
-};
+}
 
 export const DELETE: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);

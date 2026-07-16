@@ -2624,6 +2624,71 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 	const [loaded, setLoaded] = useState(false);
 	const [expandedBrandId, setExpandedBrandId] = useState<string | null>(null);
 
+	const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
+	const [editName, setEditName] = useState('');
+	const [editStyleSummary, setEditStyleSummary] = useState('');
+	const [editPersonality, setEditPersonality] = useState('');
+	const [editVoice, setEditVoice] = useState('');
+	const [editButtonStyle, setEditButtonStyle] = useState('');
+	const [editColors, setEditColors] = useState<string[]>([]);
+	const [newColorInput, setNewColorInput] = useState('#744bde');
+	const [savingBrandId, setSavingBrandId] = useState<string | null>(null);
+
+	function startEditing(brand: any) {
+		setEditingBrandId(brand.id);
+		setEditName(brand.name || '');
+		setEditStyleSummary(brand.brand_style?.styleSummary || '');
+		setEditPersonality(brand.brand_style?.brandPersonality || '');
+		setEditVoice(brand.brand_style?.brandVoice || '');
+		setEditButtonStyle(brand.brand_style?.buttonStyle || '');
+		setEditColors(brand.brand_colors || []);
+	}
+
+	async function saveBrand(brandId: string) {
+		setSavingBrandId(brandId);
+		try {
+			const response = await fetch('/api/creativos/brands', {
+				method: 'PATCH',
+				headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
+				body: JSON.stringify({
+					action: 'update',
+					brandId,
+					name: editName,
+					brand_colors: editColors,
+					brand_style: {
+						styleSummary: editStyleSummary,
+						brandPersonality: editPersonality,
+						brandVoice: editVoice,
+						buttonStyle: editButtonStyle,
+					}
+				})
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo guardar la marca.');
+			
+			setBrands(brands.map((b) => b.id === brandId ? { 
+				...b, 
+				name: editName, 
+				brand_colors: editColors,
+				brand_style: {
+					...b.brand_style,
+					styleSummary: editStyleSummary,
+					brandPersonality: editPersonality,
+					brandVoice: editVoice,
+					buttonStyle: editButtonStyle,
+				}
+			} : b));
+			setEditingBrandId(null);
+			if (brandId === activeBrandId) {
+				window.location.reload();
+			}
+		} catch (cause) {
+			alert(cause instanceof Error ? cause.message : 'Error al guardar la marca.');
+		} finally {
+			setSavingBrandId(null);
+		}
+	}
+
 	useEffect(() => {
 		let active = true;
 		(async () => {
@@ -2724,9 +2789,19 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 									{brand.logoUrl
 										? <img src={brand.logoUrl} alt="" style={{ width: '44px', height: '44px', objectFit: 'contain', borderRadius: '10px', background: '#f4f2f6', padding: '4px' }} />
 										: <span style={{ width: '44px', height: '44px', display: 'grid', placeItems: 'center', borderRadius: '10px', background: '#f4f2f6', fontWeight: 800, color: '#744bde' }}>{(brand.name || '?').slice(0, 1).toUpperCase()}</span>}
-									<div style={{ minWidth: 0 }}>
-										<strong style={{ display: 'block', fontSize: '15px', color: '#19171d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brand.name}</strong>
-										<span style={{ fontSize: '12px', color: '#8b8490' }}>{String(brand.website_url || '').replace(/^https?:[/][/]/, '').replace(/[/]$/, '')}</span>
+									<div style={{ minWidth: 0, flex: 1 }}>
+										{editingBrandId === brand.id ? (
+											<input
+												value={editName}
+												onChange={(e) => setEditName(e.target.value)}
+												style={{ width: '100%', boxSizing: 'border-box', padding: '5px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '13px', fontWeight: 700 }}
+											/>
+										) : (
+											<>
+												<strong style={{ display: 'block', fontSize: '15px', color: '#19171d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brand.name}</strong>
+												<span style={{ fontSize: '12px', color: '#8b8490' }}>{String(brand.website_url || '').replace(/^https?:[/][/]/, '').replace(/[/]$/, '')}</span>
+											</>
+										)}
 									</div>
 								</div>
 								<div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
@@ -2738,25 +2813,75 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 								
 								{style.brandVoice && <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#716d79', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{style.brandVoice}</p>}
 								
-								<button 
-									onClick={() => setExpandedBrandId(isExpanded ? null : brand.id)}
-									style={{
-										background: 'transparent',
-										border: 0,
-										color: '#744bde',
-										fontSize: '12.5px',
-										fontWeight: 700,
-										cursor: 'pointer',
-										display: 'flex',
-										alignItems: 'center',
-										gap: '4px',
-										marginTop: '10px',
-										marginBottom: '12px',
-										padding: '4px 0'
-									}}
-								>
-									{isExpanded ? 'Ocultar detalles ▲' : 'Ver detalles de diseño ▼'}
-								</button>
+								<div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+									<button 
+										onClick={() => {
+											setExpandedBrandId(isExpanded ? null : brand.id);
+											if (isExpanded && editingBrandId === brand.id) {
+												setEditingBrandId(null);
+											}
+										}}
+										style={{
+											background: 'transparent',
+											border: 0,
+											color: '#744bde',
+											fontSize: '12.5px',
+											fontWeight: 700,
+											cursor: 'pointer',
+											display: 'flex',
+											alignItems: 'center',
+											gap: '4px',
+											marginTop: '10px',
+											marginBottom: '12px',
+											padding: '4px 0'
+										}}
+									>
+										{isExpanded ? 'Ocultar detalles ▲' : 'Ver detalles de diseño ▼'}
+									</button>
+
+									{isExpanded && (
+										editingBrandId === brand.id ? (
+											<div style={{ display: 'flex', gap: '6px', marginTop: '10px', marginBottom: '12px' }}>
+												<button
+													type="button"
+													onClick={() => void saveBrand(brand.id)}
+													disabled={savingBrandId === brand.id}
+													style={{ padding: '4px 10px', borderRadius: '6px', border: 0, background: '#744bde', color: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
+												>
+													{savingBrandId === brand.id ? 'Guardando...' : 'Guardar'}
+												</button>
+												<button
+													type="button"
+													onClick={() => setEditingBrandId(null)}
+													style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #dcd5e4', background: '#fff', color: '#716d79', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
+												>
+													Cancelar
+												</button>
+											</div>
+										) : (
+											<button
+												type="button"
+												onClick={() => startEditing(brand)}
+												style={{
+													background: 'transparent',
+													border: 0,
+													color: '#716d79',
+													fontSize: '12.5px',
+													fontWeight: 700,
+													cursor: 'pointer',
+													display: 'flex',
+													alignItems: 'center',
+													gap: '4px',
+													marginTop: '10px',
+													marginBottom: '12px',
+													padding: '4px 0'
+												}}
+											>
+												✏️ Editar detalles
+											</button>
+										)
+									)}
+								</div>
 
 								{isExpanded && (
 									<div style={{
@@ -2772,41 +2897,120 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 										flexDirection: 'column',
 										gap: '10px'
 									}}>
-										{style.styleSummary && (
-											<div>
-												<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>✨ Estilo General</strong>
-												<span>{style.styleSummary}</span>
-											</div>
+										{editingBrandId === brand.id ? (
+											<>
+												<div>
+													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>✨ Estilo General</strong>
+													<textarea
+														value={editStyleSummary}
+														onChange={(e) => setEditStyleSummary(e.target.value)}
+														rows={3}
+														style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '12px', fontFamily: 'inherit', resize: 'vertical' }}
+													/>
+												</div>
+												<div>
+													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🧠 Personalidad</strong>
+													<textarea
+														value={editPersonality}
+														onChange={(e) => setEditPersonality(e.target.value)}
+														rows={3}
+														style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '12px', fontFamily: 'inherit', resize: 'vertical' }}
+													/>
+												</div>
+												<div>
+													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🗣️ Voz y Tono</strong>
+													<textarea
+														value={editVoice}
+														onChange={(e) => setEditVoice(e.target.value)}
+														rows={3}
+														style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '12px', fontFamily: 'inherit', resize: 'vertical' }}
+													/>
+												</div>
+												<div>
+													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🖱️ Estilo de Botones</strong>
+													<input
+														value={editButtonStyle}
+														onChange={(e) => setEditButtonStyle(e.target.value)}
+														style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '12px' }}
+													/>
+												</div>
+												<div>
+													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🎨 Paleta de colores</strong>
+													<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+														{editColors.map((color, idx) => (
+															<span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff', border: '1px solid #e5e1e8', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
+																<span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+																{color}
+																<button
+																	type="button"
+																	onClick={() => setEditColors(editColors.filter((_, i) => i !== idx))}
+																	style={{ border: 0, background: 'transparent', color: '#a43f3f', fontSize: '11px', cursor: 'pointer', padding: '0 2px', marginLeft: '2px' }}
+																>
+																	×
+																</button>
+															</span>
+														))}
+													</div>
+													<div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+														<input
+															type="color"
+															value={newColorInput}
+															onChange={(e) => setNewColorInput(e.target.value)}
+															style={{ width: '28px', height: '24px', padding: 0, border: 0, background: 'transparent', cursor: 'pointer' }}
+														/>
+														<button
+															type="button"
+															onClick={() => {
+																if (newColorInput && !editColors.includes(newColorInput)) {
+																	setEditColors([...editColors, newColorInput]);
+																}
+															}}
+															style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+														>
+															+ Agregar
+														</button>
+													</div>
+												</div>
+											</>
+										) : (
+											<>
+												{style.styleSummary && (
+													<div>
+														<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>✨ Estilo General</strong>
+														<span>{style.styleSummary}</span>
+													</div>
+												)}
+												{style.brandPersonality && (
+													<div>
+														<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🧠 Personalidad</strong>
+														<span>{style.brandPersonality}</span>
+													</div>
+												)}
+												{style.brandVoice && (
+													<div>
+														<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🗣️ Voz y Tono</strong>
+														<span>{style.brandVoice}</span>
+													</div>
+												)}
+												{style.buttonStyle && (
+													<div>
+														<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🖱️ Estilo de Botones</strong>
+														<span>{style.buttonStyle}</span>
+													</div>
+												)}
+												<div>
+													<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🎨 Paleta de colores</strong>
+													<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+														{(brand.brand_colors || []).map((color: string) => (
+															<span key={color} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff', border: '1px solid #e5e1e8', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
+																<span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+																{color}
+															</span>
+														))}
+													</div>
+												</div>
+											</>
 										)}
-										{style.brandPersonality && (
-											<div>
-												<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🧠 Personalidad</strong>
-												<span>{style.brandPersonality}</span>
-											</div>
-										)}
-										{style.brandVoice && (
-											<div>
-												<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🗣️ Voz y Tono</strong>
-												<span>{style.brandVoice}</span>
-											</div>
-										)}
-										{style.buttonStyle && (
-											<div>
-												<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🖱️ Estilo de Botones</strong>
-												<span>{style.buttonStyle}</span>
-											</div>
-										)}
-										<div>
-											<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🎨 Paleta de colores</strong>
-											<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-												{(brand.brand_colors || []).map((color: string) => (
-													<span key={color} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff', border: '1px solid #e5e1e8', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-														<span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
-														{color}
-													</span>
-												))}
-											</div>
-										</div>
 									</div>
 								)}
 
