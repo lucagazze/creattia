@@ -51,7 +51,10 @@ async function assertPublicUrl(url: URL) {
 
 export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, timeoutMs = 12_000) {
 	const scraperApiKey = (typeof import.meta.env !== 'undefined' && import.meta.env.SCRAPER_API_KEY) || process.env.SCRAPER_API_KEY;
-	if (scraperApiKey && !rawUrl.includes('localhost') && !rawUrl.includes('127.0.0.1')) {
+	// ScraperAPI es un proxy para HTML: corrompe binarios de imagen. Las descargas
+	// de imágenes (accept: image/...) siempre van directo.
+	const wantsImage = String((init.headers as Record<string, string> | undefined)?.accept || '').startsWith('image/');
+	if (scraperApiKey && !wantsImage && !rawUrl.includes('localhost') && !rawUrl.includes('127.0.0.1')) {
 		const proxyUrl = `http://api.scraperapi.com?api_key=${scraperApiKey}&url=${encodeURIComponent(rawUrl)}`;
 		try {
 			return await fetch(proxyUrl, {

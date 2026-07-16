@@ -225,18 +225,21 @@ export async function persistBrandStyle(admin: any, userId: string, style: Brand
 	if (style.logoUrl && !profile?.logo_path) {
 		try {
 			const response = await safeExternalFetch(style.logoUrl, { headers: { accept: 'image/*' } });
-			const contentType = (response.headers.get('content-type') || '').split(';')[0];
-			const extensions: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/x-icon': 'ico', 'image/avif': 'avif' };
-			if (response.ok && extensions[contentType]) {
+			if (response.ok) {
 				const bytes = await readLimited(response, 2_000_000);
 				if (bytes.length) {
-					const path = `${userId}/brand/logo.${extensions[contentType]}`;
+					// Normalizar SIEMPRE a PNG: la API de imágenes de OpenAI rechaza
+					// WebP extendido, SVG, ICO, etc. Si sharp no puede decodificarlo,
+					// se omite el logo y el estilo sigue siendo válido.
+					const sharp = (await import('sharp')).default;
+					const png = await sharp(Buffer.from(bytes)).png().toBuffer();
+					const path = `${userId}/brand/logo.png`;
 					const { error: uploadError } = await admin.storage.from('creative-assets')
-						.upload(path, bytes, { contentType, upsert: true });
+						.upload(path, png, { contentType: 'image/png', upsert: true });
 					if (!uploadError) update.logo_path = path;
 				}
 			}
-		} catch { /* logo inaccesible: el estilo sigue siendo válido */ }
+		} catch { /* logo inaccesible o ilegible: el estilo sigue siendo válido */ }
 	}
 
 	await admin.from('creative_profiles').upsert({ user_id: userId, ...update }, { onConflict: 'user_id' });

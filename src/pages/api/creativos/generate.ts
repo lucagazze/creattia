@@ -283,6 +283,26 @@ async function blobToOpenAI(blob: Blob, fallbackName: string) {
 	return toFile(Buffer.from(await blob.arrayBuffer()), fallbackName, { type: blob.type || 'image/png' });
 }
 
+// La API de imágenes de OpenAI solo decodifica PNG/JPEG de forma confiable
+// (p. ej. rechaza WebP VP8X con "Invalid image file or mode"). Todo input
+// pasa por acá: PNG/JPEG siguen igual, el resto se recodifica a PNG.
+async function normalizeImageInput(buffer: Buffer): Promise<{ buffer: Buffer; type: string } | null> {
+	if (buffer.length > 3 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+		return { buffer, type: 'image/png' };
+	}
+	if (buffer.length > 2 && buffer[0] === 0xff && buffer[1] === 0xd8) {
+		return { buffer, type: 'image/jpeg' };
+	}
+	try {
+		const sharp = (await import('sharp')).default;
+		const png = await sharp(buffer).png().toBuffer();
+		return { buffer: png, type: 'image/png' };
+	} catch (error) {
+		console.error('No se pudo normalizar una imagen de input, se omite:', error);
+		return null;
+	}
+}
+
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error }, 401);
@@ -458,8 +478,10 @@ export const POST: APIRoute = async ({ request }) => {
 		} else if (storedReference?.image_path) {
 			const { data: referenceBlob, error } = await admin.storage.from('creative-references').download(storedReference.image_path);
 			if (error || !referenceBlob) throw error || new Error('No se pudo recuperar la referencia.');
-			referenceBuffer = Buffer.from(await referenceBlob.arrayBuffer());
-			referenceMime = referenceBlob.type || 'image/png';
+			const normalizedReference = await normalizeImageInput(Buffer.from(await referenceBlob.arrayBuffer()));
+			if (!normalizedReference) throw new Error('La imagen de referencia no se pudo procesar.');
+			referenceBuffer = normalizedReference.buffer;
+			referenceMime = normalizedReference.type;
 			inputs.push(await toFile(referenceBuffer, 'reference.png', { type: referenceMime }));
 			inputImageMap.push('the curated ad reference; use its selling structure and composition, never its original product identity');
 			hasReference = true;
@@ -489,18 +511,21 @@ export const POST: APIRoute = async ({ request }) => {
 		for (const item of productInputPlan) {
 			const { data: productBlob, error } = await admin.storage.from('creative-assets').download(item.path);
 			if (error || !productBlob) throw error || new Error(`No se pudo recuperar una foto de ${item.product.name}.`);
-			const productBuffer = Buffer.from(await productBlob.arrayBuffer());
+			const normalized = await normalizeImageInput(Buffer.from(await productBlob.arrayBuffer()));
+			if (!normalized) continue; // foto ilegible: no puede tumbar la generación
 			if (!primaryProductBuffer) {
-				primaryProductBuffer = productBuffer;
-				primaryProductMime = productBlob.type || 'image/png';
+				primaryProductBuffer = normalized.buffer;
+				primaryProductMime = normalized.type;
 			}
-			inputs.push(await toFile(productBuffer, `product-${item.product.id}-${item.photoIndex}.png`, { type: productBlob.type || 'image/png' }));
+			inputs.push(await toFile(normalized.buffer, `product-${item.product.id}-${item.photoIndex}.png`, { type: normalized.type }));
 			inputImageMap.push(`verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
 		}
 		if (!storedProducts.length && product instanceof File && product.size > 0) {
-			primaryProductBuffer = Buffer.from(await product.arrayBuffer());
-			primaryProductMime = product.type || 'image/png';
-			inputs.push(await toFile(primaryProductBuffer, 'product.png', { type: primaryProductMime }));
+			const normalized = await normalizeImageInput(Buffer.from(await product.arrayBuffer()));
+			if (!normalized) throw new Error('La foto del producto no se pudo procesar. Probá con otra imagen.');
+			primaryProductBuffer = normalized.buffer;
+			primaryProductMime = normalized.type;
+			inputs.push(await toFile(normalized.buffer, 'product.png', { type: normalized.type }));
 			inputImageMap.push('the real product supplied by the user; preserve its packaging, label, shape and color');
 		}
 
@@ -509,13 +534,18 @@ export const POST: APIRoute = async ({ request }) => {
 
 		let hasLogo = false;
 		if (logo instanceof File && logo.size > 0) {
-			inputs.push(await fileToOpenAI(logo, 'logo.png'));
-			inputImageMap.push('the official brand logo; reproduce it accurately once');
-			hasLogo = true;
+			const normalized = await normalizeImageInput(Buffer.from(await logo.arrayBuffer()));
+			if (normalized) {
+				inputs.push(await toFile(normalized.buffer, 'logo.png', { type: normalized.type }));
+				inputImageMap.push('the official brand logo; reproduce it accurately once');
+				hasLogo = true;
+			}
 		} else if (profile?.logo_path) {
 			const { data: logoBlob } = await admin.storage.from('creative-assets').download(profile.logo_path);
-			if (logoBlob) {
-				inputs.push(await blobToOpenAI(logoBlob, 'logo.png'));
+			const normalized = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
+			// Un logo ilegible se omite: nunca puede tumbar la generación entera.
+			if (normalized) {
+				inputs.push(await toFile(normalized.buffer, 'logo.png', { type: normalized.type }));
 				inputImageMap.push('the official brand logo; reproduce it accurately once');
 				hasLogo = true;
 			}
@@ -685,13 +715,9 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 				}
 			}
 
-			if (openaiError) {
-				if (falKey) {
-					await runFalFallback();
-				} else {
-					throw openaiError;
-				}
-			}
+			// Si OpenAI falló, NO caer a Flux: con anuncios cargados de texto genera
+			// resultados ilegibles. Mejor error claro + créditos devueltos.
+			if (openaiError) throw openaiError;
 		} else if (falKey) {
 			await runFalFallback();
 		} else {
