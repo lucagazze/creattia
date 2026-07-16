@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { waitUntil } from '@vercel/functions';
 import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/brand-style';
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
@@ -127,8 +128,9 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 	// Primera importación: aprender el estilo de la marca desde su web
 	// (logo, colores, tipografía, estética) scrapeando home + páginas internas.
 	if (importedIds.length) {
-		// Run brand style analysis in the background so it does not block product import
-		void (async () => {
+		// Análisis de marca en background sin bloquear el import: waitUntil evita
+		// que Vercel mate la promesa al devolver la respuesta.
+		const brandStylePromise = (async () => {
 			try {
 				const { data: profile } = await admin.from('creative_profiles')
 					.select('brand_style').eq('user_id', userId).maybeSingle();
@@ -141,6 +143,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 				console.error('Background brand style analysis failed:', styleErr);
 			}
 		})();
+		try { waitUntil(brandStylePromise); } catch { /* dev local */ }
 	}
 
 	return { importedIds, errors };

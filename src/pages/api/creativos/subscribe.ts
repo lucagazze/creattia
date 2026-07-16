@@ -73,7 +73,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 		body: JSON.stringify({
 			preapproval_plan_id: planId,
 			payer_email: auth.user.email,
-			external_reference: `${auth.user.id}:${planCode}`,
+			external_reference: `${auth.user.id}:${planCode}:${billingCycle}`,
 			reason: plan.reason,
 			back_url: `${siteUrl}/app/?subscription=return`,
 		}),

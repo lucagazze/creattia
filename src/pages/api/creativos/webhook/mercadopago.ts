@@ -8,15 +8,16 @@ const planCredits: Record<string, number> = { creator: 40, pro: 120, scale: 300 
 
 function resolvePlan(subscription: any) {
 	const external = String(subscription.external_reference || '');
-	const [userId, requestedPlan] = external.split(':');
-	if (planCredits[requestedPlan]) return { userId, planCode: requestedPlan };
+	const [userId, requestedPlan, requestedCycle] = external.split(':');
+	const yearly = requestedCycle === 'yearly';
+	if (planCredits[requestedPlan]) return { userId, planCode: requestedPlan, yearly };
 	const providerPlan = String(subscription.preapproval_plan_id || '');
 	const configured: Record<string, string> = {
 		[String(import.meta.env.MERCADO_PAGO_PLAN_CREATOR_ID || import.meta.env.MERCADO_PAGO_PLAN_ID || '')]: 'creator',
 		[String(import.meta.env.MERCADO_PAGO_PLAN_PRO_ID || '')]: 'pro',
 		[String(import.meta.env.MERCADO_PAGO_PLAN_SCALE_ID || '')]: 'scale',
 	};
-	return { userId: external, planCode: configured[providerPlan] || 'creator' };
+	return { userId: external.split(':')[0] || external, planCode: configured[providerPlan] || 'creator', yearly: false };
 }
 
 function verifySignature(request: Request, dataId: string, secret: string) {
@@ -89,7 +90,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (!mpResponse.ok) return json({ error: 'No se pudo verificar la suscripción.' }, 502);
 	const subscription = await mpResponse.json();
 
-	const { userId, planCode } = resolvePlan(subscription);
+	const { userId, planCode, yearly } = resolvePlan(subscription);
 	const mappedStatus: Record<string, string> = {
 		authorized: 'authorized',
 		pending: 'pending',
@@ -111,7 +112,8 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (profileReadError || !currentProfile) return json({ error: profileReadError?.message || 'Perfil no encontrado.' }, 500);
 		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile?.subscription_period_end);
 		const shouldRefill = status === 'authorized' && (currentProfile?.subscription_status !== 'authorized' || periodChanged);
-		const monthlyCredits = planCredits[planCode] || planCredits.creator;
+		// Anual: se acreditan los 12 meses juntos en cada renovación anual.
+		const monthlyCredits = (planCredits[planCode] || planCredits.creator) * (yearly ? 12 : 1);
 		const profileUpdate: Record<string, string | number | null> = {
 			subscription_status: status,
 			plan_code: planCode,
