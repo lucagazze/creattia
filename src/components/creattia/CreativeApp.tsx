@@ -996,7 +996,7 @@ export default function CreativeApp() {
 				<header className="studio-topbar">
 					<button className="studio-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menú"><Icon name="menu"/></button>
 					<div className="studio-top-brand"><img src="/images/creattia/moki-mascot.webp" alt=""/><strong>Creattia</strong></div>
-					<div className="studio-mode-badge"><span />{isSupabaseConfigured ? 'Cuenta conectada' : 'Demo local'}</div>
+					{!isSupabaseConfigured && <div className="studio-mode-badge"><span />Demo local</div>}
 					<button className="studio-credit-pill" onClick={() => setView('plans')}><Icon name="spark" size={16}/><b>{profile.credits}</b><span>{profile.credits === 1 ? 'crédito' : 'créditos'}</span></button>
 				</header>
 
