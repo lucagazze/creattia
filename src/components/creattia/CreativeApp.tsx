@@ -2248,7 +2248,7 @@ function ImageLightbox({ item, session, onClose, onStarted }: {
 
 	return (
 		<div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(12,10,16,0.78)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: '24px' }}>
-			<div onClick={(event) => event.stopPropagation()} style={{ display: 'flex', gap: '22px', alignItems: 'stretch', maxWidth: '1100px', width: '100%', maxHeight: '90vh' }}>
+			<div className="studio-lightbox-panel" onClick={(event) => event.stopPropagation()} style={{ display: 'flex', gap: '22px', alignItems: 'stretch', maxWidth: '1100px', width: '100%', maxHeight: '90vh' }}>
 				<div style={{ flex: '1 1 auto', display: 'grid', placeItems: 'center', minWidth: 0 }}>
 					<img src={item.imageUrl} alt={item.title} style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }} />
 				</div>

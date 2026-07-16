@@ -2215,3 +2215,15 @@
 .studio-generation-card footer span { font-size: 11px !important; }
 .studio-generation-card footer button { font-size: 13px !important; font-family: inherit !important; }
 .studio-library-tools span { font-size: 12px !important; }
+
+/* ── CreationFlow responsive ── */
+.creation-flow-layout { display: grid; grid-template-columns: minmax(260px, 380px) 1fr; gap: 28px; align-items: start; }
+.creation-flow-aside { position: sticky; top: 20px; }
+@media (max-width: 920px) {
+	.creation-flow-layout { grid-template-columns: 1fr; }
+	.creation-flow-aside { position: static; max-width: 300px; margin: 0 auto; }
+}
+@media (max-width: 700px) {
+	.studio-lightbox-panel { flex-direction: column !important; overflow-y: auto; }
+	.studio-lightbox-panel aside { flex: 1 1 auto !important; }
+}

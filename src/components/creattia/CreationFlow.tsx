@@ -139,10 +139,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	return (
 		<div style={{ maxWidth: '1200px', margin: '0 auto' }}>
 			<button onClick={onBack} style={{ border: 0, background: 'transparent', color: '#716d79', cursor: 'pointer', fontSize: '14px', padding: 0, marginBottom: '16px' }}>← Volver a la biblioteca</button>
-			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 380px) 1fr', gap: '28px', alignItems: 'start' }}>
+			<div className="creation-flow-layout">
 
 				{/* Referencia fija a la izquierda */}
-				<aside style={{ position: 'sticky', top: '20px' }}>
+				<aside className="creation-flow-aside">
 					<img src={referenceUrl} alt={ad.name} style={{ width: '100%', borderRadius: '14px', boxShadow: '0 14px 40px rgba(25,23,29,0.16)' }} />
 					<p style={{ margin: '12px 0 0', fontSize: '14px', color: '#716d79' }}>Anuncio ganador: <b style={{ color: '#19171d' }}>{ad.name}</b></p>
 				</aside>
@@ -154,11 +154,16 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					{phase !== 'review' && phase !== 'starting' && <>
 						{/* 1. Producto */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>1 · Tu producto</strong>
+							<strong style={label}>1 · 🛍️ Tu producto</strong>
 							{products.length > 0 && (
 								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
 									{products.slice(0, 12).map((item) => (
-										<button key={item.id} type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFile(null); setUploadPreview(''); }} style={chip(selectedProductId === item.id)}>
+										<button key={item.id} type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFile(null); setUploadPreview(''); }} style={{ ...chip(selectedProductId === item.id), display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '7px 14px 7px 7px' }}>
+											{(item.imageUrl || item.source_image_url) ? (
+												<img src={item.imageUrl || item.source_image_url} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '7px' }} />
+											) : (
+												<span style={{ width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '7px', background: '#f2eef6' }}>🛍️</span>
+											)}
 											{item.name}
 										</button>
 									))}
@@ -172,10 +177,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									style={{ flex: '1 1 280px', padding: '11px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14px' }}
 								/>
 								<button type="button" onClick={() => void scanUrl()} disabled={scanning || !urlValue.trim()} style={{ ...chip(false), opacity: scanning ? 0.6 : 1 }}>
-									{scanning ? 'Analizando…' : 'Escanear URL'}
+									{scanning ? '⏳ Analizando…' : '🔗 Escanear URL'}
 								</button>
 								<label style={{ ...chip(Boolean(uploadFile)), display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-									{uploadFile ? `Foto: ${uploadFile.name.slice(0, 18)}` : 'Subir foto'}
+									{uploadFile ? `📷 ${uploadFile.name.slice(0, 18)}` : '📷 Subir foto'}
 									<input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={(event) => {
 										const file = event.target.files?.[0] || null;
 										setUploadFile(file); setSelectedProductId('');
@@ -188,42 +193,55 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						{/* 2. Formato */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>2 · Formato</strong>
+							<strong style={label}>2 · 📐 Formato</strong>
 							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
 								{[
-									{ id: 'original', text: 'Original (igual al ganador)' },
-									{ id: '1:1', text: '1:1 Feed' },
-									{ id: '3:4', text: '3:4 Vertical' },
-									{ id: '9:16', text: '9:16 Historia' },
-									{ id: '4:3', text: '4:3 Horizontal' },
-									{ id: '16:9', text: '16:9 Panorámico' },
+									{ id: 'original', text: 'Original', desc: 'Igual al ganador', w: 24, h: 24, dashed: true },
+									{ id: '1:1', text: '1:1', desc: 'Feed', w: 26, h: 26 },
+									{ id: '3:4', text: '3:4', desc: 'Vertical', w: 21, h: 28 },
+									{ id: '9:16', text: '9:16', desc: 'Historia', w: 16, h: 28 },
+									{ id: '4:3', text: '4:3', desc: 'Horizontal', w: 28, h: 21 },
+									{ id: '16:9', text: '16:9', desc: 'Panorámico', w: 30, h: 17 },
 								].map((item) => (
-									<button key={item.id} type="button" onClick={() => setFormat(item.id)} style={chip(format === item.id)}>{item.text}</button>
+									<button
+										key={item.id}
+										type="button"
+										onClick={() => setFormat(item.id)}
+										style={{ ...chip(format === item.id), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '7px', minWidth: '86px', padding: '12px 10px 10px' }}
+									>
+										<span style={{
+											display: 'block', width: `${item.w}px`, height: `${item.h}px`, borderRadius: '4px',
+											border: `2px ${item.dashed ? 'dashed' : 'solid'} ${format === item.id ? '#a25df7' : '#b9b3c2'}`,
+											background: format === item.id ? 'rgba(162,93,247,0.12)' : '#f6f4f9',
+										}} />
+										<b style={{ fontSize: '13px', lineHeight: 1 }}>{item.text}</b>
+										<small style={{ fontSize: '11px', color: '#8b8490', lineHeight: 1 }}>{item.desc}</small>
+									</button>
 								))}
 							</div>
 						</div>
 
 						{/* 3. Idioma */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>3 · Idioma del anuncio</strong>
-							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-								{[
-									{ id: 'auto', text: 'Auto (según el producto)' },
-									{ id: 'es', text: 'Español' },
-									{ id: 'en', text: 'English' },
-									{ id: 'pt', text: 'Português' },
-									{ id: 'fr', text: 'Français' },
-									{ id: 'it', text: 'Italiano' },
-									{ id: 'de', text: 'Deutsch' },
-								].map((item) => (
-									<button key={item.id} type="button" onClick={() => setLanguage(item.id)} style={chip(language === item.id)}>{item.text}</button>
-								))}
-							</div>
+							<strong style={label}>3 · 🌍 Idioma del anuncio</strong>
+							<select
+								value={language}
+								onChange={(event) => setLanguage(event.target.value)}
+								style={{ minWidth: '280px', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '15px', background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}
+							>
+								<option value="auto">🌐 Automático (según el producto)</option>
+								<option value="es">🇦🇷 Español</option>
+								<option value="en">🇺🇸 English</option>
+								<option value="pt">🇧🇷 Português</option>
+								<option value="fr">🇫🇷 Français</option>
+								<option value="it">🇮🇹 Italiano</option>
+								<option value="de">🇩🇪 Deutsch</option>
+							</select>
 						</div>
 
 						{/* 4. Estilo */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>4 · Estilo</strong>
+							<strong style={label}>4 · 🎨 Estilo</strong>
 							<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
 								<div>
 									<p style={{ margin: '0 0 6px', fontSize: '13px', color: '#716d79' }}>Colores</p>
@@ -251,7 +269,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						{/* 5. Indicación extra */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>5 · Indicación extra (opcional)</strong>
+							<strong style={label}>5 · ✍️ Indicación extra (opcional)</strong>
 							<textarea
 								value={extra}
 								onChange={(event) => setExtra(event.target.value)}
