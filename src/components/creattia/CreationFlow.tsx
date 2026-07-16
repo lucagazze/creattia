@@ -17,7 +17,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const referenceUrl = `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${ad.imagePath}`;
 
 	const [products, setProducts] = useState<any[]>(savedProducts);
-	const [selectedProductId, setSelectedProductId] = useState<string>(savedProducts[0]?.id || '');
+	// Sin auto-selección: el usuario elige su producto explícitamente.
+	const [selectedProductId, setSelectedProductId] = useState<string>('');
 	const [urlValue, setUrlValue] = useState('');
 	const [scanning, setScanning] = useState(false);
 	const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -168,14 +169,28 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							{products.length > 0 && (
 								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
 									{products.slice(0, 12).map((item) => (
-										<button key={item.id} type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFile(null); setUploadPreview(''); }} style={{ ...chip(selectedProductId === item.id), display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '7px 14px 7px 7px' }}>
-											{(item.imageUrl || item.source_image_url) ? (
-												<img src={item.imageUrl || item.source_image_url} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '7px' }} />
-											) : (
-												<span style={{ width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '7px', background: '#f2eef6' }}>🛍️</span>
-											)}
-											{item.name}
-										</button>
+										<span key={item.id} style={{ position: 'relative', display: 'inline-flex' }}>
+											<button type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFile(null); setUploadPreview(''); }} style={{ ...chip(selectedProductId === item.id), display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '7px 26px 7px 7px' }}>
+												{(item.imageUrl || item.source_image_url) ? (
+													<img src={item.imageUrl || item.source_image_url} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '7px' }} />
+												) : (
+													<span style={{ width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '7px', background: '#f2eef6' }}>🛍️</span>
+												)}
+												{item.name}
+											</button>
+											<button
+												type="button"
+												aria-label={`Quitar ${item.name}`}
+												onClick={async () => {
+													setProducts(products.filter((product) => product.id !== item.id));
+													if (selectedProductId === item.id) setSelectedProductId('');
+													try {
+														await fetch(`/api/creativos/products?id=${encodeURIComponent(item.id)}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
+													} catch { /* si falla, reaparece al recargar */ }
+												}}
+												style={{ position: 'absolute', top: '4px', right: '6px', width: '18px', height: '18px', border: 0, borderRadius: '50%', background: 'transparent', color: '#b0a8b8', fontSize: '13px', lineHeight: 1, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+											>×</button>
+										</span>
 									))}
 								</div>
 							)}

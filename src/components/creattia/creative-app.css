@@ -619,7 +619,7 @@
 .studio-generation-card footer { position: relative; padding: 13px 14px 14px; }
 .studio-generation-card footer small { color: #ec4492; font-size: 6.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; }
 .studio-generation-card footer h3 { margin: 5px 45px 0 0; font-size: 10.5px; }
-.studio-generation-card footer span { position: absolute; right: 13px; bottom: 14px; color: #9c96a0; font-size: 7px; }
+.studio-generation-card footer span { position: absolute; right: 13px; top: 13px; color: #9c96a0; }
 
 .studio-settings-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(290px, .8fr); gap: 18px; align-items: start; }
 .studio-settings-card, .studio-billing-card { border: 1px solid #e5e1e8; border-radius: 16px; background: #fff; box-shadow: 0 7px 24px rgba(34,25,44,.03); }
@@ -2083,8 +2083,9 @@
 		padding: 16px 10px !important;
 	}
 	.creative-app-shell.sidebar-minimized .studio-main {
-		margin-left: 72px !important;
-		width: calc(100% - 72px) !important;
+		margin-left: 0 !important;
+		padding-left: 72px !important;
+		width: 100% !important;
 	}
 	.creative-app-shell.sidebar-minimized .studio-sidebar-brand div,
 	.creative-app-shell.sidebar-minimized .studio-nav p,

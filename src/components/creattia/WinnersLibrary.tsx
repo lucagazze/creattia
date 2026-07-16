@@ -26,6 +26,30 @@ function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number;
 	return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
 }
 
+// Nichos (vienen en inglés del manifiesto de Foreplay) → etiquetas en español
+const nicheLabels: Record<string, string> = {
+	'Accessories': 'Accesorios',
+	'Beauty': 'Belleza',
+	'Business/Professional': 'Negocios',
+	'Entertainment': 'Entretenimiento',
+	'Fashion': 'Moda',
+	'Food/Drink': 'Comida y Bebida',
+	'Health/Wellness': 'Salud y Bienestar',
+	'Medical': 'Médico',
+	'Service Business': 'Servicios',
+	'Technology': 'Tecnología',
+	'Home/Garden': 'Hogar y Jardín',
+	'Sports/Fitness': 'Deporte y Fitness',
+	'Travel': 'Viajes',
+	'Pets': 'Mascotas',
+	'Education': 'Educación',
+	'Finance': 'Finanzas',
+	'Automotive': 'Automotor',
+	'Kids/Baby': 'Niños y Bebés',
+	'Jewelry': 'Joyería',
+	'Real Estate': 'Inmobiliaria',
+};
+
 // Supported Winners Categories — IDs match categoryLeaf values in the manifest
 const winnersCategories = [
 	{ id: 'todos', label: 'Todos los anuncios' },
@@ -315,6 +339,7 @@ export default function WinnersLibrary({
 			const { data, error } = await supabase
 				.from('creative_products')
 				.select('id,name,description,image_path,source_image_url,analysis')
+				.eq('is_active', true)
 				.order('created_at', { ascending: false })
 				.limit(20);
 			if (!error && data) {
@@ -834,7 +859,7 @@ export default function WinnersLibrary({
 									transition: 'all 0.15s'
 								}}
 							>
-								{niche === 'todos' ? 'Todos los nichos' : niche}
+								{niche === 'todos' ? 'Todos los nichos' : (nicheLabels[niche] || niche)}
 							</button>
 						))}
 					</div>
