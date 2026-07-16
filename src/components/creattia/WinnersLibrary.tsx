@@ -454,6 +454,7 @@ export default function WinnersLibrary({
 			form.set('format', 'square');
 			form.set('imageType', 'promotion'); // always 'promotion' so no product is required
 			form.set('referencePath', activeAd.imagePath);
+			form.set('templateNotes', activeAd.promptNotes || '');
 			
 			const brandName = onboardingBrandName || (profile ? profile.brandName : '');
 			const website = onboardingWebsite || (profile ? profile.website : '');

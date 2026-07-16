@@ -46,6 +46,13 @@ function buildPrompt(input: {
 	variationStrength: string;
 	replaceProduct: boolean;
 	inputImageMap: string[];
+	adCopy?: {
+		headline: string;
+		subheadline: string;
+		reviewText?: string;
+		cta?: string;
+		buttons?: string[];
+	};
 }) {
 	const revisionRules: Record<string, string> = {
 		exact: 'Use the first input image as the master reference. Preserve its framing, layout, hierarchy, palette, lighting, typography zones and every untouched detail as closely as possible. Apply only the requested change.',
@@ -60,6 +67,18 @@ function buildPrompt(input: {
 	const productFacts = input.products.length
 		? input.products.map((product, index) => `${index + 1}. ${product.name}: ${product.description || 'No additional verified facts.'}`).join('\n')
 		: 'No specific product selected.';
+
+	let adCopyBlock = '';
+	if (input.adCopy) {
+		adCopyBlock = `
+TEXT COPY TO WRITE EXACTLY ON THE IMAGE (WRITE THIS TEXT IN NATURAL SPANISH, DO NOT DISTORT OR MAKE UP GIBBERISH WORDS):
+- Main Headline (Bold, high-contrast, render prominently): "${input.adCopy.headline}"
+- Subheadline / Support text: "${input.adCopy.subheadline}"
+${input.adCopy.reviewText ? `- Customer Review / Testimonial text: "${input.adCopy.reviewText}"` : ''}
+${input.adCopy.cta ? `- Primary Call-to-Action text: "${input.adCopy.cta}"` : ''}
+${input.adCopy.buttons && input.adCopy.buttons.length ? `- Secondary button labels: ${input.adCopy.buttons.join(', ')}` : ''}
+`;
+	}
 
 	return `Create a production-ready static advertising image for a real ecommerce brand.
 
@@ -85,6 +104,8 @@ ${input.inputImageMap.length ? input.inputImageMap.map((label, index) => `- Imag
 
 SELECTED PRODUCTS
 ${productFacts}
+
+${adCopyBlock}
 
 ART DIRECTION
 ${compositionRule}
@@ -138,8 +159,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const format = formats.has(requestedFormat) ? requestedFormat as keyof typeof formatSizes : 'square';
 		const requestedImageType = clean(form.get('imageType'), 30) || 'product';
 		const imageType = imageTypes.has(requestedImageType) ? requestedImageType : 'product';
-		const referenceId = clean(form.get('referenceId'), 60);
 		const referencePath = clean(form.get('referencePath'), 300);
+		const templateNotes = clean(form.get('templateNotes'), 500);
 		const sourceGenerationId = clean(form.get('sourceGenerationId'), 60);
 		const requestedVariationStrength = clean(form.get('variationStrength'), 20) || 'exact';
 		const variationStrength = variationStrengths.has(requestedVariationStrength) ? requestedVariationStrength : 'exact';
@@ -335,6 +356,50 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
+		let adCopy: any = undefined;
+		const groqApiKey = process.env.GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
+		if (groqApiKey && storedProducts.length > 0) {
+			try {
+				const groqClient = new OpenAI({
+					apiKey: groqApiKey,
+					baseURL: 'https://api.groq.com/openai/v1',
+				});
+				const response = await groqClient.chat.completions.create({
+					model: 'llama-3.3-70b-versatile',
+					messages: [
+						{
+							role: 'system',
+							content: 'Sos un redactor publicitario experto (copywriter) para anuncios de performance en e-commerce. Tu tarea es generar copys cortos, persuasivos y adaptados al español de Argentina.'
+						},
+						{
+							role: 'user',
+							content: `Generá los textos publicitarios en español para el producto "${storedProducts[0].name}".
+                
+Descripción del producto: ${storedProducts[0].description || ''}
+
+Debes imitar el estilo del anuncio de referencia:
+- Nombre de referencia: ${templateName}
+- Notas del anuncio de referencia: ${templateNotes || 'Diseño limpio y moderno'}
+- Propósito del anuncio: ${templatePurpose}
+
+Respondé SOLO con un objeto JSON válido con esta estructura exacta:
+{
+  "headline": "título principal en español de argentina (mayúsculas, máx 6 palabras)",
+  "subheadline": "subtítulo o beneficio corto",
+  "reviewText": "texto del testimonio de cliente en español (máx 15 palabras)",
+  "cta": "texto de acción corto"
+}`
+						}
+					],
+					response_format: { type: 'json_object' },
+					max_tokens: 300,
+				});
+				adCopy = JSON.parse(response.choices[0]?.message?.content || '{}');
+			} catch (copyErr) {
+				console.error('Error generating ad copy via Groq:', copyErr);
+			}
+		}
+
 		const prompt = buildPrompt({
 			templateName,
 			purpose: templatePurpose,
@@ -360,6 +425,7 @@ export const POST: APIRoute = async ({ request }) => {
 			variationStrength,
 			replaceProduct: Boolean(hasSourceGeneration && sourceGeneration?.product_id !== (storedProducts[0]?.id || null)),
 			inputImageMap,
+			adCopy,
 		});
 		const { error: promptUpdateError } = await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
 		if (promptUpdateError) throw promptUpdateError;
@@ -378,7 +444,46 @@ export const POST: APIRoute = async ({ request }) => {
 		// Collect all output images as raw buffers
 		const outputBuffers: Buffer[] = [];
 
-		if (falKey) {
+		if (openAIKey) {
+			// Primary: OpenAI gpt-image-1 (highest quality, perfect layout translation)
+			const openai = new OpenAI({ apiKey: openAIKey });
+			const model = 'gpt-image-1';
+			const size = formatSizes[format] || '1024x1024';
+
+			try {
+				const result = inputs.length
+					? await openai.images.edit({ model, image: inputs as any, prompt, size: size as any, quality: 'high', n: count })
+					: await openai.images.generate({ model, prompt, size: size as any, quality: 'high', n: count });
+
+				const outputs = (result.data || []).flatMap((item) => item.b64_json ? [item.b64_json] : []);
+				if (!outputs.length) {
+					const urls = (result.data || []).flatMap((item) => item.url ? [item.url] : []);
+					if (!urls.length) throw new Error('La API de OpenAI no devolvió ninguna imagen.');
+					for (const url of urls) {
+						const imgRes = await fetch(url);
+						if (!imgRes.ok) throw new Error('No se pudo descargar la imagen de OpenAI.');
+						outputBuffers.push(Buffer.from(await imgRes.arrayBuffer()));
+					}
+				} else {
+					for (const b64 of outputs) {
+						outputBuffers.push(Buffer.from(b64, 'base64'));
+					}
+				}
+			} catch (openaiErr: any) {
+				console.error('OpenAI generation failed, falling back to Fal:', openaiErr);
+				if (falKey) {
+					await runFalFallback();
+				} else {
+					throw openaiErr;
+				}
+			}
+		} else if (falKey) {
+			await runFalFallback();
+		} else {
+			throw new Error('No hay ninguna API de generación de imágenes configurada (FAL_KEY o OPENAI_API_KEY).');
+		}
+
+		async function runFalFallback() {
 			// Build image_url for Fal (base64 data URL of the reference template image, if any)
 			let falImageUrl: string | undefined;
 			let falImageStrength = 0.85;
@@ -387,11 +492,10 @@ export const POST: APIRoute = async ({ request }) => {
 				// inputs[0] is the reference template image
 				const buf = Buffer.from(await (inputs[0] as any).arrayBuffer());
 				falImageUrl = `data:image/png;base64,${buf.toString('base64')}`;
-				falImageStrength = 0.65; // Sweet spot to preserve the ad layout and text frames but morph the product
+				falImageStrength = 0.65;
 			}
 
 			const falSize = falFormatSizes[format] || falFormatSizes.square;
-			// Flux image-to-image on Fal.ai is supported in the dev model
 			const falModel = falImageUrl
 				? 'fal-ai/flux/dev/image-to-image'
 				: 'fal-ai/flux/schnell';
@@ -418,11 +522,10 @@ export const POST: APIRoute = async ({ request }) => {
 
 			if (!falRes.ok) {
 				const errText = await falRes.text().catch(() => '');
-				// Detect out-of-balance error and show a clear user-facing message
 				if (falRes.status === 403 && errText.includes('Exhausted balance')) {
-					throw new Error('Tu saldo de Fal.ai se agotó. Recargá en fal.ai/dashboard/billing para continuar generando imágenes.');
+					throw new Error('Tu saldo de Fal.ai se agotó. Recargá en fal.ai/dashboard/billing.');
 				}
-				throw new Error(`Error al generar la imagen (${falRes.status}). Revisá tu saldo en fal.ai/dashboard/billing.`);
+				throw new Error(`Error al generar la imagen (${falRes.status}).`);
 			}
 
 			const falData: any = await falRes.json();
@@ -434,17 +537,6 @@ export const POST: APIRoute = async ({ request }) => {
 				if (!imgRes.ok) throw new Error('No se pudo descargar la imagen generada.');
 				outputBuffers.push(Buffer.from(await imgRes.arrayBuffer()));
 			}
-		} else {
-			// Fallback: OpenAI
-			const openai = new OpenAI({ apiKey: openAIKey });
-			const model = import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
-			const size = formatSizes[format];
-			const result = inputs.length
-				? await openai.images.edit({ model, image: inputs, prompt, size, quality: 'high', n: count })
-				: await openai.images.generate({ model, prompt, size, quality: 'high', n: count });
-			const outputs = (result.data || []).flatMap((item) => item.b64_json ? [item.b64_json] : []);
-			if (!outputs.length) throw new Error('La API no devolvió ninguna imagen.');
-			for (const b64 of outputs) outputBuffers.push(Buffer.from(b64, 'base64'));
 		}
 
 		if (!outputBuffers.length) throw new Error('No se generaron imágenes.');
