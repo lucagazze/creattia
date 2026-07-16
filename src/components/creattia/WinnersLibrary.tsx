@@ -120,6 +120,14 @@ function getTags(item: any, category: string): string[] {
 	return Array.from(tags);
 }
 
+// Masonry con orden horizontal: reparte round-robin en N columnas flex,
+// así las tarjetas se compactan sin huecos y el orden sigue siendo por filas.
+function splitColumns<T>(items: T[], count: number): T[][] {
+	const columns: T[][] = Array.from({ length: Math.max(1, count) }, () => []);
+	items.forEach((item, index) => { columns[index % columns.length].push(item); });
+	return columns;
+}
+
 type WinnerItem = {
 	templateId: number;
 	name: string;
@@ -657,6 +665,17 @@ export default function WinnersLibrary({
 	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(30);
 	useEffect(() => { setVisibleCount(30); }, [activeCategory, activeNiche, query]);
+	const gridRef = React.useRef<HTMLDivElement | null>(null);
+	const [columnCount, setColumnCount] = useState(4);
+	useEffect(() => {
+		const element = gridRef.current;
+		if (!element) return;
+		const update = () => setColumnCount(Math.max(2, Math.min(6, Math.floor(element.clientWidth / 300))));
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [activeAd, loading]);
 	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 	useEffect(() => {
 		const sentinel = loadMoreRef.current;
@@ -841,9 +860,11 @@ export default function WinnersLibrary({
 					<p>Probá cambiando la categoría o la palabra clave de búsqueda.</p>
 					<button onClick={() => { setActiveCategory('todos'); setQuery(''); }}>Limpiar filtros</button>
 				</div>
-			) : (
-				<div className="library-ad-grid-masonry">
-					{filteredItems.slice(0, visibleCount).map((item, idx) => {
+			) : (<>
+				<div ref={gridRef} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+					{splitColumns(filteredItems.slice(0, visibleCount), columnCount).map((columnItems, columnIndex) => (
+					<div key={columnIndex} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+					{columnItems.map((item, idx) => {
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
 						const imageUrl = hasFailed 
 							? getFallbackImage(item.templateId)
@@ -1062,13 +1083,16 @@ export default function WinnersLibrary({
 							</article>
 						);
 					})}
-					{visibleCount < filteredItems.length && (
-						<div ref={loadMoreRef} style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-							<span className="studio-spinner" style={{ width: '22px', height: '22px' }} />
-						</div>
-					)}
+					</div>
+					))}
 				</div>
-			)}
+				{visibleCount < filteredItems.length && (
+					<div ref={loadMoreRef} style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+						<span className="studio-spinner" style={{ width: '22px', height: '22px' }} />
+					</div>
+				)}
+			</>
+		)}
 
 			{/* Add winner modal */}
 			{showAddModal && (
