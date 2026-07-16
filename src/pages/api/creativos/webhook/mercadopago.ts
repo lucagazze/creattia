@@ -47,6 +47,40 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (!verifySignature(request, String(dataId), secret)) return json({ error: 'Firma inválida.' }, 401);
 
 	const topic = url.searchParams.get('type') || body?.type || '';
+
+	// ── Pago único de créditos (pago por imagen) ─────────────────────────
+	if (topic === 'payment' && dataId) {
+		const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(dataId)}`, {
+			headers: { authorization: `Bearer ${accessToken}` },
+		});
+		if (!paymentResponse.ok) return json({ error: 'No se pudo verificar el pago.' }, 502);
+		const payment = await paymentResponse.json();
+		const reference = String(payment.external_reference || '');
+		const match = reference.match(/^([0-9a-f-]{36}):credits:(\d+)$/i);
+		if (!match || payment.status !== 'approved') return json({ received: true });
+		const [, userId, creditsRaw] = match;
+		const credits = Number(creditsRaw);
+		if (!Number.isInteger(credits) || credits < 1 || credits > 100) return json({ received: true });
+
+		const admin = getAdminClient();
+		if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+		// Idempotencia: si el pago ya fue registrado, no volver a acreditar.
+		const { error: purchaseError } = await admin.from('creative_credit_purchases').insert({
+			payment_id: String(payment.id),
+			user_id: userId,
+			credits,
+			amount: payment.transaction_amount || null,
+			currency: payment.currency_id || null,
+		});
+		if (purchaseError) {
+			if (purchaseError.code === '23505') return json({ received: true, duplicated: true });
+			return json({ error: purchaseError.message }, 500);
+		}
+		const { error: creditError } = await admin.rpc('add_purchased_credits', { p_user_id: userId, p_amount: credits });
+		if (creditError) return json({ error: creditError.message }, 500);
+		return json({ received: true, credited: credits });
+	}
+
 	if (topic !== 'subscription_preapproval' || !dataId) return json({ received: true });
 
 	const mpResponse = await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(dataId)}`, {

@@ -7,6 +7,7 @@ export type LayoutAnalysis = {
 	textZones?: Array<{ where?: string; onProduct?: boolean; original?: string; messageRole?: string; replacement?: string }>;
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
+	templateHasLogoSlot?: boolean;
 	productPlacement?: string;
 	language?: string;
 	creativeOptions?: string[];
@@ -72,6 +73,7 @@ Return STRICT JSON:
       "replacement": "new text for the target product that performs the SAME persuasive job, similar length so it fits the same space, honest (no invented prices/claims beyond the provided facts)" }
   ],
   "referenceHasProduct": true|false,
+  "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
   "productHasPackaging": true|false,
   "productPlacement": "precise description of where/how the template's product sits: position, scale relative to canvas, angle, cropping, lighting, shadow — or null if the template shows no product",
   "language": "es|en|fr|it|pt|de",
