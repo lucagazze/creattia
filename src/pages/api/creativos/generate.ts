@@ -230,7 +230,7 @@ Rules:
 - FIRST decode the template's message strategy. THEN write every replacement so it performs the SAME persuasive job for the target product: same emotional angle, same rhetorical device (paradox, contrast, question, quote, number), same energy and tone. An emotional hook must stay an emotional hook adapted to the new product — never flatten it into a generic benefit statement.
 - Enumerate EVERY visible text zone in the template (headline, subcopy, review, badges, pills, CTA, small print). None may be missed.
 - "onProduct": true when the text is printed ON the product/packaging itself; false when it belongs to the ad layout (headline, cards, pills, buttons).
-- "productHasPackaging": look at the REAL product photo — true only if the real product has printed packaging/labels of its own.
+- "productHasPackaging": look ONLY at the REAL product photo — true ONLY if that photo clearly shows a printed box, wrapper or label belonging to the product. Raw materials (leather hides, fabrics, wood), unpackaged food, plants, garments or bare objects have NO packaging → false. The template's product is irrelevant for this field.
 - Replacements: write them in the SAME language as the product facts ("language" field), punchy direct-response copy, roughly the same character count as the original so the layout doesn't break. Spanish must be natural Argentine Spanish.
 - If a zone shows a spec/number (e.g. "10G PROTEIN"), replace it with a REAL fact of the target product formatted the same way.
 - Never use the template's brand name in replacements.${input.brandName ? ` The advertiser brand is "${input.brandName}".` : ''}`;
@@ -339,9 +339,11 @@ function buildReferenceClonePrompt(input: {
 	const placement = input.analysis?.productPlacement
 		? ` — same position, generous scale, dynamic angle and prominence described here: ${input.analysis.productPlacement}`
 		: ', in its exact position, with the same scale and prominence,';
+	// Regla incondicional: el modelo debe respetar la forma física real del
+	// producto aunque el análisis se equivoque con productHasPackaging.
 	const packagingRule = input.analysis && !input.analysis.productHasPackaging
 		? `\nCRITICAL: the real product has NO printed packaging. Its surface must stay completely clean — do NOT print any words, logos, badges, spec bubbles or graphics on the product itself.${droppedOnProduct > 0 ? " The template's on-package texts are intentionally omitted; do not recreate or relocate them." : ''} All copy lives only in the ad layout's text zones.`
-		: '';
+		: `\nNEVER invent a box, wrapper or label that is not visible in the product photo.`;
 
 	const strategyBlock = input.analysis?.messageStrategy
 		? `\nMESSAGE STRATEGY OF THE WINNING AD (the new copy must deliver the same persuasion, adapted to ${productLabel}): ${input.analysis.messageStrategy}\n`
@@ -350,7 +352,7 @@ function buildReferenceClonePrompt(input: {
 	return `The first input image is a WINNING AD TEMPLATE. Recreate this exact advertisement, keeping its layout, composition, background, color palette, graphic devices (badges, stars, speech bubbles, banners, buttons), text block positions and typographic hierarchy visually identical to the template. Apply ONLY these replacements:
 ${strategyBlock}
 
-1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. RE-RENDER the product as a professional studio hero shot fully integrated into the scene: give it real volume and dimension, adapt its angle, perspective and lighting to match the template's product treatment, ground it with a soft contact shadow, and let it overlap the surrounding elements exactly like the template's product does. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}
+1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). RE-RENDER it as a professional studio hero shot fully integrated into the scene: give it real volume and dimension, adapt its angle, perspective and lighting to match the template's product treatment, ground it with a soft contact shadow, and let it overlap the surrounding elements exactly like the template's product does. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}
 
 2. TEXT SWAP — Replace the template's wording with this exact copy, written in natural ${language}, placing each text in the same position, size and style as the template text it replaces. Every zone listed MUST contain its text — never leave a badge, pill or button empty:
 ${textSwap || `- Adapt every template text block honestly to ${productLabel}, in natural ${language}, keeping the same message structure.`}
