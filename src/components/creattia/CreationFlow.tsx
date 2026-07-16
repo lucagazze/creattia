@@ -45,7 +45,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const label = { display: 'block', fontSize: '14px', fontWeight: 800, color: '#19171d', marginBottom: '10px' } as const;
 	const chip = (active: boolean) => ({
 		padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 600,
-		border: active ? '2px solid #a25df7' : '1px solid #e2dde9', background: active ? '#f7f2ff' : '#fff', color: active ? '#6d28d9' : '#3f3a48',
+		border: active ? '2px solid #ec4492' : '1px solid #e2dde9', background: active ? '#fdf0f6' : '#fff', color: active ? '#d63274' : '#3f3a48',
 	} as const);
 
 	async function scanUrl(): Promise<any | null> {
@@ -221,8 +221,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									>
 										<span style={{
 											display: 'block', width: `${item.w}px`, height: `${item.h}px`, borderRadius: '4px',
-											border: `2px ${item.dashed ? 'dashed' : 'solid'} ${format === item.id ? '#a25df7' : '#b9b3c2'}`,
-											background: format === item.id ? 'rgba(162,93,247,0.12)' : '#f6f4f9',
+											border: `2px ${item.dashed ? 'dashed' : 'solid'} ${format === item.id ? '#ec4492' : '#b9b3c2'}`,
+											background: format === item.id ? 'rgba(236,68,146,0.12)' : '#f6f4f9',
 										}} />
 										<b style={{ fontSize: '13px', lineHeight: 1 }}>{item.text}</b>
 										<small style={{ fontSize: '11px', color: '#8b8490', lineHeight: 1 }}>{item.desc}</small>
@@ -257,9 +257,9 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										{languageOpen && (
 											<div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1px solid #e2dde9', borderRadius: '12px', boxShadow: '0 16px 40px rgba(25,23,29,0.14)', zIndex: 30, overflow: 'hidden' }}>
 												{LANGS.map((item) => (
-													<button key={item.id} type="button" onClick={() => { setLanguage(item.id); setLanguageOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', border: 0, background: language === item.id ? '#f7f2ff' : '#fff', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d', textAlign: 'left' }}>
+													<button key={item.id} type="button" onClick={() => { setLanguage(item.id); setLanguageOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', border: 0, background: language === item.id ? '#fdf0f6' : '#fff', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d', textAlign: 'left' }}>
 														{flag(item.cc)}{item.name}
-														{language === item.id && <span style={{ marginLeft: 'auto', color: '#6d28d9', fontWeight: 800 }}>✓</span>}
+														{language === item.id && <span style={{ marginLeft: 'auto', color: '#d63274', fontWeight: 800 }}>✓</span>}
 													</button>
 												))}
 											</div>
@@ -323,8 +323,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					</>}
 
 					{(phase === 'review' || phase === 'starting') && plan && <>
-						<div style={{ background: '#f7f2ff', border: '1px solid #e7dbfb', borderRadius: '12px', padding: '16px 18px', marginBottom: '22px' }}>
-							<strong style={{ display: 'block', fontSize: '13px', color: '#6d28d9', marginBottom: '6px' }}>ESTRATEGIA DEL GANADOR</strong>
+						<div style={{ background: '#fdf0f6', border: '1px solid #f8d7e7', borderRadius: '12px', padding: '16px 18px', marginBottom: '22px' }}>
+							<strong style={{ display: 'block', fontSize: '13px', color: '#d63274', marginBottom: '6px' }}>ESTRATEGIA DEL GANADOR</strong>
 							<p style={{ margin: 0, fontSize: '14px', color: '#3f3a48', lineHeight: 1.55 }}>{plan.messageStrategy}</p>
 						</div>
 
