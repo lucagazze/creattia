@@ -89,6 +89,7 @@ ${productFacts}
 ART DIRECTION
 ${compositionRule}
 ${input.hasSourceGeneration && input.replaceProduct ? '- Replace the product or products visible in the source generation with the selected product inputs. Do not blend old and new products.' : ''}
+${input.hasReference && input.products.length > 0 ? `- In the reference image layout, replace the original product (the box, packaging, bottle, or item) in the composition with the user's selected product: ${input.products[0].name}. Do not draw the template's original product.` : ''}
 ${input.products.length > 1 ? `- This is a multi-product creative with ${input.products.length} distinct products. Show every supplied product clearly in one intentional group shot or collection composition. Preserve the real shape, packaging, logo and colors of each one.` : ''}
 ${input.products.length === 1 ? '- The selected product is supplied as an input image. Preserve its real shape, packaging, logo and colors with high fidelity.' : ''}
 ${input.products.length === 0 ? '- Build a brand-level promotion without inventing a specific packaged product.' : ''}
@@ -378,23 +379,15 @@ export const POST: APIRoute = async ({ request }) => {
 		const outputBuffers: Buffer[] = [];
 
 		if (falKey) {
-			// Build image_url for Fal (base64 data URL)
+			// Build image_url for Fal (base64 data URL of the reference template image, if any)
 			let falImageUrl: string | undefined;
 			let falImageStrength = 0.85;
 
-			// If we have a product image, use it as the main image to preserve the user's product identity
-			if (productInputPlan.length > 0) {
-				const { data: productBlob } = await admin.storage.from('creative-assets').download(productInputPlan[0].path);
-				if (productBlob) {
-					falImageUrl = `data:image/png;base64,${Buffer.from(await productBlob.arrayBuffer()).toString('base64')}`;
-					falImageStrength = 0.70; // Sweet spot to keep product shape but change layout/background
-				}
-			} 
-			// Fallback: use reference template if no product image is available
-			else if (inputs.length > 0) {
+			if (inputs.length > 0) {
+				// inputs[0] is the reference template image
 				const buf = Buffer.from(await (inputs[0] as any).arrayBuffer());
 				falImageUrl = `data:image/png;base64,${buf.toString('base64')}`;
-				falImageStrength = 0.80;
+				falImageStrength = 0.65; // Sweet spot to preserve the ad layout and text frames but morph the product
 			}
 
 			const falSize = falFormatSizes[format] || falFormatSizes.square;
