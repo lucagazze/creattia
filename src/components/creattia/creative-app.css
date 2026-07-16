@@ -2176,3 +2176,42 @@
 	text-overflow: ellipsis;
 	display: block;
 }
+
+/* ── Ancho completo + grillas horizontales + legibilidad (2026-07-16) ────── */
+.studio-content { max-width: none !important; }
+
+/* Grilla de ganadores: orden horizontal (filas) y columnas según el ancho */
+.library-ad-grid-masonry {
+	display: grid !important;
+	column-count: unset !important;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+	gap: 16px !important;
+	align-items: start !important;
+}
+.dashboard-masonry {
+	display: grid !important;
+	column-count: unset !important;
+	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
+}
+.library-ad-card-masonry {
+	display: flex !important;
+	flex-direction: column !important;
+	margin-bottom: 0 !important;
+}
+@media (max-width: 700px) {
+	.library-ad-grid-masonry, .dashboard-masonry { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+/* Historial: entra la cantidad de tarjetas que dé el ancho */
+.studio-recent-row, .studio-history-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important; }
+
+/* Chips de filtros: mismo tamaño de texto en categorías y nichos */
+.studio-filter-row button { font-size: 13px !important; height: 34px !important; padding: 0 14px !important; }
+
+/* Textos legibles en tarjetas y botones */
+.studio-primary-button { font-size: 14px !important; }
+.studio-generation-card footer small { font-size: 11px !important; }
+.studio-generation-card footer h3 { font-size: 15px !important; }
+.studio-generation-card footer span { font-size: 11px !important; }
+.studio-generation-card footer button { font-size: 13px !important; font-family: inherit !important; }
+.studio-library-tools span { font-size: 12px !important; }

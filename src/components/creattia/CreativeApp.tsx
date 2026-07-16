@@ -395,6 +395,7 @@ export default function CreativeApp() {
 	const [reuseSeed, setReuseSeed] = useState<Generation | null>(null);
 	const [history, setHistory] = useState<Generation[]>([]);
 	const [activeBatch, setActiveBatch] = useState<ActiveBatch | null>(null);
+	const [lightbox, setLightbox] = useState<Generation | null>(null);
 	const [favorites, setFavorites] = useState<Set<number>>(new Set());
 	const [products, setProducts] = useState<Product[]>([]);
 	const [creationProductIds, setCreationProductIds] = useState<string[]>([]);
@@ -862,6 +863,7 @@ export default function CreativeApp() {
 	return (
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
+			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} />}
 			{activeBatch && view !== 'generation' && activeBatch.status !== 'failed' && (
 				<button
 					onClick={() => setView('generation')}
@@ -1041,11 +1043,11 @@ export default function CreativeApp() {
 						<GenerationView
 							batch={activeBatch}
 							onBack={() => { setView('winners'); if (activeBatch.status !== 'processing') setActiveBatch(null); }}
-							onReuse={(generation) => { setActiveBatch(null); reuseGeneration(generation); }}
+							onReuse={(generation) => setLightbox(generation)}
 							onHistory={() => { setActiveBatch(null); setView('history'); }}
 						/>
 					)}
-					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} pending={activeBatch?.status === 'processing' ? { count: activeBatch.count, title: activeBatch.title, referenceUrl: activeBatch.referenceUrl } : null} onViewProgress={() => setView('generation')} />}
+					{view === 'history' && <History history={history} onCreate={() => setView('winners')} onReuse={reuseGeneration} onExpand={setLightbox} pending={activeBatch?.status === 'processing' ? { count: activeBatch.count, title: activeBatch.title, referenceUrl: activeBatch.referenceUrl } : null} onViewProgress={() => setView('generation')} />}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
 					{view === 'brand' && <BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />}
 				</div>
@@ -1879,8 +1881,8 @@ function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBa
 							<figure key={generation.id} style={{ margin: 0, background: '#fff', border: '1px solid #eee9f2', borderRadius: '16px', padding: '14px' }}>
 								<img src={generation.imageUrl} alt={generation.title} style={{ width: '100%', borderRadius: '10px', display: 'block' }} />
 								<figcaption style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-									<a href={generation.imageUrl} download={`creattia-${generation.id}.png`} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: '10px', background: '#19171d', color: '#fff', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>Descargar</a>
-									<button onClick={() => onReuse(generation)} style={{ flex: 1, padding: '11px 0', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Nueva versión</button>
+									<button onClick={() => void downloadImage(generation.imageUrl, `creattia-${generation.id}.png`)} style={{ flex: 1, padding: '11px 0', borderRadius: '10px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Descargar</button>
+									<button onClick={() => onReuse(generation)} style={{ flex: 1, padding: '11px 0', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Nueva versión</button>
 								</figcaption>
 							</figure>
 						))}
@@ -2163,9 +2165,9 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 	</>;
 }
 
-function History({ history, onCreate, onReuse, pending, onViewProgress }: { history: Generation[]; onCreate: () => void; onReuse: (item: Generation) => void; pending?: { count: number; title: string; referenceUrl?: string } | null; onViewProgress?: () => void }) {
+function History({ history, onCreate, onReuse, onExpand, pending, onViewProgress }: { history: Generation[]; onCreate: () => void; onReuse: (item: Generation) => void; onExpand?: (item: Generation) => void; pending?: { count: number; title: string; referenceUrl?: string } | null; onViewProgress?: () => void }) {
 	const hasContent = history.length > 0 || Boolean(pending);
-	return <><div className="studio-page-heading"><div><p>MIS IMÁGENES</p><h1>Todo lo que creaste.</h1><span>Descargá una imagen o usala como base para crear otra.</span></div><button className="studio-primary-button compact" onClick={onCreate}><Icon name="plus" size={17}/>Crear imagen</button></div>{hasContent ? <div className="studio-history-grid">{pending && Array.from({ length: pending.count }, (_, index) => <PendingGenerationCard key={`pending-${index}`} title={pending.title} referenceUrl={pending.referenceUrl} onClick={onViewProgress} />)}{history.map((item) => <GenerationCard key={item.id} item={item} onReuse={() => onReuse(item)}/>)}</div> : <div className="studio-empty large"><span><Icon name="history"/></span><h3>Todavía no creaste imágenes</h3><p>Elegí una idea de la biblioteca para empezar.</p><button onClick={onCreate}>Elegir una idea</button></div>}</>;
+	return <><div className="studio-page-heading"><div><p>MIS IMÁGENES</p><h1>Todo lo que creaste.</h1><span>Tocá una imagen para verla grande, descargarla o crear otra versión.</span></div><button className="studio-primary-button compact" onClick={onCreate}><Icon name="plus" size={17}/>Crear imagen</button></div>{hasContent ? <div className="studio-history-grid">{pending && Array.from({ length: pending.count }, (_, index) => <PendingGenerationCard key={`pending-${index}`} title={pending.title} referenceUrl={pending.referenceUrl} onClick={onViewProgress} />)}{history.map((item) => <GenerationCard key={item.id} item={item} onExpand={onExpand ? () => onExpand(item) : undefined} onReuse={() => onReuse(item)}/>)}</div> : <div className="studio-empty large"><span><Icon name="history"/></span><h3>Todavía no creaste imágenes</h3><p>Elegí una idea de la biblioteca para empezar.</p><button onClick={onCreate}>Elegir una idea</button></div>}</>;
 }
 
 // Tarjeta placeholder mientras una imagen se está generando en el servidor.
@@ -2184,8 +2186,103 @@ function PendingGenerationCard({ title, referenceUrl, onClick }: { title: string
 	);
 }
 
-function GenerationCard({ item, onReuse }: { item: Generation; onReuse?: () => void }) {
-	return <article className="studio-generation-card"><div><img src={item.imageUrl} alt={item.title}/><a href={item.imageUrl} download aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a></div><footer><small>{item.category}</small><h3>{item.title}</h3><span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>{onReuse && <button onClick={onReuse}><Icon name="history" size={14}/>Crear otra versión</button>}</footer></article>;
+// Descarga sin abrir pestaña nueva (las URLs firmadas de Supabase son cross-origin
+// y el atributo download solo no alcanza).
+async function downloadImage(url: string, name: string) {
+	try {
+		const response = await fetch(url);
+		const blob = await response.blob();
+		const objectUrl = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		anchor.href = objectUrl;
+		anchor.download = name;
+		anchor.click();
+		URL.revokeObjectURL(objectUrl);
+	} catch {
+		window.open(url, '_blank');
+	}
+}
+
+function GenerationCard({ item, onReuse, onExpand }: { item: Generation; onReuse?: () => void; onExpand?: () => void }) {
+	return <article className="studio-generation-card"><div style={{ cursor: onExpand ? 'zoom-in' : 'default' }} onClick={onExpand}><img src={item.imageUrl} alt={item.title} loading="lazy"/><a href={item.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(item.imageUrl, `creattia-${item.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a></div><footer><small>{item.category}</small><h3>{item.title}</h3><span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>{(onExpand || onReuse) && <button onClick={onExpand || onReuse}><Icon name="history" size={14}/>Crear otra versión</button>}</footer></article>;
+}
+
+// Lightbox: expande la imagen dentro de la app (nunca una página nueva) y
+// permite pedir una nueva versión con una indicación directa.
+function ImageLightbox({ item, session, onClose, onStarted }: {
+	item: Generation;
+	session: AppSession;
+	onClose: () => void;
+	onStarted: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
+}) {
+	const [revision, setRevision] = useState('');
+	const [starting, setStarting] = useState(false);
+	const [error, setError] = useState('');
+
+	async function requestRevision() {
+		setStarting(true); setError('');
+		try {
+			const form = new FormData();
+			form.set('templateId', String(item.templateId || 40));
+			form.set('templateName', item.title);
+			form.set('sourceGenerationId', item.id);
+			form.set('variationStrength', revision.trim() ? 'exact' : 'light');
+			form.set('imageType', item.imageType || 'promotion');
+			form.set('format', item.format || '1:1');
+			form.set('fidelity', '1');
+			form.set('preset', 'Nueva versión');
+			form.set('count', '1');
+			form.set('brief', revision.trim());
+			(item.productIds || []).forEach((id) => form.append('productIds', id));
+			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar la nueva versión.');
+			if (payload.async && payload.batchId) {
+				onStarted({ batchId: payload.batchId, title: item.title, referenceUrl: item.imageUrl, count: 1 });
+				onClose();
+			}
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la nueva versión.');
+		} finally { setStarting(false); }
+	}
+
+	return (
+		<div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(12,10,16,0.78)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: '24px' }}>
+			<div onClick={(event) => event.stopPropagation()} style={{ display: 'flex', gap: '22px', alignItems: 'stretch', maxWidth: '1100px', width: '100%', maxHeight: '90vh' }}>
+				<div style={{ flex: '1 1 auto', display: 'grid', placeItems: 'center', minWidth: 0 }}>
+					<img src={item.imageUrl} alt={item.title} style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }} />
+				</div>
+				<aside style={{ flex: '0 0 300px', background: '#fff', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+						<div>
+							<h3 style={{ margin: 0, fontSize: '17px', color: '#19171d' }}>{item.title}</h3>
+							<p style={{ margin: '4px 0 0', fontSize: '12px', color: '#8b8490' }}>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'long' }).format(new Date(item.createdAt))}</p>
+						</div>
+						<button onClick={onClose} aria-label="Cerrar" style={{ border: 0, background: '#f2eef6', width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer', color: '#4b4452', fontSize: '15px' }}>✕</button>
+					</div>
+					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer' }}>Descargar imagen</button>
+					<div style={{ borderTop: '1px solid #eee9f2', paddingTop: '14px' }}>
+						<strong style={{ display: 'block', fontSize: '14px', color: '#19171d', marginBottom: '8px' }}>Crear otra versión</strong>
+						<p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#8b8490', lineHeight: 1.5 }}>Contale a la IA qué cambiar. Si lo dejás vacío genera una variante manteniendo el diseño.</p>
+						<textarea
+							value={revision}
+							onChange={(event) => setRevision(event.target.value)}
+							placeholder="Ej: usá fondo azul, agrandá el titular, agregá el precio $99…"
+							style={{ width: '100%', minHeight: '90px', padding: '11px 12px', borderRadius: '10px', border: '1px solid #dcd5e4', fontSize: '14px', resize: 'vertical', fontFamily: 'inherit' }}
+						/>
+						{error && <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: '#a43f3f' }}>{error}</p>}
+						<button
+							onClick={() => void requestRevision()}
+							disabled={starting}
+							style={{ width: '100%', height: '46px', marginTop: '10px', borderRadius: '11px', border: 0, background: 'linear-gradient(135deg, #7542eb, #5927c8)', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: starting ? 0.6 : 1 }}
+						>
+							{starting ? 'Iniciando…' : 'Generar nueva versión'}
+						</button>
+					</div>
+				</aside>
+			</div>
+		</div>
+	);
 }
 
 function Plans({ profile, session }: { profile: AppProfile; session: AppSession }) {

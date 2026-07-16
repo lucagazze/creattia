@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
+import CreationFlow from './CreationFlow';
 
 function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
 	const common = { width: size, height: size, viewBox: '0 0 24 24', fill, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
@@ -653,6 +654,20 @@ export default function WinnersLibrary({
 		});
 	}, [items, activeCategory, activeNiche, query, likedScrapedPaths, favorites]);
 
+	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
+	const [visibleCount, setVisibleCount] = useState(30);
+	useEffect(() => { setVisibleCount(30); }, [activeCategory, activeNiche, query]);
+	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
+	useEffect(() => {
+		const sentinel = loadMoreRef.current;
+		if (!sentinel || visibleCount >= filteredItems.length) return;
+		const observer = new IntersectionObserver((entries) => {
+			if (entries[0]?.isIntersecting) setVisibleCount((current) => current + 30);
+		}, { rootMargin: '600px' });
+		observer.observe(sentinel);
+		return () => observer.disconnect();
+	}, [visibleCount, filteredItems.length, activeAd]);
+
 	// Delete winner handler
 	const handleDelete = async (imagePath: string) => {
 		if (!window.confirm('¿Seguro que querés eliminar este anuncio de la biblioteca de ganadores?')) return;
@@ -719,6 +734,21 @@ export default function WinnersLibrary({
 		}
 	};
 
+	// Página completa de creación (sin modal): elegir producto, formato, idioma,
+	// estilo, revisar/editar los textos propuestos y recién ahí generar.
+	if (activeAd) {
+		return (
+			<CreationFlow
+				ad={activeAd}
+				session={session}
+				savedProducts={savedProducts}
+				onToast={onToast}
+				onGenerationStarted={onGenerationStarted}
+				onBack={() => setActiveAd(null)}
+			/>
+		);
+	}
+
 	return (
 		<div className="winners-library-container">
 			<div className="studio-page-heading">
@@ -762,23 +792,23 @@ export default function WinnersLibrary({
 
 			{/* Niche filter rail */}
 			{availableNiches.length > 1 && (
-				<div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', overflowX: 'auto', paddingBottom: '8px', borderBottom: '1px solid #f3eff6' }}>
-					<span style={{ fontSize: '11px', fontWeight: 800, color: '#918b95', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+				<div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '12px', paddingBottom: '10px', borderBottom: '1px solid #f3eff6' }}>
+					<span style={{ fontSize: '12px', fontWeight: 800, color: '#918b95', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', lineHeight: '34px' }}>
 						🔍 Filtrar por Nicho:
 					</span>
-					<div style={{ display: 'flex', gap: '8px' }}>
+					<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
 						{availableNiches.map(niche => (
-							<button 
+							<button
 								key={niche}
 								onClick={() => setActiveNiche(niche)}
 								style={{
-									height: '28px',
-									padding: '0 12px',
-									borderRadius: '14px',
+									height: '34px',
+									padding: '0 14px',
+									borderRadius: '17px',
 									border: activeNiche === niche ? '1.5px solid #a25df7' : '1.5px solid #e9e6ed',
 									background: activeNiche === niche ? '#fcfbfe' : '#fff',
 									color: activeNiche === niche ? '#a25df7' : '#716d79',
-									fontSize: '11.5px',
+									fontSize: '13px',
 									fontWeight: activeNiche === niche ? 800 : 600,
 									cursor: 'pointer',
 									whiteSpace: 'nowrap',
@@ -813,7 +843,7 @@ export default function WinnersLibrary({
 				</div>
 			) : (
 				<div className="library-ad-grid-masonry">
-					{filteredItems.map((item, idx) => {
+					{filteredItems.slice(0, visibleCount).map((item, idx) => {
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
 						const imageUrl = hasFailed 
 							? getFallbackImage(item.templateId)
@@ -1032,6 +1062,11 @@ export default function WinnersLibrary({
 							</article>
 						);
 					})}
+					{visibleCount < filteredItems.length && (
+						<div ref={loadMoreRef} style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+							<span className="studio-spinner" style={{ width: '22px', height: '22px' }} />
+						</div>
+					)}
 				</div>
 			)}
 
@@ -1127,580 +1162,6 @@ export default function WinnersLibrary({
 								{submitting ? 'Guardando...' : 'Guardar en la biblioteca'}
 							</button>
 						</form>
-					</div>
-				</div>
-			)}
-
-			{/* Interactive Generation Modal */}
-			{activeAd && (
-				<div 
-					style={{
-						position: 'fixed',
-						inset: 0,
-						background: 'rgba(0,0,0,0.5)',
-						display: 'grid',
-						placeItems: 'center',
-						zIndex: 100,
-						backdropFilter: 'blur(4px)',
-						padding: '20px'
-					}}
-				>
-					<div 
-						onClick={(e) => e.stopPropagation()}
-						style={{
-							background: '#fff',
-							padding: '24px',
-							borderRadius: '16px',
-							width: '100%',
-							maxWidth: '560px',
-							maxHeight: '90vh',
-							overflowY: 'auto',
-							border: '1px solid #e9e6ed',
-							boxShadow: '0 25px 75px rgba(52, 40, 79, 0.08)',
-							position: 'relative'
-						}}
-					>
-						<header style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px', borderBottom: '1px solid #f3eff6', paddingBottom: '14px' }}>
-							{/* Reference image thumbnail */}
-							{activeAd.imagePath && (
-								<div style={{ width: '60px', height: '60px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: '2px solid #ede8f2', background: '#f5f3f8' }}>
-									<img 
-										src={`https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${activeAd.imagePath}`}
-										alt=""
-										style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-									onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-									/>
-								</div>
-							)}
-							<div style={{ flex: 1 }}>
-								<h3 style={{ margin: 0, fontSize: '17px', color: '#19171d', fontWeight: 800 }}>
-									Crear con este diseño
-								</h3>
-								<p style={{ margin: '2px 0 0', fontSize: '12px', color: '#716d79' }}>
-									Referencia: <strong>{activeAd.name}</strong>
-								</p>
-							</div>
-							<button 
-								onClick={() => setActiveAd(null)}
-								style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: '6px', color: '#716d79', flexShrink: 0 }}
-							>
-								<Icon name="close" size={20} />
-							</button>
-						</header>
-
-						{generating ? (
-							<div style={{ textAlign: 'center', padding: '40px 0' }}>
-								<span className="studio-spinner" style={{ width: '40px', height: '40px', margin: '0 auto 20px' }} />
-								<h4 style={{ fontSize: '16px', fontWeight: 800, color: '#19171d', marginBottom: '8px' }}>Creattia está generando tu anuncio...</h4>
-								<p style={{ fontSize: '13px', color: '#716d79' }}>Esto puede demorar hasta 30 segundos. ¡No cierres el modal!</p>
-							</div>
-						) : generatedResult ? (
-							<div style={{ padding: '10px 0' }}>
-								<div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', marginBottom: '20px' }}>
-									{/* Reference mini */}
-									<div style={{ flexShrink: 0 }}>
-										<p style={{ fontSize: '10px', color: '#918b95', fontWeight: 700, margin: '0 0 4px', textTransform: 'uppercase' }}>Referencia</p>
-										<div style={{ width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e9e6ed' }}>
-											<img src={`https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${activeAd.imagePath}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-										</div>
-									</div>
-									{/* Generated result */}
-									<div style={{ flex: 1 }}>
-										<p style={{ fontSize: '10px', color: '#918b95', fontWeight: 700, margin: '0 0 4px', textTransform: 'uppercase' }}>Tu anuncio</p>
-										<div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #e9e6ed', boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}>
-											<img src={generatedResult} alt="Resultado" style={{ width: '100%', height: 'auto', display: 'block' }} />
-										</div>
-									</div>
-								</div>
-
-								{/* Custom instructions for re-generation */}
-								<div style={{ marginBottom: '14px' }}>
-									<textarea
-										value={customInstructions}
-										onChange={(e) => setCustomInstructions(e.target.value)}
-										placeholder="Da indicaciones para mejorar (ej: 'usá fondo azul', 'agrandá el texto', 'agrega precio $99')…"
-										style={{ width: '100%', minHeight: '64px', padding: '10px 12px', border: '1px solid #d8d3e0', borderRadius: '10px', resize: 'vertical', fontSize: '13px', outline: 0, fontFamily: 'inherit', boxSizing: 'border-box' }}
-									/>
-								</div>
-
-								<div style={{ display: 'flex', gap: '10px' }}>
-									<button 
-										onClick={() => { setGeneratedResult(''); void handleGenerateFromModal(); }}
-										className="studio-primary-button"
-										style={{ flex: 1, height: '44px', background: 'var(--holo-gradient)' }}
-									>
-										{customInstructions.trim() ? '↺ Regenerar con indicaciones' : '↺ Crear otra versión'}
-									</button>
-									<a 
-										href={generatedResult} 
-										download="anuncio-creattia.png" 
-										target="_blank" 
-										rel="noreferrer"
-										className="studio-primary-button" 
-										style={{ textDecoration: 'none', height: '44px', padding: '0 20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#19171d' }}
-									>
-										<Icon name="download" size={16} />
-										Descargar
-									</a>
-								</div>
-							</div>
-						) : onboardingShow ? (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-								<div style={{ textAlign: 'center', marginBottom: '10px' }}>
-									<h4 style={{ fontSize: '16px', fontWeight: 800, color: '#19171d', margin: 0 }}>⚙️ Configuración de tu Marca (Opcional)</h4>
-									<p style={{ fontSize: '12px', color: '#716d79', margin: '4px 0 0' }}>Completá estos datos una sola vez para que Creattia personalice tus anuncios.</p>
-								</div>
-								
-								<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
-									Nombre de tu marca
-									<input 
-										type="text" 
-										value={onboardingBrandName} 
-										onChange={(e) => setOnboardingBrandName(e.target.value)}
-										placeholder="ej. Vitta, Nike, Bold"
-										style={{ height: '42px', padding: '0 12px', border: '1px solid #aaa4b0', borderRadius: '10px', outline: 0, fontSize: '14px' }}
-									/>
-								</label>
-
-								<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
-									Sitio web (opcional)
-									<input 
-										type="url" 
-										value={onboardingWebsite} 
-										onChange={(e) => setOnboardingWebsite(e.target.value)}
-										placeholder="https://tumarca.com"
-										style={{ height: '42px', padding: '0 12px', border: '1px solid #aaa4b0', borderRadius: '10px', outline: 0, fontSize: '14px' }}
-									/>
-								</label>
-
-								<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
-									Instagram (opcional)
-									<input 
-										type="text" 
-										value={onboardingInstagram} 
-										onChange={(e) => setOnboardingInstagram(e.target.value)}
-										placeholder="https://instagram.com/tumarca"
-										style={{ height: '42px', padding: '0 12px', border: '1px solid #aaa4b0', borderRadius: '10px', outline: 0, fontSize: '14px' }}
-									/>
-								</label>
-
-								{generationError && (
-									<p style={{ margin: '0', padding: '10px 12px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '8px', color: '#a43f3f', fontSize: '12px' }}>
-										{generationError}
-									</p>
-								)}
-
-								<div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
-									<button
-										type="button"
-										onClick={async () => {
-											setOnboardingSaving(true);
-											setGenerationError('');
-											try {
-												if (onUpdateProfile) {
-													await onUpdateProfile({
-														...profile,
-														onboardingCompleted: true
-													});
-												}
-												setOnboardingSkippedOrDone(true);
-												setOnboardingShow(false);
-												setTimeout(() => {
-													void handleGenerateFromModal();
-												}, 100);
-											} catch (err: any) {
-												setGenerationError(err.message || 'Error al guardar.');
-											} finally {
-												setOnboardingSaving(false);
-											}
-										}}
-										style={{ flex: 1, height: '44px', borderRadius: '10px', border: '1px solid #e9e6ed', background: '#fff', color: '#716d79', cursor: 'pointer', fontWeight: 700 }}
-										disabled={onboardingSaving}
-									>
-										Omitir y Generar
-									</button>
-									<button
-										type="button"
-										onClick={async () => {
-											setOnboardingSaving(true);
-											setGenerationError('');
-											try {
-												if (onUpdateProfile) {
-													await onUpdateProfile({
-														...profile,
-														brandName: onboardingBrandName,
-														website: onboardingWebsite,
-														instagram: onboardingInstagram,
-														onboardingCompleted: true
-													});
-												}
-												setOnboardingSkippedOrDone(true);
-												setOnboardingShow(false);
-												setTimeout(() => {
-													void handleGenerateFromModal();
-												}, 100);
-											} catch (err: any) {
-												setGenerationError(err.message || 'Error al guardar.');
-											} finally {
-												setOnboardingSaving(false);
-											}
-										}}
-										className="studio-primary-button"
-										style={{ flex: 1, height: '44px', background: 'var(--holo-gradient)', color: '#fff', border: 0 }}
-										disabled={onboardingSaving || !onboardingBrandName.trim()}
-									>
-										{onboardingSaving ? 'Guardando...' : 'Guardar y Generar'}
-									</button>
-								</div>
-							</div>
-						) : (
-							<div>
-								{(() => {
-									const slides = (activeAd.metadata?.carouselImages && activeAd.metadata.carouselImages.length > 0)
-										? activeAd.metadata.carouselImages
-										: [activeAd.imagePath];
-
-									return (
-										<div style={{ marginBottom: '24px' }}>
-											<p style={{ fontSize: '11px', fontWeight: 800, color: '#918b95', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-												🎨 Diseño de Referencia ({slides.length} {slides.length === 1 ? 'imagen' : 'imágenes'})
-											</p>
-											<div style={{ position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e9e6ed', background: '#f8f6fb', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-												<div style={{ width: '100%', position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-													<img 
-														src={`https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${slides[currentSlide]}`} 
-														alt="" 
-														style={{ width: '100%', maxHeight: '420px', objectFit: 'contain', display: 'block' }}
-													/>
-
-													{/* Left Arrow */}
-													{slides.length > 1 && (
-														<button 
-															type="button"
-															onClick={() => setCurrentSlide(prev => (prev === 0 ? slides.length - 1 : prev - 1))}
-															style={{
-																position: 'absolute',
-																left: '12px',
-																top: '50%',
-																transform: 'translateY(-50%)',
-																width: '32px',
-																height: '32px',
-																borderRadius: '50%',
-																background: 'rgba(255,255,255,0.9)',
-																border: '1px solid #e9e6ed',
-																boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-																cursor: 'pointer',
-																display: 'grid',
-																placeItems: 'center',
-																color: '#19171d',
-																zIndex: 5
-															}}
-														>
-															<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-																<polyline points="15 18 9 12 15 6" />
-															</svg>
-														</button>
-													)}
-
-													{/* Right Arrow */}
-													{slides.length > 1 && (
-														<button 
-															type="button"
-															onClick={() => setCurrentSlide(prev => (prev === slides.length - 1 ? 0 : prev + 1))}
-															style={{
-																position: 'absolute',
-																right: '12px',
-																top: '50%',
-																transform: 'translateY(-50%)',
-																width: '32px',
-																height: '32px',
-																borderRadius: '50%',
-																background: 'rgba(255,255,255,0.9)',
-																border: '1px solid #e9e6ed',
-																boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-																cursor: 'pointer',
-																display: 'grid',
-																placeItems: 'center',
-																color: '#19171d',
-																zIndex: 5
-															}}
-														>
-															<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-																<polyline points="9 18 15 12 9 6" />
-															</svg>
-														</button>
-													)}
-												</div>
-
-												{/* Dots indicator */}
-												{slides.length > 1 && (
-													<div style={{ display: 'flex', gap: '6px', padding: '12px 0', justifyContent: 'center' }}>
-														{slides.map((_, i) => (
-															<div 
-																key={i} 
-																style={{
-																	width: '6px',
-																	height: '6px',
-																	borderRadius: '50%',
-																	background: currentSlide === i ? '#a25df7' : '#d8d3e0',
-																	transition: 'background-color 0.2s'
-																}}
-															/>
-														))}
-													</div>
-												)}
-											</div>
-										</div>
-									);
-								})()}
-
-								{/* Step 1: Input URLs or manual details */}
-								{/* ── Saved products quick-select ── */}
-								{savedProducts.length > 0 && (
-									<div style={{ marginBottom: '16px' }}>
-										<p style={{ fontSize: '12px', fontWeight: 800, color: '#19171d', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-											🗂 Productos guardados
-										</p>
-										<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-											{savedProducts.map(sp => (
-												<button
-													key={sp.id}
-													type="button"
-													onClick={() => {
-														if (selectedSavedProduct?.id === sp.id) {
-															setSelectedSavedProduct(null);
-														} else {
-															setSelectedSavedProduct(sp);
-															setScannedOptions([]);
-															setSelectedOptions([]);
-														}
-													}}
-													style={{
-														height: '32px',
-														padding: '0 12px',
-														border: selectedSavedProduct?.id === sp.id ? '2px solid #7c3aed' : '1px solid #ddd',
-														borderRadius: '20px',
-														background: selectedSavedProduct?.id === sp.id ? '#f3ecff' : '#f8f6fb',
-														color: selectedSavedProduct?.id === sp.id ? '#7c3aed' : '#4b4452',
-														fontWeight: 700,
-														cursor: 'pointer',
-														fontSize: '12px',
-														transition: 'all 0.15s',
-													}}
-												>
-													{sp.name || 'Producto'}
-												</button>
-											))}
-										</div>
-										{selectedSavedProduct && (
-											<div style={{ marginTop: '10px', padding: '10px 12px', background: '#f8f6fb', borderRadius: '10px', border: '1px solid #e9e6ed' }}>
-												<p style={{ margin: 0, fontSize: '12px', color: '#716d79' }}>
-													<strong style={{ color: '#19171d' }}>{selectedSavedProduct.name}</strong>
-													{selectedSavedProduct.description && ` — ${selectedSavedProduct.description.slice(0, 80)}...`}
-												</p>
-											</div>
-										)}
-										<div style={{ height: '1px', background: '#f0ecf5', margin: '16px 0' }} />
-									</div>
-								)}
-
-								<div style={{ display: 'flex', gap: '8px', padding: '4px', background: '#f5f2f7', borderRadius: '10px', marginBottom: '20px' }}>
-									<button 
-										type="button" 
-										onClick={() => setIsUrlMode(true)}
-										style={{ flex: 1, height: '34px', border: 0, borderRadius: '7px', background: isUrlMode ? '#fff' : 'transparent', color: isUrlMode ? '#19171d' : '#716d79', fontWeight: 800, cursor: 'pointer', boxShadow: isUrlMode ? '0 2px 6px rgba(0,0,0,0.05)' : 'none' }}
-									>
-										Analizar URLs
-									</button>
-									<button 
-										type="button" 
-										onClick={() => setIsUrlMode(false)}
-										style={{ flex: 1, height: '34px', border: 0, borderRadius: '7px', background: !isUrlMode ? '#fff' : 'transparent', color: !isUrlMode ? '#19171d' : '#716d79', fontWeight: 800, cursor: 'pointer', boxShadow: !isUrlMode ? '0 2px 6px rgba(0,0,0,0.05)' : 'none' }}
-									>
-										Subida manual
-									</button>
-								</div>
-
-								{isUrlMode ? (
-									<div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-										<label style={{ fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
-											URLs de tu producto o página (hasta 5)
-										</label>
-										{urlList.map((url, idx) => (
-											<div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-												<input 
-													type="url"
-													value={url}
-													onChange={(e) => {
-														const next = [...urlList];
-														next[idx] = e.target.value;
-														setUrlList(next);
-													}}
-													placeholder={idx === 0 ? 'https://tutienda.com/producto' : `URL ${idx + 1} (opcional)`}
-													style={{ flex: 1, height: '42px', padding: '0 12px', border: '1px solid #aaa4b0', borderRadius: '10px', outline: 0, fontSize: '14px' }}
-												/>
-												{urlList.length > 1 && (
-													<button
-														type="button"
-														onClick={() => setUrlList(urlList.filter((_, i) => i !== idx))}
-														style={{ width: '34px', height: '34px', border: '1px solid #e9e6ed', borderRadius: '8px', background: '#fff', cursor: 'pointer', color: '#716d79', display: 'grid', placeItems: 'center', flexShrink: 0 }}
-													>
-														<Icon name="close" size={14} />
-													</button>
-												)}
-											</div>
-										))}
-										{urlList.length < 5 && (
-											<button
-												type="button"
-												onClick={() => setUrlList([...urlList, ''])}
-												style={{ alignSelf: 'flex-start', height: '34px', padding: '0 14px', border: '1px dashed #a25df7', borderRadius: '8px', background: 'transparent', color: '#a25df7', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
-											>
-												<Icon name="plus" size={14} /> Agregar URL
-											</button>
-										)}
-										<button 
-											type="button" 
-											onClick={handleScanUrls}
-											disabled={scanning || !urlList.some(u => u.trim())}
-											className="studio-primary-button"
-											style={{ height: '42px', background: '#19171d' }}
-										>
-											{scanning ? 'Analizando con IA...' : 'Analizar URLs'}
-										</button>
-									</div>
-								) : (
-									<div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-										<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
-											Descripción de tu producto o servicio
-											<textarea 
-												value={manualDesc}
-												onChange={(e) => setManualDesc(e.target.value)}
-												placeholder="ej. Remera clásica de algodón peinado, corte regular fit..."
-												style={{ minHeight: '80px', padding: '12px', border: '1px solid #aaa4b0', borderRadius: '10px', resize: 'none', fontSize: '14px' }}
-											/>
-										</label>
-
-										<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 'bold', color: '#19171d' }}>
-											Subí fotos de tus productos (opcional, hasta 5)
-											<input 
-												type="file" 
-												multiple
-												accept="image/*"
-												onChange={handleFileChange}
-												style={{ fontSize: '13px' }}
-											/>
-										</label>
-									</div>
-								)}
-
-								{/* Step 2: Multiple Choice Questions */}
-								{scannedOptions.length > 0 && (
-									<div style={{ marginTop: '20px', borderTop: '1px solid #f3eff6', paddingTop: '15px' }}>
-										<strong style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '10px' }}>
-											¿Qué querés mostrar en el anuncio? (Opción múltiple)
-										</strong>
-										<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-											{scannedOptions.map((opt, idx) => (
-												<label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#4b4452', cursor: 'pointer', fontWeight: 'normal' }}>
-													<input 
-														type="checkbox" 
-														checked={selectedOptions.includes(opt)}
-														onChange={(e) => {
-															if (e.target.checked) {
-																setSelectedOptions([...selectedOptions, opt]);
-															} else {
-																setSelectedOptions(selectedOptions.filter(o => o !== opt));
-															}
-														}}
-														style={{ width: '16px', height: '16px', accentColor: '#a25df7' }}
-													/>
-													{opt}
-												</label>
-											))}
-										</div>
-									</div>
-								)}
-
-								{/* Step 3: Format selector */}
-								<div style={{ marginBottom: '25px' }}>
-									<strong style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '10px' }}>
-										Formato de la imagen
-									</strong>
-									<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-										{[
-											{ id: 'original', label: 'Original', desc: 'Igual al ganador', w: 24, h: 24, dashed: true },
-											{ id: '1:1', label: '1:1', desc: 'Feed', w: 26, h: 26 },
-											{ id: '3:4', label: '3:4', desc: 'Vertical', w: 21, h: 28 },
-											{ id: '9:16', label: '9:16', desc: 'Historia', w: 16, h: 28 },
-											{ id: '4:3', label: '4:3', desc: 'Horizontal', w: 28, h: 21 },
-											{ id: '16:9', label: '16:9', desc: 'Panorámico', w: 30, h: 17 },
-										].map(f => (
-											<button
-												key={f.id}
-												type="button"
-												onClick={() => setAdFormat(f.id)}
-												style={{
-													display: 'flex',
-													flexDirection: 'column',
-													alignItems: 'center',
-													justifyContent: 'flex-end',
-													gap: '6px',
-													padding: '10px 8px 8px',
-													minWidth: '62px',
-													borderRadius: '8px',
-													border: adFormat === f.id ? '2px solid #a25df7' : '1px solid #e9e6ed',
-													background: adFormat === f.id ? '#fcfbfe' : '#fff',
-													cursor: 'pointer',
-													outline: 0,
-												}}
-											>
-												<span style={{
-													display: 'block',
-													width: `${f.w}px`,
-													height: `${f.h}px`,
-													borderRadius: '4px',
-													border: adFormat === f.id ? '2px solid #a25df7' : '2px solid #b9b3c2',
-													borderStyle: (f as any).dashed ? 'dashed' : 'solid',
-													background: adFormat === f.id ? 'rgba(162,93,247,0.12)' : '#f6f4f9',
-												}} />
-												<strong style={{ fontSize: '12px', color: '#19171d', lineHeight: 1 }}>{f.label}</strong>
-												<span style={{ fontSize: '10px', color: '#716d79', lineHeight: 1 }}>{f.desc}</span>
-											</button>
-										))}
-									</div>
-								</div>
-
-								{generationError && (
-									<p style={{ margin: '0 0 15px', padding: '10px 12px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '8px', color: '#a43f3f', fontSize: '12px' }}>
-										{generationError}
-									</p>
-								)}
-
-								{/* Step 4: Submit button — requiere un producto real para clonar fiel */}
-								{(() => {
-									const hasProductReady = isUrlMode ? Boolean(selectedSavedProduct) : manualFiles.length > 0;
-									return <>
-										{!hasProductReady && (
-											<p style={{ margin: '0 0 10px', fontSize: '12px', color: '#8b8490', textAlign: 'center' }}>
-												{isUrlMode
-													? 'Elegí un producto guardado o escaneá la URL de tu producto para poder generar.'
-													: 'Subí al menos una foto de tu producto para poder generar.'}
-											</p>
-										)}
-										<button
-											type="button"
-											onClick={handleGenerateFromModal}
-											disabled={!hasProductReady || generating}
-											className="studio-primary-button"
-											style={{ width: '100%', height: '46px', background: 'var(--holo-gradient)', color: '#fff', border: 0, opacity: !hasProductReady || generating ? 0.55 : 1 }}
-										>
-											Generar fiel al ganador
-										</button>
-									</>;
-								})()}
-							</div>
-						)}
 					</div>
 				</div>
 			)}
