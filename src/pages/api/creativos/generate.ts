@@ -218,7 +218,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		let reservedCount = 0;
-		const isAdmin = auth.user.email === 'lucagazze1@gmail.com';
+		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze');
 		let remaining = 99999;
 
 		if (!isAdmin) {
