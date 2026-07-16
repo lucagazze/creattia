@@ -8,6 +8,7 @@ export default defineConfig({
   output: 'server',
   adapter: vercel({
     webAnalytics: { enabled: true },
+    maxDuration: 300,
   }),
   integrations: [react(), sitemap()],
   prefetch: {

@@ -155,11 +155,13 @@ export default function WinnersLibrary({
 	onUpdateProfile,
 	historyCount = 0,
 	favorites = new Set(),
-	onToggleFavorite
+	onToggleFavorite,
+	onGenerationStarted
 }: {
 	session: any;
 	profile?: any;
 	onGenerated?: (generations: any[], credits: number) => void;
+	onGenerationStarted?: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
 	isSupabaseConfigured?: boolean;
 	onToast?: (message: string) => void;
 	preselectedTemplateId?: number | null;
@@ -522,7 +524,20 @@ export default function WinnersLibrary({
 				});
 				const payload = await response.json();
 				if (!response.ok) throw new Error(payload.error || 'Error al generar la imagen.');
-				
+
+				// Modo asíncrono: el servidor sigue generando; pasamos a la página dedicada.
+				if (payload.async && payload.batchId && onGenerationStarted) {
+					setGenerating(false);
+					setActiveAd(null);
+					onGenerationStarted({
+						batchId: payload.batchId,
+						title: activeAd.name,
+						referenceUrl: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${activeAd.imagePath}`,
+						count: 1,
+					});
+					return;
+				}
+
 				const genResult = payload.generations?.[0] || { imageUrl: payload.imageUrl };
 				if (genResult.imageUrl) {
 					setGeneratedResult(genResult.imageUrl);

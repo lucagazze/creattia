@@ -6,7 +6,20 @@ import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
 
-type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners';
+type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation';
+
+// Lote de generación en curso: la API responde al instante y el trabajo pesado
+// sigue en el servidor; el front lo sigue por batch_id en creative_generations.
+type ActiveBatch = {
+	batchId: string;
+	title: string;
+	referenceUrl?: string;
+	count: number;
+	startedAt: number;
+	status: 'processing' | 'completed' | 'failed';
+	results: Generation[];
+	error?: string;
+};
 type AppProfile = {
 	fullName: string;
 	brandName: string;
@@ -68,6 +81,7 @@ type Product = {
 const PROFILE_KEY = 'creattia-profile-v1';
 const SESSION_KEY = 'creattia-session-v1';
 const HISTORY_KEY = 'creattia-history-v1';
+const ACTIVE_BATCH_KEY = 'creattia-active-batch-v1';
 const PRODUCTS_KEY = 'creattia-products-v1';
 const FAVORITES_KEY = 'creattia-favorites-v1';
 
@@ -380,6 +394,7 @@ export default function CreativeApp() {
 	const [selected, setSelected] = useState<Creativo>(creativeCatalog.find((c) => c.id === 18) || creativeCatalog[0]);
 	const [reuseSeed, setReuseSeed] = useState<Generation | null>(null);
 	const [history, setHistory] = useState<Generation[]>([]);
+	const [activeBatch, setActiveBatch] = useState<ActiveBatch | null>(null);
 	const [favorites, setFavorites] = useState<Set<number>>(new Set());
 	const [products, setProducts] = useState<Product[]>([]);
 	const [creationProductIds, setCreationProductIds] = useState<string[]>([]);
@@ -762,6 +777,78 @@ export default function CreativeApp() {
 		}
 	}
 
+	// ── Generación en segundo plano ─────────────────────────────────────
+	function startBatchTracking(batch: { batchId: string; title: string; referenceUrl?: string; count: number }) {
+		const record: ActiveBatch = { ...batch, startedAt: Date.now(), status: 'processing', results: [] };
+		setActiveBatch(record);
+		setView('generation');
+		try {
+			window.localStorage.setItem(ACTIVE_BATCH_KEY, JSON.stringify({
+				batchId: batch.batchId, title: batch.title, referenceUrl: batch.referenceUrl || '', count: batch.count, startedAt: record.startedAt,
+			}));
+		} catch { /* almacenamiento lleno o bloqueado: solo perdemos la reanudación */ }
+	}
+
+	// Reanudar un lote pendiente al volver a la app (otro tab, recarga, etc.)
+	useEffect(() => {
+		if (!session || !isSupabaseConfigured || !supabase) return;
+		const raw = window.localStorage.getItem(ACTIVE_BATCH_KEY);
+		if (!raw) return;
+		try {
+			const saved = JSON.parse(raw);
+			if (!saved?.batchId || Date.now() - (saved.startedAt || 0) > 20 * 60 * 1000) {
+				window.localStorage.removeItem(ACTIVE_BATCH_KEY);
+				return;
+			}
+			setActiveBatch({ ...saved, status: 'processing', results: [] });
+		} catch {
+			window.localStorage.removeItem(ACTIVE_BATCH_KEY);
+		}
+	}, [session]);
+
+	// Polling del lote activo hasta que el servidor lo complete o falle.
+	useEffect(() => {
+		if (!activeBatch || activeBatch.status !== 'processing' || !isSupabaseConfigured || !supabase) return;
+		const client = supabase;
+		const batch = activeBatch;
+		let cancelled = false;
+		const poll = async () => {
+			const { data, error } = await client.from('creative_generations')
+				.select('id,status,output_path,error_code,title,format,template_id,batch_id,output_index,created_at,image_type,user_brief,variant_key,product_id,settings_snapshot')
+				.eq('batch_id', batch.batchId).order('output_index');
+			if (cancelled || error || !data?.length) return;
+			if (data.some((row) => row.status === 'processing')) return;
+			const failedRows = data.filter((row) => row.status === 'failed');
+			const completedRows = data.filter((row) => row.status === 'completed' && row.output_path);
+			const generations: Generation[] = [];
+			for (const row of completedRows) {
+				const { data: signed } = await client.storage.from('creative-assets').createSignedUrl(row.output_path, 3600);
+				if (!signed?.signedUrl) continue;
+				generations.push({
+					id: row.id, title: row.title, imageUrl: signed.signedUrl, format: row.format, createdAt: row.created_at,
+					category: 'Creativo', templateId: row.template_id, brief: row.user_brief || '', preset: row.variant_key || '',
+					imageType: row.image_type || 'product', productId: row.product_id || '',
+					productIds: row.settings_snapshot?.productIds || [], batchId: row.batch_id, outputIndex: row.output_index,
+				});
+			}
+			if (cancelled) return;
+			const { data: profileRow } = await client.from('creative_profiles').select('credits_remaining').maybeSingle();
+			if (generations.length) setHistory((prev) => [...generations.filter((item) => !prev.some((existing) => existing.id === item.id)), ...prev].slice(0, 24));
+			if (profileRow) setProfile((prev) => ({ ...prev, credits: profileRow.credits_remaining ?? prev.credits }));
+			setActiveBatch({
+				...batch,
+				status: generations.length ? 'completed' : 'failed',
+				results: generations,
+				error: generations.length ? '' : (failedRows[0]?.error_code || 'No se pudo generar la imagen.'),
+			});
+			window.localStorage.removeItem(ACTIVE_BATCH_KEY);
+			setToast(generations.length ? '¡Tu anuncio está listo!' : 'La generación falló y tus créditos fueron devueltos.');
+		};
+		void poll();
+		const interval = window.setInterval(() => { void poll(); }, 5000);
+		return () => { cancelled = true; window.clearInterval(interval); };
+	}, [activeBatch?.batchId, activeBatch?.status]);
+
 	if (booting || (session && accountLoading)) return <div className="studio-boot"><span className="studio-spinner"/><p>Preparando tu estudio…</p></div>;
 	if (!session) return <AuthScreen onSession={(nextSession) => { setAccountLoading(true); setSession(nextSession); }} />;
 	if (accountError) return <AccountSetupError message={accountError} onRetry={() => window.location.reload()} onLogout={logout} />;
@@ -775,6 +862,22 @@ export default function CreativeApp() {
 	return (
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
+			{activeBatch && view !== 'generation' && activeBatch.status !== 'failed' && (
+				<button
+					onClick={() => setView('generation')}
+					style={{
+						position: 'fixed', bottom: '18px', right: '18px', zIndex: 80,
+						display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 18px',
+						borderRadius: '999px', border: 0, cursor: 'pointer',
+						background: activeBatch.status === 'completed' ? '#128a51' : '#19171d', color: '#fff',
+						fontSize: '13px', fontWeight: 700, boxShadow: '0 10px 28px rgba(0,0,0,0.3)',
+					}}
+				>
+					{activeBatch.status === 'processing'
+						? <><span className="studio-spinner" style={{ width: '14px', height: '14px' }} /> Generando tu anuncio… <u>Ver progreso</u></>
+						: <>✓ Tu anuncio está listo — <u>Verlo</u></>}
+				</button>
+			)}
 			<div className={`studio-mobile-scrim ${mobileMenu ? 'is-open' : ''}`} onClick={() => setMobileMenu(false)} />
 			<aside className={`studio-sidebar ${mobileMenu ? 'is-open' : ''}`}>
 				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: sidebarMinimized ? 0 : '10px', marginBottom: '10px' }}>
@@ -916,8 +1019,9 @@ export default function CreativeApp() {
 						<WinnersLibrary 
 							session={session} 
 							profile={profile} 
-							onGenerated={addGenerations} 
-							isSupabaseConfigured={isSupabaseConfigured} 
+							onGenerated={addGenerations}
+							onGenerationStarted={startBatchTracking}
+							isSupabaseConfigured={isSupabaseConfigured}
 							onToast={setToast} 
 							preselectedTemplateId={preselectedTemplateId}
 							onClearPreselected={() => setPreselectedTemplateId(null)}
@@ -932,7 +1036,15 @@ export default function CreativeApp() {
 						/>
 					)}
 					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onRemove={removeProduct} onCreate={(productId) => productId ? startWithProduct(productId) : setView('library')} />}
-					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} />}
+					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} onGenerationStarted={startBatchTracking} />}
+					{view === 'generation' && activeBatch && (
+						<GenerationView
+							batch={activeBatch}
+							onBack={() => { setView('winners'); if (activeBatch.status !== 'processing') setActiveBatch(null); }}
+							onReuse={(generation) => { setActiveBatch(null); reuseGeneration(generation); }}
+							onHistory={() => { setActiveBatch(null); setView('history'); }}
+						/>
+					)}
 					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} />}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
 					{view === 'brand' && <BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />}
@@ -1718,7 +1830,78 @@ function ProductCatalog({ products, profile, session, onRefresh, onSync, onRemov
 	</>;
 }
 
-function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profile, session, products, onProductsChanged, onChooseLibrary, onGenerated, onToast }: { creative: Creativo; reuseSeed: Generation | null; initialProductIds: string[]; onSeedConsumed: () => void; profile: AppProfile; session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onChooseLibrary: () => void; onGenerated: (generations: Generation[], credits: number) => void; onToast: (message: string) => void }) {
+// Página dedicada a la creación en curso: progreso en vivo, se puede navegar
+// a otras secciones o cerrar la pestaña — la generación sigue en el servidor.
+function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBatch; onBack: () => void; onReuse: (generation: Generation) => void; onHistory: () => void }) {
+	const [now, setNow] = useState(Date.now());
+	useEffect(() => {
+		if (batch.status !== 'processing') return;
+		const timer = window.setInterval(() => setNow(Date.now()), 1000);
+		return () => window.clearInterval(timer);
+	}, [batch.status]);
+	const elapsed = Math.max(0, Math.floor((now - batch.startedAt) / 1000));
+	const minutes = Math.floor(elapsed / 60);
+	const seconds = String(elapsed % 60).padStart(2, '0');
+	const stage = elapsed < 25
+		? 'Analizando el anuncio ganador y tu producto…'
+		: elapsed < 55
+			? 'Escribiendo el copy y planificando cada zona del diseño…'
+			: 'Generando tu imagen en alta calidad…';
+
+	return (
+		<section style={{ maxWidth: '760px', margin: '0 auto', padding: '30px 10px' }}>
+			<button onClick={onBack} style={{ border: 0, background: 'transparent', color: '#716d79', cursor: 'pointer', fontSize: '13px', marginBottom: '18px', padding: 0 }}>← Volver a la biblioteca</button>
+
+			{batch.status === 'processing' && (
+				<div style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '18px', padding: '46px 30px', textAlign: 'center' }}>
+					{batch.referenceUrl && (
+						<img src={batch.referenceUrl} alt="" style={{ width: '92px', height: '92px', objectFit: 'cover', borderRadius: '14px', marginBottom: '20px', boxShadow: '0 10px 26px rgba(0,0,0,0.14)' }} />
+					)}
+					<h1 style={{ margin: '0 0 8px', fontSize: '22px', color: '#19171d' }}>Creando “{batch.title}”</h1>
+					<p style={{ margin: '0 0 26px', color: '#716d79', fontSize: '14px' }}>{stage}</p>
+					<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '26px' }}>
+						<span className="studio-spinner" style={{ width: '22px', height: '22px' }} />
+						<b style={{ fontSize: '15px', color: '#19171d', fontVariantNumeric: 'tabular-nums' }}>{minutes}:{seconds}</b>
+					</div>
+					<p style={{ margin: 0, fontSize: '12px', color: '#8b8490', lineHeight: 1.6 }}>
+						La generación en alta calidad tarda entre 2 y 4 minutos.<br/>
+						Podés seguir usando la app o cerrar esta pestaña: el anuncio se guarda solo en <b>Mis imágenes</b>.
+					</p>
+				</div>
+			)}
+
+			{batch.status === 'completed' && (
+				<div>
+					<h1 style={{ margin: '0 0 6px', fontSize: '24px', color: '#19171d' }}>¡Tu anuncio está listo!</h1>
+					<p style={{ margin: '0 0 22px', color: '#716d79', fontSize: '14px' }}>Basado en “{batch.title}”. También quedó guardado en Mis imágenes.</p>
+					<div style={{ display: 'grid', gridTemplateColumns: batch.results.length > 1 ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr', gap: '18px' }}>
+						{batch.results.map((generation) => (
+							<figure key={generation.id} style={{ margin: 0, background: '#fff', border: '1px solid #eee9f2', borderRadius: '16px', padding: '14px' }}>
+								<img src={generation.imageUrl} alt={generation.title} style={{ width: '100%', borderRadius: '10px', display: 'block' }} />
+								<figcaption style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+									<a href={generation.imageUrl} download={`creattia-${generation.id}.png`} target="_blank" rel="noreferrer" style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: '10px', background: '#19171d', color: '#fff', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>Descargar</a>
+									<button onClick={() => onReuse(generation)} style={{ flex: 1, padding: '11px 0', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Nueva versión</button>
+								</figcaption>
+							</figure>
+						))}
+					</div>
+					<button onClick={onHistory} style={{ marginTop: '20px', border: 0, background: 'transparent', color: '#7a4fd3', cursor: 'pointer', fontSize: '13px', fontWeight: 700, padding: 0 }}>Ver todas mis imágenes →</button>
+				</div>
+			)}
+
+			{batch.status === 'failed' && (
+				<div style={{ background: '#fff5f5', border: '1px solid #f3dada', borderRadius: '18px', padding: '38px 30px', textAlign: 'center' }}>
+					<h1 style={{ margin: '0 0 10px', fontSize: '20px', color: '#a43f3f' }}>No pudimos generar este anuncio</h1>
+					<p style={{ margin: '0 0 6px', color: '#8a5555', fontSize: '13px' }}>{batch.error}</p>
+					<p style={{ margin: '0 0 22px', color: '#8a5555', fontSize: '12px' }}>Tus créditos no usados fueron devueltos automáticamente.</p>
+					<button onClick={onBack} style={{ padding: '11px 22px', borderRadius: '10px', border: 0, background: '#19171d', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Probar de nuevo</button>
+				</div>
+			)}
+		</section>
+	);
+}
+
+function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profile, session, products, onProductsChanged, onChooseLibrary, onGenerated, onToast, onGenerationStarted }: { creative: Creativo; reuseSeed: Generation | null; initialProductIds: string[]; onSeedConsumed: () => void; profile: AppProfile; session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onChooseLibrary: () => void; onGenerated: (generations: Generation[], credits: number) => void; onToast: (message: string) => void; onGenerationStarted?: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void }) {
 	const [wizardOpen, setWizardOpen] = useState(true);
 	const [step, setStep] = useState(1);
 	const [imageType, setImageType] = useState('product');
@@ -1894,6 +2077,14 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 				if (sourceGeneration) { form.set('sourceGenerationId', sourceGeneration.id); form.set('variationStrength', variationStrength); }
 				const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
 				const payload = await response.json(); if (!response.ok) throw new Error(payload.error || 'No se pudo generar.');
+				if (payload.async && payload.batchId && onGenerationStarted) {
+					// La generación sigue en el servidor: pasamos a la página dedicada.
+					setGenerating(false);
+					setWizardOpen(false);
+					onGenerated([], payload.creditsRemaining);
+					onGenerationStarted({ batchId: payload.batchId, title: creative.nombre, count: effectiveCount });
+					return;
+				}
 				credits = payload.creditsRemaining;
 				generations = (payload.generations || [{ id: payload.id, imageUrl: payload.imageUrl, outputIndex: 1 }]).map((item: any) => ({
 					id: item.id, title: creative.nombre, imageUrl: item.imageUrl, format, createdAt: new Date().toISOString(), category: ringMeta[creative.ring]?.label || 'Creativo', templateId: creative.id, brief: effectiveBrief, preset, imageType, productId: selectedProductIds[0], productIds: selectedProductIds, batchId: item.batchId, outputIndex: item.outputIndex,

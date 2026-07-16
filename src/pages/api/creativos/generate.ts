@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { waitUntil } from '@vercel/functions';
 import OpenAI, { toFile } from 'openai';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
@@ -462,6 +463,11 @@ export const POST: APIRoute = async ({ request }) => {
 			if (error) throw error;
 		}
 
+		// ── Pipeline asíncrono ──────────────────────────────────────────────
+		// La respuesta vuelve al instante con el batchId; el trabajo pesado
+		// (análisis, copy, generación, upload) sigue en background con waitUntil.
+		// El frontend sigue el progreso leyendo creative_generations por batch_id.
+		const runPipeline = async () => {
 		const inputs: Awaited<ReturnType<typeof fileToOpenAI>>[] = [];
 		const inputImageMap: string[] = [];
 		let hasReference = false;
@@ -786,7 +792,7 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 		const responseGenerations: Array<{ id: string; imageUrl: string; outputIndex: number; batchId: string }> = [];
 		for (let index = 0; index < Math.min(outputBuffers.length, generationIds.length); index += 1) {
 			const generationId = generationIds[index];
-			const outputPath = `${auth.user.id}/generations/${batchId}/${index + 1}.png`;
+			const outputPath = `${auth.user!.id}/generations/${batchId}/${index + 1}.png`;
 			const { error: uploadError } = await admin.storage.from('creative-assets').upload(
 				outputPath,
 				outputBuffers[index],
@@ -821,18 +827,38 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 			}).in('id', missingIds);
 			if (missingUpdateError) throw missingUpdateError;
 			if (reservedCount > 0) {
-				const { error: missingRefundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: missingCount });
+				const { error: missingRefundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user!.id, p_amount: missingCount });
 				if (missingRefundError) throw missingRefundError;
 				reservedCount -= missingCount;
 			}
 		}
+		};
+
+		const pipelinePromise = runPipeline().catch(async (error) => {
+			const message = error instanceof Error ? error.message : 'No se pudo generar el creativo.';
+			console.error('Generation pipeline failed:', error);
+			const failedIds = generationIds.filter((id) => !completedIds.has(id));
+			if (failedIds.length) {
+				await admin.from('creative_generations').update({
+					status: 'failed',
+					error_code: message.slice(0, 160),
+					completed_at: new Date().toISOString(),
+				}).in('id', failedIds);
+			}
+			const refundAmount = Math.max(0, reservedCount - completedIds.size);
+			if (refundAmount > 0) {
+				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user!.id, p_amount: refundAmount });
+				if (refundError) console.error('Credit refund also failed:', refundError);
+			}
+		});
+		try { waitUntil(pipelinePromise); } catch { /* dev local: el server queda vivo y la promesa continúa */ }
 
 		return json({
-			id: responseGenerations[0]?.id,
-			imageUrl: responseGenerations[0]?.imageUrl,
-			generations: responseGenerations,
-			creditsRemaining: isAdmin ? 99999 : remaining + missingCount,
-		});
+			async: true,
+			batchId,
+			generations: orderedGenerations.map((item) => ({ id: item.id, outputIndex: item.output_index, batchId })),
+			creditsRemaining: isAdmin ? 99999 : remaining,
+		}, 202);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'No se pudo generar el creativo.';
 		const failedIds = generationIds.filter((id) => !completedIds.has(id));
