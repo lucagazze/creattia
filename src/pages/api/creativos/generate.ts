@@ -159,6 +159,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const format = formats.has(requestedFormat) ? requestedFormat as keyof typeof formatSizes : 'square';
 		const requestedImageType = clean(form.get('imageType'), 30) || 'product';
 		const imageType = imageTypes.has(requestedImageType) ? requestedImageType : 'product';
+		const referenceId = clean(form.get('referenceId'), 60);
 		const referencePath = clean(form.get('referencePath'), 300);
 		const templateNotes = clean(form.get('templateNotes'), 500);
 		const sourceGenerationId = clean(form.get('sourceGenerationId'), 60);
