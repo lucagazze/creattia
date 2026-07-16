@@ -388,7 +388,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 			const falSize = falFormatSizes[format] || falFormatSizes.square;
 			const falModel = falImageUrl
-				? 'fal-ai/flux/schnell/image-to-image'
+				? 'fal-ai/flux/dev/image-to-image'
 				: 'fal-ai/flux/schnell';
 
 			const falBody: Record<string, unknown> = {
