@@ -2228,3 +2228,171 @@
 	.studio-lightbox-panel { flex-direction: column !important; overflow-y: auto; }
 	.studio-lightbox-panel aside { flex: 1 1 auto !important; }
 }
+
+/* ========================================================
+   PLANS AND PRICING READABILITY & BRAND ALIGNMENT
+   ======================================================== */
+.studio-plans-grid {
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
+	max-width: 1200px !important;
+	margin: 30px auto 0 !important;
+}
+@media (min-width: 1100px) {
+	.studio-plans-grid {
+		grid-template-columns: repeat(4, 1fr) !important;
+	}
+}
+
+.studio-plans-grid article {
+	border: 1px solid #e9e6ed !important;
+	border-radius: 24px !important;
+	padding: 32px 24px !important;
+	background: #fff !important;
+	color: #19171d !important;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02) !important;
+	transition: transform 0.2s, box-shadow 0.2s !important;
+}
+.studio-plans-grid article:hover {
+	transform: translateY(-4px) !important;
+	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05) !important;
+}
+
+.studio-plans-grid article.featured {
+	border: 2px solid rgb(236, 68, 146) !important;
+	box-shadow: 0 20px 45px -10px rgba(236, 68, 146, 0.15) !important;
+}
+
+.most-popular-badge {
+	position: absolute !important;
+	top: -12px !important;
+	left: 50% !important;
+	transform: translateX(-50%) !important;
+	background: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%) !important;
+	color: #FFF !important;
+	font-size: 10px !important;
+	font-weight: 800 !important;
+	padding: 4px 12px !important;
+	border-radius: 99px !important;
+	letter-spacing: 0.05em !important;
+	white-space: nowrap !important;
+}
+
+.studio-plans-grid article > h3 {
+	font-size: 22px !important;
+	font-weight: 800 !important;
+	margin: 0 0 8px !important;
+	color: #19171d !important;
+}
+
+.plan-description {
+	font-size: 13.5px !important;
+	color: #716d79 !important;
+	line-height: 1.5 !important;
+	margin: 0 0 20px !important;
+	min-height: 40px !important;
+	display: block !important;
+}
+
+.plan-price-row {
+	display: flex !important;
+	align-items: flex-end !important;
+	margin: 10px 0 20px !important;
+}
+
+.plan-price-val {
+	font-size: 48px !important;
+	font-weight: 800 !important;
+	line-height: 1 !important;
+	color: #19171d !important;
+}
+.plan-price-val b {
+	font-size: 18px !important;
+	font-weight: bold !important;
+	color: #716d79 !important;
+	margin-right: 2px !important;
+}
+
+.plan-price-freq {
+	font-size: 14.5px !important;
+	color: #716d79 !important;
+	margin-bottom: 6px !important;
+}
+
+.plan-subscribe-btn {
+	width: 100% !important;
+	height: 48px !important;
+	border-radius: 24px !important;
+	border: 0 !important;
+	color: #fff !important;
+	font-weight: bold !important;
+	font-size: 14.5px !important;
+	cursor: pointer !important;
+	transition: opacity 0.2s !important;
+	margin-bottom: 20px !important;
+}
+.plan-subscribe-btn:hover {
+	opacity: 0.95 !important;
+}
+.plan-subscribe-btn:disabled {
+	opacity: 0.55 !important;
+	cursor: default !important;
+}
+
+.studio-plans-grid ul {
+	list-style: none !important;
+	padding: 20px 0 0 !important;
+	margin: 0 !important;
+	border-top: 1px solid #e9e6ed !important;
+	display: flex !important;
+	flex-direction: column !important;
+	gap: 12px !important;
+}
+
+.studio-plans-grid li {
+	font-size: 13px !important;
+	font-weight: 500 !important;
+	display: flex !important;
+	align-items: center !important;
+	gap: 10px !important;
+	color: #19171d !important;
+}
+
+.studio-plans-grid li svg {
+	width: 18px !important;
+	height: 18px !important;
+	background: #f4effb !important;
+	color: #744bde !important;
+	border-radius: 50% !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	padding: 2px !important;
+	box-sizing: border-box !important;
+}
+
+.studio-plan-note {
+	margin: 24px 0 10px !important;
+	text-align: center !important;
+	color: #716d79 !important;
+	font-size: 14px !important;
+	font-weight: 500 !important;
+	line-height: 1.5 !important;
+}
+
+.studio-cancel-subscription {
+	display: block !important;
+	margin: 12px auto 0 !important;
+	padding: 8px 16px !important;
+	border: 0 !important;
+	background: transparent !important;
+	color: #8e8792 !important;
+	cursor: pointer !important;
+	font-size: 13.5px !important;
+	font-weight: 700 !important;
+	text-decoration: underline !important;
+	text-underline-offset: 3px !important;
+}
+.studio-cancel-subscription:hover {
+	color: #a33252 !important;
+}
+
