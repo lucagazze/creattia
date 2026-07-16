@@ -43,9 +43,9 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const selectedProduct = products.find((item) => item.id === selectedProductId) || null;
 	const hasProduct = Boolean(selectedProduct || uploadFile);
 
-	const label = { display: 'block', fontSize: '14px', fontWeight: 800, color: '#19171d', marginBottom: '10px' } as const;
+	const label = { display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '7px' } as const;
 	const chip = (active: boolean) => ({
-		padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 600,
+		padding: '7px 12px', borderRadius: '9px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
 		border: active ? '2px solid #ec4492' : '1px solid #e2dde9', background: active ? '#fdf0f6' : '#fff', color: active ? '#d63274' : '#3f3a48',
 	} as const);
 
@@ -159,22 +159,22 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 				</aside>
 
 				<section>
-					<h1 style={{ margin: '0 0 4px', fontSize: '26px', color: '#19171d' }}>Crear con este diseño</h1>
-					<p style={{ margin: '0 0 26px', fontSize: '15px', color: '#716d79' }}>Se replica el diseño y el mensaje del ganador con tu producto. Antes de generar vas a poder revisar y editar cada texto.</p>
+					<h1 style={{ margin: '0 0 3px', fontSize: '21px', color: '#19171d' }}>Crear con este diseño</h1>
+					<p style={{ margin: '0 0 16px', fontSize: '13px', color: '#716d79' }}>Se replica el diseño y el mensaje del ganador con tu producto. Antes de generar revisás y aprobás cada texto.</p>
 
 					{phase !== 'review' && phase !== 'starting' && <>
 						{/* 1. Producto */}
-						<div style={{ marginBottom: '26px' }}>
+						<div style={{ marginBottom: '15px' }}>
 							<strong style={label}>1 · Tu producto</strong>
 							{products.length > 0 && (
 								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
 									{products.slice(0, 12).map((item) => (
 										<span key={item.id} style={{ position: 'relative', display: 'inline-flex' }}>
-											<button type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFile(null); setUploadPreview(''); }} style={{ ...chip(selectedProductId === item.id), display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '7px 26px 7px 7px' }}>
+											<button type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFile(null); setUploadPreview(''); }} style={{ ...chip(selectedProductId === item.id), display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 24px 5px 5px' }}>
 												{(item.imageUrl || item.source_image_url) ? (
-													<img src={item.imageUrl || item.source_image_url} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '7px' }} />
+													<img src={item.imageUrl || item.source_image_url} alt="" style={{ width: '26px', height: '26px', objectFit: 'cover', borderRadius: '6px' }} />
 												) : (
-													<span style={{ width: '32px', height: '32px', display: 'grid', placeItems: 'center', borderRadius: '7px', background: '#f2eef6' }}>🛍️</span>
+													<span style={{ width: '26px', height: '26px', display: 'grid', placeItems: 'center', borderRadius: '6px', background: '#f2eef6' }}>🛍️</span>
 												)}
 												{item.name}
 											</button>
@@ -199,7 +199,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									value={urlValue}
 									onChange={(event) => setUrlValue(event.target.value)}
 									placeholder="Pegá la URL de tu producto (Shopify, Tiendanube...)"
-									style={{ flex: '1 1 280px', padding: '11px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14px' }}
+									style={{ flex: '1 1 260px', padding: '8px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }}
 								/>
 								<button type="button" onClick={() => void scanUrl()} disabled={scanning || !urlValue.trim()} style={{ ...chip(false), opacity: scanning ? 0.6 : 1 }}>
 									{scanning ? 'Analizando…' : 'Escanear URL'}
@@ -217,7 +217,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						</div>
 
 						{/* 2. Formato */}
-						<div style={{ marginBottom: '26px' }}>
+						<div style={{ marginBottom: '15px' }}>
 							<strong style={label}>2 · Formato</strong>
 							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
 								{[
@@ -232,22 +232,22 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										key={item.id}
 										type="button"
 										onClick={() => setFormat(item.id)}
-										style={{ ...chip(format === item.id), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '7px', minWidth: '86px', padding: '12px 10px 10px' }}
+										style={{ ...chip(format === item.id), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '5px', minWidth: '70px', padding: '8px 8px 7px' }}
 									>
 										<span style={{
 											display: 'block', width: `${item.w}px`, height: `${item.h}px`, borderRadius: '4px',
 											border: `2px ${item.dashed ? 'dashed' : 'solid'} ${format === item.id ? '#ec4492' : '#b9b3c2'}`,
 											background: format === item.id ? 'rgba(236,68,146,0.12)' : '#f6f4f9',
 										}} />
-										<b style={{ fontSize: '13px', lineHeight: 1 }}>{item.text}</b>
-										<small style={{ fontSize: '11px', color: '#8b8490', lineHeight: 1 }}>{item.desc}</small>
+										<b style={{ fontSize: '12px', lineHeight: 1 }}>{item.text}</b>
+										<small style={{ fontSize: '10px', color: '#8b8490', lineHeight: 1 }}>{item.desc}</small>
 									</button>
 								))}
 							</div>
 						</div>
 
 						{/* 3. Idioma */}
-						<div style={{ marginBottom: '26px' }}>
+						<div style={{ marginBottom: '15px' }}>
 							<strong style={label}>3 · Idioma del anuncio</strong>
 							{(() => {
 								const LANGS = [
@@ -264,8 +264,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									? <img src={`https://flagcdn.com/w40/${cc}.png`} alt="" width={22} height={16} style={{ borderRadius: '3px', objectFit: 'cover' }} />
 									: <span style={{ fontSize: '16px' }}>🌐</span>;
 								return (
-									<div style={{ position: 'relative', maxWidth: '330px' }}>
-										<button type="button" onClick={() => setLanguageOpen(!languageOpen)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', background: '#fff', fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d' }}>
+									<div style={{ position: 'relative', maxWidth: '290px' }}>
+										<button type="button" onClick={() => setLanguageOpen(!languageOpen)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '8px 12px', borderRadius: '9px', border: '1px solid #e2dde9', background: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d' }}>
 											<span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>{flag(current.cc)}{current.name}</span>
 											<span style={{ color: '#8b8490' }}>▾</span>
 										</button>
@@ -285,25 +285,25 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						</div>
 
 						{/* 4. Estilo */}
-						<div style={{ marginBottom: '26px' }}>
+						<div style={{ marginBottom: '15px' }}>
 							<strong style={label}>4 · Estilo</strong>
-							<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
+							<div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
 								<div>
-									<p style={{ margin: '0 0 6px', fontSize: '13px', color: '#716d79' }}>Colores</p>
+									<p style={{ margin: '0 0 4px', fontSize: '12px', color: '#716d79' }}>Colores</p>
 									<div style={{ display: 'flex', gap: '8px' }}>
 										<button type="button" onClick={() => setColorMode('winner')} style={chip(colorMode === 'winner')}>Del ganador</button>
 										<button type="button" onClick={() => setColorMode('brand')} style={chip(colorMode === 'brand')}>De mi marca</button>
 									</div>
 								</div>
 								<div>
-									<p style={{ margin: '0 0 6px', fontSize: '13px', color: '#716d79' }}>Tipografía</p>
+									<p style={{ margin: '0 0 4px', fontSize: '12px', color: '#716d79' }}>Tipografía</p>
 									<div style={{ display: 'flex', gap: '8px' }}>
 										<button type="button" onClick={() => setTypoMode('winner')} style={chip(typoMode === 'winner')}>Del ganador</button>
 										<button type="button" onClick={() => setTypoMode('brand')} style={chip(typoMode === 'brand')}>De mi marca</button>
 									</div>
 								</div>
 								<div>
-									<p style={{ margin: '0 0 6px', fontSize: '13px', color: '#716d79' }}>Logo de mi marca</p>
+									<p style={{ margin: '0 0 4px', fontSize: '12px', color: '#716d79' }}>Logo de mi marca</p>
 									<div style={{ display: 'flex', gap: '8px' }}>
 										<button type="button" onClick={() => setIncludeLogo(false)} style={chip(!includeLogo)}>Sin logo</button>
 										<button type="button" onClick={() => setIncludeLogo(true)} style={chip(includeLogo)}>Incluir logo</button>
@@ -313,13 +313,13 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						</div>
 
 						{/* 5. Indicación extra */}
-						<div style={{ marginBottom: '26px' }}>
+						<div style={{ marginBottom: '15px' }}>
 							<strong style={label}>5 · Indicación extra (opcional)</strong>
 							<textarea
 								value={extra}
 								onChange={(event) => setExtra(event.target.value)}
 								placeholder="Ej: resaltá el precio, tono más descontracturado…"
-								style={{ width: '100%', minHeight: '72px', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14px', resize: 'vertical', fontFamily: 'inherit' }}
+								style={{ width: '100%', minHeight: '44px', padding: '9px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }}
 							/>
 						</div>
 
@@ -330,11 +330,11 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							onClick={() => void requestPlan()}
 							disabled={phase === 'planning'}
 							className="studio-primary-button"
-							style={{ width: '100%', height: '52px', background: 'var(--holo-gradient)', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'planning' ? 0.6 : 1 }}
+							style={{ width: '100%', height: '46px', background: 'var(--holo-gradient)', color: '#fff', border: 0, fontSize: '15px', fontWeight: 800, borderRadius: '11px', cursor: 'pointer', opacity: phase === 'planning' ? 0.6 : 1 }}
 						>
 							{phase === 'planning' ? 'Analizando el ganador y escribiendo los textos…' : 'Generar textos del anuncio →'}
 						</button>
-						<p style={{ margin: '10px 0 0', fontSize: '13px', color: '#8b8490', textAlign: 'center' }}>Todavía no se genera la imagen: primero revisás y aprobás los textos.</p>
+						<p style={{ margin: '7px 0 0', fontSize: '12px', color: '#8b8490', textAlign: 'center' }}>Todavía no se genera la imagen: primero revisás y aprobás los textos.</p>
 					</>}
 
 					{(phase === 'review' || phase === 'starting') && plan && <>

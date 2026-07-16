@@ -471,17 +471,22 @@ export const POST: APIRoute = async ({ request }) => {
 				// producto) para que se integre perfecto en el anuncio final.
 				if (googleKey) {
 					let studio: { buffer: Buffer; type: string } | null = null;
-					const cachePath = `${auth.user!.id}/products/${item.product.id}/studio-v1.png`;
+					// Caché por producto+referencia: la versión montada depende de la escena.
+					const referenceKey = storedReference?.image_path ? storedReference.image_path.replace(/[^a-z0-9]/gi, '').slice(-18) : 'neutral';
+					const cachePath = `${auth.user!.id}/products/${item.product.id}/staged-${referenceKey}.png`;
 					const { data: cachedStudio } = await admin.storage.from('creative-assets').download(cachePath);
 					if (cachedStudio) {
 						studio = { buffer: Buffer.from(await cachedStudio.arrayBuffer()), type: 'image/png' };
 					} else {
-						studio = await renderStudioProductShot(googleKey, normalized);
+						studio = await renderStudioProductShot(googleKey, normalized, {
+							template: referenceBuffer ? { buffer: referenceBuffer, type: referenceMime } : undefined,
+							placement: approvedPlan?.productPlacement || undefined,
+						});
 						if (studio) await admin.storage.from('creative-assets').upload(cachePath, studio.buffer, { contentType: 'image/png', upsert: true });
 					}
 					if (studio) {
-						await pushInput(studio.buffer, studio.type, `product-${item.product.id}-studio.png`, `clean studio render of the real product “${item.product.name}”; this is the exact product to feature in the ad`);
-						stamp('producto preparado en versión estudio');
+						await pushInput(studio.buffer, studio.type, `product-${item.product.id}-staged.png`, `the real product “${item.product.name}” already staged for this exact scene; place it exactly like the template's product (same position, scale and angle), keeping cards and texts in front as the template shows`);
+						stamp('producto montado en la escena del template');
 					}
 				}
 			}
@@ -493,10 +498,13 @@ export const POST: APIRoute = async ({ request }) => {
 			primaryProductBuffer = normalized.buffer;
 			primaryProductMime = normalized.type;
 			if (googleKey) {
-				const studio = await renderStudioProductShot(googleKey, normalized);
+				const studio = await renderStudioProductShot(googleKey, normalized, {
+					template: referenceBuffer ? { buffer: referenceBuffer, type: referenceMime } : undefined,
+					placement: approvedPlan?.productPlacement || undefined,
+				});
 				if (studio) {
-					await pushInput(studio.buffer, studio.type, 'product-studio.png', 'clean studio render of the real product; this is the exact product to feature in the ad');
-					stamp('producto preparado en versión estudio');
+					await pushInput(studio.buffer, studio.type, 'product-staged.png', "the real product already staged for this exact scene; place it exactly like the template's product (same position, scale and angle), keeping cards and texts in front as the template shows");
+					stamp('producto montado en la escena del template');
 				}
 			}
 			await pushInput(normalized.buffer, normalized.type, 'product.png', 'the real product supplied by the user; preserve its packaging, label, shape and color');
