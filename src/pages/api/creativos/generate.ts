@@ -664,20 +664,26 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 		const outputBuffers: Buffer[] = [];
 
 		if (googleKey) {
-			try {
-				const geminiModel = import.meta.env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL || 'gemini-3-pro-image-preview';
-				const buffers = await generateWithGemini({
-					apiKey: googleKey,
-					model: geminiModel,
-					prompt,
-					images: inputBuffers,
-					aspectRatio: geminiAspectRatios[effectiveFormat] || '1:1',
-					count,
-				});
-				outputBuffers.push(...buffers);
-				stamp(`imagen generada con Gemini ${geminiModel}`);
-			} catch (geminiError) {
-				console.error('Gemini generation failed, falling back to OpenAI:', geminiError);
+			// Nano Banana 2 (flash) da calidad nivel Pro a ~1/3 del precio.
+			// Si falla, se intenta Pro antes de caer a OpenAI.
+			const preferredGemini = import.meta.env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+			const geminiAttempts = [...new Set([preferredGemini, 'gemini-3-pro-image-preview'])];
+			for (const geminiModel of geminiAttempts) {
+				try {
+					const buffers = await generateWithGemini({
+						apiKey: googleKey,
+						model: geminiModel,
+						prompt,
+						images: inputBuffers,
+						aspectRatio: geminiAspectRatios[effectiveFormat] || '1:1',
+						count,
+					});
+					outputBuffers.push(...buffers);
+					stamp(`imagen generada con Gemini ${geminiModel}`);
+					break;
+				} catch (geminiError) {
+					console.error(`Gemini generation failed with ${geminiModel}:`, geminiError);
+				}
 			}
 		}
 
