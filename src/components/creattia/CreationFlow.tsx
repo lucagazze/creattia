@@ -338,11 +338,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					</>}
 
 					{(phase === 'review' || phase === 'starting') && plan && <>
-						<div style={{ background: '#f4effd', border: '1px solid #e7dbfb', borderRadius: '12px', padding: '16px 18px', marginBottom: '22px' }}>
-							<strong style={{ display: 'block', fontSize: '13px', color: '#5927c8', marginBottom: '6px' }}>ESTRATEGIA DEL GANADOR</strong>
-							<p style={{ margin: 0, fontSize: '14px', color: '#3f3a48', lineHeight: 1.55 }}>{plan.messageStrategy}</p>
-						</div>
-
 						<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
 							<strong style={{ ...label, marginBottom: 0 }}>Textos del anuncio</strong>
 							<div style={{ display: 'flex', gap: '8px' }}>
@@ -353,8 +348,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						<div style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '12px', marginBottom: '22px', overflow: 'hidden' }}>
 							{zones.map((zone, index) => (
-								<div key={index} title={`Original: “${zone.original}”${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 170px) 1fr', gap: '12px', alignItems: 'center', padding: '9px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
-									<span style={{ fontSize: '12px', fontWeight: 700, color: '#8b8490', lineHeight: 1.3 }}>{zone.where}</span>
+								<div key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 220px) 1fr', gap: '12px', alignItems: 'center', padding: '9px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
+									<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original}”</span>
 									{copyMode === 'edit' ? (
 										<textarea
 											value={zone.replacement || ''}
