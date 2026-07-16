@@ -1045,7 +1045,7 @@ export default function CreativeApp() {
 							onHistory={() => { setActiveBatch(null); setView('history'); }}
 						/>
 					)}
-					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} />}
+					{view === 'history' && <History history={history} onCreate={() => setView('library')} onReuse={reuseGeneration} pending={activeBatch?.status === 'processing' ? { count: activeBatch.count, title: activeBatch.title, referenceUrl: activeBatch.referenceUrl } : null} onViewProgress={() => setView('generation')} />}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
 					{view === 'brand' && <BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />}
 				</div>
@@ -2163,8 +2163,25 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 	</>;
 }
 
-function History({ history, onCreate, onReuse }: { history: Generation[]; onCreate: () => void; onReuse: (item: Generation) => void }) {
-	return <><div className="studio-page-heading"><div><p>MIS IMÁGENES</p><h1>Todo lo que creaste.</h1><span>Descargá una imagen o usala como base para crear otra.</span></div><button className="studio-primary-button compact" onClick={onCreate}><Icon name="plus" size={17}/>Crear imagen</button></div>{history.length ? <div className="studio-history-grid">{history.map((item) => <GenerationCard key={item.id} item={item} onReuse={() => onReuse(item)}/>)}</div> : <div className="studio-empty large"><span><Icon name="history"/></span><h3>Todavía no creaste imágenes</h3><p>Elegí una idea de la biblioteca para empezar.</p><button onClick={onCreate}>Elegir una idea</button></div>}</>;
+function History({ history, onCreate, onReuse, pending, onViewProgress }: { history: Generation[]; onCreate: () => void; onReuse: (item: Generation) => void; pending?: { count: number; title: string; referenceUrl?: string } | null; onViewProgress?: () => void }) {
+	const hasContent = history.length > 0 || Boolean(pending);
+	return <><div className="studio-page-heading"><div><p>MIS IMÁGENES</p><h1>Todo lo que creaste.</h1><span>Descargá una imagen o usala como base para crear otra.</span></div><button className="studio-primary-button compact" onClick={onCreate}><Icon name="plus" size={17}/>Crear imagen</button></div>{hasContent ? <div className="studio-history-grid">{pending && Array.from({ length: pending.count }, (_, index) => <PendingGenerationCard key={`pending-${index}`} title={pending.title} referenceUrl={pending.referenceUrl} onClick={onViewProgress} />)}{history.map((item) => <GenerationCard key={item.id} item={item} onReuse={() => onReuse(item)}/>)}</div> : <div className="studio-empty large"><span><Icon name="history"/></span><h3>Todavía no creaste imágenes</h3><p>Elegí una idea de la biblioteca para empezar.</p><button onClick={onCreate}>Elegir una idea</button></div>}</>;
+}
+
+// Tarjeta placeholder mientras una imagen se está generando en el servidor.
+function PendingGenerationCard({ title, referenceUrl, onClick }: { title: string; referenceUrl?: string; onClick?: () => void }) {
+	return (
+		<article className="studio-generation-card" style={{ cursor: onClick ? 'pointer' : 'default' }} onClick={onClick}>
+			<div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#f4f0f8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+				{referenceUrl && <img src={referenceUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.22, filter: 'blur(3px)' }} />}
+				<div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+					<span className="studio-spinner" style={{ width: '30px', height: '30px' }} />
+					<b style={{ fontSize: '12px', color: '#5c5568' }}>Generando…</b>
+				</div>
+			</div>
+			<footer><small>EN PROCESO</small><h3>{title}</h3><span>Tu imagen va a aparecer acá sola.</span>{onClick && <button onClick={(event) => { event.stopPropagation(); onClick(); }}><Icon name="spark" size={14}/>Ver progreso</button>}</footer>
+		</article>
+	);
 }
 
 function GenerationCard({ item, onReuse }: { item: Generation; onReuse?: () => void }) {

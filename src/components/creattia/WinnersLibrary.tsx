@@ -531,7 +531,7 @@ export default function WinnersLibrary({
 					setActiveAd(null);
 					onGenerationStarted({
 						batchId: payload.batchId,
-						title: activeAd.name,
+						title: selectedSavedProduct?.name ? `${selectedSavedProduct.name} · ${activeAd.name}` : activeAd.name,
 						referenceUrl: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${activeAd.imagePath}`,
 						count: 1,
 					});

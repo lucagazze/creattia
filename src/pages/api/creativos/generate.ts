@@ -517,11 +517,16 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const batchId = crypto.randomUUID();
+		// Título visible en el historial: el nombre del producto manda; si no hay,
+		// el nombre del anuncio ganador elegido; recién después el de la plantilla.
+		const generationTitle = storedProducts.length
+			? storedProducts.map((item) => item.name).join(' + ')
+			: (requestedTemplateName || templateName);
 		const generationRows = Array.from({ length: count }, (_, index) => ({
 			user_id: auth.user!.id,
 			template_id: templateId,
 			reference_id: storedReference?.id || null,
-			title: templateName,
+			title: generationTitle,
 			format,
 			image_type: imageType,
 			variant_key: preset,
