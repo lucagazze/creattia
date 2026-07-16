@@ -21,11 +21,11 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [selectedProductId, setSelectedProductId] = useState<string>('');
 	const [urlValue, setUrlValue] = useState('');
 	const [scanning, setScanning] = useState(false);
-	const [uploadFile, setUploadFile] = useState<File | null>(null);
-	const [uploadPreview, setUploadPreview] = useState('');
+	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
 
 	const [format, setFormat] = useState('original');
-	const [language, setLanguage] = useState('auto');
+	const [language, setLanguage] = useState('es');
 	const [languageOpen, setLanguageOpen] = useState(false);
 	const [colorMode, setColorMode] = useState<'winner' | 'brand'>('winner');
 	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
@@ -43,9 +43,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [creativeOptions, setCreativeOptions] = useState<string[]>([]);
 	const [pickedOptions, setPickedOptions] = useState<string[]>([]);
 	const [error, setError] = useState('');
+	const [regeneratingIndexes, setRegeneratingIndexes] = useState<number[]>([]);
 
 	const selectedProduct = products.find((item) => item.id === selectedProductId) || null;
-	const hasProduct = Boolean(selectedProduct || uploadFile);
+	const hasProduct = Boolean(selectedProduct || uploadFiles.length > 0);
 
 	const label = { display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '9px', letterSpacing: '.01em' } as const;
 	const chip = (active: boolean) => ({
@@ -81,7 +82,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		try {
 			// Si pegó una URL pero no la escaneó, se escanea acá mismo.
 			let productForPlan = selectedProduct;
-			if (!productForPlan && !uploadFile && !manualProductName.trim() && urlValue.trim()) {
+			if (!productForPlan && uploadFiles.length === 0 && !manualProductName.trim() && urlValue.trim()) {
 				productForPlan = await scanUrl();
 				if (!productForPlan) { setPhase('setup'); return; }
 			}
@@ -89,8 +90,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('referencePath', ad.imagePath);
 			if (language !== 'auto') form.set('language', language);
 			if (productForPlan) form.set('productId', productForPlan.id);
-			else if (uploadFile) {
-				form.set('product', uploadFile);
+			else if (uploadFiles.length > 0) {
+				uploadFiles.forEach(file => form.append('product', file));
 				form.set('productFacts', extra);
 			} else {
 				form.set('productName', manualProductName.trim());
@@ -100,7 +101,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudieron generar los textos.');
 			const analysis = payload.analysis || {};
-			if (analysis.referenceHasProduct !== false && !productForPlan && !uploadFile && !manualProductName.trim()) {
+			if (analysis.referenceHasProduct !== false && !productForPlan && uploadFiles.length === 0 && !manualProductName.trim()) {
 				throw new Error('Este anuncio ganador muestra un producto: elegí, subí o describí el tuyo para reemplazarlo.');
 			}
 			setPlan(analysis);
@@ -131,8 +132,9 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('typoMode', typoMode);
 			form.set('includeLogo', includeLogo ? '1' : '0');
 			if (selectedProduct) form.set('productIds', selectedProduct.id);
-			else if (uploadFile) form.set('product', uploadFile);
-			else {
+			else if (uploadFiles.length > 0) {
+				uploadFiles.forEach(file => form.append('product', file));
+			} else {
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
@@ -155,6 +157,56 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación.');
 			setPhase('review');
+		}
+	}
+
+	async function regenerateCopy(index: number) {
+		if (regeneratingIndexes.includes(index)) return;
+		setRegeneratingIndexes(prev => [...prev, index]);
+		try {
+			const zone = zones[index];
+			const response = await fetch('/api/creativos/rewrite', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+					authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({
+					original: zone.original,
+					current: zone.replacement,
+					messageRole: zone.messageRole,
+					productName: selectedProduct?.name || manualProductName || 'producto',
+					productFacts: selectedProduct ? `${selectedProduct.description} ${selectedProduct.price_text || ''}` : manualProductFacts,
+					extra: extra,
+					language: language
+				})
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo reescribir el texto.');
+			
+			// Update the specific zone
+			setZones(prev => prev.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: payload.replacement } : item));
+			if (onToast) onToast('Texto regenerado con éxito.');
+		} catch (err) {
+			alert(err instanceof Error ? err.message : 'Error al reescribir con IA.');
+		} finally {
+			setRegeneratingIndexes(prev => prev.filter(x => x !== index));
+		}
+	}
+
+	async function regenerateAllCopies() {
+		setError('');
+		if (zones.length === 0) return;
+		
+		const confirmRegen = window.confirm('¿Seguro que querés volver a escribir todos los textos con IA? Se perderán las ediciones manuales actuales.');
+		if (!confirmRegen) return;
+		
+		setPhase('planning');
+		try {
+			await requestPlan();
+			if (onToast) onToast('Todos los textos fueron regenerados.');
+		} catch (err) {
+			setError(err instanceof Error ? err.message : 'No se pudieron regenerar los textos.');
 		}
 	}
 
@@ -181,7 +233,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
 									{products.slice(0, 12).map((item) => (
 										<span key={item.id} style={{ position: 'relative', display: 'inline-flex' }}>
-											<button type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFile(null); setUploadPreview(''); }} style={{ ...chip(selectedProductId === item.id), display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 24px 5px 5px' }}>
+											<button type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFiles([]); setUploadPreviews([]); }} style={{ ...chip(selectedProductId === item.id), display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 24px 5px 5px' }}>
 												{(item.imageUrl || item.source_image_url) ? (
 													<img src={item.imageUrl || item.source_image_url} alt="" style={{ width: '26px', height: '26px', objectFit: 'cover', borderRadius: '6px' }} />
 												) : (
@@ -205,26 +257,36 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									))}
 								</div>
 							)}
-							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+							<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 								<input
 									value={urlValue}
-									onChange={(event) => setUrlValue(event.target.value)}
+									onChange={(event) => {
+										setUrlValue(event.target.value);
+										if (event.target.value.trim()) {
+											setSelectedProductId('');
+											setUploadFiles([]);
+											setUploadPreviews([]);
+										}
+									}}
 									placeholder="Pegá la URL de tu producto (Shopify, Tiendanube...)"
-									style={{ flex: '1 1 260px', padding: '10px 13px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '13.5px' }}
+									style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14.5px' }}
 								/>
-								<button type="button" onClick={() => void scanUrl()} disabled={scanning || !urlValue.trim()} style={{ ...chip(false), opacity: scanning ? 0.6 : 1 }}>
-									{scanning ? 'Analizando…' : 'Escanear URL'}
-								</button>
-								<label style={{ ...chip(Boolean(uploadFile)), display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-									{uploadFile ? `Foto: ${uploadFile.name.slice(0, 16)}` : 'Subir foto'}
-									<input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={(event) => {
-										const file = event.target.files?.[0] || null;
-										setUploadFile(file); setSelectedProductId('');
-										if (file) setUploadPreview(URL.createObjectURL(file));
-									}} />
-								</label>
 							</div>
-							{uploadPreview && <img src={uploadPreview} alt="" style={{ marginTop: '10px', width: '84px', height: '84px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2dde9' }} />}
+
+							{selectedProduct && (selectedProduct.imageUrls || selectedProduct.imageUrl) && (
+								<div style={{ marginTop: '12px' }}>
+									<span style={{ fontSize: '12.5px', fontWeight: 700, color: '#716d79', display: 'block', marginBottom: '8px' }}>
+										Imágenes del producto detectadas:
+									</span>
+									<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+										{(selectedProduct.imageUrls || [selectedProduct.imageUrl || selectedProduct.source_image_url]).filter(Boolean).map((imgUrl: string, idx: number) => (
+											<div key={idx} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #744bde', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+												<img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+											</div>
+										))}
+									</div>
+								</div>
+							)}
 
 							<div style={{ marginTop: '12px' }}>
 								<button
@@ -234,7 +296,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										background: 'transparent',
 										border: 0,
 										color: '#744bde',
-										fontSize: '12.5px',
+										fontSize: '13px',
 										fontWeight: 700,
 										cursor: 'pointer',
 										display: 'flex',
@@ -244,30 +306,68 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										textDecoration: 'underline'
 									}}
 								>
-									{showManualDesc ? '✕ Ocultar carga manual' : '✍️ O describir servicio o producto manualmente'}
+									{showManualDesc ? '✕ Ocultar carga manual' : '✍️ Cargar fotos y describir el producto o servicio manualmente'}
 								</button>
 
 								{showManualDesc && (
 									<div style={{ 
 										marginTop: '12px', 
-										padding: '12px 14px', 
-										background: '#f8f6fc', 
+										padding: '16px', 
+										background: '#fcfbfe', 
 										border: '1px dashed #dcd2ff', 
-										borderRadius: '10px'
+										borderRadius: '12px',
+										display: 'flex',
+										flexDirection: 'column',
+										gap: '12px'
 									}}>
+										<div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+											<span style={{ fontSize: '12.5px', fontWeight: 700, color: '#716d79' }}>Imágenes del producto:</span>
+											<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', color: '#744bde', width: 'fit-content' }}>
+												📸 Cargar imágenes de producto...
+												<input 
+													type="file" 
+													accept="image/png,image/jpeg,image/webp" 
+													multiple 
+													style={{ display: 'none' }} 
+													onChange={(event) => {
+														const files = event.target.files ? Array.from(event.target.files) : [];
+														setUploadFiles(files);
+														setSelectedProductId('');
+														setUrlValue('');
+														setUploadPreviews(files.map(f => URL.createObjectURL(f)));
+													}} 
+												/>
+											</label>
+											{uploadPreviews.length > 0 && (
+												<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+													{uploadPreviews.map((preview, idx) => (
+														<div key={idx} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2dde9' }}>
+															<img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+										
 										<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 											<input
 												value={manualProductName}
-												onChange={(e) => setManualProductName(e.target.value)}
-												placeholder="Nombre del servicio o producto (ej: Limpieza Dental, Clases de Yoga...)"
-												style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }}
+												onChange={(e) => {
+													setManualProductName(e.target.value);
+													if (e.target.value.trim()) {
+														setSelectedProductId('');
+														setUrlValue('');
+													}
+												}}
+												placeholder="Nombre del servicio o producto..."
+												style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }}
 											/>
 											<textarea
 												value={manualProductFacts}
 												onChange={(e) => setManualProductFacts(e.target.value)}
-												placeholder="Información clave, descripción, beneficios, o textos para el anuncio..."
+												placeholder="Descripción de tu producto, servicio, beneficios o características especiales..."
 												rows={3}
-												style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }}
+												style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }}
 											/>
 										</div>
 									</div>
@@ -476,32 +576,67 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
 							<strong style={{ ...label, marginBottom: 0 }}>Textos del anuncio</strong>
-							<div style={{ display: 'flex', gap: '8px' }}>
+							<div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+								<button type="button" onClick={() => void regenerateAllCopies()} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+									✨ Rehacer todos
+								</button>
 								<button type="button" onClick={() => setCopyMode('auto')} style={chip(copyMode === 'auto')}>✨ Automáticos</button>
 								<button type="button" onClick={() => setCopyMode('edit')} style={chip(copyMode === 'edit')}>✏️ Editarlos yo</button>
 							</div>
 						</div>
 
 						<div style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '12px', marginBottom: '22px', overflow: 'hidden' }}>
-							{zones.map((zone, index) => (
-								<div key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 220px) 1fr', gap: '12px', alignItems: 'center', padding: '9px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
-									<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original}”</span>
-									{copyMode === 'edit' ? (
-										<textarea
-											value={zone.replacement || ''}
-											rows={1}
-											onChange={(event) => {
-												setZones(zones.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: event.target.value } : item));
-												event.target.style.height = 'auto';
-												event.target.style.height = `${event.target.scrollHeight}px`;
-											}}
-											style={{ width: '100%', minHeight: '34px', padding: '7px 10px', borderRadius: '8px', border: '1px solid #e6e0ee', background: '#faf8fc', fontSize: '13.5px', resize: 'none', overflow: 'hidden', fontFamily: 'inherit', lineHeight: 1.4 }}
-										/>
-									) : (
-										<span style={{ fontSize: '13.5px', color: '#19171d', lineHeight: 1.4 }}>{zone.replacement}</span>
-									)}
-								</div>
-							))}
+							{zones.map((zone, index) => {
+								const isRegen = regeneratingIndexes.includes(index);
+								return (
+									<div key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 220px) 1fr', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
+										<div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+											<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original}”</span>
+											{zone.messageRole && <span style={{ fontSize: '9.5px', color: '#744bde', fontWeight: 700 }}>{zone.messageRole}</span>}
+										</div>
+										<div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+											{copyMode === 'edit' ? (
+												<textarea
+													value={zone.replacement || ''}
+													rows={1}
+													onChange={(event) => {
+														setZones(zones.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: event.target.value } : item));
+														event.target.style.height = 'auto';
+														event.target.style.height = `${event.target.scrollHeight}px`;
+													}}
+													style={{ flex: 1, minHeight: '38px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e6e0ee', background: '#faf8fc', fontSize: '13.5px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.4 }}
+												/>
+											) : (
+												<span style={{ flex: 1, fontSize: '13.5px', color: '#19171d', lineHeight: 1.4 }}>{zone.replacement}</span>
+											)}
+											<button
+												type="button"
+												disabled={isRegen}
+												onClick={() => void regenerateCopy(index)}
+												style={{
+													border: '1px solid #dcd5e4',
+													background: '#fff',
+													color: '#744bde',
+													padding: '6px 10px',
+													borderRadius: '8px',
+													fontSize: '11px',
+													fontWeight: 700,
+													cursor: 'pointer',
+													display: 'flex',
+													alignItems: 'center',
+													gap: '4px',
+													whiteSpace: 'nowrap',
+													opacity: isRegen ? 0.6 : 1,
+													transition: 'all 0.15s'
+												}}
+												title="Rehacer este texto con IA"
+											>
+												{isRegen ? '...' : '✨ Rehacer'}
+											</button>
+										</div>
+									</div>
+								);
+							})}
 						</div>
 
 						{error && <p style={{ margin: '0 0 14px', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}

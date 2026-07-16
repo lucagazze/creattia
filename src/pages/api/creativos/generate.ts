@@ -479,7 +479,8 @@ export const POST: APIRoute = async ({ request }) => {
 		// Revisión sutil: el usuario pidió un cambio puntual sobre una imagen ya
 		// generada. Solo se manda la imagen original + el pedido; re-adjuntar
 		// producto/logo/contexto hace que el modelo rediseñe todo.
-		const hasNewProductInput = productIds.length > 0 || (product instanceof File && product.size > 0) || Boolean(manualProductName);
+		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
+		const hasNewProductInput = productIds.length > 0 || productsUploaded.length > 0 || Boolean(manualProductName);
 		const isExactRevision = hasSourceGeneration && variationStrength === 'exact' && Boolean(brief) && !hasNewProductInput;
 
 		let primaryProductBuffer: Buffer | null = null;
@@ -495,16 +496,21 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 			await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
 		}
-		if (!isExactRevision && !storedProducts.length && product instanceof File && product.size > 0) {
-			const normalized = await normalizeImageInput(Buffer.from(await product.arrayBuffer()));
-			if (!normalized) throw new Error('La foto del producto no se pudo procesar. Probá con otra imagen.');
-			primaryProductBuffer = normalized.buffer;
-			primaryProductMime = normalized.type;
-			await pushInput(normalized.buffer, normalized.type, 'product.png', 'the real product supplied by the user; preserve its packaging, label, shape and color');
+		if (!isExactRevision && !storedProducts.length && productsUploaded.length > 0) {
+			for (let idx = 0; idx < productsUploaded.length; idx++) {
+				const fileObj = productsUploaded[idx];
+				const normalized = await normalizeImageInput(Buffer.from(await fileObj.arrayBuffer()));
+				if (!normalized) throw new Error('La foto del producto no se pudo procesar. Probá con otra imagen.');
+				if (!primaryProductBuffer) {
+					primaryProductBuffer = normalized.buffer;
+					primaryProductMime = normalized.type;
+				}
+				await pushInput(normalized.buffer, normalized.type, `product-${idx}.png`, `verified photo ${idx + 1} of the real product supplied by the user; preserve its packaging, label, shape and color`);
+			}
 		}
 
 		let hasUploadedProduct = false;
-		if (!storedProducts.length && product instanceof File && product.size > 0) hasUploadedProduct = true;
+		if (!storedProducts.length && productsUploaded.length > 0) hasUploadedProduct = true;
 
 		let hasLogo = false;
 		if (!includeLogo || isExactRevision) {

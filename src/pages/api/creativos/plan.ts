@@ -55,6 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
 		let productFacts = '';
 		let productB64: string | undefined;
 		let productMime: string | undefined;
+		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		if (productId) {
 			const { data: stored, error } = await admin.from('creative_products')
 				.select('id,name,description,price_text,currency,image_path,analysis')
@@ -71,8 +72,8 @@ export const POST: APIRoute = async ({ request }) => {
 					productMime = normalized.type;
 				}
 			}
-		} else if (product instanceof File && product.size > 0) {
-			const normalized = await normalizeImageInput(Buffer.from(await product.arrayBuffer()));
+		} else if (productsUploaded.length > 0) {
+			const normalized = await normalizeImageInput(Buffer.from(await productsUploaded[0].arrayBuffer()));
 			if (normalized) {
 				productB64 = normalized.buffer.toString('base64');
 				productMime = normalized.type;

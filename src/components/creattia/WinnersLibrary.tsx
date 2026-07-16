@@ -625,11 +625,18 @@ export default function WinnersLibrary({
 				const tags = getTags(item, category);
 				return { ...item, category, tags };
 			});
-			// Deduplicate by imagePath — keep only first occurrence of each unique image
-			const seen = new Set<string>();
+			// Deduplicate by templateId and imagePath
+			const seenPath = new Set<string>();
+			const seenTemplate = new Set<number>();
 			const deduped = classified.filter(item => {
-				if (!item.imagePath || seen.has(item.imagePath)) return false;
-				seen.add(item.imagePath);
+				const path = (item.imagePath || '').toLowerCase().trim();
+				const tid = item.templateId;
+				
+				if (!path || seenPath.has(path)) return false;
+				if (tid && seenTemplate.has(tid)) return false;
+				
+				seenPath.add(path);
+				if (tid) seenTemplate.add(tid);
 				return true;
 			});
 			setItems(deduped);
@@ -870,36 +877,58 @@ export default function WinnersLibrary({
 							setShowNicheDropdown(false);
 						}}
 						style={{
-							display: 'flex', alignItems: 'center', gap: '8px', padding: '0 16px', height: '44px',
-							borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff',
-							color: '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer',
+							display: 'flex', alignItems: 'center', gap: '8px', padding: '0 18px', height: '42px',
+							borderRadius: '21px', border: '1px solid #dcd5e4', 
+							background: (selectedCategories.includes('todos') || selectedCategories.length === 0) ? '#fff' : '#f3efff',
+							borderColor: (selectedCategories.includes('todos') || selectedCategories.length === 0) ? '#dcd5e4' : '#744bde',
+							color: (selectedCategories.includes('todos') || selectedCategories.length === 0) ? '#19171d' : '#744bde',
+							fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+							boxShadow: '0 2px 6px rgba(0,0,0,0.02)', transition: 'all 0.2s'
 						}}
 					>
 						📂 Categorías {selectedCategories.includes('todos') || selectedCategories.length === 0 ? '(Todas)' : `(${selectedCategories.length})`}
-						<span style={{ fontSize: '10px', color: '#8b8490' }}>▼</span>
+						<span style={{ fontSize: '9px', opacity: 0.7, transform: showCategoryDropdown ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
 					</button>
 					{showCategoryDropdown && (
 						<div style={{
 							position: 'absolute', top: '48px', left: 0, zIndex: 120,
-							background: '#fff', border: '1px solid #e9e6ed', borderRadius: '12px',
-							boxShadow: '0 10px 30px rgba(0,0,0,0.15)', padding: '12px', minWidth: '220px',
-							display: 'flex', flexDirection: 'column', gap: '8px'
+							background: '#fff', border: '1px solid #e9e6ed', borderRadius: '14px',
+							boxShadow: '0 12px 36px rgba(52, 40, 79, 0.16)', padding: '8px', minWidth: '240px',
+							display: 'flex', flexDirection: 'column', gap: '2px'
 						}}>
-							<label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, paddingBottom: '6px', borderBottom: '1px solid #eee', userSelect: 'none' }}>
+							<label style={{ 
+								display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', 
+								fontSize: '13px', fontWeight: 700, padding: '8px 12px', borderRadius: '8px',
+								background: (selectedCategories.includes('todos') || selectedCategories.length === 0) ? '#f3efff' : 'transparent',
+								color: (selectedCategories.includes('todos') || selectedCategories.length === 0) ? '#744bde' : '#19171d',
+								userSelect: 'none', transition: 'all 0.15s'
+							}}>
 								<input 
 									type="checkbox" 
 									checked={selectedCategories.includes('todos') || selectedCategories.length === 0} 
 									onChange={() => setSelectedCategories(['todos'])} 
+									style={{ accentColor: '#744bde', cursor: 'pointer' }}
 								/>
 								Todas las categorías
 							</label>
+							<div style={{ height: '1px', background: '#f3eff6', margin: '4px 0' }} />
 							{winnersCategories.filter(c => c.id !== 'todos').map(cat => {
-								const checked = selectedCategories.includes(cat.id);
+								const checked = selectedCategories.includes(cat.id) && !selectedCategories.includes('todos');
 								return (
-									<label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#4b4452', userSelect: 'none' }}>
+									<label 
+										key={cat.id} 
+										style={{ 
+											display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', 
+											fontSize: '13px', padding: '8px 12px', borderRadius: '8px',
+											background: checked ? '#f3efff' : 'transparent',
+											color: checked ? '#744bde' : '#4b4452',
+											fontWeight: checked ? 700 : 500,
+											userSelect: 'none', transition: 'all 0.15s'
+										}}
+									>
 										<input 
 											type="checkbox" 
-											checked={checked && !selectedCategories.includes('todos')} 
+											checked={checked} 
 											onChange={() => {
 												let next = selectedCategories.filter(x => x !== 'todos');
 												if (next.includes(cat.id)) {
@@ -910,6 +939,7 @@ export default function WinnersLibrary({
 												if (next.length === 0) next = ['todos'];
 												setSelectedCategories(next);
 											}} 
+											style={{ accentColor: '#744bde', cursor: 'pointer' }}
 										/>
 										{cat.label}
 									</label>
@@ -928,37 +958,59 @@ export default function WinnersLibrary({
 								setShowCategoryDropdown(false);
 							}}
 							style={{
-								display: 'flex', alignItems: 'center', gap: '8px', padding: '0 16px', height: '44px',
-								borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff',
-								color: '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer',
+								display: 'flex', alignItems: 'center', gap: '8px', padding: '0 16px', height: '42px',
+								borderRadius: '21px', border: '1px solid #dcd5e4', 
+								background: (selectedNiches.includes('todos') || selectedNiches.length === 0) ? '#fff' : '#f3efff',
+								borderColor: (selectedNiches.includes('todos') || selectedNiches.length === 0) ? '#dcd5e4' : '#744bde',
+								color: (selectedNiches.includes('todos') || selectedNiches.length === 0) ? '#19171d' : '#744bde',
+								fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+								boxShadow: '0 2px 6px rgba(0,0,0,0.02)', transition: 'all 0.2s'
 							}}
 						>
 							🔍 Nichos {selectedNiches.includes('todos') || selectedNiches.length === 0 ? '(Todos)' : `(${selectedNiches.length})`}
-							<span style={{ fontSize: '10px', color: '#8b8490' }}>▼</span>
+							<span style={{ fontSize: '9px', opacity: 0.7, transform: showNicheDropdown ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
 						</button>
 						{showNicheDropdown && (
 							<div style={{
 								position: 'absolute', top: '48px', left: 0, zIndex: 120,
-								background: '#fff', border: '1px solid #e9e6ed', borderRadius: '12px',
-								boxShadow: '0 10px 30px rgba(0,0,0,0.15)', padding: '12px', minWidth: '220px',
-								maxHeight: '300px', overflowY: 'auto',
-								display: 'flex', flexDirection: 'column', gap: '8px'
+								background: '#fff', border: '1px solid #e9e6ed', borderRadius: '14px',
+								boxShadow: '0 12px 36px rgba(52, 40, 79, 0.16)', padding: '8px', minWidth: '240px',
+								maxHeight: '320px', overflowY: 'auto',
+								display: 'flex', flexDirection: 'column', gap: '2px'
 							}}>
-								<label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, paddingBottom: '6px', borderBottom: '1px solid #eee', userSelect: 'none' }}>
+								<label style={{ 
+									display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', 
+									fontSize: '13px', fontWeight: 700, padding: '8px 12px', borderRadius: '8px',
+									background: (selectedNiches.includes('todos') || selectedNiches.length === 0) ? '#f3efff' : 'transparent',
+									color: (selectedNiches.includes('todos') || selectedNiches.length === 0) ? '#744bde' : '#19171d',
+									userSelect: 'none', transition: 'all 0.15s'
+								}}>
 									<input 
 										type="checkbox" 
 										checked={selectedNiches.includes('todos') || selectedNiches.length === 0} 
 										onChange={() => setSelectedNiches(['todos'])} 
+										style={{ accentColor: '#744bde', cursor: 'pointer' }}
 									/>
 									Todos los nichos
 								</label>
+								<div style={{ height: '1px', background: '#f3eff6', margin: '4px 0' }} />
 								{availableNiches.filter(n => n !== 'todos').map(niche => {
-									const checked = selectedNiches.includes(niche);
+									const checked = selectedNiches.includes(niche) && !selectedNiches.includes('todos');
 									return (
-										<label key={niche} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#4b4452', userSelect: 'none' }}>
+										<label 
+											key={niche} 
+											style={{ 
+												display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', 
+												fontSize: '13px', padding: '8px 12px', borderRadius: '8px',
+												background: checked ? '#f3efff' : 'transparent',
+												color: checked ? '#744bde' : '#4b4452',
+												fontWeight: checked ? 700 : 500,
+												userSelect: 'none', transition: 'all 0.15s'
+											}}
+										>
 											<input 
 												type="checkbox" 
-												checked={checked && !selectedNiches.includes('todos')} 
+												checked={checked} 
 												onChange={() => {
 													let next = selectedNiches.filter(x => x !== 'todos');
 													if (next.includes(niche)) {
@@ -969,6 +1021,7 @@ export default function WinnersLibrary({
 													if (next.length === 0) next = ['todos'];
 													setSelectedNiches(next);
 												}} 
+												style={{ accentColor: '#744bde', cursor: 'pointer' }}
 											/>
 											{nicheLabels[niche] || niche}
 										</label>

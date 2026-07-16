@@ -491,9 +491,11 @@ export default function CreativeApp() {
 	function navigateTo(nextView: View) {
 		setViewHistory((prev) => [...prev, view]);
 		setView(nextView);
+		import('../../lib/creattia/sfx').then(({ sfx }) => sfx.playClick());
 	}
 
 	function goBack() {
+		import('../../lib/creattia/sfx').then(({ sfx }) => sfx.playClick());
 		setViewHistory((prev) => {
 			if (prev.length === 0) {
 				setView('home');
@@ -977,6 +979,8 @@ export default function CreativeApp() {
 			setToast(generations.length ? '¡Tu anuncio está listo!' : 'La generación falló y tus créditos fueron devueltos.');
 
 			if (generations.length) {
+				import('../../lib/creattia/sfx').then(({ sfx }) => sfx.playSuccess());
+				import('../../lib/creattia/confetti').then(({ triggerConfetti }) => triggerConfetti());
 				window.setTimeout(() => {
 					setActiveBatch(curr => curr && curr.batchId === batch.batchId && curr.status === 'completed' ? null : curr);
 				}, 5000);
@@ -1033,10 +1037,15 @@ export default function CreativeApp() {
 			<div className={`studio-mobile-scrim ${mobileMenu ? 'is-open' : ''}`} onClick={() => setMobileMenu(false)} />
 			<aside className={`studio-sidebar ${mobileMenu ? 'is-open' : ''}`}>
 				<div style={{ display: 'flex', flexDirection: sidebarMinimized ? 'column' : 'row', alignItems: 'center', justifyContent: sidebarMinimized ? 'center' : 'space-between', gap: sidebarMinimized ? '6px' : 0, paddingRight: sidebarMinimized ? 0 : '10px', marginBottom: '10px' }}>
-					<a className="studio-logo" href="/" aria-label="Volver a Creattia" style={{ marginBottom: 0 }}>
+					<button 
+						className="studio-logo" 
+						onClick={() => navigateTo('home')} 
+						aria-label="Volver a Inicio" 
+						style={{ marginBottom: 0, border: 0, background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}
+					>
 						<span><img src="/images/creattia/moki-mascot.webp" alt=""/></span>
 						{!sidebarMinimized && <div><strong>Creattia</strong></div>}
-					</a>
+					</button>
 					<button 
 						onClick={() => setSidebarMinimized(!sidebarMinimized)}
 						style={{

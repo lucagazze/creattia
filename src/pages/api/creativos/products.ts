@@ -127,17 +127,20 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 	// Primera importación: aprender el estilo de la marca desde su web
 	// (logo, colores, tipografía, estética) scrapeando home + páginas internas.
 	if (importedIds.length) {
-		try {
-			const { data: profile } = await admin.from('creative_profiles')
-				.select('brand_style').eq('user_id', userId).maybeSingle();
-			if (!profile?.brand_style) {
-				const origin = new URL(urls[0]).origin;
-				const style = await analyzeBrandStyle(origin, apiKey);
-				await persistBrandStyle(admin, userId, style);
+		// Run brand style analysis in the background so it does not block product import
+		void (async () => {
+			try {
+				const { data: profile } = await admin.from('creative_profiles')
+					.select('brand_style').eq('user_id', userId).maybeSingle();
+				if (!profile?.brand_style) {
+					const origin = new URL(urls[0]).origin;
+					const style = await analyzeBrandStyle(origin, apiKey);
+					await persistBrandStyle(admin, userId, style);
+				}
+			} catch (styleErr) {
+				console.error('Background brand style analysis failed:', styleErr);
 			}
-		} catch (styleErr) {
-			console.error('Brand style analysis failed (non-fatal):', styleErr);
-		}
+		})();
 	}
 
 	return { importedIds, errors };
