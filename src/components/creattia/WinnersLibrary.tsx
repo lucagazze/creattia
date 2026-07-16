@@ -610,7 +610,11 @@ export default function WinnersLibrary({
 			let rawItems: any[] = [];
 			if (supabase) {
 				const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
-				const res = await fetch(manifestUrl.publicUrl + '?t=' + Date.now());
+				let res = await fetch(manifestUrl.publicUrl);
+				if (!res.ok) {
+					await new Promise((resolve) => setTimeout(resolve, 1200));
+					res = await fetch(manifestUrl.publicUrl);
+				}
 				if (!res.ok) throw new Error('No se pudo descargar el catálogo de ganadores.');
 				const data = await res.json();
 				rawItems = data.items || [];
@@ -1212,12 +1216,19 @@ export default function WinnersLibrary({
 										</div>
 									)}
 
-									<img 
-										src={imageUrl} 
-										alt={item.name} 
-										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} 
-										loading="lazy" 
-										onError={() => {
+									<img
+										src={imageUrl}
+										alt={item.name}
+										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
+										loading="lazy"
+										onError={(event) => {
+											// Reintento único: el CDN a veces devuelve 429 bajo carga.
+											const img = event.currentTarget;
+											if (!img.dataset.retried) {
+												img.dataset.retried = '1';
+												window.setTimeout(() => { img.src = imageUrl; }, 1500 + Math.random() * 2500);
+												return;
+											}
 											if (item.imagePath && !failedImages.has(item.imagePath)) {
 												setFailedImages(prev => {
 													const next = new Set(prev);

@@ -189,6 +189,7 @@ function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number;
 	if (name === 'home') return <svg {...common}><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-6h5v6"/></svg>;
 	if (name === 'grid') return <svg {...common}><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>;
 	if (name === 'spark') return <svg {...common}><path d="m12 3 1.2 4.1a5 5 0 0 0 3.4 3.4L21 12l-4.4 1.5a5 5 0 0 0-3.4 3.4L12 21l-1.2-4.1a5 5 0 0 0-3.4-3.4L3 12l4.4-1.5a5 5 0 0 0 3.4-3.4L12 3Z"/></svg>;
+	if (name === 'settings') return <svg {...common}><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2.2"/><circle cx="8" cy="16" r="2.2"/></svg>;
 	if (name === 'history') return <svg {...common}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>;
 	if (name === 'brand') return <svg {...common}><path d="M5 20h14"/><path d="M7 17V7l5-3 5 3v10"/><path d="M9.5 10h5M9.5 13h5"/></svg>;
 	if (name === 'bag') return <svg {...common}><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>;
@@ -514,6 +515,7 @@ export default function CreativeApp() {
 	const [history, setHistory] = useState<Generation[]>([]);
 	const [activeBatch, setActiveBatch] = useState<ActiveBatch | null>(null);
 	const [lightbox, setLightbox] = useState<Generation | null>(null);
+	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [favorites, setFavorites] = useState<Set<number>>(new Set());
 	const [products, setProducts] = useState<Product[]>([]);
 	const [creationProductIds, setCreationProductIds] = useState<string[]>([]);
@@ -1096,6 +1098,26 @@ export default function CreativeApp() {
 						<Icon name="brand"/>
 						{!sidebarMinimized && <span>Mi marca</span>}
 					</button>
+					<button
+						className={settingsOpen ? 'active' : ''}
+						onClick={() => setSettingsOpen(!settingsOpen)}
+						style={{ display: 'flex', alignItems: 'center', width: '100%' }}
+					>
+						<Icon name="settings"/>
+						{!sidebarMinimized && <>
+							<span>Configuración</span>
+							<i style={{ marginLeft: 'auto', display: 'inline-flex', transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .18s ease', color: '#9d97a6' }}>
+								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+							</i>
+						</>}
+					</button>
+					{settingsOpen && !sidebarMinimized && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 6px', paddingLeft: '34px' }}>
+							<button onClick={() => { navigateTo('plans'); setSettingsOpen(false); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#c9c4d1', fontWeight: 600 }}>💳 Planes y suscripción</button>
+							<button onClick={() => { alert('Historial de pagos: no tenés facturas todavía.'); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#c9c4d1', fontWeight: 600 }}>📄 Historial de pagos</button>
+							<button onClick={() => { void logout(); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#ff9a9a', fontWeight: 600 }}>🚪 Cerrar sesión</button>
+						</div>
+					)}
 					{!sidebarMinimized && (
 						<div className="studio-plan-card">
 							<div><span className="studio-plan-orb"><Icon name="spark" size={15}/></span><small>PLAN ACTUAL</small></div>
@@ -1105,49 +1127,10 @@ export default function CreativeApp() {
 						</div>
 					)}
 					
-					{profileMenuOpen && (
-						<div 
-							style={{
-								position: 'fixed',
-								bottom: '70px',
-								left: sidebarMinimized ? '72px' : '190px',
-								background: '#fff',
-								border: '1px solid #e9e6ed',
-								borderRadius: '12px',
-								boxShadow: '0 10px 30px rgba(52, 40, 79, 0.15)',
-								padding: '8px',
-								zIndex: 200,
-								display: 'flex',
-								flexDirection: 'column',
-								gap: '4px',
-								minWidth: '200px',
-							}}
-						>
-							<button 
-								onClick={() => { navigateTo('plans'); setProfileMenuOpen(false); }}
-								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#19171d', fontWeight: 700, whiteSpace: 'nowrap' }}
-							>
-								💳 Planes y Suscripción
-							</button>
-							<button 
-								onClick={() => { alert('Historial de pagos: No tenés facturas pendientes en tu demo.'); setProfileMenuOpen(false); }}
-								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#19171d', fontWeight: 700, whiteSpace: 'nowrap' }}
-							>
-								📄 Historial de Pagos
-							</button>
-							<div style={{ height: '1px', background: '#f3eff6', margin: '4px 0' }} />
-							<button 
-								onClick={() => { logout(); setProfileMenuOpen(false); }}
-								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#dc2626', fontWeight: 700, whiteSpace: 'nowrap' }}
-							>
-								🚪 Cerrar sesión
-							</button>
-						</div>
-					)}
 
 					<div 
 						className="studio-user" 
-						onClick={() => setProfileMenuOpen(!profileMenuOpen)} 
+						onClick={() => setSettingsOpen(!settingsOpen)} 
 						style={{ cursor: 'pointer', position: 'relative' }}
 					>
 						<span>{firstName(profile, getSessionEmail(session)).slice(0, 1).toUpperCase()}</span>
@@ -1157,7 +1140,7 @@ export default function CreativeApp() {
 									<strong style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{profile.fullName || 'Mi cuenta'}</strong>
 									<small style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getSessionEmail(session)}</small>
 								</div>
-								<span style={{ display: 'inline-flex', transform: 'rotate(90deg)', color: '#716d79' }}><Icon name="arrow" size={12} /></span>
+								<span style={{ display: 'inline-flex', transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .18s ease', color: '#9d97a6' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
 							</>
 						)}
 					</div>
@@ -3230,7 +3213,8 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 		}
 	}
 
-	if (!config || !config.configured) return null;
+	if (!config) return null;
+	const unconfigured = !config.configured;
 
 	const symbol = config.currency === 'USD' ? 'u$s' : '$';
 
@@ -3273,7 +3257,7 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 						</div>
 						<button 
 							onClick={() => void buy(qty)}
-							disabled={buying !== null}
+							disabled={buying !== null || unconfigured}
 							style={{ 
 								width: '100%', 
 								height: '38px', 
@@ -3287,7 +3271,7 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 								opacity: buying === qty ? 0.6 : 1
 							}}
 						>
-							{buying === qty ? 'Abriendo Mercado Pago...' : 'Comprar ahora'}
+							{unconfigured ? 'Muy pronto' : buying === qty ? 'Abriendo Mercado Pago...' : 'Comprar ahora'}
 						</button>
 					</div>
 				))}

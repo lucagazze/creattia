@@ -1769,8 +1769,8 @@
 
 /* Plans Section overrides */
 .studio-plans-grid {
-	grid-template-columns: repeat(auto-fit, minmax(320px, 360px)) !important;
-	justify-content: center !important;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+	justify-content: stretch !important;
 	gap: 24px !important;
 	margin-top: 25px !important;
 }
