@@ -48,9 +48,9 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		border: active ? '2px solid #a25df7' : '1px solid #e2dde9', background: active ? '#f7f2ff' : '#fff', color: active ? '#6d28d9' : '#3f3a48',
 	} as const);
 
-	async function scanUrl() {
+	async function scanUrl(): Promise<any | null> {
 		const raw = urlValue.trim();
-		if (!raw) return;
+		if (!raw) return null;
 		setScanning(true); setError('');
 		try {
 			const response = await fetch('/api/creativos/products', {
@@ -64,18 +64,26 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			setProducts(payload.products || products);
 			if (imported[0]) setSelectedProductId(imported[0].id);
 			if (onToast) onToast(`Producto "${imported[0]?.name || 'importado'}" listo para usar.`);
+			return imported[0] || null;
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo escanear la URL.');
+			return null;
 		} finally { setScanning(false); }
 	}
 
 	async function requestPlan() {
 		setPhase('planning'); setError('');
 		try {
+			// Si pegó una URL pero no la escaneó, se escanea acá mismo.
+			let productForPlan = selectedProduct;
+			if (!productForPlan && !uploadFile && urlValue.trim()) {
+				productForPlan = await scanUrl();
+				if (!productForPlan) { setPhase('setup'); return; }
+			}
 			const form = new FormData();
 			form.set('referencePath', ad.imagePath);
 			if (language !== 'auto') form.set('language', language);
-			if (selectedProduct) form.set('productId', selectedProduct.id);
+			if (productForPlan) form.set('productId', productForPlan.id);
 			else if (uploadFile) {
 				form.set('product', uploadFile);
 				form.set('productFacts', extra);
@@ -84,7 +92,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudieron generar los textos.');
 			const analysis = payload.analysis || {};
-			if (analysis.referenceHasProduct !== false && !hasProduct) {
+			if (analysis.referenceHasProduct !== false && !productForPlan && !uploadFile) {
 				throw new Error('Este anuncio ganador muestra un producto: elegí o subí el tuyo para reemplazarlo.');
 			}
 			setPlan(analysis);
@@ -139,7 +147,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	}
 
 	return (
-		<div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+		<div style={{ width: '100%' }}>
 			<button onClick={onBack} style={{ border: 0, background: 'transparent', color: '#716d79', cursor: 'pointer', fontSize: '14px', padding: 0, marginBottom: '16px' }}>← Volver a la biblioteca</button>
 			<div className="creation-flow-layout">
 
@@ -179,10 +187,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									style={{ flex: '1 1 280px', padding: '11px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14px' }}
 								/>
 								<button type="button" onClick={() => void scanUrl()} disabled={scanning || !urlValue.trim()} style={{ ...chip(false), opacity: scanning ? 0.6 : 1 }}>
-									{scanning ? '⏳ Analizando…' : '🔗 Escanear URL'}
+									{scanning ? 'Analizando…' : 'Escanear URL'}
 								</button>
 								<label style={{ ...chip(Boolean(uploadFile)), display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-									{uploadFile ? `📷 ${uploadFile.name.slice(0, 18)}` : '📷 Subir foto'}
+									{uploadFile ? `Foto: ${uploadFile.name.slice(0, 16)}` : 'Subir foto'}
 									<input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={(event) => {
 										const file = event.target.files?.[0] || null;
 										setUploadFile(file); setSelectedProductId('');

@@ -1858,11 +1858,11 @@ function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBa
 			: 'Generando tu imagen en alta calidad…';
 
 	return (
-		<section style={{ maxWidth: '760px', margin: '0 auto', padding: '30px 10px' }}>
+		<section style={{ width: '100%', padding: '30px 10px' }}>
 			<button onClick={onBack} style={{ border: 0, background: 'transparent', color: '#716d79', cursor: 'pointer', fontSize: '13px', marginBottom: '18px', padding: 0 }}>← Volver a la biblioteca</button>
 
 			{batch.status === 'processing' && (
-				<div style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '18px', padding: '46px 30px', textAlign: 'center' }}>
+				<div style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '18px', padding: '46px 30px', textAlign: 'center', maxWidth: '680px', margin: '0 auto' }}>
 					{batch.referenceUrl && (
 						<img src={batch.referenceUrl} alt="" style={{ width: '92px', height: '92px', objectFit: 'cover', borderRadius: '14px', marginBottom: '20px', boxShadow: '0 10px 26px rgba(0,0,0,0.14)' }} />
 					)}
@@ -1883,7 +1883,7 @@ function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBa
 				<div>
 					<h1 style={{ margin: '0 0 6px', fontSize: '24px', color: '#19171d' }}>¡Tu anuncio está listo!</h1>
 					<p style={{ margin: '0 0 22px', color: '#716d79', fontSize: '14px' }}>Basado en “{batch.title}”. También quedó guardado en Mis imágenes.</p>
-					<div style={{ display: 'grid', gridTemplateColumns: batch.results.length > 1 ? 'repeat(auto-fit, minmax(280px, 1fr))' : '1fr', gap: '18px' }}>
+					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 460px))', justifyContent: 'center', gap: '18px' }}>
 						{batch.results.map((generation) => (
 							<figure key={generation.id} style={{ margin: 0, background: '#fff', border: '1px solid #eee9f2', borderRadius: '16px', padding: '14px' }}>
 								<img src={generation.imageUrl} alt={generation.title} style={{ width: '100%', borderRadius: '10px', display: 'block' }} />
@@ -2182,13 +2182,24 @@ function PendingGenerationCard({ title, referenceUrl, onClick }: { title: string
 	return (
 		<article className="studio-generation-card" style={{ cursor: onClick ? 'pointer' : 'default' }} onClick={onClick}>
 			<div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#f4f0f8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-				{referenceUrl && <img src={referenceUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.22, filter: 'blur(3px)' }} />}
+				{referenceUrl && <img src={referenceUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.18, filter: 'blur(4px)' }} />}
 				<div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
 					<span className="studio-spinner" style={{ width: '30px', height: '30px' }} />
-					<b style={{ fontSize: '12px', color: '#5c5568' }}>Generando…</b>
+					<b style={{ fontSize: '13px', color: '#5c5568', letterSpacing: '.02em' }}>Creando tu anuncio…</b>
 				</div>
 			</div>
-			<footer><small>EN PROCESO</small><h3>{title}</h3><span>Tu imagen va a aparecer acá sola.</span>{onClick && <button onClick={(event) => { event.stopPropagation(); onClick(); }}><Icon name="spark" size={14}/>Ver progreso</button>}</footer>
+			<div style={{ padding: '13px 14px 14px' }}>
+				<span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#f1ebfb', color: '#6d28d9', fontSize: '11px', fontWeight: 800, letterSpacing: '.06em' }}>
+					<span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#8b5cf6', animation: 'pulse 1.4s ease-in-out infinite' }} />
+					EN PROCESO
+				</span>
+				<h3 style={{ margin: '9px 0 0', fontSize: '15px', color: '#19171d', lineHeight: 1.3 }}>{title}</h3>
+				{onClick && (
+					<button onClick={(event) => { event.stopPropagation(); onClick(); }} style={{ marginTop: '12px', width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#6d28d9', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}>
+						<Icon name="spark" size={14}/>Ver progreso en vivo
+					</button>
+				)}
+			</div>
 		</article>
 	);
 }

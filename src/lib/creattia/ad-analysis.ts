@@ -56,8 +56,8 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	language?: string;
 }): Promise<LayoutAnalysis | null> {
 	const languageRule = input.language && LANGUAGE_NAMES[input.language]
-		? `Write ALL replacements and creativeOptions in ${LANGUAGE_NAMES[input.language]} (the user chose this language; set "language" to "${input.language}").`
-		: 'Write replacements in the SAME language as the product facts and set "language" accordingly.';
+		? `Write ALL replacements in ${LANGUAGE_NAMES[input.language]} (the user chose this language; set "language" to "${input.language}"). creativeOptions stay in Argentine Spanish regardless.`
+		: 'Write replacements in the SAME language as the product facts and set "language" accordingly. creativeOptions stay in Argentine Spanish regardless.';
 
 	const systemPrompt = `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image${input.productB64 ? ', (2) a real product photo' : ''}, and verified product facts.
 
@@ -75,7 +75,7 @@ Return STRICT JSON:
   "productHasPackaging": true|false,
   "productPlacement": "precise description of where/how the template's product sits: position, scale relative to canvas, angle, cropping, lighting, shadow — or null if the template shows no product",
   "language": "es|en|fr|it|pt|de",
-  "creativeOptions": ["3 to 5 SHORT optional creative directions specific to THIS template and THIS product (e.g. highlight the price as anchor, emphasize the guarantee, show texture close-up) — the user may pick some as extra instructions"],
+  "creativeOptions": ["3 to 5 SHORT optional creative directions specific to THIS template and THIS product (e.g. highlight the price as anchor, emphasize the guarantee, show texture close-up) — ALWAYS written in Argentine Spanish (the app's UI language), even when the ad copy is in another language"],
   "styleNotes": "background color(s), palette, typography feel, graphic devices worth preserving"
 }
 
@@ -207,7 +207,7 @@ export function buildReferenceClonePrompt(input: {
 		: `\nNEVER invent a box, wrapper or label that is not visible in the product photo.`;
 
 	const productSwap = referenceHasProduct
-		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-RENDER it as a professional studio hero shot fully integrated into the scene: give it real volume and dimension, adapt its angle, perspective and lighting to match the template's product treatment, and ground it with a soft contact shadow. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}`
+		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-STAGE the product INTO the template's scene — do NOT paste it: re-photograph it as if it were shot in that exact environment, matching the scene's camera angle, perspective, lighting direction, color temperature, reflections and shadow behavior (e.g. if the template's product leans against a tiled wall in daylight, the new product must sit in that same tiled-wall daylight scene with the same grounding). Give it real volume and dimension, adapt its pose and orientation to fit the composition naturally, and ground it with the same shadow style the template uses. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}`
 		: `1. NO PRODUCT INSERTION — The template does NOT feature a physical product shot, so the new ad must not include one either. Keep the same imagery style (people, scene or graphic treatment) adapted naturally to the new brand context. Do NOT insert a product photo anywhere.`;
 
 	const colorRule = input.colorMode === 'brand' && input.brandColors?.length
