@@ -207,7 +207,7 @@ export function buildReferenceClonePrompt(input: {
 		: `\nNEVER invent a box, wrapper or label that is not visible in the product photo.`;
 
 	const productSwap = referenceHasProduct
-		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). RE-RENDER it as a professional studio hero shot fully integrated into the scene: give it real volume and dimension, adapt its angle, perspective and lighting to match the template's product treatment, ground it with a soft contact shadow, and let it overlap the surrounding elements exactly like the template's product does. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}`
+		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-RENDER it as a professional studio hero shot fully integrated into the scene: give it real volume and dimension, adapt its angle, perspective and lighting to match the template's product treatment, and ground it with a soft contact shadow. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}`
 		: `1. NO PRODUCT INSERTION — The template does NOT feature a physical product shot, so the new ad must not include one either. Keep the same imagery style (people, scene or graphic treatment) adapted naturally to the new brand context. Do NOT insert a product photo anywhere.`;
 
 	const colorRule = input.colorMode === 'brand' && input.brandColors?.length
@@ -235,4 +235,31 @@ If a template text block has no replacement listed, adapt its message honestly t
 
 USER DIRECTION
 ${input.brief || 'None.'}`;
+}
+
+// Pre-producción del producto: re-renderiza la foto como toma de estudio limpia
+// (objeto único, fondo neutro, luz pareja) para que se integre perfecto al anuncio.
+export async function renderStudioProductShot(googleKey: string, image: { buffer: Buffer; type: string }): Promise<{ buffer: Buffer; type: string } | null> {
+	try {
+		const prompt = 'Re-photograph the EXACT product from this image as a professional studio product shot: ONE single coherent object, clean neutral light background, soft even studio lighting, gentle contact shadow, centered with generous margins. Preserve the product\'s exact shape, proportions, colors, materials and texture with total fidelity. Do not add any text, logos, props, packaging or extra items. Do not crop the product.';
+		const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${googleKey}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				contents: [{ parts: [
+					{ text: prompt },
+					{ inline_data: { mime_type: image.type, data: image.buffer.toString('base64') } },
+				] }],
+				generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '1:1' } },
+			}),
+		});
+		const data: any = await response.json().catch(() => ({}));
+		if (!response.ok) throw new Error(`Gemini ${response.status}`);
+		const part = data.candidates?.[0]?.content?.parts?.find((item: any) => item.inlineData?.data || item.inline_data?.data);
+		if (!part) return null;
+		return { buffer: Buffer.from(part.inlineData?.data || part.inline_data?.data, 'base64'), type: 'image/png' };
+	} catch (error) {
+		console.error('Studio product shot failed (se usa la foto original):', error);
+		return null;
+	}
 }

@@ -31,6 +31,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [extra, setExtra] = useState('');
 
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
+	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
 	const [plan, setPlan] = useState<any>(null);
 	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
 	const [creativeOptions, setCreativeOptions] = useState<string[]>([]);
@@ -298,18 +299,32 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							<p style={{ margin: 0, fontSize: '14px', color: '#3f3a48', lineHeight: 1.55 }}>{plan.messageStrategy}</p>
 						</div>
 
-						<strong style={label}>Revisá y editá los textos antes de generar</strong>
-						<div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '22px' }}>
+						<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
+							<strong style={{ ...label, marginBottom: 0 }}>Textos del anuncio</strong>
+							<div style={{ display: 'flex', gap: '8px' }}>
+								<button type="button" onClick={() => setCopyMode('auto')} style={chip(copyMode === 'auto')}>✨ Automáticos</button>
+								<button type="button" onClick={() => setCopyMode('edit')} style={chip(copyMode === 'edit')}>✏️ Editarlos yo</button>
+							</div>
+						</div>
+
+						<div style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '12px', marginBottom: '22px', overflow: 'hidden' }}>
 							{zones.map((zone, index) => (
-								<div key={index} style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '12px', padding: '14px 16px' }}>
-									<p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 700, color: '#19171d' }}>{zone.where}</p>
-									{zone.messageRole && <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#8b8490' }}>{zone.messageRole}</p>}
-									<p style={{ margin: '0 0 8px', fontSize: '13px', color: '#a29ba9', fontStyle: 'italic' }}>Original: “{zone.original}”</p>
-									<textarea
-										value={zone.replacement || ''}
-										onChange={(event) => setZones(zones.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: event.target.value } : item))}
-										style={{ width: '100%', minHeight: '48px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', fontSize: '14px', resize: 'vertical', fontFamily: 'inherit' }}
-									/>
+								<div key={index} title={`Original: “${zone.original}”${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 170px) 1fr', gap: '12px', alignItems: 'center', padding: '9px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
+									<span style={{ fontSize: '12px', fontWeight: 700, color: '#8b8490', lineHeight: 1.3 }}>{zone.where}</span>
+									{copyMode === 'edit' ? (
+										<textarea
+											value={zone.replacement || ''}
+											rows={1}
+											onChange={(event) => {
+												setZones(zones.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: event.target.value } : item));
+												event.target.style.height = 'auto';
+												event.target.style.height = `${event.target.scrollHeight}px`;
+											}}
+											style={{ width: '100%', minHeight: '34px', padding: '7px 10px', borderRadius: '8px', border: '1px solid #e6e0ee', background: '#faf8fc', fontSize: '13.5px', resize: 'none', overflow: 'hidden', fontFamily: 'inherit', lineHeight: 1.4 }}
+										/>
+									) : (
+										<span style={{ fontSize: '13.5px', color: '#19171d', lineHeight: 1.4 }}>{zone.replacement}</span>
+									)}
 								</div>
 							))}
 						</div>
@@ -319,8 +334,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								<strong style={label}>Enfoques sugeridos para este anuncio (opcional)</strong>
 								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
 									{creativeOptions.map((option) => (
-										<button key={option} type="button" onClick={() => setPickedOptions(pickedOptions.includes(option) ? pickedOptions.filter((item) => item !== option) : [...pickedOptions, option])} style={chip(pickedOptions.includes(option))}>
-											{option}
+										<button key={option} type="button" onClick={() => setPickedOptions(pickedOptions.includes(option) ? pickedOptions.filter((item) => item !== option) : [...pickedOptions, option])} style={{ ...chip(pickedOptions.includes(option)), fontSize: '12.5px', lineHeight: 1.35, textAlign: 'left', padding: '8px 12px' }}>
+											{pickedOptions.includes(option) ? '✓ ' : ''}{option}
 										</button>
 									))}
 								</div>

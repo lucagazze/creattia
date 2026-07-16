@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import OpenAI, { toFile } from 'openai';
-import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
+import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
@@ -461,6 +461,23 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!primaryProductBuffer) {
 				primaryProductBuffer = normalized.buffer;
 				primaryProductMime = normalized.type;
+				// Pre-producción: versión "foto de estudio" del producto (cacheada por
+				// producto) para que se integre perfecto en el anuncio final.
+				if (googleKey) {
+					let studio: { buffer: Buffer; type: string } | null = null;
+					const cachePath = `${auth.user!.id}/products/${item.product.id}/studio-v1.png`;
+					const { data: cachedStudio } = await admin.storage.from('creative-assets').download(cachePath);
+					if (cachedStudio) {
+						studio = { buffer: Buffer.from(await cachedStudio.arrayBuffer()), type: 'image/png' };
+					} else {
+						studio = await renderStudioProductShot(googleKey, normalized);
+						if (studio) await admin.storage.from('creative-assets').upload(cachePath, studio.buffer, { contentType: 'image/png', upsert: true });
+					}
+					if (studio) {
+						await pushInput(studio.buffer, studio.type, `product-${item.product.id}-studio.png`, `clean studio render of the real product “${item.product.name}”; this is the exact product to feature in the ad`);
+						stamp('producto preparado en versión estudio');
+					}
+				}
 			}
 			await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
 		}
@@ -469,6 +486,13 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!normalized) throw new Error('La foto del producto no se pudo procesar. Probá con otra imagen.');
 			primaryProductBuffer = normalized.buffer;
 			primaryProductMime = normalized.type;
+			if (googleKey) {
+				const studio = await renderStudioProductShot(googleKey, normalized);
+				if (studio) {
+					await pushInput(studio.buffer, studio.type, 'product-studio.png', 'clean studio render of the real product; this is the exact product to feature in the ad');
+					stamp('producto preparado en versión estudio');
+				}
+			}
 			await pushInput(normalized.buffer, normalized.type, 'product.png', 'the real product supplied by the user; preserve its packaging, label, shape and color');
 		}
 
