@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/brand-style';
 import { analyzeCatalogWithAI, scanInstagram, scanWebsite, type ScannedProduct, type ScannedSource } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
@@ -69,7 +70,16 @@ export const POST: APIRoute = async ({ request }) => {
 			if (seen.has(product.externalId)) continue;
 			seen.add(product.externalId); products.push(product);
 		}
-		const analysis = await analyzeCatalogWithAI({ sources, products, apiKey: import.meta.env.OPENAI_API_KEY, endUserId: auth.user.id });
+		const [analysis, brandStyle] = await Promise.all([
+			analyzeCatalogWithAI({ sources, products, apiKey: import.meta.env.OPENAI_API_KEY, endUserId: auth.user.id }),
+			website
+				? analyzeBrandStyle(website, import.meta.env.OPENAI_API_KEY).catch((styleErr) => {
+					console.error('Brand style analysis failed (non-fatal):', styleErr);
+					return null;
+				})
+				: Promise.resolve(null),
+		]);
+		if (brandStyle) await persistBrandStyle(admin, auth.user.id, brandStyle);
 		const insightMap = new Map((analysis.productInsights || []).map((item: any) => [String(item.externalId), item]));
 
 		let storedProducts: any[] = [];

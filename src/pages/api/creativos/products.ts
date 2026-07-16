@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/brand-style';
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
@@ -120,6 +121,22 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			importedIds.push(stored.id as string);
 		} catch (err) {
 			errors.push({ url, error: err instanceof Error ? err.message : 'No se pudo analizar el producto.' });
+		}
+	}
+
+	// Primera importación: aprender el estilo de la marca desde su web
+	// (logo, colores, tipografía, estética) scrapeando home + páginas internas.
+	if (importedIds.length) {
+		try {
+			const { data: profile } = await admin.from('creative_profiles')
+				.select('brand_style').eq('user_id', userId).maybeSingle();
+			if (!profile?.brand_style) {
+				const origin = new URL(urls[0]).origin;
+				const style = await analyzeBrandStyle(origin, apiKey);
+				await persistBrandStyle(admin, userId, style);
+			}
+		} catch (styleErr) {
+			console.error('Brand style analysis failed (non-fatal):', styleErr);
 		}
 	}
 

@@ -50,6 +50,9 @@ function buildPrompt(input: {
 	brandSummary: string;
 	brandVoice: string;
 	targetAudience: string;
+	typography: string;
+	styleSummary: string;
+	brandPersonality: string;
 	products: Array<{ name: string; description: string }>;
 	imageType: string;
 	brief: string;
@@ -114,6 +117,9 @@ VERIFIED BRAND CONTEXT
 - Brand summary: ${input.brandSummary || 'Use only the supplied facts.'}
 - Brand voice: ${input.brandVoice || 'Clear and direct.'}
 - Target audience: ${input.targetAudience || 'Not provided.'}
+- Brand typography: ${input.typography || 'Not provided — pick a clean modern sans-serif.'}
+- Brand visual style: ${input.styleSummary || 'Not provided.'}
+- Brand personality: ${input.brandPersonality || 'Not provided.'}
 
 INPUT IMAGE MAP
 ${input.inputImageMap.length ? input.inputImageMap.map((label, index) => `- Image ${index + 1}: ${label}`).join('\n') : '- No input images. Build from verified text context only.'}
@@ -335,9 +341,10 @@ export const POST: APIRoute = async ({ request }) => {
 		const templateUsageHint = template?.usage_hint || 'Usar cuando se quiere replicar el estilo de un anuncio probado';
 
 		const { data: profile, error: profileError } = await admin.from('creative_profiles')
-			.select('brand_name,website_url,instagram_handle,brand_colors,logo_path,brand_summary,brand_voice,target_audience')
+			.select('brand_name,website_url,instagram_handle,brand_colors,logo_path,brand_summary,brand_voice,target_audience,brand_style')
 			.eq('user_id', auth.user.id).maybeSingle();
 		if (profileError) throw profileError;
+		const brandStyle: any = profile?.brand_style || null;
 
 		let storedProducts: any[] = [];
 		const productImagesById = new Map<string, Array<{ storage_path: string; sort_order: number }>>();
@@ -603,6 +610,11 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 			brandSummary: profile?.brand_summary || '',
 			brandVoice: profile?.brand_voice || '',
 			targetAudience: profile?.target_audience || '',
+			typography: brandStyle?.typography
+				? [brandStyle.typography.headings && `Headings: ${brandStyle.typography.headings}`, brandStyle.typography.body && `Body: ${brandStyle.typography.body}`].filter(Boolean).join(' · ')
+				: '',
+			styleSummary: brandStyle?.styleSummary || '',
+			brandPersonality: brandStyle?.brandPersonality || '',
 			products: storedProducts.map((item) => ({
 				name: item.name,
 				description: [item.description, item.price_text && `${item.price_text} ${item.currency || ''}`, item.analysis?.category].filter(Boolean).join(' · '),
