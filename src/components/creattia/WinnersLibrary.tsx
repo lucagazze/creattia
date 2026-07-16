@@ -700,7 +700,7 @@ export default function WinnersLibrary({
 		const observer = new ResizeObserver(update);
 		observer.observe(element);
 		return () => observer.disconnect();
-	}, [activeAd, loading]);
+	}, [activeAd, loading, filteredItems.length]);
 	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 	useEffect(() => {
 		const sentinel = loadMoreRef.current;
@@ -888,14 +888,13 @@ export default function WinnersLibrary({
 			) : (<>
 				<div ref={gridRef} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
 					{splitColumns(filteredItems.slice(0, visibleCount), columnCount).map((columnItems, columnIndex) => (
-					<div key={columnIndex} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+					<div key={columnIndex} style={{ flex: '1 1 0%', minWidth: 0, maxWidth: `${100 / columnCount}%`, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 					{columnItems.map((item, idx) => {
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
-						const imageUrl = hasFailed 
-							? getFallbackImage(item.templateId)
-							: (supabase 
-								? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
-								: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`);
+						if (hasFailed) return null; // imagen rota: no mostrar placeholder genérico
+						const imageUrl = supabase
+							? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
+							: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`;
 
 						return (
 							<article 

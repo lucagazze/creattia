@@ -320,7 +320,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 		let sourceGeneration: { id: string; output_path: string; product_id: string | null } | null = null;
 		if (sourceGenerationId) {
-			const { data, error } = await admin.from('creative_generations').select('id,output_path,product_id')
+			const { data, error } = await admin.from('creative_generations').select('id,output_path,product_id,settings_snapshot')
 				.eq('id', sourceGenerationId).eq('user_id', auth.user.id).eq('status', 'completed').maybeSingle();
 			if (error) throw error;
 			if (!data?.output_path) return json({ error: 'La imagen de referencia no está disponible.' }, 400);
@@ -372,7 +372,8 @@ export const POST: APIRoute = async ({ request }) => {
 			requested_outputs: count,
 			settings_snapshot: {
 				format, imageType, preset, productIds, productNames: storedProducts.map((item) => item.name),
-				referencePath: storedReference?.image_path || null,
+				// Las revisiones heredan el anuncio ganador de la imagen original.
+				referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
 				sourceGenerationId: sourceGeneration?.id || null,
 				variationStrength: sourceGeneration ? variationStrength : null,
 			},
