@@ -197,7 +197,7 @@ type LayoutAnalysis = {
 
 // Analiza el anuncio ganador + la foto real del producto con un modelo de visión:
 // enumera CADA zona de texto con su reemplazo y describe cómo presentar el producto.
-// Intenta OpenAI primero y cae a Gemini si falla (p. ej. sin crédito).
+// Intenta Gemini primero (barato y rápido) y cae a OpenAI si falla.
 async function analyzeReferenceLayout(keys: { openAIKey?: string; googleKey?: string }, input: {
 	referenceB64: string;
 	referenceMime: string;
@@ -240,6 +240,32 @@ Rules:
 		} catch { return null; }
 	};
 
+	if (keys.googleKey) {
+		try {
+			const model = import.meta.env.GEMINI_ANALYSIS_MODEL || process.env.GEMINI_ANALYSIS_MODEL || 'gemini-2.5-flash';
+			const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keys.googleKey}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					contents: [{
+						parts: [
+							{ text: `${systemPrompt}\n\n${userText}\n\nThe first image is the TEMPLATE, the second is the REAL PRODUCT PHOTO.` },
+							{ inline_data: { mime_type: input.referenceMime, data: input.referenceB64 } },
+							{ inline_data: { mime_type: input.productMime, data: input.productB64 } },
+						],
+					}],
+					generationConfig: { responseMimeType: 'application/json' },
+				}),
+			});
+			const data: any = await response.json().catch(() => ({}));
+			if (!response.ok) throw new Error(`Gemini ${response.status}: ${JSON.stringify(data.error || data).slice(0, 160)}`);
+			const parsed = validate(data.candidates?.[0]?.content?.parts?.map((part: any) => part.text || '').join(''));
+			if (parsed) return parsed;
+		} catch (geminiError) {
+			console.error('Gemini layout analysis failed, trying OpenAI:', geminiError);
+		}
+	}
+
 	if (keys.openAIKey) {
 		try {
 			const openai = new OpenAI({ apiKey: keys.openAIKey });
@@ -264,33 +290,7 @@ Rules:
 			const parsed = validate(response.choices[0]?.message?.content);
 			if (parsed) return parsed;
 		} catch (openAIError) {
-			console.error('OpenAI layout analysis failed, trying Gemini:', openAIError);
-		}
-	}
-
-	if (keys.googleKey) {
-		try {
-			const model = import.meta.env.GEMINI_ANALYSIS_MODEL || process.env.GEMINI_ANALYSIS_MODEL || 'gemini-2.5-flash';
-			const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keys.googleKey}`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					contents: [{
-						parts: [
-							{ text: `${systemPrompt}\n\n${userText}\n\nThe first image is the TEMPLATE, the second is the REAL PRODUCT PHOTO.` },
-							{ inline_data: { mime_type: input.referenceMime, data: input.referenceB64 } },
-							{ inline_data: { mime_type: input.productMime, data: input.productB64 } },
-						],
-					}],
-					generationConfig: { responseMimeType: 'application/json' },
-				}),
-			});
-			const data: any = await response.json().catch(() => ({}));
-			if (!response.ok) throw new Error(`Gemini ${response.status}: ${JSON.stringify(data.error || data).slice(0, 160)}`);
-			const parsed = validate(data.candidates?.[0]?.content?.parts?.map((part: any) => part.text || '').join(''));
-			if (parsed) return parsed;
-		} catch (geminiError) {
-			console.error('Gemini layout analysis failed:', geminiError);
+			console.error('OpenAI layout analysis (fallback) failed:', openAIError);
 		}
 	}
 
