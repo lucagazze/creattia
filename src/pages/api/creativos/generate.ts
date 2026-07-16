@@ -5,11 +5,12 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 export const prerender = false;
 export const maxDuration = 300;
 
+// gpt-image-1 solo acepta 1024x1024, 1024x1536 y 1536x1024
 const formatSizes = {
 	square: '1024x1024',
-	portrait: '1024x1280',
-	story: '1008x1792',
-	landscape: '1280x1024',
+	portrait: '1024x1536',
+	story: '1024x1536',
+	landscape: '1536x1024',
 } as const;
 const imageTypes = new Set(['product', 'promotion', 'lifestyle', 'catalog']);
 const formats = new Set(Object.keys(formatSizes));
@@ -43,6 +44,7 @@ function buildPrompt(input: {
 	hasLogo: boolean;
 	hasReference: boolean;
 	hasSourceGeneration: boolean;
+	hasUploadedProduct: boolean;
 	variationStrength: string;
 	replaceProduct: boolean;
 	inputImageMap: string[];
@@ -52,6 +54,7 @@ function buildPrompt(input: {
 		reviewText?: string;
 		cta?: string;
 		buttons?: string[];
+		language?: string;
 	};
 }) {
 	const revisionRules: Record<string, string> = {
@@ -110,10 +113,10 @@ ${adCopyBlock}
 ART DIRECTION
 ${compositionRule}
 ${input.hasSourceGeneration && input.replaceProduct ? '- Replace the product or products visible in the source generation with the selected product inputs. Do not blend old and new products.' : ''}
-${input.hasReference && input.products.length > 0 ? `- The first image is the WINNING AD TEMPLATE (reference layout). The second image is the REAL PRODUCT to feature. Create a new professional advertisement by using the EXACT COMPOSITION, color scheme, background aesthetic, alignment, speech bubbles, and layout of the first image (winning ad template), but replacing its original product with the real product shown in the second image. Do not draw the template's original product/packaging.` : ''}
+${input.hasReference && !input.hasSourceGeneration && (input.products.length > 0 || input.hasUploadedProduct) ? `- The first image is the WINNING AD TEMPLATE (reference layout). The second image is the REAL PRODUCT to feature. Create a new professional advertisement by using the EXACT COMPOSITION, color scheme, background aesthetic, alignment, speech bubbles, and layout of the first image (winning ad template), but replacing its original product with the real product shown in the second image. Do not draw the template's original product/packaging.` : ''}
 ${input.products.length > 1 ? `- This is a multi-product creative with ${input.products.length} distinct products. Show every supplied product clearly in one intentional group shot or collection composition. Preserve the real shape, packaging, logo and colors of each one.` : ''}
-${input.products.length === 1 ? '- The selected product is supplied as an input image. Preserve its real shape, packaging, logo and colors with high fidelity.' : ''}
-${input.products.length === 0 ? '- Build a brand-level promotion without inventing a specific packaged product.' : ''}
+${input.products.length === 1 || (!input.products.length && input.hasUploadedProduct) ? '- The selected product is supplied as an input image. Preserve its real shape, packaging, logo and colors with high fidelity.' : ''}
+${input.products.length === 0 && !input.hasUploadedProduct ? '- Build a brand-level promotion without inventing a specific packaged product.' : ''}
 ${input.imageType === 'lifestyle' ? '- Create a believable lifestyle scene. Every real product must remain recognizable and commercially prominent.' : ''}
 ${input.imageType === 'catalog' ? '- Use a clean ecommerce catalog treatment: controlled lighting, precise product edges, minimal environment and premium spacing.' : ''}
 ${input.imageType === 'promotion' ? '- Prioritize the verified offer and brand message. Do not invent a product-specific claim.' : ''}
@@ -240,7 +243,6 @@ export const POST: APIRoute = async ({ request }) => {
 			storedReference = data;
 		}
 
-		let reservedCount = 0;
 		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze');
 		let remaining = 99999;
 
@@ -343,6 +345,9 @@ export const POST: APIRoute = async ({ request }) => {
 			inputImageMap.push('the real product supplied by the user; preserve its packaging, label, shape and color');
 		}
 
+		let hasUploadedProduct = false;
+		if (!storedProducts.length && product instanceof File && product.size > 0) hasUploadedProduct = true;
+
 		let hasLogo = false;
 		if (logo instanceof File && logo.size > 0) {
 			inputs.push(await fileToOpenAI(logo, 'logo.png'));
@@ -424,6 +429,7 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 			hasLogo,
 			hasReference,
 			hasSourceGeneration,
+			hasUploadedProduct,
 			variationStrength,
 			replaceProduct: Boolean(hasSourceGeneration && sourceGeneration?.product_id !== (storedProducts[0]?.id || null)),
 			inputImageMap,
@@ -446,75 +452,19 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 		// Collect all output images as raw buffers
 		const outputBuffers: Buffer[] = [];
 
-		let finalPrompt = prompt;
-
-		if (openAIKey && referencePath && productInputPlan.length > 0) {
-			const baseUrl = process.env.SUPABASE_URL || import.meta.env.SUPABASE_URL || 'https://czocbnyoenjbpxmcqobn.supabase.co';
-			const templateUrl = `${baseUrl}/storage/v1/object/public/creative-references/${referencePath}`;
-			
-			// Get signed URL for the product image, or fallback to public URL
-			let productUrl = '';
-			try {
-				const { data: signed } = await admin.storage.from('creative-assets').createSignedUrl(productInputPlan[0].path, 3600);
-				productUrl = signed?.signedUrl || `${baseUrl}/storage/v1/object/public/creative-assets/${productInputPlan[0].path}`;
-			} catch {
-				productUrl = `${baseUrl}/storage/v1/object/public/creative-assets/${productInputPlan[0].path}`;
-			}
-
-			try {
-				const openai = new OpenAI({ apiKey: openAIKey });
-				const visionRes = await openai.chat.completions.create({
-					model: 'gpt-4o-mini',
-					messages: [
-						{
-							role: 'system',
-							content: `You are an expert ad designer. Analyze the two provided images:
-- Reference Image (first): The winning ad reference template (shows the design layout, colors, elements, and text copy structure).
-- Product Image (second): The real product photo (shows the product to display).
-
-Generate a highly descriptive, self-contained DALL-E prompt to create a new ad.
-The prompt MUST:
-1. Describe the exact visual layout of the Reference Image in detail: the background color, design elements, cards, speech bubbles, text positions, alignment, and overall composition.
-2. Describe the product from the Product Image in detail (its shape, realistic texture, and appearance) as the main product in the center of the ad.
-3. Write the exact copy to be drawn on the image in quotes (e.g. 'Write the headline "..." at the top'). If the product description or brand language is in English, write it in English. If it is in Spanish, write it in Spanish.
-4. Do NOT make any references to "Image 1", "Image 2", "the provided images", or "the original ad". The prompt must be completely self-contained and descriptive so that DALL-E can generate it from text alone.
-
-Return ONLY the DALL-E prompt text. No explanations.`
-						},
-						{
-							role: 'user',
-							content: [
-								{ type: 'text', text: 'Analyze these two images. The first image is the Reference Image (ad layout). The second image is the Product Image (actual product to place in the ad).' },
-								{ type: 'text', text: 'Reference Image (Ad Layout):' },
-								{ type: 'image_url', image_url: { url: templateUrl } },
-								{ type: 'text', text: 'Product Image (Actual Product):' },
-								{ type: 'image_url', image_url: { url: productUrl } },
-								{ type: 'text', text: `Generate the self-contained DALL-E prompt now, replacing the Reference Image product with the Product Image item. Use the brand name "${profile?.brand_name || 'the brand'}" and target the language based on the product details.` }
-							]
-						}
-					],
-					max_tokens: 600
-				});
-				if (visionRes.choices[0]?.message?.content) {
-					finalPrompt = visionRes.choices[0].message.content;
-					await admin.from('creative_generations').update({ prompt: finalPrompt }).in('id', generationIds);
-				}
-			} catch (visionErr) {
-				console.error('Vision prompt generation failed, falling back to standard prompt:', visionErr);
-			}
-		}
-
 		if (openAIKey) {
-			// Primary: OpenAI gpt-image-1 (highest quality, perfect layout translation)
+			// Primary: OpenAI gpt-image-1. Cuando hay imágenes de input (referencia ganadora,
+			// fotos del producto, logo) usamos images.edit para que el modelo VEA las imágenes
+			// reales, con input_fidelity high para preservar packaging, logos y detalles.
 			const openai = new OpenAI({ apiKey: openAIKey });
 			const model = 'gpt-image-1';
 			const size = formatSizes[format] || '1024x1024';
 
 			try {
-				const useEdit = !!sourceGenerationId && inputs.length > 0;
+				const useEdit = inputs.length > 0;
 				const result = useEdit
-					? await openai.images.edit({ model, image: inputs[0] as any, prompt: finalPrompt, size: size as any, quality: 'high', n: count })
-					: await openai.images.generate({ model, prompt: finalPrompt, size: size as any, quality: 'high', n: count });
+					? await openai.images.edit({ model, image: inputs as any, prompt, size: size as any, quality: 'high', input_fidelity: 'high', n: count } as any)
+					: await openai.images.generate({ model, prompt, size: size as any, quality: 'high', n: count });
 
 				const outputs = (result.data || []).flatMap((item) => item.b64_json ? [item.b64_json] : []);
 				if (!outputs.length) {

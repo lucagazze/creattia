@@ -134,6 +134,9 @@ type WinnerItem = {
 		addedBy?: string;
 		industry?: string;
 		logoUrl?: string;
+		mediaType?: string;
+		carouselImages?: string[];
+		foreplayNiches?: string[];
 	};
 };
 
@@ -936,7 +939,7 @@ export default function WinnersLibrary({
 									</button>
 									
 									{/* Carousel Badge */}
-									{(item.metadata?.mediaType === 'carousel' || item.metadata?.carouselImages?.length > 0) && (
+									{(item.metadata?.mediaType === 'carousel' || (item.metadata?.carouselImages?.length ?? 0) > 0) && (
 										<div 
 											style={{
 												position: 'absolute',
