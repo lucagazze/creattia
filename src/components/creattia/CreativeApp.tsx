@@ -1119,10 +1119,17 @@ export default function CreativeApp() {
 						</>}
 					</button>
 					{settingsOpen && !sidebarMinimized && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 6px', paddingLeft: '34px' }}>
-							<button onClick={() => { navigateTo('plans'); setSettingsOpen(false); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#5b5561', fontWeight: 600 }}>💳 Planes y suscripción</button>
-							<button onClick={() => { alert('Historial de pagos: no tenés facturas todavía.'); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#5b5561', fontWeight: 600 }}>📄 Historial de pagos</button>
-							<button onClick={() => { void logout(); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#dc2626', fontWeight: 600 }}>🚪 Cerrar sesión</button>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 10px', paddingLeft: '12px' }}>
+							<button className="studio-settings-item" onClick={() => { navigateTo('plans'); setSettingsOpen(false); }}>
+								<Icon name="spark" size={15}/>Planes y suscripción
+							</button>
+							<button className="studio-settings-item" onClick={() => { alert('Historial de pagos: no tenés facturas todavía.'); }}>
+								<Icon name="history" size={15}/>Historial de pagos
+							</button>
+							<div style={{ height: '1px', background: '#e7e2ec', margin: '4px 10px' }} />
+							<button className="studio-settings-item danger" onClick={() => { void logout(); }}>
+								<Icon name="logout" size={15}/>Cerrar sesión
+							</button>
 						</div>
 					)}
 					{!sidebarMinimized && (
@@ -1147,7 +1154,7 @@ export default function CreativeApp() {
 									<strong style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{profile.fullName || 'Mi cuenta'}</strong>
 									<small style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getSessionEmail(session)}</small>
 								</div>
-								<span style={{ display: 'inline-flex', transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .18s ease', color: '#9d97a6' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+
 							</>
 						)}
 					</div>
