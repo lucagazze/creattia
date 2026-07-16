@@ -378,15 +378,27 @@ export const POST: APIRoute = async ({ request }) => {
 		const outputBuffers: Buffer[] = [];
 
 		if (falKey) {
-			// Build image_url for Fal (base64 data URL of the first input image, if any)
+			// Build image_url for Fal (base64 data URL)
 			let falImageUrl: string | undefined;
-			if (inputs.length) {
-				// inputs[0] is a FileLike with arrayBuffer()
+			let falImageStrength = 0.85;
+
+			// If we have a product image, use it as the main image to preserve the user's product identity
+			if (productInputPlan.length > 0) {
+				const { data: productBlob } = await admin.storage.from('creative-assets').download(productInputPlan[0].path);
+				if (productBlob) {
+					falImageUrl = `data:image/png;base64,${Buffer.from(await productBlob.arrayBuffer()).toString('base64')}`;
+					falImageStrength = 0.70; // Sweet spot to keep product shape but change layout/background
+				}
+			} 
+			// Fallback: use reference template if no product image is available
+			else if (inputs.length > 0) {
 				const buf = Buffer.from(await (inputs[0] as any).arrayBuffer());
 				falImageUrl = `data:image/png;base64,${buf.toString('base64')}`;
+				falImageStrength = 0.80;
 			}
 
 			const falSize = falFormatSizes[format] || falFormatSizes.square;
+			// Flux image-to-image on Fal.ai is supported in the dev model
 			const falModel = falImageUrl
 				? 'fal-ai/flux/dev/image-to-image'
 				: 'fal-ai/flux/schnell';
@@ -399,7 +411,7 @@ export const POST: APIRoute = async ({ request }) => {
 			};
 			if (falImageUrl) {
 				falBody.image_url = falImageUrl;
-				falBody.strength = 0.85;
+				falBody.strength = falImageStrength;
 			}
 
 			const falRes = await fetch(`https://fal.run/${falModel}`, {
