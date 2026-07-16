@@ -217,13 +217,20 @@ export const POST: APIRoute = async ({ request }) => {
 			storedReference = data;
 		}
 
-		const { data: remaining, error: creditError } = await admin.rpc('reserve_creative_credits', {
-			p_user_id: auth.user.id,
-			p_amount: count,
-		});
-		if (creditError) throw creditError;
-		if (remaining === -1) return json({ error: `Necesitás ${count} ${count === 1 ? 'crédito' : 'créditos'} para esta generación.`, code: 'NO_CREDITS' }, 402);
-		reservedCount = count;
+		let reservedCount = 0;
+		const isAdmin = auth.user.email === 'lucagazze1@gmail.com';
+		let remaining = 99999;
+
+		if (!isAdmin) {
+			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
+				p_user_id: auth.user.id,
+				p_amount: count,
+			});
+			if (creditError) throw creditError;
+			if (reserveRes === -1) return json({ error: `Necesitás ${count} ${count === 1 ? 'crédito' : 'créditos'} para esta generación.`, code: 'NO_CREDITS' }, 402);
+			remaining = Number(reserveRes);
+			reservedCount = count;
+		}
 
 		const batchId = crypto.randomUUID();
 		const generationRows = Array.from({ length: count }, (_, index) => ({
@@ -474,16 +481,18 @@ export const POST: APIRoute = async ({ request }) => {
 				completed_at: new Date().toISOString(),
 			}).in('id', missingIds);
 			if (missingUpdateError) throw missingUpdateError;
-			const { error: missingRefundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: missingCount });
-			if (missingRefundError) throw missingRefundError;
-			reservedCount -= missingCount;
+			if (reservedCount > 0) {
+				const { error: missingRefundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: missingCount });
+				if (missingRefundError) throw missingRefundError;
+				reservedCount -= missingCount;
+			}
 		}
 
 		return json({
 			id: responseGenerations[0]?.id,
 			imageUrl: responseGenerations[0]?.imageUrl,
 			generations: responseGenerations,
-			creditsRemaining: Number(remaining) + missingCount,
+			creditsRemaining: isAdmin ? 99999 : remaining + missingCount,
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'No se pudo generar el creativo.';
