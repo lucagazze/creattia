@@ -869,7 +869,6 @@ export default function CreativeApp() {
 		const navItems: Array<{ id: View; label: string; icon: string }> = [
 			{ id: 'home', label: 'Inicio', icon: 'home' },
 			{ id: 'winners', label: 'Biblioteca de ganadores', icon: 'spark' },
-			{ id: 'products', label: 'Mis productos', icon: 'bag' },
 			{ id: 'history', label: 'Mis imágenes', icon: 'history' },
 		];
 
@@ -1051,8 +1050,7 @@ export default function CreativeApp() {
 							onToggleFavorite={toggleFavorite}
 						/>
 					)}
-					{view === 'products' && <ProductCatalog products={products} profile={profile} session={session} onRefresh={refreshProducts} onSync={syncBrandSources} onRemove={removeProduct} onCreate={(productId) => productId ? startWithProduct(productId) : setView('library')} />}
-					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} onGenerationStarted={startBatchTracking} />}
+										{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} onGenerationStarted={startBatchTracking} />}
 					{view === 'generation' && activeBatch && (
 						<GenerationView
 							batch={activeBatch}
@@ -1063,7 +1061,13 @@ export default function CreativeApp() {
 					)}
 					{view === 'history' && <History history={history} onCreate={() => setView('winners')} onReuse={reuseGeneration} onExpand={setLightbox} pending={activeBatch?.status === 'processing' ? { count: activeBatch.count, title: activeBatch.title, referenceUrl: activeBatch.referenceUrl } : null} onViewProgress={() => setView('generation')} />}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
-					{view === 'brand' && <BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />}
+					{view === 'brand' && <>
+					<BrandsManager session={session} planCode={profile.planCode} onPlans={() => setView('plans')} />
+					<details style={{ marginTop: '28px' }}>
+						<summary style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 700, color: '#716d79', marginBottom: '14px' }}>Ajustes manuales de la marca activa</summary>
+						<BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />
+					</details>
+				</>}
 				</div>
 			</main>
 		</div>
@@ -2378,6 +2382,140 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		<p className="studio-plan-note">Los créditos se renuevan cada mes. Podés cambiar o cancelar tu plan desde tu cuenta.</p>
 		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? 'Cancelando…' : 'Cancelar renovación'}</button>}
 	</>;
+}
+
+// Escáner de marcas: pegás la URL principal y la IA completa todo
+// (colores, tipografía, voz, botones, logo). Límite de marcas según plan.
+function BrandsManager({ session, planCode, onPlans }: { session: AppSession; planCode: string; onPlans: () => void }) {
+	const [brands, setBrands] = useState<any[]>([]);
+	const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
+	const [limit, setLimit] = useState(1);
+	const [url, setUrl] = useState('');
+	const [scanning, setScanning] = useState(false);
+	const [error, setError] = useState('');
+	const [loaded, setLoaded] = useState(false);
+
+	useEffect(() => {
+		let active = true;
+		(async () => {
+			try {
+				const response = await fetch('/api/creativos/brands', { headers: { authorization: `Bearer ${getSessionToken(session)}` } });
+				const payload = await response.json();
+				if (!active || !response.ok) return;
+				setBrands(payload.brands || []);
+				setActiveBrandId(payload.activeBrandId);
+				setLimit(payload.limit || 1);
+			} catch { /* red caída: la vista queda vacía */ }
+			finally { if (active) setLoaded(true); }
+		})();
+		return () => { active = false; };
+	}, [session]);
+
+	async function scan() {
+		if (!url.trim()) return;
+		setScanning(true); setError('');
+		try {
+			const response = await fetch('/api/creativos/brands', {
+				method: 'POST',
+				headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ url: url.trim() }),
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo analizar la marca.');
+			setBrands((previous) => [...previous, payload.brand]);
+			if (!activeBrandId) setActiveBrandId(payload.brand.id);
+			setUrl('');
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'No se pudo analizar la marca.');
+		} finally { setScanning(false); }
+	}
+
+	async function activate(brandId: string) {
+		setActiveBrandId(brandId);
+		await fetch('/api/creativos/brands', {
+			method: 'PATCH',
+			headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
+			body: JSON.stringify({ brandId }),
+		}).catch(() => null);
+	}
+
+	async function remove(brandId: string) {
+		setBrands((previous) => previous.filter((brand) => brand.id !== brandId));
+		if (activeBrandId === brandId) setActiveBrandId(null);
+		await fetch(`/api/creativos/brands?id=${encodeURIComponent(brandId)}`, {
+			method: 'DELETE',
+			headers: { authorization: `Bearer ${getSessionToken(session)}` },
+		}).catch(() => null);
+	}
+
+	return (
+		<section style={{ background: '#fff', border: '1px solid #e5e1e8', borderRadius: '16px', padding: '24px' }}>
+			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
+				<h2 style={{ margin: 0, fontSize: '18px', color: '#19171d' }}>Tus negocios</h2>
+				<span style={{ fontSize: '13px', color: '#716d79' }}>
+					{brands.length}/{limit} {limit === 1 ? 'marca' : 'marcas'} del plan
+					{brands.length >= limit && <button onClick={onPlans} style={{ marginLeft: '8px', border: 0, background: 'transparent', color: '#19171d', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Mejorar plan</button>}
+				</span>
+			</div>
+			<p style={{ margin: '0 0 16px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
+				Pegá la URL principal de tu negocio y la IA analiza todo sola: diseño, colores, tipografía, cómo habla la marca, estilo de botones y logo.
+			</p>
+
+			<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '18px' }}>
+				<input
+					value={url}
+					onChange={(event) => setUrl(event.target.value)}
+					placeholder="https://tunegocio.com"
+					style={{ flex: '1 1 280px', padding: '11px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14px' }}
+				/>
+				<button
+					onClick={() => void scan()}
+					disabled={scanning || !url.trim() || brands.length >= limit}
+					style={{ padding: '0 20px', height: '44px', borderRadius: '10px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: scanning || brands.length >= limit ? 0.55 : 1 }}
+				>
+					{scanning ? 'Analizando tu negocio…' : 'Analizar con IA'}
+				</button>
+			</div>
+			{error && <p style={{ margin: '0 0 14px', padding: '11px 13px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '13px' }}>{error}</p>}
+
+			{!loaded ? (
+				<div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}><span className="studio-spinner" style={{ width: '22px', height: '22px' }} /></div>
+			) : brands.length === 0 ? (
+				<p style={{ margin: 0, fontSize: '13px', color: '#8b8490' }}>Todavía no agregaste ningún negocio.</p>
+			) : (
+				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '14px' }}>
+					{brands.map((brand) => {
+						const isActive = brand.id === activeBrandId;
+						const style = brand.brand_style || {};
+						return (
+							<article key={brand.id} style={{ position: 'relative', border: isActive ? '2px solid #19171d' : '1px solid #e5e1e8', borderRadius: '14px', padding: '16px', background: isActive ? '#faf9fb' : '#fff' }}>
+								<button onClick={() => void remove(brand.id)} aria-label="Eliminar marca" style={{ position: 'absolute', top: '10px', right: '10px', width: '22px', height: '22px', border: 0, borderRadius: '50%', background: 'transparent', color: '#b0a8b8', fontSize: '15px', cursor: 'pointer' }}>×</button>
+								<div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+									{brand.logoUrl
+										? <img src={brand.logoUrl} alt="" style={{ width: '44px', height: '44px', objectFit: 'contain', borderRadius: '10px', background: '#f4f2f6', padding: '4px' }} />
+										: <span style={{ width: '44px', height: '44px', display: 'grid', placeItems: 'center', borderRadius: '10px', background: '#f4f2f6', fontWeight: 800, color: '#19171d' }}>{(brand.name || '?').slice(0, 1).toUpperCase()}</span>}
+									<div style={{ minWidth: 0 }}>
+										<strong style={{ display: 'block', fontSize: '15px', color: '#19171d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brand.name}</strong>
+										<span style={{ fontSize: '12px', color: '#8b8490' }}>{String(brand.website_url || '').replace(/^https?:[/][/]/, '').replace(/[/]$/, '')}</span>
+									</div>
+								</div>
+								<div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+									{(brand.brand_colors || []).slice(0, 5).map((color: string) => (
+										<span key={color} title={color} style={{ width: '18px', height: '18px', borderRadius: '50%', background: color, border: '1px solid rgba(0,0,0,0.08)' }} />
+									))}
+									{style.typography?.headings && <span style={{ marginLeft: '6px', fontSize: '12px', color: '#716d79' }}>{style.typography.headings}{style.typography.body ? ` · ${style.typography.body}` : ''}</span>}
+								</div>
+								{style.brandVoice && <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#716d79', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{style.brandVoice}</p>}
+								{isActive
+									? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: '#128a51' }}>● Marca activa</span>
+									: <button onClick={() => void activate(brand.id)} style={{ padding: '8px 14px', borderRadius: '9px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>Usar esta marca</button>}
+							</article>
+						);
+					})}
+				</div>
+			)}
+		</section>
+	);
 }
 
 function BrandSettings({ profile, onSave, session, onPlans }: { profile: AppProfile; onSave: (profile: AppProfile, logo?: File | null) => Promise<void>; session: AppSession; onPlans: () => void }) {

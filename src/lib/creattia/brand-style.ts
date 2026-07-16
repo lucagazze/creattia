@@ -8,6 +8,8 @@ export type BrandStyle = {
 	logoUrl: string;
 	styleSummary: string;
 	brandPersonality: string;
+	brandVoice?: string;
+	buttonStyle?: string;
 	pagesScanned: string[];
 	analyzedAt: string;
 };
@@ -142,7 +144,9 @@ async function collectBrandSignals(websiteUrl: string) {
 
 // Sintetiza las señales con el modelo de análisis. Sin API key devuelve
 // lo extraído en crudo, que ya es útil para el prompt de generación.
-export async function analyzeBrandStyle(websiteUrl: string, apiKey?: string): Promise<BrandStyle> {
+export async function analyzeBrandStyle(websiteUrl: string, keys?: string | { openAIKey?: string; googleKey?: string }): Promise<BrandStyle> {
+	const openAIKey = typeof keys === 'string' ? keys : keys?.openAIKey;
+	const googleKey = typeof keys === 'string' ? undefined : keys?.googleKey;
 	const signals = await collectBrandSignals(websiteUrl);
 	const fallback: BrandStyle = {
 		colors: [...new Set([signals.themeColor, ...signals.cssColors].filter(Boolean))].slice(0, 5),
@@ -156,56 +160,86 @@ export async function analyzeBrandStyle(websiteUrl: string, apiKey?: string): Pr
 		pagesScanned: signals.pages.map((page) => page.url),
 		analyzedAt: new Date().toISOString(),
 	};
-	if (!apiKey) return fallback;
+	if (!openAIKey && !googleKey) return fallback;
 
-	try {
-		const client = new OpenAI({ apiKey });
-		const model = (typeof import.meta.env !== 'undefined' && import.meta.env.OPENAI_ANALYSIS_MODEL) || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o';
-		const content: any[] = [
-			{ type: 'text', text: `Signals scraped from the brand's website (home + internal pages):\n${JSON.stringify({
-				siteName: signals.siteName, description: signals.description, themeColor: signals.themeColor,
-				cssColors: signals.cssColors, cssFonts: signals.cssFonts, googleFonts: signals.googleFonts,
-				pages: signals.pages,
-			})}` },
-		];
-		if (signals.logoUrl) content.push({ type: 'text', text: 'Brand logo:' }, { type: 'image_url', image_url: { url: signals.logoUrl } });
+	const parseResult = (parsed: any): BrandStyle => ({
+		colors: Array.isArray(parsed.colors) && parsed.colors.length ? parsed.colors.slice(0, 5) : fallback.colors,
+		typography: {
+			headings: compact(parsed.typography?.headings, 80) || fallback.typography.headings,
+			body: compact(parsed.typography?.body, 80) || fallback.typography.body,
+		},
+		logoUrl: signals.logoUrl,
+		styleSummary: compact(parsed.styleSummary, 600) || fallback.styleSummary,
+		brandPersonality: compact(parsed.brandPersonality, 400),
+		brandVoice: compact(parsed.brandVoice, 400),
+		buttonStyle: compact(parsed.buttonStyle, 300),
+		pagesScanned: signals.pages.map((page) => page.url),
+		analyzedAt: new Date().toISOString(),
+	});
 
-		const response = await client.chat.completions.create({
-			model,
-			response_format: { type: 'json_object' },
-			messages: [
-				{
-					role: 'system',
-					content: `You are a brand designer. From the scraped signals of a real brand website, produce STRICT JSON:
+	const systemPrompt = buildSynthesisPrompt();
+	const userContent = `Signals scraped from the brand's website (home + internal pages):
+${JSON.stringify({
+		siteName: signals.siteName, description: signals.description, themeColor: signals.themeColor,
+		cssColors: signals.cssColors, cssFonts: signals.cssFonts, googleFonts: signals.googleFonts,
+		pages: signals.pages,
+	})}`;
+
+	if (googleKey) {
+		try {
+			const model = (typeof import.meta.env !== 'undefined' && import.meta.env.GEMINI_ANALYSIS_MODEL) || process.env.GEMINI_ANALYSIS_MODEL || 'gemini-2.5-flash';
+			const parts: any[] = [{ text: `${systemPrompt}
+
+${userContent}` }];
+			const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${googleKey}`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json' } }),
+			});
+			const data: any = await response.json().catch(() => ({}));
+			if (!response.ok) throw new Error(`Gemini ${response.status}`);
+			const parsed = JSON.parse(data.candidates?.[0]?.content?.parts?.map((part: any) => part.text || '').join('') || '{}');
+			if (parsed && (parsed.colors || parsed.styleSummary)) return parseResult(parsed);
+		} catch (geminiError) {
+			console.error('Gemini brand synthesis failed, trying OpenAI:', geminiError);
+		}
+	}
+
+	if (openAIKey) {
+		try {
+			const client = new OpenAI({ apiKey: openAIKey });
+			const model = (typeof import.meta.env !== 'undefined' && import.meta.env.OPENAI_ANALYSIS_MODEL) || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o';
+			const content: any[] = [{ type: 'text', text: userContent }];
+			if (signals.logoUrl) content.push({ type: 'text', text: 'Brand logo:' }, { type: 'image_url', image_url: { url: signals.logoUrl } });
+			const response = await client.chat.completions.create({
+				model,
+				response_format: { type: 'json_object' },
+				messages: [
+					{ role: 'system', content: systemPrompt },
+					{ role: 'user', content },
+				],
+			});
+			const parsed = JSON.parse(response.choices[0]?.message?.content || '{}');
+			return parseResult(parsed);
+		} catch (error) {
+			console.error('Brand style AI synthesis failed, using raw signals:', error);
+		}
+	}
+	return fallback;
+}
+
+function buildSynthesisPrompt() {
+	return `You are a brand designer. From the scraped signals of a real brand website, produce STRICT JSON:
 {
   "colors": ["#hex primary first, max 5 — real brand identity colors only, not framework defaults"],
   "typography": { "headings": "font family used for headings", "body": "font family used for body text" },
   "styleSummary": "2-3 sentences describing the brand's visual aesthetic (minimal/bold/premium/playful, photography style, layout feel) in Spanish",
   "brandPersonality": "1-2 sentences on tone and personality in Spanish",
+  "brandVoice": "how the brand speaks: tone, register, typical phrasing style (in Spanish)",
+  "buttonStyle": "how the brand's CTAs/buttons look: shape (rounded/pill/square), fill, color, label style (in Spanish)",
   "language": "en|es — main language of the site content"
 }
-Use ONLY the provided signals. If unsure about a color/font, omit it rather than invent it.`,
-				},
-				{ role: 'user', content },
-			],
-		});
-		const parsed = JSON.parse(response.choices[0]?.message?.content || '{}');
-		return {
-			colors: Array.isArray(parsed.colors) && parsed.colors.length ? parsed.colors.slice(0, 5) : fallback.colors,
-			typography: {
-				headings: compact(parsed.typography?.headings, 80) || fallback.typography.headings,
-				body: compact(parsed.typography?.body, 80) || fallback.typography.body,
-			},
-			logoUrl: signals.logoUrl,
-			styleSummary: compact(parsed.styleSummary, 600) || fallback.styleSummary,
-			brandPersonality: compact(parsed.brandPersonality, 400),
-			pagesScanned: signals.pages.map((page) => page.url),
-			analyzedAt: new Date().toISOString(),
-		};
-	} catch (error) {
-		console.error('Brand style AI synthesis failed, using raw signals:', error);
-		return fallback;
-	}
+Use ONLY the provided signals. If unsure about a color/font, omit it rather than invent it.`;
 }
 
 // Persiste el estilo en el perfil: brand_style siempre; colores y logo
