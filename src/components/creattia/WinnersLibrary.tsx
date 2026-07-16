@@ -262,6 +262,7 @@ export default function WinnersLibrary({
 	
 	// Fidelity option: 1 = Muy fiel, 2 = Estética marca, 3 = Híbrido
 	const [fidelity, setFidelity] = useState(1);
+	const [adFormat, setAdFormat] = useState('1:1');
 
 	// Optional onboarding step states inside modal
 	const [onboardingShow, setOnboardingShow] = useState(false);
@@ -454,7 +455,7 @@ export default function WinnersLibrary({
 			form.set('templateName', creative?.nombre || activeAd.name || 'Anuncio Ganador');
 			form.set('purpose', creative?.sirve || 'Crear un anuncio de alto rendimiento inspirado en el diseño de referencia');
 			form.set('usageHint', creative?.cuando || 'Cuando querés inspirarte en un anuncio ganador');
-			form.set('format', 'square');
+			form.set('format', adFormat);
 			form.set('imageType', 'promotion'); // always 'promotion' so no product is required
 			form.set('referencePath', activeAd.imagePath);
 			form.set('templateNotes', activeAd.promptNotes || '');
@@ -532,7 +533,7 @@ export default function WinnersLibrary({
 							outputIndex: 1,
 							createdAt: new Date().toISOString(),
 							title: activeAd.name,
-							format: 'square'
+							format: adFormat
 						}], payload.creditsRemaining);
 					}
 					if (onToast) onToast('¡Tu anuncio ganador ha sido generado con éxito!');
@@ -1620,9 +1621,9 @@ export default function WinnersLibrary({
 									</strong>
 									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 										{[
-											{ id: 1, title: '1. Super fiel al diseño', desc: 'Mantiene la estructura y fondo de la imagen de referencia.' },
+											{ id: 1, title: '1. Super fiel al diseño (Recomendado)', desc: 'Replica el layout, colores y estructura del ganador con tu producto.' },
 											{ id: 2, title: '2. Estética de tu marca', desc: 'Usa tus colores y logotipo para vestir el diseño.' },
-											{ id: 3, title: '3. Híbrido optimizado (Recomendado)', desc: 'Creattia combina el ganador con tu marca.' }
+											{ id: 3, title: '3. Híbrido optimizado', desc: 'Creattia combina el ganador con tu marca.' }
 										].map(f => (
 											<button
 												key={f.id}
@@ -1640,6 +1641,53 @@ export default function WinnersLibrary({
 											>
 												<strong style={{ display: 'block', fontSize: '13px', color: '#19171d' }}>{f.title}</strong>
 												<p style={{ margin: '2px 0 0', fontSize: '11px', color: '#716d79' }}>{f.desc}</p>
+											</button>
+										))}
+									</div>
+								</div>
+
+								{/* Step 3.5: Format selector */}
+								<div style={{ marginBottom: '25px' }}>
+									<strong style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '10px' }}>
+										Formato de la imagen
+									</strong>
+									<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+										{[
+											{ id: '1:1', label: '1:1', desc: 'Feed', w: 26, h: 26 },
+											{ id: '3:4', label: '3:4', desc: 'Vertical', w: 21, h: 28 },
+											{ id: '9:16', label: '9:16', desc: 'Historia', w: 16, h: 28 },
+											{ id: '4:3', label: '4:3', desc: 'Horizontal', w: 28, h: 21 },
+											{ id: '16:9', label: '16:9', desc: 'Panorámico', w: 30, h: 17 },
+										].map(f => (
+											<button
+												key={f.id}
+												type="button"
+												onClick={() => setAdFormat(f.id)}
+												style={{
+													display: 'flex',
+													flexDirection: 'column',
+													alignItems: 'center',
+													justifyContent: 'flex-end',
+													gap: '6px',
+													padding: '10px 8px 8px',
+													minWidth: '62px',
+													borderRadius: '8px',
+													border: adFormat === f.id ? '2px solid #a25df7' : '1px solid #e9e6ed',
+													background: adFormat === f.id ? '#fcfbfe' : '#fff',
+													cursor: 'pointer',
+													outline: 0,
+												}}
+											>
+												<span style={{
+													display: 'block',
+													width: `${f.w}px`,
+													height: `${f.h}px`,
+													borderRadius: '4px',
+													border: adFormat === f.id ? '2px solid #a25df7' : '2px solid #b9b3c2',
+													background: adFormat === f.id ? 'rgba(162,93,247,0.12)' : '#f6f4f9',
+												}} />
+												<strong style={{ fontSize: '12px', color: '#19171d', lineHeight: 1 }}>{f.label}</strong>
+												<span style={{ fontSize: '10px', color: '#716d79', lineHeight: 1 }}>{f.desc}</span>
 											</button>
 										))}
 									</div>

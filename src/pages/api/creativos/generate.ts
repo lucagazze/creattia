@@ -5,13 +5,26 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 export const prerender = false;
 export const maxDuration = 300;
 
-// gpt-image-1 solo acepta 1024x1024, 1024x1536 y 1536x1024
-const formatSizes = {
+// gpt-image-2 acepta cualquier tamaño divisible por 16 → ratios exactos.
+// Las claves legacy (square/portrait/story/landscape) se mantienen como alias.
+const formatSizes: Record<string, string> = {
+	'1:1': '1024x1024',
+	'3:4': '1152x1536',
+	'9:16': '864x1536',
+	'4:3': '1536x1152',
+	'16:9': '1536x864',
 	square: '1024x1024',
-	portrait: '1024x1536',
-	story: '1024x1536',
-	landscape: '1536x1024',
-} as const;
+	portrait: '1152x1536',
+	story: '864x1536',
+	landscape: '1536x1152',
+};
+
+// gpt-image-1 solo acepta 1024x1024, 1024x1536 y 1536x1024
+function snapSizeForGptImage1(size: string) {
+	const [width, height] = size.split('x').map(Number);
+	if (width === height) return '1024x1024';
+	return height > width ? '1024x1536' : '1536x1024';
+}
 const imageTypes = new Set(['product', 'promotion', 'lifestyle', 'catalog']);
 const formats = new Set(Object.keys(formatSizes));
 const variationStrengths = new Set(['exact', 'light', 'strong']);
@@ -131,6 +144,72 @@ USER DIRECTION
 ${input.brief || (input.hasSourceGeneration ? 'No specific edit was requested. Produce another version using the selected variation strength.' : 'No extra direction. Choose the strongest honest headline for the angle without fabricating facts.')}`;
 }
 
+type LayoutAnalysis = {
+	textZones?: Array<{ where?: string; onProduct?: boolean; original?: string; replacement?: string }>;
+	productHasPackaging?: boolean;
+	productPlacement?: string;
+	language?: string;
+};
+
+// Analiza el anuncio ganador + la foto real del producto con un modelo de visión:
+// enumera CADA zona de texto con su reemplazo y describe cómo presentar el producto.
+async function analyzeReferenceLayout(openai: OpenAI, input: {
+	referenceB64: string;
+	referenceMime: string;
+	productB64: string;
+	productMime: string;
+	productName: string;
+	productFacts: string;
+	brandName: string;
+}): Promise<LayoutAnalysis | null> {
+	const model = import.meta.env.OPENAI_ANALYSIS_MODEL || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o';
+	const response = await openai.chat.completions.create({
+		model,
+		response_format: { type: 'json_object' },
+		messages: [
+			{
+				role: 'system',
+				content: `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image, (2) a real product photo, (3) verified product facts.
+
+Return STRICT JSON:
+{
+  "textZones": [
+    { "where": "short position description (e.g. 'main headline, top center, two lines')",
+      "onProduct": true|false,
+      "original": "exact original text in the template",
+      "replacement": "new text for the target product, similar length so it fits the same space, honest (no invented prices/claims beyond the provided facts)" }
+  ],
+  "productHasPackaging": true|false,
+  "productPlacement": "precise description of where/how the template's product sits: position, scale relative to canvas, angle, cropping, lighting, shadow",
+  "language": "en|es — the language of the provided product facts",
+  "styleNotes": "background color(s), palette, typography feel, graphic devices worth preserving"
+}
+
+Rules:
+- Enumerate EVERY visible text zone in the template (headline, subcopy, review, badges, pills, CTA, small print). None may be missed.
+- "onProduct": true when the text is printed ON the product/packaging itself; false when it belongs to the ad layout (headline, cards, pills, buttons).
+- "productHasPackaging": look at the REAL product photo — true only if the real product has printed packaging/labels of its own.
+- Replacements: write them in the SAME language as the product facts ("language" field), punchy direct-response copy, roughly the same character count as the original so the layout doesn't break. Spanish must be natural Argentine Spanish.
+- If a zone shows a spec/number (e.g. "10G PROTEIN"), replace it with a REAL fact of the target product formatted the same way.
+- Never use the template's brand name in replacements.${input.brandName ? ` The advertiser brand is "${input.brandName}".` : ''}`,
+			},
+			{
+				role: 'user',
+				content: [
+					{ type: 'text', text: `Target product: ${input.productName}. Verified facts: ${input.productFacts || 'Only the product photo is available.'}` },
+					{ type: 'text', text: 'TEMPLATE:' },
+					{ type: 'image_url', image_url: { url: `data:${input.referenceMime};base64,${input.referenceB64}` } },
+					{ type: 'text', text: 'REAL PRODUCT PHOTO:' },
+					{ type: 'image_url', image_url: { url: `data:${input.productMime};base64,${input.productB64}` } },
+				],
+			},
+		],
+	});
+	const parsed = JSON.parse(response.choices[0]?.message?.content || 'null');
+	if (!parsed || !Array.isArray(parsed.textZones) || !parsed.textZones.length) return null;
+	return parsed as LayoutAnalysis;
+}
+
 // Prompt corto y sin contradicciones para el modo "Fiel al ganador":
 // el modelo edita la referencia reemplazando SOLO producto, textos y marca.
 function buildReferenceClonePrompt(input: {
@@ -138,6 +217,7 @@ function buildReferenceClonePrompt(input: {
 	brandName: string;
 	hasLogo: boolean;
 	brief: string;
+	analysis?: LayoutAnalysis | null;
 	adCopy?: {
 		headline?: string;
 		subheadline?: string;
@@ -146,24 +226,39 @@ function buildReferenceClonePrompt(input: {
 		language?: string;
 	};
 }) {
-	const language = input.adCopy?.language === 'en' ? 'American English' : 'Argentine Spanish';
+	const language = (input.analysis?.language || input.adCopy?.language) === 'en' ? 'American English' : 'Argentine Spanish';
 	const productLabel = input.productNames.length ? input.productNames.join(' + ') : 'the real product supplied by the user';
-	const copyLines = input.adCopy
-		? [
+
+	// Zonas de texto: del análisis de visión (ideal) o del copy plano de fallback.
+	const zones = (input.analysis?.textZones || []).filter((zone) =>
+		input.analysis?.productHasPackaging ? true : !zone.onProduct);
+	const droppedOnProduct = (input.analysis?.textZones?.length || 0) - zones.length;
+	let textSwap = '';
+	if (zones.length) {
+		textSwap = zones.map((zone, index) => `${index + 1}. [${zone.where}] Replace "${zone.original}" with "${zone.replacement}"`).join('\n');
+	} else if (input.adCopy) {
+		textSwap = [
 			input.adCopy.headline ? `- Headline: "${input.adCopy.headline}"` : '',
 			input.adCopy.subheadline ? `- Subheadline: "${input.adCopy.subheadline}"` : '',
 			input.adCopy.reviewText ? `- Customer review: "${input.adCopy.reviewText}"` : '',
 			input.adCopy.cta ? `- Call-to-action button: "${input.adCopy.cta}"` : '',
-		].filter(Boolean).join('\n')
+		].filter(Boolean).join('\n');
+	}
+
+	const placement = input.analysis?.productPlacement
+		? ` — same position, generous scale, dynamic angle and prominence described here: ${input.analysis.productPlacement}`
+		: ', in its exact position, with the same scale and prominence,';
+	const packagingRule = input.analysis && !input.analysis.productHasPackaging
+		? `\nCRITICAL: the real product has NO printed packaging. Its surface must stay completely clean — do NOT print any words, logos, badges, spec bubbles or graphics on the product itself.${droppedOnProduct > 0 ? " The template's on-package texts are intentionally omitted; do not recreate or relocate them." : ''} All copy lives only in the ad layout's text zones.`
 		: '';
 
 	return `The first input image is a WINNING AD TEMPLATE. Recreate this exact advertisement, keeping its layout, composition, background, color palette, graphic devices (badges, stars, speech bubbles, banners, buttons), text block positions and typographic hierarchy visually identical to the template. Apply ONLY these replacements:
 
-1. PRODUCT SWAP — Completely remove the template's original product. In its exact position, with the same scale and prominence, place the real product shown in the other input image(s): ${productLabel}. Preserve the real product's true shape, texture, packaging, label and colors with high fidelity. Never redraw, restyle or replace it with a generic product.
+1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. RE-RENDER the product as a professional studio hero shot fully integrated into the scene: give it real volume and dimension, adapt its angle, perspective and lighting to match the template's product treatment, ground it with a soft contact shadow, and let it overlap the surrounding elements exactly like the template's product does. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}
 
-2. TEXT SWAP — Replace the template's wording with this exact copy, written in natural ${language}, placing each text in the same position and relative size as the template text it replaces:
-${copyLines || `- Adapt every template text block honestly to ${productLabel}, in natural ${language}, keeping the same message structure.`}
-If a template text block has no replacement listed, adapt its message honestly to the new product. Do not invent prices, percentages, reviews, certifications or claims. Render all text sharp and legible, with no gibberish or distorted words.
+2. TEXT SWAP — Replace the template's wording with this exact copy, written in natural ${language}, placing each text in the same position, size and style as the template text it replaces. Every zone listed MUST contain its text — never leave a badge, pill or button empty:
+${textSwap || `- Adapt every template text block honestly to ${productLabel}, in natural ${language}, keeping the same message structure.`}
+If a template text block has no replacement listed, adapt its message honestly to the new product. Do not invent prices, percentages, reviews, certifications or claims. Render all text sharp, correctly spelled, no gibberish or distorted words.
 
 3. BRAND SWAP — Remove the template's original brand names and logos. ${input.hasLogo ? 'Place the provided brand logo (last input image) once, where the template shows its brand.' : input.brandName ? `If the template displays a brand name, use "${input.brandName}" as a simple wordmark.` : 'Leave the brand area clean if there is no replacement.'}
 
@@ -344,6 +439,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const inputImageMap: string[] = [];
 		let hasReference = false;
 		let hasSourceGeneration = false;
+		let referenceBuffer: Buffer | null = null;
+		let referenceMime = 'image/png';
 		if (sourceGeneration?.output_path) {
 			const { data: sourceBlob, error } = await admin.storage.from('creative-assets').download(sourceGeneration.output_path);
 			if (error || !sourceBlob) throw error || new Error('No se pudo recuperar la imagen de referencia.');
@@ -354,7 +451,9 @@ export const POST: APIRoute = async ({ request }) => {
 		} else if (storedReference?.image_path) {
 			const { data: referenceBlob, error } = await admin.storage.from('creative-references').download(storedReference.image_path);
 			if (error || !referenceBlob) throw error || new Error('No se pudo recuperar la referencia.');
-			inputs.push(await blobToOpenAI(referenceBlob, 'reference.png'));
+			referenceBuffer = Buffer.from(await referenceBlob.arrayBuffer());
+			referenceMime = referenceBlob.type || 'image/png';
+			inputs.push(await toFile(referenceBuffer, 'reference.png', { type: referenceMime }));
 			inputImageMap.push('the curated ad reference; use its selling structure and composition, never its original product identity');
 			hasReference = true;
 		}
@@ -378,14 +477,23 @@ export const POST: APIRoute = async ({ request }) => {
 				productInputPlan.push({ product: storedProduct, path: paths[index], photoIndex: index + 1 });
 			}
 		}
+		let primaryProductBuffer: Buffer | null = null;
+		let primaryProductMime = 'image/png';
 		for (const item of productInputPlan) {
 			const { data: productBlob, error } = await admin.storage.from('creative-assets').download(item.path);
 			if (error || !productBlob) throw error || new Error(`No se pudo recuperar una foto de ${item.product.name}.`);
-			inputs.push(await blobToOpenAI(productBlob, `product-${item.product.id}-${item.photoIndex}.png`));
+			const productBuffer = Buffer.from(await productBlob.arrayBuffer());
+			if (!primaryProductBuffer) {
+				primaryProductBuffer = productBuffer;
+				primaryProductMime = productBlob.type || 'image/png';
+			}
+			inputs.push(await toFile(productBuffer, `product-${item.product.id}-${item.photoIndex}.png`, { type: productBlob.type || 'image/png' }));
 			inputImageMap.push(`verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
 		}
 		if (!storedProducts.length && product instanceof File && product.size > 0) {
-			inputs.push(await fileToOpenAI(product, 'product.png'));
+			primaryProductBuffer = Buffer.from(await product.arrayBuffer());
+			primaryProductMime = product.type || 'image/png';
+			inputs.push(await toFile(primaryProductBuffer, 'product.png', { type: primaryProductMime }));
 			inputImageMap.push('the real product supplied by the user; preserve its packaging, label, shape and color');
 		}
 
@@ -406,9 +514,34 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
+		const useClonePrompt = hasReference && !hasSourceGeneration && fidelity === 1
+			&& (storedProducts.length > 0 || hasUploadedProduct);
+
+		// Análisis de layout con visión: enumera cada zona de texto del ganador
+		// con su reemplazo y cómo presentar el producto. Es la base del prompt clon.
+		let layoutAnalysis: LayoutAnalysis | null = null;
+		if (useClonePrompt && referenceBuffer && primaryProductBuffer) {
+			try {
+				const productFacts = storedProducts.length
+					? [storedProducts[0].description, storedProducts[0].price_text && `${storedProducts[0].price_text} ${storedProducts[0].currency || ''}`, storedProducts[0].analysis?.category].filter(Boolean).join(' · ')
+					: brief;
+				layoutAnalysis = await analyzeReferenceLayout(new OpenAI({ apiKey: openAIKey }), {
+					referenceB64: referenceBuffer.toString('base64'),
+					referenceMime,
+					productB64: primaryProductBuffer.toString('base64'),
+					productMime: primaryProductMime,
+					productName: storedProducts[0]?.name || 'the product in the supplied photo',
+					productFacts,
+					brandName: profile?.brand_name || clean(form.get('brandName'), 80),
+				});
+			} catch (analysisErr) {
+				console.error('Layout analysis failed, falling back to flat ad copy:', analysisErr);
+			}
+		}
+
 		let adCopy: any = undefined;
 		const groqApiKey = process.env.GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
-		if (groqApiKey && storedProducts.length > 0) {
+		if (!layoutAnalysis && groqApiKey && storedProducts.length > 0) {
 			try {
 				const groqClient = new OpenAI({
 					apiKey: groqApiKey,
@@ -451,13 +584,12 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 			}
 		}
 
-		const useClonePrompt = hasReference && !hasSourceGeneration && fidelity === 1
-			&& (storedProducts.length > 0 || hasUploadedProduct);
 		const prompt = useClonePrompt ? buildReferenceClonePrompt({
 			productNames: storedProducts.map((item) => item.name),
 			brandName: profile?.brand_name || clean(form.get('brandName'), 80),
 			hasLogo,
 			brief,
+			analysis: layoutAnalysis,
 			adCopy,
 		}) : buildPrompt({
 			templateName,
@@ -491,53 +623,61 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 		if (promptUpdateError) throw promptUpdateError;
 
 		// ── Image generation ────────────────────────────────────────────────
-		// Primary: Flux via Fal.ai (cheapest + highest quality)
-		// Fallback: OpenAI gpt-image-2
+		// Primary: OpenAI (modelo de OPENAI_IMAGE_MODEL, default gpt-image-1)
+		// Fallback: Flux via Fal.ai
 		const falKey: string | undefined = process.env.FAL_KEY || (typeof import.meta.env !== 'undefined' && import.meta.env.FAL_KEY);
-		const falFormatSizes: Record<string, { width: number; height: number }> = {
-			square:    { width: 1024, height: 1024 },
-			portrait:  { width: 1024, height: 1280 },
-			story:     { width: 1008, height: 1792 },
-			landscape: { width: 1280, height: 1024 },
-		};
 
 		// Collect all output images as raw buffers
 		const outputBuffers: Buffer[] = [];
 
 		if (openAIKey) {
-			// Primary: OpenAI gpt-image-1. Cuando hay imágenes de input (referencia ganadora,
-			// fotos del producto, logo) usamos images.edit para que el modelo VEA las imágenes
-			// reales, con input_fidelity high para preservar packaging, logos y detalles.
+			// Cuando hay imágenes de input (referencia ganadora, fotos del producto, logo)
+			// usamos images.edit para que el modelo VEA las imágenes reales.
 			const openai = new OpenAI({ apiKey: openAIKey });
-			const model = 'gpt-image-1';
-			const size = formatSizes[format] || '1024x1024';
+			const preferredModel = import.meta.env.OPENAI_IMAGE_MODEL || process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
+			const requestedSize = formatSizes[format] || '1024x1024';
+			// Si el modelo configurado falla (p. ej. la key no lo soporta), reintentar con gpt-image-1.
+			const attemptModels = [...new Set([preferredModel, 'gpt-image-1'])];
+			let openaiError: any = null;
 
-			try {
-				const useEdit = inputs.length > 0;
-				const result = useEdit
-					? await openai.images.edit({ model, image: inputs as any, prompt, size: size as any, quality: 'high', input_fidelity: 'high', n: count } as any)
-					: await openai.images.generate({ model, prompt, size: size as any, quality: 'high', n: count });
+			for (const model of attemptModels) {
+				const size = model === 'gpt-image-1' ? snapSizeForGptImage1(requestedSize) : requestedSize;
+				try {
+					const useEdit = inputs.length > 0;
+					const editParams: Record<string, unknown> = { model, image: inputs, prompt, size, quality: 'high', n: count };
+					// input_fidelity solo existe en gpt-image-1; gpt-image-2 lo trae nativo.
+					if (model === 'gpt-image-1') editParams.input_fidelity = 'high';
+					const result = useEdit
+						? await openai.images.edit(editParams as any)
+						: await openai.images.generate({ model, prompt, size: size as any, quality: 'high', n: count });
 
-				const outputs = (result.data || []).flatMap((item) => item.b64_json ? [item.b64_json] : []);
-				if (!outputs.length) {
-					const urls = (result.data || []).flatMap((item) => item.url ? [item.url] : []);
-					if (!urls.length) throw new Error('La API de OpenAI no devolvió ninguna imagen.');
-					for (const url of urls) {
-						const imgRes = await fetch(url);
-						if (!imgRes.ok) throw new Error('No se pudo descargar la imagen de OpenAI.');
-						outputBuffers.push(Buffer.from(await imgRes.arrayBuffer()));
+					const outputs = (result.data || []).flatMap((item) => item.b64_json ? [item.b64_json] : []);
+					if (!outputs.length) {
+						const urls = (result.data || []).flatMap((item) => item.url ? [item.url] : []);
+						if (!urls.length) throw new Error('La API de OpenAI no devolvió ninguna imagen.');
+						for (const url of urls) {
+							const imgRes = await fetch(url);
+							if (!imgRes.ok) throw new Error('No se pudo descargar la imagen de OpenAI.');
+							outputBuffers.push(Buffer.from(await imgRes.arrayBuffer()));
+						}
+					} else {
+						for (const b64 of outputs) {
+							outputBuffers.push(Buffer.from(b64, 'base64'));
+						}
 					}
-				} else {
-					for (const b64 of outputs) {
-						outputBuffers.push(Buffer.from(b64, 'base64'));
-					}
+					openaiError = null;
+					break;
+				} catch (openaiErr: any) {
+					openaiError = openaiErr;
+					console.error(`OpenAI generation failed with ${model}:`, openaiErr);
 				}
-			} catch (openaiErr: any) {
-				console.error('OpenAI generation failed, falling back to Fal:', openaiErr);
+			}
+
+			if (openaiError) {
 				if (falKey) {
 					await runFalFallback();
 				} else {
-					throw openaiErr;
+					throw openaiError;
 				}
 			}
 		} else if (falKey) {
@@ -558,7 +698,7 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 				falImageStrength = 0.65;
 			}
 
-			const falSize = falFormatSizes[format] || falFormatSizes.square;
+			const [falWidth, falHeight] = (formatSizes[format] || '1024x1024').split('x').map(Number);
 			const falModel = falImageUrl
 				? 'fal-ai/flux/dev/image-to-image'
 				: 'fal-ai/flux/schnell';
@@ -567,7 +707,8 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 				prompt,
 				num_images: count,
 				output_format: 'png',
-				...falSize,
+				width: falWidth,
+				height: falHeight,
 			};
 			if (falImageUrl) {
 				falBody.image_url = falImageUrl;
