@@ -1901,19 +1901,7 @@
 	border-color: #d8cfff !important;
 	box-shadow: 0 16px 36px rgba(116, 75, 222, 0.12), 0 4px 10px rgba(116, 75, 222, 0.04) !important;
 }
-.library-ad-card-masonry::after {
-	content: '' !important;
-	position: absolute !important;
-	inset: 0 !important;
-	background: linear-gradient(105deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0) 70%) !important;
-	transform: translateX(-100%) !important;
-	transition: transform 0.65s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
-	pointer-events: none !important;
-	z-index: 5 !important;
-}
-.library-ad-card-masonry:hover::after {
-	transform: translateX(100%) !important;
-}
+
 
 /* Category Filter Tags Wrap */
 .winners-library-container .studio-filter-row {
@@ -2252,8 +2240,8 @@
    ======================================================== */
 .studio-plans-grid {
 	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
-	max-width: 1200px !important;
-	margin: 30px auto 0 !important;
+	max-width: none !important;
+	margin: 30px 0 0 !important;
 }
 @media (min-width: 1100px) {
 	.studio-plans-grid {
@@ -2414,3 +2402,10 @@
 	color: #a33252 !important;
 }
 
+
+
+/* Plan card del sidebar: tipografia legible */
+.studio-plan-card small { font-size: 10.5px !important; }
+.studio-plan-card strong { font-size: 15px !important; }
+.studio-plan-card footer { font-size: 12.5px !important; }
+.studio-plan-card footer button { font-size: 12.5px !important; }

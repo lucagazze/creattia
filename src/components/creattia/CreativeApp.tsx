@@ -525,6 +525,7 @@ export default function CreativeApp() {
 	const [manualOpen, setManualOpen] = useState(false);
 	const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 	const [randomWinners, setRandomWinners] = useState<any[]>([]);
+	const [swipePool, setSwipePool] = useState<any[]>([]);
 	const [scrapedWinners, setScrapedWinners] = useState<any[]>([]);
 	const [likedScrapedPaths, setLikedScrapedPaths] = useState<Set<string>>(new Set());
 	const [preselectedWinnerPath, setPreselectedWinnerPath] = useState<string | null>(null);
@@ -536,7 +537,12 @@ export default function CreativeApp() {
 
 		async function loadRandomWinners() {
 			try {
-				const res = await fetch('/scraped_ads/manifest.json');
+				let res: Response | null = null;
+				if (isSupabaseConfigured && supabase) {
+					const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
+					res = await fetch(manifestUrl.publicUrl).catch(() => null);
+				}
+				if (!res || !res.ok) res = await fetch('/scraped_ads/manifest.json');
 				if (!res.ok) return;
 				const data = await res.json();
 				const items: any[] = data.items || [];
@@ -552,6 +558,7 @@ export default function CreativeApp() {
 				});
 				const shuffled = [...uniqueStatic].sort(() => Math.random() - 0.5);
 				setRandomWinners(shuffled.slice(0, 4));
+				setSwipePool(shuffled.slice(4, 44));
 			} catch {
 				// silent fail — winners are optional on dashboard
 			}
@@ -1099,9 +1106,9 @@ export default function CreativeApp() {
 						{!sidebarMinimized && <span>Mi marca</span>}
 					</button>
 					<button
-						className={settingsOpen ? 'active' : ''}
+						className="studio-brand-nav-btn"
 						onClick={() => setSettingsOpen(!settingsOpen)}
-						style={{ display: 'flex', alignItems: 'center', width: '100%' }}
+						style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '10px 14px', background: settingsOpen ? '#ece9f1' : 'transparent', border: 0, borderRadius: '10px', cursor: 'pointer', color: '#5b5561', fontWeight: 700, fontSize: '14px', textAlign: 'left', marginBottom: '10px' }}
 					>
 						<Icon name="settings"/>
 						{!sidebarMinimized && <>
@@ -1113,9 +1120,9 @@ export default function CreativeApp() {
 					</button>
 					{settingsOpen && !sidebarMinimized && (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 6px', paddingLeft: '34px' }}>
-							<button onClick={() => { navigateTo('plans'); setSettingsOpen(false); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#c9c4d1', fontWeight: 600 }}>💳 Planes y suscripción</button>
-							<button onClick={() => { alert('Historial de pagos: no tenés facturas todavía.'); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#c9c4d1', fontWeight: 600 }}>📄 Historial de pagos</button>
-							<button onClick={() => { void logout(); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#ff9a9a', fontWeight: 600 }}>🚪 Cerrar sesión</button>
+							<button onClick={() => { navigateTo('plans'); setSettingsOpen(false); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#5b5561', fontWeight: 600 }}>💳 Planes y suscripción</button>
+							<button onClick={() => { alert('Historial de pagos: no tenés facturas todavía.'); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#5b5561', fontWeight: 600 }}>📄 Historial de pagos</button>
+							<button onClick={() => { void logout(); }} style={{ padding: '8px 10px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '12.5px', color: '#dc2626', fontWeight: 600 }}>🚪 Cerrar sesión</button>
 						</div>
 					)}
 					{!sidebarMinimized && (
@@ -1165,7 +1172,9 @@ export default function CreativeApp() {
 							onView={navigateTo} 
 							onChoose={chooseCreative} 
 							onReuse={reuseGeneration} 
-							randomWinners={randomWinners} 
+							randomWinners={randomWinners}
+							swipePool={swipePool}
+							
 							likedWinners={likedWinners}
 							likedScrapedPaths={likedScrapedPaths}
 							onToggleLikedScraped={toggleLikedScraped}
@@ -1388,6 +1397,115 @@ function AccountSetupError({ message, onRetry, onLogout }: { message: string; on
 	</div>;
 }
 
+// Descubrí ganadores: mazo tipo Tinder. Arrastrá o tocá — corazón guarda,
+// cruz descarta, rayo lo usa directo para crear. Rápido y dopamínico.
+function SwipeDeck({ pool, likedPaths, onLike, onUse }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void }) {
+	const [index, setIndex] = useState(0);
+	const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
+	const [flying, setFlying] = useState<'left' | 'right' | null>(null);
+	const startRef = useRef<{ x: number; y: number } | null>(null);
+	const supabaseBase = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
+
+	const remaining = pool.slice(index, index + 3);
+	const current = remaining[0];
+
+	function resolveUrl(item: any) {
+		return item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath;
+	}
+
+	function settle(direction: 'left' | 'right') {
+		if (!current || flying) return;
+		setFlying(direction);
+		if (direction === 'right' && !likedPaths.has(current.imagePath)) onLike(current.imagePath);
+		window.setTimeout(() => {
+			setFlying(null);
+			setDrag(null);
+			setIndex((previous) => previous + 1);
+		}, 260);
+	}
+
+	function onPointerDown(event: React.PointerEvent) {
+		if (flying) return;
+		startRef.current = { x: event.clientX, y: event.clientY };
+		(event.target as HTMLElement).setPointerCapture?.(event.pointerId);
+	}
+	function onPointerMove(event: React.PointerEvent) {
+		if (!startRef.current || flying) return;
+		setDrag({ x: event.clientX - startRef.current.x, y: event.clientY - startRef.current.y });
+	}
+	function onPointerUp() {
+		if (!startRef.current) return;
+		const dx = drag?.x || 0;
+		startRef.current = null;
+		if (dx > 90) settle('right');
+		else if (dx < -90) settle('left');
+		else setDrag(null);
+	}
+
+	if (!current) return null;
+	const dx = flying === 'right' ? 520 : flying === 'left' ? -520 : (drag?.x || 0);
+	const dy = flying ? -40 : (drag?.y || 0) * 0.25;
+	const rotation = dx / 14;
+	const likeOpacity = Math.min(1, Math.max(0, dx / 90));
+	const passOpacity = Math.min(1, Math.max(0, -dx / 90));
+
+	return (
+		<>
+			<div className="studio-section-title">
+				<div>
+					<h2>Descubrí ganadores 🔥</h2>
+					<p>Deslizá a la derecha para guardar, a la izquierda para pasar. Tocá el rayo para usarlo ya.</p>
+				</div>
+			</div>
+			<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '42px' }}>
+				<div style={{ position: 'relative', width: 'min(340px, 88vw)', height: '420px', touchAction: 'pan-y' }}>
+					{remaining.slice(1).reverse().map((item, stackIndex) => {
+						const depth = remaining.length - 1 - stackIndex; // 2, 1
+						return (
+							<img
+								key={item.imagePath}
+								src={resolveUrl(item)}
+								alt=""
+								draggable={false}
+								style={{
+									position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+									borderRadius: '18px', boxShadow: '0 14px 34px rgba(25,23,29,0.14)',
+									transform: `translateY(${depth * 10}px) scale(${1 - depth * 0.045})`,
+									filter: 'brightness(0.97)',
+								}}
+							/>
+						);
+					})}
+					<div
+						onPointerDown={onPointerDown}
+						onPointerMove={onPointerMove}
+						onPointerUp={onPointerUp}
+						onPointerCancel={onPointerUp}
+						style={{
+							position: 'absolute', inset: 0, cursor: 'grab', userSelect: 'none',
+							transform: `translate(${dx}px, ${dy}px) rotate(${rotation}deg)`,
+							transition: flying ? 'transform .26s ease-out, opacity .26s ease-out' : drag ? 'none' : 'transform .18s ease',
+							opacity: flying ? 0 : 1,
+						}}
+					>
+						<img src={resolveUrl(current)} alt={current.name || ''} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '18px', boxShadow: '0 22px 50px rgba(25,23,29,0.22)', pointerEvents: 'none' }} />
+						<span style={{ position: 'absolute', top: '18px', left: '16px', padding: '7px 14px', borderRadius: '10px', border: '3px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '19px', letterSpacing: '.06em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.85)', opacity: likeOpacity }}>ME GUSTA</span>
+						<span style={{ position: 'absolute', top: '18px', right: '16px', padding: '7px 14px', borderRadius: '10px', border: '3px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '19px', letterSpacing: '.06em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.85)', opacity: passOpacity }}>PASO</span>
+						{current.name && (
+							<span style={{ position: 'absolute', left: '12px', bottom: '12px', padding: '6px 12px', borderRadius: '9px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '12.5px', fontWeight: 700, backdropFilter: 'blur(6px)' }}>{current.name}</span>
+						)}
+					</div>
+				</div>
+				<div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '18px' }}>
+					<button onClick={() => settle('left')} aria-label="Pasar" style={{ width: '54px', height: '54px', borderRadius: '50%', border: '2px solid #f1d5d5', background: '#fff', color: '#dc2626', fontSize: '22px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(220,38,38,0.12)' }}>✕</button>
+					<button onClick={() => { if (current) onUse(current.imagePath); }} aria-label="Usar este anuncio" style={{ width: '66px', height: '66px', borderRadius: '50%', border: 0, background: 'linear-gradient(135deg, #744bde, #5b2fc9)', color: '#fff', fontSize: '26px', cursor: 'pointer', boxShadow: '0 12px 28px rgba(116,75,222,0.35)' }}>⚡</button>
+					<button onClick={() => settle('right')} aria-label="Me gusta" style={{ width: '54px', height: '54px', borderRadius: '50%', border: '2px solid #d3ecdc', background: '#fff', color: '#16a34a', fontSize: '22px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(22,163,74,0.12)' }}>♥</button>
+				</div>
+			</div>
+		</>
+	);
+}
+
 function Dashboard({
 	profile,
 	email,
@@ -1397,6 +1515,7 @@ function Dashboard({
 	onChoose,
 	onReuse,
 	randomWinners = [],
+	swipePool = [],
 	likedWinners = [],
 	likedScrapedPaths,
 	onToggleLikedScraped,
@@ -1411,6 +1530,7 @@ function Dashboard({
 	onChoose: (creative: Creativo) => void;
 	onReuse: (generation: Generation) => void;
 	randomWinners?: any[];
+	swipePool?: any[];
 	likedWinners?: any[];
 	likedScrapedPaths: Set<string>;
 	onToggleLikedScraped: (path: string) => void;
@@ -1449,6 +1569,16 @@ function Dashboard({
 						))}
 					</div>
 				</>
+			)}
+
+			{/* ── Descubrí ganadores (swipe) ── */}
+			{swipePool.length > 3 && (
+				<SwipeDeck
+					pool={swipePool}
+					likedPaths={likedScrapedPaths}
+					onLike={(path) => onToggleLikedScraped(path)}
+					onUse={(path) => onUseScrapedWinner(path)}
+				/>
 			)}
 
 			{/* ── Random winners inspiration ── */}
@@ -3325,7 +3455,6 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 	}
 
 	return <><div className="studio-page-heading"><div><p>PLANES</p><h1>Elegí cuántas imágenes querés crear.</h1><span>Todos los planes incluyen las mismas herramientas. Solo cambia la cantidad mensual.</span></div></div>
-		<div className="studio-current-credits"><span><Icon name="spark"/></span><p><small>TU SALDO ACTUAL</small><strong>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</strong></p><em>{planLabel(profile)}</em></div>
 		
 		{/* Toggle Facturación Mensual / Anual */}
 		<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '28px', marginTop: '16px' }}>
