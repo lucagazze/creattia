@@ -944,20 +944,27 @@ export default function CreativeApp() {
 			const { data: profileRow } = await client.from('creative_profiles').select('credits_remaining').maybeSingle();
 			if (generations.length) setHistory((prev) => [...generations.filter((item) => !prev.some((existing) => existing.id === item.id)), ...prev].slice(0, 24));
 			if (profileRow) setProfile((prev) => ({ ...prev, credits: profileRow.credits_remaining ?? prev.credits }));
+			
+			const nextStatus = generations.length ? 'completed' : 'failed';
 			setActiveBatch({
 				...batch,
-				status: generations.length ? 'completed' : 'failed',
+				status: nextStatus,
 				results: generations,
 				error: generations.length ? '' : (failedRows[0]?.error_code || 'No se pudo generar la imagen.'),
 			});
 			window.localStorage.removeItem(ACTIVE_BATCH_KEY);
 			setToast(generations.length ? '¡Tu anuncio está listo!' : 'La generación falló y tus créditos fueron devueltos.');
+
+			if (generations.length) {
+				window.setTimeout(() => {
+					setActiveBatch(curr => curr && curr.batchId === batch.batchId && curr.status === 'completed' ? null : curr);
+				}, 5000);
+			}
 		};
 		void poll();
 		const interval = window.setInterval(() => { void poll(); }, 5000);
 		return () => { cancelled = true; window.clearInterval(interval); };
 	}, [activeBatch?.batchId, activeBatch?.status]);
-
 	if (booting || (session && accountLoading)) return <div className="studio-boot"><span className="studio-spinner"/><p>Preparando tu estudio…</p></div>;
 	if (!session) return <AuthScreen onSession={(nextSession) => { setAccountLoading(true); setSession(nextSession); }} />;
 	if (accountError) return <AccountSetupError message={accountError} onRetry={() => window.location.reload()} onLogout={logout} />;
@@ -971,22 +978,36 @@ export default function CreativeApp() {
 	return (
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
-			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} products={products} />}
+			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} products={products} onProductsChanged={refreshProducts} />}
 			{activeBatch && view !== 'generation' && activeBatch.status !== 'failed' && (
-				<button
-					onClick={() => navigateTo('generation')}
-					style={{
-						position: 'fixed', bottom: '18px', right: '18px', zIndex: 80,
-						display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 18px',
-						borderRadius: '999px', border: 0, cursor: 'pointer',
-						background: activeBatch.status === 'completed' ? '#128a51' : '#19171d', color: '#fff',
-						fontSize: '13px', fontWeight: 700, boxShadow: '0 10px 28px rgba(0,0,0,0.3)',
-					}}
-				>
-					{activeBatch.status === 'processing'
-						? <><span className="studio-spinner" style={{ width: '14px', height: '14px' }} /> Generando tu anuncio… <u>Ver progreso</u></>
-						: <>✓ Tu anuncio está listo — <u>Verlo</u></>}
-				</button>
+				<div style={{ position: 'fixed', bottom: '18px', right: '18px', zIndex: 80, display: 'flex', alignItems: 'center', gap: '8px' }}>
+					<button
+						onClick={() => navigateTo('generation')}
+						style={{
+							display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 18px',
+							borderRadius: '999px', border: 0, cursor: 'pointer',
+							background: activeBatch.status === 'completed' ? '#128a51' : '#19171d', color: '#fff',
+							fontSize: '13px', fontWeight: 700, boxShadow: '0 10px 28px rgba(0,0,0,0.3)',
+						}}
+					>
+						{activeBatch.status === 'processing'
+							? <><span className="studio-spinner" style={{ width: '14px', height: '14px' }} /> Generando tu anuncio… <u>Ver progreso</u></>
+							: <>✓ Tu anuncio está listo — <u>Verlo</u></>}
+					</button>
+					<button
+						onClick={() => setActiveBatch(null)}
+						style={{
+							width: '32px', height: '32px', borderRadius: '50%', border: '1px solid #dcd5e4',
+							background: '#fff', color: '#19171d', fontWeight: 'bold',
+							cursor: 'pointer', display: 'grid', placeItems: 'center',
+							boxShadow: '0 10px 28px rgba(0,0,0,0.2)', fontSize: '12px',
+							transition: 'all 0.2s'
+						}}
+						title="Cerrar aviso"
+					>
+						✕
+					</button>
+				</div>
 			)}
 			<div className={`studio-mobile-scrim ${mobileMenu ? 'is-open' : ''}`} onClick={() => setMobileMenu(false)} />
 			<aside className={`studio-sidebar ${mobileMenu ? 'is-open' : ''}`}>
@@ -2520,7 +2541,7 @@ function History({
 }
 
 // Tarjeta placeholder mientras una imagen se está generando en el servidor.
-function PendingGenerationCard({ title, referenceUrl, startedAt, onClick }: { title: string; referenceUrl?: string; startedAt?: number; onClick?: () => void }) {
+function PendingGenerationCard({ title, referenceUrl, startedAt }: { title: string; referenceUrl?: string; startedAt?: number; onClick?: () => void }) {
 	const [progress, setProgress] = useState(0);
 
 	useEffect(() => {
@@ -2538,23 +2559,14 @@ function PendingGenerationCard({ title, referenceUrl, startedAt, onClick }: { ti
 	}, [startedAt]);
 
 	return (
-		<article className="studio-generation-card" style={{ cursor: onClick ? 'pointer' : 'default' }} onClick={onClick}>
+		<article className="studio-generation-card">
 			<div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#f4f0f8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
 				{referenceUrl && <img src={referenceUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.18, filter: 'blur(4px)' }} />}
-				<div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-					<span className="studio-spinner" style={{ width: '30px', height: '30px' }} />
-					<b style={{ fontSize: '13px', color: '#5c5568', letterSpacing: '.02em' }}>Creando tu anuncio…</b>
+				<div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', zIndex: 5 }}>
+					<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
+					<b style={{ fontSize: '12.5px', color: '#5c5568', letterSpacing: '.02em' }}>Creando tu anuncio…</b>
 				</div>
-			</div>
-			<div style={{ padding: '13px 14px 14px' }}>
-				<span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#eceaef', color: '#744bde', fontSize: '11px', fontWeight: 800, letterSpacing: '.06em' }}>
-					<span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#744bde', animation: 'pulse 1.4s ease-in-out infinite' }} />
-					EN PROCESO
-				</span>
-				<h3 style={{ margin: '9px 0 0', fontSize: '15px', color: '#19171d', lineHeight: 1.3 }}>{title}</h3>
-				
-				{/* Simulated premium progress bar */}
-				<div style={{ marginTop: '16px', background: '#eceaef', borderRadius: '999px', height: '6px', overflow: 'hidden', position: 'relative' }}>
+				<div style={{ position: 'absolute', bottom: '12px', left: '12px', right: '12px', background: 'rgba(25,23,29,0.1)', borderRadius: '999px', height: '5px', overflow: 'hidden', zIndex: 5 }}>
 					<div style={{
 						background: 'linear-gradient(90deg, #744bde 0%, #ec4492 100%)',
 						height: '100%',
@@ -2563,17 +2575,11 @@ function PendingGenerationCard({ title, referenceUrl, startedAt, onClick }: { ti
 						transition: 'width 0.3s ease-out'
 					}} />
 				</div>
-				<div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#716d79', marginTop: '6px', fontWeight: 600 }}>
-					<span>Generando imagen...</span>
-					<span>{progress}%</span>
-				</div>
-
-				{onClick && (
-					<button onClick={(event) => { event.stopPropagation(); onClick(); }} style={{ marginTop: '12px', width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}>
-						<Icon name="spark" size={14}/>Ver progreso en vivo
-					</button>
-				)}
 			</div>
+			<footer>
+				<h3>{title}</h3>
+				<span>{progress}%</span>
+			</footer>
 		</article>
 	);
 }
@@ -2730,14 +2736,13 @@ function GenerationCard({
 	);
 }
 
-// Lightbox: expande la imagen dentro de la app (nunca una página nueva) y
-// permite pedir una nueva versión con una indicación directa.
-function ImageLightbox({ item, session, onClose, onStarted, products }: {
+function ImageLightbox({ item, session, onClose, onStarted, products, onProductsChanged }: {
 	item: Generation;
 	session: AppSession;
 	onClose: () => void;
 	onStarted: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
 	products: Product[];
+	onProductsChanged?: () => void;
 }) {
 	const [revision, setRevision] = useState('');
 	const [starting, setStarting] = useState(false);
@@ -2746,7 +2751,13 @@ function ImageLightbox({ item, session, onClose, onStarted, products }: {
 
 	// Product overrides
 	const originalProductId = item.productId || item.productIds?.[0] || '';
-	const [selectedProductId, setSelectedProductId] = useState(originalProductId);
+	const [productMode, setProductMode] = useState<'keep' | 'catalog' | 'url' | 'manual' | 'none'>('keep');
+	const [catalogProductId, setCatalogProductId] = useState(originalProductId);
+	const [localProducts, setLocalProducts] = useState<Product[]>(products);
+	
+	const [fastUrl, setFastUrl] = useState('');
+	const [fastImporting, setFastImporting] = useState(false);
+
 	const [uploadFile, setUploadFile] = useState<File | null>(null);
 	const [uploadPreview, setUploadPreview] = useState('');
 	const [manualProductName, setManualProductName] = useState('');
@@ -2761,6 +2772,36 @@ function ImageLightbox({ item, session, onClose, onStarted, products }: {
 			textarea.style.height = `${textarea.scrollHeight}px`;
 		}
 	}, [revision]);
+
+	async function handleFastImport() {
+		if (!fastUrl.trim()) return;
+		setFastImporting(true);
+		try {
+			const response = await fetch('/api/creativos/products', {
+				method: 'POST',
+				headers: { 
+					authorization: `Bearer ${getSessionToken(session)}`,
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({ url: fastUrl.trim() }),
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo importar el producto.');
+			// Add to local list and select it
+			if (payload.product) {
+				setLocalProducts(prev => [payload.product, ...prev]);
+				setCatalogProductId(payload.product.id);
+				setProductMode('catalog');
+				setFastUrl('');
+				alert('¡Producto importado con éxito!');
+				if (onProductsChanged) onProductsChanged();
+			}
+		} catch (err) {
+			alert(err instanceof Error ? err.message : 'Error al importar producto.');
+		} finally {
+			setFastImporting(false);
+		}
+	}
 
 	async function requestRevision() {
 		setStarting(true); setError('');
@@ -2777,21 +2818,28 @@ function ImageLightbox({ item, session, onClose, onStarted, products }: {
 			form.set('count', '1');
 			form.set('brief', revision.trim());
 			
-			// Handle product override
-			if (selectedProductId === 'upload') {
-				if (uploadFile) {
-					form.append('product', uploadFile);
-				} else {
-					throw new Error('Por favor, selecciona una foto de producto.');
+			// Handle product override based on selected mode
+			if (productMode === 'catalog') {
+				if (!catalogProductId) {
+					throw new Error('Por favor, selecciona un producto del catálogo.');
 				}
-			} else if (selectedProductId === 'manual') {
+				form.append('productIds', catalogProductId);
+			} else if (productMode === 'manual') {
 				if (!manualProductName.trim()) {
 					throw new Error('Por favor, ingresa el nombre de tu producto o servicio.');
 				}
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
-			} else if (selectedProductId) {
-				form.append('productIds', selectedProductId);
+				if (uploadFile) {
+					form.append('product', uploadFile);
+				}
+			} else if (productMode === 'none') {
+				form.set('productId', '');
+			} else if (productMode === 'url') {
+				if (!catalogProductId) {
+					throw new Error('Por favor, importa el producto ingresando la URL y haciendo clic en Analizar.');
+				}
+				form.append('productIds', catalogProductId);
 			}
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
@@ -2839,33 +2887,75 @@ function ImageLightbox({ item, session, onClose, onStarted, products }: {
 						<strong style={{ display: 'block', fontSize: '14px', color: '#19171d', marginBottom: '8px' }}>Crear otra versión</strong>
 						<p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#8b8490', lineHeight: 1.5 }}>Contale a la IA qué cambiar. Si lo dejás vacío genera una variante manteniendo el diseño.</p>
 						
-						{/* Product/Service Switcher */}
-						<div style={{ marginBottom: '12px' }}>
-							<label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#716d79', marginBottom: '6px' }}>
+						{/* Product/Service Switcher tab menu */}
+						<div style={{ marginBottom: '16px' }}>
+							<label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#716d79', marginBottom: '8px' }}>
 								🛍️ CAMBIAR PRODUCTO O FOTO (OPCIONAL):
 							</label>
-							<select
-								value={selectedProductId}
-								onChange={(e) => {
-									setSelectedProductId(e.target.value);
-									setUploadFile(null);
-									setUploadPreview('');
-									setManualProductName('');
-									setManualProductFacts('');
-								}}
-								style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #dcd5e4', padding: '0 8px', fontSize: '13px', marginBottom: '8px', fontFamily: 'inherit', background: '#fff', color: '#19171d' }}
-							>
-								<option value="">-- Sin producto (Solo texto) --</option>
-								{products.map(p => (
-									<option key={p.id} value={p.id}>{p.name} {p.id === originalProductId ? '(Original)' : ''}</option>
+							<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+								{[
+									{ id: 'keep', label: 'Conservar' },
+									{ id: 'catalog', label: 'Catálogo' },
+									{ id: 'url', label: 'Por URL' },
+									{ id: 'manual', label: 'Carga manual' },
+									{ id: 'none', label: 'Sin producto' }
+								].map(m => (
+									<button
+										key={m.id}
+										type="button"
+										onClick={() => setProductMode(m.id as any)}
+										style={{
+											padding: '5px 10px', borderRadius: '8px', border: '1px solid #e9e6ed',
+											background: productMode === m.id ? '#744bde' : '#f8f6fb',
+											color: productMode === m.id ? '#fff' : '#5c5568',
+											fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+											transition: 'all 0.15s'
+										}}
+									>
+										{m.label}
+									</button>
 								))}
-								<option value="upload">-- Subir nueva foto de producto --</option>
-								<option value="manual">-- Describir manualmente --</option>
-							</select>
+							</div>
 
-							{selectedProductId === 'upload' && (
-								<div style={{ margin: '8px 0' }}>
-									<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fcfbfe', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', color: '#744bde' }}>
+							{productMode === 'keep' && (
+								<p style={{ margin: 0, fontSize: '12px', color: '#128a51', fontWeight: 600 }}>✓ Se usará el mismo producto de la imagen original.</p>
+							)}
+
+							{productMode === 'catalog' && (
+								<select
+									value={catalogProductId}
+									onChange={(e) => setCatalogProductId(e.target.value)}
+									style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #dcd5e4', padding: '0 8px', fontSize: '13px', background: '#fff', color: '#19171d' }}
+								>
+									<option value="">-- Selecciona un producto --</option>
+									{localProducts.map(p => (
+										<option key={p.id} value={p.id}>{p.name} {p.id === originalProductId ? '(Original)' : ''}</option>
+									))}
+								</select>
+							)}
+
+							{productMode === 'url' && (
+								<div style={{ display: 'flex', gap: '6px' }}>
+									<input
+										value={fastUrl}
+										onChange={(e) => setFastUrl(e.target.value)}
+										placeholder="Pega la URL del producto..."
+										style={{ flex: 1, height: '36px', boxSizing: 'border-box', padding: '0 10px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '12.5px' }}
+									/>
+									<button
+										type="button"
+										disabled={fastImporting || !fastUrl.trim()}
+										onClick={() => void handleFastImport()}
+										style={{ height: '36px', padding: '0 14px', borderRadius: '8px', border: 0, background: '#744bde', color: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', opacity: fastImporting ? 0.6 : 1 }}
+									>
+										{fastImporting ? 'Importando...' : 'Analizar'}
+									</button>
+								</div>
+							)}
+
+							{productMode === 'manual' && (
+								<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+									<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fcfbfe', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', color: '#744bde', width: 'fit-content' }}>
 										{uploadFile ? `Foto: ${uploadFile.name.slice(0, 16)}` : '📸 Seleccionar foto de producto'}
 										<input 
 											type="file" 
@@ -2879,13 +2969,8 @@ function ImageLightbox({ item, session, onClose, onStarted, products }: {
 										/>
 									</label>
 									{uploadPreview && (
-										<img src={uploadPreview} alt="Vista previa" style={{ marginTop: '8px', display: 'block', width: '84px', height: '84px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2dde9' }} />
+										<img src={uploadPreview} alt="Vista previa" style={{ display: 'block', width: '74px', height: '74px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2dde9' }} />
 									)}
-								</div>
-							)}
-
-							{selectedProductId === 'manual' && (
-								<div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '8px 0' }}>
 									<input
 										value={manualProductName}
 										onChange={(e) => setManualProductName(e.target.value)}
@@ -2900,6 +2985,10 @@ function ImageLightbox({ item, session, onClose, onStarted, products }: {
 										style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '12.5px', resize: 'vertical', fontFamily: 'inherit' }}
 									/>
 								</div>
+							)}
+
+							{productMode === 'none' && (
+								<p style={{ margin: 0, fontSize: '12px', color: '#ff4185', fontWeight: 600 }}>✓ Generación sin foto de producto (basada en el texto).</p>
 							)}
 						</div>
 
@@ -3267,6 +3356,149 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 		}).catch(() => null);
 	}
 
+	if (editingBrandId !== null) {
+		const brandToEdit = brands.find(b => b.id === editingBrandId);
+		if (brandToEdit) {
+			return (
+				<section style={{ background: '#fff', border: '1px solid #e5e1e8', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+					<button 
+						onClick={() => setEditingBrandId(null)} 
+						style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 0, color: '#744bde', fontSize: '14px', fontWeight: 800, cursor: 'pointer', padding: '6px 0', width: 'fit-content' }}
+					>
+						← Volver a tus negocios
+					</button>
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee9f2', paddingBottom: '14px' }}>
+						<h3 style={{ margin: 0, fontSize: '20px', color: '#19171d', fontWeight: 800 }}>Editar detalles de diseño: {brandToEdit.name}</h3>
+					</div>
+
+					<div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+						<div>
+							<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#716d79', marginBottom: '6px' }}>Nombre del negocio:</label>
+							<input
+								value={editName}
+								onChange={(e) => setEditName(e.target.value)}
+								style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '14px', fontWeight: 600 }}
+							/>
+						</div>
+
+						<div>
+							<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>✨ ESTILO GENERAL:</label>
+							<textarea
+								value={editStyleSummary}
+								onChange={(e) => setEditStyleSummary(e.target.value)}
+								rows={4}
+								style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
+							/>
+						</div>
+
+						<div>
+							<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🧠 PERSONALIDAD:</label>
+							<textarea
+								value={editPersonality}
+								onChange={(e) => setEditPersonality(e.target.value)}
+								rows={4}
+								style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
+							/>
+						</div>
+
+						<div>
+							<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🗣️ VOZ Y TONO:</label>
+							<textarea
+								value={editVoice}
+								onChange={(e) => setEditVoice(e.target.value)}
+								rows={4}
+								style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
+							/>
+						</div>
+
+						<div>
+							<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🖱️ ESTILO DE BOTONES:</label>
+							<input
+								value={editButtonStyle}
+								onChange={(e) => setEditButtonStyle(e.target.value)}
+								placeholder="Ej: Bordes redondeados con sombra..."
+								style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px' }}
+							/>
+						</div>
+
+						<div>
+							<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🎨 PALETA DE COLORES:</label>
+							<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+								{editColors.map((color, idx) => (
+									<span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f5f2f9', border: '1px solid #e5e1e8', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>
+										<span style={{ width: '12px', height: '12px', borderRadius: '50%', background: color }} />
+										{color}
+										<button
+											type="button"
+											onClick={() => setEditColors(editColors.filter((_, i) => i !== idx))}
+											style={{ border: 0, background: 'transparent', color: '#a43f3f', fontSize: '14px', cursor: 'pointer', padding: '0 2px', marginLeft: '4px' }}
+										>
+											×
+										</button>
+									</span>
+								))}
+							</div>
+							<div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+								<input
+									type="color"
+									value={newColorInput.startsWith('#') && newColorInput.length === 7 ? newColorInput : '#744bde'}
+									onChange={(e) => setNewColorInput(e.target.value)}
+									style={{ width: '40px', height: '36px', padding: 0, border: 0, background: 'transparent', cursor: 'pointer' }}
+								/>
+								<input
+									type="text"
+									value={newColorInput}
+									onChange={(e) => setNewColorInput(e.target.value)}
+									placeholder="#HEX"
+									style={{ width: '90px', height: '36px', boxSizing: 'border-box', padding: '0 8px', borderRadius: '8px', border: '1px solid #dcd5e4', fontSize: '13.5px', fontFamily: 'monospace' }}
+								/>
+								<button
+									type="button"
+									onClick={() => {
+										let colorToAdd = newColorInput.trim();
+										if (colorToAdd) {
+											if (!colorToAdd.startsWith('#')) {
+												colorToAdd = '#' + colorToAdd;
+											}
+											if (/^#[0-9A-F]{3,6}$/i.test(colorToAdd)) {
+												if (!editColors.includes(colorToAdd)) {
+													setEditColors([...editColors, colorToAdd]);
+												}
+											} else {
+												alert('Por favor ingresa un código HEX válido (ej: #ff0000)');
+											}
+										}
+									}}
+									style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+								>
+									+ Agregar color
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<div style={{ display: 'flex', gap: '12px', marginTop: '14px', borderTop: '1px solid #eee9f2', paddingTop: '16px' }}>
+						<button
+							type="button"
+							onClick={() => void saveBrand(brandToEdit.id)}
+							disabled={savingBrandId === brandToEdit.id}
+							style={{ flex: 1, height: '46px', borderRadius: '10px', border: 0, background: '#744bde', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: savingBrandId === brandToEdit.id ? 0.6 : 1 }}
+						>
+							{savingBrandId === brandToEdit.id ? 'Guardando cambios...' : 'Guardar todo'}
+						</button>
+						<button
+							type="button"
+							onClick={() => setEditingBrandId(null)}
+							style={{ height: '46px', padding: '0 20px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#716d79', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+						>
+							Cancelar
+						</button>
+					</div>
+				</section>
+			);
+		}
+	}
+
 	return (
 		<section style={{ background: '#fff', border: '1px solid #e5e1e8', borderRadius: '16px', padding: '24px' }}>
 			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
@@ -3340,12 +3572,7 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 								
 								<div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
 									<button 
-										onClick={() => {
-											setExpandedBrandId(isExpanded ? null : brand.id);
-											if (isExpanded && editingBrandId === brand.id) {
-												setEditingBrandId(null);
-											}
-										}}
+										onClick={() => startEditing(brand)}
 										style={{
 											background: 'transparent',
 											border: 0,
@@ -3361,96 +3588,9 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 											padding: '4px 0'
 										}}
 									>
-										{isExpanded ? 'Ocultar detalles ▲' : 'Ver detalles de diseño ▼'}
+										✏️ Ver detalles de diseño
 									</button>
-
-									{isExpanded && (
-										editingBrandId === brand.id ? (
-											<div style={{ display: 'flex', gap: '6px', marginTop: '10px', marginBottom: '12px' }}>
-												<button
-													type="button"
-													onClick={() => void saveBrand(brand.id)}
-													disabled={savingBrandId === brand.id}
-													style={{ padding: '4px 10px', borderRadius: '6px', border: 0, background: '#744bde', color: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
-												>
-													{savingBrandId === brand.id ? 'Guardando...' : 'Guardar'}
-												</button>
-												<button
-													type="button"
-													onClick={() => setEditingBrandId(null)}
-													style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #dcd5e4', background: '#fff', color: '#716d79', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}
-												>
-													Cancelar
-												</button>
-											</div>
-										) : (
-											<button
-												type="button"
-												onClick={() => startEditing(brand)}
-												style={{
-													background: 'transparent',
-													border: 0,
-													color: '#716d79',
-													fontSize: '12.5px',
-													fontWeight: 700,
-													cursor: 'pointer',
-													display: 'flex',
-													alignItems: 'center',
-													gap: '4px',
-													marginTop: '10px',
-													marginBottom: '12px',
-													padding: '4px 0'
-												}}
-											>
-												✏️ Editar detalles
-											</button>
-										)
-									)}
 								</div>
-
-								{isExpanded && (
-									<div style={{
-										marginTop: '4px',
-										marginBottom: '14px',
-										padding: '12px',
-										background: '#fcfbfe',
-										border: '1px dashed #dcd2ff',
-										borderRadius: '10px',
-										fontSize: '12.5px',
-										color: '#5b5561',
-										display: 'flex',
-										flexDirection: 'column',
-										gap: '10px'
-									}}>
-										<div>
-											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>✨ Estilo General</strong>
-											<p style={{ margin: 0, lineHeight: 1.5 }}>{style.styleSummary || 'No especificado'}</p>
-										</div>
-										<div>
-											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🧠 Personalidad</strong>
-											<p style={{ margin: 0, lineHeight: 1.5 }}>{style.brandPersonality || 'No especificado'}</p>
-										</div>
-										<div>
-											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🗣️ Voz y Tono</strong>
-											<p style={{ margin: 0, lineHeight: 1.5 }}>{style.brandVoice || 'No especificado'}</p>
-										</div>
-										<div>
-											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🖱️ Estilo de Botones</strong>
-											<p style={{ margin: 0, lineHeight: 1.5 }}>{style.buttonStyle || 'No especificado'}</p>
-										</div>
-										<div>
-											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🎨 Paleta de colores</strong>
-											<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-												{(brand.brand_colors || []).map((color: string, idx: number) => (
-													<span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff', border: '1px solid #e5e1e8', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-														<span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
-														{color}
-													</span>
-												))}
-											</div>
-										</div>
-									</div>
-								)}
 
 								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 									{isActive
@@ -3463,128 +3603,7 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 				</div>
 			)}
 
-			{/* Modal overlay for fullscreen premium editing */}
-			{editingBrandId !== null && (() => {
-				const brandToEdit = brands.find(b => b.id === editingBrandId);
-				if (!brandToEdit) return null;
-				return (
-					<div onClick={() => setEditingBrandId(null)} style={{ position: 'fixed', inset: 0, zIndex: 150, background: 'rgba(12,10,16,0.7)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: '24px' }}>
-						<div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '16px', padding: '24px', maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 30px 80px rgba(0,0,0,0.3)' }}>
-							<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee9f2', paddingBottom: '14px' }}>
-								<h3 style={{ margin: 0, fontSize: '18px', color: '#19171d', fontWeight: 800 }}>Editar detalles de diseño: {brandToEdit.name}</h3>
-								<button onClick={() => setEditingBrandId(null)} style={{ border: 0, background: '#f2eef6', width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer', color: '#4b4452', fontSize: '15px' }}>✕</button>
-							</div>
 
-							<div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-								<div>
-									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#716d79', marginBottom: '6px' }}>Nombre del negocio:</label>
-									<input
-										value={editName}
-										onChange={(e) => setEditName(e.target.value)}
-										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '14px', fontWeight: 600 }}
-									/>
-								</div>
-
-								<div>
-									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>✨ ESTILO GENERAL:</label>
-									<textarea
-										value={editStyleSummary}
-										onChange={(e) => setEditStyleSummary(e.target.value)}
-										rows={4}
-										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
-									/>
-								</div>
-
-								<div>
-									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🧠 PERSONALIDAD:</label>
-									<textarea
-										value={editPersonality}
-										onChange={(e) => setEditPersonality(e.target.value)}
-										rows={4}
-										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
-									/>
-								</div>
-
-								<div>
-									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🗣️ VOZ Y TONO:</label>
-									<textarea
-										value={editVoice}
-										onChange={(e) => setEditVoice(e.target.value)}
-										rows={4}
-										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
-									/>
-								</div>
-
-								<div>
-									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🖱️ ESTILO DE BOTONES:</label>
-									<input
-										value={editButtonStyle}
-										onChange={(e) => setEditButtonStyle(e.target.value)}
-										placeholder="Ej: Bordes redondeados con sombra..."
-										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px' }}
-									/>
-								</div>
-
-								<div>
-									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🎨 PALETA DE COLORES:</label>
-									<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-										{editColors.map((color, idx) => (
-											<span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f5f2f9', border: '1px solid #e5e1e8', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>
-												<span style={{ width: '12px', height: '12px', borderRadius: '50%', background: color }} />
-												{color}
-												<button
-													type="button"
-													onClick={() => setEditColors(editColors.filter((_, i) => i !== idx))}
-													style={{ border: 0, background: 'transparent', color: '#a43f3f', fontSize: '14px', cursor: 'pointer', padding: '0 2px', marginLeft: '4px' }}
-												>
-													×
-												</button>
-											</span>
-										))}
-									</div>
-									<div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-										<input
-											type="color"
-											value={newColorInput}
-											onChange={(e) => setNewColorInput(e.target.value)}
-											style={{ width: '40px', height: '36px', padding: 0, border: 0, background: 'transparent', cursor: 'pointer' }}
-										/>
-										<button
-											type="button"
-											onClick={() => {
-												if (newColorInput && !editColors.includes(newColorInput)) {
-													setEditColors([...editColors, newColorInput]);
-												}
-											}}
-											style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
-										>
-											+ Agregar color
-										</button>
-									</div>
-								</div>
-							</div>
-
-							<div style={{ display: 'flex', gap: '12px', marginTop: '14px', borderTop: '1px solid #eee9f2', paddingTop: '16px' }}>
-								<button
-									type="button"
-									onClick={() => void saveBrand(brandToEdit.id)}
-									disabled={savingBrandId === brandToEdit.id}
-									style={{ flex: 1, height: '46px', borderRadius: '10px', border: 0, background: '#744bde', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: savingBrandId === brandToEdit.id ? 0.6 : 1 }}
-								>
-									{savingBrandId === brandToEdit.id ? 'Guardando cambios...' : 'Guardar todo'}
-								</button>
-								<button
-									type="button"
-									onClick={() => setEditingBrandId(null)}
-									style={{ height: '46px', padding: '0 20px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#716d79', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
-								>
-									Cancelar
-								</button>
-							</div>
-						</div>
-					</div>
-				);
-			})()}
 		</section>
 	);
 }

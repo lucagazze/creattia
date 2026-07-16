@@ -212,11 +212,23 @@ export default function WinnersLibrary({
 }) {
 	const [items, setItems] = useState<WinnerItem[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [activeCategory, setActiveCategory] = useState('todos');
-	const [activeNiche, setActiveNiche] = useState('todos');
 	const [query, setQuery] = useState('');
 	const [error, setError] = useState('');
 	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+	const [selectedCategories, setSelectedCategories] = useState<string[]>(['todos']);
+	const [selectedNiches, setSelectedNiches] = useState<string[]>(['todos']);
+	const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+	const [showNicheDropdown, setShowNicheDropdown] = useState(false);
+
+	useEffect(() => {
+		const close = () => {
+			setShowCategoryDropdown(false);
+			setShowNicheDropdown(false);
+		};
+		window.addEventListener('click', close);
+		return () => window.removeEventListener('click', close);
+	}, []);
 
 	const getFallbackImage = (templateId: number) => {
 		const numStr = String(templateId).padStart(2, '0');
@@ -669,13 +681,37 @@ export default function WinnersLibrary({
 	const filteredItems = useMemo(() => {
 		return items.filter(item => {
 			// Category filter
-			const matchesCategory = activeCategory === 'guardados'
-				? (item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId))
-				: (activeCategory === 'todos' || item.category === activeCategory);
+			let matchesCategory = false;
+			if (selectedCategories.includes('todos') || selectedCategories.length === 0) {
+				matchesCategory = true;
+			} else {
+				for (const cat of selectedCategories) {
+					if (cat === 'guardados') {
+						const isSaved = item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
+						if (isSaved) {
+							matchesCategory = true;
+							break;
+						}
+					} else if (item.category === cat) {
+						matchesCategory = true;
+						break;
+					}
+				}
+			}
 
 			// Niche filter
-			const matchesNiche = activeNiche === 'todos' || 
-				(item.metadata?.foreplayNiches && Array.isArray(item.metadata.foreplayNiches) && item.metadata.foreplayNiches.includes(activeNiche));
+			let matchesNiche = false;
+			if (selectedNiches.includes('todos') || selectedNiches.length === 0) {
+				matchesNiche = true;
+			} else {
+				for (const niche of selectedNiches) {
+					const hasNiche = (item.metadata?.foreplayNiches && Array.isArray(item.metadata.foreplayNiches) && item.metadata.foreplayNiches.includes(niche));
+					if (hasNiche) {
+						matchesNiche = true;
+						break;
+					}
+				}
+			}
 
 			// Search query filter
 			const search = query.toLowerCase().trim();
@@ -687,11 +723,11 @@ export default function WinnersLibrary({
 
 			return matchesCategory && matchesNiche && matchesSearch;
 		});
-	}, [items, activeCategory, activeNiche, query, likedScrapedPaths, favorites]);
+	}, [items, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
 
 	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(30);
-	useEffect(() => { setVisibleCount(30); }, [activeCategory, activeNiche, query]);
+	useEffect(() => { setVisibleCount(30); }, [selectedCategories, selectedNiches, query]);
 	const gridRef = React.useRef<HTMLDivElement | null>(null);
 	const [columnCount, setColumnCount] = useState(4);
 	useEffect(() => {
@@ -816,8 +852,8 @@ export default function WinnersLibrary({
 				)}
 			</div>
 
-			<div className="studio-library-tools">
-				<label>
+			<div className="studio-library-tools" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '20px' }}>
+				<label style={{ flex: '1 1 300px', minWidth: '200px' }}>
 					<Icon name="search" size={18} />
 					<input 
 						value={query} 
@@ -825,53 +861,126 @@ export default function WinnersLibrary({
 						placeholder="Buscar por marca o palabra clave..." 
 					/>
 				</label>
-				<span>{filteredItems.length} ganadores encontrados</span>
-			</div>
 
-			{/* Category rail */}
-			<div className="studio-filter-row">
-				{winnersCategories.map(cat => (
-					<button 
-						key={cat.id}
-						className={activeCategory === cat.id ? 'active' : ''}
-						onClick={() => setActiveCategory(cat.id)}
+				{/* Category dropdown filter */}
+				<div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+					<button
+						onClick={() => {
+							setShowCategoryDropdown(!showCategoryDropdown);
+							setShowNicheDropdown(false);
+						}}
+						style={{
+							display: 'flex', alignItems: 'center', gap: '8px', padding: '0 16px', height: '44px',
+							borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff',
+							color: '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer',
+						}}
 					>
-						{cat.label}
+						📂 Categorías {selectedCategories.includes('todos') || selectedCategories.length === 0 ? '(Todas)' : `(${selectedCategories.length})`}
+						<span style={{ fontSize: '10px', color: '#8b8490' }}>▼</span>
 					</button>
-				))}
-			</div>
-
-			{/* Niche filter rail */}
-			{availableNiches.length > 1 && (
-				<div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '12px', paddingBottom: '10px', borderBottom: '1px solid #f3eff6' }}>
-					<span style={{ fontSize: '12px', fontWeight: 800, color: '#918b95', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', lineHeight: '34px' }}>
-						🔍 Filtrar por Nicho:
-					</span>
-					<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-						{availableNiches.map(niche => (
-							<button
-								key={niche}
-								onClick={() => setActiveNiche(niche)}
-								style={{
-									height: '34px',
-									padding: '0 14px',
-									borderRadius: '17px',
-									border: activeNiche === niche ? '1.5px solid #19171d' : '1.5px solid #e9e6ed',
-									background: activeNiche === niche ? '#fcfbfe' : '#fff',
-									color: activeNiche === niche ? '#19171d' : '#716d79',
-									fontSize: '13px',
-									fontWeight: activeNiche === niche ? 800 : 600,
-									cursor: 'pointer',
-									whiteSpace: 'nowrap',
-									transition: 'all 0.15s'
-								}}
-							>
-								{niche === 'todos' ? 'Todos los nichos' : (nicheLabels[niche] || niche)}
-							</button>
-						))}
-					</div>
+					{showCategoryDropdown && (
+						<div style={{
+							position: 'absolute', top: '48px', left: 0, zIndex: 120,
+							background: '#fff', border: '1px solid #e9e6ed', borderRadius: '12px',
+							boxShadow: '0 10px 30px rgba(0,0,0,0.15)', padding: '12px', minWidth: '220px',
+							display: 'flex', flexDirection: 'column', gap: '8px'
+						}}>
+							<label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, paddingBottom: '6px', borderBottom: '1px solid #eee', userSelect: 'none' }}>
+								<input 
+									type="checkbox" 
+									checked={selectedCategories.includes('todos') || selectedCategories.length === 0} 
+									onChange={() => setSelectedCategories(['todos'])} 
+								/>
+								Todas las categorías
+							</label>
+							{winnersCategories.filter(c => c.id !== 'todos').map(cat => {
+								const checked = selectedCategories.includes(cat.id);
+								return (
+									<label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#4b4452', userSelect: 'none' }}>
+										<input 
+											type="checkbox" 
+											checked={checked && !selectedCategories.includes('todos')} 
+											onChange={() => {
+												let next = selectedCategories.filter(x => x !== 'todos');
+												if (next.includes(cat.id)) {
+													next = next.filter(x => x !== cat.id);
+												} else {
+													next.push(cat.id);
+												}
+												if (next.length === 0) next = ['todos'];
+												setSelectedCategories(next);
+											}} 
+										/>
+										{cat.label}
+									</label>
+								);
+							})}
+						</div>
+					)}
 				</div>
-			)}
+
+				{/* Niche dropdown filter */}
+				{availableNiches.length > 1 && (
+					<div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+						<button
+							onClick={() => {
+								setShowNicheDropdown(!showNicheDropdown);
+								setShowCategoryDropdown(false);
+							}}
+							style={{
+								display: 'flex', alignItems: 'center', gap: '8px', padding: '0 16px', height: '44px',
+								borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff',
+								color: '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer',
+							}}
+						>
+							🔍 Nichos {selectedNiches.includes('todos') || selectedNiches.length === 0 ? '(Todos)' : `(${selectedNiches.length})`}
+							<span style={{ fontSize: '10px', color: '#8b8490' }}>▼</span>
+						</button>
+						{showNicheDropdown && (
+							<div style={{
+								position: 'absolute', top: '48px', left: 0, zIndex: 120,
+								background: '#fff', border: '1px solid #e9e6ed', borderRadius: '12px',
+								boxShadow: '0 10px 30px rgba(0,0,0,0.15)', padding: '12px', minWidth: '220px',
+								maxHeight: '300px', overflowY: 'auto',
+								display: 'flex', flexDirection: 'column', gap: '8px'
+							}}>
+								<label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, paddingBottom: '6px', borderBottom: '1px solid #eee', userSelect: 'none' }}>
+									<input 
+										type="checkbox" 
+										checked={selectedNiches.includes('todos') || selectedNiches.length === 0} 
+										onChange={() => setSelectedNiches(['todos'])} 
+									/>
+									Todos los nichos
+								</label>
+								{availableNiches.filter(n => n !== 'todos').map(niche => {
+									const checked = selectedNiches.includes(niche);
+									return (
+										<label key={niche} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#4b4452', userSelect: 'none' }}>
+											<input 
+												type="checkbox" 
+												checked={checked && !selectedNiches.includes('todos')} 
+												onChange={() => {
+													let next = selectedNiches.filter(x => x !== 'todos');
+													if (next.includes(niche)) {
+														next = next.filter(x => x !== niche);
+													} else {
+														next.push(niche);
+													}
+													if (next.length === 0) next = ['todos'];
+													setSelectedNiches(next);
+												}} 
+											/>
+											{nicheLabels[niche] || niche}
+										</label>
+									);
+								})}
+							</div>
+						)}
+					</div>
+				)}
+
+				<span style={{ fontSize: '13px', color: '#8b8490', marginLeft: 'auto' }}>{filteredItems.length} ganadores encontrados</span>
+			</div>
 
 			{loading ? (
 				<div className="studio-boot" style={{ minHeight: '300px', background: 'transparent' }}>
@@ -890,7 +999,7 @@ export default function WinnersLibrary({
 					<Icon name="search" size={40} />
 					<h3>No encontramos anuncios</h3>
 					<p>Probá cambiando la categoría o la palabra clave de búsqueda.</p>
-					<button onClick={() => { setActiveCategory('todos'); setQuery(''); }}>Limpiar filtros</button>
+					<button onClick={() => { setSelectedCategories(['todos']); setSelectedNiches(['todos']); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
 				<div ref={gridRef} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
