@@ -118,7 +118,7 @@ ${input.imageType === 'lifestyle' ? '- Create a believable lifestyle scene. Ever
 ${input.imageType === 'catalog' ? '- Use a clean ecommerce catalog treatment: controlled lighting, precise product edges, minimal environment and premium spacing.' : ''}
 ${input.imageType === 'promotion' ? '- Prioritize the verified offer and brand message. Do not invent a product-specific claim.' : ''}
 ${input.hasLogo ? '- Use the image identified as the brand logo in the input map. Preserve it accurately and place it once with comfortable clear space.' : '- Render the brand name as a simple wordmark only if needed.'}
-- Write all visible copy in natural Argentine Spanish.
+- Write all visible copy in natural, high-converting ${input.adCopy?.language === 'en' ? 'American English' : 'Argentine Spanish'}.
 - Keep copy minimal, accurate and easy to read on a phone.
 - Do not invent prices, percentages, reviews, certifications, deadlines, product features or legal claims.
 - Do not include platform UI, watermarks, mock browser chrome or explanatory labels.
@@ -370,11 +370,11 @@ export const POST: APIRoute = async ({ request }) => {
 					messages: [
 						{
 							role: 'system',
-							content: 'Sos un redactor publicitario experto (copywriter) para anuncios de performance en e-commerce. Tu tarea es generar copys cortos, persuasivos y adaptados al español de Argentina.'
+							content: 'Sos un redactor publicitario experto (copywriter) para anuncios de performance en e-commerce. Tu tarea es generar copys cortos y persuasivos. Debes detectar el idioma del producto: si está en inglés, generá todo en inglés; si está en español, generá todo en español de Argentina.'
 						},
 						{
 							role: 'user',
-							content: `Generá los textos publicitarios en español para el producto "${storedProducts[0].name}".
+							content: `Generá los textos publicitarios para el producto "${storedProducts[0].name}".
                 
 Descripción del producto: ${storedProducts[0].description || ''}
 
@@ -385,10 +385,11 @@ Debes imitar el estilo del anuncio de referencia:
 
 Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 {
-  "headline": "título principal en español de argentina (mayúsculas, máx 6 palabras)",
-  "subheadline": "subtítulo o beneficio corto",
-  "reviewText": "texto del testimonio de cliente en español (máx 15 palabras)",
-  "cta": "texto de acción corto"
+  "headline": "título principal en el mismo idioma detectado (mayúsculas, máx 6 palabras)",
+  "subheadline": "subtítulo o beneficio corto en el mismo idioma",
+  "reviewText": "texto del testimonio de cliente en el mismo idioma (máx 15 palabras)",
+  "cta": "texto de acción corto en el mismo idioma",
+  "language": "código del idioma detectado ('en' o 'es')"
 }`
 						}
 					],

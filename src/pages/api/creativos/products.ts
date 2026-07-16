@@ -60,8 +60,9 @@ function sameProductUrl(left: string, right: string) {
 async function importProductUrls(userId: string, rawUrls: unknown[]) {
 	const admin = getAdminClient();
 	if (!admin) throw new Error('Supabase no está configurado.');
-	const apiKey: string = import.meta.env.OPENAI_API_KEY;
-	if (!apiKey) throw new Error('Falta configurar la API de IA.');
+	const apiKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';
+	const groqApiKey = process.env.GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
+	if (!apiKey && !groqApiKey) throw new Error('Falta configurar las credenciales de IA (OpenAI o Groq).');
 
 	const errors: Array<{ url: string; error: string }> = [];
 	const normalized = rawUrls.flatMap((value) => {
