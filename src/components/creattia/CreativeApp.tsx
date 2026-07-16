@@ -111,7 +111,7 @@ function demoProductArt(label: string, color: string) {
 }
 
 const demoProducts: Product[] = [
-	{ id: 'demo-1', name: 'Producto estrella', description: 'El producto principal de tu tienda.', priceText: '$89.900', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('01', '#ec4492'), imageUrls: [demoProductArt('01', '#ec4492')], imageCount: 1, source: 'website' },
+	{ id: 'demo-1', name: 'Producto estrella', description: 'El producto principal de tu tienda.', priceText: '$89.900', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('01', '#6d35e8'), imageUrls: [demoProductArt('01', '#6d35e8')], imageCount: 1, source: 'website' },
 	{ id: 'demo-2', name: 'Nueva colección', description: 'Una segunda opción para probar otro enfoque.', priceText: '$64.500', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('02', '#ea580c'), imageUrls: [demoProductArt('02', '#ea580c')], imageCount: 1, source: 'website' },
 	{ id: 'demo-3', name: 'Best seller', description: 'Producto con buena respuesta comercial.', priceText: '$112.000', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('03', '#059669'), imageUrls: [demoProductArt('03', '#059669')], imageCount: 1, source: 'website' },
 ];
@@ -314,7 +314,7 @@ async function createDemoCreative(options: {
 	ctx.fillRect(0, 0, width, height);
 
 	const margin = Math.round(width * .075);
-	ctx.fillStyle = impact ? '#a78bfa' : '#d63274';
+	ctx.fillStyle = impact ? '#a78bfa' : '#5927c8';
 	ctx.font = `700 ${Math.round(width * .022)}px Inter, Arial`;
 	ctx.letterSpacing = '2px';
 	ctx.fillText(`MODO DEMO  •  ${ringMeta[options.creative.ring]?.label.toUpperCase()}`, margin, margin + 10);
@@ -364,7 +364,7 @@ async function createDemoCreative(options: {
 		ctx.fillStyle = impact ? '#ddd6fe' : '#ede9fe';
 		roundedRect(ctx, cardX + cardW * .18, cardY + cardH * .14, cardW * .64, cardH * .62, 28);
 		ctx.fill();
-		ctx.fillStyle = '#ec4492';
+		ctx.fillStyle = '#6d35e8';
 		ctx.font = `700 ${Math.round(width * .032)}px Inter, Arial`;
 		ctx.textAlign = 'center';
 		ctx.fillText('TU PRODUCTO', cardX + cardW / 2, cardY + cardH * .49);
@@ -1293,7 +1293,7 @@ function Dashboard({
 												height: '32px',
 												borderRadius: '50%',
 												background: '#ece7f4',
-												color: '#ec4492',
+												color: '#6d35e8',
 												fontWeight: 'bold',
 												display: 'grid',
 												placeItems: 'center',
@@ -1395,7 +1395,7 @@ function Dashboard({
 												background: '#f2ecfc',
 												border: 0,
 												borderRadius: '8px',
-												color: '#ec4492',
+												color: '#6d35e8',
 												fontWeight: 'bold',
 												fontSize: '10.5px',
 												cursor: 'pointer',
@@ -1462,7 +1462,7 @@ function Dashboard({
 												height: '32px',
 												borderRadius: '50%',
 												background: '#ece7f4',
-												color: '#ec4492',
+												color: '#6d35e8',
 												fontWeight: 'bold',
 												display: 'grid',
 												placeItems: 'center',
@@ -1564,7 +1564,7 @@ function Dashboard({
 												background: '#f2ecfc',
 												border: 0,
 												borderRadius: '8px',
-												color: '#ec4492',
+												color: '#6d35e8',
 												fontWeight: 'bold',
 												fontSize: '10.5px',
 												cursor: 'pointer',
@@ -1729,7 +1729,7 @@ function ProductIntake({ session, products, onProductsChanged, onCreated, compac
 				const id = crypto.randomUUID();
 				let label = `Producto ${products.length + 1}`;
 				try { label = new URL(normalizedUrl).pathname.split('/').filter(Boolean).pop()?.replace(/[-_]+/g, ' ') || label; } catch { /* demo label */ }
-				const artwork = demoProductArt(String(products.length + 1).padStart(2, '0'), '#ec4492');
+				const artwork = demoProductArt(String(products.length + 1).padStart(2, '0'), '#6d35e8');
 				const item: Product = { id, name: label, description: 'Producto importado desde su URL.', priceText: '', currency: '', productUrl: normalizedUrl, imageUrl: artwork, imageUrls: [artwork], imageCount: 1, source: 'website' };
 				saveLocal(PRODUCTS_KEY, [item, ...products]); ids = [id];
 			} else {
@@ -2021,7 +2021,7 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 				const id = crypto.randomUUID();
 				let label = `Producto ${products.length + 1}`;
 				try { label = new URL(normalizedUrl).pathname.split('/').filter(Boolean).pop()?.replace(/[-_]+/g, ' ') || label; } catch {}
-				const artwork = demoProductArt(String(products.length + 1).padStart(2, '0'), '#ec4492');
+				const artwork = demoProductArt(String(products.length + 1).padStart(2, '0'), '#6d35e8');
 				const item: Product = { id, name: label, description: 'Producto importado desde su URL.', priceText: '', currency: '', productUrl: normalizedUrl, imageUrl: artwork, imageUrls: [artwork], imageCount: 1, source: 'website' };
 				saveLocal(PRODUCTS_KEY, [item, ...products]); ids = [id];
 			} else {
@@ -2139,7 +2139,7 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 								type="button"
 								onClick={handleFastImport}
 								disabled={fastImporting || !fastUrl.trim()}
-								style={{ height: '36px', padding: '0 16px', background: '#ec4492', border: 0, borderRadius: '8px', color: '#fff', fontSize: '10.5px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+								style={{ height: '36px', padding: '0 16px', background: '#6d35e8', border: 0, borderRadius: '8px', color: '#fff', fontSize: '10.5px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
 							>
 								{fastImporting ? <span className="studio-spinner small" /> : <><Icon name="external" size={14}/> Analizar</>}
 							</button>
@@ -2189,13 +2189,13 @@ function PendingGenerationCard({ title, referenceUrl, onClick }: { title: string
 				</div>
 			</div>
 			<div style={{ padding: '13px 14px 14px' }}>
-				<span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#fbe7f1', color: '#d63274', fontSize: '11px', fontWeight: 800, letterSpacing: '.06em' }}>
-					<span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ec4492', animation: 'pulse 1.4s ease-in-out infinite' }} />
+				<span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#ede7fa', color: '#5927c8', fontSize: '11px', fontWeight: 800, letterSpacing: '.06em' }}>
+					<span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#6d35e8', animation: 'pulse 1.4s ease-in-out infinite' }} />
 					EN PROCESO
 				</span>
 				<h3 style={{ margin: '9px 0 0', fontSize: '15px', color: '#19171d', lineHeight: 1.3 }}>{title}</h3>
 				{onClick && (
-					<button onClick={(event) => { event.stopPropagation(); onClick(); }} style={{ marginTop: '12px', width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#d63274', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}>
+					<button onClick={(event) => { event.stopPropagation(); onClick(); }} style={{ marginTop: '12px', width: '100%', height: '38px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#5927c8', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px' }}>
 						<Icon name="spark" size={14}/>Ver progreso en vivo
 					</button>
 				)}
@@ -2286,7 +2286,7 @@ function ImageLightbox({ item, session, onClose, onStarted }: {
 					</div>
 					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer' }}>Descargar imagen</button>
 					{item.referenceUrl && (
-						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#fbe7f1' : '#f8f6fb', border: showReference ? '1px solid #f3bcd7' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
+						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#ede7fa' : '#f8f6fb', border: showReference ? '1px solid #d8c8f5' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
 							<img src={item.referenceUrl} alt="Anuncio ganador usado" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px' }} />
 							<div>
 								<strong style={{ display: 'block', fontSize: '12px', color: '#19171d' }}>Anuncio ganador usado</strong>
@@ -2307,7 +2307,7 @@ function ImageLightbox({ item, session, onClose, onStarted }: {
 						<button
 							onClick={() => void requestRevision()}
 							disabled={starting}
-							style={{ width: '100%', height: '46px', marginTop: '10px', borderRadius: '11px', border: 0, background: 'var(--holo-gradient)', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: starting ? 0.6 : 1 }}
+							style={{ width: '100%', height: '46px', marginTop: '10px', borderRadius: '11px', border: 0, background: 'linear-gradient(135deg, #7542eb, #5927c8)', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: starting ? 0.6 : 1 }}
 						>
 							{starting ? 'Iniciando…' : 'Generar nueva versión'}
 						</button>
