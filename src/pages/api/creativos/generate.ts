@@ -437,7 +437,10 @@ export const POST: APIRoute = async ({ request }) => {
 		if (sourceGeneration?.output_path) {
 			const { data: sourceBlob, error } = await admin.storage.from('creative-assets').download(sourceGeneration.output_path);
 			if (error || !sourceBlob) throw error || new Error('No se pudo recuperar la imagen de referencia.');
-			await pushInput(Buffer.from(await sourceBlob.arrayBuffer()), sourceBlob.type || 'image/png', 'source-generation.png', 'the previously generated ad to revise; this is the master composition reference');
+			const sourceBuf = Buffer.from(await sourceBlob.arrayBuffer());
+			await pushInput(sourceBuf, sourceBlob.type || 'image/png', 'source-generation.png', 'the previously generated ad to revise; this is the master composition reference');
+			referenceBuffer = sourceBuf;
+			referenceMime = sourceBlob.type || 'image/png';
 			hasReference = true;
 			hasSourceGeneration = true;
 		} else if (storedReference?.image_path) {
@@ -475,7 +478,8 @@ export const POST: APIRoute = async ({ request }) => {
 		// Revisión sutil: el usuario pidió un cambio puntual sobre una imagen ya
 		// generada. Solo se manda la imagen original + el pedido; re-adjuntar
 		// producto/logo/contexto hace que el modelo rediseñe todo.
-		const isExactRevision = hasSourceGeneration && variationStrength === 'exact' && Boolean(brief);
+		const hasNewProductInput = productIds.length > 0 || (product instanceof File && product.size > 0) || Boolean(manualProductName);
+		const isExactRevision = hasSourceGeneration && variationStrength === 'exact' && Boolean(brief) && !hasNewProductInput;
 
 		let primaryProductBuffer: Buffer | null = null;
 		let primaryProductMime = 'image/png';
@@ -535,7 +539,7 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
-		const useClonePrompt = hasReference && !hasSourceGeneration && fidelity === 1
+		const useClonePrompt = hasReference && (!hasSourceGeneration || hasNewProductInput) && fidelity === 1
 			&& (storedProducts.length > 0 || hasUploadedProduct || approvedPlan?.referenceHasProduct === false);
 
 		// Análisis de layout con visión: enumera cada zona de texto del ganador

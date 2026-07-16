@@ -905,7 +905,7 @@ export default function CreativeApp() {
 	return (
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
-			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} />}
+			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} products={products} />}
 			{activeBatch && view !== 'generation' && activeBatch.status !== 'failed' && (
 				<button
 					onClick={() => setView('generation')}
@@ -2350,16 +2350,35 @@ function GenerationCard({ item, onReuse, onExpand }: { item: Generation; onReuse
 
 // Lightbox: expande la imagen dentro de la app (nunca una página nueva) y
 // permite pedir una nueva versión con una indicación directa.
-function ImageLightbox({ item, session, onClose, onStarted }: {
+function ImageLightbox({ item, session, onClose, onStarted, products }: {
 	item: Generation;
 	session: AppSession;
 	onClose: () => void;
 	onStarted: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
+	products: Product[];
 }) {
 	const [revision, setRevision] = useState('');
 	const [starting, setStarting] = useState(false);
 	const [error, setError] = useState('');
 	const [showReference, setShowReference] = useState(false);
+
+	// Product overrides
+	const originalProductId = item.productId || item.productIds?.[0] || '';
+	const [selectedProductId, setSelectedProductId] = useState(originalProductId);
+	const [uploadFile, setUploadFile] = useState<File | null>(null);
+	const [uploadPreview, setUploadPreview] = useState('');
+	const [manualProductName, setManualProductName] = useState('');
+	const [manualProductFacts, setManualProductFacts] = useState('');
+
+	// Auto-resize textarea
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	useEffect(() => {
+		const textarea = textareaRef.current;
+		if (textarea) {
+			textarea.style.height = 'auto';
+			textarea.style.height = `${textarea.scrollHeight}px`;
+		}
+	}, [revision]);
 
 	async function requestRevision() {
 		setStarting(true); setError('');
@@ -2375,7 +2394,24 @@ function ImageLightbox({ item, session, onClose, onStarted }: {
 			form.set('preset', 'Nueva versión');
 			form.set('count', '1');
 			form.set('brief', revision.trim());
-			(item.productIds || []).forEach((id) => form.append('productIds', id));
+			
+			// Handle product override
+			if (selectedProductId === 'upload') {
+				if (uploadFile) {
+					form.append('product', uploadFile);
+				} else {
+					throw new Error('Por favor, selecciona una foto de producto.');
+				}
+			} else if (selectedProductId === 'manual') {
+				if (!manualProductName.trim()) {
+					throw new Error('Por favor, ingresa el nombre de tu producto o servicio.');
+				}
+				form.set('productName', manualProductName.trim());
+				form.set('productFacts', manualProductFacts.trim());
+			} else if (selectedProductId) {
+				form.append('productIds', selectedProductId);
+			}
+
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar la nueva versión.');
@@ -2399,7 +2435,7 @@ function ImageLightbox({ item, session, onClose, onStarted }: {
 						</button>
 					)}
 				</div>
-				<aside style={{ flex: '0 0 300px', background: '#fff', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+				<aside style={{ flex: '0 0 350px', background: '#fff', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
 					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
 						<div>
 							<h3 style={{ margin: 0, fontSize: '17px', color: '#19171d' }}>{item.title}</h3>
@@ -2420,11 +2456,77 @@ function ImageLightbox({ item, session, onClose, onStarted }: {
 					<div style={{ borderTop: '1px solid #eee9f2', paddingTop: '14px' }}>
 						<strong style={{ display: 'block', fontSize: '14px', color: '#19171d', marginBottom: '8px' }}>Crear otra versión</strong>
 						<p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#8b8490', lineHeight: 1.5 }}>Contale a la IA qué cambiar. Si lo dejás vacío genera una variante manteniendo el diseño.</p>
+						
+						{/* Product/Service Switcher */}
+						<div style={{ marginBottom: '12px' }}>
+							<label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#716d79', marginBottom: '6px' }}>
+								🛍️ CAMBIAR PRODUCTO O FOTO (OPCIONAL):
+							</label>
+							<select
+								value={selectedProductId}
+								onChange={(e) => {
+									setSelectedProductId(e.target.value);
+									setUploadFile(null);
+									setUploadPreview('');
+									setManualProductName('');
+									setManualProductFacts('');
+								}}
+								style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #dcd5e4', padding: '0 8px', fontSize: '13px', marginBottom: '8px', fontFamily: 'inherit', background: '#fff', color: '#19171d' }}
+							>
+								<option value="">-- Sin producto (Solo texto) --</option>
+								{products.map(p => (
+									<option key={p.id} value={p.id}>{p.name} {p.id === originalProductId ? '(Original)' : ''}</option>
+								))}
+								<option value="upload">-- Subir nueva foto de producto --</option>
+								<option value="manual">-- Describir manualmente --</option>
+							</select>
+
+							{selectedProductId === 'upload' && (
+								<div style={{ margin: '8px 0' }}>
+									<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fcfbfe', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', color: '#744bde' }}>
+										{uploadFile ? `Foto: ${uploadFile.name.slice(0, 16)}` : '📸 Seleccionar foto de producto'}
+										<input 
+											type="file" 
+											accept="image/png,image/jpeg,image/webp" 
+											style={{ display: 'none' }} 
+											onChange={(event) => {
+												const file = event.target.files?.[0] || null;
+												setUploadFile(file);
+												if (file) setUploadPreview(URL.createObjectURL(file));
+											}} 
+										/>
+									</label>
+									{uploadPreview && (
+										<img src={uploadPreview} alt="Vista previa" style={{ marginTop: '8px', display: 'block', width: '84px', height: '84px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2dde9' }} />
+									)}
+								</div>
+							)}
+
+							{selectedProductId === 'manual' && (
+								<div style={{ display: 'flex', flexDirection: 'column', gap: '8px', margin: '8px 0' }}>
+									<input
+										value={manualProductName}
+										onChange={(e) => setManualProductName(e.target.value)}
+										placeholder="Nombre del servicio o producto..."
+										style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }}
+									/>
+									<textarea
+										value={manualProductFacts}
+										onChange={(e) => setManualProductFacts(e.target.value)}
+										placeholder="Descripción, beneficios clave..."
+										rows={2}
+										style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '12.5px', resize: 'vertical', fontFamily: 'inherit' }}
+									/>
+								</div>
+							)}
+						</div>
+
 						<textarea
+							ref={textareaRef}
 							value={revision}
 							onChange={(event) => setRevision(event.target.value)}
 							placeholder="Ej: usá fondo azul, agrandá el titular, agregá el precio $99…"
-							style={{ width: '100%', minHeight: '90px', padding: '11px 12px', borderRadius: '10px', border: '1px solid #dcd5e4', fontSize: '14px', resize: 'vertical', fontFamily: 'inherit' }}
+							style={{ width: '100%', minHeight: '90px', padding: '11px 12px', borderRadius: '10px', border: '1px solid #dcd5e4', fontSize: '14px', resize: 'none', fontFamily: 'inherit', overflowY: 'hidden', boxSizing: 'border-box' }}
 						/>
 						{error && <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: '#a43f3f' }}>{error}</p>}
 						<button
