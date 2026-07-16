@@ -34,6 +34,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [count, setCount] = useState(1);
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
+	const [showManualDesc, setShowManualDesc] = useState(false);
 
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
@@ -173,9 +174,9 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					<p style={{ margin: '0 0 22px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>Se replica el diseño y el mensaje del ganador con tu producto. Antes de generar revisás y aprobás cada texto.</p>
 
 					{phase !== 'review' && phase !== 'starting' && <>
-						{/* 1. Producto */}
+						{/* 1. Producto / Servicio */}
 						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>1 · Tu producto</strong>
+							<strong style={label}>1 · Tu producto / Servicio</strong>
 							{products.length > 0 && (
 								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
 									{products.slice(0, 12).map((item) => (
@@ -225,34 +226,53 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							</div>
 							{uploadPreview && <img src={uploadPreview} alt="" style={{ marginTop: '10px', width: '84px', height: '84px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2dde9' }} />}
 
-							{!selectedProductId && !uploadFile && (
-								<div style={{ 
-									marginTop: '12px', 
-									padding: '12px 14px', 
-									background: '#f8f6fc', 
-									border: '1px dashed #dcd2ff', 
-									borderRadius: '10px' 
-								}}>
-									<span style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#744bde', marginBottom: '8px' }}>
-										✍️ O describí tu servicio o producto manualmente:
-									</span>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-										<input
-											value={manualProductName}
-											onChange={(e) => setManualProductName(e.target.value)}
-											placeholder="Nombre del servicio o producto (ej: Limpieza Dental, Clases de Yoga...)"
-											style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }}
-										/>
-										<textarea
-											value={manualProductFacts}
-											onChange={(e) => setManualProductFacts(e.target.value)}
-											placeholder="Información clave, descripción, beneficios, o textos para el anuncio..."
-											rows={3}
-											style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }}
-										/>
+							<div style={{ marginTop: '12px' }}>
+								<button
+									type="button"
+									onClick={() => setShowManualDesc(!showManualDesc)}
+									style={{
+										background: 'transparent',
+										border: 0,
+										color: '#744bde',
+										fontSize: '12.5px',
+										fontWeight: 700,
+										cursor: 'pointer',
+										display: 'flex',
+										alignItems: 'center',
+										gap: '4px',
+										padding: '4px 0',
+										textDecoration: 'underline'
+									}}
+								>
+									{showManualDesc ? '✕ Ocultar carga manual' : '✍️ O describir servicio o producto manualmente'}
+								</button>
+
+								{showManualDesc && (
+									<div style={{ 
+										marginTop: '12px', 
+										padding: '12px 14px', 
+										background: '#f8f6fc', 
+										border: '1px dashed #dcd2ff', 
+										borderRadius: '10px'
+									}}>
+										<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+											<input
+												value={manualProductName}
+												onChange={(e) => setManualProductName(e.target.value)}
+												placeholder="Nombre del servicio o producto (ej: Limpieza Dental, Clases de Yoga...)"
+												style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }}
+											/>
+											<textarea
+												value={manualProductFacts}
+												onChange={(e) => setManualProductFacts(e.target.value)}
+												placeholder="Información clave, descripción, beneficios, o textos para el anuncio..."
+												rows={3}
+												style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }}
+											/>
+										</div>
 									</div>
-								</div>
-							)}
+								)}
+							</div>
 						</div>
 
 						{/* 2. Formato */}

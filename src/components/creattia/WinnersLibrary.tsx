@@ -189,7 +189,8 @@ export default function WinnersLibrary({
 	historyCount = 0,
 	favorites = new Set(),
 	onToggleFavorite,
-	onGenerationStarted
+	onGenerationStarted,
+	onBackToPreviousView
 }: {
 	session: any;
 	profile?: any;
@@ -207,6 +208,7 @@ export default function WinnersLibrary({
 	historyCount?: number;
 	favorites?: Set<number>;
 	onToggleFavorite?: (id: number) => void;
+	onBackToPreviousView?: () => void;
 }) {
 	const [items, setItems] = useState<WinnerItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -788,7 +790,12 @@ export default function WinnersLibrary({
 				savedProducts={savedProducts}
 				onToast={onToast}
 				onGenerationStarted={onGenerationStarted}
-				onBack={() => setActiveAd(null)}
+				onBack={() => {
+					setActiveAd(null);
+					if (onBackToPreviousView) {
+						onBackToPreviousView();
+					}
+				}}
 			/>
 		);
 	}

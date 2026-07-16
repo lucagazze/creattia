@@ -6,7 +6,7 @@ import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
 
-type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation';
+type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved';
 
 // Lote de generación en curso: la API responde al instante y el trabajo pesado
 // sigue en el servidor; el front lo sigue por batch_id en creative_generations.
@@ -419,6 +419,71 @@ export default function CreativeApp() {
 	const [session, setSession] = useState<AppSession | null>(null);
 	const [profile, setProfile] = useState<AppProfile>(defaultProfile);
 	const [view, setView] = useState<View>(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('plan') ? 'plans' : 'home');
+	const [viewHistory, setViewHistory] = useState<View[]>([]);
+	const [openedFromView, setOpenedFromView] = useState<View | null>(null);
+
+	const [likedImageIds, setLikedImageIds] = useState<string[]>(() => {
+		try {
+			return JSON.parse(localStorage.getItem('creattia_liked_images') || '[]');
+		} catch {
+			return [];
+		}
+	});
+
+	const [folders, setFolders] = useState<Array<{ id: string; name: string; imageIds: string[] }>>(() => {
+		try {
+			return JSON.parse(localStorage.getItem('creattia_folders') || '[]');
+		} catch {
+			return [];
+		}
+	});
+
+	useEffect(() => {
+		localStorage.setItem('creattia_liked_images', JSON.stringify(likedImageIds));
+	}, [likedImageIds]);
+
+	useEffect(() => {
+		localStorage.setItem('creattia_folders', JSON.stringify(folders));
+	}, [folders]);
+
+	function toggleLike(id: string) {
+		setLikedImageIds((prev) => 
+			prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+		);
+	}
+
+	function toggleFolder(imgId: string, folderId: string) {
+		setFolders((prev) => 
+			prev.map((f) => {
+				if (f.id === folderId) {
+					const exists = f.imageIds.includes(imgId);
+					return {
+						...f,
+						imageIds: exists ? f.imageIds.filter(id => id !== imgId) : [...f.imageIds, imgId]
+					};
+				}
+				return f;
+			})
+		);
+	}
+
+	function navigateTo(nextView: View) {
+		setViewHistory((prev) => [...prev, view]);
+		setView(nextView);
+	}
+
+	function goBack() {
+		setViewHistory((prev) => {
+			if (prev.length === 0) {
+				setView('home');
+				return [];
+			}
+			const last = prev[prev.length - 1];
+			setView(last);
+			return prev.slice(0, -1);
+		});
+	}
+
 	const [mobileMenu, setMobileMenu] = useState(false);
 	const [catalog, setCatalog] = useState<Creativo[]>(creativeCatalog);
 	const [selected, setSelected] = useState<Creativo>(creativeCatalog.find((c) => c.id === 18) || creativeCatalog[0]);
@@ -461,7 +526,7 @@ export default function CreativeApp() {
 					return true;
 				});
 				const shuffled = [...uniqueStatic].sort(() => Math.random() - 0.5);
-				setRandomWinners(shuffled.slice(0, 5));
+				setRandomWinners(shuffled.slice(0, 4));
 			} catch {
 				// silent fail — winners are optional on dashboard
 			}
@@ -642,14 +707,14 @@ export default function CreativeApp() {
 	function chooseCreative(creative: Creativo) {
 		setReuseSeed(null);
 		setPreselectedTemplateId(creative.id);
-		setView('winners');
+		navigateTo('winners');
 		setMobileMenu(false);
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	function startWithProduct(productId: string) {
 		setCreationProductIds([productId]);
-		setView('library');
+		navigateTo('library');
 		setMobileMenu(false);
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
@@ -661,7 +726,7 @@ export default function CreativeApp() {
 		if (!creative) return;
 		setSelected(creative);
 		setReuseSeed(generation);
-		setView('studio');
+		navigateTo('studio');
 		setMobileMenu(false);
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
@@ -899,6 +964,7 @@ export default function CreativeApp() {
 		const navItems: Array<{ id: View; label: string; icon: string }> = [
 			{ id: 'home', label: 'Inicio', icon: 'home' },
 			{ id: 'winners', label: 'Biblioteca de ganadores', icon: 'spark' },
+			{ id: 'saved', label: 'Anuncios guardados', icon: 'heart' },
 			{ id: 'history', label: 'Mis imágenes', icon: 'history' },
 		];
 
@@ -908,7 +974,7 @@ export default function CreativeApp() {
 			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} products={products} />}
 			{activeBatch && view !== 'generation' && activeBatch.status !== 'failed' && (
 				<button
-					onClick={() => setView('generation')}
+					onClick={() => navigateTo('generation')}
 					style={{
 						position: 'fixed', bottom: '18px', right: '18px', zIndex: 80,
 						display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 18px',
@@ -950,7 +1016,7 @@ export default function CreativeApp() {
 				<nav className="studio-nav">
 					{!sidebarMinimized && <p>ESPACIO DE TRABAJO</p>}
 					{navItems.map((item) => (
-						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { setView(item.id); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { navigateTo(item.id); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
 							<Icon name={item.icon}/>{!sidebarMinimized && <span>{item.label}</span>}
 						</button>
 					))}
@@ -958,7 +1024,7 @@ export default function CreativeApp() {
 				<div className="studio-sidebar-bottom">
 					<button 
 						className={`studio-brand-nav-btn ${view === 'brand' ? 'active' : ''}`}
-						onClick={() => { setView('brand'); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+						onClick={() => { navigateTo('brand'); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
 						style={{
 							display: 'flex',
 							alignItems: 'center',
@@ -984,7 +1050,7 @@ export default function CreativeApp() {
 							<div><span className="studio-plan-orb"><Icon name="spark" size={15}/></span><small>PLAN ACTUAL</small></div>
 							<strong>{planLabel(profile)}</strong>
 							<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 3) * 100)}%` }}/></p>
-							<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => setView('plans')}>Ver planes</button></footer>
+							<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => navigateTo('plans')}>Ver planes</button></footer>
 						</div>
 					)}
 					
@@ -1007,7 +1073,7 @@ export default function CreativeApp() {
 							}}
 						>
 							<button 
-								onClick={() => { setView('plans'); setProfileMenuOpen(false); }}
+								onClick={() => { navigateTo('plans'); setProfileMenuOpen(false); }}
 								style={{ padding: '10px 14px', border: 0, background: 'transparent', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontSize: '13px', color: '#19171d', fontWeight: 700, whiteSpace: 'nowrap' }}
 							>
 								💳 Planes y Suscripción
@@ -1062,7 +1128,7 @@ export default function CreativeApp() {
 							email={getSessionEmail(session)} 
 							history={history} 
 							catalog={catalog} 
-							onView={setView} 
+							onView={navigateTo} 
 							onChoose={chooseCreative} 
 							onReuse={reuseGeneration} 
 							randomWinners={randomWinners} 
@@ -1072,7 +1138,8 @@ export default function CreativeApp() {
 							onExpand={setLightbox}
 							onUseScrapedWinner={(path) => {
 								setPreselectedWinnerPath(path);
-								setView('winners');
+								setOpenedFromView('home');
+								navigateTo('winners');
 							}}
 						/>
 					)}
@@ -1095,57 +1162,68 @@ export default function CreativeApp() {
 							historyCount={history.length}
 							favorites={favorites}
 							onToggleFavorite={toggleFavorite}
+							onBackToPreviousView={() => {
+								if (openedFromView) {
+									setView(openedFromView);
+									setOpenedFromView(null);
+								}
+							}}
 						/>
 					)}
-										{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={() => setView('library')} onGenerated={addGenerations} onToast={setToast} onGenerationStarted={startBatchTracking} />}
+					{view === 'saved' && (
+						<SavedAds 
+							history={history}
+							likedImageIds={likedImageIds}
+							toggleLike={toggleLike}
+							folders={folders}
+							toggleFolder={toggleFolder}
+							scrapedWinners={scrapedWinners}
+							likedScrapedPaths={likedScrapedPaths}
+							toggleLikedScraped={toggleLikedScraped}
+							onUseScrapedWinner={(path) => {
+								setPreselectedWinnerPath(path);
+								setOpenedFromView('saved');
+								navigateTo('winners');
+							}}
+							onExpand={setLightbox}
+							onReuse={reuseGeneration}
+						/>
+					)}
+					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={goBack} onGenerated={addGenerations} onToast={setToast} onGenerationStarted={startBatchTracking} />}
 					{view === 'generation' && activeBatch && (
 						<GenerationView
 							batch={activeBatch}
-							onBack={() => { setView('winners'); if (activeBatch.status !== 'processing') setActiveBatch(null); }}
+							onBack={() => { goBack(); if (activeBatch.status !== 'processing') setActiveBatch(null); }}
 							onReuse={(generation) => setLightbox(generation)}
-							onHistory={() => { setActiveBatch(null); setView('history'); }}
+							onHistory={() => { setActiveBatch(null); navigateTo('history'); }}
 						/>
 					)}
-					{view === 'history' && <History history={history} onCreate={() => setView('winners')} onReuse={reuseGeneration} onExpand={setLightbox} pending={activeBatch?.status === 'processing' ? { count: activeBatch.count, title: activeBatch.title, referenceUrl: activeBatch.referenceUrl } : null} onViewProgress={() => setView('generation')} />}
-					{view === 'plans' && <Plans profile={profile} session={session} />}
-					{view === 'brand' && <>
-					<BrandsManager session={session} planCode={profile.planCode} onPlans={() => setView('plans')} />
-					<div style={{ marginTop: '28px' }}>
-						<button 
-							onClick={() => setManualOpen(!manualOpen)} 
-							style={{ 
-								display: 'flex', 
-								alignItems: 'center', 
-								justifyContent: 'space-between',
-								width: '100%',
-								background: 'transparent',
-								border: 0,
-								cursor: 'pointer', 
-								fontSize: '14px', 
-								fontWeight: 700, 
-								color: '#716d79', 
-								marginBottom: '14px',
-								padding: '8px 0',
-								borderBottom: '1px solid #e9e6ed'
+					{view === 'history' && (
+						<History 
+							history={history} 
+							onCreate={() => navigateTo('winners')} 
+							onReuse={reuseGeneration} 
+							onExpand={setLightbox} 
+							pending={activeBatch?.status === 'processing' ? { count: activeBatch.count, title: activeBatch.title, referenceUrl: activeBatch.referenceUrl } : null} 
+							onViewProgress={() => navigateTo('generation')}
+							likedImageIds={likedImageIds}
+							onToggleLike={toggleLike}
+							folders={folders}
+							onToggleFolder={toggleFolder}
+							onRemoveFolder={(fid) => {
+								if (window.confirm('¿Seguro que querés eliminar esta carpeta? Las imágenes seguirán en "Mis imágenes".')) {
+									setFolders((prev) => prev.filter(f => f.id !== fid));
+								}
 							}}
-						>
-							<span>⚙️ Ajustes manuales de la marca activa</span>
-							<span style={{ 
-								display: 'inline-flex', 
-								transform: manualOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
-								transition: 'transform 0.2s ease',
-								color: '#716d79' 
-							}}>
-								<Icon name="arrow" size={16} />
-							</span>
-						</button>
-						{manualOpen && (
-							<div style={{ animation: 'fadeIn 0.2s ease' }}>
-								<BrandSettings profile={profile} onSave={async (next, logo) => { await updateProfile(next, logo); setToast('Tu marca quedó actualizada.'); }} session={session} onPlans={() => setView('plans')} />
-							</div>
-						)}
-					</div>
-				</>}
+							onCreateFolder={(name) => {
+								setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, imageIds: [] }]);
+							}}
+						/>
+					)}
+					{view === 'plans' && <Plans profile={profile} session={session} />}
+					{view === 'brand' && (
+						<BrandsManager session={session} planCode={profile.planCode} onPlans={() => navigateTo('plans')} />
+					)}
 				</div>
 			</main>
 		</div>
@@ -1351,7 +1429,7 @@ function Dashboard({
 						</button>
 					</div>
 					<div className="library-ad-grid-masonry dashboard-masonry" style={{ columnGap: '16px', marginBottom: '40px' }}>
-						{randomWinners.map((winner, idx) => {
+						{randomWinners.slice(0, 4).map((winner, idx) => {
 							const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
 							const imageUrl = winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath;
 							const isLiked = likedScrapedPaths.has(winner.imagePath);
@@ -2263,9 +2341,182 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 	</>;
 }
 
-function History({ history, onCreate, onReuse, onExpand, pending, onViewProgress }: { history: Generation[]; onCreate: () => void; onReuse: (item: Generation) => void; onExpand?: (item: Generation) => void; pending?: { count: number; title: string; referenceUrl?: string; startedAt?: number } | null; onViewProgress?: () => void }) {
-	const hasContent = history.length > 0 || Boolean(pending);
-	return <><div className="studio-page-heading"><div><p>MIS IMÁGENES</p><h1>Todo lo que creaste.</h1><span>Tocá una imagen para verla grande, descargarla o crear otra versión.</span></div><button className="studio-primary-button compact" onClick={onCreate} style={{ background: '#744bde' }}><Icon name="plus" size={17}/>Crear imagen</button></div>{hasContent ? <div className="studio-history-grid">{pending && Array.from({ length: pending.count }, (_, index) => <PendingGenerationCard key={`pending-${index}`} title={pending.title} referenceUrl={pending.referenceUrl} startedAt={pending.startedAt} onClick={onViewProgress} />)}{history.map((item) => <GenerationCard key={item.id} item={item} onExpand={onExpand ? () => onExpand(item) : undefined} onReuse={() => onReuse(item)}/>)}</div> : <div className="studio-empty large"><span><Icon name="history"/></span><h3>Todavía no creaste imágenes</h3><p>Elegí una idea de la biblioteca para empezar.</p><button onClick={onCreate} style={{ background: '#744bde' }}>Elegir una idea</button></div>}</>;
+function History({ 
+	history, 
+	onCreate, 
+	onReuse, 
+	onExpand, 
+	pending, 
+	onViewProgress,
+	likedImageIds = [],
+	onToggleLike,
+	folders = [],
+	onToggleFolder,
+	onRemoveFolder,
+	onCreateFolder
+}: { 
+	history: Generation[]; 
+	onCreate: () => void; 
+	onReuse: (item: Generation) => void; 
+	onExpand?: (item: Generation) => void; 
+	pending?: { count: number; title: string; referenceUrl?: string; startedAt?: number } | null; 
+	onViewProgress?: () => void;
+	likedImageIds?: string[];
+	onToggleLike?: (id: string) => void;
+	folders?: Array<{ id: string; name: string; imageIds: string[] }>;
+	onToggleFolder?: (imgId: string, folderId: string) => void;
+	onRemoveFolder?: (folderId: string) => void;
+	onCreateFolder?: (name: string) => void;
+}) {
+	const [currentFolderId, setCurrentFolderId] = useState<string>('all');
+	const [showCreateFolder, setShowCreateFolder] = useState(false);
+	const [newFolderName, setNewFolderName] = useState('');
+
+	function handleCreateFolder() {
+		if (newFolderName.trim() && onCreateFolder) {
+			onCreateFolder(newFolderName.trim());
+			setNewFolderName('');
+			setShowCreateFolder(false);
+		}
+	}
+
+	const filteredHistory = history.filter((item) => {
+		if (currentFolderId === 'all') return true;
+		if (currentFolderId === 'liked') return likedImageIds.includes(item.id);
+		const folder = folders.find(f => f.id === currentFolderId);
+		return folder ? folder.imageIds.includes(item.id) : true;
+	});
+
+	const hasContent = filteredHistory.length > 0 || Boolean(pending);
+
+	return (
+		<>
+			<div className="studio-page-heading">
+				<div>
+					<p>MIS IMÁGENES</p>
+					<h1>Todo lo que creaste.</h1>
+					<span>Tocá una imagen para verla grande, descargarla o crear otra versión.</span>
+				</div>
+				<button className="studio-primary-button compact" onClick={onCreate} style={{ background: '#744bde' }}>
+					<Icon name="plus" size={17}/>
+					Crear imagen
+				</button>
+			</div>
+
+			{/* Folders navigation bar */}
+			<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px', alignItems: 'center', background: '#fcfbfe', padding: '10px 14px', borderRadius: '12px', border: '1px solid #eee9f3' }}>
+				<button 
+					onClick={() => setCurrentFolderId('all')} 
+					style={{
+						padding: '6px 12px', borderRadius: '8px', border: 0,
+						background: currentFolderId === 'all' ? '#744bde' : '#f0eef4',
+						color: currentFolderId === 'all' ? '#fff' : '#5b5561',
+						fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+					}}
+				>
+					📁 Todas ({history.length})
+				</button>
+				<button 
+					onClick={() => setCurrentFolderId('liked')} 
+					style={{
+						padding: '6px 12px', borderRadius: '8px', border: 0,
+						background: currentFolderId === 'liked' ? '#ff4185' : '#f0eef4',
+						color: currentFolderId === 'liked' ? '#fff' : '#5b5561',
+						fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px'
+					}}
+				>
+					❤️ Favoritas ({history.filter(h => likedImageIds.includes(h.id)).length})
+				</button>
+
+				{folders.map(folder => (
+					<div key={folder.id} style={{ display: 'flex', alignItems: 'center', background: currentFolderId === folder.id ? '#744bde' : '#f0eef4', borderRadius: '8px', overflow: 'hidden' }}>
+						<button 
+							onClick={() => setCurrentFolderId(folder.id)}
+							style={{
+								padding: '6px 10px 6px 12px', border: 0,
+								background: 'transparent',
+								color: currentFolderId === folder.id ? '#fff' : '#5b5561',
+								fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+							}}
+						>
+							📁 {folder.name} ({folder.imageIds.length})
+						</button>
+						<button 
+							onClick={() => onRemoveFolder && onRemoveFolder(folder.id)}
+							style={{
+								padding: '6px 8px', border: 0, background: 'transparent',
+								color: currentFolderId === folder.id ? 'rgba(255,255,255,0.7)' : '#8b8490',
+								fontSize: '11px', cursor: 'pointer', borderLeft: '1px solid rgba(0,0,0,0.06)'
+							}}
+							title="Eliminar carpeta"
+						>
+							✕
+						</button>
+					</div>
+				))}
+
+				{showCreateFolder ? (
+					<div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+						<input 
+							value={newFolderName}
+							onChange={(e) => setNewFolderName(e.target.value)}
+							placeholder="Nombre..."
+							style={{ height: '30px', padding: '0 8px', borderRadius: '6px', border: '1px solid #dcd5e4', fontSize: '12.5px', outline: 'none' }}
+							onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
+						/>
+						<button onClick={handleCreateFolder} style={{ height: '30px', padding: '0 10px', borderRadius: '6px', border: 0, background: '#744bde', color: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>Crear</button>
+						<button onClick={() => setShowCreateFolder(false)} style={{ height: '30px', padding: '0 8px', borderRadius: '6px', border: 0, background: '#f2eef6', color: '#4b4452', fontSize: '12px', cursor: 'pointer' }}>Cancelar</button>
+					</div>
+				) : (
+					<button 
+						onClick={() => setShowCreateFolder(true)} 
+						style={{
+							padding: '6px 12px', borderRadius: '8px', border: '1px dashed #744bde',
+							background: 'transparent',
+							color: '#744bde',
+							fontSize: '13px', fontWeight: 700, cursor: 'pointer'
+						}}
+					>
+						+ Nueva carpeta
+					</button>
+				)}
+			</div>
+
+			{hasContent ? (
+				<div className="studio-history-grid">
+					{pending && currentFolderId === 'all' && (
+						Array.from({ length: pending.count }, (_, index) => (
+							<PendingGenerationCard 
+								key={`pending-${index}`} 
+								title={pending.title} 
+								referenceUrl={pending.referenceUrl} 
+								startedAt={pending.startedAt} 
+								onClick={onViewProgress} 
+							/>
+						))
+					)}
+					{filteredHistory.map((item) => (
+						<GenerationCard 
+							key={item.id} 
+							item={item} 
+							isLiked={likedImageIds.includes(item.id)} 
+							onToggleLike={onToggleLike ? () => onToggleLike(item.id) : undefined} 
+							folders={folders} 
+							onToggleFolder={onToggleFolder ? (fid) => onToggleFolder(item.id, fid) : undefined} 
+							onExpand={onExpand ? () => onExpand(item) : undefined} 
+							onReuse={() => onReuse(item)}
+						/>
+					))}
+				</div>
+			) : (
+				<div className="studio-empty large">
+					<span>📁</span>
+					<h3>Carpeta vacía</h3>
+					<p>Asigná tus creaciones a esta carpeta usando el icono 📁 en cada imagen.</p>
+				</div>
+			)}
+		</>
+	);
 }
 
 // Tarjeta placeholder mientras una imagen se está generando en el servidor.
@@ -2344,8 +2595,139 @@ async function downloadImage(url: string, name: string) {
 	}
 }
 
-function GenerationCard({ item, onReuse, onExpand }: { item: Generation; onReuse?: () => void; onExpand?: () => void }) {
-	return <article className="studio-generation-card"><div style={{ cursor: onExpand ? 'zoom-in' : 'default' }} onClick={onExpand}><img src={item.imageUrl} alt={item.title} loading="lazy"/><a href={item.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(item.imageUrl, `creattia-${item.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a></div><footer><small>{item.category}</small><h3>{item.title}</h3><span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>{(onExpand || onReuse) && <button onClick={onExpand || onReuse}><Icon name="history" size={14}/>Crear otra versión</button>}</footer></article>;
+function GenerationCard({ 
+	item, 
+	onReuse, 
+	onExpand,
+	isLiked,
+	onToggleLike,
+	folders = [],
+	onToggleFolder
+}: { 
+	item: Generation; 
+	onReuse?: () => void; 
+	onExpand?: () => void;
+	isLiked?: boolean;
+	onToggleLike?: () => void;
+	folders?: Array<{ id: string; name: string; imageIds: string[] }>;
+	onToggleFolder?: (folderId: string) => void;
+}) {
+	const [showFolderDropdown, setShowFolderDropdown] = useState(false);
+
+	useEffect(() => {
+		if (!showFolderDropdown) return;
+		const close = () => setShowFolderDropdown(false);
+		window.addEventListener('click', close);
+		return () => window.removeEventListener('click', close);
+	}, [showFolderDropdown]);
+
+	return (
+		<article className="studio-generation-card">
+			<div style={{ cursor: onExpand ? 'zoom-in' : 'default', position: 'relative' }} onClick={onExpand}>
+				{onToggleLike && (
+					<button
+						onClick={(e) => {
+							e.stopPropagation();
+							onToggleLike();
+						}}
+						style={{
+							position: 'absolute',
+							top: '8px',
+							left: '8px',
+							zIndex: 10,
+							border: 0,
+							background: 'rgba(255,255,255,0.9)',
+							color: isLiked ? '#ff4185' : '#716d79',
+							borderRadius: '50%',
+							width: '28px',
+							height: '28px',
+							display: 'grid',
+							placeItems: 'center',
+							cursor: 'pointer',
+							boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+						}}
+						title={isLiked ? "Quitar de favoritos" : "Añadir a favoritos"}
+					>
+						<Icon name="heart" size={13} fill={isLiked ? '#ff4185' : 'none'} />
+					</button>
+				)}
+
+				{onToggleFolder && folders.length > 0 && (
+					<div style={{ position: 'absolute', top: '8px', right: '40px', zIndex: 10 }}>
+						<button
+							onClick={(e) => {
+								e.stopPropagation();
+								setShowFolderDropdown(!showFolderDropdown);
+							}}
+							style={{
+								border: 0,
+								background: 'rgba(255,255,255,0.9)',
+								color: '#716d79',
+								borderRadius: '50%',
+								width: '28px',
+								height: '28px',
+								display: 'grid',
+								placeItems: 'center',
+								cursor: 'pointer',
+								boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+							}}
+							title="Organizar en carpeta"
+						>
+							📁
+						</button>
+						{showFolderDropdown && (
+							<div 
+								onClick={(e) => e.stopPropagation()}
+								style={{
+									position: 'absolute',
+									top: '32px',
+									right: 0,
+									background: '#fff',
+									border: '1px solid #e9e6ed',
+									borderRadius: '8px',
+									boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
+									padding: '6px',
+									minWidth: '150px',
+									zIndex: 100
+								}}
+							>
+								<p style={{ margin: '4px 6px 6px', fontSize: '11px', color: '#8b8490', fontWeight: 'bold' }}>CARPETAS:</p>
+								{folders.map(f => {
+									const inFolder = f.imageIds.includes(item.id);
+									return (
+										<label 
+											key={f.id} 
+											style={{
+												display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 8px',
+												borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d',
+												fontWeight: 500, userSelect: 'none'
+											}}
+										>
+											<input 
+												type="checkbox" 
+												checked={inFolder} 
+												onChange={() => onToggleFolder(f.id)} 
+												style={{ cursor: 'pointer' }}
+											/>
+											<span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{f.name}</span>
+										</label>
+									);
+								})}
+							</div>
+						)}
+					</div>
+				)}
+
+				<img src={item.imageUrl} alt={item.title} loading="lazy"/>
+				<a href={item.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(item.imageUrl, `creattia-${item.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a>
+			</div>
+			<footer>
+				<h3>{item.title}</h3>
+				<span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>
+				{(onExpand || onReuse) && <button onClick={onExpand || onReuse}><Icon name="history" size={14}/>Crear otra versión</button>}
+			</footer>
+		</article>
+	);
 }
 
 // Lightbox: expande la imagen dentro de la app (nunca una página nueva) y
@@ -3040,120 +3422,33 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 										flexDirection: 'column',
 										gap: '10px'
 									}}>
-										{editingBrandId === brand.id ? (
-											<>
-												<div>
-													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>✨ Estilo General</strong>
-													<textarea
-														value={editStyleSummary}
-														onChange={(e) => setEditStyleSummary(e.target.value)}
-														rows={3}
-														style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '12px', fontFamily: 'inherit', resize: 'vertical' }}
-													/>
-												</div>
-												<div>
-													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🧠 Personalidad</strong>
-													<textarea
-														value={editPersonality}
-														onChange={(e) => setEditPersonality(e.target.value)}
-														rows={3}
-														style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '12px', fontFamily: 'inherit', resize: 'vertical' }}
-													/>
-												</div>
-												<div>
-													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🗣️ Voz y Tono</strong>
-													<textarea
-														value={editVoice}
-														onChange={(e) => setEditVoice(e.target.value)}
-														rows={3}
-														style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '12px', fontFamily: 'inherit', resize: 'vertical' }}
-													/>
-												</div>
-												<div>
-													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🖱️ Estilo de Botones</strong>
-													<input
-														value={editButtonStyle}
-														onChange={(e) => setEditButtonStyle(e.target.value)}
-														style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e5e1e8', fontSize: '12px' }}
-													/>
-												</div>
-												<div>
-													<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🎨 Paleta de colores</strong>
-													<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-														{editColors.map((color, idx) => (
-															<span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff', border: '1px solid #e5e1e8', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-																<span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
-																{color}
-																<button
-																	type="button"
-																	onClick={() => setEditColors(editColors.filter((_, i) => i !== idx))}
-																	style={{ border: 0, background: 'transparent', color: '#a43f3f', fontSize: '11px', cursor: 'pointer', padding: '0 2px', marginLeft: '2px' }}
-																>
-																	×
-																</button>
-															</span>
-														))}
-													</div>
-													<div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-														<input
-															type="color"
-															value={newColorInput}
-															onChange={(e) => setNewColorInput(e.target.value)}
-															style={{ width: '28px', height: '24px', padding: 0, border: 0, background: 'transparent', cursor: 'pointer' }}
-														/>
-														<button
-															type="button"
-															onClick={() => {
-																if (newColorInput && !editColors.includes(newColorInput)) {
-																	setEditColors([...editColors, newColorInput]);
-																}
-															}}
-															style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
-														>
-															+ Agregar
-														</button>
-													</div>
-												</div>
-											</>
-										) : (
-											<>
-												{style.styleSummary && (
-													<div>
-														<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>✨ Estilo General</strong>
-														<span>{style.styleSummary}</span>
-													</div>
-												)}
-												{style.brandPersonality && (
-													<div>
-														<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🧠 Personalidad</strong>
-														<span>{style.brandPersonality}</span>
-													</div>
-												)}
-												{style.brandVoice && (
-													<div>
-														<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🗣️ Voz y Tono</strong>
-														<span>{style.brandVoice}</span>
-													</div>
-												)}
-												{style.buttonStyle && (
-													<div>
-														<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🖱️ Estilo de Botones</strong>
-														<span>{style.buttonStyle}</span>
-													</div>
-												)}
-												<div>
-													<strong style={{ color: '#744bde', display: 'block', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🎨 Paleta de colores</strong>
-													<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-														{(brand.brand_colors || []).map((color: string) => (
-															<span key={color} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff', border: '1px solid #e5e1e8', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
-																<span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
-																{color}
-															</span>
-														))}
-													</div>
-												</div>
-											</>
-										)}
+										<div>
+											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>✨ Estilo General</strong>
+											<p style={{ margin: 0, lineHeight: 1.5 }}>{style.styleSummary || 'No especificado'}</p>
+										</div>
+										<div>
+											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🧠 Personalidad</strong>
+											<p style={{ margin: 0, lineHeight: 1.5 }}>{style.brandPersonality || 'No especificado'}</p>
+										</div>
+										<div>
+											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🗣️ Voz y Tono</strong>
+											<p style={{ margin: 0, lineHeight: 1.5 }}>{style.brandVoice || 'No especificado'}</p>
+										</div>
+										<div>
+											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🖱️ Estilo de Botones</strong>
+											<p style={{ margin: 0, lineHeight: 1.5 }}>{style.buttonStyle || 'No especificado'}</p>
+										</div>
+										<div>
+											<strong style={{ color: '#744bde', display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.03em' }}>🎨 Paleta de colores</strong>
+											<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+												{(brand.brand_colors || []).map((color: string, idx: number) => (
+													<span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fff', border: '1px solid #e5e1e8', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 600 }}>
+														<span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+														{color}
+													</span>
+												))}
+											</div>
+										</div>
 									</div>
 								)}
 
@@ -3167,7 +3462,256 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 					})}
 				</div>
 			)}
+
+			{/* Modal overlay for fullscreen premium editing */}
+			{editingBrandId !== null && (() => {
+				const brandToEdit = brands.find(b => b.id === editingBrandId);
+				if (!brandToEdit) return null;
+				return (
+					<div onClick={() => setEditingBrandId(null)} style={{ position: 'fixed', inset: 0, zIndex: 150, background: 'rgba(12,10,16,0.7)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: '24px' }}>
+						<div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: '16px', padding: '24px', maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', boxShadow: '0 30px 80px rgba(0,0,0,0.3)' }}>
+							<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee9f2', paddingBottom: '14px' }}>
+								<h3 style={{ margin: 0, fontSize: '18px', color: '#19171d', fontWeight: 800 }}>Editar detalles de diseño: {brandToEdit.name}</h3>
+								<button onClick={() => setEditingBrandId(null)} style={{ border: 0, background: '#f2eef6', width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer', color: '#4b4452', fontSize: '15px' }}>✕</button>
+							</div>
+
+							<div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+								<div>
+									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#716d79', marginBottom: '6px' }}>Nombre del negocio:</label>
+									<input
+										value={editName}
+										onChange={(e) => setEditName(e.target.value)}
+										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '14px', fontWeight: 600 }}
+									/>
+								</div>
+
+								<div>
+									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>✨ ESTILO GENERAL:</label>
+									<textarea
+										value={editStyleSummary}
+										onChange={(e) => setEditStyleSummary(e.target.value)}
+										rows={4}
+										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
+									/>
+								</div>
+
+								<div>
+									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🧠 PERSONALIDAD:</label>
+									<textarea
+										value={editPersonality}
+										onChange={(e) => setEditPersonality(e.target.value)}
+										rows={4}
+										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
+									/>
+								</div>
+
+								<div>
+									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🗣️ VOZ Y TONO:</label>
+									<textarea
+										value={editVoice}
+										onChange={(e) => setEditVoice(e.target.value)}
+										rows={4}
+										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
+									/>
+								</div>
+
+								<div>
+									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🖱️ ESTILO DE BOTONES:</label>
+									<input
+										value={editButtonStyle}
+										onChange={(e) => setEditButtonStyle(e.target.value)}
+										placeholder="Ej: Bordes redondeados con sombra..."
+										style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e5e1e8', fontSize: '13.5px' }}
+									/>
+								</div>
+
+								<div>
+									<label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '6px' }}>🎨 PALETA DE COLORES:</label>
+									<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+										{editColors.map((color, idx) => (
+											<span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f5f2f9', border: '1px solid #e5e1e8', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>
+												<span style={{ width: '12px', height: '12px', borderRadius: '50%', background: color }} />
+												{color}
+												<button
+													type="button"
+													onClick={() => setEditColors(editColors.filter((_, i) => i !== idx))}
+													style={{ border: 0, background: 'transparent', color: '#a43f3f', fontSize: '14px', cursor: 'pointer', padding: '0 2px', marginLeft: '4px' }}
+												>
+													×
+												</button>
+											</span>
+										))}
+									</div>
+									<div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+										<input
+											type="color"
+											value={newColorInput}
+											onChange={(e) => setNewColorInput(e.target.value)}
+											style={{ width: '40px', height: '36px', padding: 0, border: 0, background: 'transparent', cursor: 'pointer' }}
+										/>
+										<button
+											type="button"
+											onClick={() => {
+												if (newColorInput && !editColors.includes(newColorInput)) {
+													setEditColors([...editColors, newColorInput]);
+												}
+											}}
+											style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+										>
+											+ Agregar color
+										</button>
+									</div>
+								</div>
+							</div>
+
+							<div style={{ display: 'flex', gap: '12px', marginTop: '14px', borderTop: '1px solid #eee9f2', paddingTop: '16px' }}>
+								<button
+									type="button"
+									onClick={() => void saveBrand(brandToEdit.id)}
+									disabled={savingBrandId === brandToEdit.id}
+									style={{ flex: 1, height: '46px', borderRadius: '10px', border: 0, background: '#744bde', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: savingBrandId === brandToEdit.id ? 0.6 : 1 }}
+								>
+									{savingBrandId === brandToEdit.id ? 'Guardando cambios...' : 'Guardar todo'}
+								</button>
+								<button
+									type="button"
+									onClick={() => setEditingBrandId(null)}
+									style={{ height: '46px', padding: '0 20px', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#716d79', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+								>
+									Cancelar
+								</button>
+							</div>
+						</div>
+					</div>
+				);
+			})()}
 		</section>
+	);
+}
+
+function SavedAds({ 
+	history, 
+	likedImageIds, 
+	toggleLike, 
+	folders, 
+	toggleFolder, 
+	scrapedWinners, 
+	likedScrapedPaths, 
+	toggleLikedScraped, 
+	onUseScrapedWinner,
+	onExpand,
+	onReuse
+}: { 
+	history: Generation[]; 
+	likedImageIds: string[]; 
+	toggleLike: (id: string) => void;
+	folders: any[];
+	toggleFolder: (imgId: string, folderId: string) => void;
+	scrapedWinners: any[]; 
+	likedScrapedPaths: Set<string>; 
+	toggleLikedScraped: (path: string) => void; 
+	onUseScrapedWinner: (path: string) => void;
+	onExpand?: (item: Generation) => void;
+	onReuse?: (item: Generation) => void;
+}) {
+	const likedGenerations = history.filter(item => likedImageIds.includes(item.id));
+	const likedScrapedItems = scrapedWinners.filter(winner => likedScrapedPaths.has(winner.imagePath));
+	const hasContent = likedGenerations.length > 0 || likedScrapedItems.length > 0;
+
+	return (
+		<>
+			<div className="studio-page-heading">
+				<div>
+					<p>GUARDADOS</p>
+					<h1>Tus anuncios guardados.</h1>
+					<span>Ideas y creaciones que marcaste como favoritas.</span>
+				</div>
+			</div>
+
+			{hasContent ? (
+				<div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+					{likedGenerations.length > 0 && (
+						<div>
+							<h2 style={{ fontSize: '18px', fontWeight: 800, color: '#744bde', marginBottom: '14px' }}>Tus creaciones favoritas</h2>
+							<div className="studio-history-grid">
+								{likedGenerations.map((item) => (
+									<GenerationCard 
+										key={item.id} 
+										item={item} 
+										isLiked={true} 
+										onToggleLike={() => toggleLike(item.id)} 
+										folders={folders} 
+										onToggleFolder={(fid) => toggleFolder(item.id, fid)} 
+										onExpand={onExpand ? () => onExpand(item) : undefined} 
+										onReuse={onReuse ? () => onReuse(item) : undefined} 
+									/>
+								))}
+							</div>
+						</div>
+					)}
+
+					{likedScrapedItems.length > 0 && (
+						<div>
+							<h2 style={{ fontSize: '18px', fontWeight: 800, color: '#744bde', marginBottom: '14px' }}>Ideas de la biblioteca guardadas</h2>
+							<div className="studio-history-grid">
+								{likedScrapedItems.map((winner, idx) => {
+									const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
+									const imageUrl = winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath;
+									return (
+										<article
+											className="studio-generation-card"
+											key={winner.imagePath || idx}
+											style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', border: '1px solid #e9e6ed', borderRadius: '14px', overflow: 'hidden' }}
+											onClick={() => onUseScrapedWinner(winner.imagePath)}
+										>
+											<div style={{ position: 'relative' }}>
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														toggleLikedScraped(winner.imagePath);
+													}}
+													style={{
+														position: 'absolute',
+														top: '8px',
+														right: '8px',
+														zIndex: 10,
+														border: 0,
+														background: 'rgba(255,255,255,0.9)',
+														color: '#ff4185',
+														borderRadius: '50%',
+														width: '28px',
+														height: '28px',
+														display: 'grid',
+														placeItems: 'center',
+														cursor: 'pointer',
+														boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+													}}
+												>
+													<Icon name="heart" size={13} fill="#ff4185" />
+												</button>
+												<img src={imageUrl} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
+											</div>
+											<footer style={{ padding: '12px' }}>
+												<h3 style={{ fontSize: '14.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+													{winner.name || 'Idea Guardada'}
+												</h3>
+												<span style={{ fontSize: '11px', color: '#8b8490' }}>Patrocinado</span>
+											</footer>
+										</article>
+									);
+								})}
+							</div>
+						</div>
+					)}
+				</div>
+			) : (
+				<div className="studio-empty large">
+					<span>❤️</span>
+					<h3>No tenés anuncios guardados</h3>
+					<p>Hacé clic en el corazón de tus creaciones o de la biblioteca para guardarlas acá.</p>
+				</div>
+			)}
+		</>
 	);
 }
 
