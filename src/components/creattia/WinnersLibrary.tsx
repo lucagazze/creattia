@@ -261,7 +261,7 @@ export default function WinnersLibrary({
 	const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 	
 	// Fidelity option: 1 = Muy fiel, 2 = Estética marca, 3 = Híbrido
-	const [fidelity, setFidelity] = useState(3);
+	const [fidelity, setFidelity] = useState(1);
 
 	// Optional onboarding step states inside modal
 	const [onboardingShow, setOnboardingShow] = useState(false);
@@ -474,14 +474,9 @@ export default function WinnersLibrary({
 			if (isUrlMode) {
 				// If a saved product is selected, use its info
 				if (selectedSavedProduct) {
-					const sp = selectedSavedProduct;
-					const analysis = sp.analysis || {};
-					briefText = `PRODUCTO SELECCIONADO: ${sp.name}. `;
-					if (sp.description) briefText += `Descripción: ${sp.description}. `;
-					if (analysis.mainBenefit) briefText += `Beneficio principal: ${analysis.mainBenefit}. `;
-					if (analysis.price) briefText += `Precio: ${analysis.price}. `;
-					// Also pass the product ID so the backend can fetch the product image
-					form.set('productIds', sp.id);
+					// El backend ya tiene nombre, descripción y precio del producto guardado.
+					// No duplicar acá: el brief se trunca a 600 caracteres y tapa las instrucciones.
+					form.set('productIds', selectedSavedProduct.id);
 				} else {
 					const validUrls = urlList.map(u => normalizeProductUrl(u)).filter(Boolean);
 					if (validUrls.length > 0) briefText = `URLs de referencia del producto: ${validUrls.join(', ')}. `;
@@ -502,12 +497,13 @@ export default function WinnersLibrary({
 			}
 			
 			const fidelityInstructions: Record<number, string> = {
-				1: 'ART DIRECTION STYLE: SUPER FAITHFUL TO THE REFERENCED DESIGN. Preserve visual structure, color choices, card positions, typography framing, and exact layout composition of the reference image as closely as possible.',
 				2: 'ART DIRECTION STYLE: BRAND IDENTITY INTEGRATION. Use the brand logo and colors (Primary, Secondary) to style the background and text overlays, blending them with the reference layout.',
 				3: 'ART DIRECTION STYLE: OPTIMIZED HYBRID. Merge the visual elements of the winning reference layout with the brand aesthetics in a high-performing composition.'
 			};
-			
-			form.set('brief', `${briefText}\n\n${fidelityInstructions[fidelity]}`);
+
+			// fidelity=1 usa el prompt clon del backend; no necesita instrucción extra.
+			form.set('fidelity', String(fidelity));
+			form.set('brief', fidelityInstructions[fidelity] ? `${briefText}\n\n${fidelityInstructions[fidelity]}`.trim() : briefText.trim());
 			form.set('preset', 'Fiel al ganador');
 			form.set('count', '1');
 			

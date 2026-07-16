@@ -131,6 +131,48 @@ USER DIRECTION
 ${input.brief || (input.hasSourceGeneration ? 'No specific edit was requested. Produce another version using the selected variation strength.' : 'No extra direction. Choose the strongest honest headline for the angle without fabricating facts.')}`;
 }
 
+// Prompt corto y sin contradicciones para el modo "Fiel al ganador":
+// el modelo edita la referencia reemplazando SOLO producto, textos y marca.
+function buildReferenceClonePrompt(input: {
+	productNames: string[];
+	brandName: string;
+	hasLogo: boolean;
+	brief: string;
+	adCopy?: {
+		headline?: string;
+		subheadline?: string;
+		reviewText?: string;
+		cta?: string;
+		language?: string;
+	};
+}) {
+	const language = input.adCopy?.language === 'en' ? 'American English' : 'Argentine Spanish';
+	const productLabel = input.productNames.length ? input.productNames.join(' + ') : 'the real product supplied by the user';
+	const copyLines = input.adCopy
+		? [
+			input.adCopy.headline ? `- Headline: "${input.adCopy.headline}"` : '',
+			input.adCopy.subheadline ? `- Subheadline: "${input.adCopy.subheadline}"` : '',
+			input.adCopy.reviewText ? `- Customer review: "${input.adCopy.reviewText}"` : '',
+			input.adCopy.cta ? `- Call-to-action button: "${input.adCopy.cta}"` : '',
+		].filter(Boolean).join('\n')
+		: '';
+
+	return `The first input image is a WINNING AD TEMPLATE. Recreate this exact advertisement, keeping its layout, composition, background, color palette, graphic devices (badges, stars, speech bubbles, banners, buttons), text block positions and typographic hierarchy visually identical to the template. Apply ONLY these replacements:
+
+1. PRODUCT SWAP — Completely remove the template's original product. In its exact position, with the same scale and prominence, place the real product shown in the other input image(s): ${productLabel}. Preserve the real product's true shape, texture, packaging, label and colors with high fidelity. Never redraw, restyle or replace it with a generic product.
+
+2. TEXT SWAP — Replace the template's wording with this exact copy, written in natural ${language}, placing each text in the same position and relative size as the template text it replaces:
+${copyLines || `- Adapt every template text block honestly to ${productLabel}, in natural ${language}, keeping the same message structure.`}
+If a template text block has no replacement listed, adapt its message honestly to the new product. Do not invent prices, percentages, reviews, certifications or claims. Render all text sharp and legible, with no gibberish or distorted words.
+
+3. BRAND SWAP — Remove the template's original brand names and logos. ${input.hasLogo ? 'Place the provided brand logo (last input image) once, where the template shows its brand.' : input.brandName ? `If the template displays a brand name, use "${input.brandName}" as a simple wordmark.` : 'Leave the brand area clean if there is no replacement.'}
+
+Do not change the background color or palette. Do not add new elements. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template, now selling ${productLabel}.
+
+USER DIRECTION
+${input.brief || 'None.'}`;
+}
+
 async function fileToOpenAI(file: File, fallbackName: string) {
 	const bytes = Buffer.from(await file.arrayBuffer());
 	return toFile(bytes, file.name || fallbackName, { type: file.type || 'image/png' });
@@ -166,6 +208,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const referencePath = clean(form.get('referencePath'), 300);
 		const templateNotes = clean(form.get('templateNotes'), 500);
 		const sourceGenerationId = clean(form.get('sourceGenerationId'), 60);
+		const requestedFidelity = Number(clean(form.get('fidelity'), 2) || 1);
+		const fidelity = [1, 2, 3].includes(requestedFidelity) ? requestedFidelity : 1;
 		const requestedVariationStrength = clean(form.get('variationStrength'), 20) || 'exact';
 		const variationStrength = variationStrengths.has(requestedVariationStrength) ? requestedVariationStrength : 'exact';
 		const productIds = uniqueIds([
@@ -407,7 +451,15 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 			}
 		}
 
-		const prompt = buildPrompt({
+		const useClonePrompt = hasReference && !hasSourceGeneration && fidelity === 1
+			&& (storedProducts.length > 0 || hasUploadedProduct);
+		const prompt = useClonePrompt ? buildReferenceClonePrompt({
+			productNames: storedProducts.map((item) => item.name),
+			brandName: profile?.brand_name || clean(form.get('brandName'), 80),
+			hasLogo,
+			brief,
+			adCopy,
+		}) : buildPrompt({
 			templateName,
 			purpose: templatePurpose,
 			usageHint: templateUsageHint,
