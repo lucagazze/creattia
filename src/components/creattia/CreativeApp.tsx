@@ -56,6 +56,7 @@ type Generation = {
 	productIds?: string[];
 	batchId?: string;
 	outputIndex?: number;
+	referenceUrl?: string;
 };
 type VariationStrength = 'exact' | 'light' | 'strong';
 type CreativeReference = {
@@ -563,6 +564,9 @@ export default function CreativeApp() {
 								productIds: record.settings_snapshot?.productIds || (record.product_id ? [record.product_id] : []),
 								batchId: record.batch_id || record.id,
 								outputIndex: record.output_index || 1,
+								referenceUrl: record.settings_snapshot?.referencePath
+									? `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${record.settings_snapshot.referencePath}`
+									: '',
 						};
 					}));
 					setHistory(signed.filter((item) => item.imageUrl));
@@ -882,7 +886,7 @@ export default function CreativeApp() {
 			)}
 			<div className={`studio-mobile-scrim ${mobileMenu ? 'is-open' : ''}`} onClick={() => setMobileMenu(false)} />
 			<aside className={`studio-sidebar ${mobileMenu ? 'is-open' : ''}`}>
-				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: sidebarMinimized ? 0 : '10px', marginBottom: '10px' }}>
+				<div style={{ display: 'flex', flexDirection: sidebarMinimized ? 'column' : 'row', alignItems: 'center', justifyContent: sidebarMinimized ? 'center' : 'space-between', gap: sidebarMinimized ? '6px' : 0, paddingRight: sidebarMinimized ? 0 : '10px', marginBottom: '10px' }}>
 					<a className="studio-logo" href="/" aria-label="Volver a Creattia" style={{ marginBottom: 0 }}>
 						<span><img src="/images/creattia/moki-mascot.webp" alt=""/></span>
 						{!sidebarMinimized && <div><strong>Creattia</strong></div>}
@@ -1010,6 +1014,7 @@ export default function CreativeApp() {
 							likedWinners={likedWinners}
 							likedScrapedPaths={likedScrapedPaths}
 							onToggleLikedScraped={toggleLikedScraped}
+							onExpand={setLightbox}
 							onUseScrapedWinner={(path) => {
 								setPreselectedWinnerPath(path);
 								setView('winners');
@@ -1191,7 +1196,8 @@ function Dashboard({
 	likedWinners = [],
 	likedScrapedPaths,
 	onToggleLikedScraped,
-	onUseScrapedWinner
+	onUseScrapedWinner,
+	onExpand
 }: {
 	profile: AppProfile;
 	email: string;
@@ -1205,6 +1211,7 @@ function Dashboard({
 	likedScrapedPaths: Set<string>;
 	onToggleLikedScraped: (path: string) => void;
 	onUseScrapedWinner: (path: string) => void;
+	onExpand?: (generation: Generation) => void;
 }) {
 	return (
 		<>
@@ -1219,6 +1226,26 @@ function Dashboard({
 					Crear imagen
 				</button>
 			</div>
+
+			{/* ── User's generated history ── */}
+			{history.length > 0 && (
+				<>
+					<div className="studio-section-title">
+						<div>
+							<h2>Últimas imágenes</h2>
+							<p>Descargalas o creá otra versión.</p>
+						</div>
+						<button onClick={() => onView('history')}>
+							Ver todas <Icon name="arrow" size={15} />
+						</button>
+					</div>
+					<div className="studio-recent-row" style={{ marginBottom: '40px' }}>
+						{history.slice(0, 4).map((item) => (
+							<GenerationCard key={item.id} item={item} onExpand={onExpand ? () => onExpand(item) : undefined} onReuse={() => onReuse(item)} />
+						))}
+					</div>
+				</>
+			)}
 
 			{/* ── Random winners inspiration ── */}
 			{randomWinners.length > 0 && (
@@ -1385,26 +1412,6 @@ function Dashboard({
 								</article>
 							);
 						})}
-					</div>
-				</>
-			)}
-
-			{/* ── User's generated history ── */}
-			{history.length > 0 && (
-				<>
-					<div className="studio-section-title">
-						<div>
-							<h2>Últimas imágenes</h2>
-							<p>Descargalas o creá otra versión.</p>
-						</div>
-						<button onClick={() => onView('history')}>
-							Ver todas <Icon name="arrow" size={15} />
-						</button>
-					</div>
-					<div className="studio-recent-row" style={{ marginBottom: '40px' }}>
-						{history.slice(0, 4).map((item) => (
-							<GenerationCard key={item.id} item={item} onReuse={() => onReuse(item)} />
-						))}
 					</div>
 				</>
 			)}
@@ -2261,6 +2268,15 @@ function ImageLightbox({ item, session, onClose, onStarted }: {
 						<button onClick={onClose} aria-label="Cerrar" style={{ border: 0, background: '#f2eef6', width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer', color: '#4b4452', fontSize: '15px' }}>✕</button>
 					</div>
 					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer' }}>Descargar imagen</button>
+					{item.referenceUrl && (
+						<div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: '#f8f6fb', borderRadius: '12px' }}>
+							<img src={item.referenceUrl} alt="Anuncio ganador usado" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px' }} />
+							<div>
+								<strong style={{ display: 'block', fontSize: '12px', color: '#19171d' }}>Anuncio ganador usado</strong>
+								<span style={{ fontSize: '11.5px', color: '#8b8490' }}>Esta imagen se creó con este diseño de referencia.</span>
+							</div>
+						</div>
+					)}
 					<div style={{ borderTop: '1px solid #eee9f2', paddingTop: '14px' }}>
 						<strong style={{ display: 'block', fontSize: '14px', color: '#19171d', marginBottom: '8px' }}>Crear otra versión</strong>
 						<p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#8b8490', lineHeight: 1.5 }}>Contale a la IA qué cambiar. Si lo dejás vacío genera una variante manteniendo el diseño.</p>

@@ -25,6 +25,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('auto');
+	const [languageOpen, setLanguageOpen] = useState(false);
 	const [colorMode, setColorMode] = useState<'winner' | 'brand'>('winner');
 	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
 	const [includeLogo, setIncludeLogo] = useState(false);
@@ -155,7 +156,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					{phase !== 'review' && phase !== 'starting' && <>
 						{/* 1. Producto */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>1 · 🛍️ Tu producto</strong>
+							<strong style={label}>1 · Tu producto</strong>
 							{products.length > 0 && (
 								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
 									{products.slice(0, 12).map((item) => (
@@ -194,7 +195,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						{/* 2. Formato */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>2 · 📐 Formato</strong>
+							<strong style={label}>2 · Formato</strong>
 							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
 								{[
 									{ id: 'original', text: 'Original', desc: 'Igual al ganador', w: 24, h: 24, dashed: true },
@@ -224,25 +225,45 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						{/* 3. Idioma */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>3 · 🌍 Idioma del anuncio</strong>
-							<select
-								value={language}
-								onChange={(event) => setLanguage(event.target.value)}
-								style={{ minWidth: '280px', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '15px', background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}
-							>
-								<option value="auto">🌐 Automático (según el producto)</option>
-								<option value="es">🇦🇷 Español</option>
-								<option value="en">🇺🇸 English</option>
-								<option value="pt">🇧🇷 Português</option>
-								<option value="fr">🇫🇷 Français</option>
-								<option value="it">🇮🇹 Italiano</option>
-								<option value="de">🇩🇪 Deutsch</option>
-							</select>
+							<strong style={label}>3 · Idioma del anuncio</strong>
+							{(() => {
+								const LANGS = [
+									{ id: 'auto', name: 'Automático (según el producto)', cc: '' },
+									{ id: 'es', name: 'Español', cc: 'ar' },
+									{ id: 'en', name: 'English', cc: 'us' },
+									{ id: 'pt', name: 'Português', cc: 'br' },
+									{ id: 'fr', name: 'Français', cc: 'fr' },
+									{ id: 'it', name: 'Italiano', cc: 'it' },
+									{ id: 'de', name: 'Deutsch', cc: 'de' },
+								];
+								const current = LANGS.find((item) => item.id === language) || LANGS[0];
+								const flag = (cc: string) => cc
+									? <img src={`https://flagcdn.com/w40/${cc}.png`} alt="" width={22} height={16} style={{ borderRadius: '3px', objectFit: 'cover' }} />
+									: <span style={{ fontSize: '16px' }}>🌐</span>;
+								return (
+									<div style={{ position: 'relative', maxWidth: '330px' }}>
+										<button type="button" onClick={() => setLanguageOpen(!languageOpen)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', background: '#fff', fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d' }}>
+											<span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>{flag(current.cc)}{current.name}</span>
+											<span style={{ color: '#8b8490' }}>▾</span>
+										</button>
+										{languageOpen && (
+											<div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1px solid #e2dde9', borderRadius: '12px', boxShadow: '0 16px 40px rgba(25,23,29,0.14)', zIndex: 30, overflow: 'hidden' }}>
+												{LANGS.map((item) => (
+													<button key={item.id} type="button" onClick={() => { setLanguage(item.id); setLanguageOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', border: 0, background: language === item.id ? '#f7f2ff' : '#fff', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d', textAlign: 'left' }}>
+														{flag(item.cc)}{item.name}
+														{language === item.id && <span style={{ marginLeft: 'auto', color: '#6d28d9', fontWeight: 800 }}>✓</span>}
+													</button>
+												))}
+											</div>
+										)}
+									</div>
+								);
+							})()}
 						</div>
 
 						{/* 4. Estilo */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>4 · 🎨 Estilo</strong>
+							<strong style={label}>4 · Estilo</strong>
 							<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
 								<div>
 									<p style={{ margin: '0 0 6px', fontSize: '13px', color: '#716d79' }}>Colores</p>
@@ -270,7 +291,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						{/* 5. Indicación extra */}
 						<div style={{ marginBottom: '26px' }}>
-							<strong style={label}>5 · ✍️ Indicación extra (opcional)</strong>
+							<strong style={label}>5 · Indicación extra (opcional)</strong>
 							<textarea
 								value={extra}
 								onChange={(event) => setExtra(event.target.value)}

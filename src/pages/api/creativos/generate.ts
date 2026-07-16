@@ -372,6 +372,7 @@ export const POST: APIRoute = async ({ request }) => {
 			requested_outputs: count,
 			settings_snapshot: {
 				format, imageType, preset, productIds, productNames: storedProducts.map((item) => item.name),
+				referencePath: storedReference?.image_path || null,
 				sourceGenerationId: sourceGeneration?.id || null,
 				variationStrength: sourceGeneration ? variationStrength : null,
 			},
