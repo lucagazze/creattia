@@ -64,7 +64,20 @@ async function generateWithGemini(input: {
 	return Promise.all(Array.from({ length: input.count }, generateOne));
 }
 const imageTypes = new Set(['product', 'promotion', 'lifestyle', 'catalog']);
-const formats = new Set(Object.keys(formatSizes));
+// 'original' = usar la proporción del anuncio ganador de referencia
+const formats = new Set([...Object.keys(formatSizes), 'original']);
+
+// Dado un ratio ancho/alto, elegir el formato soportado más cercano.
+function closestFormat(ratio: number) {
+	const candidates: Array<[string, number]> = [['1:1', 1], ['3:4', 3 / 4], ['9:16', 9 / 16], ['4:3', 4 / 3], ['16:9', 16 / 9]];
+	let best = '1:1';
+	let bestDistance = Infinity;
+	for (const [key, value] of candidates) {
+		const distance = Math.abs(Math.log(ratio / value));
+		if (distance < bestDistance) { bestDistance = distance; best = key; }
+	}
+	return best;
+}
 const variationStrengths = new Set(['exact', 'light', 'strong']);
 const acceptedInputTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
 
@@ -565,6 +578,8 @@ export const POST: APIRoute = async ({ request }) => {
 		// (análisis, copy, generación, upload) sigue en background con waitUntil.
 		// El frontend sigue el progreso leyendo creative_generations por batch_id.
 		const runPipeline = async () => {
+		const pipelineStart = Date.now();
+		const stamp = (label: string) => console.log(`[gen ${batchId}] ${label} +${Date.now() - pipelineStart}ms`);
 		// inputBuffers alimenta a Gemini (inline_data); inputs a OpenAI (toFile).
 		const inputBuffers: Array<{ buffer: Buffer; type: string }> = [];
 		const inputs: Awaited<ReturnType<typeof fileToOpenAI>>[] = [];
@@ -655,6 +670,21 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
+		stamp(`inputs listos (${inputBuffers.length} imágenes)`);
+
+		// Formato 'original': tomar la proporción real del anuncio de referencia.
+		let effectiveFormat = format;
+		if (format === 'original') {
+			effectiveFormat = '1:1';
+			if (referenceBuffer) {
+				try {
+					const sharp = (await import('sharp')).default;
+					const metadata = await sharp(referenceBuffer).metadata();
+					if (metadata.width && metadata.height) effectiveFormat = closestFormat(metadata.width / metadata.height);
+				} catch { /* sin metadata: cuadrado */ }
+			}
+		}
+
 		const useClonePrompt = hasReference && !hasSourceGeneration && fidelity === 1
 			&& (storedProducts.length > 0 || hasUploadedProduct);
 
@@ -679,6 +709,7 @@ export const POST: APIRoute = async ({ request }) => {
 				console.error('Layout analysis failed, falling back to flat ad copy:', analysisErr);
 			}
 		}
+		stamp(`análisis de layout ${layoutAnalysis ? 'ok' : 'sin resultado'} (${layoutAnalysis?.textZones?.length || 0} zonas)`);
 
 		let adCopy: any = undefined;
 		const groqApiKey = process.env.GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
@@ -767,6 +798,7 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 		});
 		const { error: promptUpdateError } = await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
 		if (promptUpdateError) throw promptUpdateError;
+		stamp('prompt construido y guardado');
 
 		// ── Image generation ────────────────────────────────────────────────
 		// Primario: Gemini (nano-banana pro) — barato, rápido y excelente con texto.
@@ -784,10 +816,11 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 					model: geminiModel,
 					prompt,
 					images: inputBuffers,
-					aspectRatio: geminiAspectRatios[format] || '1:1',
+					aspectRatio: geminiAspectRatios[effectiveFormat] || '1:1',
 					count,
 				});
 				outputBuffers.push(...buffers);
+				stamp(`imagen generada con Gemini ${geminiModel}`);
 			} catch (geminiError) {
 				console.error('Gemini generation failed, falling back to OpenAI:', geminiError);
 			}
@@ -798,7 +831,7 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 			// usamos images.edit para que el modelo VEA las imágenes reales.
 			const openai = new OpenAI({ apiKey: openAIKey });
 			const preferredModel = import.meta.env.OPENAI_IMAGE_MODEL || process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
-			const requestedSize = formatSizes[format] || '1024x1024';
+			const requestedSize = formatSizes[effectiveFormat] || '1024x1024';
 			// Si el modelo configurado falla (p. ej. la key no lo soporta), reintentar con gpt-image-1.
 			const attemptModels = [...new Set([preferredModel, 'gpt-image-1'])];
 			let openaiError: any = null;
@@ -829,6 +862,7 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 						}
 					}
 					openaiError = null;
+					stamp(`imagen generada con OpenAI ${model}`);
 					break;
 				} catch (openaiErr: any) {
 					openaiError = openaiErr;
@@ -857,7 +891,7 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 				falImageStrength = 0.65;
 			}
 
-			const [falWidth, falHeight] = (formatSizes[format] || '1024x1024').split('x').map(Number);
+			const [falWidth, falHeight] = (formatSizes[effectiveFormat] || '1024x1024').split('x').map(Number);
 			const falModel = falImageUrl
 				? 'fal-ai/flux/dev/image-to-image'
 				: 'fal-ai/flux/schnell';
@@ -931,6 +965,7 @@ Respondé SOLO con un objeto JSON válido con esta estructura exacta:
 			completedIds.add(generationId);
 			responseGenerations.push({ id: generationId, imageUrl: signed.signedUrl, outputIndex: index + 1, batchId });
 		}
+		stamp(`completado: ${responseGenerations.length}/${count} imágenes subidas`);
 
 		const missingCount = count - responseGenerations.length;
 		if (missingCount > 0) {

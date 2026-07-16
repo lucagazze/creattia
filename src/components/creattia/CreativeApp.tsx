@@ -1864,7 +1864,7 @@ function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBa
 						<b style={{ fontSize: '15px', color: '#19171d', fontVariantNumeric: 'tabular-nums' }}>{minutes}:{seconds}</b>
 					</div>
 					<p style={{ margin: 0, fontSize: '12px', color: '#8b8490', lineHeight: 1.6 }}>
-						La generación en alta calidad tarda entre 2 y 4 minutos.<br/>
+						Suele tardar alrededor de un minuto.<br/>
 						Podés seguir usando la app o cerrar esta pestaña: el anuncio se guarda solo en <b>Mis imágenes</b>.
 					</p>
 				</div>

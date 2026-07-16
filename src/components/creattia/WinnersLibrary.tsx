@@ -263,8 +263,7 @@ export default function WinnersLibrary({
 	const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 	
 	// Fidelity option: 1 = Muy fiel, 2 = Estética marca, 3 = Híbrido
-	const [fidelity, setFidelity] = useState(1);
-	const [adFormat, setAdFormat] = useState('1:1');
+	const [adFormat, setAdFormat] = useState('original');
 
 	// Optional onboarding step states inside modal
 	const [onboardingShow, setOnboardingShow] = useState(false);
@@ -326,7 +325,6 @@ export default function WinnersLibrary({
 		setScanning(false);
 		setScannedOptions([]);
 		setSelectedOptions([]);
-		setFidelity(3);
 		setGeneratedResult('');
 		setGenerationError('');
 		setSelectedSavedProduct(null);
@@ -499,14 +497,9 @@ export default function WinnersLibrary({
 				briefText += `\n\nINSTRUCCIONES ADICIONALES DEL USUARIO: ${customInstructions.trim()}`;
 			}
 			
-			const fidelityInstructions: Record<number, string> = {
-				2: 'ART DIRECTION STYLE: BRAND IDENTITY INTEGRATION. Use the brand logo and colors (Primary, Secondary) to style the background and text overlays, blending them with the reference layout.',
-				3: 'ART DIRECTION STYLE: OPTIMIZED HYBRID. Merge the visual elements of the winning reference layout with the brand aesthetics in a high-performing composition.'
-			};
-
-			// fidelity=1 usa el prompt clon del backend; no necesita instrucción extra.
-			form.set('fidelity', String(fidelity));
-			form.set('brief', fidelityInstructions[fidelity] ? `${briefText}\n\n${fidelityInstructions[fidelity]}`.trim() : briefText.trim());
+			// Siempre fiel al ganador: el backend usa el prompt clon (fidelity 1).
+			form.set('fidelity', '1');
+			form.set('brief', briefText.trim());
 			form.set('preset', 'Fiel al ganador');
 			form.set('count', '1');
 			
@@ -1629,45 +1622,14 @@ export default function WinnersLibrary({
 									</div>
 								)}
 
-								{/* Step 3: Fidelity selector */}
-								<div style={{ marginTop: '20px', borderTop: '1px solid #f3eff6', paddingTop: '15px', marginBottom: '25px' }}>
-									<strong style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '10px' }}>
-										Fidelidad del diseño final
-									</strong>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-										{[
-											{ id: 1, title: '1. Super fiel al diseño (Recomendado)', desc: 'Replica el layout, colores y estructura del ganador con tu producto.' },
-											{ id: 2, title: '2. Estética de tu marca', desc: 'Usa tus colores y logotipo para vestir el diseño.' },
-											{ id: 3, title: '3. Híbrido optimizado', desc: 'Creattia combina el ganador con tu marca.' }
-										].map(f => (
-											<button
-												key={f.id}
-												type="button"
-												onClick={() => setFidelity(f.id)}
-												style={{
-													padding: '10px 12px',
-													borderRadius: '8px',
-													border: fidelity === f.id ? '2px solid #a25df7' : '1px solid #e9e6ed',
-													background: fidelity === f.id ? '#fcfbfe' : '#fff',
-													textAlign: 'left',
-													cursor: 'pointer',
-													outline: 0
-												}}
-											>
-												<strong style={{ display: 'block', fontSize: '13px', color: '#19171d' }}>{f.title}</strong>
-												<p style={{ margin: '2px 0 0', fontSize: '11px', color: '#716d79' }}>{f.desc}</p>
-											</button>
-										))}
-									</div>
-								</div>
-
-								{/* Step 3.5: Format selector */}
+								{/* Step 3: Format selector */}
 								<div style={{ marginBottom: '25px' }}>
 									<strong style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#19171d', marginBottom: '10px' }}>
 										Formato de la imagen
 									</strong>
 									<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
 										{[
+											{ id: 'original', label: 'Original', desc: 'Igual al ganador', w: 24, h: 24, dashed: true },
 											{ id: '1:1', label: '1:1', desc: 'Feed', w: 26, h: 26 },
 											{ id: '3:4', label: '3:4', desc: 'Vertical', w: 21, h: 28 },
 											{ id: '9:16', label: '9:16', desc: 'Historia', w: 16, h: 28 },
@@ -1699,6 +1661,7 @@ export default function WinnersLibrary({
 													height: `${f.h}px`,
 													borderRadius: '4px',
 													border: adFormat === f.id ? '2px solid #a25df7' : '2px solid #b9b3c2',
+													borderStyle: (f as any).dashed ? 'dashed' : 'solid',
 													background: adFormat === f.id ? 'rgba(162,93,247,0.12)' : '#f6f4f9',
 												}} />
 												<strong style={{ fontSize: '12px', color: '#19171d', lineHeight: 1 }}>{f.label}</strong>
@@ -1714,16 +1677,28 @@ export default function WinnersLibrary({
 									</p>
 								)}
 
-								{/* Step 4: Submit button */}
-								<button 
-									type="button"
-									onClick={handleGenerateFromModal}
-									disabled={isUrlMode && scannedOptions.length === 0}
-									className="studio-primary-button"
-									style={{ width: '100%', height: '46px', background: 'var(--holo-gradient)', color: '#fff', border: 0 }}
-								>
-									Generar imagen ganadora
-								</button>
+								{/* Step 4: Submit button — requiere un producto real para clonar fiel */}
+								{(() => {
+									const hasProductReady = isUrlMode ? Boolean(selectedSavedProduct) : manualFiles.length > 0;
+									return <>
+										{!hasProductReady && (
+											<p style={{ margin: '0 0 10px', fontSize: '12px', color: '#8b8490', textAlign: 'center' }}>
+												{isUrlMode
+													? 'Elegí un producto guardado o escaneá la URL de tu producto para poder generar.'
+													: 'Subí al menos una foto de tu producto para poder generar.'}
+											</p>
+										)}
+										<button
+											type="button"
+											onClick={handleGenerateFromModal}
+											disabled={!hasProductReady || generating}
+											className="studio-primary-button"
+											style={{ width: '100%', height: '46px', background: 'var(--holo-gradient)', color: '#fff', border: 0, opacity: !hasProductReady || generating ? 0.55 : 1 }}
+										>
+											Generar fiel al ganador
+										</button>
+									</>;
+								})()}
 							</div>
 						)}
 					</div>
