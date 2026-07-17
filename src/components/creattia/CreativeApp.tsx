@@ -192,6 +192,7 @@ function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number;
 	if (name === 'grid') return <svg {...common}><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>;
 	if (name === 'spark') return <svg {...common}><path d="m12 3 1.2 4.1a5 5 0 0 0 3.4 3.4L21 12l-4.4 1.5a5 5 0 0 0-3.4 3.4L12 21l-1.2-4.1a5 5 0 0 0-3.4-3.4L3 12l4.4-1.5a5 5 0 0 0 3.4-3.4L12 3Z"/></svg>;
 	if (name === 'settings') return <svg {...common}><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2.2"/><circle cx="8" cy="16" r="2.2"/></svg>;
+	if (name === 'card') return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10.5h18M7 15h4"/></svg>;
 	if (name === 'history') return <svg {...common}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>;
 	if (name === 'brand') return <svg {...common}><path d="M5 20h14"/><path d="M7 17V7l5-3 5 3v10"/><path d="M9.5 10h5M9.5 13h5"/></svg>;
 	if (name === 'bag') return <svg {...common}><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>;
@@ -1123,7 +1124,7 @@ export default function CreativeApp() {
 					{settingsOpen && !sidebarMinimized && (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 10px', paddingLeft: '12px' }}>
 							<button className="studio-settings-item" onClick={() => { navigateTo('plans'); setSettingsOpen(false); }}>
-								<Icon name="spark" size={15}/>Planes y suscripción
+								<Icon name="card" size={15}/>Planes y suscripción
 							</button>
 							<button className="studio-settings-item" onClick={() => { alert('Historial de pagos: no tenés facturas todavía.'); }}>
 								<Icon name="history" size={15}/>Historial de pagos
@@ -1153,7 +1154,10 @@ export default function CreativeApp() {
 						{!sidebarMinimized && (
 							<>
 								<div style={{ flex: 1, minWidth: 0, paddingRight: '10px' }}>
-									<strong style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{profile.fullName || 'Mi cuenta'}</strong>
+									<strong style={{ display: 'flex', alignItems: 'center', gap: '7px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+										{profile.fullName || 'Mi cuenta'}
+										{getSessionEmail(session) === 'lucagazze1@gmail.com' && <span style={{ padding: '2px 7px', borderRadius: '6px', background: '#19171d', color: '#fff', fontSize: '9.5px', fontWeight: 900, letterSpacing: '.08em' }}>ADMIN</span>}
+									</strong>
 									<small style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getSessionEmail(session)}</small>
 								</div>
 
@@ -1418,6 +1422,94 @@ function AccountSetupError({ message, onRetry, onLogout }: { message: string; on
 
 // Página Descubrir: mazo tipo Tinder a pantalla completa. Deslizá o tocá —
 // corazón guarda (con sonido y confetti), cruz pasa, rayo lo usa para crear.
+// Inicio dopamínico: 4 ganadores a tamaño real. Corazón guarda, cruz pasa
+// (entra el siguiente del mazo), rayo lo usa ya. Link al modo swipe completo.
+function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void; onOpenSwipe: () => void }) {
+	const [dealt, setDealt] = useState<{ cards: any[]; cursor: number }>({ cards: [], cursor: 0 });
+	const [leaving, setLeaving] = useState<Record<string, 'left' | 'right'>>({});
+	const supabaseBase = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
+
+	useEffect(() => {
+		if (pool.length && !dealt.cards.length) setDealt({ cards: pool.slice(0, 4), cursor: 4 });
+	}, [pool]);
+
+	function resolveUrl(item: any) {
+		return item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath;
+	}
+
+	function replaceCard(path: string, direction: 'left' | 'right') {
+		setLeaving((previous) => ({ ...previous, [path]: direction }));
+		window.setTimeout(() => {
+			setDealt((previous) => {
+				const nextCard = pool[previous.cursor];
+				return {
+					cards: previous.cards.map((card) => card.imagePath === path ? nextCard : card).filter(Boolean),
+					cursor: previous.cursor + 1,
+				};
+			});
+			setLeaving((previous) => {
+				const next = { ...previous };
+				delete next[path];
+				return next;
+			});
+		}, 240);
+	}
+
+	function like(item: any) {
+		if (!likedPaths.has(item.imagePath)) onLike(item.imagePath);
+		try { sfx.playSuccess(); } catch { /* audio bloqueado */ }
+		replaceCard(item.imagePath, 'right');
+	}
+	function pass(item: any) {
+		try { sfx.playWhoosh(); } catch { /* audio bloqueado */ }
+		replaceCard(item.imagePath, 'left');
+	}
+
+	if (!dealt.cards.length) return null;
+
+	return (
+		<>
+			<div className="studio-section-title">
+				<div>
+					<h2>Descubrí ganadores 🔥</h2>
+					<p>Guardá los que van con tu marca o usalos directo. Entra uno nuevo con cada elección.</p>
+				</div>
+				<button onClick={onOpenSwipe}>Modo swipe <Icon name="arrow" size={15}/></button>
+			</div>
+			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', alignItems: 'start', marginBottom: '42px' }}>
+				{dealt.cards.map((item) => {
+					const exit = leaving[item.imagePath];
+					const saved = likedPaths.has(item.imagePath);
+					return (
+						<article
+							key={item.imagePath}
+							style={{
+								background: '#fff', border: '1px solid #e9e6ed', borderRadius: '16px', overflow: 'hidden',
+								boxShadow: '0 6px 22px rgba(52,40,79,0.05)',
+								transform: exit ? `translateX(${exit === 'right' ? 70 : -70}px) rotate(${exit === 'right' ? 6 : -6}deg)` : 'none',
+								opacity: exit ? 0 : 1,
+								transition: 'transform .24s ease, opacity .24s ease',
+							}}
+						>
+							<div style={{ position: 'relative' }}>
+								<img src={resolveUrl(item)} alt={item.name || ''} loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
+								{item.name && (
+									<span style={{ position: 'absolute', left: '10px', bottom: '10px', padding: '5px 11px', borderRadius: '8px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '12px', fontWeight: 700, backdropFilter: 'blur(6px)' }}>{item.name}</span>
+								)}
+							</div>
+							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', padding: '12px' }}>
+								<button onClick={() => pass(item)} aria-label="Pasar" style={{ width: '44px', height: '44px', borderRadius: '50%', border: '2px solid #f1d5d5', background: '#fff', color: '#dc2626', fontSize: '18px', cursor: 'pointer' }}>✕</button>
+								<button onClick={() => { try { sfx.playDock(); } catch { /* audio */ } onUse(item.imagePath); }} aria-label="Usar" style={{ width: '52px', height: '52px', borderRadius: '50%', border: 0, background: 'linear-gradient(135deg, #744bde, #5b2fc9)', color: '#fff', fontSize: '22px', cursor: 'pointer', boxShadow: '0 8px 22px rgba(116,75,222,0.32)' }}>⚡</button>
+								<button onClick={() => like(item)} aria-label="Me gusta" style={{ width: '44px', height: '44px', borderRadius: '50%', border: saved ? 0 : '2px solid #d3ecdc', background: saved ? '#16a34a' : '#fff', color: saved ? '#fff' : '#16a34a', fontSize: '18px', cursor: 'pointer' }}>♥</button>
+							</div>
+						</article>
+					);
+				})}
+			</div>
+		</>
+	);
+}
+
 function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void; onBack: () => void; onSaved: () => void }) {
 	const [index, setIndex] = useState(0);
 	const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
@@ -1609,6 +1701,17 @@ function Dashboard({
 				</button>
 			</div>
 
+			{/* ── Descubrí ganadores: grid de 4 para swipear ── */}
+			{swipePool.length > 3 && (
+				<DiscoverGrid
+					pool={swipePool}
+					likedPaths={likedScrapedPaths}
+					onLike={(path) => onToggleLikedScraped(path)}
+					onUse={(path) => onUseScrapedWinner(path)}
+					onOpenSwipe={() => onView('discover')}
+				/>
+			)}
+
 			{/* ── User's generated history ── */}
 			{history.length > 0 && (
 				<>
@@ -1625,199 +1728,6 @@ function Dashboard({
 						{history.slice(0, 4).map((item) => (
 							<GenerationCard key={item.id} item={item} onExpand={onExpand ? () => onExpand(item) : undefined} onReuse={() => onReuse(item)} />
 						))}
-					</div>
-				</>
-			)}
-
-			{/* ── Banner: Descubrí ganadores ── */}
-			{swipePool.length > 3 && (
-				<section
-					onClick={() => onView('discover')}
-					style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap', padding: '30px 34px', marginBottom: '42px', borderRadius: '22px', cursor: 'pointer', overflow: 'hidden', background: 'linear-gradient(120deg, #17121e 0%, #2a1740 55%, #4a1d5e 100%)', boxShadow: '0 22px 55px rgba(35,20,60,0.28)' }}
-				>
-					<div style={{ position: 'relative', zIndex: 2, maxWidth: '520px' }}>
-						<h2 style={{ margin: '0 0 8px', fontSize: '25px', color: '#fff', letterSpacing: '-.02em' }}>Descubrí ganadores para vos 🔥</h2>
-						<p style={{ margin: '0 0 18px', fontSize: '14.5px', color: '#c9bfe0', lineHeight: 1.55 }}>Deslizá anuncios ganadores como en Tinder: guardá los que encajan con tu marca y usalos al instante.</p>
-						<button style={{ padding: '13px 26px', borderRadius: '12px', border: 0, background: '#fff', color: '#19171d', fontSize: '15px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 10px 26px rgba(0,0,0,0.25)' }}>Empezar a descubrir →</button>
-					</div>
-					<div style={{ position: 'relative', zIndex: 1, width: '190px', height: '150px', flex: '0 0 auto' }}>
-						{swipePool.slice(0, 3).map((item, index) => (
-							<img
-								key={item.imagePath}
-								src={item.imagePath?.startsWith('http') ? item.imagePath : `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`}
-								alt=""
-								style={{ position: 'absolute', top: `${index * 8}px`, left: `${index * 26}px`, width: '110px', height: '138px', objectFit: 'cover', borderRadius: '12px', border: '3px solid rgba(255,255,255,0.9)', transform: `rotate(${(index - 1) * 8}deg)`, boxShadow: '0 10px 24px rgba(0,0,0,0.3)' }}
-							/>
-						))}
-					</div>
-				</section>
-			)}
-
-			{/* ── Random winners inspiration ── */}
-			{randomWinners.length > 0 && (
-				<>
-					<div className="studio-section-title">
-						<div>
-							<h2>Inspiración del día</h2>
-							<p>Anuncios ganadores en tamaño real para inspirar tus diseños.</p>
-						</div>
-						<button onClick={() => onView('winners')}>
-							Ver biblioteca <Icon name="arrow" size={15} />
-						</button>
-					</div>
-					<div className="library-ad-grid-masonry dashboard-masonry" style={{ columnGap: '16px', marginBottom: '40px' }}>
-						{randomWinners.slice(0, 4).map((winner, idx) => {
-							const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
-							const imageUrl = winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath;
-							const isLiked = likedScrapedPaths.has(winner.imagePath);
-
-							return (
-								<article
-									className="library-ad-card-masonry"
-									key={winner.imagePath || idx}
-									style={{
-										display: 'flex',
-										flexDirection: 'column',
-										position: 'relative',
-										cursor: 'pointer'
-									}}
-									onClick={() => onUseScrapedWinner(winner.imagePath)}
-								>
-									{/* Card header */}
-									<div
-										style={{
-											padding: '12px',
-											display: 'flex',
-											alignItems: 'center',
-											gap: '10px',
-											borderBottom: '1px solid #f3eff6'
-										}}
-									>
-										<span
-											style={{
-												width: '32px',
-												height: '32px',
-												borderRadius: '50%',
-												background: '#ece7f4',
-												color: '#19171d',
-												fontWeight: 'bold',
-												display: 'grid',
-												placeItems: 'center',
-												fontSize: '11px',
-												overflow: 'hidden'
-											}}
-										>
-											{winner.metadata?.logoUrl ? (
-												<img src={winner.metadata.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-											) : (
-												(winner.name || 'F').slice(0, 1).toUpperCase()
-											)}
-										</span>
-										<div style={{ flex: 1, minWidth: 0 }}>
-											<strong style={{ display: 'block', fontSize: '11.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-												{winner.name || 'Foreplay Ad'}
-											</strong>
-											<span style={{ fontSize: '9px', color: '#918b95' }}>Patrocinado</span>
-										</div>
-									</div>
-
-									{/* Image Container with Heart */}
-									<div style={{ background: '#f8f6fb', position: 'relative', overflow: 'hidden' }}>
-										{/* Protection overlay */}
-										<div
-											style={{
-												position: 'absolute',
-												inset: 0,
-												zIndex: 2,
-												background: 'transparent'
-											}}
-											onContextMenu={(e) => e.preventDefault()}
-											onDragStart={(e) => e.preventDefault()}
-										/>
-										
-										{/* Heart Button */}
-										<button
-											onClick={(e) => {
-												e.stopPropagation();
-												onToggleLikedScraped(winner.imagePath);
-											}}
-											style={{
-												position: 'absolute',
-												top: '10px',
-												right: '10px',
-												zIndex: 4,
-												border: 0,
-												background: 'rgba(255,255,255,0.85)',
-												color: isLiked ? '#ff4185' : '#716d79',
-												borderRadius: '50%',
-												width: '30px',
-												height: '30px',
-												display: 'grid',
-												placeItems: 'center',
-												cursor: 'pointer',
-												boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-												outline: 0
-											}}
-											title={isLiked ? "Quitar de guardados" : "Guardar idea"}
-										>
-											<Icon name="heart" size={15} fill={isLiked ? '#ff4185' : 'none'} />
-										</button>
-
-										<img
-											src={imageUrl}
-											alt={winner.name}
-											style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
-											loading="lazy"
-											onContextMenu={(e) => e.preventDefault()}
-											onDragStart={(e) => e.preventDefault()}
-										/>
-									</div>
-
-									{/* Footer with prompt details */}
-									<div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-										<p
-											style={{
-												fontSize: '11px',
-												color: '#4a444f',
-												margin: '0 0 12px 0',
-												lineHeight: '1.45',
-												maxHeight: '44px',
-												overflow: 'hidden',
-												display: '-webkit-box',
-												WebkitLineClamp: 2,
-												WebkitBoxOrient: 'vertical'
-											}}
-										>
-											{winner.promptNotes || 'Inspiración publicitaria ganadora.'}
-										</p>
-										<button
-											onClick={(e) => {
-												e.stopPropagation();
-												onUseScrapedWinner(winner.imagePath);
-											}}
-											style={{
-												width: '100%',
-												height: '35px',
-												background: '#f2ecfc',
-												border: 0,
-												borderRadius: '8px',
-												color: '#19171d',
-												fontWeight: 'bold',
-												fontSize: '10.5px',
-												cursor: 'pointer',
-												display: 'flex',
-												alignItems: 'center',
-												justifyContent: 'center',
-												gap: '6px'
-											}}
-										>
-											Usar esta idea
-											<Icon name="arrow" size={13} />
-										</button>
-									</div>
-								</article>
-							);
-						})}
 					</div>
 				</>
 			)}
