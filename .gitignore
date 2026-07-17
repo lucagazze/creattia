@@ -10,3 +10,6 @@ npm-debug.log*
 .vercel
 .env*
 .env*.local
+
+# Scraped ads (viven en Supabase storage, no en el repo)
+public/scraped_ads/
