@@ -351,10 +351,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										alignItems: 'center',
 										gap: '4px',
 										padding: '4px 0',
-										textDecoration: 'underline'
+										textDecoration: 'none'
 									}}
 								>
-									{showManualDesc ? '✕ Ocultar carga manual' : '✍️ Cargar fotos y describir el producto o servicio manualmente'}
+									{showManualDesc ? 'Ocultar carga manual ✕' : 'Cargar fotos y describir el producto o servicio manualmente ✍️'}
 								</button>
 
 								{showManualDesc && (

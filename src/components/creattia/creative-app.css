@@ -2231,8 +2231,10 @@
 	.creation-flow-aside { position: static; max-width: 100%; margin: 0 auto; width: 100%; }
 }
 @media (max-width: 700px) {
-	.studio-lightbox-panel { flex-direction: column !important; overflow-y: auto; }
-	.studio-lightbox-panel aside { flex: 1 1 auto !important; }
+	.studio-lightbox-panel { flex-direction: column !important; overflow-y: auto; background: #fff; border-radius: 18px; max-height: 92vh !important; gap: 0 !important; }
+	.studio-lightbox-panel > div:first-of-type { padding: 12px 12px 0; }
+	.studio-lightbox-panel > div:first-of-type img { max-height: none !important; border-radius: 12px !important; box-shadow: none !important; }
+	.studio-lightbox-panel aside { flex: 1 1 auto !important; border-radius: 0 !important; box-shadow: none !important; }
 }
 
 /* ========================================================
@@ -2455,3 +2457,18 @@
 	.copy-zone-row { grid-template-columns: 1fr; align-items: stretch; gap: 6px !important; }
 	.copy-zone-row > span:first-child { font-size: 11.5px !important; }
 }
+
+
+/* Overlay de "Usar esta idea" en las tarjetas de descubrir */
+.discover-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	display: grid;
+	place-items: center;
+	background: rgba(12, 10, 16, 0.34);
+	opacity: 0;
+	transition: opacity .18s ease;
+	pointer-events: none;
+}
+.discover-card-media:hover .discover-overlay { opacity: 1; }

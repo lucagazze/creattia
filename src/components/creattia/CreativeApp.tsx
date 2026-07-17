@@ -518,6 +518,13 @@ export default function CreativeApp() {
 	const [history, setHistory] = useState<Generation[]>([]);
 	const [activeBatch, setActiveBatch] = useState<ActiveBatch | null>(null);
 	const [lightbox, setLightbox] = useState<Generation | null>(null);
+
+	// Bloquear el scroll del fondo cuando hay un modal abierto
+	useEffect(() => {
+		const locked = Boolean(lightbox) || mobileMenu;
+		document.body.style.overflow = locked ? 'hidden' : '';
+		return () => { document.body.style.overflow = ''; };
+	}, [lightbox, mobileMenu]);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [favorites, setFavorites] = useState<Set<number>>(new Set());
 	const [products, setProducts] = useState<Product[]>([]);
@@ -529,6 +536,16 @@ export default function CreativeApp() {
 	const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 	const [randomWinners, setRandomWinners] = useState<any[]>([]);
 	const [swipePool, setSwipePool] = useState<any[]>([]);
+	const [discoverSeen, setDiscoverSeen] = useState<Set<string>>(() => new Set(loadLocal<string[]>('creattia-discover-seen-v1', [])));
+	const markDiscoverSeen = (path: string) => {
+		setDiscoverSeen((previous) => {
+			const next = new Set(previous);
+			next.add(path);
+			const asArray = [...next].slice(-400);
+			saveLocal('creattia-discover-seen-v1', asArray);
+			return new Set(asArray);
+		});
+	};
 	const [scrapedWinners, setScrapedWinners] = useState<any[]>([]);
 	const [likedScrapedPaths, setLikedScrapedPaths] = useState<Set<string>>(new Set());
 	const [preselectedWinnerPath, setPreselectedWinnerPath] = useState<string | null>(null);
@@ -561,7 +578,7 @@ export default function CreativeApp() {
 				});
 				const shuffled = [...uniqueStatic].sort(() => Math.random() - 0.5);
 				setRandomWinners(shuffled.slice(0, 4));
-				setSwipePool(shuffled.slice(4, 44));
+				setSwipePool(shuffled.slice(0, 120));
 			} catch {
 				// silent fail — winners are optional on dashboard
 			}
@@ -1186,7 +1203,8 @@ export default function CreativeApp() {
 							onChoose={chooseCreative} 
 							onReuse={reuseGeneration} 
 							randomWinners={randomWinners}
-							swipePool={swipePool}
+							swipePool={(swipePool.filter((item) => !discoverSeen.has(item.imagePath)).length >= 8 ? swipePool.filter((item) => !discoverSeen.has(item.imagePath)) : swipePool).slice(0, 40)}
+							onDiscoverSeen={markDiscoverSeen}
 							
 							likedWinners={likedWinners}
 							likedScrapedPaths={likedScrapedPaths}
@@ -1424,7 +1442,7 @@ function AccountSetupError({ message, onRetry, onLogout }: { message: string; on
 // corazón guarda (con sonido y confetti), cruz pasa, rayo lo usa para crear.
 // Inicio dopamínico: 4 ganadores a tamaño real. Corazón guarda, cruz pasa
 // (entra el siguiente del mazo), rayo lo usa ya. Link al modo swipe completo.
-function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void; onOpenSwipe: () => void }) {
+function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void; onOpenSwipe: () => void; onSeen?: (path: string) => void }) {
 	const [dealt, setDealt] = useState<{ cards: any[]; cursor: number }>({ cards: [], cursor: 0 });
 	const [leaving, setLeaving] = useState<Record<string, 'left' | 'right'>>({});
 	const supabaseBase = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
@@ -1457,10 +1475,12 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe }: { pool: 
 
 	function like(item: any) {
 		if (!likedPaths.has(item.imagePath)) onLike(item.imagePath);
+		if (onSeen) onSeen(item.imagePath);
 		try { sfx.playSuccess(); } catch { /* audio bloqueado */ }
 		replaceCard(item.imagePath, 'right');
 	}
 	function pass(item: any) {
+		if (onSeen) onSeen(item.imagePath);
 		try { sfx.playWhoosh(); } catch { /* audio bloqueado */ }
 		replaceCard(item.imagePath, 'left');
 	}
@@ -1474,7 +1494,7 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe }: { pool: 
 					<h2>Descubrí ganadores 🔥</h2>
 					<p>Guardá los que van con tu marca o usalos directo. Entra uno nuevo con cada elección.</p>
 				</div>
-				<button onClick={onOpenSwipe}>Modo swipe <Icon name="arrow" size={15}/></button>
+				<button className="studio-primary-button compact" style={{ width: 'auto', height: '38px', fontSize: '13px', padding: '0 16px' }} onClick={onOpenSwipe}><Icon name="plus" size={15}/>Crear imagen</button>
 			</div>
 			<div className="discover-grid">
 				{dealt.cards.map((item) => {
@@ -1491,10 +1511,23 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe }: { pool: 
 								transition: 'transform .24s ease, opacity .24s ease',
 							}}
 						>
-							<div style={{ position: 'relative' }}>
+							<div className="discover-card-media" onClick={() => { try { sfx.playDock(); } catch { /* audio */ } onUse(item.imagePath); }} style={{ position: 'relative', cursor: 'pointer' }}>
 								<img src={resolveUrl(item)} alt={item.name || ''} loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
+								<button
+									onClick={(event) => { event.stopPropagation(); like(item); }}
+									aria-label="Me gusta"
+									style={{ position: 'absolute', top: '10px', right: '10px', width: '38px', height: '38px', borderRadius: '50%', border: 0, background: saved ? '#16a34a' : 'rgba(255,255,255,0.92)', color: saved ? '#fff' : '#16a34a', fontSize: '17px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', zIndex: 3 }}
+								>♥</button>
+								<button
+									onClick={(event) => { event.stopPropagation(); pass(item); }}
+									aria-label="Pasar"
+									style={{ position: 'absolute', top: '10px', left: '10px', width: '38px', height: '38px', borderRadius: '50%', border: 0, background: 'rgba(255,255,255,0.92)', color: '#dc2626', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', zIndex: 3 }}
+								>✕</button>
+								<div className="discover-overlay">
+									<span style={{ padding: '12px 22px', borderRadius: '12px', background: '#fff', color: '#19171d', fontSize: '14px', fontWeight: 800, boxShadow: '0 12px 30px rgba(0,0,0,0.3)' }}>⚡ Usar esta idea</span>
+								</div>
 								{item.name && (
-									<span style={{ position: 'absolute', left: '10px', bottom: '10px', padding: '5px 11px', borderRadius: '8px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '12px', fontWeight: 700, backdropFilter: 'blur(6px)' }}>{item.name}</span>
+									<span style={{ position: 'absolute', left: '10px', bottom: '10px', padding: '5px 11px', borderRadius: '8px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '12px', fontWeight: 700, backdropFilter: 'blur(6px)', zIndex: 2 }}>{item.name}</span>
 								)}
 							</div>
 							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', padding: '12px' }}>
@@ -1666,6 +1699,7 @@ function Dashboard({
 	onReuse,
 	randomWinners = [],
 	swipePool = [],
+	onDiscoverSeen = (_path: string) => {},
 	likedWinners = [],
 	likedScrapedPaths,
 	onToggleLikedScraped,
@@ -1681,6 +1715,7 @@ function Dashboard({
 	onReuse: (generation: Generation) => void;
 	randomWinners?: any[];
 	swipePool?: any[];
+	onDiscoverSeen?: (path: string) => void;
 	likedWinners?: any[];
 	likedScrapedPaths: Set<string>;
 	onToggleLikedScraped: (path: string) => void;
@@ -1689,18 +1724,6 @@ function Dashboard({
 }) {
 	return (
 		<>
-			<div className="studio-page-heading">
-				<div>
-					<p>INICIO</p>
-					<h1>Buen día, {firstName(profile, email)}.</h1>
-					<span>¿Qué querés crear hoy?</span>
-				</div>
-				<button className="studio-primary-button compact" onClick={() => onView('winners')}>
-					<Icon name="plus" size={17} />
-					Crear imagen
-				</button>
-			</div>
-
 			{/* ── Descubrí ganadores: grid de 4 para swipear ── */}
 			{swipePool.length > 3 && (
 				<DiscoverGrid
@@ -1708,7 +1731,8 @@ function Dashboard({
 					likedPaths={likedScrapedPaths}
 					onLike={(path) => onToggleLikedScraped(path)}
 					onUse={(path) => onUseScrapedWinner(path)}
-					onOpenSwipe={() => onView('discover')}
+					onSeen={onDiscoverSeen}
+					onOpenSwipe={() => onView('winners')}
 				/>
 			)}
 
@@ -3129,7 +3153,8 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 
 	return (
 		<div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(12,10,16,0.78)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: '24px' }}>
-			<div className="studio-lightbox-panel" onClick={(event) => event.stopPropagation()} style={{ display: 'flex', gap: '22px', alignItems: 'stretch', maxWidth: '1100px', width: '100%', maxHeight: '90vh' }}>
+			<div className="studio-lightbox-panel" onClick={(event) => event.stopPropagation()} style={{ position: 'relative', display: 'flex', gap: '22px', alignItems: 'stretch', maxWidth: '1100px', width: '100%', maxHeight: '90vh' }}>
+				<button onClick={onClose} aria-label="Cerrar" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 8, border: 0, background: 'rgba(255,255,255,0.94)', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', color: '#19171d', fontSize: '16px', fontWeight: 700, boxShadow: '0 4px 14px rgba(0,0,0,0.22)' }}>✕</button>
 				<div style={{ flex: '1 1 auto', display: 'grid', placeItems: 'center', minWidth: 0, position: 'relative' }}>
 					<img src={showReference && item.referenceUrl ? item.referenceUrl : item.imageUrl} alt={item.title} style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }} />
 					{showReference && (
@@ -3139,14 +3164,11 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 					)}
 				</div>
 				<aside style={{ flex: '0 0 350px', background: '#fff', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-						<div>
-							<h3 style={{ margin: 0, fontSize: '17px', color: '#19171d' }}>{item.title}</h3>
-							<p style={{ margin: '4px 0 0', fontSize: '12px', color: '#8b8490' }}>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'long' }).format(new Date(item.createdAt))}</p>
-						</div>
-						<button onClick={onClose} aria-label="Cerrar" style={{ border: 0, background: '#f2eef6', width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer', color: '#4b4452', fontSize: '15px' }}>✕</button>
+					<div>
+						<h3 style={{ margin: 0, fontSize: '17px', color: '#19171d', paddingRight: '30px' }}>{item.title}</h3>
+						<p style={{ margin: '4px 0 0', fontSize: '12px', color: '#8b8490' }}>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'long' }).format(new Date(item.createdAt))}</p>
 					</div>
-					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer' }}>Descargar imagen</button>
+					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
 					{item.referenceUrl && (
 						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#eceaef' : '#f8f6fb', border: showReference ? '1px solid #cfc9d8' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
 							<img src={item.referenceUrl} alt="Anuncio ganador usado" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px' }} />
