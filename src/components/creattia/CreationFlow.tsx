@@ -316,7 +316,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 											setUploadPreviews([]);
 										}
 									}}
-									placeholder="Pegá la URL de tu producto (Shopify, Tiendanube...)"
+									placeholder="Pegá la URL de tu producto o servicio a analizar"
 									style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14.5px' }}
 								/>
 							</div>
@@ -341,20 +341,26 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									type="button"
 									onClick={() => setShowManualDesc(!showManualDesc)}
 									style={{
-										background: 'transparent',
-										border: 0,
-										color: '#744bde',
-										fontSize: '13px',
+										width: '100%',
+										boxSizing: 'border-box',
+										background: showManualDesc ? '#f4f0ff' : '#fff',
+										border: `1.5px dashed ${showManualDesc ? '#a98bff' : '#d8d0e6'}`,
+										color: '#5b3fc4',
+										fontSize: '13.5px',
 										fontWeight: 700,
 										cursor: 'pointer',
 										display: 'flex',
 										alignItems: 'center',
-										gap: '4px',
-										padding: '4px 0',
-										textDecoration: 'none'
+										justifyContent: 'center',
+										gap: '8px',
+										padding: '11px 14px',
+										borderRadius: '11px',
+										whiteSpace: 'nowrap',
+										overflow: 'hidden',
+										textOverflow: 'ellipsis'
 									}}
 								>
-									{showManualDesc ? 'Ocultar carga manual ✕' : 'Cargar fotos y describir el producto o servicio manualmente ✍️'}
+									{showManualDesc ? '✕ Prefiero pegar la URL' : '📷 O cargá fotos y describilo a mano'}
 								</button>
 
 								{showManualDesc && (

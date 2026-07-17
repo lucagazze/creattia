@@ -1496,7 +1496,7 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 					<h2>Descubrí ganadores 🔥</h2>
 					<p>Guardá los que van con tu marca o usalos directo. Entra uno nuevo con cada elección.</p>
 				</div>
-				<button className="studio-primary-button compact" style={{ width: 'auto', height: '38px', fontSize: '13px', padding: '0 16px' }} onClick={onOpenSwipe}><Icon name="plus" size={15}/>Crear imagen</button>
+				<button className="studio-primary-button compact" style={{ width: 'auto', height: '38px', fontSize: '13px', padding: '0 16px', whiteSpace: 'nowrap', flexShrink: 0 }} onClick={onOpenSwipe}><Icon name="plus" size={15}/><span className="discover-create-full">Crear imagen</span><span className="discover-create-short">Crear</span></button>
 			</div>
 			<div className="discover-grid">
 				{dealt.cards.map((item) => {
@@ -1549,28 +1549,13 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 								<img src={resolveUrl(item)} alt={item.name || ''} loading="lazy" draggable={false} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
 								<span style={{ position: 'absolute', top: '16px', left: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, drag / 90)) : 0, pointerEvents: 'none' }}>ME GUSTA</span>
 								<span style={{ position: 'absolute', top: '16px', right: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, -drag / 90)) : 0, pointerEvents: 'none' }}>PASO</span>
-								<button
-									onClick={(event) => { event.stopPropagation(); like(item); }}
-									onPointerDown={(event) => event.stopPropagation()}
-									aria-label="Me gusta"
-									style={{ position: 'absolute', top: '10px', right: '10px', width: '38px', height: '38px', borderRadius: '50%', border: 0, background: saved ? '#16a34a' : 'rgba(255,255,255,0.92)', color: saved ? '#fff' : '#16a34a', fontSize: '17px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', zIndex: 3 }}
-								>♥</button>
-								<button
-									onClick={(event) => { event.stopPropagation(); pass(item); }}
-									onPointerDown={(event) => event.stopPropagation()}
-									aria-label="Pasar"
-									style={{ position: 'absolute', top: '10px', left: '10px', width: '38px', height: '38px', borderRadius: '50%', border: 0, background: 'rgba(255,255,255,0.92)', color: '#dc2626', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', zIndex: 3 }}
-								>✕</button>
-								<div className="discover-overlay">
-									<span style={{ padding: '12px 22px', borderRadius: '12px', background: '#fff', color: '#19171d', fontSize: '14px', fontWeight: 800, boxShadow: '0 12px 30px rgba(0,0,0,0.3)' }}>⚡ Usar esta idea</span>
-								</div>
 								{item.name && (
 									<span style={{ position: 'absolute', left: '10px', bottom: '10px', padding: '5px 11px', borderRadius: '8px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '12px', fontWeight: 700, backdropFilter: 'blur(6px)', zIndex: 2 }}>{item.name}</span>
 								)}
 							</div>
 							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', padding: '12px' }}>
 								<button onClick={() => pass(item)} aria-label="Pasar" style={{ width: '44px', height: '44px', borderRadius: '50%', border: '2px solid #f1d5d5', background: '#fff', color: '#dc2626', fontSize: '18px', cursor: 'pointer' }}>✕</button>
-								<button onClick={() => { try { sfx.playDock(); } catch { /* audio */ } onUse(item.imagePath); }} aria-label="Usar" style={{ width: '52px', height: '52px', borderRadius: '50%', border: 0, background: 'linear-gradient(135deg, #744bde, #5b2fc9)', color: '#fff', fontSize: '22px', cursor: 'pointer', boxShadow: '0 8px 22px rgba(116,75,222,0.32)' }}>⚡</button>
+								<button onClick={() => { try { sfx.playDock(); } catch { /* audio */ } onUse(item.imagePath); }} aria-label="Usar esta idea" style={{ height: '44px', padding: '0 24px', borderRadius: '999px', border: 0, background: 'linear-gradient(135deg, #744bde, #5b2fc9)', color: '#fff', fontSize: '15px', fontWeight: 800, letterSpacing: '.01em', cursor: 'pointer', boxShadow: '0 8px 22px rgba(116,75,222,0.32)' }}>Usar</button>
 								<button onClick={() => like(item)} aria-label="Me gusta" style={{ width: '44px', height: '44px', borderRadius: '50%', border: saved ? 0 : '2px solid #d3ecdc', background: saved ? '#16a34a' : '#fff', color: saved ? '#fff' : '#16a34a', fontSize: '18px', cursor: 'pointer' }}>♥</button>
 							</div>
 						</article>

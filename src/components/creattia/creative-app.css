@@ -812,7 +812,8 @@
 	.library-ad-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.library-discovery-hero { min-height:220px; padding:30px; }.library-discovery-hero h1 { font-size:34px; }
 	.studio-sidebar { width:230px; transform:translateX(-102%); transition:transform .25s ease; box-shadow:20px 0 60px rgba(15,11,18,.25); }
 	.studio-sidebar.is-open { transform:translateX(0); }
-	.studio-close-menu { position:absolute; display:grid; place-items:center; right:12px; top:24px; width:34px; height:34px; border:0; border-radius:9px; background:#27232b; color:#9b94a0; }
+	.studio-close-menu { position:absolute; display:grid; place-items:center; right:14px; top:22px; width:36px; height:36px; border:1px solid #ece8f0; border-radius:10px; background:#f6f4f9; color:#6f6a75; cursor:pointer; transition:background .15s ease, color .15s ease; }
+	.studio-close-menu:hover { background:#efeaf6; color:#3a3540; }
 	.studio-mobile-scrim { position:fixed; inset:0; z-index:45; display:block; background:rgba(15,12,17,.45); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:opacity .2s; }
 	.studio-mobile-scrim.is-open { opacity:1; pointer-events:auto; }
 	.studio-main { padding-left:0; }
@@ -2475,3 +2476,11 @@
 
 /* La primera seccion de cada vista arranca arriba, sin espacio muerto */
 .studio-content > .studio-section-title:first-child { margin-top: 2px; }
+
+/* Boton Crear imagen: texto completo en desktop, corto en mobile */
+.discover-create-short { display: none; }
+@media (max-width: 560px) {
+	.discover-create-full { display: none; }
+	.discover-create-short { display: inline; }
+	.studio-section-title { align-items: center; gap: 12px; margin-top: 4px; }
+}

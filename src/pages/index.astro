@@ -111,10 +111,13 @@ const faqs = [
 			<a href="#precios">Precios</a>
 			<a href="/app/">Ingresar</a>
 		</nav>
-		<a class="outline-cta" href="/app/">Empezar gratis <span>→</span></a>
-		<button class="mobile-menu-toggle" aria-label="Abrir menú" id="mobile-toggle">
-			<span></span><span></span><span></span>
-		</button>
+		<div class="header-actions">
+			<a class="outline-cta" href="/app/">Empezar gratis <span>→</span></a>
+			<a class="header-cta-mobile" href="/app/">Empezar gratis</a>
+			<button class="mobile-menu-toggle" aria-label="Abrir menú" id="mobile-toggle">
+				<span></span><span></span><span></span>
+			</button>
+		</div>
 	</header>
 
 	<!-- Menú móvil colapsable -->
@@ -244,7 +247,7 @@ const faqs = [
 			<div class="walkthrough-video-wrapper">
 				<div class="walkthrough-video-container">
 					<video autoplay muted loop playsinline preload="metadata">
-						<source src="https://4nwyzzasvzexmkq0.public.blob.vercel-storage.com/howItWorks/videoCompressed.mp4" type="video/mp4" />
+						<source src="/videos/walkthrough.mp4" type="video/mp4" />
 					</video>
 				</div>
 			</div>
@@ -1131,6 +1134,41 @@ const faqs = [
 	.outline-cta:hover {
 		transform: scale(1.03);
 		box-shadow: 0 6px 20px rgba(236, 68, 146, 0.35);
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	/* CTA compacto que aparece solo en mobile, a la izquierda del hamburguer */
+	.header-cta-mobile {
+		display: inline-flex;
+		align-items: center;
+		height: 40px;
+		padding: 0 16px;
+		border-radius: 20px;
+		background: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%);
+		color: #FFF;
+		font-size: 14px;
+		font-weight: 700;
+		text-decoration: none;
+		white-space: nowrap;
+		box-shadow: 0 4px 15px rgba(236, 68, 146, 0.2);
+	}
+
+	@media (min-width: 810px) {
+		.header-cta-mobile {
+			display: none;
+		}
+	}
+
+	@media (max-width: 380px) {
+		.header-cta-mobile {
+			padding: 0 13px;
+			font-size: 13px;
+		}
 	}
 
 	.mobile-menu-toggle {
