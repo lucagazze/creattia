@@ -23,6 +23,35 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [scanning, setScanning] = useState(false);
 	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
+	const [photosBusy, setPhotosBusy] = useState(false);
+
+	async function removeProductPhoto(path: string) {
+		if (!selectedProduct) return;
+		setPhotosBusy(true);
+		try {
+			const response = await fetch(`/api/creativos/products?productId=${encodeURIComponent(selectedProduct.id)}&path=${encodeURIComponent(path)}`, {
+				method: 'DELETE', headers: { authorization: `Bearer ${token}` },
+			});
+			const payload = await response.json();
+			if (response.ok && payload.products) setProducts(payload.products);
+		} catch { /* red caída */ }
+		finally { setPhotosBusy(false); }
+	}
+
+	async function addProductPhotos(files: FileList | null) {
+		if (!selectedProduct || !files || !files.length) return;
+		setPhotosBusy(true);
+		try {
+			const form = new FormData();
+			form.set('productId', selectedProduct.id);
+			Array.from(files).slice(0, 6).forEach((file) => form.append('image', file));
+			const response = await fetch('/api/creativos/products', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
+			const payload = await response.json();
+			if (response.ok && payload.products) setProducts(payload.products);
+			else if (payload.error && onToast) onToast(payload.error);
+		} catch { /* red caída */ }
+		finally { setPhotosBusy(false); }
+	}
 
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
@@ -255,6 +284,25 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 											>×</button>
 										</span>
 									))}
+								</div>
+							)}
+							{selectedProduct && Array.isArray(selectedProduct.images) && selectedProduct.images.length > 0 && (
+								<div style={{ margin: '4px 0 12px' }}>
+									<p style={{ margin: '0 0 7px', fontSize: '12px', color: '#716d79' }}>Fotos que se usan de “{selectedProduct.name}” — sacá las que no quieras:</p>
+									<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', opacity: photosBusy ? 0.55 : 1 }}>
+										{selectedProduct.images.map((image: any) => (
+											<span key={image.path} style={{ position: 'relative', display: 'inline-block' }}>
+												<img src={image.url} alt="" style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2dde9', display: 'block' }} />
+												{selectedProduct.images.length > 1 && (
+													<button type="button" aria-label="Quitar foto" onClick={() => void removeProductPhoto(image.path)} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', border: 0, background: '#19171d', color: '#fff', fontSize: '12px', lineHeight: 1, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>×</button>
+												)}
+											</span>
+										))}
+										<label style={{ width: '64px', height: '64px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1.5px dashed #c9c2d4', color: '#8b8490', fontSize: '22px', cursor: 'pointer', background: '#faf9fb' }}>
+											+
+											<input type="file" accept="image/png,image/jpeg,image/webp" multiple style={{ display: 'none' }} onChange={(event) => { void addProductPhotos(event.target.files); event.target.value = ''; }} />
+										</label>
+									</div>
 								</div>
 							)}
 							<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -588,7 +636,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							{zones.map((zone, index) => {
 								const isRegen = regeneratingIndexes.includes(index);
 								return (
-									<div key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 220px) 1fr', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
+									<div key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} className="copy-zone-row" style={{ gap: '12px', padding: '12px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
 										<div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
 											<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original}”</span>
 											{zone.messageRole && <span style={{ fontSize: '9.5px', color: '#744bde', fontWeight: 700 }}>{zone.messageRole}</span>}

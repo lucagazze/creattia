@@ -45,7 +45,8 @@ async function listProducts(userId: string) {
 		const imageUrls = paths.map((path, index) => signedByPath.get(path) || rows[index]?.source_url || (index === 0 ? product.source_image_url : '') || '');
 		const usableImageUrls = imageUrls.filter(Boolean);
 		if (!usableImageUrls.length && product.source_image_url) usableImageUrls.push(product.source_image_url);
-		return { ...product, imageUrl: usableImageUrls[0] || '', imageUrls: usableImageUrls, imageCount: usableImageUrls.length };
+		const images = paths.map((path) => ({ path, url: signedByPath.get(path) || '' })).filter((image) => image.url);
+		return { ...product, imageUrl: usableImageUrls[0] || '', imageUrls: usableImageUrls, imageCount: usableImageUrls.length, images };
 	});
 }
 
@@ -176,6 +177,37 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const form = await request.formData();
+		// Agregar fotos a un producto existente
+		const existingProductId = String(form.get('productId') || '').trim().slice(0, 60);
+		if (existingProductId) {
+			const { data: owned, error: ownedError } = await admin.from('creative_products').select('id,image_path')
+				.eq('id', existingProductId).eq('user_id', auth.user.id).eq('is_active', true).maybeSingle();
+			if (ownedError) throw ownedError;
+			if (!owned) return json({ error: 'El producto no existe.' }, 404);
+			const files = form.getAll('image').filter((file): file is File => file instanceof File && file.size > 0).slice(0, 6);
+			if (!files.length) return json({ error: 'Subi al menos una foto.' }, 400);
+			const { count } = await admin.from('creative_product_images').select('storage_path', { count: 'exact', head: true })
+				.eq('product_id', existingProductId).eq('user_id', auth.user.id);
+			let sortOrder = count || 0;
+			let firstPath = '';
+			for (const file of files) {
+				if (!mimeExtensions[file.type]) return json({ error: 'Usa imagenes PNG, JPG, WebP o AVIF.' }, 415);
+				if (file.size > 15 * 1024 * 1024) return json({ error: 'Una de las imagenes supera los 15 MB.' }, 413);
+				const path = `${auth.user.id}/products/${existingProductId}/extra-${Date.now()}-${sortOrder}.${mimeExtensions[file.type]}`;
+				if (!firstPath) firstPath = path;
+				const { error: uploadError } = await admin.storage.from('creative-assets').upload(path, new Uint8Array(await file.arrayBuffer()), { contentType: file.type, upsert: true });
+				if (uploadError) throw uploadError;
+				const { error: rowError } = await admin.from('creative_product_images').upsert({
+					user_id: auth.user.id, product_id: existingProductId, storage_path: path, sort_order: sortOrder, is_primary: false,
+				}, { onConflict: 'product_id,storage_path' });
+				if (rowError) throw rowError;
+				sortOrder += 1;
+			}
+			if (!owned.image_path && firstPath) {
+				await admin.from('creative_products').update({ image_path: firstPath, updated_at: new Date().toISOString() }).eq('id', existingProductId);
+			}
+			return json({ products: await listProducts(auth.user.id) }, 201);
+		}
 		const name = String(form.get('name') || '').trim().slice(0, 180);
 		const description = String(form.get('description') || '').trim().slice(0, 1600);
 		const priceText = String(form.get('priceText') || '').trim().slice(0, 60);
@@ -219,7 +251,26 @@ export const DELETE: APIRoute = async ({ request }) => {
 	if (!auth.user) return json({ error: auth.error }, 401);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
-	const id = new URL(request.url).searchParams.get('id') || '';
+	const params = new URL(request.url).searchParams;
+	// Quitar UNA foto de un producto (sin borrar el producto)
+	const imagePath = params.get('path') || '';
+	const imageProductId = params.get('productId') || '';
+	if (imagePath && imageProductId) {
+		if (!imagePath.startsWith(`${auth.user.id}/`)) return json({ error: 'Foto invalida.' }, 400);
+		const { error: rowError } = await admin.from('creative_product_images').delete()
+			.eq('user_id', auth.user.id).eq('product_id', imageProductId).eq('storage_path', imagePath);
+		if (rowError) return json({ error: rowError.message }, 500);
+		const { data: productRow } = await admin.from('creative_products').select('image_path')
+			.eq('id', imageProductId).eq('user_id', auth.user.id).maybeSingle();
+		if (productRow?.image_path === imagePath) {
+			const { data: nextImage } = await admin.from('creative_product_images').select('storage_path')
+				.eq('product_id', imageProductId).eq('user_id', auth.user.id).order('sort_order').limit(1).maybeSingle();
+			await admin.from('creative_products').update({ image_path: nextImage?.storage_path || null, updated_at: new Date().toISOString() })
+				.eq('id', imageProductId).eq('user_id', auth.user.id);
+		}
+		return json({ products: await listProducts(auth.user.id) });
+	}
+	const id = params.get('id') || '';
 	if (!id) return json({ error: 'Producto inválido.' }, 400);
 	const { data: product, error: findError } = await admin.from('creative_products').select('id').eq('id', id).eq('user_id', auth.user.id).eq('is_active', true).maybeSingle();
 	if (findError) return json({ error: findError.message }, 500);
