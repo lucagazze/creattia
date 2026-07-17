@@ -675,6 +675,18 @@ const faqs = [
 					</article>
 				))}
 			</div>
+
+			<div class="pay-per-use">
+				<div class="ppu-text">
+					<span class="ppu-tag">SIN SUSCRIPCIÓN</span>
+					<h3>¿No querés un plan mensual? Pagá solo por imagen.</h3>
+					<p>Comprá imágenes sueltas cuando las necesites, sin compromiso. Y explorá gratis la <strong>Galería de Ganadores</strong>: los mejores anuncios reales que hoy están funcionando, listos para recrear con tu producto.</p>
+				</div>
+				<a href="/app/" class="ppu-cta">
+					<span>Ver la galería</span>
+					<span>→</span>
+				</a>
+			</div>
 		</section>
 
 		<!-- FAQs Section -->
@@ -1250,12 +1262,18 @@ const faqs = [
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: var(--text-dark);
+		background: var(--holo-gradient);
 		color: #FFF;
 		font-size: 18px;
 		font-weight: 700;
 		text-decoration: none;
 		border-radius: 28px;
+		box-shadow: 0 8px 22px rgba(236, 68, 146, 0.25);
+	}
+
+	/* Con el menú abierto, el CTA del header estorba: dejamos solo el del overlay */
+	body.menu-open .header-cta-mobile {
+		display: none;
 	}
 
 	/* ==========================================
@@ -2754,6 +2772,79 @@ const faqs = [
 	.pricing-section {
 		padding: 100px 20px;
 		background: #FFF;
+	}
+
+	/* Opción sin suscripción: pago por imagen + galería */
+	.pay-per-use {
+		max-width: 1000px;
+		margin: 36px auto 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 28px;
+		padding: 28px 32px;
+		border: 1px solid var(--border-color);
+		border-radius: 24px;
+		background: var(--bg-light);
+	}
+
+	.ppu-tag {
+		display: inline-block;
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		color: rgb(236, 68, 146);
+		margin-bottom: 10px;
+	}
+
+	.ppu-text h3 {
+		font-size: clamp(18px, 2.4vw, 22px);
+		font-weight: 700;
+		color: var(--text-dark);
+		margin: 0 0 8px;
+		letter-spacing: -0.01em;
+	}
+
+	.ppu-text p {
+		font-size: 15px;
+		line-height: 1.55;
+		color: var(--text-grey);
+		margin: 0;
+		max-width: 62ch;
+	}
+
+	.ppu-cta {
+		flex-shrink: 0;
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		height: 52px;
+		padding: 0 26px;
+		border-radius: 26px;
+		background: var(--holo-gradient);
+		color: #FFF;
+		font-size: 15px;
+		font-weight: 700;
+		text-decoration: none;
+		box-shadow: 0 6px 18px rgba(236, 68, 146, 0.22);
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.ppu-cta:hover {
+		transform: scale(1.03);
+		box-shadow: 0 10px 26px rgba(236, 68, 146, 0.32);
+	}
+
+	@media (max-width: 700px) {
+		.pay-per-use {
+			flex-direction: column;
+			align-items: flex-start;
+			padding: 24px;
+		}
+		.ppu-cta {
+			width: 100%;
+			justify-content: center;
+		}
 	}
 
 	.plans-grid {
