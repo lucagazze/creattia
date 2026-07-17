@@ -88,7 +88,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			}
 			const form = new FormData();
 			form.set('referencePath', ad.imagePath);
-			if (language !== 'auto') form.set('language', language);
+			form.set('language', language);
 			if (productForPlan) form.set('productId', productForPlan.id);
 			else if (uploadFiles.length > 0) {
 				uploadFiles.forEach(file => form.append('product', file));
@@ -127,7 +127,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('preset', 'Fiel al ganador');
 			form.set('count', String(count));
 			form.set('format', format);
-			if (language !== 'auto') form.set('language', language);
+			form.set('language', language);
 			form.set('colorMode', colorMode);
 			form.set('typoMode', typoMode);
 			form.set('includeLogo', includeLogo ? '1' : '0');
@@ -410,8 +410,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							<strong style={label}>3 · Idioma del anuncio</strong>
 							{(() => {
 								const LANGS = [
-									{ id: 'auto', name: 'Automático (según el producto)', cc: '' },
-									{ id: 'es', name: 'Español', cc: 'ar' },
+																		{ id: 'es', name: 'Español', cc: 'ar' },
 									{ id: 'en', name: 'English', cc: 'us' },
 									{ id: 'pt', name: 'Português', cc: 'br' },
 									{ id: 'fr', name: 'Français', cc: 'fr' },
