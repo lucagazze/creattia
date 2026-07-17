@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { sfx } from '../../lib/creattia/sfx';
+import { triggerConfetti } from '../../lib/creattia/confetti';
 import type { Session } from '@supabase/supabase-js';
 import { catalogTaxonomy, creativeCatalog, creativeNumber, mapTemplateRecord, referenceImagePath, referencePresets, ringMeta, templatePath } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
@@ -6,7 +8,7 @@ import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
 
-type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved';
+type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover';
 
 // Lote de generación en curso: la API responde al instante y el trabajo pesado
 // sigue en el servidor; el front lo sigue por batch_id en creative_generations.
@@ -1248,6 +1250,16 @@ export default function CreativeApp() {
 							onHistory={() => { setActiveBatch(null); navigateTo('history'); }}
 						/>
 					)}
+					{view === 'discover' && (
+						<DiscoverPage
+							pool={swipePool}
+							likedPaths={likedScrapedPaths}
+							onLike={toggleLikedScraped}
+							onUse={(path) => { setPreselectedWinnerPath(path); setView('winners'); }}
+							onBack={() => setView('home')}
+							onSaved={() => setView('winners')}
+						/>
+					)}
 					{view === 'history' && (
 						<History 
 							history={history} 
@@ -1404,12 +1416,14 @@ function AccountSetupError({ message, onRetry, onLogout }: { message: string; on
 	</div>;
 }
 
-// Descubrí ganadores: mazo tipo Tinder. Arrastrá o tocá — corazón guarda,
-// cruz descarta, rayo lo usa directo para crear. Rápido y dopamínico.
-function SwipeDeck({ pool, likedPaths, onLike, onUse }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void }) {
+// Página Descubrir: mazo tipo Tinder a pantalla completa. Deslizá o tocá —
+// corazón guarda (con sonido y confetti), cruz pasa, rayo lo usa para crear.
+function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void; onBack: () => void; onSaved: () => void }) {
 	const [index, setIndex] = useState(0);
 	const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
 	const [flying, setFlying] = useState<'left' | 'right' | null>(null);
+	const [sessionLikes, setSessionLikes] = useState(0);
+	const [lastAction, setLastAction] = useState<{ index: number; liked: boolean } | null>(null);
 	const startRef = useRef<{ x: number; y: number } | null>(null);
 	const supabaseBase = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
 
@@ -1423,12 +1437,33 @@ function SwipeDeck({ pool, likedPaths, onLike, onUse }: { pool: any[]; likedPath
 	function settle(direction: 'left' | 'right') {
 		if (!current || flying) return;
 		setFlying(direction);
-		if (direction === 'right' && !likedPaths.has(current.imagePath)) onLike(current.imagePath);
+		if (direction === 'right') {
+			if (!likedPaths.has(current.imagePath)) onLike(current.imagePath);
+			try { sfx.playSuccess(); } catch { /* audio bloqueado */ }
+			const nextLikes = sessionLikes + 1;
+			setSessionLikes(nextLikes);
+			if (nextLikes % 5 === 0) { try { triggerConfetti(); } catch { /* sin confetti */ } }
+		} else {
+			try { sfx.playWhoosh(); } catch { /* audio bloqueado */ }
+		}
+		setLastAction({ index, liked: direction === 'right' });
 		window.setTimeout(() => {
 			setFlying(null);
 			setDrag(null);
 			setIndex((previous) => previous + 1);
-		}, 260);
+		}, 240);
+	}
+
+	function undo() {
+		if (!lastAction || flying) return;
+		if (lastAction.liked) {
+			const item = pool[lastAction.index];
+			if (item && likedPaths.has(item.imagePath)) onLike(item.imagePath);
+			setSessionLikes((previous) => Math.max(0, previous - 1));
+		}
+		setIndex(lastAction.index);
+		setLastAction(null);
+		try { sfx.playClick(); } catch { /* audio bloqueado */ }
 	}
 
 	function onPointerDown(event: React.PointerEvent) {
@@ -1449,67 +1484,83 @@ function SwipeDeck({ pool, likedPaths, onLike, onUse }: { pool: any[]; likedPath
 		else setDrag(null);
 	}
 
-	if (!current) return null;
-	const dx = flying === 'right' ? 520 : flying === 'left' ? -520 : (drag?.x || 0);
-	const dy = flying ? -40 : (drag?.y || 0) * 0.25;
-	const rotation = dx / 14;
+	const dx = flying === 'right' ? 640 : flying === 'left' ? -640 : (drag?.x || 0);
+	const dy = flying ? -50 : (drag?.y || 0) * 0.25;
+	const rotation = dx / 15;
 	const likeOpacity = Math.min(1, Math.max(0, dx / 90));
 	const passOpacity = Math.min(1, Math.max(0, -dx / 90));
 
 	return (
-		<>
-			<div className="studio-section-title">
-				<div>
-					<h2>Descubrí ganadores 🔥</h2>
-					<p>Deslizá a la derecha para guardar, a la izquierda para pasar. Tocá el rayo para usarlo ya.</p>
-				</div>
+		<section style={{ maxWidth: '860px', margin: '0 auto', padding: '4px 10px 30px' }}>
+			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' }}>
+				<button onClick={onBack} style={{ border: 0, background: 'transparent', color: '#716d79', cursor: 'pointer', fontSize: '14px', padding: 0 }}>← Inicio</button>
+				<button onClick={onSaved} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '8px 16px', borderRadius: '999px', border: '1px solid #eadfe8', background: '#fff', color: '#c2276f', fontSize: '13px', fontWeight: 800, cursor: 'pointer' }}>
+					♥ {likedPaths.size} guardados
+				</button>
 			</div>
-			<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '42px' }}>
-				<div style={{ position: 'relative', width: 'min(340px, 88vw)', height: '420px', touchAction: 'pan-y' }}>
-					{remaining.slice(1).reverse().map((item, stackIndex) => {
-						const depth = remaining.length - 1 - stackIndex; // 2, 1
-						return (
-							<img
-								key={item.imagePath}
-								src={resolveUrl(item)}
-								alt=""
-								draggable={false}
-								style={{
-									position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-									borderRadius: '18px', boxShadow: '0 14px 34px rgba(25,23,29,0.14)',
-									transform: `translateY(${depth * 10}px) scale(${1 - depth * 0.045})`,
-									filter: 'brightness(0.97)',
-								}}
-							/>
-						);
-					})}
-					<div
-						onPointerDown={onPointerDown}
-						onPointerMove={onPointerMove}
-						onPointerUp={onPointerUp}
-						onPointerCancel={onPointerUp}
-						style={{
-							position: 'absolute', inset: 0, cursor: 'grab', userSelect: 'none',
-							transform: `translate(${dx}px, ${dy}px) rotate(${rotation}deg)`,
-							transition: flying ? 'transform .26s ease-out, opacity .26s ease-out' : drag ? 'none' : 'transform .18s ease',
-							opacity: flying ? 0 : 1,
-						}}
-					>
-						<img src={resolveUrl(current)} alt={current.name || ''} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '18px', boxShadow: '0 22px 50px rgba(25,23,29,0.22)', pointerEvents: 'none' }} />
-						<span style={{ position: 'absolute', top: '18px', left: '16px', padding: '7px 14px', borderRadius: '10px', border: '3px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '19px', letterSpacing: '.06em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.85)', opacity: likeOpacity }}>ME GUSTA</span>
-						<span style={{ position: 'absolute', top: '18px', right: '16px', padding: '7px 14px', borderRadius: '10px', border: '3px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '19px', letterSpacing: '.06em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.85)', opacity: passOpacity }}>PASO</span>
-						{current.name && (
-							<span style={{ position: 'absolute', left: '12px', bottom: '12px', padding: '6px 12px', borderRadius: '9px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '12.5px', fontWeight: 700, backdropFilter: 'blur(6px)' }}>{current.name}</span>
-						)}
+			<div style={{ textAlign: 'center', marginBottom: '16px' }}>
+				<h1 style={{ margin: '0 0 4px', fontSize: '26px', color: '#19171d', letterSpacing: '-.02em' }}>Descubrí ganadores 🔥</h1>
+				<p style={{ margin: 0, fontSize: '14px', color: '#716d79' }}>Derecha para guardar · izquierda para pasar · ⚡ para usarlo ya</p>
+			</div>
+
+			{!current ? (
+				<div style={{ textAlign: 'center', padding: '60px 20px' }}>
+					<p style={{ fontSize: '38px', margin: '0 0 10px' }}>🎉</p>
+					<h2 style={{ margin: '0 0 8px', fontSize: '20px', color: '#19171d' }}>¡Viste todos los de hoy!</h2>
+					<p style={{ margin: '0 0 20px', fontSize: '14px', color: '#716d79' }}>Guardaste {sessionLikes} en esta sesión. Volvé mañana por más, o revisá tus guardados.</p>
+					<button onClick={onSaved} style={{ padding: '13px 26px', borderRadius: '12px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer' }}>Ver mis guardados</button>
+				</div>
+			) : (
+				<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+					<div style={{ position: 'relative', width: 'min(430px, 92vw)', height: 'min(560px, 64vh)', touchAction: 'pan-y' }}>
+						{remaining.slice(1).reverse().map((item, stackIndex) => {
+							const depth = remaining.length - 1 - stackIndex;
+							return (
+								<img
+									key={item.imagePath}
+									src={resolveUrl(item)}
+									alt=""
+									draggable={false}
+									style={{
+										position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+										borderRadius: '20px', boxShadow: '0 16px 38px rgba(25,23,29,0.15)',
+										transform: `translateY(${depth * 12}px) scale(${1 - depth * 0.045})`,
+										filter: 'brightness(0.97)',
+									}}
+								/>
+							);
+						})}
+						<div
+							onPointerDown={onPointerDown}
+							onPointerMove={onPointerMove}
+							onPointerUp={onPointerUp}
+							onPointerCancel={onPointerUp}
+							style={{
+								position: 'absolute', inset: 0, cursor: 'grab', userSelect: 'none',
+								transform: `translate(${dx}px, ${dy}px) rotate(${rotation}deg)`,
+								transition: flying ? 'transform .24s ease-out, opacity .24s ease-out' : drag ? 'none' : 'transform .18s ease',
+								opacity: flying ? 0 : 1,
+							}}
+						>
+							<img src={resolveUrl(current)} alt={current.name || ''} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '20px', boxShadow: '0 26px 60px rgba(25,23,29,0.24)', pointerEvents: 'none' }} />
+							<span style={{ position: 'absolute', top: '20px', left: '18px', padding: '8px 16px', borderRadius: '11px', border: '3.5px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '21px', letterSpacing: '.06em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.88)', opacity: likeOpacity }}>ME GUSTA</span>
+							<span style={{ position: 'absolute', top: '20px', right: '18px', padding: '8px 16px', borderRadius: '11px', border: '3.5px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '21px', letterSpacing: '.06em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.88)', opacity: passOpacity }}>PASO</span>
+							{current.name && (
+								<span style={{ position: 'absolute', left: '14px', bottom: '14px', padding: '7px 14px', borderRadius: '10px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '13px', fontWeight: 700, backdropFilter: 'blur(6px)' }}>{current.name}</span>
+							)}
+						</div>
 					</div>
+					<div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '22px' }}>
+						<button onClick={undo} disabled={!lastAction} aria-label="Deshacer" style={{ width: '46px', height: '46px', borderRadius: '50%', border: '2px solid #e5e0ea', background: '#fff', color: lastAction ? '#8a831f' : '#cfcad6', fontSize: '18px', cursor: lastAction ? 'pointer' : 'default' }}>↩</button>
+						<button onClick={() => settle('left')} aria-label="Pasar" style={{ width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #f1d5d5', background: '#fff', color: '#dc2626', fontSize: '25px', cursor: 'pointer', boxShadow: '0 10px 24px rgba(220,38,38,0.14)' }}>✕</button>
+						<button onClick={() => { if (current) { try { sfx.playDock(); } catch { /* audio */ } onUse(current.imagePath); } }} aria-label="Usar este anuncio" style={{ width: '74px', height: '74px', borderRadius: '50%', border: 0, background: 'linear-gradient(135deg, #744bde, #5b2fc9)', color: '#fff', fontSize: '30px', cursor: 'pointer', boxShadow: '0 14px 34px rgba(116,75,222,0.4)' }}>⚡</button>
+						<button onClick={() => settle('right')} aria-label="Me gusta" style={{ width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #d3ecdc', background: '#fff', color: '#16a34a', fontSize: '25px', cursor: 'pointer', boxShadow: '0 10px 24px rgba(22,163,74,0.14)' }}>♥</button>
+						<span style={{ width: '46px' }} />
+					</div>
+					<p style={{ margin: '16px 0 0', fontSize: '12px', color: '#a29ba9' }}>{pool.length - index} anuncios por descubrir</p>
 				</div>
-				<div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '18px' }}>
-					<button onClick={() => settle('left')} aria-label="Pasar" style={{ width: '54px', height: '54px', borderRadius: '50%', border: '2px solid #f1d5d5', background: '#fff', color: '#dc2626', fontSize: '22px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(220,38,38,0.12)' }}>✕</button>
-					<button onClick={() => { if (current) onUse(current.imagePath); }} aria-label="Usar este anuncio" style={{ width: '66px', height: '66px', borderRadius: '50%', border: 0, background: 'linear-gradient(135deg, #744bde, #5b2fc9)', color: '#fff', fontSize: '26px', cursor: 'pointer', boxShadow: '0 12px 28px rgba(116,75,222,0.35)' }}>⚡</button>
-					<button onClick={() => settle('right')} aria-label="Me gusta" style={{ width: '54px', height: '54px', borderRadius: '50%', border: '2px solid #d3ecdc', background: '#fff', color: '#16a34a', fontSize: '22px', cursor: 'pointer', boxShadow: '0 8px 20px rgba(22,163,74,0.12)' }}>♥</button>
-				</div>
-			</div>
-		</>
+			)}
+		</section>
 	);
 }
 
@@ -1578,14 +1629,28 @@ function Dashboard({
 				</>
 			)}
 
-			{/* ── Descubrí ganadores (swipe) ── */}
+			{/* ── Banner: Descubrí ganadores ── */}
 			{swipePool.length > 3 && (
-				<SwipeDeck
-					pool={swipePool}
-					likedPaths={likedScrapedPaths}
-					onLike={(path) => onToggleLikedScraped(path)}
-					onUse={(path) => onUseScrapedWinner(path)}
-				/>
+				<section
+					onClick={() => onView('discover')}
+					style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap', padding: '30px 34px', marginBottom: '42px', borderRadius: '22px', cursor: 'pointer', overflow: 'hidden', background: 'linear-gradient(120deg, #17121e 0%, #2a1740 55%, #4a1d5e 100%)', boxShadow: '0 22px 55px rgba(35,20,60,0.28)' }}
+				>
+					<div style={{ position: 'relative', zIndex: 2, maxWidth: '520px' }}>
+						<h2 style={{ margin: '0 0 8px', fontSize: '25px', color: '#fff', letterSpacing: '-.02em' }}>Descubrí ganadores para vos 🔥</h2>
+						<p style={{ margin: '0 0 18px', fontSize: '14.5px', color: '#c9bfe0', lineHeight: 1.55 }}>Deslizá anuncios ganadores como en Tinder: guardá los que encajan con tu marca y usalos al instante.</p>
+						<button style={{ padding: '13px 26px', borderRadius: '12px', border: 0, background: '#fff', color: '#19171d', fontSize: '15px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 10px 26px rgba(0,0,0,0.25)' }}>Empezar a descubrir →</button>
+					</div>
+					<div style={{ position: 'relative', zIndex: 1, width: '190px', height: '150px', flex: '0 0 auto' }}>
+						{swipePool.slice(0, 3).map((item, index) => (
+							<img
+								key={item.imagePath}
+								src={item.imagePath?.startsWith('http') ? item.imagePath : `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`}
+								alt=""
+								style={{ position: 'absolute', top: `${index * 8}px`, left: `${index * 26}px`, width: '110px', height: '138px', objectFit: 'cover', borderRadius: '12px', border: '3px solid rgba(255,255,255,0.9)', transform: `rotate(${(index - 1) * 8}deg)`, boxShadow: '0 10px 24px rgba(0,0,0,0.3)' }}
+							/>
+						))}
+					</div>
+				</section>
 			)}
 
 			{/* ── Random winners inspiration ── */}

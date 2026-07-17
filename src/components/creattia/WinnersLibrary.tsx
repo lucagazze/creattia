@@ -629,18 +629,12 @@ export default function WinnersLibrary({
 				const tags = getTags(item, category);
 				return { ...item, category, tags };
 			});
-			// Deduplicate by templateId and imagePath
+			// Deduplicate only by exact imagePath to avoid showing the same image twice
 			const seenPath = new Set<string>();
-			const seenTemplate = new Set<number>();
 			const deduped = classified.filter(item => {
 				const path = (item.imagePath || '').toLowerCase().trim();
-				const tid = item.templateId;
-				
 				if (!path || seenPath.has(path)) return false;
-				if (tid && seenTemplate.has(tid)) return false;
-				
 				seenPath.add(path);
-				if (tid) seenTemplate.add(tid);
 				return true;
 			});
 			setItems(deduped);
