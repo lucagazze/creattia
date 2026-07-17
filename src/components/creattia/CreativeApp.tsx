@@ -3068,6 +3068,7 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 	const [starting, setStarting] = useState(false);
 	const [error, setError] = useState('');
 	const [showReference, setShowReference] = useState(false);
+	const [revisionFormat, setRevisionFormat] = useState<string>(item.format || 'original');
 
 	// Product overrides
 	const originalProductId = item.productId || item.productIds?.[0] || '';
@@ -3132,7 +3133,7 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 			form.set('sourceGenerationId', item.id);
 			form.set('variationStrength', revision.trim() ? 'exact' : 'light');
 			form.set('imageType', item.imageType || 'promotion');
-			form.set('format', item.format || '1:1');
+			form.set('format', revisionFormat || item.format || '1:1');
 			form.set('fidelity', '1');
 			form.set('preset', 'Nueva versión');
 			form.set('count', '1');
@@ -3310,6 +3311,26 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 							)}
 						</div>
 
+						<div style={{ marginBottom: '10px' }}>
+							<p style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: 700, color: '#716d79' }}>Formato</p>
+							<div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+								{[
+									{ id: 'original', text: 'Igual' },
+									{ id: '1:1', text: '1:1' },
+									{ id: '3:4', text: '3:4' },
+									{ id: '9:16', text: '9:16' },
+									{ id: '4:3', text: '4:3' },
+									{ id: '16:9', text: '16:9' },
+								].map((f) => (
+									<button key={f.id} type="button" onClick={() => setRevisionFormat(f.id)}
+										style={{ padding: '6px 12px', borderRadius: '9px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700,
+											border: revisionFormat === f.id ? '2px solid #19171d' : '1px solid #e2dde9',
+											background: revisionFormat === f.id ? '#f4f2f6' : '#fff', color: revisionFormat === f.id ? '#19171d' : '#6f6a77' }}>
+										{f.text}
+									</button>
+								))}
+							</div>
+						</div>
 						<textarea
 							ref={textareaRef}
 							value={revision}

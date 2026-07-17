@@ -8,9 +8,14 @@ export type LayoutAnalysis = {
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
 	templateHasLogoSlot?: boolean;
+	logoDescription?: string;
 	productPlacement?: string;
 	language?: string;
 	creativeOptions?: string[];
+	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
+	people?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
+	// Elementos de comparación que NO son el producto héroe (ej: barritas de la competencia).
+	comparisonItems?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
 };
 
 export const LANGUAGE_NAMES: Record<string, string> = {
@@ -74,8 +79,19 @@ Return STRICT JSON:
   ],
   "referenceHasProduct": true|false,
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
+  "logoDescription": "if templateHasLogoSlot is true, briefly describe the logo/wordmark and WHERE it sits (e.g. 'small wordmark bottom-right'); else null",
   "productHasPackaging": true|false,
   "productPlacement": "precise description of where/how the template's product sits: position, scale relative to canvas, angle, cropping, lighting, shadow — or null if the template shows no product",
+  "people": [
+    { "where": "where the person appears (e.g. 'right half, holding the product')",
+      "role": "their job in the ad (e.g. 'testimonial author', 'lifestyle model', 'before/after subject')",
+      "description": "what they look like now in Argentine Spanish (apparent gender, age range, hair, expression, setting) so the user can decide how to reconstruct them" }
+  ],
+  "comparisonItems": [
+    { "where": "position of a NON-hero item that the ad compares AGAINST the product (e.g. 'left and right columns/products in a 3-way comparison')",
+      "role": "what it represents (e.g. 'competitor bar', 'the old way', 'other brand')",
+      "description": "short Argentine-Spanish description of that comparison item so the user can decide what to put there" }
+  ],
   "language": "es|en|fr|it|pt|de",
   "creativeOptions": ["3 to 5 SHORT optional creative directions specific to THIS template and THIS product (e.g. highlight the price as anchor, emphasize the guarantee, show texture close-up) — ALWAYS written in Argentine Spanish (the app's UI language), even when the ad copy is in another language"],
   "styleNotes": "background color(s), palette, typography feel, graphic devices worth preserving"
@@ -88,6 +104,8 @@ Rules:
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
 - "productHasPackaging": look ONLY at the REAL product photo — true ONLY if that photo clearly shows a printed box, wrapper or label belonging to the product. Raw materials (leather hides, fabrics, wood), unpackaged food, plants, garments or bare objects have NO packaging → false. The template's product is irrelevant for this field.
 - TESTIMONIALS: if the template shows a person's photo next to a quote, the replacement quote and attribution must plausibly belong to that SAME visible person (never mismatch apparent gender or age; a neutral attribution like 'Cliente verificada' is fine).
+- PEOPLE: list in "people" EVERY human clearly visible in the ad (models, testimonial faces, before/after subjects). Empty array if none. The user may later specify how they want each person to look.
+- COMPARISON: if the ad is a comparison/versus layout (e.g. three products side by side, "us vs them", before/after columns), the HERO is the advertiser's product; list every OTHER item being compared against it in "comparisonItems" so the user can decide what to place there (they may want generic unbranded stand-ins). Empty array if the ad is not a comparison. Never treat the hero product itself as a comparison item.
 - ${languageRule}
 - If a zone shows a spec/number (e.g. "10G PROTEIN"), replace it with a REAL fact of the target product formatted the same way.
 - Never use the template's brand name in replacements.${input.brandName ? ` The advertiser brand is "${input.brandName}".` : ''}`;
@@ -213,8 +231,20 @@ export function buildReferenceClonePrompt(input: {
 		: `1. NO PRODUCT INSERTION — The template does NOT feature a physical product shot, so the new ad must not include one either. Keep the same imagery style (people, scene or graphic treatment) adapted naturally to the new brand context. Do NOT insert a product photo anywhere.`;
 
 	const colorRule = input.colorMode === 'brand' && input.brandColors?.length
-		? `COLOR RESTYLE — Keep the exact layout structure, but restyle the color palette using the brand colors: ${input.brandColors.join(', ')} (first is primary). Apply them tastefully to backgrounds, accents and buttons while keeping the same contrast hierarchy as the template.`
+		? `COLOR RESTYLE (REQUIRED) — This is a hard requirement: recolor the ad into the brand palette ${input.brandColors.join(', ')} (the FIRST color is the primary/dominant one, the next are secondary/accents). The dominant background, the main accents, the buttons/CTA and the badges MUST visibly use these exact brand colors instead of the template's original colors — the finished ad has to read as belonging to this brand at a glance. Keep the template's exact LAYOUT, contrast hierarchy and legibility (dark text on light areas and vice-versa); only the hues change. Do not keep the template's original brand colors.`
 		: `Do not change the background color or palette — keep the template's exact colors.`;
+
+	// Personas: reconstruir según lo que pidió el usuario, o mantener si no indicó nada.
+	const people = (input.analysis?.people || []).filter((p) => p && (p.description || p.directive || p.where));
+	const peopleBlock = people.length
+		? `\n5. PEOPLE — The ad shows ${people.length === 1 ? 'a person' : 'people'}. For each, follow the direction:\n${people.map((p, i) => `   - Person ${i + 1}${p.where ? ` (${p.where})` : ''}: ${p.directive?.trim() ? `render them as — ${p.directive.trim()}. Make it photorealistic and coherent with the scene.` : 'keep them essentially as in the template (same apparent gender, age and role), only refreshed to look natural in the new ad.'}`).join('\n')}\nKeep any person photorealistic, well-integrated into the scene lighting, never distorted.`
+		: '';
+
+	// Comparación: qué poner en los ítems que NO son el producto héroe.
+	const comparisons = (input.analysis?.comparisonItems || []).filter((c) => c && (c.description || c.directive || c.where));
+	const comparisonBlock = comparisons.length
+		? `\n6. COMPARISON ITEMS — This is a comparison ad. The hero is ${productLabel}. For the OTHER compared items, follow the direction (and NEVER show a real competitor's brand name, logo or packaging unless explicitly told to):\n${comparisons.map((c, i) => `   - Item ${i + 1}${c.where ? ` (${c.where})` : ''}: ${c.directive?.trim() ? c.directive.trim() : 'keep it as a neutral, unbranded stand-in in the same position and style as the template, clearly less appealing than the hero.'}`).join('\n')}`
+		: '';
 	const typoRule = input.typoMode === 'brand' && (input.brandTypography?.headings || input.brandTypography?.body)
 		? `TYPOGRAPHY — Use the brand's typography: headings in ${input.brandTypography?.headings || 'the brand font'}, body text in ${input.brandTypography?.body || 'the brand font'}, keeping the same sizes, weights and hierarchy as the template.`
 		: `Match the template's typographic style, weight and case exactly (if the template headline is heavy condensed uppercase, keep it heavy condensed uppercase).`;
@@ -234,6 +264,7 @@ If a template text block has no replacement listed, adapt its message honestly t
 3. BRAND SWAP — Remove the template's original brand names and logos. ${input.hasLogo ? 'If the layout needs a brand mark, place the provided brand logo (last input image) EXACTLY as it is, once, small and discreet. Never redraw the logo, never invent badges, seals, flags or emblems.' : 'Do NOT add any logo, badge, seal or brand emblem. If the template displays a brand name area, leave it clean or use a simple text wordmark' + (input.brandName ? ` reading "${input.brandName}".` : '.')}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
+${peopleBlock}${comparisonBlock}
 
 USER DIRECTION
 ${input.brief || 'None.'}`;

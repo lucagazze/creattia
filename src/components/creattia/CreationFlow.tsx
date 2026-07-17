@@ -23,6 +23,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [scannedProductIds, setScannedProductIds] = useState<string[]>([]);
 	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
+	const [parsingDoc, setParsingDoc] = useState(false);
 
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
@@ -39,6 +40,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
 	const [plan, setPlan] = useState<any>(null);
 	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
+	const [people, setPeople] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
+	const [comparisons, setComparisons] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [creativeOptions, setCreativeOptions] = useState<string[]>([]);
 	const [pickedOptions, setPickedOptions] = useState<string[]>([]);
 	const [error, setError] = useState('');
@@ -73,6 +76,36 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		} finally { setScanning(false); }
 	}
 
+	// Lee un PDF / Word / Excel y precarga nombre + descripción + imágenes.
+	async function parseDoc(file: File | null) {
+		if (!file) return;
+		setParsingDoc(true); setError('');
+		try {
+			const form = new FormData();
+			form.set('file', file);
+			const res = await fetch('/api/creativos/parse-doc', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
+			const payload = await res.json();
+			if (!res.ok) throw new Error(payload.error || 'No pudimos leer el archivo.');
+			if (payload.name) setManualProductName(payload.name);
+			if (payload.facts) setManualProductFacts(payload.facts);
+			if (Array.isArray(payload.images) && payload.images.length) {
+				const files: File[] = [];
+				const previews: string[] = [];
+				for (let i = 0; i < payload.images.length; i++) {
+					try {
+						const blob = await (await fetch(payload.images[i])).blob();
+						files.push(new File([blob], `doc-img-${i}.png`, { type: blob.type || 'image/png' }));
+						previews.push(payload.images[i]);
+					} catch { /* imagen inválida */ }
+				}
+				if (files.length) { setUploadFiles((prev) => [...prev, ...files]); setUploadPreviews((prev) => [...prev, ...previews]); }
+			}
+			if (onToast) onToast('Archivo analizado: revisá el nombre y la descripción.');
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'No pudimos leer el archivo.');
+		} finally { setParsingDoc(false); }
+	}
+
 	async function requestPlan() {
 		setPhase('planning'); setError('');
 		try {
@@ -104,6 +137,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			}
 			setPlan(analysis);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
+			setPeople(Array.isArray(analysis.people) ? analysis.people.map((p: any) => ({ ...p, directive: '' })) : []);
+			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
 			setCreativeOptions(Array.isArray(analysis.creativeOptions) ? analysis.creativeOptions.slice(0, 5) : []);
 			setPhase('review');
 		} catch (cause) {
@@ -139,7 +174,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			// productMode === 'none' → sin producto
 			const brief = extra.trim();
 			form.set('brief', brief);
-			form.set('plan', JSON.stringify({ ...plan, textZones: zones }));
+			form.set('plan', JSON.stringify({ ...plan, textZones: zones, people, comparisonItems: comparisons }));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
@@ -279,6 +314,11 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 													setUploadPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
 													event.target.value = '';
 												}} />
+										</label>
+										<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: '1px dashed #cbb8f0', background: '#faf8ff', fontSize: '12.5px', fontWeight: 700, cursor: parsingDoc ? 'wait' : 'pointer', color: '#5b3fc4', width: 'fit-content', marginTop: '6px', opacity: parsingDoc ? 0.6 : 1 }}>
+											{parsingDoc ? 'Analizando archivo…' : '📄 Subir PDF / Word / Excel'}
+											<input type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,application/pdf" style={{ display: 'none' }} disabled={parsingDoc}
+												onChange={(event) => { void parseDoc(event.target.files?.[0] || null); event.target.value = ''; }} />
 										</label>
 										{uploadPreviews.length > 0 && (
 											<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
@@ -565,6 +605,38 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								);
 							})}
 						</div>
+
+						{/* Personas detectadas en el anuncio */}
+						{people.length > 0 && (
+							<div style={{ marginBottom: '18px' }}>
+								<strong style={label}>👤 {people.length === 1 ? 'Persona en el anuncio' : 'Personas en el anuncio'}</strong>
+								<p style={{ margin: '-4px 0 10px', fontSize: '12px', color: '#8b8490' }}>Detectamos {people.length === 1 ? 'una persona' : `${people.length} personas`}. Decinos cómo querés que se vea (o dejalo vacío para mantenerla parecida).</p>
+								<div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+									{people.map((person, index) => (
+										<div key={index} style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fcfbfe' }}>
+											<p style={{ margin: '0 0 7px', fontSize: '12.5px', color: '#5f5a67' }}>{person.description || person.where || 'Persona'}{person.role ? ` · ${person.role}` : ''}</p>
+											<input value={person.directive || ''} onChange={(e) => setPeople(people.map((pp, i) => i === index ? { ...pp, directive: e.target.value } : pp))} placeholder="Ej: mujer 30 años, pelo castaño, sonriendo en cocina luminosa…" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }} />
+										</div>
+									))}
+								</div>
+							</div>
+						)}
+
+						{/* Comparación: qué poner en los ítems que no son tu producto */}
+						{comparisons.length > 0 && (
+							<div style={{ marginBottom: '18px' }}>
+								<strong style={label}>⚖️ Comparación detectada</strong>
+								<p style={{ margin: '-4px 0 10px', fontSize: '12px', color: '#8b8490' }}>Tu producto es el destacado. En los otros ítems comparados podés decir qué poner (por defecto: alternativas neutras sin marca).</p>
+								<div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+									{comparisons.map((item, index) => (
+										<div key={index} style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fcfbfe' }}>
+											<p style={{ margin: '0 0 7px', fontSize: '12.5px', color: '#5f5a67' }}>{item.description || item.where || 'Ítem comparado'}{item.role ? ` · ${item.role}` : ''}</p>
+											<input value={item.directive || ''} onChange={(e) => setComparisons(comparisons.map((c, i) => i === index ? { ...c, directive: e.target.value } : c))} placeholder="Ej: otras barritas genéricas, sin marca ni logo…" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }} />
+										</div>
+									))}
+								</div>
+							</div>
+						)}
 
 						{error && <p style={{ margin: '0 0 14px', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}
 
