@@ -2421,9 +2421,8 @@
 	border-radius: 9px;
 	background: transparent;
 	color: #5b5561;
-	font-size: 14px;
-	font-weight: 700;
-	font-family: 'Satoshi', 'Inter Variable', Inter, sans-serif;
+	font-size: 13.5px;
+	font-weight: 600;
 	text-align: left;
 	cursor: pointer;
 	transition: background .14s ease;
@@ -2432,3 +2431,19 @@
 .studio-settings-item:hover { background: #efecf3; }
 .studio-settings-item.danger { color: #dc2626; }
 .studio-settings-item.danger svg { color: #dc2626; }
+
+
+/* Descubrí ganadores: máximo una fila; se muestran menos tarjetas al achicar */
+.discover-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; margin-bottom: 42px; }
+@media (max-width: 1250px) {
+	.discover-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.discover-grid article:nth-child(n+4) { display: none; }
+}
+@media (max-width: 900px) {
+	.discover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.discover-grid article:nth-child(n+3) { display: none; }
+}
+@media (max-width: 580px) {
+	.discover-grid { grid-template-columns: 1fr; }
+	.discover-grid article:nth-child(n+2) { display: none; }
+}

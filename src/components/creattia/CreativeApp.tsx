@@ -1476,7 +1476,7 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe }: { pool: 
 				</div>
 				<button onClick={onOpenSwipe}>Modo swipe <Icon name="arrow" size={15}/></button>
 			</div>
-			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', alignItems: 'start', marginBottom: '42px' }}>
+			<div className="discover-grid">
 				{dealt.cards.map((item) => {
 					const exit = leaving[item.imagePath];
 					const saved = likedPaths.has(item.imagePath);
