@@ -228,6 +228,7 @@ export const POST: APIRoute = async ({ request }) => {
 	let generationIds: string[] = [];
 	const completedIds = new Set<string>();
 	let reservedCount = 0;
+	let creditsPerImage = 1;
 
 	try {
 		const form = await request.formData();
@@ -268,6 +269,9 @@ export const POST: APIRoute = async ({ request }) => {
 		]);
 		const requestedCount = Number(clean(form.get('count'), 1) || 1);
 		const count = sourceGenerationId ? 1 : requestedCount;
+		// Calidad: 'pro' usa el modelo Pro (mejor pero más caro) → 3 créditos por imagen; 'flash' (default) → 1.
+		const quality = clean(form.get('quality'), 6) === 'pro' ? 'pro' as const : 'flash' as const;
+		creditsPerImage = quality === 'pro' ? 3 : 1;
 		const product = form.get('product');
 		const logo = form.get('logo');
 
@@ -357,15 +361,16 @@ export const POST: APIRoute = async ({ request }) => {
 		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze');
 		let remaining = 99999;
 
+		const creditsNeeded = count * creditsPerImage;
 		if (!isAdmin) {
 			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: auth.user.id,
-				p_amount: count,
+				p_amount: creditsNeeded,
 			});
 			if (creditError) throw creditError;
-			if (reserveRes === -1) return json({ error: `Necesitás ${count} ${count === 1 ? 'crédito' : 'créditos'} para esta generación.`, code: 'NO_CREDITS' }, 402);
+			if (reserveRes === -1) return json({ error: `Necesitás ${creditsNeeded} ${creditsNeeded === 1 ? 'crédito' : 'créditos'} para esta generación.`, code: 'NO_CREDITS' }, 402);
 			remaining = Number(reserveRes);
-			reservedCount = count;
+			reservedCount = creditsNeeded;
 		}
 
 		const batchId = crypto.randomUUID();
@@ -388,7 +393,7 @@ export const POST: APIRoute = async ({ request }) => {
 			output_index: index + 1,
 			requested_outputs: count,
 			settings_snapshot: {
-				format, imageType, preset, productIds, productNames: storedProducts.map((item) => item.name),
+				format, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
 				// Las revisiones heredan el anuncio ganador de la imagen original.
 				referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
 				sourceGenerationId: sourceGeneration?.id || null,
@@ -688,9 +693,12 @@ The result must look like the same image with only that one adjustment applied.`
 
 		if (googleKey) {
 			// Nano Banana 2 (flash) da calidad nivel Pro a ~1/3 del precio.
-			// Si falla, se intenta Pro antes de caer a OpenAI.
+			// Si el usuario eligió calidad Pro (3 créditos), se genera directo con Pro.
+			// En calidad estándar se usa flash y, si falla, se prueba Pro antes de caer a OpenAI.
 			const preferredGemini = import.meta.env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
-			const geminiAttempts = [...new Set([preferredGemini, 'gemini-3-pro-image-preview'])];
+			const geminiAttempts = quality === 'pro'
+				? ['gemini-3-pro-image-preview']
+				: [...new Set([preferredGemini, 'gemini-3-pro-image-preview'])];
 			for (const geminiModel of geminiAttempts) {
 				try {
 					const buffers = await generateWithGemini({
@@ -861,9 +869,10 @@ The result must look like the same image with only that one adjustment applied.`
 			}).in('id', missingIds);
 			if (missingUpdateError) throw missingUpdateError;
 			if (reservedCount > 0) {
-				const { error: missingRefundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user!.id, p_amount: missingCount });
+				const missingRefund = missingCount * creditsPerImage;
+				const { error: missingRefundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user!.id, p_amount: missingRefund });
 				if (missingRefundError) throw missingRefundError;
-				reservedCount -= missingCount;
+				reservedCount -= missingRefund;
 			}
 		}
 		};
@@ -879,7 +888,7 @@ The result must look like the same image with only that one adjustment applied.`
 					completed_at: new Date().toISOString(),
 				}).in('id', failedIds);
 			}
-			const refundAmount = Math.max(0, reservedCount - completedIds.size);
+			const refundAmount = Math.max(0, reservedCount - completedIds.size * creditsPerImage);
 			if (refundAmount > 0) {
 				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user!.id, p_amount: refundAmount });
 				if (refundError) console.error('Credit refund also failed:', refundError);
@@ -903,7 +912,7 @@ The result must look like the same image with only that one adjustment applied.`
 				completed_at: new Date().toISOString(),
 			}).in('id', failedIds);
 		}
-		const refundAmount = Math.max(0, reservedCount - completedIds.size);
+		const refundAmount = Math.max(0, reservedCount - completedIds.size * creditsPerImage);
 		const { error: refundError } = refundAmount > 0
 			? await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: refundAmount })
 			: { error: null };

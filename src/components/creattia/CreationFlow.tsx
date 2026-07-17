@@ -61,6 +61,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [includeLogo, setIncludeLogo] = useState(false);
 	const [extra, setExtra] = useState('');
 	const [count, setCount] = useState(1);
+	const [quality, setQuality] = useState<'flash' | 'pro'>('flash');
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
 	const [showManualDesc, setShowManualDesc] = useState(false);
@@ -155,6 +156,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('fidelity', '1');
 			form.set('preset', 'Fiel al ganador');
 			form.set('count', String(count));
+			form.set('quality', quality);
 			form.set('format', format);
 			form.set('language', language);
 			form.set('colorMode', colorMode);
@@ -544,14 +546,45 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									</button>
 								))}
 								<span style={{ fontSize: '13px', color: '#716d79', marginLeft: '8px', fontWeight: 600 }}>
-									{count === 1 ? 'Usa 1 crédito' : `Usa ${count} créditos`}
+									{(() => { const t = count * (quality === 'pro' ? 3 : 1); return t === 1 ? 'Usa 1 crédito' : `Usa ${t} créditos`; })()}
 								</span>
 							</div>
 						</div>
 
-						{/* 6. Indicación extra */}
+						{/* 6. Calidad de generación */}
 						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>6 · Indicación extra (opcional)</strong>
+							<strong style={label}>6 · Calidad</strong>
+							<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+								<button
+									type="button"
+									onClick={() => setQuality('flash')}
+									style={{
+										textAlign: 'left', padding: '13px 15px', borderRadius: '12px', cursor: 'pointer',
+										border: quality === 'flash' ? '2px solid #744bde' : '1px solid #e2dde9',
+										background: quality === 'flash' ? '#f4f2f6' : '#fff',
+									}}
+								>
+									<span style={{ display: 'block', fontSize: '14px', fontWeight: 800, color: '#19171d' }}>Estándar</span>
+									<span style={{ display: 'block', fontSize: '12px', color: '#716d79', marginTop: '3px' }}>Rápida y excelente · 1 crédito por imagen</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => setQuality('pro')}
+									style={{
+										textAlign: 'left', padding: '13px 15px', borderRadius: '12px', cursor: 'pointer',
+										border: quality === 'pro' ? '2px solid #744bde' : '1px solid #e2dde9',
+										background: quality === 'pro' ? '#f4f2f6' : '#fff',
+									}}
+								>
+									<span style={{ display: 'block', fontSize: '14px', fontWeight: 800, color: '#19171d' }}>Pro ✦</span>
+									<span style={{ display: 'block', fontSize: '12px', color: '#716d79', marginTop: '3px' }}>Máximo realismo y texto más nítido · 3 créditos por imagen</span>
+								</button>
+							</div>
+						</div>
+
+						{/* 7. Indicación extra */}
+						<div style={{ marginBottom: '20px' }}>
+							<strong style={label}>7 · Indicación extra (opcional)</strong>
 							<textarea
 								value={extra}
 								onChange={(event) => setExtra(event.target.value)}
@@ -703,7 +736,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								className="studio-primary-button"
 								style={{ flex: 1, height: '52px', background: '#744bde', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'starting' ? 0.6 : 1 }}
 							>
-								{phase === 'starting' ? 'Iniciando generación…' : 'Aprobar textos y generar imagen ✓'}
+								{phase === 'starting' ? 'Iniciando generación…' : (() => { const t = count * (quality === 'pro' ? 3 : 1); return `Aprobar y generar ✓ · ${t} ${t === 1 ? 'crédito' : 'créditos'}`; })()}
 							</button>
 						</div>
 					</>}
