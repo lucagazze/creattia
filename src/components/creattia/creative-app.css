@@ -334,7 +334,7 @@
 .studio-credit-pill { height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border-radius: 20px; border: 1px solid #ded9e6; background: #fff; color: #19171d; cursor: pointer; box-shadow: 0 3px 10px rgba(32,22,42,.03); }
 .studio-credit-pill b { font-size: 11px; }
 .studio-credit-pill span { color: #77717d; font-size: 9px; font-weight: 600; }
-.studio-content { max-width: 1240px; margin: 0 auto; padding: 43px 38px 70px; }
+.studio-content { max-width: 1240px; margin: 0 auto; padding: 16px 38px 70px; }
 
 .studio-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 31px; }
 .studio-page-heading > div > p { margin: 0 0 10px; color: #8a8490; font-size: 8px; font-weight: 800; letter-spacing: .17em; text-transform: uppercase; }
@@ -834,7 +834,7 @@
 
 @media (max-width: 720px) {
 	.library-category-tree { grid-template-columns:1fr 1fr; padding:7px; }.library-category-tree > button { min-height:46px; }.library-category-tree small { display:none; }.library-path-picker { padding:12px; }.studio-plans-grid { grid-template-columns:1fr; }.studio-current-credits { align-items:flex-start; }.studio-current-credits em { display:none; }
-	.studio-content { padding:30px 16px 55px; }
+	.studio-content { padding:12px 16px 55px; }
 	.studio-topbar { height:57px; padding:0 15px; }
 	.studio-credit-pill span { display:none; }
 	.studio-page-heading { align-items:flex-start; margin-bottom:25px; }
@@ -2472,3 +2472,6 @@
 	pointer-events: none;
 }
 .discover-card-media:hover .discover-overlay { opacity: 1; }
+
+/* La primera seccion de cada vista arranca arriba, sin espacio muerto */
+.studio-content > .studio-section-title:first-child { margin-top: 2px; }

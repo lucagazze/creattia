@@ -1445,6 +1445,8 @@ function AccountSetupError({ message, onRetry, onLogout }: { message: string; on
 function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void; onOpenSwipe: () => void; onSeen?: (path: string) => void }) {
 	const [dealt, setDealt] = useState<{ cards: any[]; cursor: number }>({ cards: [], cursor: 0 });
 	const [leaving, setLeaving] = useState<Record<string, 'left' | 'right'>>({});
+	const [dragX, setDragX] = useState<{ path: string; x: number } | null>(null);
+	const dragStartRef = useRef<{ path: string; x: number; moved: boolean } | null>(null);
 	const supabaseBase = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
 
 	useEffect(() => {
@@ -1500,6 +1502,7 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 				{dealt.cards.map((item) => {
 					const exit = leaving[item.imagePath];
 					const saved = likedPaths.has(item.imagePath);
+					const drag = dragX && dragX.path === item.imagePath ? dragX.x : null;
 					return (
 						<article
 							key={item.imagePath}
@@ -1511,15 +1514,50 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 								transition: 'transform .24s ease, opacity .24s ease',
 							}}
 						>
-							<div className="discover-card-media" onClick={() => { try { sfx.playDock(); } catch { /* audio */ } onUse(item.imagePath); }} style={{ position: 'relative', cursor: 'pointer' }}>
-								<img src={resolveUrl(item)} alt={item.name || ''} loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
+							<div
+								className="discover-card-media"
+								onPointerDown={(event) => {
+									dragStartRef.current = { path: item.imagePath, x: event.clientX, moved: false };
+									(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+								}}
+								onPointerMove={(event) => {
+									const start = dragStartRef.current;
+									if (!start || start.path !== item.imagePath) return;
+									const deltaX = event.clientX - start.x;
+									if (Math.abs(deltaX) > 6) start.moved = true;
+									setDragX({ path: item.imagePath, x: deltaX });
+								}}
+								onPointerUp={() => {
+									const start = dragStartRef.current;
+									const deltaX = drag ?? 0;
+									dragStartRef.current = null;
+									setDragX(null);
+									if (deltaX > 90) { like(item); return; }
+									if (deltaX < -90) { pass(item); return; }
+									if (start && !start.moved) {
+										try { sfx.playDock(); } catch { /* audio */ }
+										onUse(item.imagePath);
+									}
+								}}
+								onPointerCancel={() => { dragStartRef.current = null; setDragX(null); }}
+								style={{
+									position: 'relative', cursor: 'grab', touchAction: 'pan-y', userSelect: 'none',
+									transform: drag !== null ? `translateX(${drag}px) rotate(${drag / 18}deg)` : 'none',
+									transition: drag !== null ? 'none' : 'transform .18s ease',
+								}}
+							>
+								<img src={resolveUrl(item)} alt={item.name || ''} loading="lazy" draggable={false} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
+								<span style={{ position: 'absolute', top: '16px', left: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, drag / 90)) : 0, pointerEvents: 'none' }}>ME GUSTA</span>
+								<span style={{ position: 'absolute', top: '16px', right: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, -drag / 90)) : 0, pointerEvents: 'none' }}>PASO</span>
 								<button
 									onClick={(event) => { event.stopPropagation(); like(item); }}
+									onPointerDown={(event) => event.stopPropagation()}
 									aria-label="Me gusta"
 									style={{ position: 'absolute', top: '10px', right: '10px', width: '38px', height: '38px', borderRadius: '50%', border: 0, background: saved ? '#16a34a' : 'rgba(255,255,255,0.92)', color: saved ? '#fff' : '#16a34a', fontSize: '17px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', zIndex: 3 }}
 								>♥</button>
 								<button
 									onClick={(event) => { event.stopPropagation(); pass(item); }}
+									onPointerDown={(event) => event.stopPropagation()}
 									aria-label="Pasar"
 									style={{ position: 'absolute', top: '10px', left: '10px', width: '38px', height: '38px', borderRadius: '50%', border: 0, background: 'rgba(255,255,255,0.92)', color: '#dc2626', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', zIndex: 3 }}
 								>✕</button>
