@@ -16,42 +16,13 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const token = session?.access_token || '';
 	const referenceUrl = `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${ad.imagePath}`;
 
-	const [products, setProducts] = useState<any[]>(savedProducts);
-	// Sin auto-selección: el usuario elige su producto explícitamente.
-	const [selectedProductId, setSelectedProductId] = useState<string>('');
-	const [urlValue, setUrlValue] = useState('');
+	// Cómo cargar el producto: por URL(s), a mano (con archivos), o sin producto.
+	const [productMode, setProductMode] = useState<'url' | 'manual' | 'none'>('url');
+	const [urls, setUrls] = useState<string[]>(['']);
 	const [scanning, setScanning] = useState(false);
+	const [scannedProductIds, setScannedProductIds] = useState<string[]>([]);
 	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
-	const [photosBusy, setPhotosBusy] = useState(false);
-
-	async function removeProductPhoto(path: string) {
-		if (!selectedProduct) return;
-		setPhotosBusy(true);
-		try {
-			const response = await fetch(`/api/creativos/products?productId=${encodeURIComponent(selectedProduct.id)}&path=${encodeURIComponent(path)}`, {
-				method: 'DELETE', headers: { authorization: `Bearer ${token}` },
-			});
-			const payload = await response.json();
-			if (response.ok && payload.products) setProducts(payload.products);
-		} catch { /* red caída */ }
-		finally { setPhotosBusy(false); }
-	}
-
-	async function addProductPhotos(files: FileList | null) {
-		if (!selectedProduct || !files || !files.length) return;
-		setPhotosBusy(true);
-		try {
-			const form = new FormData();
-			form.set('productId', selectedProduct.id);
-			Array.from(files).slice(0, 6).forEach((file) => form.append('image', file));
-			const response = await fetch('/api/creativos/products', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
-			const payload = await response.json();
-			if (response.ok && payload.products) setProducts(payload.products);
-			else if (payload.error && onToast) onToast(payload.error);
-		} catch { /* red caída */ }
-		finally { setPhotosBusy(false); }
-	}
 
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
@@ -61,10 +32,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [includeLogo, setIncludeLogo] = useState(false);
 	const [extra, setExtra] = useState('');
 	const [count, setCount] = useState(1);
-	const [quality, setQuality] = useState<'flash' | 'pro'>('flash');
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
-	const [showManualDesc, setShowManualDesc] = useState(false);
 
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
@@ -75,64 +44,63 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [error, setError] = useState('');
 	const [regeneratingIndexes, setRegeneratingIndexes] = useState<number[]>([]);
 
-	const selectedProduct = products.find((item) => item.id === selectedProductId) || null;
-	const hasProduct = Boolean(selectedProduct || uploadFiles.length > 0);
-
 	const label = { display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '9px', letterSpacing: '.01em' } as const;
 	const chip = (active: boolean) => ({
 		padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
 		border: active ? '2px solid #744bde' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#744bde' : '#3f3a48',
 	} as const);
 
-	async function scanUrl(): Promise<any | null> {
-		const raw = urlValue.trim();
-		if (!raw) return null;
+	// Escanea una o varias URLs → devuelve los IDs de producto importados.
+	async function scanUrls(list: string[]): Promise<string[]> {
 		setScanning(true); setError('');
+		const ids: string[] = [];
 		try {
-			const response = await fetch('/api/creativos/products', {
-				method: 'POST',
-				headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-				body: JSON.stringify({ url: raw }),
-			});
-			const payload = await response.json();
-			if (!response.ok || !payload.importedIds?.length) throw new Error(payload.errors?.[0]?.error || payload.error || 'No pudimos analizar esa URL.');
-			const imported = (payload.products || []).filter((item: any) => payload.importedIds.includes(item.id));
-			setProducts(payload.products || products);
-			if (imported[0]) setSelectedProductId(imported[0].id);
-			if (onToast) onToast(`Producto "${imported[0]?.name || 'importado'}" listo para usar.`);
-			return imported[0] || null;
+			for (const raw of list) {
+				const response = await fetch('/api/creativos/products', {
+					method: 'POST',
+					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+					body: JSON.stringify({ url: raw }),
+				});
+				const payload = await response.json();
+				if (response.ok && payload.importedIds?.length) ids.push(...payload.importedIds);
+				else if (list.length === 1) throw new Error(payload.errors?.[0]?.error || payload.error || 'No pudimos analizar esa URL.');
+			}
+			if (!ids.length) throw new Error('No pudimos analizar ninguna de las URLs.');
+			return ids;
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo escanear la URL.');
-			return null;
+			return [];
 		} finally { setScanning(false); }
 	}
 
 	async function requestPlan() {
 		setPhase('planning'); setError('');
 		try {
-			// Si pegó una URL pero no la escaneó, se escanea acá mismo.
-			let productForPlan = selectedProduct;
-			if (!productForPlan && uploadFiles.length === 0 && !manualProductName.trim() && urlValue.trim()) {
-				productForPlan = await scanUrl();
-				if (!productForPlan) { setPhase('setup'); return; }
+			let productIds: string[] = [];
+			if (productMode === 'url') {
+				const list = urls.map((u) => u.trim()).filter(Boolean);
+				if (!list.length) { setError('Pegá al menos una URL.'); setPhase('setup'); return; }
+				productIds = await scanUrls(list);
+				if (!productIds.length) { setPhase('setup'); return; }
+				setScannedProductIds(productIds);
 			}
 			const form = new FormData();
 			form.set('referencePath', ad.imagePath);
 			form.set('language', language);
-			if (productForPlan) form.set('productId', productForPlan.id);
-			else if (uploadFiles.length > 0) {
-				uploadFiles.forEach(file => form.append('product', file));
-				form.set('productFacts', extra);
-			} else {
+			if (productMode === 'url' && productIds.length) {
+				form.set('productId', productIds[0]); // contexto de análisis
+			} else if (productMode === 'manual') {
+				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
-				form.set('productFacts', manualProductFacts.trim());
+				form.set('productFacts', manualProductFacts.trim() || extra);
 			}
+			// productMode === 'none' → no se manda producto
 			const response = await fetch('/api/creativos/plan', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudieron generar los textos.');
 			const analysis = payload.analysis || {};
-			if (analysis.referenceHasProduct !== false && !productForPlan && uploadFiles.length === 0 && !manualProductName.trim()) {
-				throw new Error('Este anuncio ganador muestra un producto: elegí, subí o describí el tuyo para reemplazarlo.');
+			if (analysis.referenceHasProduct !== false && productMode === 'none') {
+				throw new Error('Este anuncio ganador muestra un producto: usá una URL o carga manual para reemplazarlo.');
 			}
 			setPlan(analysis);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
@@ -156,19 +124,19 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('fidelity', '1');
 			form.set('preset', 'Fiel al ganador');
 			form.set('count', String(count));
-			form.set('quality', quality);
 			form.set('format', format);
 			form.set('language', language);
 			form.set('colorMode', colorMode);
 			form.set('typoMode', typoMode);
 			form.set('includeLogo', includeLogo ? '1' : '0');
-			if (selectedProduct) form.set('productIds', selectedProduct.id);
-			else if (uploadFiles.length > 0) {
-				uploadFiles.forEach(file => form.append('product', file));
-			} else {
+			if (productMode === 'url' && scannedProductIds.length) {
+				scannedProductIds.forEach((id) => form.append('productIds', id));
+			} else if (productMode === 'manual') {
+				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
+			// productMode === 'none' → sin producto
 			const brief = extra.trim();
 			form.set('brief', brief);
 			form.set('plan', JSON.stringify({ ...plan, textZones: zones }));
@@ -179,7 +147,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			if (payload.async && payload.batchId && onGenerationStarted) {
 				onGenerationStarted({
 					batchId: payload.batchId,
-					title: selectedProduct?.name ? `${selectedProduct.name} · ${ad.name}` : ad.name,
+					title: manualProductName.trim() ? `${manualProductName.trim()} · ${ad.name}` : ad.name,
 					referenceUrl,
 					count,
 				});
@@ -206,8 +174,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					original: zone.original,
 					current: zone.replacement,
 					messageRole: zone.messageRole,
-					productName: selectedProduct?.name || manualProductName || 'producto',
-					productFacts: selectedProduct ? `${selectedProduct.description} ${selectedProduct.price_text || ''}` : manualProductFacts,
+					productName: manualProductName || 'producto',
+					productFacts: manualProductFacts,
 					extra: extra,
 					language: language
 				})
@@ -260,178 +228,88 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						{/* 1. Producto / Servicio */}
 						<div style={{ marginBottom: '20px' }}>
 							<strong style={label}>1 · Tu producto / Servicio</strong>
-							{products.length > 0 && (
-								<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
-									{products.slice(0, 12).map((item) => (
-										<span key={item.id} style={{ position: 'relative', display: 'inline-flex' }}>
-											<button type="button" onClick={() => { setSelectedProductId(item.id === selectedProductId ? '' : item.id); setUploadFiles([]); setUploadPreviews([]); }} style={{ ...chip(selectedProductId === item.id), display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 24px 5px 5px' }}>
-												{(item.imageUrl || item.source_image_url) ? (
-													<img src={item.imageUrl || item.source_image_url} alt="" style={{ width: '26px', height: '26px', objectFit: 'cover', borderRadius: '6px' }} />
-												) : (
-													<span style={{ width: '26px', height: '26px', display: 'grid', placeItems: 'center', borderRadius: '6px', background: '#f2eef6' }}>🛍️</span>
-												)}
-												{item.name}
-											</button>
-											<button
-												type="button"
-												aria-label={`Quitar ${item.name}`}
-												onClick={async () => {
-													setProducts(products.filter((product) => product.id !== item.id));
-													if (selectedProductId === item.id) setSelectedProductId('');
-													try {
-														await fetch(`/api/creativos/products?id=${encodeURIComponent(item.id)}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
-													} catch { /* si falla, reaparece al recargar */ }
-												}}
-												style={{ position: 'absolute', top: '4px', right: '6px', width: '18px', height: '18px', border: 0, borderRadius: '50%', background: 'transparent', color: '#b0a8b8', fontSize: '13px', lineHeight: 1, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
-											>×</button>
-										</span>
-									))}
-								</div>
-							)}
-							{selectedProduct && Array.isArray(selectedProduct.images) && selectedProduct.images.length > 0 && (
-								<div style={{ margin: '4px 0 12px' }}>
-									<p style={{ margin: '0 0 7px', fontSize: '12px', color: '#716d79' }}>Fotos que se usan de “{selectedProduct.name}” — sacá las que no quieras:</p>
-									<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', opacity: photosBusy ? 0.55 : 1 }}>
-										{selectedProduct.images.map((image: any) => (
-											<span key={image.path} style={{ position: 'relative', display: 'inline-block' }}>
-												<img src={image.url} alt="" style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '10px', border: '1px solid #e2dde9', display: 'block' }} />
-												{selectedProduct.images.length > 1 && (
-													<button type="button" aria-label="Quitar foto" onClick={() => void removeProductPhoto(image.path)} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', border: 0, background: '#19171d', color: '#fff', fontSize: '12px', lineHeight: 1, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>×</button>
-												)}
-											</span>
-										))}
-										<label style={{ width: '64px', height: '64px', display: 'grid', placeItems: 'center', borderRadius: '10px', border: '1.5px dashed #c9c2d4', color: '#8b8490', fontSize: '22px', cursor: 'pointer', background: '#faf9fb' }}>
-											+
-											<input type="file" accept="image/png,image/jpeg,image/webp" multiple style={{ display: 'none' }} onChange={(event) => { void addProductPhotos(event.target.files); event.target.value = ''; }} />
-										</label>
-									</div>
-								</div>
-							)}
-							<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-								<input
-									value={urlValue}
-									onChange={(event) => {
-										setUrlValue(event.target.value);
-										if (event.target.value.trim()) {
-											setSelectedProductId('');
-											setUploadFiles([]);
-											setUploadPreviews([]);
-										}
-									}}
-									placeholder="Pegá la URL de tu producto o servicio a analizar"
-									style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14.5px' }}
-								/>
+							{/* Cómo lo cargás */}
+							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+								{([
+									{ id: 'url', text: '🔗 Con URL' },
+									{ id: 'manual', text: '✍️ Cargar a mano' },
+									{ id: 'none', text: '🚫 Sin producto' },
+								] as const).map((m) => (
+									<button key={m.id} type="button" onClick={() => setProductMode(m.id)}
+										style={{
+											padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 700,
+											border: productMode === m.id ? '1.5px solid #a98bff' : '1px solid #e7e1f0',
+											background: productMode === m.id ? '#f4f0ff' : '#fff',
+											color: productMode === m.id ? '#5b3fc4' : '#6f6a77',
+										}}>{m.text}</button>
+								))}
 							</div>
 
-							{selectedProduct && (selectedProduct.imageUrls || selectedProduct.imageUrl) && (
-								<div style={{ marginTop: '12px' }}>
-									<span style={{ fontSize: '12.5px', fontWeight: 700, color: '#716d79', display: 'block', marginBottom: '8px' }}>
-										Imágenes del producto detectadas:
-									</span>
-									<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-										{(selectedProduct.imageUrls || [selectedProduct.imageUrl || selectedProduct.source_image_url]).filter(Boolean).map((imgUrl: string, idx: number) => (
-											<div key={idx} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #744bde', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-												<img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-											</div>
-										))}
-									</div>
-								</div>
-							)}
-
-							<div style={{ marginTop: '12px' }}>
-								<button
-									type="button"
-									onClick={() => setShowManualDesc(!showManualDesc)}
-									style={{
-										width: '100%',
-										boxSizing: 'border-box',
-										background: showManualDesc ? '#f4f0ff' : '#fff',
-										border: `1.5px dashed ${showManualDesc ? '#a98bff' : '#d8d0e6'}`,
-										color: '#5b3fc4',
-										fontSize: '13.5px',
-										fontWeight: 700,
-										cursor: 'pointer',
-										display: 'flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										gap: '8px',
-										padding: '11px 14px',
-										borderRadius: '11px',
-										whiteSpace: 'nowrap',
-										overflow: 'hidden',
-										textOverflow: 'ellipsis'
-									}}
-								>
-									{showManualDesc ? '✕ Prefiero pegar la URL' : '📷 O cargá fotos y describilo a mano'}
-								</button>
-
-								{showManualDesc && (
-									<div style={{ 
-										marginTop: '12px', 
-										padding: '16px', 
-										background: '#fcfbfe', 
-										border: '1px dashed #dcd2ff', 
-										borderRadius: '12px',
-										display: 'flex',
-										flexDirection: 'column',
-										gap: '12px'
-									}}>
-										<div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-											<span style={{ fontSize: '12.5px', fontWeight: 700, color: '#716d79' }}>Imágenes del producto:</span>
-											<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', color: '#744bde', width: 'fit-content' }}>
-												📸 Cargar imágenes de producto...
-												<input 
-													type="file" 
-													accept="image/png,image/jpeg,image/webp" 
-													multiple 
-													style={{ display: 'none' }} 
-													onChange={(event) => {
-														const files = event.target.files ? Array.from(event.target.files) : [];
-														setUploadFiles(files);
-														setSelectedProductId('');
-														setUrlValue('');
-														setUploadPreviews(files.map(f => URL.createObjectURL(f)));
-													}} 
-												/>
-											</label>
-											{uploadPreviews.length > 0 && (
-												<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-													{uploadPreviews.map((preview, idx) => (
-														<div key={idx} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2dde9' }}>
-															<img src={preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-														</div>
-													))}
-												</div>
+							{productMode === 'url' && (
+								<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+									{urls.map((u, i) => (
+										<div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+											<input value={u}
+												onChange={(e) => setUrls((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
+												placeholder="Pegá la URL de tu producto o servicio a analizar"
+												style={{ flex: 1, boxSizing: 'border-box', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14.5px' }} />
+											{urls.length > 1 && (
+												<button type="button" aria-label="Quitar URL" onClick={() => setUrls((prev) => prev.filter((_, j) => j !== i))}
+													style={{ width: '38px', height: '38px', borderRadius: '9px', border: '1px solid #e2dde9', background: '#fff', color: '#b0a8b8', cursor: 'pointer', fontSize: '17px', flexShrink: 0 }}>×</button>
 											)}
 										</div>
-										
-										<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-											<input
-												value={manualProductName}
-												onChange={(e) => {
-													setManualProductName(e.target.value);
-													if (e.target.value.trim()) {
-														setSelectedProductId('');
-														setUrlValue('');
-													}
-												}}
-												placeholder="Nombre del servicio o producto..."
-												style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }}
-											/>
-											<textarea
-												value={manualProductFacts}
-												onChange={(e) => setManualProductFacts(e.target.value)}
-												placeholder="Descripción de tu producto, servicio, beneficios o características especiales..."
-												rows={3}
-												style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }}
-											/>
-										</div>
+									))}
+									<button type="button" onClick={() => setUrls((prev) => [...prev, ''])}
+										style={{ alignSelf: 'flex-start', padding: '7px 13px', borderRadius: '9px', border: '1px dashed #cbb8f0', background: '#faf8ff', color: '#5b3fc4', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>
+										+ Agregar otra URL (otro producto)
+									</button>
+								</div>
+							)}
+
+							{productMode === 'manual' && (
+								<div style={{ padding: '16px', background: '#fcfbfe', border: '1px dashed #dcd2ff', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+										<span style={{ fontSize: '12.5px', fontWeight: 700, color: '#716d79' }}>Fotos del producto:</span>
+										<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', color: '#744bde', width: 'fit-content' }}>
+											📸 Cargar fotos...
+											<input type="file" accept="image/png,image/jpeg,image/webp" multiple style={{ display: 'none' }}
+												onChange={(event) => {
+													const files = event.target.files ? Array.from(event.target.files) : [];
+													setUploadFiles((prev) => [...prev, ...files]);
+													setUploadPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
+													event.target.value = '';
+												}} />
+										</label>
+										{uploadPreviews.length > 0 && (
+											<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+												{uploadPreviews.map((preview, idx) => (
+													<span key={idx} style={{ position: 'relative', display: 'inline-block' }}>
+														<img src={preview} alt="" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2dde9', display: 'block' }} />
+														<button type="button" aria-label="Quitar foto" onClick={() => { setUploadFiles((prev) => prev.filter((_, j) => j !== idx)); setUploadPreviews((prev) => prev.filter((_, j) => j !== idx)); }}
+															style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', border: 0, background: '#19171d', color: '#fff', fontSize: '12px', lineHeight: 1, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>×</button>
+													</span>
+												))}
+											</div>
+										)}
 									</div>
-								)}
-							</div>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+										<input value={manualProductName} onChange={(e) => setManualProductName(e.target.value)} placeholder="Nombre del servicio o producto..."
+											style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }} />
+										<textarea value={manualProductFacts} onChange={(e) => setManualProductFacts(e.target.value)} rows={3}
+											placeholder="Descripción de tu producto, servicio, beneficios o características especiales..."
+											style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }} />
+									</div>
+								</div>
+							)}
+
+							{productMode === 'none' && (
+								<p style={{ margin: '2px 0 0', fontSize: '13px', color: '#716d79', lineHeight: 1.5 }}>
+									Se recrea el diseño del ganador sin reemplazar ningún producto (ideal para anuncios de texto, servicios o lifestyle).
+								</p>
+							)}
 						</div>
 
-						{/* 2. Formato */}
+												{/* 2. Formato */}
 						<div style={{ marginBottom: '20px' }}>
 							<strong style={label}>2 · Formato</strong>
 							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -516,14 +394,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										<button type="button" onClick={() => setTypoMode('brand')} style={chip(typoMode === 'brand')}>De mi marca</button>
 									</div>
 								</div>
-								<div>
-									<p style={{ margin: '0 0 4px', fontSize: '12px', color: '#716d79' }}>Logo de mi marca</p>
-									<div style={{ display: 'flex', gap: '8px' }}>
-										<button type="button" onClick={() => setIncludeLogo(false)} style={chip(!includeLogo)}>Sin logo</button>
-										<button type="button" onClick={() => setIncludeLogo(true)} style={chip(includeLogo)}>Incluir logo</button>
-									</div>
-								</div>
 							</div>
+							<p style={{ margin: '8px 0 0', fontSize: '11.5px', color: '#8b8490' }}>Si el anuncio ganador tiene un logo, en el paso de revisión te vamos a preguntar si querés poner el tuyo.</p>
 						</div>
 
 						{/* 5. Cantidad de variantes */}
@@ -546,45 +418,14 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									</button>
 								))}
 								<span style={{ fontSize: '13px', color: '#716d79', marginLeft: '8px', fontWeight: 600 }}>
-									{(() => { const t = count * (quality === 'pro' ? 3 : 1); return t === 1 ? 'Usa 1 crédito' : `Usa ${t} créditos`; })()}
+									{count === 1 ? 'Usa 1 crédito' : `Usa ${count} créditos`}
 								</span>
 							</div>
 						</div>
 
-						{/* 6. Calidad de generación */}
+						{/* 6. Indicación extra */}
 						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>6 · Calidad</strong>
-							<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-								<button
-									type="button"
-									onClick={() => setQuality('flash')}
-									style={{
-										textAlign: 'left', padding: '13px 15px', borderRadius: '12px', cursor: 'pointer',
-										border: quality === 'flash' ? '2px solid #744bde' : '1px solid #e2dde9',
-										background: quality === 'flash' ? '#f4f2f6' : '#fff',
-									}}
-								>
-									<span style={{ display: 'block', fontSize: '14px', fontWeight: 800, color: '#19171d' }}>Estándar</span>
-									<span style={{ display: 'block', fontSize: '12px', color: '#716d79', marginTop: '3px' }}>Rápida y excelente · 1 crédito por imagen</span>
-								</button>
-								<button
-									type="button"
-									onClick={() => setQuality('pro')}
-									style={{
-										textAlign: 'left', padding: '13px 15px', borderRadius: '12px', cursor: 'pointer',
-										border: quality === 'pro' ? '2px solid #744bde' : '1px solid #e2dde9',
-										background: quality === 'pro' ? '#f4f2f6' : '#fff',
-									}}
-								>
-									<span style={{ display: 'block', fontSize: '14px', fontWeight: 800, color: '#19171d' }}>Pro ✦</span>
-									<span style={{ display: 'block', fontSize: '12px', color: '#716d79', marginTop: '3px' }}>Máximo realismo y texto más nítido · 3 créditos por imagen</span>
-								</button>
-							</div>
-						</div>
-
-						{/* 7. Indicación extra */}
-						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>7 · Indicación extra (opcional)</strong>
+							<strong style={label}>6 · Indicación extra (opcional)</strong>
 							<textarea
 								value={extra}
 								onChange={(event) => setExtra(event.target.value)}
@@ -736,7 +577,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								className="studio-primary-button"
 								style={{ flex: 1, height: '52px', background: '#744bde', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'starting' ? 0.6 : 1 }}
 							>
-								{phase === 'starting' ? 'Iniciando generación…' : (() => { const t = count * (quality === 'pro' ? 3 : 1); return `Aprobar y generar ✓ · ${t} ${t === 1 ? 'crédito' : 'créditos'}`; })()}
+								{phase === 'starting' ? 'Iniciando generación…' : `Aprobar y generar ✓ · ${count} ${count === 1 ? 'crédito' : 'créditos'}`}
 							</button>
 						</div>
 					</>}
