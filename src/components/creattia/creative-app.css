@@ -2423,7 +2423,7 @@
 	color: #5b5561;
 	font-size: 14px;
 	font-weight: 700;
-	font-family: inherit;
+	font-family: 'Satoshi', 'Inter Variable', Inter, sans-serif;
 	text-align: left;
 	cursor: pointer;
 	transition: background .14s ease;
