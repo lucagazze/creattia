@@ -2509,30 +2509,23 @@
 }
 @keyframes niche-dd-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 .niche-dd-item {
-	display: flex; align-items: center; justify-content: space-between; gap: 10px;
-	width: 100%; padding: 10px 12px; border: 0; border-radius: 10px; cursor: pointer;
+	display: flex; align-items: center; gap: 9px;
+	width: 100%; padding: 10px 11px; border: 0; border-radius: 10px; cursor: pointer;
 	background: transparent; color: #3f3a48; font-family: inherit; font-size: 13.5px; font-weight: 600; text-align: left;
 	transition: background .12s ease, color .12s ease;
 }
+.niche-dd-check { flex-shrink: 0; width: 14px; text-align: center; color: #6f38dd; font-weight: 900; font-size: 12px; }
+.niche-dd-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .niche-dd-item:hover { background: #f6f2fc; }
-.niche-dd-item.is-active { background: #6f38dd; color: #fff; }
+.niche-dd-item.is-active { background: #f2ecfd; color: #5b2fc9; font-weight: 700; }
 .niche-dd-count {
 	font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
 	background: #f0ecf7; color: #6f6a77; font-variant-numeric: tabular-nums;
 }
-.niche-dd-item:hover .niche-dd-count { background: #e7dffa; color: #5b2fc9; }
-.niche-dd-item.is-active .niche-dd-count { background: rgba(255,255,255,0.22); color: #fff; }
+.niche-dd-item:hover .niche-dd-count,
+.niche-dd-item.is-active .niche-dd-count { background: #e7dffa; color: #5b2fc9; }
 .niche-dd-menu::-webkit-scrollbar { width: 8px; }
 .niche-dd-menu::-webkit-scrollbar-thumb { background: #e2dcec; border-radius: 8px; }
-@media (prefers-color-scheme: dark) {
-	.niche-dd-trigger { background: #221d29; border-color: #3a3243; color: #ece7f2; }
-	.niche-dd-trigger:hover { border-color: #4a3f57; }
-	.niche-dd-badge { background: #322a3d; color: #c3a9f0; }
-	.niche-dd-menu { background: #201b28; border-color: #3a3243; box-shadow: 0 18px 50px rgba(0,0,0,0.5); }
-	.niche-dd-item { color: #cfc7d8; }
-	.niche-dd-item:hover { background: #2a2333; }
-	.niche-dd-count { background: #322a3d; color: #b3a9c2; }
-}
 
 /* Preloader con la mascota saludando */
 .moki-loader { position: relative; width: 96px; height: 96px; display: grid; place-items: center; }

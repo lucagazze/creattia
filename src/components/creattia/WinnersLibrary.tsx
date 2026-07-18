@@ -854,24 +854,33 @@ export default function WinnersLibrary({
 
 					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
 						<button type="button" className="niche-dd-trigger" onClick={() => setShowNicheMenu((v) => !v)}>
-							<span className="niche-dd-label">{selectedNiches.includes('todos') || !selectedNiches.length ? 'Todos los nichos' : (nicheLabels[selectedNiches[0]] || selectedNiches[0])}</span>
-							<span className="niche-dd-badge">{selectedNiches.includes('todos') || !selectedNiches.length ? items.length : (nicheCounts[selectedNiches[0]] || 0)}</span>
+							<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Todos los nichos' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
+							<span className="niche-dd-badge">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? items.length : a.reduce((s, x) => s + (nicheCounts[x] || 0), 0); })()}</span>
 							<span className={`niche-dd-caret${showNicheMenu ? ' is-open' : ''}`}>▾</span>
 						</button>
 						{showNicheMenu && (
 							<div className="niche-dd-menu">
-								<button type="button" className={`niche-dd-item${selectedNiches.includes('todos') || !selectedNiches.length ? ' is-active' : ''}`} onClick={() => { setSelectedNiches(['todos']); setShowNicheMenu(false); }}>
-									<span>Todos los nichos</span><span className="niche-dd-count">{items.length}</span>
+								<button type="button" className={`niche-dd-item${selectedNiches.includes('todos') || !selectedNiches.length ? ' is-active' : ''}`} onClick={() => setSelectedNiches(['todos'])}>
+									<span className="niche-dd-check">{selectedNiches.includes('todos') || !selectedNiches.length ? '✓' : ''}</span>
+									<span className="niche-dd-name">Todos los nichos</span><span className="niche-dd-count">{items.length}</span>
 								</button>
-								{availableNiches.map((niche) => (
-									<button type="button" key={niche} className={`niche-dd-item${selectedNiches.includes(niche) ? ' is-active' : ''}`} onClick={() => { setSelectedNiches([niche]); setShowNicheMenu(false); }}>
-										<span>{nicheLabels[niche] || niche}</span><span className="niche-dd-count">{nicheCounts[niche]}</span>
-									</button>
-								))}
+								{availableNiches.map((niche) => {
+									const active = selectedNiches.includes(niche);
+									return (
+										<button type="button" key={niche} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => {
+											let next = selectedNiches.filter((x) => x !== 'todos');
+											if (next.includes(niche)) next = next.filter((x) => x !== niche); else next.push(niche);
+											setSelectedNiches(next.length ? next : ['todos']);
+										}}>
+											<span className="niche-dd-check">{active ? '✓' : ''}</span>
+											<span className="niche-dd-name">{nicheLabels[niche] || niche}</span><span className="niche-dd-count">{nicheCounts[niche]}</span>
+										</button>
+									);
+								})}
 							</div>
 						)}
 					</div>
-					<button onClick={() => setSavedOnly((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', height: '42px', borderRadius: '21px', border: '1px solid', borderColor: savedOnly ? '#e0a4c2' : '#dcd5e4', background: savedOnly ? '#fdeef5' : '#fff', color: savedOnly ? '#c2276f' : '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>♥ Guardados</button>
+					<button onClick={() => setSavedOnly((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', height: '42px', borderRadius: '21px', border: '1px solid', borderColor: savedOnly ? '#f0b3c6' : '#dcd5e4', background: savedOnly ? '#fdeef5' : '#fff', color: savedOnly ? '#c2276f' : '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ color: '#e5313f', fontSize: '15px' }}>♥</span> Guardados</button>
 
 				<span style={{ fontSize: '13px', color: '#8b8490', marginLeft: 'auto' }}>{filteredItems.length} ganadores encontrados</span>
 			</div>
