@@ -222,6 +222,14 @@ export default function WinnersLibrary({
 
 	const [selectedNiches, setSelectedNiches] = useState<string[]>(['todos']);
 	const [savedOnly, setSavedOnly] = useState(false);
+	const [showNicheMenu, setShowNicheMenu] = useState(false);
+
+	useEffect(() => {
+		if (!showNicheMenu) return;
+		const close = () => setShowNicheMenu(false);
+		window.addEventListener('click', close);
+		return () => window.removeEventListener('click', close);
+	}, [showNicheMenu]);
 
 	const getFallbackImage = (templateId: number) => {
 		const numStr = String(templateId).padStart(2, '0');
@@ -844,35 +852,29 @@ export default function WinnersLibrary({
 					/>
 				</label>
 
+					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
+						<button type="button" className="niche-dd-trigger" onClick={() => setShowNicheMenu((v) => !v)}>
+							<span className="niche-dd-label">{selectedNiches.includes('todos') || !selectedNiches.length ? 'Todos los nichos' : (nicheLabels[selectedNiches[0]] || selectedNiches[0])}</span>
+							<span className="niche-dd-badge">{selectedNiches.includes('todos') || !selectedNiches.length ? items.length : (nicheCounts[selectedNiches[0]] || 0)}</span>
+							<span className={`niche-dd-caret${showNicheMenu ? ' is-open' : ''}`}>▾</span>
+						</button>
+						{showNicheMenu && (
+							<div className="niche-dd-menu">
+								<button type="button" className={`niche-dd-item${selectedNiches.includes('todos') || !selectedNiches.length ? ' is-active' : ''}`} onClick={() => { setSelectedNiches(['todos']); setShowNicheMenu(false); }}>
+									<span>Todos los nichos</span><span className="niche-dd-count">{items.length}</span>
+								</button>
+								{availableNiches.map((niche) => (
+									<button type="button" key={niche} className={`niche-dd-item${selectedNiches.includes(niche) ? ' is-active' : ''}`} onClick={() => { setSelectedNiches([niche]); setShowNicheMenu(false); }}>
+										<span>{nicheLabels[niche] || niche}</span><span className="niche-dd-count">{nicheCounts[niche]}</span>
+									</button>
+								))}
+							</div>
+						)}
+					</div>
 					<button onClick={() => setSavedOnly((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', height: '42px', borderRadius: '21px', border: '1px solid', borderColor: savedOnly ? '#e0a4c2' : '#dcd5e4', background: savedOnly ? '#fdeef5' : '#fff', color: savedOnly ? '#c2276f' : '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>♥ Guardados</button>
 
 				<span style={{ fontSize: '13px', color: '#8b8490', marginLeft: 'auto' }}>{filteredItems.length} ganadores encontrados</span>
 			</div>
-
-				{availableNiches.length > 0 && (
-					<div className="niche-pills">
-						<button type="button" className={`niche-pill${selectedNiches.includes('todos') ? ' is-active' : ''}`} onClick={() => setSelectedNiches(['todos'])}>
-							Todos <span className="niche-pill-count">{items.length}</span>
-						</button>
-						{availableNiches.map((niche) => {
-							const active = selectedNiches.includes(niche);
-							return (
-								<button
-									type="button"
-									key={niche}
-									className={`niche-pill${active ? ' is-active' : ''}`}
-									onClick={() => {
-										let next = selectedNiches.filter((x) => x !== 'todos');
-										if (next.includes(niche)) next = next.filter((x) => x !== niche); else next.push(niche);
-										setSelectedNiches(next.length ? next : ['todos']);
-									}}
-								>
-									{nicheLabels[niche] || niche} <span className="niche-pill-count">{nicheCounts[niche]}</span>
-								</button>
-							);
-						})}
-					</div>
-				)}
 
 			{loading ? (
 				<div className="studio-boot" style={{ minHeight: '300px', background: 'transparent' }}>
@@ -890,8 +892,8 @@ export default function WinnersLibrary({
 				<div className="studio-empty large">
 					<Icon name="search" size={40} />
 					<h3>No encontramos anuncios</h3>
-					<p>Probá cambiando la categoría o la palabra clave de búsqueda.</p>
-					<button onClick={() => { setSelectedCategories(['todos']); setSelectedNiches(['todos']); setQuery(''); }}>Limpiar filtros</button>
+					<p>Probá cambiando el nicho o la palabra clave de búsqueda.</p>
+					<button onClick={() => { setSelectedNiches(['todos']); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
 				<div ref={gridRef} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>

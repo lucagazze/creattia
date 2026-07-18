@@ -2485,26 +2485,53 @@
 	.studio-section-title { align-items: center; gap: 12px; margin-top: 4px; }
 }
 
-/* Filtro de nichos: pills con contador */
-.niche-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 1px 20px; }
-.niche-pill {
-	display: inline-flex; align-items: center; gap: 7px;
-	padding: 7px 13px; border-radius: 999px; cursor: pointer;
-	border: 1px solid #e3ddec; background: #fff; color: #4b4452;
-	font-size: 13px; font-weight: 650; font-family: inherit; line-height: 1;
-	transition: border-color .15s ease, background .15s ease, color .15s ease;
+/* Filtro de nichos: desplegable */
+.niche-dd { position: relative; }
+.niche-dd-trigger {
+	display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 15px;
+	border-radius: 21px; border: 1px solid #dcd5e4; background: #fff; cursor: pointer;
+	font-family: inherit; font-size: 13.5px; font-weight: 700; color: #19171d;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.02); transition: border-color .15s ease, box-shadow .15s ease;
 }
-.niche-pill:hover { border-color: #c9bce6; background: #faf8ff; }
-.niche-pill.is-active { background: #6f38dd; border-color: #6f38dd; color: #fff; }
-.niche-pill-count {
-	font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px;
+.niche-dd-trigger:hover { border-color: #c9bce6; }
+.niche-dd-label { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.niche-dd-badge {
+	font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+	background: #efeafb; color: #6f38dd; font-variant-numeric: tabular-nums;
+}
+.niche-dd-caret { font-size: 10px; color: #8b8490; transition: transform .18s ease; }
+.niche-dd-caret.is-open { transform: rotate(180deg); }
+.niche-dd-menu {
+	position: absolute; top: 50px; left: 0; z-index: 130; width: 288px; max-height: 380px; overflow-y: auto;
+	background: #fff; border: 1px solid #ece7f2; border-radius: 16px; padding: 7px;
+	box-shadow: 0 18px 50px rgba(52,40,79,0.20); display: flex; flex-direction: column; gap: 1px;
+	animation: niche-dd-in .14s ease;
+}
+@keyframes niche-dd-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.niche-dd-item {
+	display: flex; align-items: center; justify-content: space-between; gap: 10px;
+	width: 100%; padding: 10px 12px; border: 0; border-radius: 10px; cursor: pointer;
+	background: transparent; color: #3f3a48; font-family: inherit; font-size: 13.5px; font-weight: 600; text-align: left;
+	transition: background .12s ease, color .12s ease;
+}
+.niche-dd-item:hover { background: #f6f2fc; }
+.niche-dd-item.is-active { background: #6f38dd; color: #fff; }
+.niche-dd-count {
+	font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
 	background: #f0ecf7; color: #6f6a77; font-variant-numeric: tabular-nums;
 }
-.niche-pill.is-active .niche-pill-count { background: rgba(255,255,255,0.22); color: #fff; }
+.niche-dd-item:hover .niche-dd-count { background: #e7dffa; color: #5b2fc9; }
+.niche-dd-item.is-active .niche-dd-count { background: rgba(255,255,255,0.22); color: #fff; }
+.niche-dd-menu::-webkit-scrollbar { width: 8px; }
+.niche-dd-menu::-webkit-scrollbar-thumb { background: #e2dcec; border-radius: 8px; }
 @media (prefers-color-scheme: dark) {
-	.niche-pill { background: #221d29; border-color: #3a3243; color: #cfc7d8; }
-	.niche-pill:hover { background: #2a2333; border-color: #4a3f57; }
-	.niche-pill-count { background: #322a3d; color: #b3a9c2; }
+	.niche-dd-trigger { background: #221d29; border-color: #3a3243; color: #ece7f2; }
+	.niche-dd-trigger:hover { border-color: #4a3f57; }
+	.niche-dd-badge { background: #322a3d; color: #c3a9f0; }
+	.niche-dd-menu { background: #201b28; border-color: #3a3243; box-shadow: 0 18px 50px rgba(0,0,0,0.5); }
+	.niche-dd-item { color: #cfc7d8; }
+	.niche-dd-item:hover { background: #2a2333; }
+	.niche-dd-count { background: #322a3d; color: #b3a9c2; }
 }
 
 /* Preloader con la mascota saludando */
