@@ -165,7 +165,7 @@ async function fetchNiche(niche, token) {
     await new Promise(r => setTimeout(r, 1100));
   }
   collected.sort((a, b) => b._score - a._score);          // mejores primero (likes + escalado)
-  return collected.slice(0, PER_NICHE);
+  return collected;                                        // pool completo ordenado (el main toma los PER_NICHE nuevos)
 }
 
 async function main() {
@@ -179,11 +179,13 @@ async function main() {
     if (data) manifest = JSON.parse(await data.text());
     console.log(`📦 Manifest actual: ${manifest.items.length} anuncios`);
   } catch { console.log('📦 Empiezo de cero'); }
-  // Idempotencia: sacar lo que puso una corrida previa de ESTE script (para re-rankear limpio)
-  const beforeDrop = manifest.items.length;
-  manifest.items = manifest.items.filter((i) => i.metadata?.batch !== 'foreplay-v6');
-  if (beforeDrop !== manifest.items.length) console.log(`   ♻️ quité ${beforeDrop - manifest.items.length} de una corrida previa`);
-  await admin.from('creative_references').delete().eq('metadata->>batch', 'foreplay-v6');
+  // Idempotencia: por defecto re-rankea limpio; con FP_KEEP la corrida es ADITIVA (no borra lo previo).
+  if (!process.env.FP_KEEP) {
+    const beforeDrop = manifest.items.length;
+    manifest.items = manifest.items.filter((i) => i.metadata?.batch !== 'foreplay-v6');
+    if (beforeDrop !== manifest.items.length) console.log(`   ♻️ quité ${beforeDrop - manifest.items.length} de una corrida previa`);
+    await admin.from('creative_references').delete().eq('metadata->>batch', 'foreplay-v6');
+  }
   const existingPaths = new Set(manifest.items.map(i => i.imagePath));
 
   console.log('🔑 Login...');
@@ -240,6 +242,7 @@ async function main() {
       manifest.items.push(item);
       added.push(item);
       saved++;
+      if (saved >= PER_NICHE) break;   // ya juntamos los N nuevos de este nicho
     }
     perNicheCount[niche] = saved;
     process.stdout.write(`   → guardados ${saved} nuevos\n`);
