@@ -2484,3 +2484,52 @@
 	.discover-create-short { display: inline; }
 	.studio-section-title { align-items: center; gap: 12px; margin-top: 4px; }
 }
+
+/* Filtro de nichos: pills con contador */
+.niche-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 1px 20px; }
+.niche-pill {
+	display: inline-flex; align-items: center; gap: 7px;
+	padding: 7px 13px; border-radius: 999px; cursor: pointer;
+	border: 1px solid #e3ddec; background: #fff; color: #4b4452;
+	font-size: 13px; font-weight: 650; font-family: inherit; line-height: 1;
+	transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.niche-pill:hover { border-color: #c9bce6; background: #faf8ff; }
+.niche-pill.is-active { background: #6f38dd; border-color: #6f38dd; color: #fff; }
+.niche-pill-count {
+	font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px;
+	background: #f0ecf7; color: #6f6a77; font-variant-numeric: tabular-nums;
+}
+.niche-pill.is-active .niche-pill-count { background: rgba(255,255,255,0.22); color: #fff; }
+@media (prefers-color-scheme: dark) {
+	.niche-pill { background: #221d29; border-color: #3a3243; color: #cfc7d8; }
+	.niche-pill:hover { background: #2a2333; border-color: #4a3f57; }
+	.niche-pill-count { background: #322a3d; color: #b3a9c2; }
+}
+
+/* Preloader con la mascota saludando */
+.moki-loader { position: relative; width: 96px; height: 96px; display: grid; place-items: center; }
+.moki-loader::after {
+	content: ''; position: absolute; bottom: 6px; width: 58px; height: 12px; border-radius: 50%;
+	background: rgba(111,56,221,0.18); filter: blur(4px); animation: moki-shadow 1.4s ease-in-out infinite;
+}
+.moki-loader img {
+	width: 76px; height: 76px; object-fit: contain; transform-origin: 50% 90%;
+	animation: moki-wave 1.4s ease-in-out infinite;
+	filter: drop-shadow(0 8px 18px rgba(111,56,221,0.22));
+}
+@keyframes moki-wave {
+	0%, 100% { transform: translateY(0) rotate(-7deg); }
+	25% { transform: translateY(-9px) rotate(6deg); }
+	50% { transform: translateY(0) rotate(-4deg); }
+	75% { transform: translateY(-5px) rotate(7deg); }
+}
+@keyframes moki-shadow {
+	0%, 100% { transform: scaleX(1); opacity: 0.9; }
+	25% { transform: scaleX(0.72); opacity: 0.5; }
+	50% { transform: scaleX(1); opacity: 0.9; }
+	75% { transform: scaleX(0.82); opacity: 0.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.moki-loader img, .moki-loader::after { animation: none; }
+}

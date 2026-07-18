@@ -220,10 +220,8 @@ export default function WinnersLibrary({
 	const [error, setError] = useState('');
 	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
-	const [selectedCategories, setSelectedCategories] = useState<string[]>(['todos']);
 	const [selectedNiches, setSelectedNiches] = useState<string[]>(['todos']);
-	const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-	const [showNicheDropdown, setShowNicheDropdown] = useState(false);
+	const [savedOnly, setSavedOnly] = useState(false);
 
 	useEffect(() => {
 		const close = () => {
@@ -673,39 +671,24 @@ export default function WinnersLibrary({
 		}
 	}, [preselectedWinnerPath, items]);
 
-	// Extract unique niches
-	const availableNiches = useMemo(() => {
-		const nichesSet = new Set<string>();
+	// Nichos disponibles + cuántos ganadores hay en cada uno
+	const nicheCounts = useMemo(() => {
+		const m: Record<string, number> = {};
 		items.forEach(item => {
-			if (item.metadata?.foreplayNiches && Array.isArray(item.metadata.foreplayNiches)) {
-				item.metadata.foreplayNiches.forEach((n: string) => {
-					if (n && n.trim()) nichesSet.add(n.trim());
-				});
-			}
+			const ns = item.metadata?.foreplayNiches;
+			if (Array.isArray(ns)) ns.forEach((n: string) => { const k = (n || '').trim(); if (k) m[k] = (m[k] || 0) + 1; });
 		});
-		return ['todos', ...Array.from(nichesSet).sort()];
+		return m;
 	}, [items]);
+	const availableNiches = useMemo(() => Object.keys(nicheCounts).sort((a, b) => nicheCounts[b] - nicheCounts[a]), [nicheCounts]);
 
 	// Filter items
 	const filteredItems = useMemo(() => {
 		return items.filter(item => {
-			// Category filter
-			let matchesCategory = false;
-			if (selectedCategories.includes('todos') || selectedCategories.length === 0) {
-				matchesCategory = true;
-			} else {
-				for (const cat of selectedCategories) {
-					if (cat === 'guardados') {
-						const isSaved = item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
-						if (isSaved) {
-							matchesCategory = true;
-							break;
-						}
-					} else if (item.category === cat) {
-						matchesCategory = true;
-						break;
-					}
-				}
+			// Guardados
+			if (savedOnly) {
+				const isSaved = item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
+				if (!isSaved) return false;
 			}
 
 			// Niche filter
@@ -724,19 +707,18 @@ export default function WinnersLibrary({
 
 			// Search query filter
 			const search = query.toLowerCase().trim();
-			const matchesSearch = !search || 
-				item.name.toLowerCase().includes(search) || 
+			const matchesSearch = !search ||
+				item.name.toLowerCase().includes(search) ||
 				(item.promptNotes || '').toLowerCase().includes(search) ||
-				(item.categoryLeaf || '').toLowerCase().includes(search) ||
 				(item.tags || []).some(t => t.toLowerCase().includes(search));
 
-			return matchesCategory && matchesNiche && matchesSearch;
+			return matchesNiche && matchesSearch;
 		});
-	}, [items, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedNiches, query, likedScrapedPaths, favorites]);
 
 	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(30);
-	useEffect(() => { setVisibleCount(30); }, [selectedCategories, selectedNiches, query]);
+	useEffect(() => { setVisibleCount(30); }, [savedOnly, selectedNiches, query]);
 	const gridRef = React.useRef<HTMLDivElement | null>(null);
 	const [columnCount, setColumnCount] = useState(4);
 	useEffect(() => {
@@ -1037,9 +1019,34 @@ export default function WinnersLibrary({
 				<span style={{ fontSize: '13px', color: '#8b8490', marginLeft: 'auto' }}>{filteredItems.length} ganadores encontrados</span>
 			</div>
 
+				{availableNiches.length > 0 && (
+					<div className="niche-pills">
+						<button type="button" className={`niche-pill${selectedNiches.includes('todos') ? ' is-active' : ''}`} onClick={() => setSelectedNiches(['todos'])}>
+							Todos <span className="niche-pill-count">{items.length}</span>
+						</button>
+						{availableNiches.map((niche) => {
+							const active = selectedNiches.includes(niche);
+							return (
+								<button
+									type="button"
+									key={niche}
+									className={`niche-pill${active ? ' is-active' : ''}`}
+									onClick={() => {
+										let next = selectedNiches.filter((x) => x !== 'todos');
+										if (next.includes(niche)) next = next.filter((x) => x !== niche); else next.push(niche);
+										setSelectedNiches(next.length ? next : ['todos']);
+									}}
+								>
+									{nicheLabels[niche] || niche} <span className="niche-pill-count">{nicheCounts[niche]}</span>
+								</button>
+							);
+						})}
+					</div>
+				)}
+
 			{loading ? (
 				<div className="studio-boot" style={{ minHeight: '300px', background: 'transparent' }}>
-					<span className="studio-spinner" />
+					<span className="moki-loader"><img src="/images/creattia/moki-mascot.webp" alt="" /></span>
 					<p>Cargando anuncios ganadores...</p>
 				</div>
 			) : error ? (

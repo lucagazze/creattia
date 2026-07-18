@@ -1019,7 +1019,7 @@ export default function CreativeApp() {
 		const interval = window.setInterval(() => { void poll(); }, 5000);
 		return () => { cancelled = true; window.clearInterval(interval); };
 	}, [activeBatch?.batchId, activeBatch?.status]);
-	if (booting || (session && accountLoading)) return <div className="studio-boot"><span className="studio-spinner"/><p>Preparando tu estudio…</p></div>;
+	if (booting || (session && accountLoading)) return <div className="studio-boot"><span className="moki-loader"><img src="/images/creattia/moki-mascot.webp" alt="" /></span><p>Preparando tu estudio…</p></div>;
 	if (!session) return <AuthScreen onSession={(nextSession) => { setAccountLoading(true); setSession(nextSession); }} />;
 	if (accountError) return <AccountSetupError message={accountError} onRetry={() => window.location.reload()} onLogout={logout} />;
 		const navItems: Array<{ id: View; label: string; icon: string }> = [
