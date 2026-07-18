@@ -17,7 +17,7 @@ const EMAIL = 'lucagazze10@gmail.com';
 const PASSWORD = 'Lucagazze2000-';
 const PER_NICHE = Number(process.env.FP_PER || 30);
 const POOL_PER_NICHE = Number(process.env.FP_POOL || 80); // candidatos antes de quedarnos con los mejores
-const RUNTIME_MIN = 31;         // días mínimos corriendo
+const RUNTIME_MIN = Number(process.env.FP_RUNTIME || 31); // días mínimos corriendo
 const IMAGES_DIR = resolve('./public/scraped_ads/images');
 const MANIFEST_PATH = resolve('./public/scraped_ads/manifest.json');
 
