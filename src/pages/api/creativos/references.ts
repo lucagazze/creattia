@@ -146,14 +146,41 @@ export const DELETE: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	try {
-		const urlParams = new URL(request.url).searchParams;
-		const imagePath = urlParams.get('imagePath') || '';
-		if (!imagePath) return json({ error: 'imagePath inválida.' }, 400);
+		let imagePathsToDelete: string[] = [];
 
-		// 1. Delete image file from Storage
-		await admin.storage.from('creative-references').remove([imagePath]);
+		// 1. Extraer desde parámetros de URL
+		try {
+			const urlObj = new URL(request.url);
+			const paramSingle = urlObj.searchParams.get('imagePath');
+			const paramMulti = urlObj.searchParams.getAll('imagePath');
+			if (paramMulti && paramMulti.length > 0) imagePathsToDelete.push(...paramMulti);
+			else if (paramSingle) imagePathsToDelete.push(paramSingle);
+		} catch { /* ignore */ }
 
-		// 2. Fetch, filter out, and update the starter manifest file in Storage
+		// 2. Extraer desde Regex de URL como respaldo
+		if (imagePathsToDelete.length === 0) {
+			const match = request.url.match(/[?&]imagePath=([^&]+)/);
+			if (match && match[1]) {
+				imagePathsToDelete.push(decodeURIComponent(match[1]));
+			}
+		}
+
+		// 3. Extraer desde Body JSON
+		try {
+			const body = await request.json().catch(() => ({}));
+			if (Array.isArray(body.imagePaths)) imagePathsToDelete.push(...body.imagePaths);
+			else if (body.imagePath) imagePathsToDelete.push(body.imagePath);
+		} catch { /* ignore */ }
+
+		// Limpiar y quitar duplicados
+		imagePathsToDelete = [...new Set(imagePathsToDelete.map(p => String(p).trim()).filter(Boolean))];
+
+		if (!imagePathsToDelete.length) return json({ error: 'imagePath inválida.' }, 400);
+
+		// 1. Eliminar archivos de Storage en lote
+		await admin.storage.from('creative-references').remove(imagePathsToDelete);
+
+		// 2. Actualizar el manifiesto remoto starter-static-50.json
 		const manifestFileName = 'manifests/starter-static-50.json';
 		try {
 			const { data: fileData, error: downloadError } = await admin.storage.from('creative-references').download(manifestFileName);
@@ -161,7 +188,8 @@ export const DELETE: APIRoute = async ({ request }) => {
 				const text = await fileData.text();
 				const manifestData = JSON.parse(text);
 				
-				manifestData.items = (manifestData.items || []).filter((item: any) => item.imagePath !== imagePath);
+				const deleteSet = new Set(imagePathsToDelete);
+				manifestData.items = (manifestData.items || []).filter((item: any) => !deleteSet.has(item.imagePath));
 				
 				const updatedManifestBytes = Buffer.from(JSON.stringify(manifestData, null, 2));
 				await admin.storage.from('creative-references').upload(manifestFileName, updatedManifestBytes, {
@@ -173,15 +201,15 @@ export const DELETE: APIRoute = async ({ request }) => {
 			console.warn('Error al actualizar el manifiesto remoto en la eliminación.');
 		}
 
-		// 3. Remove row from DB if available
+		// 3. Eliminar filas correspondientes de la DB
 		try {
-			await admin.from('creative_references').delete().eq('image_path', imagePath);
+			await admin.from('creative_references').delete().in('image_path', imagePathsToDelete);
 		} catch (dbError) {
 			// ignore if table doesn't exist
 		}
 
-		return json({ ok: true });
+		return json({ ok: true, count: imagePathsToDelete.length });
 	} catch (err) {
-		return json({ error: err instanceof Error ? err.message : 'Error al eliminar la referencia.' }, 500);
+		return json({ error: err instanceof Error ? err.message : 'Error al eliminar las referencias.' }, 500);
 	}
 };
