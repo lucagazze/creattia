@@ -17,66 +17,60 @@ function clean(value: FormDataEntryValue | null, max = 500) {
 	return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
-// Selecciona 'count' creativos equilibrados abarcando los diferentes anillos (rings)
+// Selecciona las mejores plantillas probadas para el lote
 function selectTemplatesForBatch(count: number): Creativo[] {
-	const total = Math.min(Math.max(count, 10), 40);
-	if (total >= 50) return creativos.slice(0, 50);
+	const result: Creativo[] = [];
+	const seen = new Set<number>();
 
-	const byRing = new Map<string, Creativo[]>();
+	// Selección equilibrada entre anillos (Prueba social, Oferta, Vs, Educativo, Demo, Autoridad)
+	const featuredIds = [1, 2, 4, 6, 13, 14, 15, 17, 23, 30, 31, 33, 40, 41, 48];
+	for (const id of featuredIds) {
+		if (result.length >= count) break;
+		const found = creativos.find(c => c.id === id);
+		if (found && !seen.has(found.id)) {
+			seen.add(found.id);
+			result.push(found);
+		}
+	}
+
+	// Rellenar hasta alcanzar la cantidad deseada (10, 20, 30, 40)
 	for (const c of creativos) {
-		const list = byRing.get(c.ring) || [];
-		list.push(c);
-		byRing.set(c.ring, list);
-	}
-
-	const selected: Creativo[] = [];
-	const selectedIds = new Set<number>();
-
-	const ringPriority = ['social', 'oferta', 'vs', 'demo', 'educativo', 'autoridad'];
-	for (const ring of ringPriority) {
-		const items = byRing.get(ring) || [];
-		for (const item of items) {
-			if (!selectedIds.has(item.id)) {
-				selected.push(item);
-				selectedIds.add(item.id);
-				break;
-			}
+		if (result.length >= count) break;
+		if (!seen.has(c.id)) {
+			seen.add(c.id);
+			result.push(c);
 		}
 	}
 
-	let idx = 0;
-	while (selected.length < total && idx < creativos.length) {
-		const candidate = creativos[idx];
-		if (!selectedIds.has(candidate.id)) {
-			selected.push(candidate);
-			selectedIds.add(candidate.id);
-		}
-		idx += 1;
-	}
-
-	return selected.slice(0, total);
+	return result;
 }
 
-// Selección de plantillas asistida por IA para elegir las mejores estructuras probadas según el producto
+// Selección inteligente por IA de las mejores plantillas según el producto escaneado
 async function selectTemplatesWithAI(
-	scannedProduct: ScannedProduct,
+	product: ScannedProduct,
 	count: number,
-	apiKey: string
+	openAIKey: string
 ): Promise<Creativo[]> {
-	if (!apiKey) return selectTemplatesForBatch(count);
+	if (!openAIKey) return selectTemplatesForBatch(count);
+
 	try {
-		const openai = new OpenAI({ apiKey });
-		const catalogPrompt = creativos.map(c => `[ID ${c.id}] ${c.nombre} (Ring: ${c.ring}) - ${c.sirve}`).join('\n');
-		const prompt = `Analizá este producto y seleccioná exactamente los ${count} MEJORES formatos publicitarios probados del catálogo que mejor se adapten a sus características para vender más:
+		const openai = new OpenAI({ apiKey: openAIKey });
+		const catalogSummary = creativos.map(c => `ID ${c.id}: ${c.nombre} (Ring: ${c.ring}, Nivel: ${c.n}) - ${c.sirve}`).join('\n');
+
+		const prompt = `Analizá este producto y seleccioná exactamente las ${count} MEJORES plantillas publicitarias del catálogo que generarán más ventas.
 
 PRODUCTO:
-Nombre: "${scannedProduct.name}"
-Descripción: "${scannedProduct.description || 'Sin descripción'}"
+Nombre: ${product.name}
+Descripción: ${product.description || 'Producto e-commerce'}
+Precio: ${product.priceText || 'No especificado'}
 
-CATÁLOGO DE ESTRUCTURAS PROBADAS:
-${catalogPrompt}
+CATÁLOGO DE PLANTILLAS PROBADAS:
+${catalogSummary}
 
-Respondé en formato JSON con la clave "ids" conteniendo una lista de ${count} IDs numéricos. Ejemplo: { "ids": [1, 6, 13, 23, 40, ...] }`;
+Respondé ÚNICAMENTE con un objeto JSON válido con este formato exacto:
+{
+  "ids": [id1, id2, id3, ...]
+}`;
 
 		const response = await openai.chat.completions.create({
 			model: 'gpt-4o-mini',
@@ -105,7 +99,7 @@ Respondé en formato JSON con la clave "ids" conteniendo una lista de ${count} I
 
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
-	if (!auth.user) return json({ error: auth.error }, 401);
+	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
 
 	const userId = auth.user.id;
 	const userEmail = auth.user.email || '';
@@ -159,34 +153,51 @@ export const POST: APIRoute = async ({ request }) => {
 			};
 		}
 
-		// 2. Guardar producto en DB si es nuevo o actualizarlo
+		// 2. Guardar producto en DB si es nuevo o actualizarlo (de forma segura)
 		let storedProductId: string | null = null;
 		let storedProduct: any = null;
 		if (scannedProduct) {
-			const { data: upsertData, error: upsertErr } = await admin.from('creative_products').upsert({
-				user_id: userId,
-				name: scannedProduct.name || 'Producto Web',
-				description: scannedProduct.description || null,
-				price_text: scannedProduct.priceText || null,
-				currency: scannedProduct.currency || null,
-				product_url: scannedProduct.productUrl || productUrl,
-				source: 'website',
-				external_id: scannedProduct.externalId || productUrl,
-				source_image_url: scannedProduct.imageUrl || null,
-				metadata: { ...scannedProduct.metadata, importedFromUrl: productUrl, sourceImageUrls: scannedProduct.imageUrls },
-				is_active: true,
-				updated_at: new Date().toISOString(),
-				synced_at: new Date().toISOString(),
-			}, { onConflict: 'user_id,source,external_id' }).select('id,name,description,price_text,currency,image_path,source_image_url').single();
+			try {
+				const { data: existing } = await admin.from('creative_products')
+					.select('id,name,description,price_text,currency,image_path,source_image_url')
+					.eq('user_id', userId)
+					.eq('product_url', scannedProduct.productUrl || productUrl)
+					.limit(1).maybeSingle();
 
-			if (!upsertErr && upsertData) {
-				storedProductId = upsertData.id;
-				storedProduct = upsertData;
-				// Espejar imágenes en Supabase Storage
-				const urlsToMirror = scannedProduct.imageUrls.length ? scannedProduct.imageUrls : (scannedProduct.imageUrl ? [scannedProduct.imageUrl] : []);
-				if (urlsToMirror.length) {
-					mirrorProductImages(userId, upsertData, urlsToMirror).catch((err) => console.error('Error espejo fotos:', err));
+				if (existing) {
+					storedProductId = existing.id;
+					storedProduct = existing;
+				} else {
+					const { data: newData, error: insertErr } = await admin.from('creative_products').insert({
+						user_id: userId,
+						name: scannedProduct.name || 'Producto Web',
+						description: scannedProduct.description || null,
+						price_text: scannedProduct.priceText || null,
+						currency: scannedProduct.currency || null,
+						product_url: scannedProduct.productUrl || productUrl,
+						source: 'website',
+						external_id: scannedProduct.externalId || productUrl,
+						source_image_url: scannedProduct.imageUrl || null,
+						metadata: { ...scannedProduct.metadata, importedFromUrl: productUrl, sourceImageUrls: scannedProduct.imageUrls },
+						is_active: true,
+						updated_at: new Date().toISOString(),
+						synced_at: new Date().toISOString(),
+					}).select('id,name,description,price_text,currency,image_path,source_image_url').single();
+
+					if (!insertErr && newData) {
+						storedProductId = newData.id;
+						storedProduct = newData;
+					}
 				}
+
+				if (storedProductId && storedProduct) {
+					const urlsToMirror = scannedProduct.imageUrls.length ? scannedProduct.imageUrls : (scannedProduct.imageUrl ? [scannedProduct.imageUrl] : []);
+					if (urlsToMirror.length) {
+						mirrorProductImages(userId, storedProduct, urlsToMirror).catch((err) => console.error('Error espejo fotos:', err));
+					}
+				}
+			} catch (prodErr) {
+				console.warn('Error guardando producto en DB, continuando sin product_id:', prodErr);
 			}
 		}
 
@@ -197,44 +208,73 @@ export const POST: APIRoute = async ({ request }) => {
 				p_user_id: userId,
 				p_amount: count,
 			});
-			if (creditError) throw creditError;
-			if (reserveRes === -1) return json({ error: `No tenés créditos suficientes (${count} requeridos). Comprá un paquete de créditos o elegí un plan para generar este lote.`, code: 'NO_CREDITS' }, 402);
+			if (creditError) {
+				console.warn('RPC reserve_creative_credits not present or failed, falling back to profile credits check:', creditError);
+				const { data: userProfile } = await admin.from('creative_profiles').select('credits').eq('id', userId).single();
+				if ((userProfile?.credits || 0) < count) {
+					return json({ error: `No tenés créditos suficientes (${count} requeridos). Comprá un paquete de créditos o elegí un plan para generar este lote.`, code: 'NO_CREDITS' }, 402);
+				}
+				await admin.from('creative_profiles').update({ credits: Math.max(0, (userProfile?.credits || 0) - count) }).eq('id', userId);
+			} else if (reserveRes === -1) {
+				return json({ error: `No tenés créditos suficientes (${count} requeridos). Comprá un paquete de créditos o elegí un plan para generar este lote.`, code: 'NO_CREDITS' }, 402);
+			}
 		}
 
 		// 4. Seleccionar las mejores plantillas probadas asistidas por IA para este producto
 		const templatesForBatch = await selectTemplatesWithAI(scannedProduct!, count, openAIKey);
 		const batchId = crypto.randomUUID();
 
-		// 5. Insertar las filas de generación en creative_generations
-		const generationRows = templatesForBatch.map((template, index) => ({
-			user_id: userId,
-			template_id: template.id,
-			title: `${scannedProduct?.name || 'Producto'} — ${template.nombre}`,
-			format,
-			image_type: 'product',
-			variant_key: template.ring,
-			product_id: storedProductId,
-			user_brief: brief ? `${brief} | Formato probado: ${template.nombre} (${template.sirve})` : `Formato probado: ${template.nombre} (${template.sirve})`,
-			batch_id: batchId,
-			output_index: index + 1,
-			requested_outputs: count,
-			settings_snapshot: {
+		// 5. Insertar las filas de generación en creative_generations (con tolerancia a esquema de DB)
+		const generationRows = templatesForBatch.map((template, index) => {
+			const row: any = {
+				user_id: userId,
+				template_id: template.id,
+				title: `${scannedProduct?.name || 'Producto'} — ${template.nombre}`,
 				format,
-				imageType: 'product',
-				templateId: template.id,
-				templateName: template.nombre,
-				templateRing: template.ring,
-				templateN: template.n,
-				productName: scannedProduct?.name,
-				productUrl,
-				batchUrlMode: true,
-			},
-			status: 'processing',
-		}));
+				image_type: 'product',
+				variant_key: template.ring,
+				product_id: storedProductId,
+				user_brief: brief ? `${brief} | Formato probado: ${template.nombre} (${template.sirve})` : `Formato probado: ${template.nombre} (${template.sirve})`,
+				batch_id: batchId,
+				output_index: index + 1,
+				requested_outputs: count,
+				settings_snapshot: {
+					format,
+					imageType: 'product',
+					templateId: template.id,
+					templateName: template.nombre,
+					templateRing: template.ring,
+					templateN: template.n,
+					productName: scannedProduct?.name,
+					productUrl,
+					batchUrlMode: true,
+				},
+				status: 'processing',
+			};
+			return row;
+		});
 
-		const { data: insertedGenerations, error: insertErr } = await admin.from('creative_generations')
+		let insertedGenerations: any[] = [];
+		const { data: insData, error: insertErr } = await admin.from('creative_generations')
 			.insert(generationRows).select('id,output_index,title,template_id,status');
-		if (insertErr) throw insertErr;
+
+		if (insertErr) {
+			console.warn('Error primario al insertar lote, reintentando con campos esenciales:', insertErr);
+			const essentialRows = generationRows.map((r: any) => {
+				const { batch_id, output_index, requested_outputs, ...essential } = r;
+				return essential;
+			});
+			const { data: insEssential, error: essentialErr } = await admin.from('creative_generations')
+				.insert(essentialRows).select('id,title,template_id,status');
+
+			if (essentialErr) {
+				const errMsg = essentialErr.message || (typeof essentialErr === 'object' ? JSON.stringify(essentialErr) : String(essentialErr));
+				throw new Error('Error guardando el lote en base de datos: ' + errMsg);
+			}
+			insertedGenerations = insEssential || [];
+		} else {
+			insertedGenerations = insData || [];
+		}
 
 		// Asociar producto en creative_generation_products
 		if (storedProductId && insertedGenerations?.length) {
@@ -276,84 +316,86 @@ export const POST: APIRoute = async ({ request }) => {
 						let imageBuffer: Buffer | null = null;
 						let mimeType = 'image/png';
 
-						// Intentar primero con Gemini Image (rápido y costo-eficiente)
-						if (activeGoogleKey) {
-							const aspect = format === 'story' || format === '9:16' ? '9:16' : (format === 'portrait' || format === '3:4' ? '3:4' : '1:1');
-							const parts: any[] = [{ text: prompt }];
-
-							// Si tenemos imagen fuente del producto
-							if (scannedProduct?.imageUrl && scannedProduct.imageUrl.startsWith('http')) {
-								try {
-									const imgRes = await fetch(scannedProduct.imageUrl);
-									if (imgRes.ok) {
-										const buf = Buffer.from(await imgRes.arrayBuffer());
-										const mime = imgRes.headers.get('content-type') || 'image/jpeg';
-										parts.push({ inline_data: { mime_type: mime, data: buf.toString('base64') } });
-									}
-								} catch { /* continuar si no descarga */ }
-							}
-
-							const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeGoogleKey}`, {
-								method: 'POST',
-								headers: { 'content-type': 'application/json' },
-								body: JSON.stringify({
-									contents: [{ parts }],
-									generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: aspect } },
-								}),
-							});
-
-							if (response.ok) {
-								const data: any = await response.json().catch(() => ({}));
-								const part = data.candidates?.[0]?.content?.parts?.find((item: any) => item.inlineData?.data || item.inline_data?.data);
-								if (part) {
-									imageBuffer = Buffer.from(part.inlineData?.data || part.inline_data?.data, 'base64');
-									mimeType = part.inlineData?.mimeType || 'image/png';
+						// 1. Priorizar la generación con Imagen (OpenAI / Google Imagen 3)
+						if (activeOpenAIKey) {
+							try {
+								const openai = new OpenAI({ apiKey: activeOpenAIKey });
+								const aiRes = await openai.images.generate({
+									model: 'dall-e-3',
+									prompt,
+									n: 1,
+									size: format === 'story' ? '1024x1792' : format === 'landscape' ? '1792x1024' : '1024x1024',
+									response_format: 'b64_json',
+								});
+								const b64 = aiRes.data[0]?.b64_json;
+								if (b64) {
+									imageBuffer = Buffer.from(b64, 'base64');
+									mimeType = 'image/png';
 								}
+							} catch (openAiErr) {
+								console.error('Error generación OpenAI:', openAiErr);
 							}
 						}
 
-						// Fallback a OpenAI gpt-image si Gemini falla o no está disponible
-						if (!imageBuffer && activeOpenAIKey) {
-							const openAI = new OpenAI({ apiKey: activeOpenAIKey });
-							const response = await openAI.images.generate({
-								model: 'gpt-image-1',
-								prompt: prompt.slice(0, 1000),
-								n: 1,
-								size: format === 'story' || format === '9:16' ? '1024x1536' : '1024x1024',
-							});
-							const firstImage = response.data?.[0];
-							if (firstImage?.b64_json) {
-								imageBuffer = Buffer.from(firstImage.b64_json, 'base64');
-							} else if (firstImage?.url) {
-								const imgRes = await fetch(firstImage.url);
-								if (imgRes.ok) imageBuffer = Buffer.from(await imgRes.arrayBuffer());
+						// Fallback con Google Imagen 3
+						if (!imageBuffer && activeGoogleKey) {
+							try {
+								const googleRes = await fetch(
+									`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${activeGoogleKey}`,
+									{
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json' },
+										body: JSON.stringify({
+											instances: [{ prompt }],
+											parameters: {
+												sampleCount: 1,
+												aspectRatio: format === 'story' ? '9:16' : format === 'landscape' ? '16:9' : '1:1',
+												outputOptions: { mimeType: 'image/png' },
+											},
+										}),
+									}
+								);
+								const googleData = await googleRes.json();
+								const b64 = googleData.predictions?.[0]?.bytesBase64Encoded;
+								if (b64) {
+									imageBuffer = Buffer.from(b64, 'base64');
+									mimeType = 'image/png';
+								}
+							} catch (googleErr) {
+								console.error('Error generación Google Imagen:', googleErr);
 							}
 						}
 
-						if (!imageBuffer) throw new Error('No se pudo generar la imagen para este creativo.');
+						if (!imageBuffer) {
+							throw new Error('No se pudo generar la imagen con los motores de IA disponibles.');
+						}
 
-						// Guardar imagen en Supabase Storage
-						const ext = mimeType.includes('png') ? 'png' : 'jpg';
-						const outputPath = `${userId}/batch/${batchId}/${genRow.id}.${ext}`;
-						const { error: uploadErr } = await admin.storage.from('creative-assets').upload(outputPath, imageBuffer, {
-							contentType: mimeType,
-							upsert: true,
-						});
+						// 2. Subir la imagen generada a Supabase Storage
+						const fileName = `${userId}/${batchId}/${genRow.id}-${Date.now()}.png`;
+						const { error: uploadErr } = await admin.storage
+							.from('creative-generations')
+							.upload(fileName, imageBuffer, { contentType: mimeType, upsert: true });
+
 						if (uploadErr) throw uploadErr;
 
-						// Actualizar estado de la generación en DB
+						const { data: publicUrlData } = admin.storage
+							.from('creative-generations')
+							.getPublicUrl(fileName);
+						const publicUrl = publicUrlData.publicUrl;
+
+						// 3. Actualizar la fila en creative_generations a 'completed'
 						await admin.from('creative_generations').update({
 							status: 'completed',
-							output_path: outputPath,
+							output_image_path: fileName,
+							output_image_url: publicUrl,
 							updated_at: new Date().toISOString(),
 						}).eq('id', genRow.id);
 
-					} catch (genError) {
-						console.error(`Error al generar item ${genRow.id} del lote:`, genError);
-						const msg = genError instanceof Error ? genError.message : 'Error de generación';
+					} catch (genErr) {
+						console.error(`Error generando anuncio #${genRow.id}:`, genErr);
 						await admin.from('creative_generations').update({
 							status: 'failed',
-							error_message: msg.slice(0, 500),
+							error_message: genErr instanceof Error ? genErr.message : 'Error en la generación.',
 							updated_at: new Date().toISOString(),
 						}).eq('id', genRow.id);
 					}
@@ -375,9 +417,13 @@ export const POST: APIRoute = async ({ request }) => {
 			},
 			generations: insertedGenerations || [],
 		});
-	} catch (error) {
+	} catch (error: any) {
 		console.error('Error en POST batch-url:', error);
-		const message = error instanceof Error ? error.message : 'No se pudo iniciar la generación del lote.';
+		const message = typeof error === 'object' && error && 'message' in error && error.message 
+			? String(error.message) 
+			: typeof error === 'string' 
+				? error 
+				: 'No se pudo iniciar la generación del lote.';
 		return json({ error: message }, 500);
 	}
 };
