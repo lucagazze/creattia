@@ -7,7 +7,8 @@ import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-brow
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
-import { UrlBatchSection } from './UrlBatchSection';
+import { UrlBatchSection, driveBatchWorkers } from './UrlBatchSection';
+import { signGenerationPaths } from '../../lib/creattia/generation-image';
 
 type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover';
 
@@ -700,18 +701,14 @@ export default function CreativeApp() {
 				if (favoriteRecords) setFavorites(new Set(favoriteRecords.map((item) => Number(item.template_id))));
 
 					const { data: records, error: generationsError } = await supabase.from('creative_generations')
-						.select('id,title,output_path,output_image_path,output_image_url,output_url,format,created_at,template_id,user_brief,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot,status')
+						.select('id,title,output_path,format,created_at,template_id,user_brief,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot,status')
 						.in('status', ['completed', 'processing'])
 						.order('created_at', { ascending: false }).limit(40);
 
 					if (!generationsError && records?.length) {
+						const signedByPath = await signGenerationPaths(client, records.map((record: any) => record.output_path));
 						const mapped = records.map((record: any) => {
-							let imgUrl = record.output_image_url || record.output_url || '';
-							if (!imgUrl && (record.output_image_path || record.output_path)) {
-								const p = record.output_image_path || record.output_path;
-								const { data: pubData } = client.storage.from('creative-generations').getPublicUrl(p);
-								imgUrl = pubData?.publicUrl || '';
-							}
+							const imgUrl = record.output_path ? signedByPath.get(record.output_path) || '' : '';
 
 							const creative = loadedCatalog.find((item) => item.id === record.template_id);
 							return {
@@ -763,41 +760,40 @@ export default function CreativeApp() {
 		const client = supabase;
 		let active = true;
 
+		// Reanudación: filas que quedaron en 'processing' sin nadie generándolas
+		// (recarga de página, pestaña cerrada, worker cortado). Se les vuelve a
+		// disparar el worker una sola vez por sesión de app.
+		const resumed = new Set<string>();
+		const resumeStuck = async (rows: Array<{ id: string; status: string; created_at: string | null }>) => {
+			const token = getSessionToken(session);
+			if (!token) return;
+			const stuck = rows
+				.filter((row) => row.status === 'processing' && !resumed.has(row.id))
+				.filter((row) => Date.now() - new Date(row.created_at || Date.now()).getTime() > 60_000);
+			if (!stuck.length) return;
+			stuck.forEach((row) => resumed.add(row.id));
+			void driveBatchWorkers(stuck.map((row) => row.id), token);
+		};
+
 		const interval = setInterval(async () => {
 			try {
 				const { data: records } = await client.from('creative_generations')
-					.select('id,title,output_image_url,output_url,output_image_path,output_path,format,created_at,template_id,status,error_message')
+					.select('id,title,output_path,format,created_at,template_id,status,error_code')
 					.order('created_at', { ascending: false })
 					.limit(50);
 
 				if (!active || !records || records.length === 0) return;
+
+				void resumeStuck(records as any);
+				const signedByPath = await signGenerationPaths(client, records.map((record: any) => record.output_path));
+				if (!active) return;
 
 				setHistory((prev) => {
 					const map = new Map(prev.map(item => [item.id, item]));
 					let changed = false;
 
 					for (const r of records) {
-						let imgUrl = r.output_image_url || r.output_url || '';
-						if (!imgUrl && (r.output_image_path || r.output_path)) {
-							const p = r.output_image_path || r.output_path;
-							imgUrl = client.storage.from('creative-generations').getPublicUrl(p).data?.publicUrl || '';
-						}
-
-						// Auto-recuperación si una fila quedó en 'processing' por más de 8 segundos
-						const createdAtMs = new Date(r.created_at || Date.now()).getTime();
-						const elapsedSec = (Date.now() - createdAtMs) / 1000;
-						if (elapsedSec > 8 && (!imgUrl || r.status === 'processing')) {
-							const cleanTitle = encodeURIComponent(`${r.title || 'Anuncio ecommerce'} producto premium diseño publicitario HD`);
-							imgUrl = `https://image.pollinations.ai/prompt/${cleanTitle}?width=1024&height=1024&nologo=true&seed=${r.id.length || 9876}`;
-							const token = getSessionToken(session);
-							if (token) {
-								void fetch('/api/creativos/complete-generation', {
-									method: 'POST',
-									headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-									body: JSON.stringify({ generationId: r.id, imageUrl: imgUrl })
-								});
-							}
-						}
+						const imgUrl = r.output_path ? signedByPath.get(r.output_path) || '' : '';
 
 						const existing = map.get(r.id);
 						if (!existing) {
@@ -812,7 +808,9 @@ export default function CreativeApp() {
 								templateId: r.template_id,
 								status: imgUrl ? 'completed' : r.status,
 							} as any);
-						} else if (existing.imageUrl !== imgUrl || (existing as any).status !== r.status) {
+						} else if ((existing as any).status !== r.status || (!existing.imageUrl && imgUrl)) {
+							// La URL firmada cambia en cada poll: comparar por URL haría
+							// re-renderizar (y recargar la imagen) cada 2,5 segundos.
 							changed = true;
 							map.set(r.id, {
 								...existing,
@@ -1061,19 +1059,17 @@ export default function CreativeApp() {
 		let cancelled = false;
 		const poll = async () => {
 			const { data, error } = await client.from('creative_generations')
-				.select('id,status,output_path,output_image_path,output_image_url,output_url,error_code,title,format,template_id,batch_id,output_index,created_at,image_type,user_brief,variant_key,product_id,settings_snapshot')
+				.select('id,status,output_path,error_code,title,format,template_id,batch_id,output_index,created_at,image_type,user_brief,variant_key,product_id,settings_snapshot')
 				.eq('batch_id', batch.batchId).order('output_index');
 			if (cancelled || error || !data?.length) return;
+
+			const signedByPath = await signGenerationPaths(client, data.map((row: any) => row.output_path));
+			if (cancelled) return;
 
 			// Actualizar en tiempo real los items en el historial (history)
 			const updatedGenerations: Generation[] = [];
 			for (const row of data) {
-				let imgUrl = (row as any).output_image_url || (row as any).output_url || '';
-				if (!imgUrl && (row.output_image_path || row.output_path)) {
-					const p = row.output_image_path || row.output_path;
-					const { data: pubData } = client.storage.from('creative-generations').getPublicUrl(p);
-					imgUrl = pubData?.publicUrl || '';
-				}
+				const imgUrl = row.output_path ? signedByPath.get(row.output_path) || '' : '';
 
 				updatedGenerations.push({
 					id: row.id,
@@ -1098,7 +1094,12 @@ export default function CreativeApp() {
 				setHistory((prev) => {
 					const existingMap = new Map(prev.map(item => [item.id, item]));
 					for (const item of updatedGenerations) {
-						existingMap.set(item.id, item);
+						const existing = existingMap.get(item.id);
+						// Se conserva la URL firmada anterior: al re-firmar en cada poll
+						// el <img> se recargaría y la tarjeta parpadearía.
+						existingMap.set(item.id, existing?.imageUrl && item.imageUrl
+							? { ...item, imageUrl: existing.imageUrl }
+							: item);
 					}
 					return Array.from(existingMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 				});
@@ -1321,7 +1322,9 @@ export default function CreativeApp() {
 								const newItems: Generation[] = generations.map((g: any) => ({
 									id: g.id,
 									title: g.title || 'Anuncio desde URL',
-									imageUrl: g.output_image_url || g.output_url || '',
+									// Recién insertadas: todavía no tienen imagen. La tarjeta
+									// arranca en 'processing' y el polling le pone la URL firmada.
+									imageUrl: '',
 									format: g.format || 'square',
 									createdAt: new Date().toISOString(),
 									category: 'producto',
@@ -1337,9 +1340,6 @@ export default function CreativeApp() {
 									title: 'Generación por URL',
 									referenceUrl: '',
 									count: generations.length,
-									startedAt: Date.now(),
-									status: 'processing',
-									results: [],
 								});
 							}}
 							randomWinners={randomWinners}

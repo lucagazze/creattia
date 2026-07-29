@@ -493,23 +493,16 @@ export function buildSpecializedAdPrompt(
 		? getTemplateBlueprint(templateOrReference as Creativo)
 		: getDynamicReferenceBlueprint(templateOrReference as any);
 
-	// Relleno inteligente de slots faltantes
-	const rawPrice = product.priceText || '';
-	let priceStr = rawPrice;
-	let originalPriceStr = '';
-
-	if (rawPrice) {
-		const num = parseFloat(rawPrice.replace(/[^0-9.]/g, ''));
-		if (!isNaN(num) && num > 0) {
-			const origNum = Math.round(num * 1.25);
-			const cur = product.currency || '$';
-			priceStr = `${cur}${num}`;
-			originalPriceStr = `${cur}${origNum}`;
-		}
-	} else {
-		priceStr = 'OFERTA ESPECIAL';
-		originalPriceStr = '$99.900';
-	}
+	// El precio se usa TAL CUAL viene de la web del producto. No se reformatea
+	// (parsear "$50.350" como número lo convertía en "50.35") y nunca se inventa
+	// un precio anterior para el tachado: un descuento falso en un anuncio real
+	// es un problema legal, no un detalle de diseño.
+	const rawPrice = (product.priceText || '').trim();
+	const currency = (product.currency || '').trim();
+	const hasSymbol = /[$€£¥]|USD|ARS|EUR|MXN|COP|CLP|PEN|BRL/i.test(rawPrice);
+	const priceStr = rawPrice
+		? (hasSymbol || !currency ? rawPrice : `${currency} ${rawPrice}`)
+		: '';
 
 	const refName = (templateOrReference as any).nombre || (templateOrReference as any).name || 'Anuncio Ganador';
 	const refNotes = (templateOrReference as any).sirve || (templateOrReference as any).promptNotes || 'Diseño de alto rendimiento';
@@ -526,7 +519,8 @@ ${blueprint.layoutTemplate}
 [PRODUCT INFORMATION & SLOTS]
 Product Name: "${product.name}"
 Product Description: "${product.description || 'Premium high-quality product.'}"
-Price: ${priceStr} ${originalPriceStr ? `(Regular Price Strikethrough: ${originalPriceStr})` : ''}
+Price: ${priceStr || 'NOT AVAILABLE — do not write any price, discount, percentage or strikethrough anywhere on the image.'}
+${priceStr ? 'Write the price EXACTLY as given, character for character. Do not reformat it, do not change separators, do not round it.\nThere is NO previous/original price available: do not draw a strikethrough price, a "% OFF" badge or any discount claim.' : ''}
 Aspect Ratio / Format: ${format}
 
 [REQUIRED VISUAL SLOTS TO RENDER]
@@ -537,6 +531,7 @@ ${blueprint.slots.map(s => `- ${s.icon} ${s.name}: ${s.description}`).join('\n')
 2. Render clean, professional copy in natural Spanish tailored to Latin America / Argentina.
 3. Integrate UI overlays matching "${refName}" (e.g. star ratings, verified badges, offer pills, or comparative checkmarks).
 4. Maintain high visual contrast, rich typography and modern ecommerce aesthetic.
+5. Never invent prices, discounts, percentages, shipping deadlines, certifications, awards, medical claims or customer counts. If a slot has no verified data behind it, leave that element out of the layout instead of filling it with a made-up figure.
 ${userBrief ? `\n[CUSTOM USER DIRECTION]: ${userBrief}` : ''}`;
 
 	return { prompt, blueprint };

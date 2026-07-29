@@ -174,6 +174,9 @@ type WinnerItem = {
 		mediaType?: string;
 		carouselImages?: string[];
 		foreplayNiches?: string[];
+		// Stats que vienen del scrape de Foreplay / Meta Ads Library.
+		domain?: string;
+		cta?: string;
 	};
 };
 
@@ -380,7 +383,6 @@ export default function WinnersLibrary({
 		setGenerationError('');
 		setSelectedSavedProduct(null);
 		setCustomInstructions('');
-		setShowCustomInstructions(false);
 		// Load saved products when opening modal
 		void loadSavedProducts();
 	};

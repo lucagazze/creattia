@@ -1,8 +1,6 @@
 import type { APIRoute } from 'astro';
-import { waitUntil } from '@vercel/functions';
 import OpenAI from 'openai';
 import { creativos, type Creativo } from '../../../data/creativos50';
-import { buildSpecializedAdPrompt } from '../../../lib/creattia/ad-prompt-builder';
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
@@ -191,9 +189,38 @@ export const POST: APIRoute = async ({ request }) => {
 				}
 
 				if (storedProductId && storedProduct) {
+					// Se espera el espejo de fotos a propósito: los workers necesitan la
+					// foto real del producto ya guardada antes de generar. Sin esto el
+					// modelo dibuja un producto inventado.
 					const urlsToMirror = scannedProduct.imageUrls.length ? scannedProduct.imageUrls : (scannedProduct.imageUrl ? [scannedProduct.imageUrl] : []);
 					if (urlsToMirror.length) {
-						mirrorProductImages(userId, storedProduct, urlsToMirror).catch((err) => console.error('Error espejo fotos:', err));
+						try {
+							await mirrorProductImages(userId, { ...storedProduct, id: storedProductId }, urlsToMirror);
+						} catch (mirrorErr) {
+							console.error('Error espejo fotos:', mirrorErr);
+						}
+					}
+
+					// Fotos extra subidas por el usuario: se suman al producto para que
+					// el modelo tenga más ángulos reales.
+					for (let index = 0; index < extraImagesUploaded.length; index += 1) {
+						try {
+							const file = extraImagesUploaded[index];
+							const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : file.type === 'image/avif' ? 'avif' : 'jpg';
+							const path = `${userId}/products/${storedProductId}/upload-${index + 1}.${extension}`;
+							const { error: uploadErr } = await admin.storage.from('creative-assets')
+								.upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: true });
+							if (uploadErr) continue;
+							await admin.from('creative_product_images').upsert({
+								user_id: userId,
+								product_id: storedProductId,
+								storage_path: path,
+								sort_order: 50 + index,
+								is_primary: false,
+							}, { onConflict: 'product_id,storage_path' });
+						} catch (extraErr) {
+							console.error('Error subiendo foto extra:', extraErr);
+						}
 					}
 				}
 			} catch (prodErr) {
@@ -245,7 +272,11 @@ export const POST: APIRoute = async ({ request }) => {
 					templateName: template.nombre,
 					templateRing: template.ring,
 					templateN: template.n,
+					productId: storedProductId,
 					productName: scannedProduct?.name,
+					productDescription: scannedProduct?.description || '',
+					productPriceText: scannedProduct?.priceText || '',
+					productCurrency: scannedProduct?.currency || '',
 					productUrl,
 					batchUrlMode: true,
 				},
@@ -254,26 +285,23 @@ export const POST: APIRoute = async ({ request }) => {
 			return row;
 		});
 
-		let insertedGenerations: any[] = [];
+		// Sin reintento "sin batch_id": ese fallback dejaba cada fila con un
+		// batch_id aleatorio y output_index 1, y la app no podía volver a
+		// encontrar el lote. Si el insert falla, falla fuerte y se devuelven
+		// los créditos.
 		const { data: insData, error: insertErr } = await admin.from('creative_generations')
 			.insert(generationRows).select('id,output_index,title,template_id,status');
 
 		if (insertErr) {
-			console.warn('Error primario al insertar lote, reintentando con campos esenciales:', insertErr);
-			const essentialRows = generationRows.map((r: any) => {
-				const { batch_id, output_index, requested_outputs, ...essential } = r;
-				return essential;
-			});
-			const { data: insEssential, error: essentialErr } = await admin.from('creative_generations')
-				.insert(essentialRows).select('id,title,template_id,status');
-
-			if (essentialErr) {
-				const errMsg = essentialErr.message || (typeof essentialErr === 'object' ? JSON.stringify(essentialErr) : String(essentialErr));
-				throw new Error('Error guardando el lote en base de datos: ' + errMsg);
+			if (!isAdmin) {
+				await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: count });
 			}
-			insertedGenerations = insEssential || [];
-		} else {
-			insertedGenerations = insData || [];
+			const errMsg = insertErr.message || JSON.stringify(insertErr);
+			throw new Error('Error guardando el lote en base de datos: ' + errMsg);
+		}
+		const insertedGenerations: any[] = insData || [];
+		if (insertedGenerations.length !== count) {
+			throw new Error(`El lote se guardó incompleto (${insertedGenerations.length} de ${count}).`);
 		}
 
 		// Asociar producto en creative_generation_products
@@ -291,188 +319,12 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
-		// 6. Lanzar la generación de a poco en segundo plano (2 en paralelo para máxima velocidad sin colisión)
-		const runBatchPipeline = async () => {
-			const activeGoogleKey = googleKey;
-			const activeOpenAIKey = openAIKey;
-
-			const concurrency = 2;
-			const generationsList = insertedGenerations || [];
-
-			for (let i = 0; i < generationsList.length; i += concurrency) {
-				const chunk = generationsList.slice(i, i + concurrency);
-				await Promise.allSettled(chunk.map(async (genRow) => {
-					const tpl = templatesForBatch.find((t) => t.id === genRow.template_id) || templatesForBatch[0];
-					try {
-						// Construir el prompt especializado con el Blueprint de la plantilla y los datos del producto
-						const { prompt } = buildSpecializedAdPrompt(tpl, {
-							name: scannedProduct?.name || 'Producto Destacado',
-							description: scannedProduct?.description || '',
-							priceText: scannedProduct?.priceText || '',
-							currency: scannedProduct?.currency || '$',
-						}, format, brief);
-
-						// Helper con timeout de 12s para llamadas a la IA
-						const fetchWithTimeout = async (fn: () => Promise<{ buffer: Buffer; mime: string; url?: string } | null>, ms = 12000) => {
-							return Promise.race([
-								fn(),
-								new Promise<{ buffer: Buffer; mime: string; url?: string } | null>((resolve) => setTimeout(() => resolve(null), ms)),
-							]);
-						};
-
-						let imageBuffer: Buffer | null = null;
-						let mimeType = 'image/png';
-						let directUrl = '';
-
-						// 1. Tier 1: OpenAI (DALL-E-3 o DALL-E-2)
-						if (activeOpenAIKey) {
-							const openAiRes = await fetchWithTimeout(async () => {
-								try {
-									const openai = new OpenAI({ apiKey: activeOpenAIKey });
-									const aiRes = await openai.images.generate({
-										model: 'dall-e-3',
-										prompt: prompt.slice(0, 3900),
-										n: 1,
-										size: format === 'story' ? '1024x1792' : format === 'landscape' ? '1792x1024' : '1024x1024',
-										response_format: 'b64_json',
-									});
-									const b64 = aiRes.data?.[0]?.b64_json;
-									if (b64) {
-										return { buffer: Buffer.from(b64, 'base64'), mime: 'image/png' };
-									}
-								} catch (openAiErr) {
-									console.error('Error generación DALL-E 3, reintentando con motor rápido:', openAiErr);
-								}
-								return null;
-							}, 12000);
-
-							if (openAiRes) {
-								imageBuffer = openAiRes.buffer;
-								mimeType = openAiRes.mime;
-							}
-						}
-
-						// 2. Tier 2: Google Imagen 3
-						if (!imageBuffer && activeGoogleKey) {
-							const googleResObj = await fetchWithTimeout(async () => {
-								try {
-									const googleRes = await fetch(
-										`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${activeGoogleKey}`,
-										{
-											method: 'POST',
-											headers: { 'Content-Type': 'application/json' },
-											body: JSON.stringify({
-												instances: [{ prompt }],
-												parameters: {
-													sampleCount: 1,
-													aspectRatio: format === 'story' ? '9:16' : format === 'landscape' ? '16:9' : '1:1',
-													outputOptions: { mimeType: 'image/png' },
-												},
-											}),
-										}
-									);
-									const googleData = await googleRes.json();
-									const b64 = googleData.predictions?.[0]?.bytesBase64Encoded;
-									if (b64) {
-										return { buffer: Buffer.from(b64, 'base64'), mime: 'image/png' };
-									}
-								} catch (googleErr) {
-									console.error('Error generación Google Imagen:', googleErr);
-								}
-								return null;
-							}, 8000);
-
-							if (googleResObj) {
-								imageBuffer = googleResObj.buffer;
-								mimeType = googleResObj.mime;
-							}
-						}
-
-						// 3. Tier 3: Motor de Alta Velocidad (Pollinations HD)
-						if (!imageBuffer) {
-							const fastRes = await fetchWithTimeout(async () => {
-								try {
-									const cleanPrompt = encodeURIComponent(prompt.slice(0, 800));
-									const pollUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
-									const pollRes = await fetch(pollUrl);
-									if (pollRes.ok) {
-										const arrBuf = await pollRes.arrayBuffer();
-										if (arrBuf && arrBuf.byteLength > 1000) {
-											return { buffer: Buffer.from(arrBuf), mime: 'image/png', url: pollUrl };
-										}
-									}
-									return { buffer: Buffer.from([]), mime: 'image/png', url: pollUrl };
-								} catch (pollErr) {
-									console.error('Error Pollinations fast engine:', pollErr);
-								}
-								return null;
-							}, 6000);
-
-							if (fastRes) {
-								if (fastRes.buffer && fastRes.buffer.length > 0) {
-									imageBuffer = fastRes.buffer;
-									mimeType = fastRes.mime;
-								} else if (fastRes.url) {
-									directUrl = fastRes.url;
-								}
-							}
-						}
-
-						let publicUrl = directUrl;
-						let fileName = '';
-
-						if (imageBuffer && imageBuffer.length > 0) {
-							// Subir la imagen generada a Supabase Storage
-							fileName = `${userId}/${batchId}/${genRow.id}-${Date.now()}.png`;
-							const { error: uploadErr } = await admin.storage
-								.from('creative-generations')
-								.upload(fileName, imageBuffer, { contentType: mimeType, upsert: true });
-
-							if (!uploadErr) {
-								const { data: publicUrlData } = admin.storage
-									.from('creative-generations')
-									.getPublicUrl(fileName);
-								publicUrl = publicUrlData.publicUrl;
-							}
-						}
-
-						if (!publicUrl) {
-							const cleanTitle = encodeURIComponent(`${tpl.nombre} ${scannedProduct?.name || 'Producto'} anuncio ecommerce profesional HD`);
-							publicUrl = `https://image.pollinations.ai/prompt/${cleanTitle}?width=1024&height=1024&nologo=true&seed=${genRow.id.length || 555}`;
-						}
-
-						// Actualizar la fila en creative_generations a 'completed'
-						try {
-							await admin.from('creative_generations').update({
-								status: 'completed',
-								output_image_path: fileName || null,
-								output_image_url: publicUrl,
-								output_path: fileName || null,
-								output_url: publicUrl,
-								updated_at: new Date().toISOString(),
-							}).eq('id', genRow.id);
-						} catch {
-							await admin.from('creative_generations').update({
-								status: 'completed',
-								output_image_url: publicUrl,
-								updated_at: new Date().toISOString(),
-							}).eq('id', genRow.id);
-						}
-
-					} catch (genErr) {
-						console.error(`Error generando anuncio #${genRow.id}:`, genErr);
-						await admin.from('creative_generations').update({
-							status: 'completed',
-							output_image_url: `https://image.pollinations.ai/prompt/${encodeURIComponent(tpl.nombre + ' anuncio publicitario')}`,
-							updated_at: new Date().toISOString(),
-						}).eq('id', genRow.id);
-					}
-				}));
-			}
-		};
-
-		// Ejecutar la tarea pesada en background sin bloquear la respuesta HTTP
-		waitUntil(runBatchPipeline());
+		// 6. El lote queda en estado 'processing'. Cada anuncio se genera con una
+		// invocación independiente y corta a /api/creativos/batch-worker, disparada
+		// por el cliente con concurrencia limitada y reintentable.
+		// Antes todo el lote corría acá dentro con waitUntil: en Vercel la función
+		// se cortaba a mitad del lote y las filas quedaban en 'processing' para
+		// siempre, que es exactamente el congelamiento que se veía en la app.
 
 		return json({
 			batchId,

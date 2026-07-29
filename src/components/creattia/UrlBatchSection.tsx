@@ -1,7 +1,39 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { creativos } from '../../data/creativos50';
 import { getTemplateBlueprint } from '../../lib/creattia/ad-prompt-builder';
+import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import { supabase } from '../../lib/creattia/supabase-browser';
+
+// Cuántos anuncios se generan a la vez. Cada uno es una request independiente:
+// si una falla o se corta, las demás siguen y esa se puede reintentar sola.
+const WORKER_CONCURRENCY = 4;
+
+/** Dispara un worker por generación pendiente, con concurrencia limitada. */
+async function driveBatchWorkers(
+	generationIds: string[],
+	accessToken: string,
+	onSettled?: (id: string, ok: boolean) => void,
+) {
+	const queue = [...generationIds];
+	const runNext = async (): Promise<void> => {
+		const id = queue.shift();
+		if (!id) return;
+		try {
+			const response = await fetch('/api/creativos/batch-worker', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
+				body: JSON.stringify({ generationId: id }),
+			});
+			if (onSettled) onSettled(id, response.ok);
+		} catch {
+			if (onSettled) onSettled(id, false);
+		}
+		return runNext();
+	};
+	await Promise.all(Array.from({ length: Math.min(WORKER_CONCURRENCY, queue.length) }, runNext));
+}
+
+export { driveBatchWorkers };
 
 type UrlBatchSectionProps = {
 	onSelectRemodel?: (generation: any, templateId?: number) => void;
@@ -141,6 +173,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			// Polling en tiempo real para actualizar las imágenes completadas
 			startPollingBatch(data.batchId, initialItems);
 
+			// Disparar la generación real: un worker por anuncio, de a 4 en paralelo.
+			// No se espera el resultado acá; el polling va mostrando cada imagen
+			// apenas queda lista. Si el usuario recarga la página, la barrida de
+			// reanudación de la app retoma las que falten.
+			void driveBatchWorkers(initialItems.map((item) => item.id), accessToken);
+
 		} catch (err: any) {
 			console.error('Error al generar lote por URL:', err);
 			setError(err.message || 'Ocurrió un error al conectar con el servidor.');
@@ -158,34 +196,25 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			try {
 				if (!supabase) return;
 
-				const { data: rows, error: fetchErr } = await supabase
+				const client = supabase;
+				const { data: rows, error: fetchErr } = await client
 					.from('creative_generations')
-					.select('id,template_id,title,status,output_image_url,output_image_path,output_path,output_url,error_message')
-					.eq('batch_id', batchId);
+					.select('id,template_id,title,status,output_path,error_code,output_index')
+					.eq('batch_id', batchId)
+					.order('output_index');
 
 				if (fetchErr || !rows || rows.length === 0) return;
 
-				const client = supabase;
-				if (!client) return;
+				const signed = await signGenerationPaths(client, rows.map((row: any) => row.output_path));
 
-				const updatedItems: BatchItem[] = rows.map((row: any) => {
-					let imgUrl = row.output_image_url || row.output_url || undefined;
-
-					if (!imgUrl && (row.output_image_path || row.output_path)) {
-						const p = row.output_image_path || row.output_path;
-						const { data: pubData } = client.storage.from('creative-generations').getPublicUrl(p);
-						imgUrl = pubData?.publicUrl;
-					}
-
-					return {
-						id: row.id,
-						templateId: row.template_id,
-						title: row.title,
-						status: row.status as any,
-						imageUrl: imgUrl,
-						error: row.error_message,
-					};
-				});
+				const updatedItems: BatchItem[] = rows.map((row: any) => ({
+					id: row.id,
+					templateId: row.template_id,
+					title: row.title,
+					status: row.status as any,
+					imageUrl: row.output_path ? signed.get(row.output_path) : undefined,
+					error: row.error_code,
+				}));
 
 				setBatchItems(updatedItems);
 
@@ -487,7 +516,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 													</button>
 													<a
 														href={item.imageUrl}
-														download={`creattia-anuncio-${item.id}.png`}
+														download={`creattia-anuncio-${item.id}.${item.imageUrl?.includes('.png') ? 'png' : 'jpg'}`}
 														target="_blank"
 														rel="noreferrer"
 														className="overlay-action-btn download"
