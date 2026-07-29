@@ -291,13 +291,12 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
-		// 6. Lanzar la generación en paralelo en segundo plano
+		// 6. Lanzar la generación de a poco en segundo plano (2 en paralelo para máxima velocidad sin colisión)
 		const runBatchPipeline = async () => {
 			const activeGoogleKey = googleKey;
 			const activeOpenAIKey = openAIKey;
 
-			// Procesamiento concurrente en grupos de 5 paralelizados
-			const concurrency = 5;
+			const concurrency = 2;
 			const generationsList = insertedGenerations || [];
 
 			for (let i = 0; i < generationsList.length; i += concurrency) {
@@ -316,7 +315,7 @@ export const POST: APIRoute = async ({ request }) => {
 						let imageBuffer: Buffer | null = null;
 						let mimeType = 'image/png';
 
-						// 1. Priorizar la generación con Imagen (OpenAI / Google Imagen 3)
+						// Tier 1: OpenAI DALL-E 3
 						if (activeOpenAIKey) {
 							try {
 								const openai = new OpenAI({ apiKey: activeOpenAIKey });
@@ -337,7 +336,7 @@ export const POST: APIRoute = async ({ request }) => {
 							}
 						}
 
-						// Fallback con Google Imagen 3
+						// Tier 2: Google Imagen 3
 						if (!imageBuffer && activeGoogleKey) {
 							try {
 								const googleRes = await fetch(
@@ -363,6 +362,24 @@ export const POST: APIRoute = async ({ request }) => {
 								}
 							} catch (googleErr) {
 								console.error('Error generación Google Imagen:', googleErr);
+							}
+						}
+
+						// Tier 3: Pollinations AI (High-speed zero-rate-limit fallback)
+						if (!imageBuffer) {
+							try {
+								const cleanPrompt = encodeURIComponent(prompt.slice(0, 700));
+								const pollUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
+								const pollRes = await fetch(pollUrl);
+								if (pollRes.ok) {
+									const arrBuf = await pollRes.arrayBuffer();
+									if (arrBuf && arrBuf.byteLength > 1000) {
+										imageBuffer = Buffer.from(arrBuf);
+										mimeType = 'image/png';
+									}
+								}
+							} catch (pollErr) {
+								console.error('Error fallback Pollinations:', pollErr);
 							}
 						}
 

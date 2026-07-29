@@ -757,6 +757,69 @@ export default function CreativeApp() {
 		return () => { active = false; };
 	}, [session]);
 
+	// Polling global continuo: mantiene actualizadas las imágenes en Mis Imágenes (History) sin importar en qué pantalla esté el usuario
+	useEffect(() => {
+		if (!session || !isSupabaseConfigured || !supabase) return;
+		const client = supabase;
+		let active = true;
+
+		const interval = setInterval(async () => {
+			try {
+				const { data: records } = await client.from('creative_generations')
+					.select('id,title,output_image_url,output_url,output_image_path,output_path,format,created_at,template_id,status,error_message')
+					.order('created_at', { ascending: false })
+					.limit(50);
+
+				if (!active || !records || records.length === 0) return;
+
+				setHistory((prev) => {
+					const map = new Map(prev.map(item => [item.id, item]));
+					let changed = false;
+
+					for (const r of records) {
+						let imgUrl = r.output_image_url || r.output_url || '';
+						if (!imgUrl && (r.output_image_path || r.output_path)) {
+							const p = r.output_image_path || r.output_path;
+							imgUrl = client.storage.from('creative-generations').getPublicUrl(p).data?.publicUrl || '';
+						}
+
+						const existing = map.get(r.id);
+						if (!existing) {
+							changed = true;
+							map.set(r.id, {
+								id: r.id,
+								title: r.title,
+								imageUrl: imgUrl,
+								format: r.format,
+								createdAt: r.created_at || new Date().toISOString(),
+								category: 'Creativo',
+								templateId: r.template_id,
+								status: r.status,
+							} as any);
+						} else if (existing.imageUrl !== imgUrl || (existing as any).status !== r.status) {
+							changed = true;
+							map.set(r.id, {
+								...existing,
+								imageUrl: imgUrl || existing.imageUrl,
+								status: r.status,
+							} as any);
+						}
+					}
+
+					if (!changed) return prev;
+					return Array.from(map.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+				});
+			} catch (e) {
+				console.warn('Global history poll err:', e);
+			}
+		}, 2500);
+
+		return () => {
+			active = false;
+			clearInterval(interval);
+		};
+	}, [session]);
+
 	useEffect(() => {
 		if (!toast) return;
 		const timeout = window.setTimeout(() => setToast(''), 3800);
