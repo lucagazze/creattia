@@ -331,7 +331,9 @@ export default function WinnersLibrary({
 	const [selectedSavedProduct, setSelectedSavedProduct] = useState<any | null>(null);
 	// Custom instructions for re-generation
 	const [customInstructions, setCustomInstructions] = useState('');
-	const [showCustomInstructions, setShowCustomInstructions] = useState(false);
+	// Admin Multi-select & Bulk Delete
+	const [multiSelectMode, setMultiSelectMode] = useState(false);
+	const [selectedImagePaths, setSelectedImagePaths] = useState<string[]>([]);
 
 	const userEmail = session?.user?.email || '';
 	const isAdmin = userEmail.toLowerCase().trim().includes('lucagazze') || userEmail.toLowerCase().trim().includes('algoritmiadesarrollos');
@@ -755,9 +757,42 @@ export default function WinnersLibrary({
 			
 			// Update local state
 			setItems(prev => prev.filter(item => item.imagePath !== imagePath));
+			setSelectedImagePaths(prev => prev.filter(p => p !== imagePath));
 		} catch (err: any) {
 			alert(err.message);
 		}
+	};
+
+	// Bulk delete winner handler for admin
+	const handleBulkDelete = async () => {
+		if (!selectedImagePaths.length) return;
+		if (!window.confirm(`¿Seguro que querés eliminar los ${selectedImagePaths.length} anuncios seleccionados de la biblioteca de ganadores?`)) return;
+
+		try {
+			const res = await fetch('/api/creativos/references', {
+				method: 'DELETE',
+				headers: {
+					'Authorization': `Bearer ${session?.access_token || ''}`,
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ imagePaths: selectedImagePaths })
+			});
+			const payload = await res.json();
+			if (!res.ok) throw new Error(payload.error || 'Error al eliminar selección.');
+
+			const removeSet = new Set(selectedImagePaths);
+			setItems(prev => prev.filter(item => !removeSet.has(item.imagePath)));
+			setSelectedImagePaths([]);
+			if (onToast) onToast(`¡${payload.deletedCount || selectedImagePaths.length} anuncios eliminados con éxito!`);
+		} catch (err: any) {
+			alert(err.message || 'Error al eliminar los anuncios seleccionados.');
+		}
+	};
+
+	const toggleSelectPath = (path: string) => {
+		setSelectedImagePaths(prev => 
+			prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]
+		);
 	};
 
 	// Add winner handler
@@ -834,13 +869,101 @@ export default function WinnersLibrary({
 					<h1>Biblioteca de ganadores</h1>
 					<span>Inspirate en más de {items.length} anuncios ganadores reales y usalos como plantilla.</span>
 				</div>
-				{isAdmin && (
-					<button className="studio-primary-button compact" onClick={() => setShowAddModal(true)}>
-						<Icon name="plus" size={16} />
-						Agregar Ganador
-					</button>
-				)}
 			</div>
+
+			{isAdmin && (
+				<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', background: '#f5effe', padding: '12px 18px', borderRadius: '14px', marginBottom: '20px', border: '1.5px solid #dcd0f7' }}>
+					<span style={{ fontSize: '13px', fontWeight: 800, color: '#6f38dd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+						<span>⚡ Panel Administrador:</span>
+					</span>
+
+					<button
+						type="button"
+						onClick={() => setMultiSelectMode(!multiSelectMode)}
+						style={{
+							padding: '7px 16px',
+							borderRadius: '10px',
+							border: '1.5px solid #744bde',
+							background: multiSelectMode ? '#744bde' : '#ffffff',
+							color: multiSelectMode ? '#ffffff' : '#744bde',
+							fontWeight: 800,
+							fontSize: '13px',
+							cursor: 'pointer',
+							transition: 'all .15s ease'
+						}}
+					>
+						{multiSelectMode ? '✓ Modo Selección Activo' : '☑️ Selección Múltiple'}
+					</button>
+
+					{multiSelectMode && (
+						<>
+							<button
+								type="button"
+								onClick={() => {
+									if (selectedImagePaths.length === filteredItems.length) {
+										setSelectedImagePaths([]);
+									} else {
+										setSelectedImagePaths(filteredItems.map(i => i.imagePath));
+									}
+								}}
+								style={{
+									padding: '7px 14px',
+									borderRadius: '10px',
+									border: '1px solid #dcd5e6',
+									background: '#ffffff',
+									color: '#3b3445',
+									fontWeight: 700,
+									fontSize: '12.5px',
+									cursor: 'pointer'
+								}}
+							>
+								{selectedImagePaths.length === filteredItems.length ? 'Deseleccionar todos' : 'Seleccionar visibles'}
+							</button>
+
+							{selectedImagePaths.length > 0 && (
+								<button
+									type="button"
+									onClick={handleBulkDelete}
+									style={{
+										padding: '7px 16px',
+										borderRadius: '10px',
+										border: 0,
+										background: '#dc2626',
+										color: '#ffffff',
+										fontWeight: 800,
+										fontSize: '13px',
+										cursor: 'pointer',
+										boxShadow: '0 4px 12px rgba(220,38,38,0.25)'
+									}}
+								>
+									🗑️ Eliminar ({selectedImagePaths.length}) Seleccionados
+								</button>
+							)}
+						</>
+					)}
+
+					<button
+						type="button"
+						onClick={() => setShowAddModal(true)}
+						style={{
+							marginLeft: 'auto',
+							padding: '8px 18px',
+							borderRadius: '10px',
+							border: 0,
+							background: '#19171d',
+							color: '#ffffff',
+							fontWeight: 800,
+							fontSize: '13px',
+							cursor: 'pointer',
+							display: 'flex',
+							alignItems: 'center',
+							gap: '6px'
+						}}
+					>
+						<span>➕ Agregar Anuncio Ganador</span>
+					</button>
+				</div>
+			)}
 
 			<div className="studio-library-tools" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '20px' }}>
 				<label style={{ flex: '1 1 300px', minWidth: '200px' }}>
@@ -915,6 +1038,8 @@ export default function WinnersLibrary({
 							? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
 							: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`;
 
+						const isSelected = selectedImagePaths.includes(item.imagePath);
+
 						return (
 							<article 
 								className="library-ad-card-masonry" 
@@ -923,10 +1048,43 @@ export default function WinnersLibrary({
 									display: 'flex',
 									flexDirection: 'column',
 									position: 'relative',
-									cursor: 'pointer'
+									cursor: 'pointer',
+									outline: multiSelectMode && isSelected ? '3.5px solid #744bde' : undefined,
+									borderRadius: '12px',
+									boxShadow: multiSelectMode && isSelected ? '0 0 0 4px rgba(116, 75, 222, 0.2)' : undefined,
 								}}
-								onClick={() => handleUseIdea(item)}
+								onClick={() => {
+									if (multiSelectMode) {
+										toggleSelectPath(item.imagePath);
+									} else {
+										handleUseIdea(item);
+									}
+								}}
 							>
+								{/* Checkbox de Selección Múltiple (Admin) */}
+								{multiSelectMode && (
+									<div
+										style={{
+											position: 'absolute',
+											top: '10px',
+											left: '10px',
+											zIndex: 10,
+											width: '24px',
+											height: '24px',
+											borderRadius: '6px',
+											background: isSelected ? '#744bde' : '#ffffff',
+											border: isSelected ? '2px solid #744bde' : '2px solid #a39bb0',
+											color: '#ffffff',
+											display: 'grid',
+											placeItems: 'center',
+											fontSize: '14px',
+											fontWeight: 'bold',
+											boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+										}}
+									>
+										{isSelected ? '✓' : ''}
+									</div>
+								)}
 								{/* Card header (Social Proof looks like FB ad) */}
 								<div 
 									style={{ 
