@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { creativos } from '../../data/creativos50';
+import { getTemplateBlueprint } from '../../lib/creattia/ad-prompt-builder';
 import { supabase } from '../../lib/creattia/supabase-browser';
 
 type UrlBatchSectionProps = {
@@ -420,6 +421,19 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 											<span className="ring-tag">{templateInfo.ring}</span>
 										)}
 									</div>
+
+									{templateInfo && (() => {
+										const blueprint = getTemplateBlueprint(templateInfo);
+										return (
+											<div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '6px 10px', background: '#f8f6fc', borderBottom: '1px solid #f0ebf8' }}>
+												{blueprint.slots.map((s, i) => (
+													<span key={i} title={s.description} style={{ fontSize: '9.5px', fontWeight: 700, color: '#5f32cf', background: '#efeafc', padding: '2px 6px', borderRadius: '5px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+														<span>{s.icon}</span> <span>{s.name}</span>
+													</span>
+												))}
+											</div>
+										);
+									})()}
 
 									<div className="batch-card-body">
 										{item.status === 'processing' && (

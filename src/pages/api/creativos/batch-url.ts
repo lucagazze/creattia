@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import OpenAI from 'openai';
 import { creativos, type Creativo } from '../../../data/creativos50';
+import { buildSpecializedAdPrompt } from '../../../lib/creattia/ad-prompt-builder';
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
@@ -264,22 +265,13 @@ export const POST: APIRoute = async ({ request }) => {
 				await Promise.allSettled(chunk.map(async (genRow) => {
 					const tpl = templatesForBatch.find((t) => t.id === genRow.template_id) || templatesForBatch[0];
 					try {
-						// Construir el prompt optimizado para el formato probado
-						const prompt = `Create a high-converting performance static ad creative for ecommerce.
-BRAND / PRODUCT NAME: ${scannedProduct?.name || 'Featured Product'}
-PRODUCT DESCRIPTION: ${scannedProduct?.description || 'Premium ecommerce product.'}
-PRICE: ${scannedProduct?.priceText ? `${scannedProduct.priceText} ${scannedProduct.currency || ''}` : 'Special offer available'}
-
-PROVEN AD ANGLE / FRAMEWORK: "${tpl.nombre}" (Category: ${tpl.ring.toUpperCase()}, Awareness Level: ${tpl.n})
-WHY THIS ANGLE WORKS: ${tpl.sirve}
-WHEN TO USE: ${tpl.cuando}
-
-DESIGN DIRECTION:
-- Produce a polished, studio-quality static ad for social media (${format}).
-- Show the product prominently with realistic lighting, clean edges and professional direct-response typography.
-- Copy must be written in natural Argentine Spanish (or language of the product), short, punchy and highly converting.
-- Include visual cues matching the "${tpl.nombre}" framework (e.g. 5 stars for review, clean comparison layout for Vs, callout arrows, or price tag).
-${brief ? `USER DIRECTION: ${brief}` : ''}`;
+						// Construir el prompt especializado con el Blueprint de la plantilla y los datos del producto
+						const { prompt } = buildSpecializedAdPrompt(tpl, {
+							name: scannedProduct?.name || 'Producto Destacado',
+							description: scannedProduct?.description || '',
+							priceText: scannedProduct?.priceText || '',
+							currency: scannedProduct?.currency || '$',
+						}, format, brief);
 
 						let imageBuffer: Buffer | null = null;
 						let mimeType = 'image/png';
