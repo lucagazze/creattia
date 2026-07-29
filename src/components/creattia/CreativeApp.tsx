@@ -7,6 +7,7 @@ import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-brow
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
+import { UrlBatchSection } from './UrlBatchSection';
 
 type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover';
 
@@ -1745,8 +1746,33 @@ function Dashboard({
 	onUseScrapedWinner: (path: string) => void;
 	onExpand?: (generation: Generation) => void;
 }) {
+	const [initialUrlFromQuery, setInitialUrlFromQuery] = useState('');
+
+	useEffect(() => {
+		if (typeof window !== 'undefined') {
+			const params = new URLSearchParams(window.location.search);
+			const batchUrlParam = params.get('batchUrl') || params.get('url');
+			if (batchUrlParam) {
+				setInitialUrlFromQuery(batchUrlParam);
+			}
+		}
+	}, []);
+
 	return (
 		<>
+			{/* ── Generador Masivo de Anuncios por URL ── */}
+			<UrlBatchSection
+				userCredits={profile.credits}
+				initialUrl={initialUrlFromQuery}
+				onNavigateToPlans={() => onView('plans')}
+				onSelectRemodel={(generation, templateId) => {
+					const tplId = templateId || generation.templateId || 1;
+					const template = catalog.find((c) => c.id === tplId) || catalog[0];
+					onChoose(template);
+					onReuse(generation);
+				}}
+			/>
+
 			{/* ── Descubrí ganadores: grid de 4 para swipear ── */}
 			{swipePool.length > 3 && (
 				<DiscoverGrid

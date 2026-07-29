@@ -143,12 +143,20 @@ const faqs = [
 					</div>
 					<h1 class="hero-title">Convertí anuncios ganadores<br/>en más ventas.</h1>
 					<p class="hero-subtitle">Elegí un anuncio que ya está funcionando y Creattia lo recrea con tu producto: creativos de alto rendimiento, listos para publicar en minutos.</p>
-					<div class="hero-actions">
-						<a class="gradient-cta" href="/app/">
-							<span>Empezar gratis</span>
+					<form class="hero-url-batch-form" action="/app/" method="GET" style="display: flex; align-items: center; gap: 10px; margin-top: 28px; max-width: 620px; background: #ffffff; padding: 6px 8px 6px 18px; border-radius: 999px; box-shadow: 0 12px 36px rgba(116, 75, 222, 0.16);">
+						<span style="font-size: 18px; flex-shrink: 0;">🔗</span>
+						<input
+							type="url"
+							name="batchUrl"
+							placeholder="Pegá la URL de tu producto (ej: mi-tienda.com/producto)"
+							required
+							style="flex: 1; background: transparent; border: none; outline: none; color: #19171d; font-size: 14.5px; font-weight: 600;"
+						/>
+						<button type="submit" class="gradient-cta" style="height: 46px; padding: 0 22px; font-size: 14.5px; flex-shrink: 0; border: none !important; outline: none !important; cursor: pointer;">
+							<span>Generar Anuncios Probados</span>
 							<svg class="cta-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path></svg>
-						</a>
-					</div>
+						</button>
+					</form>
 					</div>
 				<!-- Hero Video Container matching TryHolo look -->
 				<div class="hero-video-container">
