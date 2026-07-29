@@ -2894,19 +2894,16 @@ function History({
 
 // Tarjeta placeholder mientras una imagen se está generando en el servidor.
 function PendingGenerationCard({ title, referenceUrl, startedAt }: { title: string; referenceUrl?: string; startedAt?: number; onClick?: () => void }) {
-	const [progress, setProgress] = useState(0);
+	const [progress, setProgress] = useState(15);
 
 	useEffect(() => {
-		if (!startedAt) {
-			setProgress(10);
-			return;
-		}
+		const startTime = startedAt || Date.now();
 		const interval = setInterval(() => {
-			const elapsedMs = Date.now() - startedAt;
-			const estimatedDurationMs = 30000; // 30 seconds estimated
-			const pct = Math.min(95, Math.round((elapsedMs / estimatedDurationMs) * 100));
+			const elapsedMs = Date.now() - startTime;
+			const estimatedDurationMs = 12000; // 12s estimated for fast progressive batch
+			const pct = Math.min(95, Math.max(15, Math.round((elapsedMs / estimatedDurationMs) * 100)));
 			setProgress(pct);
-		}, 300);
+		}, 150);
 		return () => clearInterval(interval);
 	}, [startedAt]);
 
@@ -3101,8 +3098,31 @@ function GenerationCard({
 					</div>
 				)}
 
-				<img src={item.imageUrl} alt={item.title} loading="lazy"/>
-				<a href={item.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(item.imageUrl, `creattia-${item.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a>
+				{!item.imageUrl ? (
+					<div 
+						style={{
+							minHeight: '220px',
+							background: 'linear-gradient(135deg, #f8f5fc 0%, #efe7f8 100%)',
+							display: 'flex',
+							flexDirection: 'column',
+							alignItems: 'center',
+							justifyContent: 'center',
+							gap: '10px',
+							padding: '20px',
+							textAlign: 'center',
+							borderRadius: '8px'
+						}}
+					>
+						<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
+						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Diseñando anuncio con IA...</strong>
+						<span style={{ fontSize: '10px', color: '#744bde', fontWeight: 700 }}>Renderizando de a uno en tiempo real</span>
+					</div>
+				) : (
+					<>
+						<img src={item.imageUrl} alt={item.title} loading="lazy"/>
+						<a href={item.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(item.imageUrl, `creattia-${item.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a>
+					</>
+				)}
 			</div>
 			<footer>
 				<h3>{item.title}</h3>
