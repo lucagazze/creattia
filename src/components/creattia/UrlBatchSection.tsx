@@ -10,6 +10,7 @@ type UrlBatchSectionProps = {
 	onNavigateToPlans?: () => void;
 	initialUrl?: string;
 	session?: any;
+	onBatchCreated?: (generations: any[], batchId: string) => void;
 };
 
 type BatchItem = {
@@ -28,6 +29,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	onNavigateToPlans,
 	initialUrl = '',
 	session,
+	onBatchCreated,
 }) => {
 	const [url, setUrl] = useState(initialUrl);
 	const [count, setCount] = useState<10 | 20 | 30 | 40>(10);
@@ -134,6 +136,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			setBatchItems(initialItems);
 
 			if (onRefreshCredits) onRefreshCredits();
+			if (onBatchCreated && data.generations?.length) onBatchCreated(data.generations, data.batchId);
 
 			// Polling en tiempo real para actualizar las imágenes completadas
 			startPollingBatch(data.batchId, initialItems);

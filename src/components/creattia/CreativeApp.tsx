@@ -700,35 +700,40 @@ export default function CreativeApp() {
 				if (favoriteRecords) setFavorites(new Set(favoriteRecords.map((item) => Number(item.template_id))));
 
 					const { data: records, error: generationsError } = await supabase.from('creative_generations')
-						.select('id,title,output_path,format,created_at,template_id,user_brief,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot')
-					.eq('status', 'completed').order('created_at', { ascending: false }).limit(24);
-				if (generationsError) throw generationsError;
-				if (records?.length) {
-					const signed = await Promise.all(records.map(async (record) => {
-						const { data: url } = await client.storage.from('creative-assets').createSignedUrl(record.output_path, 3600);
-						const creative = loadedCatalog.find((item) => item.id === record.template_id);
-						return {
-							id: record.id,
-							title: record.title,
-							imageUrl: url?.signedUrl || '',
-							format: record.format,
-							createdAt: record.created_at,
-							category: creative ? ringMeta[creative.ring]?.label : 'Creativo',
-							templateId: record.template_id,
-							brief: record.user_brief || '',
-							preset: record.variant_key || record.settings_snapshot?.preset || 'fiel',
+						.select('id,title,output_path,output_image_path,output_image_url,output_url,format,created_at,template_id,user_brief,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot,status')
+						.in('status', ['completed', 'processing'])
+						.order('created_at', { ascending: false }).limit(40);
+
+					if (!generationsError && records?.length) {
+						const mapped = records.map((record: any) => {
+							let imgUrl = record.output_image_url || record.output_url || '';
+							if (!imgUrl && (record.output_image_path || record.output_path)) {
+								const p = record.output_image_path || record.output_path;
+								const { data: pubData } = client.storage.from('creative-generations').getPublicUrl(p);
+								imgUrl = pubData?.publicUrl || '';
+							}
+
+							const creative = loadedCatalog.find((item) => item.id === record.template_id);
+							return {
+								id: record.id,
+								title: record.title,
+								imageUrl: imgUrl,
+								format: record.format,
+								createdAt: record.created_at || new Date().toISOString(),
+								category: creative ? ringMeta[creative.ring]?.label : 'Creativo',
+								templateId: record.template_id,
+								brief: record.user_brief || '',
+								preset: record.variant_key || record.settings_snapshot?.preset || 'fiel',
 								imageType: record.image_type || record.settings_snapshot?.imageType || 'product',
 								productId: record.product_id || record.settings_snapshot?.productId || '',
 								productIds: record.settings_snapshot?.productIds || (record.product_id ? [record.product_id] : []),
 								batchId: record.batch_id || record.id,
 								outputIndex: record.output_index || 1,
-								referenceUrl: record.settings_snapshot?.referencePath
-									? `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${record.settings_snapshot.referencePath}`
-									: '',
-						};
-					}));
-					setHistory(signed.filter((item) => item.imageUrl));
-				}
+								status: record.status || (imgUrl ? 'completed' : 'processing'),
+							};
+						});
+						setHistory(mapped);
+					}
 				const token = getSessionToken(activeSession);
 				if (token) {
 					const response = await fetch('/api/creativos/products', { headers: { authorization: `Bearer ${token}` } });
@@ -977,40 +982,68 @@ export default function CreativeApp() {
 		let cancelled = false;
 		const poll = async () => {
 			const { data, error } = await client.from('creative_generations')
-				.select('id,status,output_path,error_code,title,format,template_id,batch_id,output_index,created_at,image_type,user_brief,variant_key,product_id,settings_snapshot')
+				.select('id,status,output_path,output_image_path,output_image_url,output_url,error_code,title,format,template_id,batch_id,output_index,created_at,image_type,user_brief,variant_key,product_id,settings_snapshot')
 				.eq('batch_id', batch.batchId).order('output_index');
 			if (cancelled || error || !data?.length) return;
-			if (data.some((row) => row.status === 'processing')) return;
-			const failedRows = data.filter((row) => row.status === 'failed');
-			const completedRows = data.filter((row) => row.status === 'completed' && row.output_path);
-			const generations: Generation[] = [];
-			for (const row of completedRows) {
-				const { data: signed } = await client.storage.from('creative-assets').createSignedUrl(row.output_path, 3600);
-				if (!signed?.signedUrl) continue;
-				generations.push({
-					id: row.id, title: row.title, imageUrl: signed.signedUrl, format: row.format, createdAt: row.created_at,
-					category: 'Creativo', templateId: row.template_id, brief: row.user_brief || '', preset: row.variant_key || '',
-					imageType: row.image_type || 'product', productId: row.product_id || '',
-					productIds: row.settings_snapshot?.productIds || [], batchId: row.batch_id, outputIndex: row.output_index,
+
+			// Actualizar en tiempo real los items en el historial (history)
+			const updatedGenerations: Generation[] = [];
+			for (const row of data) {
+				let imgUrl = (row as any).output_image_url || (row as any).output_url || '';
+				if (!imgUrl && (row.output_image_path || row.output_path)) {
+					const p = row.output_image_path || row.output_path;
+					const { data: pubData } = client.storage.from('creative-generations').getPublicUrl(p);
+					imgUrl = pubData?.publicUrl || '';
+				}
+
+				updatedGenerations.push({
+					id: row.id,
+					title: row.title,
+					imageUrl: imgUrl,
+					format: row.format,
+					createdAt: row.created_at || new Date().toISOString(),
+					category: 'Creativo',
+					templateId: row.template_id,
+					brief: row.user_brief || '',
+					preset: row.variant_key || '',
+					imageType: row.image_type || 'product',
+					productId: row.product_id || '',
+					productIds: row.settings_snapshot?.productIds || [],
+					batchId: row.batch_id,
+					outputIndex: row.output_index,
+					status: row.status,
+				} as any);
+			}
+
+			if (updatedGenerations.length) {
+				setHistory((prev) => {
+					const existingMap = new Map(prev.map(item => [item.id, item]));
+					for (const item of updatedGenerations) {
+						existingMap.set(item.id, item);
+					}
+					return Array.from(existingMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 				});
 			}
-			if (cancelled) return;
+
+			if (data.some((row) => row.status === 'processing')) return;
+
+			const failedRows = data.filter((row) => row.status === 'failed');
+			const completedRows = updatedGenerations.filter((item) => item.imageUrl && (item as any).status === 'completed');
+
 			const { data: profileRow } = await client.from('creative_profiles').select('credits_remaining').maybeSingle();
-			if (generations.length) setHistory((prev) => [...generations.filter((item) => !prev.some((existing) => existing.id === item.id)), ...prev].slice(0, 24));
 			if (profileRow) setProfile((prev) => ({ ...prev, credits: profileRow.credits_remaining ?? prev.credits }));
 			
-			const nextStatus = generations.length ? 'completed' : 'failed';
+			const nextStatus = completedRows.length ? 'completed' : 'failed';
 			setActiveBatch({
 				...batch,
 				status: nextStatus,
-				results: generations,
-				error: generations.length ? '' : (failedRows[0]?.error_code || 'No se pudo generar la imagen.'),
+				results: completedRows,
+				error: completedRows.length ? '' : (failedRows[0]?.error_code || 'No se pudo generar la imagen.'),
 			});
 			window.localStorage.removeItem(ACTIVE_BATCH_KEY);
-			setToast(generations.length ? '¡Tu anuncio está listo!' : 'La generación falló y tus créditos fueron devueltos.');
+			setToast(completedRows.length ? '¡Tu lote de anuncios está listo en Mis imágenes!' : 'La generación falló.');
 
-			if (generations.length) {
-				import('../../lib/creattia/sfx').then(({ sfx }) => sfx.playSuccess());
+			if (completedRows.length) {
 				import('../../lib/creattia/confetti').then(({ triggerConfetti }) => triggerConfetti());
 				window.setTimeout(() => {
 					setActiveBatch(curr => curr && curr.batchId === batch.batchId && curr.status === 'completed' ? null : curr);
@@ -1205,6 +1238,31 @@ export default function CreativeApp() {
 							onView={navigateTo} 
 							onChoose={chooseCreative} 
 							onReuse={reuseGeneration} 
+							onBatchCreated={(generations, batchId) => {
+								const newItems: Generation[] = generations.map((g: any) => ({
+									id: g.id,
+									title: g.title || 'Anuncio desde URL',
+									imageUrl: g.output_image_url || g.output_url || '',
+									format: g.format || 'square',
+									createdAt: new Date().toISOString(),
+									category: 'producto',
+									templateId: g.template_id,
+									batchId: batchId,
+									status: 'processing',
+								}));
+
+								setHistory((prev) => [...newItems, ...prev]);
+
+								startBatchTracking({
+									batchId,
+									title: 'Generación por URL',
+									referenceUrl: '',
+									count: generations.length,
+									startedAt: Date.now(),
+									status: 'processing',
+									results: [],
+								});
+							}}
 							randomWinners={randomWinners}
 							swipePool={(swipePool.filter((item) => !discoverSeen.has(item.imagePath)).length >= 8 ? swipePool.filter((item) => !discoverSeen.has(item.imagePath)) : swipePool).slice(0, 40)}
 							onDiscoverSeen={markDiscoverSeen}
@@ -1732,6 +1790,7 @@ function Dashboard({
 	onToggleLikedScraped,
 	onUseScrapedWinner,
 	onExpand,
+	onBatchCreated,
 }: {
 	profile: AppProfile;
 	session?: AppSession;
@@ -1749,6 +1808,7 @@ function Dashboard({
 	onToggleLikedScraped: (path: string) => void;
 	onUseScrapedWinner: (path: string) => void;
 	onExpand?: (generation: Generation) => void;
+	onBatchCreated?: (generations: any[], batchId: string) => void;
 }) {
 	const [initialUrlFromQuery, setInitialUrlFromQuery] = useState('');
 
@@ -1769,6 +1829,7 @@ function Dashboard({
 				userCredits={profile.credits}
 				initialUrl={initialUrlFromQuery}
 				session={session}
+				onBatchCreated={onBatchCreated}
 				onNavigateToPlans={() => onView('plans')}
 				onSelectRemodel={(generation, templateId) => {
 					const tplId = templateId || generation.templateId || 1;
