@@ -1,4 +1,4 @@
-import type { Creativo } from '../../data/creativos50';
+import { creativos, type Creativo } from '../../data/creativos50';
 import type { ScannedProduct } from './catalog-scanner';
 
 export type AdSlotConfig = {
@@ -428,14 +428,70 @@ export function getTemplateBlueprint(template: Creativo): AdSlotConfig {
 	}
 }
 
-// Construye un prompt hiper-específico combinando el Blueprint de la plantilla y los datos extraídos del producto escaneado
+// Genera dinámicamente un Blueprint de Prompt para cualquiera de las 1.300+ referencias ganadoras de la biblioteca
+export function getDynamicReferenceBlueprint(item: {
+	name: string;
+	promptNotes?: string;
+	categoryGroup?: string;
+	categoryBranch?: string;
+	categoryLeaf?: string;
+	metadata?: any;
+	templateId?: number;
+}): AdSlotConfig {
+	if (item.templateId && item.templateId >= 1 && item.templateId <= 50) {
+		const tpl = creativos.find(c => c.id === item.templateId);
+		if (tpl) return getTemplateBlueprint(tpl);
+	}
+
+	const notes = (item.promptNotes || '').toLowerCase();
+	const name = (item.name || '').toLowerCase();
+	const group = (item.categoryGroup || '').toLowerCase();
+
+	const slots: { name: string; icon: string; description: string }[] = [
+		{ name: 'Foto del Producto', icon: '📷', description: 'Producto principal presentado en escena' }
+	];
+
+	if (notes.includes('precio') || notes.includes('oferta') || notes.includes('descuento') || notes.includes(' off') || name.includes('oferta')) {
+		slots.push({ name: 'Badge de Oferta / Precio', icon: '🏷️', description: 'Precio especial o porcentaje de descuento' });
+	}
+
+	if (notes.includes('estrella') || notes.includes('review') || notes.includes('reseña') || notes.includes('opinión') || notes.includes('rating') || notes.includes('5 stars')) {
+		slots.push({ name: '5 Estrellas & Review', icon: '⭐', description: 'Valoración de clientes e insignia de confianza' });
+	}
+
+	if (notes.includes('vs') || notes.includes('comparat') || notes.includes('nosotros') || notes.includes('ellos') || name.includes('vs')) {
+		slots.push({ name: 'Tabla Comparativa', icon: '📊', description: 'Puntos clave marcados con ✔ y ✘' });
+	}
+
+	if (notes.includes('whatsapp') || notes.includes('chat') || notes.includes('mensaje') || notes.includes('dm')) {
+		slots.push({ name: 'Burbuja de Chat / Mensaje', icon: '💬', description: 'Interfaz de mensaje directo' });
+	}
+
+	if (notes.includes('envío') || notes.includes('shipping') || notes.includes('gratis')) {
+		slots.push({ name: 'Envío Gratis', icon: '🚚', description: 'Promesa de despacho a domicilio' });
+	}
+
+	const layoutTemplate = `DYNAMIC_REFERENCE_LAYOUT: Precise reproduction of winner reference "${item.name}".
+Specific Reference Notes: ${item.promptNotes || 'Clean high-converting commercial ad'}.
+Category: ${group || 'e-commerce'} / ${item.categoryBranch || 'direct-response'}.
+Structure: Recreate reference layout, typography structure, badges and text placements adjusted for the user's product.`;
+
+	return { slots, layoutTemplate };
+}
+
+// Construye un prompt hiper-específico combinando el Blueprint de la plantilla o referencia de la biblioteca (1.300+ anuncios)
 export function buildSpecializedAdPrompt(
-	template: Creativo,
+	templateOrReference: Creativo | { name: string; promptNotes?: string; categoryGroup?: string; categoryBranch?: string; templateId?: number; ring?: string; sirve?: string; cuando?: string; id?: number },
 	product: Partial<ScannedProduct> & { name: string; description?: string; priceText?: string; currency?: string },
 	format: string,
 	userBrief?: string
 ): { prompt: string; blueprint: AdSlotConfig } {
-	const blueprint = getTemplateBlueprint(template);
+	const templateId = (templateOrReference as any).id || (templateOrReference as any).templateId;
+	const isCatalogTemplate = templateId && templateId >= 1 && templateId <= 50;
+	
+	const blueprint = isCatalogTemplate 
+		? getTemplateBlueprint(templateOrReference as Creativo)
+		: getDynamicReferenceBlueprint(templateOrReference as any);
 
 	// Relleno inteligente de slots faltantes
 	const rawPrice = product.priceText || '';
@@ -455,12 +511,14 @@ export function buildSpecializedAdPrompt(
 		originalPriceStr = '$99.900';
 	}
 
-	const prompt = `Create a high-converting ecommerce static ad creative based on the proven "${template.nombre}" framework.
+	const refName = (templateOrReference as any).nombre || (templateOrReference as any).name || 'Anuncio Ganador';
+	const refNotes = (templateOrReference as any).sirve || (templateOrReference as any).promptNotes || 'Diseño de alto rendimiento';
 
-[AD FRAMEWORK BLUEPRINT]
-Template ID: #${template.id} — "${template.nombre}" (Category: ${template.ring.toUpperCase()}, Awareness: ${template.n})
-Framework Goal: ${template.sirve}
-When to Use: ${template.cuando}
+	const prompt = `Create a high-converting ecommerce static ad creative inspired by the winning reference "${refName}".
+
+[WINNING AD REFERENCE BLUEPRINT]
+Reference / Template: "${refName}" ${templateId ? `(ID #${templateId})` : ''}
+Reference Concept: ${refNotes}
 
 [LAYOUT ENGINE INSTRUCTIONS]
 ${blueprint.layoutTemplate}
@@ -477,7 +535,7 @@ ${blueprint.slots.map(s => `- ${s.icon} ${s.name}: ${s.description}`).join('\n')
 [DESIGN & TYPOGRAPHY SPECIFICATIONS]
 1. Show the product prominently in realistic studio lighting with razor-sharp edges.
 2. Render clean, professional copy in natural Spanish tailored to Latin America / Argentina.
-3. Integrate UI overlays matching "${template.nombre}" (e.g. star ratings, verified badges, offer pills, or comparative checkmarks).
+3. Integrate UI overlays matching "${refName}" (e.g. star ratings, verified badges, offer pills, or comparative checkmarks).
 4. Maintain high visual contrast, rich typography and modern ecommerce aesthetic.
 ${userBrief ? `\n[CUSTOM USER DIRECTION]: ${userBrief}` : ''}`;
 
