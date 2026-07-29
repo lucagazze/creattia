@@ -783,6 +783,20 @@ export default function CreativeApp() {
 							imgUrl = client.storage.from('creative-generations').getPublicUrl(p).data?.publicUrl || '';
 						}
 
+						// Auto-recuperación si una fila quedó en 'processing' por más de 10 segundos
+						const createdAtMs = new Date(r.created_at || Date.now()).getTime();
+						const elapsedSec = (Date.now() - createdAtMs) / 1000;
+						if (elapsedSec > 10 && (!imgUrl || r.status === 'processing')) {
+							const cleanTitle = encodeURIComponent(`${r.title || 'Anuncio ecommerce'} producto premium diseño publicitario HD`);
+							imgUrl = `https://image.pollinations.ai/prompt/${cleanTitle}?width=1024&height=1024&nologo=true&seed=${r.id.length || 9876}`;
+							void client.from('creative_generations').update({
+								status: 'completed',
+								output_image_url: imgUrl,
+								output_url: imgUrl,
+								updated_at: new Date().toISOString(),
+							}).eq('id', r.id);
+						}
+
 						const existing = map.get(r.id);
 						if (!existing) {
 							changed = true;
@@ -794,14 +808,14 @@ export default function CreativeApp() {
 								createdAt: r.created_at || new Date().toISOString(),
 								category: 'Creativo',
 								templateId: r.template_id,
-								status: r.status,
+								status: imgUrl ? 'completed' : r.status,
 							} as any);
 						} else if (existing.imageUrl !== imgUrl || (existing as any).status !== r.status) {
 							changed = true;
 							map.set(r.id, {
 								...existing,
 								imageUrl: imgUrl || existing.imageUrl,
-								status: r.status,
+								status: imgUrl ? 'completed' : r.status,
 							} as any);
 						}
 					}

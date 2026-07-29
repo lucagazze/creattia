@@ -312,61 +312,19 @@ export const POST: APIRoute = async ({ request }) => {
 							currency: scannedProduct?.currency || '$',
 						}, format, brief);
 
+						// Helper con timeout estricto de 4.5 segundos para que ninguna API cuelgue la función Vercel
+						const fetchWithTimeout = async (fn: () => Promise<{ buffer: Buffer; mime: string } | null>, ms = 4500) => {
+							return Promise.race([
+								fn(),
+								new Promise<{ buffer: Buffer; mime: string } | null>((resolve) => setTimeout(() => resolve(null), ms)),
+							]);
+						};
+
 						let imageBuffer: Buffer | null = null;
 						let mimeType = 'image/png';
 
-						// Tier 1: OpenAI DALL-E 3
-						if (activeOpenAIKey) {
-							try {
-								const openai = new OpenAI({ apiKey: activeOpenAIKey });
-								const aiRes = await openai.images.generate({
-									model: 'dall-e-3',
-									prompt,
-									n: 1,
-									size: format === 'story' ? '1024x1792' : format === 'landscape' ? '1792x1024' : '1024x1024',
-									response_format: 'b64_json',
-								});
-								const b64 = aiRes.data?.[0]?.b64_json;
-								if (b64) {
-									imageBuffer = Buffer.from(b64, 'base64');
-									mimeType = 'image/png';
-								}
-							} catch (openAiErr) {
-								console.error('Error generación OpenAI:', openAiErr);
-							}
-						}
-
-						// Tier 2: Google Imagen 3
-						if (!imageBuffer && activeGoogleKey) {
-							try {
-								const googleRes = await fetch(
-									`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${activeGoogleKey}`,
-									{
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({
-											instances: [{ prompt }],
-											parameters: {
-												sampleCount: 1,
-												aspectRatio: format === 'story' ? '9:16' : format === 'landscape' ? '16:9' : '1:1',
-												outputOptions: { mimeType: 'image/png' },
-											},
-										}),
-									}
-								);
-								const googleData = await googleRes.json();
-								const b64 = googleData.predictions?.[0]?.bytesBase64Encoded;
-								if (b64) {
-									imageBuffer = Buffer.from(b64, 'base64');
-									mimeType = 'image/png';
-								}
-							} catch (googleErr) {
-								console.error('Error generación Google Imagen:', googleErr);
-							}
-						}
-
-						// Tier 3: Pollinations AI (High-speed zero-rate-limit fallback)
-						if (!imageBuffer) {
+						// 1. Intentar motor ultrarrápido Pollinations (1.2s respuesta directa en HD)
+						const fastRes = await fetchWithTimeout(async () => {
 							try {
 								const cleanPrompt = encodeURIComponent(prompt.slice(0, 700));
 								const pollUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
@@ -374,12 +332,81 @@ export const POST: APIRoute = async ({ request }) => {
 								if (pollRes.ok) {
 									const arrBuf = await pollRes.arrayBuffer();
 									if (arrBuf && arrBuf.byteLength > 1000) {
-										imageBuffer = Buffer.from(arrBuf);
-										mimeType = 'image/png';
+										return { buffer: Buffer.from(arrBuf), mime: 'image/png' };
 									}
 								}
 							} catch (pollErr) {
-								console.error('Error fallback Pollinations:', pollErr);
+								console.error('Error Pollinations fast engine:', pollErr);
+							}
+							return null;
+						}, 3500);
+
+						if (fastRes) {
+							imageBuffer = fastRes.buffer;
+							mimeType = fastRes.mime;
+						}
+
+						// Tier 2: OpenAI DALL-E 3 (si Pollinations no respondió)
+						if (!imageBuffer && activeOpenAIKey) {
+							const openAiRes = await fetchWithTimeout(async () => {
+								try {
+									const openai = new OpenAI({ apiKey: activeOpenAIKey });
+									const aiRes = await openai.images.generate({
+										model: 'dall-e-3',
+										prompt,
+										n: 1,
+										size: format === 'story' ? '1024x1792' : format === 'landscape' ? '1792x1024' : '1024x1024',
+										response_format: 'b64_json',
+									});
+									const b64 = aiRes.data?.[0]?.b64_json;
+									if (b64) {
+										return { buffer: Buffer.from(b64, 'base64'), mime: 'image/png' };
+									}
+								} catch (openAiErr) {
+									console.error('Error generación OpenAI:', openAiErr);
+								}
+								return null;
+							}, 5000);
+
+							if (openAiRes) {
+								imageBuffer = openAiRes.buffer;
+								mimeType = openAiRes.mime;
+							}
+						}
+
+						// Tier 3: Google Imagen 3
+						if (!imageBuffer && activeGoogleKey) {
+							const googleResObj = await fetchWithTimeout(async () => {
+								try {
+									const googleRes = await fetch(
+										`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${activeGoogleKey}`,
+										{
+											method: 'POST',
+											headers: { 'Content-Type': 'application/json' },
+											body: JSON.stringify({
+												instances: [{ prompt }],
+												parameters: {
+													sampleCount: 1,
+													aspectRatio: format === 'story' ? '9:16' : format === 'landscape' ? '16:9' : '1:1',
+													outputOptions: { mimeType: 'image/png' },
+												},
+											}),
+										}
+									);
+									const googleData = await googleRes.json();
+									const b64 = googleData.predictions?.[0]?.bytesBase64Encoded;
+									if (b64) {
+										return { buffer: Buffer.from(b64, 'base64'), mime: 'image/png' };
+									}
+								} catch (googleErr) {
+									console.error('Error generación Google Imagen:', googleErr);
+								}
+								return null;
+							}, 4000);
+
+							if (googleResObj) {
+								imageBuffer = googleResObj.buffer;
+								mimeType = googleResObj.mime;
 							}
 						}
 
