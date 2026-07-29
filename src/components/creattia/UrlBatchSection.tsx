@@ -148,47 +148,42 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const startPollingBatch = (batchId: string, initialItems: BatchItem[]) => {
 		if (pollRef.current) clearInterval(pollRef.current);
 
-		let items = [...initialItems];
 		let attempts = 0;
 
 		pollRef.current = setInterval(async () => {
 			attempts += 1;
 			try {
+				if (!supabase) return;
+
 				const { data: rows, error: fetchErr } = await supabase
 					.from('creative_generations')
-					.select('id,template_id,title,status,output_path,error_message')
+					.select('id,template_id,title,status,output_image_url,output_image_path,output_path,output_url,error_message')
 					.eq('batch_id', batchId);
 
-				if (fetchErr || !rows) return;
+				if (fetchErr || !rows || rows.length === 0) return;
 
-				// Obtener URLs firmadas para las imágenes completadas
-				const completedPaths = rows
-					.filter((r) => r.status === 'completed' && r.output_path)
-					.map((r) => r.output_path);
+				const updatedItems: BatchItem[] = rows.map((row: any) => {
+					let imgUrl = row.output_image_url || row.output_url || undefined;
 
-				let signedMap = new Map<string, string>();
-				if (completedPaths.length > 0) {
-					const { data: signed } = await supabase.storage
-						.from('creative-assets')
-						.createSignedUrls(completedPaths, 3600);
-					
-					(signed || []).forEach((item, idx) => {
-						if (item.signedUrl) signedMap.set(completedPaths[idx], item.signedUrl);
-					});
-				}
+					if (!imgUrl && (row.output_image_path || row.output_path)) {
+						const p = row.output_image_path || row.output_path;
+						const { data: pubData } = supabase.storage.from('creative-generations').getPublicUrl(p);
+						imgUrl = pubData?.publicUrl;
+					}
 
-				const updatedItems: BatchItem[] = rows.map((row) => ({
-					id: row.id,
-					templateId: row.template_id,
-					title: row.title,
-					status: row.status as any,
-					imageUrl: row.output_path ? signedMap.get(row.output_path) : undefined,
-					error: row.error_message,
-				}));
+					return {
+						id: row.id,
+						templateId: row.template_id,
+						title: row.title,
+						status: row.status as any,
+						imageUrl: imgUrl,
+						error: row.error_message,
+					};
+				});
 
 				setBatchItems(updatedItems);
 
-				const allFinished = updatedItems.every((item) => item.status === 'completed' || item.status === 'failed');
+				const allFinished = updatedItems.length >= initialItems.length && updatedItems.every((item) => item.status === 'completed' || item.status === 'failed');
 				if (allFinished || attempts > 120) {
 					if (pollRef.current) clearInterval(pollRef.current);
 					setIsGenerating(false);

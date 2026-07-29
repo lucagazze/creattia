@@ -383,13 +383,24 @@ export const POST: APIRoute = async ({ request }) => {
 							.getPublicUrl(fileName);
 						const publicUrl = publicUrlData.publicUrl;
 
-						// 3. Actualizar la fila en creative_generations a 'completed'
-						await admin.from('creative_generations').update({
-							status: 'completed',
-							output_image_path: fileName,
-							output_image_url: publicUrl,
-							updated_at: new Date().toISOString(),
-						}).eq('id', genRow.id);
+						// 3. Actualizar la fila en creative_generations a 'completed' (poblando todas las variantes de columna)
+						try {
+							await admin.from('creative_generations').update({
+								status: 'completed',
+								output_image_path: fileName,
+								output_image_url: publicUrl,
+								output_path: fileName,
+								output_url: publicUrl,
+								updated_at: new Date().toISOString(),
+							}).eq('id', genRow.id);
+						} catch {
+							await admin.from('creative_generations').update({
+								status: 'completed',
+								output_image_path: fileName,
+								output_image_url: publicUrl,
+								updated_at: new Date().toISOString(),
+							}).eq('id', genRow.id);
+						}
 
 					} catch (genErr) {
 						console.error(`Error generando anuncio #${genRow.id}:`, genErr);
