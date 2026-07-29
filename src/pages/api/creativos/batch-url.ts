@@ -327,7 +327,7 @@ export const POST: APIRoute = async ({ request }) => {
 									size: format === 'story' ? '1024x1792' : format === 'landscape' ? '1792x1024' : '1024x1024',
 									response_format: 'b64_json',
 								});
-								const b64 = aiRes.data[0]?.b64_json;
+								const b64 = aiRes.data?.[0]?.b64_json;
 								if (b64) {
 									imageBuffer = Buffer.from(b64, 'base64');
 									mimeType = 'image/png';

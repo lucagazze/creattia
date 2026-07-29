@@ -162,12 +162,15 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 				if (fetchErr || !rows || rows.length === 0) return;
 
+				const client = supabase;
+				if (!client) return;
+
 				const updatedItems: BatchItem[] = rows.map((row: any) => {
 					let imgUrl = row.output_image_url || row.output_url || undefined;
 
 					if (!imgUrl && (row.output_image_path || row.output_path)) {
 						const p = row.output_image_path || row.output_path;
-						const { data: pubData } = supabase.storage.from('creative-generations').getPublicUrl(p);
+						const { data: pubData } = client.storage.from('creative-generations').getPublicUrl(p);
 						imgUrl = pubData?.publicUrl;
 					}
 
