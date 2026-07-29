@@ -80,7 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
 			admin.from('creative_profiles').select('plan_code').eq('user_id', auth.user.id).maybeSingle(),
 		]);
 		const planCode = profile?.plan_code || 'trial';
-		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze');
+		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze') || String(auth.user.email || '').toLowerCase().includes('algoritmiadesarrollos');
 		const limit = isAdmin ? 99 : (brandLimits[planCode] || 1);
 		if ((count || 0) >= limit) {
 			return json({ error: `Tu plan permite hasta ${limit} ${limit === 1 ? 'marca' : 'marcas'}. Mejorá tu plan para agregar más.`, code: 'BRAND_LIMIT' }, 402);

@@ -190,7 +190,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		// 3. Verificar cuota y reservar créditos (1 crédito por imagen del lote)
-		const isAdmin = String(userEmail).toLowerCase().includes('lucagazze');
+		const isAdmin = String(userEmail).toLowerCase().includes('lucagazze') || String(userEmail).toLowerCase().includes('algoritmiadesarrollos');
 		if (!isAdmin) {
 			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: userId,

@@ -670,6 +670,7 @@ export default function CreativeApp() {
 					data = created.data;
 				}
 				if (data) {
+					const isUserAdmin = String(activeSession?.user?.email || '').toLowerCase().includes('lucagazze') || String(activeSession?.user?.email || '').toLowerCase().includes('algoritmiadesarrollos');
 					setProfile({
 						fullName: data.full_name || '',
 						brandName: data.brand_name || '',
@@ -677,10 +678,10 @@ export default function CreativeApp() {
 						instagram: data.instagram_handle || '',
 						primaryColor: data.brand_colors?.[0] || '#18181b',
 						secondaryColor: data.brand_colors?.[1] || '#f4f0ff',
-						credits: data.credits_remaining ?? 3,
+						credits: isUserAdmin ? 99999 : (data.credits_remaining ?? 0),
 						monthlyCredits: data.credits_monthly ?? 0,
-						subscriptionStatus: data.subscription_status || 'trial',
-						planCode: data.plan_code || 'trial',
+						subscriptionStatus: isUserAdmin ? 'authorized' : (data.subscription_status || 'trial'),
+						planCode: isUserAdmin ? 'admin' : (data.plan_code || 'trial'),
 						subscriptionPeriodEnd: data.subscription_period_end || '',
 						onboardingCompleted: Boolean(data.onboarding_completed),
 						brandSummary: data.brand_summary || '',
@@ -1174,7 +1175,7 @@ export default function CreativeApp() {
 								<div style={{ flex: 1, minWidth: 0, paddingRight: '10px' }}>
 									<strong style={{ display: 'flex', alignItems: 'center', gap: '7px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
 										{profile.fullName || 'Mi cuenta'}
-										{getSessionEmail(session) === 'lucagazze1@gmail.com' && <span style={{ padding: '2px 7px', borderRadius: '6px', background: '#19171d', color: '#fff', fontSize: '9.5px', fontWeight: 900, letterSpacing: '.08em' }}>ADMIN</span>}
+										{(getSessionEmail(session).toLowerCase().includes('lucagazze') || getSessionEmail(session).toLowerCase().includes('algoritmiadesarrollos')) && <span style={{ padding: '2px 7px', borderRadius: '6px', background: '#19171d', color: '#fff', fontSize: '9.5px', fontWeight: 900, letterSpacing: '.08em' }}>ADMIN</span>}
 									</strong>
 									<small style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getSessionEmail(session)}</small>
 								</div>

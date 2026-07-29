@@ -334,7 +334,7 @@ export default function WinnersLibrary({
 	const [showCustomInstructions, setShowCustomInstructions] = useState(false);
 
 	const userEmail = session?.user?.email || '';
-	const isAdmin = userEmail.toLowerCase().trim() === 'lucagazze1@gmail.com';
+	const isAdmin = userEmail.toLowerCase().trim().includes('lucagazze') || userEmail.toLowerCase().trim().includes('algoritmiadesarrollos');
 
 	const getSessionToken = (sess: any) => sess?.access_token || '';
 

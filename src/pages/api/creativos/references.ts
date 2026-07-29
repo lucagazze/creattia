@@ -13,7 +13,8 @@ const allowedMime: Record<string, string> = {
 
 // Admin email verification helper
 function isAdmin(email = '') {
-	return email.toLowerCase().trim() === 'lucagazze1@gmail.com';
+	const lower = email.toLowerCase().trim();
+	return lower.includes('lucagazze') || lower.includes('algoritmiadesarrollos');
 }
 
 export const POST: APIRoute = async ({ request }) => {

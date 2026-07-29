@@ -358,7 +358,7 @@ export const POST: APIRoute = async ({ request }) => {
 			storedReference = data;
 		}
 
-		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze');
+		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze') || String(auth.user.email || '').toLowerCase().includes('algoritmiadesarrollos');
 		let remaining = 99999;
 
 		const creditsNeeded = count * creditsPerImage;
