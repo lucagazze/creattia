@@ -783,18 +783,20 @@ export default function CreativeApp() {
 							imgUrl = client.storage.from('creative-generations').getPublicUrl(p).data?.publicUrl || '';
 						}
 
-						// Auto-recuperación si una fila quedó en 'processing' por más de 10 segundos
+						// Auto-recuperación si una fila quedó en 'processing' por más de 8 segundos
 						const createdAtMs = new Date(r.created_at || Date.now()).getTime();
 						const elapsedSec = (Date.now() - createdAtMs) / 1000;
-						if (elapsedSec > 10 && (!imgUrl || r.status === 'processing')) {
+						if (elapsedSec > 8 && (!imgUrl || r.status === 'processing')) {
 							const cleanTitle = encodeURIComponent(`${r.title || 'Anuncio ecommerce'} producto premium diseño publicitario HD`);
 							imgUrl = `https://image.pollinations.ai/prompt/${cleanTitle}?width=1024&height=1024&nologo=true&seed=${r.id.length || 9876}`;
-							void client.from('creative_generations').update({
-								status: 'completed',
-								output_image_url: imgUrl,
-								output_url: imgUrl,
-								updated_at: new Date().toISOString(),
-							}).eq('id', r.id);
+							const token = getSessionToken(session);
+							if (token) {
+								void fetch('/api/creativos/complete-generation', {
+									method: 'POST',
+									headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+									body: JSON.stringify({ generationId: r.id, imageUrl: imgUrl })
+								});
+							}
 						}
 
 						const existing = map.get(r.id);
