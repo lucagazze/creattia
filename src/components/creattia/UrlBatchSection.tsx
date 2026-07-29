@@ -9,6 +9,7 @@ type UrlBatchSectionProps = {
 	onRefreshCredits?: () => void;
 	onNavigateToPlans?: () => void;
 	initialUrl?: string;
+	session?: any;
 };
 
 type BatchItem = {
@@ -26,6 +27,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	onRefreshCredits,
 	onNavigateToPlans,
 	initialUrl = '',
+	session,
 }) => {
 	const [url, setUrl] = useState(initialUrl);
 	const [count, setCount] = useState<10 | 20 | 30 | 40>(10);
@@ -95,8 +97,22 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				formData.append('extraImages', file);
 			});
 
+			let accessToken = session?.access_token || '';
+			if (!accessToken && supabase) {
+				try {
+					const { data: sessData } = await supabase.auth.getSession();
+					accessToken = sessData.session?.access_token || '';
+				} catch { /* ignore */ }
+			}
+
+			const headers: Record<string, string> = {};
+			if (accessToken) {
+				headers['authorization'] = `Bearer ${accessToken}`;
+			}
+
 			const response = await fetch('/api/creativos/batch-url', {
 				method: 'POST',
+				headers,
 				body: formData,
 			});
 

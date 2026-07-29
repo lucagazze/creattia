@@ -1198,6 +1198,7 @@ export default function CreativeApp() {
 					{view === 'home' && (
 						<Dashboard 
 							profile={profile} 
+							session={session}
 							email={getSessionEmail(session)} 
 							history={history} 
 							catalog={catalog} 
@@ -1716,6 +1717,7 @@ function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { po
 
 function Dashboard({
 	profile,
+	session,
 	email,
 	history,
 	catalog,
@@ -1724,14 +1726,15 @@ function Dashboard({
 	onReuse,
 	randomWinners = [],
 	swipePool = [],
-	onDiscoverSeen = (_path: string) => {},
+	onDiscoverSeen,
 	likedWinners = [],
 	likedScrapedPaths,
 	onToggleLikedScraped,
 	onUseScrapedWinner,
-	onExpand
+	onExpand,
 }: {
 	profile: AppProfile;
+	session?: AppSession;
 	email: string;
 	history: Generation[];
 	catalog: Creativo[];
@@ -1765,6 +1768,7 @@ function Dashboard({
 			<UrlBatchSection
 				userCredits={profile.credits}
 				initialUrl={initialUrlFromQuery}
+				session={session}
 				onNavigateToPlans={() => onView('plans')}
 				onSelectRemodel={(generation, templateId) => {
 					const tplId = templateId || generation.templateId || 1;
