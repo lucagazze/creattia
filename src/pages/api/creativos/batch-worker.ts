@@ -1,22 +1,39 @@
 import type { APIRoute } from 'astro';
-import { creativos } from '../../../data/creativos50';
-import { buildSpecializedAdPrompt } from '../../../lib/creattia/ad-prompt-builder';
+import {
+	analyzeReferenceLayout,
+	buildReferenceClonePrompt,
+	normalizeImageInput,
+	type LayoutAnalysis,
+} from '../../../lib/creattia/ad-analysis';
 import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-engines';
-import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
 export const maxDuration = 300;
 
-const BUCKET = 'creative-assets';
+const ASSETS = 'creative-assets';
+const REFERENCES = 'creative-references';
+
+// Proporción soportada más cercana a la del anuncio ganador, para que
+// 'original' conserve la composición sin recortes.
+function closestFormat(ratio: number) {
+	const candidates: Array<[string, number]> = [['1:1', 1], ['3:4', 3 / 4], ['9:16', 9 / 16], ['4:3', 4 / 3], ['16:9', 16 / 9]];
+	let best = '1:1';
+	let bestDistance = Infinity;
+	for (const [key, value] of candidates) {
+		const distance = Math.abs(Math.log(ratio / value));
+		if (distance < bestDistance) { bestDistance = distance; best = key; }
+	}
+	return best;
+}
 
 /**
- * Genera UNA sola imagen del lote y la deja lista en la base.
+ * Genera UN anuncio del lote clonando un ganador real de la biblioteca con el
+ * producto del usuario — el mismo motor que usa el Studio, no un prompt de
+ * texto genérico.
  *
- * Cada anuncio es una invocación HTTP independiente y corta: así ninguna
+ * Cada anuncio es una invocación HTTP corta e independiente: así ninguna
  * generación depende de que una única función serverless siga viva 10 minutos.
- * El cliente (o la barrida de reanudación) llama este endpoint una vez por fila
- * pendiente, con concurrencia limitada.
  */
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
@@ -47,52 +64,122 @@ export const POST: APIRoute = async ({ request }) => {
 
 		// Idempotente: si ya está lista, devolvemos la misma imagen sin volver a gastar.
 		if (row.status === 'completed' && row.output_path) {
-			const { data: signed } = await admin.storage.from(BUCKET).createSignedUrl(row.output_path, 60 * 60);
+			const { data: signed } = await admin.storage.from(ASSETS).createSignedUrl(row.output_path, 60 * 60);
 			return json({ ok: true, id: row.id, alreadyDone: true, imageUrl: signed?.signedUrl || '' });
 		}
 
 		const snapshot: any = row.settings_snapshot || {};
-		const format = String(row.format || snapshot.format || 'square');
+		const requestedFormat = String(row.format || snapshot.format || 'original');
+		const language = String(snapshot.language || 'es');
+		const brief = String(row.user_brief || '');
 
-		// Fotos reales del producto como input del modelo. Sin esto el modelo
-		// dibuja un producto inventado, que no sirve para vender.
-		const images: EngineImage[] = [];
+		// ── 1. El anuncio ganador que hay que clonar ──────────────────────────
+		const referencePath = String(snapshot.referencePath || '');
+		if (!referencePath) throw new Error('Esta generación no tiene un anuncio ganador de referencia asignado.');
+		const { data: referenceBlob, error: referenceError } = await admin.storage.from(REFERENCES).download(referencePath);
+		if (referenceError || !referenceBlob) throw referenceError || new Error('No se pudo descargar el anuncio ganador de referencia.');
+		const normalizedReference = await normalizeImageInput(Buffer.from(await referenceBlob.arrayBuffer()));
+		if (!normalizedReference) throw new Error('El anuncio ganador de referencia no se pudo procesar.');
+
+		// ── 2. Las fotos reales del producto ─────────────────────────────────
+		const productImages: EngineImage[] = [];
 		const productId = row.product_id || snapshot.productId || null;
+		let productRecord: any = null;
 		if (productId) {
-			const paths: string[] = [];
 			const { data: product } = await admin.from('creative_products')
-				.select('image_path').eq('id', productId).eq('user_id', userId).maybeSingle();
+				.select('name,description,price_text,currency,image_path,analysis')
+				.eq('id', productId).eq('user_id', userId).maybeSingle();
+			productRecord = product;
+			const paths: string[] = [];
 			if (product?.image_path) paths.push(product.image_path);
-			const { data: productImages } = await admin.from('creative_product_images')
+			const { data: extraImages } = await admin.from('creative_product_images')
 				.select('storage_path,sort_order').eq('product_id', productId).eq('user_id', userId).order('sort_order');
-			for (const item of productImages || []) {
+			for (const item of extraImages || []) {
 				if (item.storage_path) paths.push(item.storage_path);
 			}
 			for (const path of [...new Set(paths)].slice(0, 3)) {
-				const { data: blob } = await admin.storage.from(BUCKET).download(path);
+				const { data: blob } = await admin.storage.from(ASSETS).download(path);
 				if (!blob) continue;
 				const normalized = await normalizeImageInput(Buffer.from(await blob.arrayBuffer()));
-				if (normalized) images.push({ buffer: normalized.buffer, type: normalized.type });
+				if (normalized) productImages.push({ buffer: normalized.buffer, type: normalized.type });
+			}
+		}
+		if (!productImages.length) {
+			throw new Error('No hay ninguna foto real del producto disponible para clonar el anuncio.');
+		}
+
+		const productName = productRecord?.name || snapshot.productName || row.title || 'el producto';
+		// Datos verificados del producto: lo único con lo que el modelo puede
+		// escribir textos. Nunca se completa con supuestos.
+		const productFacts = [
+			productRecord?.description || snapshot.productDescription,
+			(productRecord?.price_text || snapshot.productPriceText)
+				&& `Precio exacto tal como figura en la web: ${productRecord?.price_text || snapshot.productPriceText}`,
+			productRecord?.analysis?.category,
+		].filter(Boolean).join(' · ');
+
+		// ── 3. Marca del usuario (para el swap de marca del ganador) ──────────
+		const { data: profile } = await admin.from('creative_profiles')
+			.select('brand_name,brand_colors,logo_path,brand_style').eq('user_id', userId).maybeSingle();
+		const brandName = profile?.brand_name || '';
+		let hasLogo = false;
+		if (profile?.logo_path) {
+			const { data: logoBlob } = await admin.storage.from(ASSETS).download(profile.logo_path);
+			const normalizedLogo = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
+			if (normalizedLogo) {
+				productImages.push({ buffer: normalizedLogo.buffer, type: normalizedLogo.type });
+				hasLogo = true;
 			}
 		}
 
-		const template = creativos.find((item) => item.id === row.template_id) || creativos[0];
-		const { prompt } = buildSpecializedAdPrompt(template, {
-			name: snapshot.productName || row.title || 'Producto',
-			description: snapshot.productDescription || '',
-			priceText: snapshot.productPriceText || '',
-			currency: snapshot.productCurrency || '$',
-		}, format, row.user_brief || '');
+		// ── 4. Análisis con visión del ganador: qué dice cada zona de texto y
+		// cómo se reemplaza para este producto, en el idioma elegido ──────────
+		let analysis: LayoutAnalysis | null = null;
+		try {
+			analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
+				referenceB64: normalizedReference.buffer.toString('base64'),
+				referenceMime: normalizedReference.type,
+				productB64: productImages[0].buffer.toString('base64'),
+				productMime: productImages[0].type,
+				productName,
+				productFacts,
+				brandName,
+				language,
+			});
+		} catch (analysisError) {
+			console.error(`[batch-worker ${generationId}] análisis de layout falló:`, analysisError);
+		}
 
-		const productPhotoRule = images.length
-			? `\n\n[FOTO REAL DEL PRODUCTO ADJUNTA]\nLas imágenes adjuntas son fotos reales del producto. Reproducí su forma, packaging, etiqueta y colores con fidelidad total. No inventes ni sustituyas el producto.`
-			: '';
+		const prompt = buildReferenceClonePrompt({
+			productNames: [productName],
+			brandName,
+			hasLogo,
+			brief,
+			analysis,
+			languageCode: language,
+			colorMode: 'winner',
+			typoMode: 'winner',
+			brandColors: Array.isArray(profile?.brand_colors) ? profile.brand_colors : [],
+			brandTypography: (profile?.brand_style as any)?.typography || undefined,
+		});
 
+		// ── 5. Formato: 'original' toma la proporción real del ganador ────────
+		let format = requestedFormat;
+		if (format === 'original') {
+			format = '1:1';
+			try {
+				const sharp = (await import('sharp')).default;
+				const metadata = await sharp(normalizedReference.buffer).metadata();
+				if (metadata.width && metadata.height) format = closestFormat(metadata.width / metadata.height);
+			} catch { /* sin metadata: cuadrado */ }
+		}
+
+		// ── 6. Generar: referencia primero, después producto (y logo) ─────────
 		const { buffer, engine } = await generateAdImage({
 			googleKey,
 			openAIKey,
-			prompt: prompt + productPhotoRule,
-			images,
+			prompt,
+			images: [{ buffer: normalizedReference.buffer, type: normalizedReference.type }, ...productImages],
 			format,
 		});
 
@@ -103,7 +190,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const contentType = isPng ? 'image/png' : 'image/jpeg';
 
 		const outputPath = `${userId}/generations/${row.batch_id || row.id}/${row.output_index || 1}.${extension}`;
-		const { error: uploadError } = await admin.storage.from(BUCKET)
+		const { error: uploadError } = await admin.storage.from(ASSETS)
 			.upload(outputPath, buffer, { contentType, upsert: true });
 		if (uploadError) throw uploadError;
 
@@ -114,12 +201,18 @@ export const POST: APIRoute = async ({ request }) => {
 			completed_at: new Date().toISOString(),
 		}).eq('id', row.id).eq('user_id', userId);
 		if (completionError) {
-			await admin.storage.from(BUCKET).remove([outputPath]);
+			await admin.storage.from(ASSETS).remove([outputPath]);
 			throw completionError;
 		}
 
-		const { data: signed } = await admin.storage.from(BUCKET).createSignedUrl(outputPath, 60 * 60);
-		return json({ ok: true, id: row.id, engine, imageUrl: signed?.signedUrl || '' });
+		const { data: signed } = await admin.storage.from(ASSETS).createSignedUrl(outputPath, 60 * 60);
+		return json({
+			ok: true,
+			id: row.id,
+			engine,
+			analyzed: Boolean(analysis?.textZones?.length),
+			imageUrl: signed?.signedUrl || '',
+		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'No se pudo generar el anuncio.';
 		console.error(`[batch-worker ${generationId}] falló:`, error);

@@ -1,6 +1,4 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { creativos } from '../../data/creativos50';
-import { getTemplateBlueprint } from '../../lib/creattia/ad-prompt-builder';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import { supabase } from '../../lib/creattia/supabase-browser';
 
@@ -52,7 +50,45 @@ type BatchItem = {
 	imageUrl?: string;
 	status: 'processing' | 'completed' | 'failed';
 	error?: string;
+	// Anuncio ganador de la biblioteca que este creativo está clonando.
+	referenceUrl?: string;
+	referenceName?: string;
+	referenceLeaf?: string;
 };
+
+// Nombre legible del tipo de anuncio ganador.
+const LEAF_LABELS: Record<string, string> = {
+	hero: 'Producto destacado',
+	resenas: 'Prueba social',
+	precio: 'Oferta / precio',
+	competencia: 'Comparación',
+	caracteristicas: 'Características',
+	urgencia: 'Urgencia',
+	garantia: 'Garantía',
+	mitos: 'Mito vs realidad',
+	envio: 'Envío',
+};
+
+const REFERENCES_PUBLIC_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
+
+// Referencia ganadora propuesta para el lote (paso de revisión).
+type WinnerRef = {
+	imagePath: string;
+	name: string;
+	notes?: string;
+	leaf?: string;
+	niches?: string[];
+	templateId?: number | null;
+	domain?: string;
+};
+
+type BatchPreview = {
+	product: { id: string; name: string; description?: string; priceText?: string; imageUrl?: string };
+	count: number;
+	matchedNiches?: string[];
+};
+
+const referenceUrlFor = (imagePath: string) => `${REFERENCES_PUBLIC_BASE}/${imagePath}`;
 
 export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	onSelectRemodel,
@@ -65,7 +101,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 }) => {
 	const [url, setUrl] = useState(initialUrl);
 	const [count, setCount] = useState<10 | 20 | 30 | 40>(10);
-	const [format, setFormat] = useState<'square' | 'portrait' | 'story'>('square');
+	const [format, setFormat] = useState<'original' | 'square' | 'portrait' | 'story'>('original');
+	const [language, setLanguage] = useState('es');
 	const [brief, setBrief] = useState('');
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [extraImages, setExtraImages] = useState<File[]>([]);
@@ -77,6 +114,13 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [productName, setProductName] = useState<string>('');
 	const [error, setError] = useState<string | null>(null);
 	const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
+
+	// Paso 2: revisión de las referencias ganadoras antes de gastar créditos.
+	const [step, setStep] = useState<'form' | 'review' | 'results'>('form');
+	const [isScanning, setIsScanning] = useState(false);
+	const [preview, setPreview] = useState<BatchPreview | null>(null);
+	const [selected, setSelected] = useState<WinnerRef[]>([]);
+	const [spares, setSpares] = useState<WinnerRef[]>([]);
 
 	const pollRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -101,22 +145,32 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 		setExtraImagePreviews((prev) => prev.filter((_, i) => i !== index));
 	};
 
-	// Generación de Lote por URL
-	const handleGenerateBatch = async (e: React.FormEvent) => {
+	const getAccessToken = async () => {
+		let accessToken = session?.access_token || '';
+		if (!accessToken && supabase) {
+			try {
+				const { data: sessData } = await supabase.auth.getSession();
+				accessToken = sessData.session?.access_token || '';
+			} catch { /* ignore */ }
+		}
+		return accessToken;
+	};
+
+	// PASO 1 — Analizar el producto y proponer las referencias ganadoras.
+	// No cobra créditos: solo devuelve los ganadores para que el usuario revise.
+	const handleScan = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!url.trim()) {
 			setError('Ingresá la URL del producto para continuar.');
 			return;
 		}
-
-		// Verificación obligatoria de créditos antes de permitir la generación
 		if (userCredits < count) {
 			setError(`No tenés créditos suficientes (${userCredits} disponible, ${count} requeridos). Comprá un paquete de créditos o elegí un plan para generar tus anuncios.`);
 			return;
 		}
 
 		setError(null);
-		setIsGenerating(true);
+		setIsScanning(true);
 		setBatchItems([]);
 		setProductName('');
 
@@ -125,60 +179,101 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			formData.append('productUrl', url.trim());
 			formData.append('count', String(count));
 			formData.append('format', format);
+			formData.append('language', language);
 			if (brief.trim()) formData.append('brief', brief.trim());
+			extraImages.forEach((file) => formData.append('extraImages', file));
 
-			extraImages.forEach((file) => {
-				formData.append('extraImages', file);
-			});
-
-			let accessToken = session?.access_token || '';
-			if (!accessToken && supabase) {
-				try {
-					const { data: sessData } = await supabase.auth.getSession();
-					accessToken = sessData.session?.access_token || '';
-				} catch { /* ignore */ }
-			}
-
-			const headers: Record<string, string> = {};
-			if (accessToken) {
-				headers['authorization'] = `Bearer ${accessToken}`;
-			}
-
+			const accessToken = await getAccessToken();
 			const response = await fetch('/api/creativos/batch-url', {
 				method: 'POST',
-				headers,
+				headers: accessToken ? { authorization: `Bearer ${accessToken}` } : {},
 				body: formData,
 			});
-
 			const data = await response.json();
-			if (!response.ok) {
-				throw new Error(data.error || 'No se pudo iniciar la generación en lote.');
-			}
+			if (!response.ok) throw new Error(data.error || 'No se pudo analizar el producto.');
+
+			setPreview({ product: data.product, count: data.count, matchedNiches: data.matchedNiches });
+			setSelected(data.winners || []);
+			setSpares(data.spares || []);
+			setProductName(data.product?.name || 'Producto');
+			setStep('review');
+		} catch (err: any) {
+			console.error('Error analizando el producto:', err);
+			setError(err.message || 'Ocurrió un error al conectar con el servidor.');
+		} finally {
+			setIsScanning(false);
+		}
+	};
+
+	// Descartar una referencia: entra automáticamente la mejor suplente.
+	const discardWinner = (imagePath: string) => {
+		const index = selected.findIndex((winner) => winner.imagePath === imagePath);
+		if (index === -1) return;
+		const discarded = selected[index];
+
+		// Se prioriza una suplente del mismo tipo de anuncio para no romper la
+		// cobertura del embudo del lote.
+		const sameLeaf = spares.findIndex((spare) => spare.leaf === discarded.leaf);
+		const pickIndex = sameLeaf !== -1 ? sameLeaf : 0;
+		const replacement = spares[pickIndex];
+
+		const nextSelected = [...selected];
+		if (replacement) nextSelected[index] = replacement;
+		else nextSelected.splice(index, 1);
+		setSelected(nextSelected);
+
+		// La descartada vuelve al final del banco, por si se arrepiente.
+		setSpares(replacement
+			? [...spares.filter((_, i) => i !== pickIndex), discarded]
+			: [...spares, discarded]);
+	};
+
+	// PASO 2 — Confirmar: acá se cobran los créditos y arranca la generación.
+	const handleConfirmGeneration = async () => {
+		if (!preview?.product?.id || !selected.length) return;
+		setError(null);
+		setIsGenerating(true);
+
+		try {
+			const accessToken = await getAccessToken();
+			const response = await fetch('/api/creativos/batch-start', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+					...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+				},
+				body: JSON.stringify({
+					productId: preview.product.id,
+					winnerPaths: selected.map((winner) => winner.imagePath),
+					format,
+					language,
+					brief: brief.trim(),
+				}),
+			});
+			const data = await response.json();
+			if (!response.ok) throw new Error(data.error || 'No se pudo iniciar la generación del lote.');
 
 			setCurrentBatchId(data.batchId);
-			setProductName(data.product?.name || 'Producto');
-			
-			// Inicializar items del lote
 			const initialItems: BatchItem[] = (data.generations || []).map((gen: any) => ({
 				id: gen.id,
 				templateId: gen.template_id,
 				title: gen.title,
 				status: 'processing',
+				referenceUrl: gen.settings_snapshot?.referencePath ? referenceUrlFor(gen.settings_snapshot.referencePath) : undefined,
+				referenceName: gen.settings_snapshot?.referenceName,
+				referenceLeaf: gen.settings_snapshot?.referenceLeaf,
 			}));
 			setBatchItems(initialItems);
+			setStep('results');
 
 			if (onRefreshCredits) onRefreshCredits();
 			if (onBatchCreated && data.generations?.length) onBatchCreated(data.generations, data.batchId);
 
-			// Polling en tiempo real para actualizar las imágenes completadas
 			startPollingBatch(data.batchId, initialItems);
 
-			// Disparar la generación real: un worker por anuncio, de a 4 en paralelo.
-			// No se espera el resultado acá; el polling va mostrando cada imagen
-			// apenas queda lista. Si el usuario recarga la página, la barrida de
-			// reanudación de la app retoma las que falten.
+			// Un worker por anuncio, de a 4 en paralelo. Si el usuario recarga la
+			// página, la barrida de reanudación de la app retoma las que falten.
 			void driveBatchWorkers(initialItems.map((item) => item.id), accessToken);
-
 		} catch (err: any) {
 			console.error('Error al generar lote por URL:', err);
 			setError(err.message || 'Ocurrió un error al conectar con el servidor.');
@@ -199,7 +294,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				const client = supabase;
 				const { data: rows, error: fetchErr } = await client
 					.from('creative_generations')
-					.select('id,template_id,title,status,output_path,error_code,output_index')
+					.select('id,template_id,title,status,output_path,error_code,output_index,settings_snapshot')
 					.eq('batch_id', batchId)
 					.order('output_index');
 
@@ -207,14 +302,20 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 				const signed = await signGenerationPaths(client, rows.map((row: any) => row.output_path));
 
-				const updatedItems: BatchItem[] = rows.map((row: any) => ({
-					id: row.id,
-					templateId: row.template_id,
-					title: row.title,
-					status: row.status as any,
-					imageUrl: row.output_path ? signed.get(row.output_path) : undefined,
-					error: row.error_code,
-				}));
+				const updatedItems: BatchItem[] = rows.map((row: any) => {
+					const snapshot = row.settings_snapshot || {};
+					return {
+						id: row.id,
+						templateId: row.template_id,
+						title: row.title,
+						status: row.status as any,
+						imageUrl: row.output_path ? signed.get(row.output_path) : undefined,
+						error: row.error_code,
+						referenceUrl: snapshot.referencePath ? `${REFERENCES_PUBLIC_BASE}/${snapshot.referencePath}` : undefined,
+						referenceName: snapshot.referenceName,
+						referenceLeaf: snapshot.referenceLeaf,
+					};
+				});
 
 				setBatchItems(updatedItems);
 
@@ -241,16 +342,17 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			<div className="url-batch-header">
 				<div className="url-batch-badge">
 					<span className="badge-icon">⚡</span>
-					<span>GENERADOR IA DE ANUNCIOS PROBADOS</span>
+					<span>CLONADOR DE ANUNCIOS GANADORES</span>
 				</div>
-				<h2 className="url-batch-title">Generá Anuncios Probados desde URL</h2>
+				<h2 className="url-batch-title">Generá Anuncios Ganadores desde URL</h2>
 				<p className="url-batch-subtitle">
-					Pegá el enlace de tu producto. La IA analizará la web y creará creativos de alto rendimiento ajustados a tu marca.
+					Pegá el enlace de tu producto. La IA elige los anuncios ganadores de la biblioteca que mejor le pegan y los recrea con tu producto real, cubriendo todo el embudo.
 				</p>
 			</div>
 
 			{/* Formulario Principal */}
-			<form onSubmit={handleGenerateBatch} className="url-batch-form">
+			{step === 'form' && (
+			<form onSubmit={handleScan} className="url-batch-form">
 				<div className="url-batch-input-wrap" style={{ background: '#ffffff', border: '2px solid #744bde', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
 					<span className="input-icon" style={{ fontSize: '20px' }}>🔗</span>
 					<input
@@ -279,7 +381,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 				{/* Selector de Cantidad (10, 20, 30, 40) */}
 				<div className="batch-quantity-picker">
-					<label className="picker-label">¿Cuántos anuncios probados querés generar en paralelo?</label>
+					<label className="picker-label">¿Cuántos anuncios ganadores querés recrear con tu producto?</label>
 					<div className="picker-options">
 						{[10, 20, 30, 40].map((num) => (
 							<button
@@ -292,6 +394,54 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								<span className="pill-sub">{num} créditos</span>
 							</button>
 						))}
+					</div>
+				</div>
+
+				{/* Formato e idioma: siempre visibles porque cambian el resultado */}
+				<div className="batch-quantity-picker">
+					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+						<div>
+							<label className="picker-label">Formato del anuncio</label>
+							<div className="format-selector">
+								{([
+									['original', '🏆 Igual al ganador'],
+									['square', '🔲 Cuadrado 1:1'],
+									['portrait', '📱 Vertical 4:5'],
+									['story', '📐 Story 9:16'],
+								] as const).map(([value, label]) => (
+									<button
+										key={value}
+										type="button"
+										className={`format-btn ${format === value ? 'active' : ''}`}
+										onClick={() => setFormat(value)}
+									>
+										{label}
+									</button>
+								))}
+							</div>
+						</div>
+						<div>
+							<label className="picker-label">Idioma de los textos</label>
+							<div className="format-selector">
+								{([
+									['es', '🇦🇷 Español'],
+									['en', '🇺🇸 Inglés'],
+									['pt', '🇧🇷 Portugués'],
+									['it', '🇮🇹 Italiano'],
+									['fr', '🇫🇷 Francés'],
+									['de', '🇩🇪 Alemán'],
+								] as const).map(([value, label]) => (
+									<button
+										key={value}
+										type="button"
+										className={`format-btn ${language === value ? 'active' : ''}`}
+										onClick={() => setLanguage(value)}
+									>
+										{label}
+									</button>
+								))}
+							</div>
+						</div>
 					</div>
 				</div>
 
@@ -343,45 +493,21 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								)}
 							</div>
 
-							{/* Formato de la imagen */}
-							<div className="advanced-field">
-								<label className="field-label">Formato del anuncio</label>
-								<div className="format-selector">
-									<button
-										type="button"
-										className={`format-btn ${format === 'square' ? 'active' : ''}`}
-										onClick={() => setFormat('square')}
-									>
-										🔲 Cuadrado 1:1
-									</button>
-									<button
-										type="button"
-										className={`format-btn ${format === 'portrait' ? 'active' : ''}`}
-										onClick={() => setFormat('portrait')}
-									>
-										📱 Vertical 3:4
-									</button>
-									<button
-										type="button"
-										className={`format-btn ${format === 'story' ? 'active' : ''}`}
-										onClick={() => setFormat('story')}
-									>
-										📐 Story 9:16
-									</button>
-								</div>
-							</div>
 						</div>
 
-						{/* Brief o indicaciones adicionales */}
+						{/* Brief: se inyecta como USER DIRECTION en cada anuncio del lote */}
 						<div className="advanced-field full-width">
-							<label className="field-label">Indicaciones especiales para la IA (Opcional)</label>
+							<label className="field-label">Qué querés que digan los anuncios (Opcional)</label>
 							<textarea
 								className="brief-textarea"
-								placeholder="Ej: Destacar el descuento del 20% de bienvenida, usar tono directo y colores cálidos."
+								placeholder="Ej: hablarle a mujeres de 30-45, destacar que es libre de fragancia, tono cercano y sin tecnicismos. Estas indicaciones se aplican a los anuncios del lote."
 								value={brief}
 								onChange={(e) => setBrief(e.target.value)}
-								rows={2}
+								rows={3}
 							/>
+							<small style={{ color: '#6b6478', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
+								La IA solo usa datos reales de tu producto: nunca inventa precios, descuentos ni certificaciones.
+							</small>
 						</div>
 					</div>
 				)}
@@ -415,20 +541,127 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				<button
 					type="submit"
 					className="url-batch-submit-btn"
-					disabled={isGenerating || !url.trim()}
+					disabled={isScanning || !url.trim()}
 				>
-					{isGenerating ? (
+					{isScanning ? (
 						<>
-							<span className="spinner">⌛</span> Generando {count} anuncios en paralelo ({progressPercent}%)...
+							<span className="spinner">⌛</span> Analizando tu producto y buscando ganadores…
 						</>
 					) : (
 						<>
-							<span>🚀 Generar {count} Anuncios Probados en Paralelo</span>
-							<span className="btn-credits-badge">({count} créditos)</span>
+							<span>🔎 Buscar {count} Anuncios Ganadores para mi Producto</span>
+							<span className="btn-credits-badge">Todavía no gastás créditos</span>
 						</>
 					)}
 				</button>
 			</form>
+			)}
+
+			{/* PASO 2 — Revisión de las referencias ganadoras elegidas */}
+			{step === 'review' && preview && (
+				<div className="active-batch-results">
+					<div className="batch-status-header">
+						<div className="batch-status-info">
+							<h3>🏆 Estos son los {selected.length} anuncios ganadores que vamos a recrear</h3>
+							<p className="product-tag">
+								Producto: <strong>{preview.product?.name}</strong>
+								{preview.matchedNiches?.length ? ` · Rubro detectado: ${preview.matchedNiches.join(', ')}` : ''}
+							</p>
+							<p style={{ fontSize: '12.5px', color: '#6b6478', marginTop: '6px' }}>
+								Descartá con ✕ el que no te guste y entra otro automáticamente. Recién cuando toques
+								<strong> Generar</strong> se usan tus créditos.
+							</p>
+						</div>
+						<div className="batch-counter">
+							<span>{selected.length} referencias · {spares.length} en banco</span>
+						</div>
+					</div>
+
+					<div className="batch-grid">
+						{selected.map((winner, index) => (
+							<div key={winner.imagePath} className="batch-card">
+								<div className="batch-card-header">
+									<span className="template-badge">🏆 {winner.name}</span>
+									{winner.leaf && <span className="ring-tag">{LEAF_LABELS[winner.leaf] || winner.leaf}</span>}
+								</div>
+								<div className="batch-card-body">
+									<div className="card-image-wrap">
+										<img
+											src={referenceUrlFor(winner.imagePath)}
+											alt={winner.name}
+											loading="lazy"
+											onClick={() => setPreviewModalUrl(referenceUrlFor(winner.imagePath))}
+										/>
+										<button
+											type="button"
+											onClick={() => discardWinner(winner.imagePath)}
+											title="Descartar y traer otro ganador"
+											style={{
+												position: 'absolute', top: '8px', right: '8px', zIndex: 3,
+												width: '30px', height: '30px', borderRadius: '999px', border: 0,
+												background: 'rgba(25,23,29,0.82)', color: '#fff', cursor: 'pointer',
+												fontSize: '14px', fontWeight: 800, lineHeight: 1,
+											}}
+										>
+											✕
+										</button>
+										<span
+											style={{
+												position: 'absolute', bottom: '8px', left: '8px', zIndex: 3,
+												padding: '3px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: 700,
+												background: 'rgba(255,255,255,0.92)', color: '#5f32cf',
+											}}
+										>
+											#{index + 1}
+										</span>
+									</div>
+									{winner.notes && (
+										<p style={{ fontSize: '11px', color: '#6b6478', padding: '8px 10px 0', margin: 0 }}>
+											{winner.notes}
+										</p>
+									)}
+								</div>
+							</div>
+						))}
+					</div>
+
+					<div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '18px' }}>
+						<button
+							type="button"
+							className="url-batch-submit-btn"
+							style={{ flex: '1 1 260px' }}
+							onClick={handleConfirmGeneration}
+							disabled={isGenerating || !selected.length}
+						>
+							{isGenerating ? (
+								<><span className="spinner">⌛</span> Iniciando la generación…</>
+							) : (
+								<>
+									<span>🚀 Generar {selected.length} anuncios con estas referencias</span>
+									<span className="btn-credits-badge">({selected.length} créditos)</span>
+								</>
+							)}
+						</button>
+						<button
+							type="button"
+							onClick={() => { setStep('form'); setPreview(null); setSelected([]); setSpares([]); }}
+							disabled={isGenerating}
+							style={{
+								padding: '0 20px', borderRadius: '12px', border: '2px solid #e6e0f2',
+								background: '#fff', color: '#5f32cf', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+							}}
+						>
+							← Cambiar producto u opciones
+						</button>
+					</div>
+
+					{error && (
+						<div className="url-batch-error" style={{ marginTop: '14px' }}>
+							<span>{error}</span>
+						</div>
+					)}
+				</div>
+			)}
 
 			{/* Barra de Progreso y Visualización del Lote Activo */}
 			{batchItems.length > 0 && (
@@ -436,12 +669,31 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					<div className="batch-status-header">
 						<div className="batch-status-info">
 							<h3>
-								{isGenerating ? '⏳ Procesando lote publicitario...' : '✅ Lote de creativos completado'}
+								{isGenerating ? '⏳ Clonando anuncios ganadores…' : '✅ Lote de creativos completado'}
 							</h3>
 							{productName && <p className="product-tag">Producto: <strong>{productName}</strong></p>}
 						</div>
-						<div className="batch-counter">
+						<div className="batch-counter" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
 							<span>{completedCount} de {totalCount} listos</span>
+							{!isGenerating && (
+								<button
+									type="button"
+									onClick={() => {
+										if (pollRef.current) clearInterval(pollRef.current);
+										setStep('form');
+										setPreview(null);
+										setSelected([]);
+										setSpares([]);
+										setBatchItems([]);
+									}}
+									style={{
+										padding: '6px 12px', borderRadius: '9px', border: '2px solid #e6e0f2',
+										background: '#fff', color: '#5f32cf', fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+									}}
+								>
+									＋ Nuevo lote
+								</button>
+							)}
 						</div>
 					</div>
 
@@ -454,38 +706,31 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 					{/* Grilla de Anuncios Generados */}
 					<div className="batch-grid">
-						{batchItems.map((item, index) => {
-							const templateInfo = creativos.find((c) => c.id === item.templateId);
-
-							return (
+						{batchItems.map((item, index) => (
 								<div key={item.id || index} className="batch-card">
 									<div className="batch-card-header">
 										<span className="template-badge">
-											{templateInfo ? `#${templateInfo.id} ${templateInfo.nombre}` : `Anuncio #${index + 1}`}
+											{item.referenceName ? `🏆 ${item.referenceName}` : `Anuncio #${index + 1}`}
 										</span>
-										{templateInfo?.ring && (
-											<span className="ring-tag">{templateInfo.ring}</span>
+										{item.referenceLeaf && (
+											<span className="ring-tag">{LEAF_LABELS[item.referenceLeaf] || item.referenceLeaf}</span>
 										)}
 									</div>
 
-									{templateInfo && (() => {
-										const blueprint = getTemplateBlueprint(templateInfo);
-										return (
-											<div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', padding: '6px 10px', background: '#f8f6fc', borderBottom: '1px solid #f0ebf8' }}>
-												{blueprint.slots.map((s, i) => (
-													<span key={i} title={s.description} style={{ fontSize: '9.5px', fontWeight: 700, color: '#5f32cf', background: '#efeafc', padding: '2px 6px', borderRadius: '5px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-														<span>{s.icon}</span> <span>{s.name}</span>
-													</span>
-												))}
-											</div>
-										);
-									})()}
-
 									<div className="batch-card-body">
 										{item.status === 'processing' && (
-											<div className="card-skeleton">
+											<div className="card-skeleton" style={{ position: 'relative', overflow: 'hidden' }}>
+												{/* Se muestra el ganador que se está clonando, así se ve de dónde sale el anuncio */}
+												{item.referenceUrl && (
+													<img
+														src={item.referenceUrl}
+														alt=""
+														loading="lazy"
+														style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.18, filter: 'blur(1px)' }}
+													/>
+												)}
 												<div className="skeleton-pulse"></div>
-												<span>Diseñando anuncio probado #{index + 1}...</span>
+												<span style={{ position: 'relative' }}>Clonando el ganador con tu producto…</span>
 											</div>
 										)}
 
@@ -529,8 +774,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 										)}
 									</div>
 								</div>
-							);
-						})}
+						))}
 					</div>
 				</div>
 			)}
