@@ -197,6 +197,7 @@ function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number;
 	if (name === 'card') return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10.5h18M7 15h4"/></svg>;
 	if (name === 'history') return <svg {...common}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>;
 	if (name === 'brand') return <svg {...common}><path d="M5 20h14"/><path d="M7 17V7l5-3 5 3v10"/><path d="M9.5 10h5M9.5 13h5"/></svg>;
+	if (name === 'trash') return <svg {...common}><path d="M4 7h16"/><path d="M9.5 7V5h5v2"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>;
 	if (name === 'bag') return <svg {...common}><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>;
 	if (name === 'search') return <svg {...common}><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>;
 	if (name === 'arrow') return <svg {...common}><path d="M5 12h14M13 6l6 6-6 6"/></svg>;
@@ -473,6 +474,22 @@ export default function CreativeApp() {
 		);
 	}
 
+	const [stuckCount, setStuckCount] = useState(0);
+
+	// Al entrar se consulta si quedaron generaciones colgadas de una sesión previa
+	// (pestaña cerrada a mitad del lote, worker cortado) para ofrecer limpiarlas.
+	useEffect(() => {
+		if (!session) return;
+		const token = getSessionToken(session);
+		if (!token) return;
+		let active = true;
+		void fetch('/api/creativos/cleanup-stuck', { headers: { authorization: `Bearer ${token}` } })
+			.then((response) => response.json())
+			.then((payload) => { if (active && typeof payload?.stuck === 'number') setStuckCount(payload.stuck); })
+			.catch(() => { /* no es crítico */ });
+		return () => { active = false; };
+	}, [session]);
+
 	async function deleteImage(imgId: string) {
 		const confirmDelete = window.confirm("¿Estás seguro de que quieres eliminar esta imagen?");
 		if (!confirmDelete) return;
@@ -491,6 +508,41 @@ export default function CreativeApp() {
 			setToast("Imagen eliminada correctamente.");
 		} catch (err) {
 			alert(err instanceof Error ? err.message : "Error al eliminar la imagen.");
+		}
+	}
+
+	/**
+	 * Cierra las generaciones que quedaron colgadas en 'processing' y devuelve los
+	 * créditos. Pasa a 'failed', que ya no se muestra en la grilla.
+	 */
+	async function cleanupStuck(generationId?: string) {
+		const token = getSessionToken(session);
+		if (!token) return;
+		try {
+			const response = await fetch('/api/creativos/cleanup-stuck', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+				// remove: se borran de verdad, no quedan como fallidas ocupando lugar.
+				body: JSON.stringify(generationId ? { generationId, remove: true } : { remove: true }),
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo limpiar.');
+			const closed: string[] = payload.ids || [];
+			if (closed.length) {
+				setHistory((prev) => prev.filter((item) => !closed.includes(item.id)));
+				setStuckCount(0);
+				if (supabase) {
+					const { data: profileRow } = await supabase.from('creative_profiles').select('credits_remaining').maybeSingle();
+					if (profileRow) setProfile((prev) => ({ ...prev, credits: profileRow.credits_remaining ?? prev.credits }));
+				}
+				setToast(closed.length === 1
+					? 'Generación eliminada.'
+					: `${closed.length} generaciones sin imagen eliminadas.`);
+			} else {
+				setToast('No hay generaciones pendientes para cerrar.');
+			}
+		} catch (error) {
+			setToast(error instanceof Error ? error.message : 'No se pudo limpiar.');
 		}
 	}
 
@@ -779,6 +831,9 @@ export default function CreativeApp() {
 			try {
 				const { data: records } = await client.from('creative_generations')
 					.select('id,title,output_path,format,created_at,template_id,status,error_code')
+					// Las fallidas no se muestran: cerrar una pendiente la marca
+					// 'failed' y así desaparece de la grilla.
+					.in('status', ['completed', 'processing'])
 					.order('created_at', { ascending: false })
 					.limit(50);
 
@@ -1446,6 +1501,8 @@ export default function CreativeApp() {
 								setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, imageIds: [] }]);
 							}}
 							onDeleteImage={deleteImage}
+							stuckCount={stuckCount}
+							onCleanupStuck={cleanupStuck}
 						/>
 					)}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
@@ -2722,7 +2779,9 @@ function History({
 	onToggleFolder,
 	onRemoveFolder,
 	onCreateFolder,
-	onDeleteImage
+	onDeleteImage,
+	stuckCount,
+	onCleanupStuck,
 }: { 
 	history: Generation[]; 
 	onCreate: () => void; 
@@ -2737,6 +2796,8 @@ function History({
 	onRemoveFolder?: (folderId: string) => void;
 	onCreateFolder?: (name: string) => void;
 	onDeleteImage?: (imgId: string) => void;
+	stuckCount?: number;
+	onCleanupStuck?: (generationId?: string) => void;
 }) {
 	const [currentFolderId, setCurrentFolderId] = useState<string>('all');
 	const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -2871,6 +2932,21 @@ function History({
 						+ Nueva carpeta
 					</button>
 				)}
+
+				{Boolean(stuckCount) && onCleanupStuck && (
+					<button
+						type="button"
+						onClick={() => onCleanupStuck()}
+						title="Cierra las generaciones que quedaron a medias y te devuelve los créditos"
+						style={{
+							padding: '8px 14px', borderRadius: '10px', border: '1.5px solid #f0d8a8',
+							background: '#fff9ee', color: '#9a6b12', fontSize: '12.5px', fontWeight: 800,
+							cursor: 'pointer', fontFamily: 'inherit', marginBottom: '20px',
+						}}
+					>
+						🧹 Limpiar {stuckCount} {stuckCount === 1 ? 'pendiente' : 'pendientes'}
+					</button>
+				)}
 			</div>
 
 			{hasContent ? (
@@ -2886,6 +2962,7 @@ function History({
 							onExpand={onExpand ? () => onExpand(item) : undefined} 
 							onReuse={() => onReuse(item)}
 							onDeleteImage={onDeleteImage}
+							onCancel={onCleanupStuck ? () => onCleanupStuck(item.id) : undefined}
 						/>
 					))}
 				</div>
@@ -2926,7 +3003,8 @@ function GenerationCard({
 	onToggleLike,
 	folders = [],
 	onToggleFolder,
-	onDeleteImage
+	onDeleteImage,
+	onCancel,
 }: { 
 	item: Generation; 
 	onReuse?: () => void; 
@@ -2936,6 +3014,8 @@ function GenerationCard({
 	folders?: Array<{ id: string; name: string; imageIds: string[] }>;
 	onToggleFolder?: (folderId: string) => void;
 	onDeleteImage?: (imgId: string) => void;
+	/** Cierra una generación que quedó colgada y devuelve el crédito. */
+	onCancel?: () => void;
 }) {
 	const [showFolderDropdown, setShowFolderDropdown] = useState(false);
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -3082,13 +3162,36 @@ function GenerationCard({
 						}}
 					>
 						<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
-						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Diseñando anuncio con IA...</strong>
-						<span style={{ fontSize: '10px', color: '#744bde', fontWeight: 700 }}>Renderizando de a uno en tiempo real</span>
+						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Diseñando anuncio con IA…</strong>
+						{onCancel && (
+							<button
+								type="button"
+								onClick={(event) => { event.stopPropagation(); onCancel(); }}
+								style={{
+									marginTop: '4px', padding: '5px 11px', borderRadius: '8px',
+									border: '1.5px solid #e6e0f2', background: '#fff', color: '#6b6478',
+									fontSize: '10.5px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+								}}
+							>
+								Cancelar
+							</button>
+						)}
 					</div>
 				) : (
 					<>
 						<img src={item.imageUrl} alt={item.title} loading="lazy"/>
 						<a href={item.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(item.imageUrl, `creattia-${item.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a>
+						{onDeleteImage && (
+							<button
+								type="button"
+								className="studio-card-delete"
+								onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDeleteImage(item.id); }}
+								aria-label={`Eliminar ${item.title}`}
+								title="Eliminar imagen"
+							>
+								<Icon name="trash" size={15}/>
+							</button>
+						)}
 					</>
 				)}
 			</div>

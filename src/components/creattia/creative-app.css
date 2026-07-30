@@ -3368,3 +3368,34 @@
 	text-overflow: ellipsis;
 	word-break: break-word;
 }
+
+/* Los <button> no heredan font-family, así que el submenú de Configuración
+   salía con la tipografía del sistema en vez de Satoshi como el resto del menú. */
+.studio-settings-item,
+.studio-nav button,
+.studio-settings-toggle {
+	font-family: inherit;
+}
+
+/* Botón de eliminar en la tarjeta de "Mis imágenes": visible al pasar el mouse,
+   para no tener que descubrir el menú del clic derecho. */
+.studio-card-delete {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	width: 30px;
+	height: 30px;
+	display: grid;
+	place-items: center;
+	border: 0;
+	border-radius: 9px;
+	background: rgba(255, 255, 255, 0.92);
+	color: #a43f3f;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity .16s ease, background .16s ease, color .16s ease;
+	z-index: 4;
+}
+
+.studio-generation-card:hover .studio-card-delete { opacity: 1; }
+.studio-card-delete:hover { background: #a43f3f; color: #fff; }
