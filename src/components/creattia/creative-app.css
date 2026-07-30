@@ -3490,3 +3490,45 @@
    etiquetar una foto de fiambre como "prueba social"). */
 .ref-foot.single { padding: 7px; }
 .ref-foot.single .ref-replace { width: 100%; text-align: center; padding: 7px 10px; }
+
+/* Miniatura del anuncio ganador que se usó como referencia, sobre la imagen
+   generada en "Mis imágenes". Aparece al pasar el mouse para no tapar el
+   creativo, y abre el ganador original en una pestaña nueva. */
+.studio-card-ref {
+	position: absolute;
+	left: 10px;
+	bottom: 10px;
+	z-index: 4;
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 5px 9px 5px 5px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.94);
+	backdrop-filter: blur(4px);
+	box-shadow: 0 4px 14px rgba(25, 23, 29, 0.18);
+	text-decoration: none;
+	opacity: 0;
+	transform: translateY(4px);
+	transition: opacity .16s ease, transform .16s ease;
+}
+
+.studio-generation-card:hover .studio-card-ref { opacity: 1; transform: translateY(0); }
+
+.studio-card-ref img {
+	width: 34px;
+	height: 34px;
+	border-radius: 7px;
+	object-fit: cover;
+	display: block;
+	flex: 0 0 auto;
+}
+
+.studio-card-ref span {
+	font-size: 10.5px;
+	font-weight: 800;
+	color: #5f32cf;
+	white-space: nowrap;
+}
+
+.studio-card-ref:hover { background: #fff; box-shadow: 0 8px 22px rgba(25, 23, 29, 0.26); }

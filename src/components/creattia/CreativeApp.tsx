@@ -45,6 +45,8 @@ type AppProfile = {
 };
 type DemoSession = { user: { id: string; email: string } };
 type AppSession = Session | DemoSession;
+const REFERENCES_PUBLIC_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
+
 type Generation = {
 	id: string;
 	title: string;
@@ -61,6 +63,9 @@ type Generation = {
 	batchId?: string;
 	outputIndex?: number;
 	referenceUrl?: string;
+	/** Anuncio ganador que se usó como referencia para generar esta imagen. */
+	referencePath?: string;
+	referenceName?: string;
 };
 type VariationStrength = 'exact' | 'light' | 'strong';
 type CreativeReference = {
@@ -778,6 +783,8 @@ export default function CreativeApp() {
 								productIds: record.settings_snapshot?.productIds || (record.product_id ? [record.product_id] : []),
 								batchId: record.batch_id || record.id,
 								outputIndex: record.output_index || 1,
+								referencePath: record.settings_snapshot?.referencePath || '',
+								referenceName: record.settings_snapshot?.referenceName || '',
 								status: record.status || (imgUrl ? 'completed' : 'processing'),
 							};
 						});
@@ -830,7 +837,7 @@ export default function CreativeApp() {
 		const interval = setInterval(async () => {
 			try {
 				const { data: records } = await client.from('creative_generations')
-					.select('id,title,output_path,format,created_at,template_id,status,error_code')
+					.select('id,title,output_path,format,created_at,template_id,status,error_code,settings_snapshot')
 					// Las fallidas no se muestran: cerrar una pendiente la marca
 					// 'failed' y así desaparece de la grilla.
 					.in('status', ['completed', 'processing'])
@@ -861,6 +868,8 @@ export default function CreativeApp() {
 								createdAt: r.created_at || new Date().toISOString(),
 								category: 'Creativo',
 								templateId: r.template_id,
+								referencePath: (r as any).settings_snapshot?.referencePath || '',
+								referenceName: (r as any).settings_snapshot?.referenceName || '',
 								status: imgUrl ? 'completed' : r.status,
 							} as any);
 						} else if ((existing as any).status !== r.status || (!existing.imageUrl && imgUrl)) {
@@ -1141,6 +1150,8 @@ export default function CreativeApp() {
 					productIds: row.settings_snapshot?.productIds || [],
 					batchId: row.batch_id,
 					outputIndex: row.output_index,
+					referencePath: row.settings_snapshot?.referencePath || '',
+					referenceName: row.settings_snapshot?.referenceName || '',
 					status: row.status,
 				} as any);
 			}
@@ -3181,6 +3192,19 @@ function GenerationCard({
 					<>
 						<img src={item.imageUrl} alt={item.title} loading="lazy"/>
 						<a href={item.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(item.imageUrl, `creattia-${item.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a>
+						{item.referencePath && (
+							<a
+								className="studio-card-ref"
+								href={`${REFERENCES_PUBLIC_BASE}/${item.referencePath}`}
+								target="_blank"
+								rel="noreferrer"
+								onClick={(event) => event.stopPropagation()}
+								title={`Inspirado en el anuncio ganador${item.referenceName ? ` de ${item.referenceName}` : ''} — tocá para verlo`}
+							>
+								<img src={`${REFERENCES_PUBLIC_BASE}/${item.referencePath}`} alt="" loading="lazy" />
+								<span>🏆 Referencia</span>
+							</a>
+						)}
 						{onDeleteImage && (
 							<button
 								type="button"
@@ -3438,6 +3462,36 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 						<h3 style={{ margin: 0, fontSize: '17px', color: '#19171d', paddingRight: '30px' }}>{item.title}</h3>
 						<p style={{ margin: '4px 0 0', fontSize: '12px', color: '#8b8490' }}>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'long' }).format(new Date(item.createdAt))}</p>
 					</div>
+
+					{/* De qué anuncio ganador salió esta imagen */}
+					{item.referencePath && (
+						<a
+							href={`${REFERENCES_PUBLIC_BASE}/${item.referencePath}`}
+							target="_blank"
+							rel="noreferrer"
+							style={{
+								display: 'flex', alignItems: 'center', gap: '10px', padding: '9px',
+								borderRadius: '12px', border: '1.5px solid #eae5f3', background: '#faf8fd',
+								textDecoration: 'none',
+							}}
+							title="Ver el anuncio ganador original"
+						>
+							<img
+								src={`${REFERENCES_PUBLIC_BASE}/${item.referencePath}`}
+								alt=""
+								loading="lazy"
+								style={{ width: '46px', height: '46px', borderRadius: '9px', objectFit: 'cover', flex: '0 0 auto' }}
+							/>
+							<span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+								<span style={{ fontSize: '10px', fontWeight: 800, color: '#8b8490', letterSpacing: '.04em' }}>
+									🏆 INSPIRADO EN
+								</span>
+								<span style={{ fontSize: '12.5px', fontWeight: 700, color: '#5f32cf', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+									{item.referenceName || 'Anuncio ganador de la biblioteca'}
+								</span>
+							</span>
+						</a>
+					)}
 					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
 					{item.referenceUrl && (
 						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#eceaef' : '#f8f6fb', border: showReference ? '1px solid #cfc9d8' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
