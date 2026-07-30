@@ -332,6 +332,10 @@ export const POST: APIRoute = async ({ request }) => {
 				productUrl,
 			},
 			mode,
+			// Los necesita /api/creativos/next-reference para filtrar los reemplazos
+			// sin volver a analizar el producto en cada clic.
+			wearable: signals.wearable,
+			hasImage: productHasImage,
 			count,
 			format,
 			language,

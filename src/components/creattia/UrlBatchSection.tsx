@@ -140,6 +140,8 @@ type WinnerRef = {
 type BatchPreview = {
 	product: { id: string; name: string; description?: string; priceText?: string; imageUrl?: string };
 	count: number;
+	wearable?: boolean;
+	hasImage?: boolean;
 };
 
 const FORMAT_OPTIONS = [
@@ -207,6 +209,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [preview, setPreview] = useState<BatchPreview | null>(null);
 	const [selected, setSelected] = useState<WinnerRef[]>([]);
 	const [spares, setSpares] = useState<WinnerRef[]>([]);
+	// Todo lo que el usuario ya vio en esta sesión de revisión: ninguna referencia
+	// se repite, ni siquiera después de descartarla.
+	const seenPathsRef = useRef<Set<string>>(new Set());
+	const [replacingPath, setReplacingPath] = useState<string | null>(null);
 
 	const pollRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -281,7 +287,11 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || 'No se pudo analizar el producto.');
 
-			setPreview({ product: data.product, count: data.count });
+			setPreview({ product: data.product, count: data.count, wearable: data.wearable, hasImage: data.hasImage });
+			seenPathsRef.current = new Set<string>([
+				...(data.winners || []).map((w: WinnerRef) => w.imagePath),
+				...(data.spares || []).map((w: WinnerRef) => w.imagePath),
+			]);
 			setSelected(data.winners || []);
 			setSpares(data.spares || []);
 			setProductName(data.product?.name || 'Producto');
@@ -294,27 +304,67 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 		}
 	};
 
-	// Descartar una referencia: entra automáticamente la mejor suplente.
-	const discardWinner = (imagePath: string) => {
+	/**
+	 * Reemplaza una referencia por otra al azar de TODA la biblioteca.
+	 *
+	 * Se pide al servidor en el momento en vez de tirar de un banco precalculado:
+	 * ese banco se agotaba enseguida y limitaba las opciones. Los anuncios que
+	 * guardaste tienen prioridad, y nada se repite dentro de la misma revisión.
+	 */
+	const discardWinner = async (imagePath: string) => {
 		const index = selected.findIndex((winner) => winner.imagePath === imagePath);
-		if (index === -1) return;
-		const discarded = selected[index];
+		if (index === -1 || replacingPath) return;
+		setReplacingPath(imagePath);
 
-		// Se prioriza una suplente del mismo tipo de anuncio para no romper la
-		// cobertura del embudo del lote.
-		const sameLeaf = spares.findIndex((spare) => spare.leaf === discarded.leaf);
-		const pickIndex = sameLeaf !== -1 ? sameLeaf : 0;
-		const replacement = spares[pickIndex];
+		// Suplente local si hay: entra al instante y el banco se repone de fondo.
+		const localSpare = spares[0];
+		if (localSpare) {
+			const next = [...selected];
+			next[index] = localSpare;
+			setSelected(next);
+			setSpares(spares.slice(1));
+			seenPathsRef.current.add(localSpare.imagePath);
+		}
 
-		const nextSelected = [...selected];
-		if (replacement) nextSelected[index] = replacement;
-		else nextSelected.splice(index, 1);
-		setSelected(nextSelected);
+		try {
+			const accessToken = await getAccessToken();
+			const savedPaths = (() => {
+				try { return JSON.parse(window.localStorage.getItem('creattia-liked-scraped-v1') || '[]'); }
+				catch { return []; }
+			})();
+			const response = await fetch('/api/creativos/next-reference', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+					...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+				},
+				body: JSON.stringify({
+					exclude: Array.from(seenPathsRef.current),
+					savedPaths,
+					wearable: preview?.wearable !== false,
+					hasImage: preview?.hasImage !== false,
+					count: localSpare ? 2 : 1,
+				}),
+			});
+			const data = await response.json();
+			const fresh: WinnerRef[] = data.winners || [];
+			fresh.forEach((winner) => seenPathsRef.current.add(winner.imagePath));
 
-		// La descartada vuelve al final del banco, por si se arrepiente.
-		setSpares(replacement
-			? [...spares.filter((_, i) => i !== pickIndex), discarded]
-			: [...spares, discarded]);
+			if (!localSpare) {
+				if (!fresh.length) {
+					setError('No quedan más referencias compatibles en la biblioteca.');
+					return;
+				}
+				setSelected((prev) => prev.map((winner) => (winner.imagePath === imagePath ? fresh[0] : winner)));
+				setSpares((prev) => [...prev, ...fresh.slice(1)]);
+			} else {
+				setSpares((prev) => [...prev, ...fresh]);
+			}
+		} catch (err) {
+			if (!localSpare) setError('No se pudo buscar otra referencia. Probá de nuevo.');
+		} finally {
+			setReplacingPath(null);
+		}
 	};
 
 	// PASO 2 — Confirmar: acá se cobran los créditos y arranca la generación.
@@ -622,12 +672,13 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								Producto: <strong>{preview.product?.name}</strong>
 							</p>
 							<p style={{ fontSize: '12.5px', color: '#6b6478', marginTop: '6px' }}>
-								Tocá <strong>Reemplazar</strong> en el que no te guste y entra otro al instante.
-								Recién cuando toques <strong>Generar</strong> se usan tus créditos.
+								Tocá <strong>Reemplazar</strong> en el que no te guste y entra otro al azar de toda la
+								biblioteca, sin repetir. Tus anuncios guardados tienen prioridad. Recién cuando toques
+								<strong> Generar</strong> se usan tus créditos.
 							</p>
 						</div>
 						<div className="batch-counter">
-							<span>{selected.length} referencias · {spares.length} en banco</span>
+							<span>{selected.length} referencias</span>
 						</div>
 					</div>
 
@@ -648,10 +699,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 										type="button"
 										className="ref-replace"
 										onClick={() => discardWinner(winner.imagePath)}
-										disabled={!spares.length}
-										title={spares.length ? 'Cambiar por otro anuncio ganador' : 'No quedan más referencias en el banco'}
+										disabled={replacingPath === winner.imagePath}
+										title="Cambiar por otro anuncio ganador al azar de la biblioteca"
 									>
-										Reemplazar
+										{replacingPath === winner.imagePath ? 'Buscando…' : 'Reemplazar'}
 									</button>
 								</div>
 							</div>
