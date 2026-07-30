@@ -3844,3 +3844,46 @@
 .wiz-progress { margin-bottom: 16px; }
 .wiz-progress-item { font-size: 11.5px; padding: 6px 12px 6px 7px; }
 .wiz-progress-dot { width: 19px; height: 19px; font-size: 10px; }
+
+/* Barra de progreso del lote: avanza de forma continua con el tiempo real de
+   cada imagen, no a saltos cuando alguna termina. */
+.batch-progress-wrap {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	margin-bottom: 22px;
+}
+
+.batch-progress-wrap .batch-progress-bar-container { flex: 1 1 auto; margin-bottom: 0; }
+
+/* La transición acompaña al tick de 500ms para que el avance se vea fluido. */
+.batch-progress-bar-fill { transition: width .55s linear; }
+
+/* Brillo que recorre la barra mientras hay algo generándose: deja claro que
+   sigue trabajando aunque el porcentaje avance despacio. */
+.batch-progress-bar-fill.live {
+	background-image: linear-gradient(90deg, #744bde, #a78bfa),
+		linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+	background-size: 100% 100%, 90px 100%;
+	background-repeat: no-repeat, no-repeat;
+	animation: batch-progress-sheen 1.6s linear infinite;
+}
+
+@keyframes batch-progress-sheen {
+	from { background-position: 0 0, -90px 0; }
+	to   { background-position: 0 0, calc(100% + 90px) 0; }
+}
+
+.batch-progress-pct {
+	flex: 0 0 auto;
+	min-width: 40px;
+	text-align: right;
+	font-size: 12.5px;
+	font-weight: 800;
+	color: #5f32cf;
+	font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.batch-progress-bar-fill.live { animation: none; }
+}

@@ -12,11 +12,13 @@ async function driveBatchWorkers(
 	generationIds: string[],
 	accessToken: string,
 	onSettled?: (id: string, ok: boolean) => void,
+	onStart?: (id: string) => void,
 ) {
 	const queue = [...generationIds];
 	const runNext = async (): Promise<void> => {
 		const id = queue.shift();
 		if (!id) return;
+		if (onStart) onStart(id);
 		try {
 			const response = await fetch('/api/creativos/batch-worker', {
 				method: 'POST',
@@ -208,7 +210,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	// Paso 2: revisión de las referencias ganadoras antes de gastar créditos.
 	const [step, setStep] = useState<'form' | 'review' | 'results'>('form');
 	// El formulario es secuencial: primero la cantidad, después el producto.
-	const [formStep, setFormStep] = useState<1 | 2>(1);
+	// La revisión tiene dos pantallas: elegir referencias y después cómo salen.
+	const [reviewStep, setReviewStep] = useState<1 | 2>(1);
 	const [isScanning, setIsScanning] = useState(false);
 	const [preview, setPreview] = useState<BatchPreview | null>(null);
 	const [selected, setSelected] = useState<WinnerRef[]>([]);
@@ -216,9 +219,16 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	// Todo lo que el usuario ya vio en esta sesión de revisión: ninguna referencia
 	// se repite, ni siquiera después de descartarla.
 	const seenPathsRef = useRef<Set<string>>(new Set());
-	const [replacingPath, setReplacingPath] = useState<string | null>(null);
+	// Bloqueo por tarjeta, no global: antes una sola en curso dejaba muertos los
+	// botones de todas las demás, y parecía que había que hacer doble clic.
+	const [replacing, setReplacing] = useState<Set<string>>(new Set());
+	const refillingRef = useRef(false);
 
 	const pollRef = useRef<NodeJS.Timeout | null>(null);
+	// Momento en que arrancó cada imagen: la barra avanza con el tiempo real de
+	// cada una, no a saltos de 1/N cuando alguna termina.
+	const startedAtRef = useRef<Record<string, number>>({});
+	const [tick, setTick] = useState(0);
 
 	useEffect(() => {
 		if (initialUrl && !url) {
@@ -304,6 +314,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			setSpares(data.spares || []);
 			setProductName(data.product?.name || 'Producto');
 			setStep('review');
+			setReviewStep(1);
+			// Se precargan suplentes de fondo para que el primer Reemplazar sea
+			// instantáneo en vez de esperar 5s al servidor.
+			void refillSpares(6);
 		} catch (err: any) {
 			console.error('Error analizando el producto:', err);
 			setError(err.message || 'Ocurrió un error al conectar con el servidor.');
@@ -319,21 +333,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	 * ese banco se agotaba enseguida y limitaba las opciones. Los anuncios que
 	 * guardaste tienen prioridad, y nada se repite dentro de la misma revisión.
 	 */
-	const discardWinner = async (imagePath: string) => {
-		const index = selected.findIndex((winner) => winner.imagePath === imagePath);
-		if (index === -1 || replacingPath) return;
-		setReplacingPath(imagePath);
-
-		// Suplente local si hay: entra al instante y el banco se repone de fondo.
-		const localSpare = spares[0];
-		if (localSpare) {
-			const next = [...selected];
-			next[index] = localSpare;
-			setSelected(next);
-			setSpares(spares.slice(1));
-			seenPathsRef.current.add(localSpare.imagePath);
-		}
-
+	/** Trae más suplentes en segundo plano para que el reemplazo sea instantáneo. */
+	const refillSpares = async (want = 6) => {
+		if (refillingRef.current) return;
+		refillingRef.current = true;
 		try {
 			const accessToken = await getAccessToken();
 			const savedPaths = (() => {
@@ -342,36 +345,75 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			})();
 			const response = await fetch('/api/creativos/next-reference', {
 				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-					...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
-				},
+				headers: { 'content-type': 'application/json', ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
 				body: JSON.stringify({
 					exclude: Array.from(seenPathsRef.current),
 					savedPaths,
 					wearable: preview?.wearable !== false,
 					hasImage: preview?.hasImage !== false,
-					count: localSpare ? 2 : 1,
+					count: want,
 				}),
 			});
 			const data = await response.json();
 			const fresh: WinnerRef[] = data.winners || [];
 			fresh.forEach((winner) => seenPathsRef.current.add(winner.imagePath));
+			if (fresh.length) setSpares((prev) => [...prev, ...fresh]);
+		} catch { /* si falla, el próximo reemplazo lo pide igual */ }
+		finally { refillingRef.current = false; }
+	};
 
-			if (!localSpare) {
-				if (!fresh.length) {
-					setError('No quedan más referencias compatibles en la biblioteca.');
-					return;
-				}
-				setSelected((prev) => prev.map((winner) => (winner.imagePath === imagePath ? fresh[0] : winner)));
-				setSpares((prev) => [...prev, ...fresh.slice(1)]);
-			} else {
-				setSpares((prev) => [...prev, ...fresh]);
+	/**
+	 * Reemplaza una referencia por otra al azar de toda la biblioteca.
+	 *
+	 * Es instantáneo mientras haya suplentes en memoria, y el banco se rellena
+	 * solo en segundo plano. Solo se espera al servidor si el banco quedó vacío.
+	 */
+	const discardWinner = async (imagePath: string) => {
+		const index = selected.findIndex((winner) => winner.imagePath === imagePath);
+		if (index === -1 || replacing.has(imagePath)) return;
+
+		// Camino rápido: hay suplente, se cambia en el acto.
+		if (spares.length) {
+			const [next, ...rest] = spares;
+			setSelected((prev) => prev.map((winner) => (winner.imagePath === imagePath ? next : winner)));
+			setSpares(rest);
+			seenPathsRef.current.add(next.imagePath);
+			if (rest.length < 4) void refillSpares();
+			return;
+		}
+
+		// Banco vacío: se pide al momento y se muestra que está buscando.
+		setReplacing((prev) => new Set(prev).add(imagePath));
+		try {
+			const accessToken = await getAccessToken();
+			const savedPaths = (() => {
+				try { return JSON.parse(window.localStorage.getItem('creattia-liked-scraped-v1') || '[]'); }
+				catch { return []; }
+			})();
+			const response = await fetch('/api/creativos/next-reference', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
+				body: JSON.stringify({
+					exclude: Array.from(seenPathsRef.current),
+					savedPaths,
+					wearable: preview?.wearable !== false,
+					hasImage: preview?.hasImage !== false,
+					count: 5,
+				}),
+			});
+			const data = await response.json();
+			const fresh: WinnerRef[] = data.winners || [];
+			fresh.forEach((winner) => seenPathsRef.current.add(winner.imagePath));
+			if (!fresh.length) {
+				setError('No quedan más referencias compatibles en la biblioteca.');
+				return;
 			}
-		} catch (err) {
-			if (!localSpare) setError('No se pudo buscar otra referencia. Probá de nuevo.');
+			setSelected((prev) => prev.map((winner) => (winner.imagePath === imagePath ? fresh[0] : winner)));
+			setSpares((prev) => [...prev, ...fresh.slice(1)]);
+		} catch {
+			setError('No se pudo buscar otra referencia. Probá de nuevo.');
 		} finally {
-			setReplacingPath(null);
+			setReplacing((prev) => { const next = new Set(prev); next.delete(imagePath); return next; });
 		}
 	};
 
@@ -425,7 +467,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 			// Un worker por anuncio, de a 4 en paralelo. Si el usuario recarga la
 			// página, la barrida de reanudación de la app retoma las que falten.
-			void driveBatchWorkers(initialItems.map((item) => item.id), accessToken);
+			void driveBatchWorkers(
+				initialItems.map((item) => item.id),
+				accessToken,
+				undefined,
+				(id) => { startedAtRef.current[id] = Date.now(); },
+			);
 		} catch (err: any) {
 			console.error('Error al generar lote por URL:', err);
 			setError(err.message || 'Ocurrió un error al conectar con el servidor.');
@@ -486,7 +533,36 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const completedCount = batchItems.filter((i) => i.status === 'completed').length;
 	const failedCount = batchItems.filter((i) => i.status === 'failed').length;
 	const totalCount = batchItems.length || count;
-	const progressPercent = Math.min(Math.round(((completedCount + failedCount) / totalCount) * 100), 100);
+	/**
+	 * Progreso real y continuo.
+	 *
+	 * Lo terminado cuenta entero; lo que está en curso aporta una fracción según
+	 * cuánto lleva corriendo contra lo que suele tardar, con tope en 0.92 para que
+	 * una imagen nunca se muestre como lista antes de estarlo. Así la barra se
+	 * mueve todo el tiempo en vez de saltar de 0 a 50 a 100.
+	 */
+	const ESPERADO_MS = 50_000;
+	const enCurso = batchItems.filter((item) => item.status === 'processing');
+	const parcial = enCurso.reduce((acc, item) => {
+		const desde = startedAtRef.current[item.id];
+		if (!desde) return acc;
+		return acc + Math.min(0.92, (Date.now() - desde) / ESPERADO_MS);
+	}, 0);
+	const progressPercent = totalCount
+		? Math.min(99.5, ((completedCount + failedCount + parcial) / totalCount) * 100)
+		: 0;
+	// Estimación de lo que falta, para no dejar al usuario sin referencia.
+	const restantes = totalCount - completedCount - failedCount;
+	const tandas = Math.ceil(restantes / WORKER_CONCURRENCY);
+	const segundosRestantes = Math.max(0, Math.round((tandas * ESPERADO_MS) / 1000));
+
+	// Reloj que redibuja la barra mientras haya algo generándose.
+	useEffect(() => {
+		if (!enCurso.length) return;
+		const id = window.setInterval(() => setTick((n) => n + 1), 500);
+		return () => window.clearInterval(id);
+	}, [enCurso.length]);
+	void tick;
 
 	return (
 		<div className="url-batch-container">
@@ -509,9 +585,9 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			{/* Indicador de progreso: siempre visible, marca dónde estás. */}
 			<ol className="wiz-progress" aria-label="Progreso">
 				{[
-					{ n: 1, label: 'Cantidad', active: step === 'form' && formStep === 1, done: step !== 'form' || formStep > 1 },
-					{ n: 2, label: 'Tu producto', active: step === 'form' && formStep === 2, done: step !== 'form' },
-					{ n: 3, label: 'Referencias y estilo', active: step === 'review', done: step === 'results' },
+					{ n: 1, label: 'Tu producto', active: step === 'form', done: step !== 'form' },
+					{ n: 2, label: 'Elegí las referencias', active: step === 'review' && reviewStep === 1, done: step === 'results' || (step === 'review' && reviewStep === 2) },
+					{ n: 3, label: 'Cómo salen', active: step === 'review' && reviewStep === 2, done: step === 'results' },
 				].map((item) => (
 					<li key={item.n} className={`wiz-progress-item ${item.active ? 'active' : ''} ${item.done ? 'done' : ''}`}>
 						<span className="wiz-progress-dot">{item.done ? '✓' : item.n}</span>
@@ -522,7 +598,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 			{step === 'form' && (
 			<form onSubmit={handleScan} className="url-batch-form">
-				<div className="wiz-step" hidden={formStep !== 1}>
+				<div className="wiz-step">
 					<div className="wiz-body">
 						<label className="picker-label">¿Cuántos anuncios querés crear?</label>
 						<div className="picker-options">
@@ -541,14 +617,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				</div>
 
-				{formStep === 1 && (
-					<button type="button" className="url-batch-submit-btn" onClick={() => { setError(null); setFormStep(2); }}>
-						<span>Continuar</span>
-						<span className="btn-credits-badge">{count} créditos cuando generes</span>
-					</button>
-				)}
-
-				<div className="wiz-step" hidden={formStep !== 2}>
+				<div className="wiz-step">
 					<div className="wiz-body">
 						<label className="picker-label">¿Qué vas a promocionar?</label>
 						<div className="wiz-tabs">
@@ -704,11 +773,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				)}
 
-				{formStep === 2 && (
-					<div className="wiz-actions">
-						<button type="button" className="wiz-back" onClick={() => { setError(null); setFormStep(1); }} disabled={isScanning}>
-							← Atrás
-						</button>
+				<div className="wiz-actions">
 						<button
 							type="submit"
 							className="url-batch-submit-btn"
@@ -724,7 +789,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							)}
 						</button>
 					</div>
-				)}
 			</form>
 			)}
 
@@ -733,21 +797,25 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				<div className="active-batch-results">
 					<div className="batch-status-header">
 						<div className="batch-status-info">
-							<h3>🏆 Estos son los {selected.length} anuncios ganadores que vamos a recrear</h3>
+							<h3>{reviewStep === 1
+								? `🏆 Estos son los ${selected.length} anuncios ganadores que vamos a recrear`
+								: '🎨 ¿Cómo querés que salgan?'}</h3>
 							<p className="product-tag">
 								Producto: <strong>{preview.product?.name}</strong>
 							</p>
-							<p style={{ fontSize: '12.5px', color: '#6b6478', marginTop: '6px' }}>
-								Tocá <strong>Reemplazar</strong> en el que no te guste y entra otro al azar de toda la
-								biblioteca, sin repetir. Tus anuncios guardados tienen prioridad. Recién cuando toques
-								<strong> Generar</strong> se usan tus créditos.
-							</p>
+							{reviewStep === 1 && (
+								<p style={{ fontSize: '12.5px', color: '#6b6478', marginTop: '6px' }}>
+									Tocá <strong>Reemplazar</strong> en el que no te guste y entra otro al instante, sin
+									repetir. Tus anuncios guardados tienen prioridad.
+								</p>
+							)}
 						</div>
 						<div className="batch-counter">
 							<span>{selected.length} referencias</span>
 						</div>
 					</div>
 
+					{reviewStep === 1 && (
 					<div className="ref-grid">
 						{selected.map((winner, index) => (
 							<div key={winner.imagePath} className="ref-card">
@@ -765,18 +833,20 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 										type="button"
 										className="ref-replace"
 										onClick={() => discardWinner(winner.imagePath)}
-										disabled={replacingPath === winner.imagePath}
+										disabled={replacing.has(winner.imagePath)}
 										title="Cambiar por otro anuncio ganador al azar de la biblioteca"
 									>
-										{replacingPath === winner.imagePath ? 'Buscando…' : 'Reemplazar'}
+										{replacing.has(winner.imagePath) ? 'Buscando…' : 'Reemplazar'}
 									</button>
 								</div>
 							</div>
 						))}
 					</div>
+					)}
 
 					{/* Los ajustes de generación viven acá: no cambian qué referencias se
 				    eligen, solo cómo se construye cada anuncio. */}
+				{reviewStep === 2 && (
 				<div className="wiz-step" style={{ marginTop: '20px' }}>
 					<div className="wiz-body">
 						<label className="picker-label">Cómo querés que salgan</label>
@@ -802,36 +872,52 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</small>
 					</div>
 				</div>
+				)}
 
-				<div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '18px' }}>
-						<button
-							type="button"
-							className="url-batch-submit-btn"
-							style={{ flex: '1 1 260px' }}
-							onClick={handleConfirmGeneration}
-							disabled={isGenerating || !selected.length}
-						>
-							{isGenerating ? (
-								<><span className="spinner">⌛</span> Iniciando la generación…</>
-							) : (
-								<>
-									<span>🚀 Generar {selected.length} anuncios con estas referencias</span>
-									<span className="btn-credits-badge">({selected.length} créditos)</span>
-								</>
-							)}
-						</button>
-						<button
-							type="button"
-							onClick={() => { setStep('form'); setFormStep(1); setPreview(null); setSelected([]); setSpares([]); seenPathsRef.current = new Set(); }}
-							disabled={isGenerating}
-							style={{
-								padding: '0 20px', borderRadius: '12px', border: '2px solid #e6e0f2',
-								background: '#fff', color: '#5f32cf', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
-							}}
-						>
-							← Cambiar producto
-						</button>
-					</div>
+				<div className="wiz-actions" style={{ marginTop: '18px' }}>
+					{reviewStep === 1 ? (
+						<>
+							<button
+								type="button"
+								className="wiz-back"
+								onClick={() => { setStep('form'); setReviewStep(1); }}
+								disabled={isGenerating}
+							>
+								← Cambiar producto
+							</button>
+							<button
+								type="button"
+								className="url-batch-submit-btn"
+								onClick={() => setReviewStep(2)}
+								disabled={!selected.length}
+							>
+								<span>Me gustan estas {selected.length} referencias</span>
+								<span className="btn-credits-badge">Todavía no gastás créditos</span>
+							</button>
+						</>
+					) : (
+						<>
+							<button type="button" className="wiz-back" onClick={() => setReviewStep(1)} disabled={isGenerating}>
+								← Ver referencias
+							</button>
+							<button
+								type="button"
+								className="url-batch-submit-btn"
+								onClick={handleConfirmGeneration}
+								disabled={isGenerating || !selected.length}
+							>
+								{isGenerating ? (
+									<><span className="spinner">⌛</span> Iniciando la generación…</>
+								) : (
+									<>
+										<span>🚀 Generar {selected.length} anuncios</span>
+										<span className="btn-credits-badge">({selected.length} créditos)</span>
+									</>
+								)}
+							</button>
+						</>
+					)}
+				</div>
 
 					{error && (
 						<div className="url-batch-error" style={{ marginTop: '14px' }}>
@@ -852,14 +938,21 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							{productName && <p className="product-tag">Producto: <strong>{productName}</strong></p>}
 						</div>
 						<div className="batch-counter" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-							<span>{completedCount} de {totalCount} listos</span>
+							<span>
+								{completedCount} de {totalCount} listos
+								{isGenerating && segundosRestantes > 0 && (
+									<em style={{ fontStyle: 'normal', color: '#8b8496', fontWeight: 600 }}>
+										{' '}· quedan ~{segundosRestantes < 60 ? `${segundosRestantes}s` : `${Math.ceil(segundosRestantes / 60)} min`}
+									</em>
+								)}
+							</span>
 							{!isGenerating && (
 								<button
 									type="button"
 									onClick={() => {
 										if (pollRef.current) clearInterval(pollRef.current);
 										setStep('form');
-										setFormStep(1);
+										setReviewStep(1);
 										setPreview(null);
 										setSelected([]);
 										setSpares([]);
@@ -876,11 +969,14 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</div>
 					</div>
 
-					<div className="batch-progress-bar-container">
-						<div
-							className="batch-progress-bar-fill"
-							style={{ width: `${progressPercent}%` }}
-						/>
+					<div className="batch-progress-wrap">
+						<div className="batch-progress-bar-container">
+							<div
+								className={`batch-progress-bar-fill ${isGenerating ? 'live' : ''}`}
+								style={{ width: `${progressPercent}%` }}
+							/>
+						</div>
+						<span className="batch-progress-pct">{Math.round(progressPercent)}%</span>
 					</div>
 
 					{/* Grilla de Anuncios Generados */}

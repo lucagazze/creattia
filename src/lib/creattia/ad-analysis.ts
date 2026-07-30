@@ -356,11 +356,14 @@ Every scene you render must be photorealistic, plausible and clearly about ${pro
 	// de la composición, y eso rompe cuando los tamaños reales no se parecen: una
 	// pastilla entra entre dos dedos, un cuero entero no. El resultado era una
 	// mano pellizcando un recorte diminuto de cuero.
+	const scaleAlways = `
+TRUE SIZE (CRITICAL) — Render ${productLabel} at its real physical size relative to everything else in frame. Judge it from the product photo: a hand, a face, a table or a room in the same shot must be in believable proportion to it. Never shrink the product so it fits the pose the template used, and never blow it up to fill a space. If it is a large item (a hide, a panel, a rug, a piece of furniture) a single hand cannot pinch it or hold it up like a small object: use both hands, drape it, lean it against something, lay it on a surface, or let it run out of frame.`;
+
 	const scaleRule = input.analysis?.stagingAdaptation
 		&& !/same handling as the template/i.test(input.analysis.stagingAdaptation)
 		? `
 PHYSICAL SCALE (CRITICAL) — The template's product is ${input.analysis.templateProductScale || 'a different size'}, while ${productLabel} is ${input.analysis.targetProductScale || 'a different size'}. Rendering it at the template's size would be absurd. Keep the SAME shot type, crop, framing, body parts in frame and area of the canvas occupied, but change HOW the product is handled so the scene is physically believable: ${input.analysis.stagingAdaptation}. The product must read at its true real-world size next to any hand, body or object in frame — never shrink or enlarge it to fit the template's original pose.`
-		: '';
+		: scaleAlways;
 
 	// Dirección de arte del ganador. Sin esto el modelo conserva el layout pero
 	// pierde el porqué: la luz, la profundidad y el tipo de fotografía son la
@@ -418,7 +421,7 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 ${strategyBlock}${creativeBlock}${imageSlotBlock}
 ${productSwap}
 
-2. TEXT SWAP — Replace the template's wording with this exact copy, written in ${language}, placing each text in the same position, size and style as the template text it replaces. Every zone listed MUST contain its text — never leave a badge, pill or button empty:
+2. TEXT SWAP — LANGUAGE IS ABSOLUTE: every single word visible in the final image must be in ${language} — headline, subcopy, badges, pills, buttons, small print, star labels, stamps and any word inside a graphic. Not one word may stay in the template's original language, and none may drift into another language. If a replacement below is written in a different language, translate it to ${language} before rendering it. Replace the template's wording with this exact copy, written in ${language}, placing each text in the same position, size and style as the template text it replaces. Every zone listed MUST contain its text — never leave a badge, pill or button empty:
 ${textSwap || `- Adapt every template text block honestly to ${productLabel}, in ${language}, keeping the same message structure.`}
 If a template text block has no replacement listed, adapt its message honestly to the new product${input.brandName ? '' : ". If that block was the advertiser's brand name or stamp, leave it visually clean and empty instead of writing a placeholder — never write words like \"null\", \"undefined\", \"marca\" or \"your brand\" inside the ad"}. Do not invent prices, percentages, reviews, certifications or claims. NEVER translate or carry over the template's guarantees, discounts, shipping promises, review counts, ratings, certifications, awards or deadlines — those are commitments of the template's brand, not of this advertiser. If such a badge or pill has no verified replacement, fill it with a real product benefit at the same size and in the same shape instead; leaving the template's promise there (even translated) is a hard error. Render all text sharp, correctly spelled, no gibberish or distorted words. NO DUPLICATION: each text appears exactly ONCE — never repeat a word, a line or the tail of a sentence on the next line (a heading ending in "...resultados visibles?" must not be followed by a stray "visibles?"), and never render the same block twice. FIT: every text MUST fit fully inside its card, bubble or badge with the same padding as the template — if a replacement is long, reduce its font size slightly or tighten line spacing; text must NEVER overflow, collide with other elements or spill outside its container. If the template shows a person next to a testimonial, keep that exact person unchanged and make the attribution plausibly match them.
 
