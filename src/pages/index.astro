@@ -143,14 +143,14 @@ const faqs = [
 					</div>
 					<h1 class="hero-title">Convertí anuncios ganadores<br/>en más ventas.</h1>
 					<p class="hero-subtitle">Elegí un anuncio que ya está funcionando y Creattia lo recrea con tu producto: creativos de alto rendimiento, listos para publicar en minutos.</p>
-					<form class="hero-url-batch-form" action="/app/" method="GET" style="display: flex; align-items: center; gap: 10px; margin-top: 28px; max-width: 620px; background: #ffffff; padding: 6px 8px 6px 18px; border-radius: 999px; box-shadow: 0 12px 36px rgba(116, 75, 222, 0.16);">
+					<form class="hero-url-batch-form" action="/app/" method="GET" style="display: flex; align-items: center; gap: 10px; margin-top: 28px; width: 100%; max-width: 620px; box-sizing: border-box; background: #ffffff; padding: 6px 8px 6px 18px; border-radius: 999px; box-shadow: 0 12px 36px rgba(116, 75, 222, 0.16);">
 						<span style="font-size: 18px; flex-shrink: 0;">🔗</span>
 						<input
 							type="url"
 							name="batchUrl"
 							placeholder="Pegá la URL de tu producto (ej: mi-tienda.com/producto)"
 							required
-							style="flex: 1; background: transparent; border: none; outline: none; color: #19171d; font-size: 14.5px; font-weight: 600;"
+							style="flex: 1 1 0; min-width: 0; background: transparent; border: none; outline: none; color: #19171d; font-size: 14.5px; font-weight: 600;"
 						/>
 						<button type="submit" class="gradient-cta" style="height: 46px; padding: 0 22px; font-size: 14.5px; flex-shrink: 0; border: none !important; outline: none !important; cursor: pointer;">
 							<span>Generar Anuncios Probados</span>
@@ -3294,4 +3294,53 @@ const faqs = [
 	contain-intrinsic-size: 600px;
 }
 
+
+	/* ── Responsive: que nada supere el ancho de la pantalla ─────────────────
+	   Medido con navegador headless a 320/360/390/414px: la landing desbordaba
+	   entre 98 y 125px. La causa era el formulario del hero — un input con
+	   flex:1 sin min-width:0 no puede achicarse por debajo del ancho de su
+	   placeholder, y el botón tenía flex-shrink:0 — más el carrusel 3D, que es
+	   decorativo y se salía del viewport en pantallas chicas.
+	   El overflow-x:hidden que ya había tapaba el síntoma sin resolverlo. */
+	.hero-content-block,
+	.hero-url-batch-form {
+		max-width: 100%;
+		box-sizing: border-box;
+	}
+
+	@media (max-width: 620px) {
+		/* El formulario pasa a columna: el input arriba, el botón ancho completo. */
+		.hero-url-batch-form {
+			flex-wrap: wrap;
+			border-radius: 22px !important;
+			padding: 12px !important;
+			gap: 10px !important;
+			row-gap: 12px !important;
+		}
+
+		.hero-url-batch-form input {
+			flex: 1 1 140px !important;
+			min-width: 0 !important;
+			font-size: 16px !important; /* iOS hace zoom si es menor a 16px */
+		}
+
+		.hero-url-batch-form .gradient-cta {
+			flex: 1 1 100% !important;
+			justify-content: center;
+			padding: 0 16px !important;
+		}
+
+		/* El carrusel 3D es decorativo: no debe generar scroll horizontal. */
+		.cylinder-container,
+		.hero-visual,
+		.showcase-strip {
+			max-width: 100%;
+			overflow: hidden;
+		}
+	}
+
+	/* Red de contención: ninguna imagen ni media puede pasarse del contenedor. */
+	img, svg, video, canvas, iframe {
+		max-width: 100%;
+	}
 </style>

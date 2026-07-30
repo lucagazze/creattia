@@ -178,7 +178,11 @@ Rules:
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
 					contents: [{ parts }],
-					generationConfig: { responseMimeType: 'application/json' },
+					// Sin thinking: medido, tarda la mitad (9s contra 18s), cuesta menos
+					// de la mitad (USD 0.004 contra 0.0095) y en la prueba enumeró MÁS
+					// zonas de texto que con thinking activado. El razonamiento largo no
+					// aportaba nada en una tarea de enumerar lo que se ve.
+					generationConfig: { responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } },
 				}),
 			});
 			const data: any = await response.json().catch(() => ({}));

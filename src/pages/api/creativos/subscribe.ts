@@ -3,23 +3,44 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 
 export const prerender = false;
 
+/**
+ * Planes y créditos.
+ *
+ * Costo real por imagen terminada: USD 0.082 — USD 0.078 de gpt-image-2 medium
+ * más USD 0.004 del análisis de layout (medido con el consumo de tokens que
+ * devuelven las APIs, jul-2026).
+ *
+ * Los créditos de acá tienen que ir en línea con el precio configurado en
+ * Mercado Pago. Con estos precios el margen queda por encima del 50% incluso si
+ * el usuario consume el 100% de sus créditos:
+ *
+ *   Creator   USD 11.99/mes ->  60 créditos  -> costo 4.92  -> margen 59.0%
+ *   Pro       USD 39.99/mes -> 220 créditos  -> costo 18.04 -> margen 54.9%
+ *   Scale     USD 109.99/mes-> 600 créditos  -> costo 49.20 -> margen 55.3%
+ *
+ * Compra suelta sin suscripción (CREDIT_UNIT_PRICE): USD 0.99 por imagen, que
+ * deja 91.7% de margen y hace que suscribirse convenga siempre.
+ *
+ * Si cambiás el precio en Mercado Pago, actualizá los créditos de acá o el
+ * margen se rompe.
+ */
 const plans = {
 	creator: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_CREATOR_ID', fallback: 'MERCADO_PAGO_PLAN_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_CREATOR_YEARLY_ID', fallback: 'MERCADO_PAGO_PLAN_YEARLY_ID' },
-		credits: 40, 
+		credits: 60,
 		reason: 'Creattia — Creator' 
 	},
 	pro: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_PRO_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_PRO_YEARLY_ID' },
-		credits: 120, 
+		credits: 220,
 		reason: 'Creattia — Pro' 
 	},
 	scale: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_SCALE_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_SCALE_YEARLY_ID' },
-		credits: 300, 
+		credits: 600,
 		reason: 'Creattia — Scale' 
 	},
 } as const;
