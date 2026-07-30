@@ -3356,3 +3356,15 @@
 	background: #e0a01f;
 	vertical-align: middle;
 }
+
+/* Título de la tarjeta en "Mis imágenes": 2 líneas como máximo.
+   Los lotes viejos guardaron el copy del anuncio en el título y ocupaba
+   media pantalla. */
+.studio-generation-card footer h3 {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	word-break: break-word;
+}

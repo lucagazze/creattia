@@ -1428,7 +1428,10 @@ export default function CreativeApp() {
 							onCreate={() => navigateTo('winners')} 
 							onReuse={reuseGeneration} 
 							onExpand={setLightbox} 
-							pending={activeBatch?.status === 'processing' ? { count: activeBatch.count, title: activeBatch.title, referenceUrl: activeBatch.referenceUrl } : null} 
+							// Sin tarjetas sintéticas: las filas en 'processing' de la base ya
+							// se dibujan como placeholder, con su id real y sobreviven a un
+							// refresh. Pasar las dos cosas mostraba cada imagen dos veces.
+							pending={null} 
 							onViewProgress={() => navigateTo('generation')}
 							likedImageIds={likedImageIds}
 							onToggleLike={toggleLike}
@@ -2872,18 +2875,7 @@ function History({
 
 			{hasContent ? (
 				<div className="studio-history-grid">
-					{pending && currentFolderId === 'all' && (
-						Array.from({ length: pending.count }, (_, index) => (
-							<PendingGenerationCard 
-								key={`pending-${index}`} 
-								title={pending.title} 
-								referenceUrl={pending.referenceUrl} 
-								startedAt={pending.startedAt} 
-								onClick={onViewProgress} 
-							/>
-						))
-					)}
-					{filteredHistory.map((item) => (
+						{filteredHistory.map((item) => (
 						<GenerationCard 
 							key={item.id} 
 							item={item} 
@@ -2908,46 +2900,6 @@ function History({
 	);
 }
 
-// Tarjeta placeholder mientras una imagen se está generando en el servidor.
-function PendingGenerationCard({ title, referenceUrl, startedAt }: { title: string; referenceUrl?: string; startedAt?: number; onClick?: () => void }) {
-	const [progress, setProgress] = useState(15);
-
-	useEffect(() => {
-		const startTime = startedAt || Date.now();
-		const interval = setInterval(() => {
-			const elapsedMs = Date.now() - startTime;
-			const estimatedDurationMs = 12000; // 12s estimated for fast progressive batch
-			const pct = Math.min(95, Math.max(15, Math.round((elapsedMs / estimatedDurationMs) * 100)));
-			setProgress(pct);
-		}, 150);
-		return () => clearInterval(interval);
-	}, [startedAt]);
-
-	return (
-		<article className="studio-generation-card">
-			<div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#f4f0f8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-				{referenceUrl && <img src={referenceUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.18, filter: 'blur(4px)' }} />}
-				<div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', zIndex: 5 }}>
-					<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
-					<b style={{ fontSize: '12.5px', color: '#5c5568', letterSpacing: '.02em' }}>Creando tu anuncio…</b>
-				</div>
-				<div style={{ position: 'absolute', bottom: '12px', left: '12px', right: '12px', background: 'rgba(25,23,29,0.1)', borderRadius: '999px', height: '5px', overflow: 'hidden', zIndex: 5 }}>
-					<div style={{
-						background: 'linear-gradient(90deg, #744bde 0%, #ec4492 100%)',
-						height: '100%',
-						width: `${progress}%`,
-						borderRadius: '999px',
-						transition: 'width 0.3s ease-out'
-					}} />
-				</div>
-			</div>
-			<footer>
-				<h3>{title}</h3>
-				<span>{progress}%</span>
-			</footer>
-		</article>
-	);
-}
 
 // Descarga sin abrir pestaña nueva (las URLs firmadas de Supabase son cross-origin
 // y el atributo download solo no alcanza).

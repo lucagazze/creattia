@@ -17,6 +17,21 @@ export type Winner = {
 	metadata?: { foreplayNiches?: string[]; domain?: string; cta?: string; mediaType?: string; carouselImages?: string[] };
 };
 
+export type ProductSignals = { wearable: boolean; niches: string[]; keywords: string[] };
+
+/**
+ * Rubros donde el anuncio casi siempre muestra el producto puesto sobre una
+ * persona (modelo de cuerpo entero, pies con zapatos, torso con la prenda).
+ *
+ * Esas plantillas son imposibles de clonar honestamente para un producto que no
+ * se viste: el modelo o deja la prenda original en la imagen, o le inventa una
+ * prenda que el cliente no vende. Las dos cosas son inservibles. Verificado con
+ * un cuero mayorista: la plantilla de SPANX (dos piernas) se resolvió bien
+ * cambiando las piernas por dos cueros, pero la de un lookbook de cuerpo entero
+ * vistió a la modelo con una campera de cuero inexistente.
+ */
+const WORN_NICHES = new Set(['Fashion', 'Jewelry/Watches']);
+
 // Nichos tal como vienen etiquetados en el manifest de Foreplay.
 const NICHES = [
 	'Beauty', 'Health/Wellness', 'Fashion', 'App/Software', 'Food/Drink', 'Pets',
@@ -89,7 +104,7 @@ export async function loadWinners(siteOrigin: string): Promise<Winner[]> {
 async function readProductSignals(
 	product: { name: string; description?: string; priceText?: string },
 	keys: { openAIKey?: string; googleKey?: string },
-): Promise<{ niches: string[]; keywords: string[] }> {
+): Promise<ProductSignals> {
 	const prompt = `Producto: "${product.name}"
 Descripción: ${product.description?.slice(0, 800) || 'sin descripción'}
 Precio: ${product.priceText || 'no informado'}
@@ -99,12 +114,14 @@ referencia visual. Necesito palabras que aparecerían en el texto o el rubro de
 un anuncio de ESTE producto puntual, no de su categoría amplia.
 
 Devolvé SOLO JSON:
-{"niches": ["hasta 2 nichos de esta lista exacta, los más precisos: ${NICHES.join(', ')}"],
+{"wearable": true si el producto se USA PUESTO sobre el cuerpo (prenda, calzado, ropa interior, joya, reloj, accesorio que se lleva encima). false si es un material, insumo, alimento, cosmético, mueble, herramienta, dispositivo, servicio o cualquier cosa que no se viste,
+ "niches": ["hasta 2 nichos de esta lista exacta, los más precisos: ${NICHES.join(', ')}"],
  "keywords": ["10 palabras clave de UNA sola palabra, en inglés y español, sin repetir: qué ES físicamente el producto, su material, su categoría concreta y para qué se usa. Nada genérico como 'calidad', 'producto' o 'premium'."]}`;
 
 	const parse = (raw: string) => {
 		const parsed = JSON.parse(raw);
 		return {
+			wearable: parsed.wearable === true,
 			niches: (Array.isArray(parsed.niches) ? parsed.niches : []).filter((n: string) => NICHES.includes(n)).slice(0, 2),
 			keywords: [...new Set((Array.isArray(parsed.keywords) ? parsed.keywords : [])
 				.map((k: string) => String(k).toLowerCase().trim())
@@ -146,8 +163,9 @@ Devolvé SOLO JSON:
 		}
 	}
 
-	// Sin IA: keywords crudas del nombre del producto.
-	return { niches: [], keywords: product.name.toLowerCase().split(/\s+/).filter((word) => word.length > 3).slice(0, 6) };
+	// Sin IA: keywords crudas del nombre del producto. wearable en true para no
+	// filtrar nada cuando no sabemos.
+	return { wearable: true, niches: [], keywords: product.name.toLowerCase().split(/\s+/).filter((word) => word.length > 3).slice(0, 6) };
 }
 
 // Palabras que matchean con cualquier anuncio y ensucian el ranking.
@@ -178,7 +196,7 @@ function matchesWord(haystack: string, keyword: string) {
 	return matcher.test(haystack);
 }
 
-function scoreWinner(winner: Winner, signals: { niches: string[]; keywords: string[] }) {
+function scoreWinner(winner: Winner, signals: ProductSignals) {
 	let score = 0;
 	const winnerNiches = winner.metadata?.foreplayNiches || [];
 	for (const niche of signals.niches) {
@@ -199,17 +217,17 @@ function scoreWinner(winner: Winner, signals: { niches: string[]; keywords: stri
 }
 
 /**
- * Umbral de afinidad real. Con 6 hace falta o un match de palabra clave en la
- * marca/tags (5 + 1 de notas), o un match en el mensaje del anuncio respaldado
- * por el nicho correcto (3 + 2 + 1). Un simple match de nicho (2 + 1 = 3) no
- * alcanza: hay 123 anuncios "Fashion" y entraba cualquiera.
+ * Umbral de afinidad, deliberadamente bajo.
  *
- * Ojo: esto es coincidencia de palabras, no comprensión semántica. Un anuncio
- * sobre "shoulder pain" puede matchear un producto llamado "Double Shoulder".
- * Los que quedan por debajo del umbral se marcan con weakMatch para que el
- * usuario los reemplace de una en el paso de revisión.
+ * La referencia NO necesita mostrar un producto parecido al del usuario: lo que
+ * importa es la estructura del anuncio (cómo persuade, dónde van los textos, qué
+ * ritmo visual tiene), porque el producto se reemplaza igual al clonarlo. Filtrar
+ * duro por rubro dejaba lotes cortos y repetitivos sin mejorar el resultado.
+ *
+ * Se usa solo para ordenar: primero los que además tienen afinidad temática, y
+ * después el resto, siempre respetando el reparto por tipo de anuncio.
  */
-const MIN_RELEVANCE = 6;
+const MIN_RELEVANCE = 3;
 
 /**
  * Devuelve `count` ganadores: los que mejor pegan con el producto, repartidos
@@ -227,14 +245,27 @@ export async function pickWinnersForProduct(input: {
 }): Promise<{
 	winners: Winner[];
 	spares: Winner[];
-	signals: { niches: string[]; keywords: string[] };
+	signals: ProductSignals;
 	/** Puntaje de afinidad por imagePath, para marcar en la UI cuáles pegan poco. */
 	scoreByPath: Map<string, number>;
 	minRelevance: number;
 }> {
 	const signals = await readProductSignals(input.product, { openAIKey: input.openAIKey, googleKey: input.googleKey });
 
-	const ranked = input.winners
+	// Si el producto no se usa puesto, se descartan las plantillas de moda y
+	// joyería: ahí el anuncio muestra el producto sobre una persona y el clon
+	// termina o dejando la prenda original, o inventándole al cliente una prenda
+	// que no vende. El resto de los rubros no se filtra: la referencia no necesita
+	// mostrar un producto parecido, porque se reemplaza al clonarla.
+	const eligible = signals.wearable
+		? input.winners
+		: input.winners.filter((winner) => {
+			const winnerNiches = winner.metadata?.foreplayNiches || [];
+			return !winnerNiches.some((niche) => WORN_NICHES.has(niche));
+		});
+	const pool = eligible.length >= input.count ? eligible : input.winners;
+
+	const ranked = pool
 		.map((winner) => ({ winner, score: scoreWinner(winner, signals) }))
 		.sort((a, b) => b.score - a.score);
 
@@ -249,8 +280,9 @@ export async function pickWinnersForProduct(input: {
 	const picked: Winner[] = [];
 	const usedPaths = new Set<string>();
 	const brandCount = new Map<string, number>();
-	// Una marca sola no puede copar el lote: 1 cada 10 anuncios pedidos.
-	const maxPerBrand = Math.max(1, Math.floor(input.count / 10));
+	// Una referencia por marca: con 2.054 ganadores disponibles no hace falta
+	// repetir, y repetir marca hace que el lote se vea todo igual.
+	const maxPerBrand = 1;
 
 	const take = (leaf: string, quantity: number, minScore: number) => {
 		const pool = byLeaf.get(leaf) || [];

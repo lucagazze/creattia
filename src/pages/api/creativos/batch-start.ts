@@ -85,7 +85,10 @@ export const POST: APIRoute = async ({ request }) => {
 		const generationRows = approved.map((winner, index) => ({
 			user_id: userId,
 			template_id: winner.templateId || 1,
-			title: `${product.name} — ${winner.promptNotes || winner.name}`,
+			// Solo el producto: promptNotes puede ser el copy completo del anuncio y
+			// llenaba de texto la tarjeta en "Mis imágenes". El ganador queda en el
+			// settings_snapshot para quien lo necesite.
+			title: product.name,
 			format,
 			image_type: 'product',
 			variant_key: winner.categoryLeaf || 'hero',

@@ -595,10 +595,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 									)}
 								</button>
 								<div className="ref-foot">
-									<span className="ref-name" title={winner.name}>
-										{winner.weakMatch && <span className="ref-weak" title="Pega poco con tu producto">·</span>}
-										{winner.name}
-									</span>
+									<span className="ref-name" title={winner.name}>{winner.name}</span>
 									<button
 										type="button"
 										className="ref-replace"
