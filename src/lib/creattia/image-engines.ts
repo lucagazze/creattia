@@ -2,7 +2,7 @@ import OpenAI, { toFile } from 'openai';
 
 // Motores de imagen reales, en el mismo orden que usa el Studio (generate.ts):
 // 1) Gemini image (nano-banana) — rápido, barato y el mejor con texto en la imagen.
-// 2) OpenAI gpt-image-1 — fallback con las fotos reales como input.
+// 2) OpenAI gpt-image (OPENAI_IMAGE_MODEL) — fallback con las fotos reales como input.
 // No hay tercer motor a propósito: un generador genérico devuelve arte que no es
 // un anuncio y ensucia el historial con imágenes que el usuario no puede usar.
 
@@ -50,12 +50,13 @@ async function generateWithGemini(input: {
 
 async function generateWithOpenAI(input: {
 	apiKey: string;
+	model: string;
 	prompt: string;
 	images: EngineImage[];
 	size: string;
 }): Promise<Buffer> {
 	const openai = new OpenAI({ apiKey: input.apiKey });
-	const model = 'gpt-image-1';
+	const model = input.model;
 	if (input.images.length) {
 		const files = await Promise.all(input.images.map((image, index) =>
 			toFile(image.buffer, `input-${index}.png`, { type: image.type || 'image/png' })));
@@ -65,7 +66,8 @@ async function generateWithOpenAI(input: {
 			prompt: input.prompt,
 			size: input.size as any,
 			quality: 'high',
-			input_fidelity: 'high',
+			// input_fidelity solo existe en gpt-image-1; gpt-image-2 lo trae nativo.
+			...(model === 'gpt-image-1' ? { input_fidelity: 'high' } : {}),
 			n: 1,
 		} as any);
 		const b64 = result.data?.[0]?.b64_json;
@@ -101,8 +103,18 @@ export async function generateAdImage(input: {
 	const failures: string[] = [];
 
 	if (input.googleKey) {
+		// Medido sobre el mismo prompt/referencia/producto (jul-2026):
+		//   flash-lite  7.7s  $0.034/img  OK en layouts simples, pero en un
+		//               testimonial con persona + logo + etiqueta dejó el logo de
+		//               la marca del ganador en el anuncio, repitió una palabra del
+		//               titular y volvió ilegible la etiqueta. Descartado como
+		//               primario: poner una marca ajena en el anuncio de un cliente
+		//               es peor que ahorrar la mitad del costo.
+		//   flash      10.3s  $0.067/img  el más consistente en los casos difíciles.
+		//   pro        22.5s  $0.134/img  más fotorrealista pero DEGRADA el texto
+		//                                 chico de la etiqueta ("PDRR NIACINAMIOE").
 		const preferred = process.env.GEMINI_IMAGE_MODEL || import.meta.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
-		const models = [...new Set([preferred, 'gemini-3-pro-image-preview'])];
+		const models = [...new Set([preferred, 'gemini-3-pro-image'])];
 		for (const model of models) {
 			try {
 				const buffer = await generateWithGemini({
@@ -120,18 +132,24 @@ export async function generateAdImage(input: {
 		}
 	}
 
+	// Último recurso: OpenAI. Es el mejor con el texto de la etiqueta pero midió
+	// 225s por imagen, así que solo se usa si los tres modelos de Gemini fallaron.
+	// gpt-image-1-mini queda descartado a propósito: en la prueba escribió mal el
+	// nombre del producto, inventó un logo y cambió la cara de la modelo.
 	if (input.openAIKey) {
+		const model = process.env.OPENAI_IMAGE_MODEL || import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
 		try {
 			const buffer = await generateWithOpenAI({
 				apiKey: input.openAIKey,
+				model,
 				prompt: input.prompt,
 				images,
 				size: openAISizes[input.format] || '1024x1024',
 			});
-			if (buffer.length > 1024) return { buffer, engine: 'gpt-image-1' };
-			failures.push('gpt-image-1: respuesta vacía');
+			if (buffer.length > 1024) return { buffer, engine: model };
+			failures.push(`${model}: respuesta vacía`);
 		} catch (error) {
-			failures.push(`gpt-image-1: ${error instanceof Error ? error.message : String(error)}`);
+			failures.push(`${model}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
