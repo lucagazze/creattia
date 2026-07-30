@@ -125,6 +125,8 @@ export async function generateAdImage(input: {
 	prompt: string;
 	images?: EngineImage[];
 	format: string;
+	/** Nivel de calidad de gpt-image-2. Lo decide quality-router.ts. */
+	tier?: 'low' | 'medium' | 'high';
 }): Promise<{ buffer: Buffer; engine: string }> {
 	const images = input.images || [];
 	const failures: string[] = [];
@@ -153,9 +155,9 @@ export async function generateAdImage(input: {
 				prompt: input.prompt,
 				images,
 				size: sizeMap[input.format] || '1024x1024',
-				openAIQuality: 'medium',
+				openAIQuality: input.tier || 'medium',
 			});
-			if (buffer.length > 1024) return { buffer, engine: `${model} (medium)` };
+			if (buffer.length > 1024) return { buffer, engine: `${model} (${input.tier || 'medium'})` };
 			failures.push(`${model}: respuesta vacía`);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);

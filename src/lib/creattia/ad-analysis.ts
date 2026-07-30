@@ -37,6 +37,25 @@ export type LayoutAnalysis = {
 	 * proveedor de cuero conservaba las fotos de chicas con perros.
 	 */
 	imageSlots?: Array<{ where?: string; showsNow?: string; replaceWith?: string }>;
+	/**
+	 * Lectura creativa del ganador: por qué funciona más allá de dónde va cada
+	 * cosa. Alimenta tres cosas a la vez — un prompt de generación mejor, el
+	 * puntaje que se le muestra al usuario, y la búsqueda de creativos parecidos.
+	 */
+	creative?: {
+		emotion?: string;
+		adType?: string;
+		photographyStyle?: string;
+		lighting?: string;
+		depth?: string;
+		composition?: string;
+		colorPsychology?: string;
+		designPattern?: string;
+		/** Familia estética: Apple, Nike, Temu, Lujo, Minimal, Editorial, Skincare... */
+		styleFamily?: string;
+		score?: number;
+		scoreReasons?: string[];
+	};
 	language?: string;
 	creativeOptions?: string[];
 	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
@@ -133,6 +152,19 @@ Return STRICT JSON:
       "role": "what it represents (e.g. 'competitor bar', 'the old way', 'other brand')",
       "description": "short Argentine-Spanish description of that comparison item so the user can decide what to put there" }
   ],
+  "creative": {
+    "emotion": "la emoción dominante que dispara el anuncio (deseo, alivio, urgencia, pertenencia, culpa, orgullo, curiosidad, seguridad...)",
+    "adType": "qué tipo de anuncio es (hero de producto, testimonial, comparativa, oferta, educativo, UGC, autoridad, antes y después, listado...)",
+    "photographyStyle": "estilo de la imagen (packshot de estudio, lifestyle, UGC de celular, flat lay, macro de textura, render 3D, gráfico plano, collage...)",
+    "lighting": "la luz (suave difusa, dura direccional, contraluz, luz natural de ventana, neón, clave alta, clave baja...)",
+    "depth": "profundidad y foco (fondo desenfocado, todo nítido, capas superpuestas, plano comprimido...)",
+    "composition": "cómo se ordena (centrado simétrico, regla de tercios, división 50/50, grilla, diagonal, apilado vertical...)",
+    "colorPsychology": "qué comunica la paleta y por qué ayuda a vender esta categoría",
+    "designPattern": "el patrón reutilizable en una frase, como se lo explicarías a un diseñador para que lo replique",
+    "styleFamily": "una familia estética reconocible: Apple, Nike, Temu, Amazon, Lujo, Minimal, Editorial, Skincare, Suplementos, Retro, Brutalista, Corporativo",
+    "score": 0-100 — qué tan fuerte es este anuncio como creativo de performance,
+    "scoreReasons": ["3 a 5 razones cortas en español que expliquen el puntaje, cada una empezando con el aspecto: contraste, jerarquía, CTA, oferta, legibilidad, foco del producto"]
+  },
   "language": "es|en|fr|it|pt|de",
   "creativeOptions": ["3 to 5 SHORT optional creative directions specific to THIS template and THIS product (e.g. highlight the price as anchor, emphasize the guarantee, show texture close-up) — ALWAYS written in Argentine Spanish (the app's UI language), even when the ad copy is in another language"],
   "styleNotes": "background color(s), palette, typography feel, graphic devices worth preserving"
@@ -145,6 +177,7 @@ Rules:
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
 - "productInstances" (CRITICAL): list EVERY separate place where the TEMPLATE'S OWN product is visible — not just the hero shot. Count the product worn by a model, on someone's feet, held in a hand, repeated as colour variants, shown again small in a corner, or duplicated across a grid. If the same product appears 6 times in a circle, that is 6 instances (or one instance describing the whole arrangement, but say so explicitly). Missing one means it survives into the final ad and the ad ends up selling two different products at once.
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
+- "creative": read the ad the way a senior art director would. This is not decoration: "designPattern" and "styleFamily" have to be precise enough that another designer could rebuild the ad from them, and "score" has to be honest — a weak ad gets a low number even if it is in the library.
 - PHYSICAL SCALE (CRITICAL): judge the REAL size of both products. A pill pinched between two fingertips and a full leather hide are not interchangeable: rendering the hide at pill size gives an absurd ad. Fill "templateProductScale", "targetProductScale" and "stagingAdaptation" so the new product appears at its true size. The rule is to keep the SHOT (same crop, same framing, same part of the body in frame, same area of the canvas occupied) and change only HOW the product is handled so it is physically possible.
 - "imageSlots" (CRITICAL): a winning ad wins because of its STRUCTURE and its IDEA — the layout, the rhythm, the way attention is directed — not because of the specific photos it happens to contain. List EVERY visual area of the template: the hero shot, each photo in a collage or grid, the background image, avatars, before/after panels, lifestyle scenes, and decorative photo strips. For each one, propose what that area should depict for the TARGET product instead. Think like an art director briefing a photographer: if the template shows three photos of people hugging dogs and the target product is wholesale leather, the replacement is three photos of artisans cutting, stitching and finishing leather at a workbench — same tilt, same crop, same lighting mood, same energy. Never propose keeping the template's original subject, and never propose an empty or generic "product photo" when the slot is clearly a lifestyle or context shot. If the template has a single product shot and nothing else, one entry is enough.
 - "productHasPackaging": look ONLY at the REAL product photo — true ONLY if that photo clearly shows a printed box, wrapper or label belonging to the product. Raw materials (leather hides, fabrics, wood), unpackaged food, plants, garments or bare objects have NO packaging → false. The template's product is irrelevant for this field.
@@ -329,6 +362,31 @@ Every scene you render must be photorealistic, plausible and clearly about ${pro
 PHYSICAL SCALE (CRITICAL) — The template's product is ${input.analysis.templateProductScale || 'a different size'}, while ${productLabel} is ${input.analysis.targetProductScale || 'a different size'}. Rendering it at the template's size would be absurd. Keep the SAME shot type, crop, framing, body parts in frame and area of the canvas occupied, but change HOW the product is handled so the scene is physically believable: ${input.analysis.stagingAdaptation}. The product must read at its true real-world size next to any hand, body or object in frame — never shrink or enlarge it to fit the template's original pose.`
 		: '';
 
+	// Dirección de arte del ganador. Sin esto el modelo conserva el layout pero
+	// pierde el porqué: la luz, la profundidad y el tipo de fotografía son la
+	// mitad de lo que hace que un anuncio se vea profesional.
+	const c = input.analysis?.creative;
+	const creativeBlock = c && (c.photographyStyle || c.lighting || c.composition)
+		? `
+ART DIRECTION TO PRESERVE — this ad works because of how it is shot and arranged, not only because of where the text sits. Reproduce all of it:${[
+			c.photographyStyle && `
+   · Shot style: ${c.photographyStyle}`,
+			c.lighting && `
+   · Lighting: ${c.lighting}`,
+			c.depth && `
+   · Depth and focus: ${c.depth}`,
+			c.composition && `
+   · Composition: ${c.composition}`,
+			c.colorPsychology && `
+   · Palette intent: ${c.colorPsychology}`,
+			c.emotion && `
+   · Emotion it must trigger: ${c.emotion}`,
+			c.designPattern && `
+   · The reusable pattern: ${c.designPattern}`,
+		].filter(Boolean).join('')}
+The new ad must be shot the same way. A flat, evenly lit product on a plain background is a failure if the template used directional light and shallow depth.`
+		: '';
+
 	const productSwap = referenceHasProduct
 		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-STAGE the product INTO the template's scene — do NOT paste it: re-photograph it as if it were shot in that exact environment, matching the scene's camera angle, perspective, lighting direction, color temperature, reflections and shadow behavior (e.g. if the template's product leans against a tiled wall in daylight, the new product must sit in that same tiled-wall daylight scene with the same grounding). Give it real volume and dimension, adapt its pose and orientation to fit the composition naturally, and ground it with the same shadow style the template uses. POSITION: place it at the SAME position and size ratio as the template's product — if the template's product occupies the right side, yours must occupy the right side; never center it unless the template does. Never leave hard cut-out edges or a floating pasted look: blend the product's edges with the scene lighting. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}${labelFidelityRule}${scaleRule}${instanceBlock}${onBodyRule}`
 		: `1. NO PRODUCT INSERTION — The template does NOT show a physical product, so the new ad must not show one either. This ad sells through its words and its design, not through a product shot: that is exactly why it works. Keep its imagery style as it is (the typographic treatment, the colour field, the graphic devices, the scene) and adapt it naturally to the new context. Do NOT insert, paste, collage or hint at a product photo anywhere, at any size, not even small in a corner — not even if a product photo was supplied as input. Everything about ${productLabel} must come through the copy.`;
@@ -357,7 +415,7 @@ PHYSICAL SCALE (CRITICAL) — The template's product is ${input.analysis.templat
 		: '';
 
 	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every text block and the typographic hierarchy. What must change is everything it is ABOUT: the product, the scenes, the people and the words all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
-${strategyBlock}${imageSlotBlock}
+${strategyBlock}${creativeBlock}${imageSlotBlock}
 ${productSwap}
 
 2. TEXT SWAP — Replace the template's wording with this exact copy, written in ${language}, placing each text in the same position, size and style as the template text it replaces. Every zone listed MUST contain its text — never leave a badge, pill or button empty:

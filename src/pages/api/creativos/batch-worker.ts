@@ -6,6 +6,7 @@ import {
 	type LayoutAnalysis,
 } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-engines';
+import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
@@ -189,12 +190,18 @@ export const POST: APIRoute = async ({ request }) => {
 			...(logoImage ? [logoImage] : []),
 		];
 
+		// Nivel de calidad según lo que el anuncio necesite: 'low' cuesta 60% menos
+		// y alcanza salvo cuando hay letra chica en juego.
+		const decision = pickQualityTier(analysis, { force: snapshot.forceTier });
+		console.log(`[batch-worker ${generationId}] calidad ${decision.tier}: ${decision.reason}`);
+
 		const { buffer, engine } = await generateAdImage({
 			googleKey,
 			openAIKey,
 			prompt,
 			images: engineImages,
 			format,
+			tier: decision.tier,
 		});
 
 		// Gemini devuelve JPEG y OpenAI PNG: se etiqueta según los bytes reales,
@@ -212,6 +219,15 @@ export const POST: APIRoute = async ({ request }) => {
 			status: 'completed',
 			output_path: outputPath,
 			prompt,
+			settings_snapshot: {
+				...snapshot,
+				qualityTier: decision.tier,
+				qualityReason: decision.reason,
+				engine,
+				// Lectura creativa del ganador: sirve para mostrar el puntaje y, más
+				// adelante, para buscar creativos parecidos por estética.
+				creative: analysis?.creative || null,
+			},
 			completed_at: new Date().toISOString(),
 		}).eq('id', row.id).eq('user_id', userId);
 		if (completionError) {
