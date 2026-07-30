@@ -3,6 +3,7 @@ import { LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { loadWinners, pickWinnersForProduct, type Winner } from '../../../lib/creattia/winner-picker';
 import { isCompatible, screenWinners } from '../../../lib/creattia/winner-screening';
+import { analyzeBrandStyle } from '../../../lib/creattia/brand-style';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
@@ -170,6 +171,43 @@ export const POST: APIRoute = async ({ request }) => {
 					code: 'NO_PRODUCT_PHOTO',
 				}, 422);
 			}
+		}
+
+		// Marca automática: si el perfil todavía no tiene datos de marca, se sacan
+		// del dominio del producto. Así no hay que llenar "Mi marca" antes de poder
+		// generar, y el clon puede usar los colores y la tipografía reales. Importa:
+		// sin estos datos el modelo tiende a inventar sellos con texto ilegible.
+		try {
+			const { data: profile } = await admin.from('creative_profiles')
+				.select('brand_name,brand_colors,brand_style,website_url').eq('user_id', userId).maybeSingle();
+			// El par #18181b/#ffffff es el placeholder que crea el perfil vacío: no
+			// son colores de marca reales, así que cuenta como "sin definir".
+			const currentColors = (profile?.brand_colors as string[]) || [];
+			const isPlaceholderPalette = currentColors.length <= 2
+				&& currentColors.every((color) => ['#18181b', '#ffffff'].includes(String(color).toLowerCase()));
+			const missingBrand = !profile?.brand_name || isPlaceholderPalette || !profile?.brand_style;
+			if (missingBrand) {
+				const origin = new URL(productUrl).origin;
+				const style = await analyzeBrandStyle(origin, { openAIKey, googleKey });
+				const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+				if (!profile?.brand_name) patch.brand_name = new URL(productUrl).hostname.replace(/^www\./, '');
+				if (isPlaceholderPalette && style.colors?.length) patch.brand_colors = style.colors.slice(0, 5);
+				if (!profile?.website_url) patch.website_url = origin;
+				if (!profile?.brand_style) {
+					patch.brand_style = {
+						typography: style.typography,
+						styleSummary: style.styleSummary,
+						brandPersonality: style.brandPersonality,
+						logoUrl: style.logoUrl,
+						detectedFrom: origin,
+					};
+				}
+				await admin.from('creative_profiles').update(patch).eq('user_id', userId);
+				console.log(`[batch-url] marca detectada desde ${origin}: ${(style.colors || []).length} colores`);
+			}
+		} catch (brandError) {
+			// No es crítico: se genera igual, solo sin los datos de marca.
+			console.warn('No se pudo detectar la marca desde la URL:', brandError);
 		}
 
 		// 3. Elegir los anuncios GANADORES de la biblioteca que mejor pegan con este
