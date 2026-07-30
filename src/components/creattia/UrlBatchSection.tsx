@@ -33,6 +33,72 @@ async function driveBatchWorkers(
 
 export { driveBatchWorkers };
 
+
+/**
+ * Desplegable propio. El <select> nativo no sirve acá: en Windows los emoji de
+ * bandera dentro de un <option> se dibujan como las dos letras del código
+ * ("AR Español" en vez de "🇦🇷 Español"), porque el sistema no trae los glifos.
+ */
+const BatchSelect: React.FC<{
+	label: string;
+	value: string;
+	options: Array<{ value: string; label: string; flag?: string; emoji?: string; hint?: string }>;
+	onChange: (value: string) => void;
+}> = ({ label, value, options, onChange }) => {
+	const [open, setOpen] = useState(false);
+	const boxRef = useRef<HTMLDivElement | null>(null);
+	const current = options.find((option) => option.value === value) || options[0];
+
+	useEffect(() => {
+		if (!open) return;
+		const close = (event: MouseEvent) => {
+			if (boxRef.current && !boxRef.current.contains(event.target as Node)) setOpen(false);
+		};
+		document.addEventListener('mousedown', close);
+		return () => document.removeEventListener('mousedown', close);
+	}, [open]);
+
+	const face = (option: { flag?: string; emoji?: string }) => option.flag
+		? <span className="bsel-flag" aria-hidden>{option.flag}</span>
+		: <span className="bsel-emoji" aria-hidden>{option.emoji}</span>;
+
+	return (
+		<div className="batch-select-field" ref={boxRef}>
+			<span className="picker-label">{label}</span>
+			<div className="bsel">
+				<button type="button" className={`bsel-trigger ${open ? 'open' : ''}`} onClick={() => setOpen(!open)}>
+					{face(current)}
+					<span className="bsel-value">{current.label}</span>
+					<svg className="bsel-arrow" width="11" height="7" viewBox="0 0 12 8" aria-hidden>
+						<path d="M1 1.5 6 6.5l5-5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+					</svg>
+				</button>
+				{open && (
+					<div className="bsel-menu" role="listbox">
+						{options.map((option) => (
+							<button
+								key={option.value}
+								type="button"
+								role="option"
+								aria-selected={option.value === value}
+								className={`bsel-option ${option.value === value ? 'active' : ''}`}
+								onClick={() => { onChange(option.value); setOpen(false); }}
+							>
+								{face(option)}
+								<span className="bsel-option-text">
+									<span>{option.label}</span>
+									{option.hint && <small>{option.hint}</small>}
+								</span>
+								{option.value === value && <span className="bsel-check" aria-hidden>✓</span>}
+							</button>
+						))}
+					</div>
+				)}
+			</div>
+		</div>
+	);
+};
+
 type UrlBatchSectionProps = {
 	onSelectRemodel?: (generation: any, templateId?: number) => void;
 	userCredits?: number;
@@ -90,21 +156,28 @@ type BatchPreview = {
 	matchedNiches?: string[];
 };
 
-const FORMAT_OPTIONS: Array<[string, string]> = [
-	['original', '🏆 Igual al anuncio ganador'],
-	['square', '🔲 Cuadrado 1:1'],
-	['portrait', '📱 Vertical 4:5'],
-	['story', '📐 Story / Reel 9:16'],
-	['landscape', '🖥️ Horizontal 4:3'],
+const FORMAT_OPTIONS = [
+	{ value: 'original', label: 'Igual al ganador', emoji: '🏆', hint: 'Conserva la proporción del anuncio original' },
+	{ value: 'square', label: 'Cuadrado 1:1', emoji: '⬛', hint: 'Feed de Instagram y Facebook' },
+	{ value: 'portrait', label: 'Vertical 4:5', emoji: '📱', hint: 'El que más pantalla ocupa en el feed' },
+	{ value: 'story', label: 'Story / Reel 9:16', emoji: '📲', hint: 'Historias y Reels' },
+	{ value: 'landscape', label: 'Horizontal 4:3', emoji: '🖥️', hint: 'Display y ubicaciones de escritorio' },
 ];
 
-const LANGUAGE_OPTIONS: Array<[string, string]> = [
-	['es', '🇦🇷 Español'],
-	['en', '🇺🇸 Inglés'],
-	['pt', '🇧🇷 Portugués'],
-	['it', '🇮🇹 Italiano'],
-	['fr', '🇫🇷 Francés'],
-	['de', '🇩🇪 Alemán'],
+// Se usa la sigla del país en una pastilla en vez del emoji de bandera: Windows
+// no tiene glifos de bandera y los dibuja como las dos letras sueltas.
+const LANGUAGE_OPTIONS = [
+	{ value: 'es', label: 'Español', flag: 'AR' },
+	{ value: 'en', label: 'Inglés', flag: 'US' },
+	{ value: 'pt', label: 'Portugués', flag: 'BR' },
+	{ value: 'it', label: 'Italiano', flag: 'IT' },
+	{ value: 'fr', label: 'Francés', flag: 'FR' },
+	{ value: 'de', label: 'Alemán', flag: 'DE' },
+];
+
+const QUALITY_OPTIONS = [
+	{ value: 'fast', label: 'Rápida', emoji: '⚡', hint: '~15 s por anuncio · recomendada para lotes grandes' },
+	{ value: 'text', label: 'Texto impecable', emoji: '🔍', hint: '~80 s por anuncio · mejor con etiquetas y letra chica' },
 ];
 
 const referenceUrlFor = (imagePath: string) => `${REFERENCES_PUBLIC_BASE}/${imagePath}`;
@@ -122,6 +195,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [count, setCount] = useState<10 | 20 | 30 | 40>(10);
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
+	const [quality, setQuality] = useState('fast');
 	const [brief, setBrief] = useState('');
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [extraImages, setExtraImages] = useState<File[]>([]);
@@ -199,6 +273,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			formData.append('count', String(count));
 			formData.append('format', format);
 			formData.append('language', language);
+			formData.append('quality', quality);
 			if (brief.trim()) formData.append('brief', brief.trim());
 			extraImages.forEach((file) => formData.append('extraImages', file));
 
@@ -266,6 +341,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					winnerPaths: selected.map((winner) => winner.imagePath),
 					format,
 					language,
+					quality,
 					brief: brief.trim(),
 				}),
 			});
@@ -416,34 +492,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				</div>
 
-				{/* Formato e idioma: listas desplegables. Antes eran filas de botones y
-				    con 6 idiomas se desbordaban una sobre la otra. */}
+				{/* Formato, idioma y calidad: lo que cambia el resultado, siempre visible */}
 				<div className="batch-quantity-picker">
 					<div className="batch-select-row">
-						<label className="batch-select-field">
-							<span className="picker-label">Formato del anuncio</span>
-							<select
-								className="batch-select"
-								value={format}
-								onChange={(e) => setFormat(e.target.value as typeof format)}
-							>
-								{FORMAT_OPTIONS.map(([value, label]) => (
-									<option key={value} value={value}>{label}</option>
-								))}
-							</select>
-						</label>
-						<label className="batch-select-field">
-							<span className="picker-label">Idioma de los textos</span>
-							<select
-								className="batch-select"
-								value={language}
-								onChange={(e) => setLanguage(e.target.value)}
-							>
-								{LANGUAGE_OPTIONS.map(([value, label]) => (
-									<option key={value} value={value}>{label}</option>
-								))}
-							</select>
-						</label>
+						<BatchSelect label="Formato del anuncio" value={format} options={FORMAT_OPTIONS} onChange={setFormat} />
+						<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+						<BatchSelect label="Calidad" value={quality} options={QUALITY_OPTIONS} onChange={setQuality} />
 					</div>
 				</div>
 

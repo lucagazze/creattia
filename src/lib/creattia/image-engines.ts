@@ -54,18 +54,37 @@ async function generateWithOpenAI(input: {
 	prompt: string;
 	images: EngineImage[];
 	size: string;
+	/**
+	 * 'medium' es el punto de calidad/precio: midió 76s y USD 0.078/img con la
+	 * etiqueta del producto perfecta. 'low' baja a 25s pero vuelve a escribir mal
+	 * el nombre del envase, y 'high' se va a 225s.
+	 */
+	openAIQuality?: 'low' | 'medium' | 'high';
 }): Promise<Buffer> {
 	const openai = new OpenAI({ apiKey: input.apiKey });
 	const model = input.model;
+	const quality = input.openAIQuality || 'high';
 	if (input.images.length) {
-		const files = await Promise.all(input.images.map((image, index) =>
-			toFile(image.buffer, `input-${index}.png`, { type: image.type || 'image/png' })));
+		// OpenAI es muy estricto con el formato de entrada: devolvía
+		// "Invalid image file or mode for image 4" por el logo, un PNG con un modo
+		// de color que no acepta. Se re-codifica todo a PNG RGB plano, que siempre
+		// entra. Solo en esta rama: el camino de Gemini no lo necesita.
+		const sharp = (await import('sharp')).default;
+		const files = await Promise.all(input.images.map(async (image, index) => {
+			let buffer = image.buffer;
+			try {
+				buffer = await sharp(image.buffer).flatten({ background: '#ffffff' }).toColorspace('srgb').png().toBuffer();
+			} catch (error) {
+				console.error('[image-engines] no se pudo re-codificar una imagen para OpenAI:', error);
+			}
+			return toFile(buffer, `input-${index}.png`, { type: 'image/png' });
+		}));
 		const result = await openai.images.edit({
 			model,
 			image: files as any,
 			prompt: input.prompt,
 			size: input.size as any,
-			quality: 'high',
+			quality,
 			// input_fidelity solo existe en gpt-image-1; gpt-image-2 lo trae nativo.
 			...(model === 'gpt-image-1' ? { input_fidelity: 'high' } : {}),
 			n: 1,
@@ -78,7 +97,7 @@ async function generateWithOpenAI(input: {
 		model,
 		prompt: input.prompt,
 		size: input.size as any,
-		quality: 'high',
+		quality,
 		n: 1,
 	});
 	const b64 = result.data?.[0]?.b64_json;
@@ -98,9 +117,44 @@ export async function generateAdImage(input: {
 	prompt: string;
 	images?: EngineImage[];
 	format: string;
+	/**
+	 * 'fast'  → Gemini flash: 10s, USD 0.067/img (medido jul-2026).
+	 * 'text'  → gpt-image-2 medium: 77s, USD 0.078/img. Escribe mejor el texto
+	 *           chico (etiquetas del envase, badges) que cualquier Gemini.
+	 */
+	quality?: 'fast' | 'text';
 }): Promise<{ buffer: Buffer; engine: string }> {
 	const images = input.images || [];
 	const failures: string[] = [];
+	const preferOpenAI = input.quality === 'text';
+
+	// Gemini bloquea prompts con su filtro de contenido (IMAGE_SAFETY) sin decir
+	// qué parte le molestó. Antes eso daba la generación por perdida; ahora se
+	// reintenta una vez con el prompt limpio de las palabras que más lo disparan.
+	const softenPrompt = (prompt: string) => prompt
+		.replace(/(hard failure|hard error|CRITICAL|must NOT|NEVER|forbidden)/gi, 'please avoid')
+		.replace(/(underwear|bralette|lingerie|bare|nude|skin|body)/gi, 'garment')
+		.replace(/(kill|destroy|attack)\w*/gi, 'address');
+
+	if (preferOpenAI && input.openAIKey) {
+		const model = process.env.OPENAI_IMAGE_MODEL || import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
+		try {
+			const buffer = await generateWithOpenAI({
+				apiKey: input.openAIKey,
+				model,
+				prompt: input.prompt,
+				images,
+				size: openAISizes[input.format] || '1024x1024',
+				openAIQuality: 'medium',
+			});
+			if (buffer.length > 1024) return { buffer, engine: `${model} (medium)` };
+			failures.push(`${model}: respuesta vacía`);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(`[image-engines] ${model} falló, se cae a Gemini:`, message);
+			failures.push(`${model}: ${message}`);
+		}
+	}
 
 	if (input.googleKey) {
 		// Medido sobre el mismo prompt/referencia/producto (jul-2026):
@@ -116,18 +170,25 @@ export async function generateAdImage(input: {
 		const preferred = process.env.GEMINI_IMAGE_MODEL || import.meta.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
 		const models = [...new Set([preferred, 'gemini-3-pro-image'])];
 		for (const model of models) {
-			try {
-				const buffer = await generateWithGemini({
-					apiKey: input.googleKey,
-					model,
-					prompt: input.prompt,
-					images,
-					aspectRatio: geminiAspectRatios[input.format] || '1:1',
-				});
-				if (buffer.length > 1024) return { buffer, engine: model };
-				failures.push(`${model}: respuesta vacía`);
-			} catch (error) {
-				failures.push(`${model}: ${error instanceof Error ? error.message : String(error)}`);
+			for (const attempt of ['original', 'soften'] as const) {
+				try {
+					const buffer = await generateWithGemini({
+						apiKey: input.googleKey,
+						model,
+						prompt: attempt === 'soften' ? softenPrompt(input.prompt) : input.prompt,
+						images,
+						aspectRatio: geminiAspectRatios[input.format] || '1:1',
+					});
+					if (buffer.length > 1024) return { buffer, engine: attempt === 'soften' ? `${model} (reintento)` : model };
+					failures.push(`${model}: respuesta vacía`);
+					break;
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					failures.push(`${model}${attempt === 'soften' ? ' (reintento)' : ''}: ${message}`);
+					// Solo tiene sentido reintentar si fue el filtro de contenido.
+					if (attempt === 'original' && /IMAGE_SAFETY|PROHIBITED_CONTENT|SAFETY/i.test(message)) continue;
+					break;
+				}
 			}
 		}
 	}

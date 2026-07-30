@@ -219,6 +219,7 @@ export const POST: APIRoute = async ({ request }) => {
 			count,
 			format,
 			language,
+			quality: clean(form.get('quality'), 6) === 'text' ? 'text' : 'fast',
 			brief,
 			matchedNiches: signals.niches,
 			winners: winners.map(toPayload),

@@ -3399,3 +3399,86 @@
 
 .studio-generation-card:hover .studio-card-delete { opacity: 1; }
 .studio-card-delete:hover { background: #a43f3f; color: #fff; }
+
+/* ── Desplegable propio (formato / idioma / calidad) ──────────────────────
+   El <select> nativo no sirve: en Windows los emoji de bandera dentro de un
+   <option> se dibujan como las dos letras del código, así que la bandera nunca
+   se veía. Acá la sigla del país va en una pastilla, que se ve en todos lados. */
+.bsel { position: relative; }
+
+.bsel-trigger {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	width: 100%;
+	padding: 10px 12px;
+	border-radius: 11px;
+	border: 2px solid #e6e0f2;
+	background: #ffffff;
+	color: #19171d;
+	font-family: inherit;
+	font-size: 13.5px;
+	font-weight: 700;
+	cursor: pointer;
+	text-align: left;
+	transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.bsel-trigger:hover { border-color: #cbbcf0; }
+.bsel-trigger.open { border-color: #744bde; box-shadow: 0 0 0 3px rgba(116, 75, 222, .14); }
+
+.bsel-value { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bsel-arrow { flex: 0 0 auto; color: #5f32cf; }
+.bsel-trigger.open .bsel-arrow { transform: rotate(180deg); }
+
+.bsel-flag {
+	flex: 0 0 auto;
+	padding: 2px 5px;
+	border-radius: 5px;
+	background: #efeafc;
+	color: #5f32cf;
+	font-size: 9.5px;
+	font-weight: 900;
+	letter-spacing: .04em;
+}
+
+.bsel-emoji { flex: 0 0 auto; font-size: 14px; line-height: 1; }
+
+.bsel-menu {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	right: 0;
+	z-index: 40;
+	padding: 6px;
+	border-radius: 12px;
+	border: 1px solid #eae5f3;
+	background: #ffffff;
+	box-shadow: 0 16px 40px rgba(40, 30, 66, .16);
+	max-height: 288px;
+	overflow-y: auto;
+}
+
+.bsel-option {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	width: 100%;
+	padding: 8px 9px;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: #19171d;
+	font-family: inherit;
+	font-size: 13px;
+	font-weight: 600;
+	text-align: left;
+	cursor: pointer;
+}
+
+.bsel-option:hover { background: #f6f3fd; }
+.bsel-option.active { background: #efeafc; color: #4f27b5; font-weight: 800; }
+.bsel-option-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bsel-option-text small { font-size: 10.5px; font-weight: 600; color: #8b8496; }
+.bsel-option.active .bsel-option-text small { color: #7a63b8; }
+.bsel-check { flex: 0 0 auto; color: #5f32cf; font-weight: 900; font-size: 12px; }

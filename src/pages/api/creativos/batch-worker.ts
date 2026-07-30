@@ -71,6 +71,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const snapshot: any = row.settings_snapshot || {};
 		const requestedFormat = String(row.format || snapshot.format || 'original');
 		const language = String(snapshot.language || 'es');
+		const quality: 'fast' | 'text' = snapshot.quality === 'text' ? 'text' : 'fast';
 		const brief = String(row.user_brief || '');
 
 		// ── 1. El anuncio ganador que hay que clonar ──────────────────────────
@@ -181,6 +182,7 @@ export const POST: APIRoute = async ({ request }) => {
 			prompt,
 			images: [{ buffer: normalizedReference.buffer, type: normalizedReference.type }, ...productImages],
 			format,
+			quality,
 		});
 
 		// Gemini devuelve JPEG y OpenAI PNG: se etiqueta según los bytes reales,

@@ -37,6 +37,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const format = allowedFormats.has(requestedFormat) ? requestedFormat : 'original';
 		const requestedLanguage = String(body?.language || 'es');
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';
+		// 'text' usa gpt-image-2 medium: más lento pero escribe mejor la letra chica.
+		const quality = body?.quality === 'text' ? 'text' : 'fast';
 
 		if (!productId) return json({ error: 'Falta el producto analizado.' }, 400);
 		const paths = [...new Set(requestedPaths)];
@@ -101,6 +103,7 @@ export const POST: APIRoute = async ({ request }) => {
 			settings_snapshot: {
 				format,
 				language,
+				quality,
 				imageType: 'product',
 				referencePath: winner.imagePath,
 				referenceName: winner.name,
