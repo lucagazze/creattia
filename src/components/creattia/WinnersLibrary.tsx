@@ -27,6 +27,37 @@ function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number;
 }
 
 // Nichos (vienen en inglés del manifiesto de Foreplay) → etiquetas en español
+
+// Icono por nicho. Emoji del sistema en vez de un pack de iconos externo: no
+// suma peso al bundle, no depende de una CDN y se ve consistente en todas las
+// plataformas. Todos son objetos/símbolos, no banderas (Windows no las dibuja).
+const nicheIcons: Record<string, string> = {
+	'Accessories': '👜',
+	'Beauty': '💄',
+	'Business/Professional': '💼',
+	'Entertainment': '🎬',
+	'Fashion': '👗',
+	'Food/Drink': '🍽️',
+	'Health/Wellness': '🌿',
+	'Medical': '🩺',
+	'Service Business': '🛠️',
+	'Tech': '💻',
+	'Technology': '💻',
+	'App/Software': '📱',
+	'Home/Garden': '🪴',
+	'Sports/Outdoors': '⛰️',
+	'Sports/Fitness': '🏋️',
+	'Travel': '✈️',
+	'Pets': '🐾',
+	'Education': '🎓',
+	'Finance': '📈',
+	'Automotive': '🚗',
+	'Kids/Baby': '🧸',
+	'Jewelry/Watches': '💎',
+	'Jewelry': '💎',
+	'Real Estate': '🏠',
+};
+
 const nicheLabels: Record<string, string> = {
 	'Accessories': 'Accesorios',
 	'Beauty': 'Belleza',
@@ -986,8 +1017,9 @@ export default function WinnersLibrary({
 						{showNicheMenu && (
 							<div className="niche-dd-menu">
 								<button type="button" className={`niche-dd-item${selectedNiches.includes('todos') || !selectedNiches.length ? ' is-active' : ''}`} onClick={() => setSelectedNiches(['todos'])}>
-									<span className="niche-dd-check">{selectedNiches.includes('todos') || !selectedNiches.length ? '✓' : ''}</span>
+									<span className="niche-dd-icon" aria-hidden>✨</span>
 									<span className="niche-dd-name">Todos los nichos</span><span className="niche-dd-count">{items.length}</span>
+									<span className="niche-dd-check">{selectedNiches.includes('todos') || !selectedNiches.length ? '✓' : ''}</span>
 								</button>
 								{availableNiches.map((niche) => {
 									const active = selectedNiches.includes(niche);
@@ -997,8 +1029,9 @@ export default function WinnersLibrary({
 											if (next.includes(niche)) next = next.filter((x) => x !== niche); else next.push(niche);
 											setSelectedNiches(next.length ? next : ['todos']);
 										}}>
-											<span className="niche-dd-check">{active ? '✓' : ''}</span>
+											<span className="niche-dd-icon" aria-hidden>{nicheIcons[niche] || '🏷️'}</span>
 											<span className="niche-dd-name">{nicheLabels[niche] || niche}</span><span className="niche-dd-count">{nicheCounts[niche]}</span>
+											<span className="niche-dd-check">{active ? '✓' : ''}</span>
 										</button>
 									);
 								})}

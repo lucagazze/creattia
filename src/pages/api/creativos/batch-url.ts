@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
-import { loadWinners, pickWinnersForProduct } from '../../../lib/creattia/winner-picker';
+import { loadWinners, pickWinnersForProduct, type Winner } from '../../../lib/creattia/winner-picker';
+import { isCompatible, screenWinners } from '../../../lib/creattia/winner-screening';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
@@ -186,7 +187,9 @@ export const POST: APIRoute = async ({ request }) => {
 				priceText: scannedProduct?.priceText || '',
 			},
 			count,
-			spareCount: Math.max(12, count),
+			// El screening con visión descarta hasta 60% en productos difíciles, así
+			// que se piden bastantes más candidatos para no quedarse corto.
+			spareCount: Math.max(24, count * 3),
 			openAIKey,
 			googleKey,
 		});
@@ -194,7 +197,47 @@ export const POST: APIRoute = async ({ request }) => {
 			return json({ error: 'No hay suficientes anuncios ganadores disponibles para armar el lote.' }, 503);
 		}
 
-		const toPayload = (winner: typeof winners[number]) => ({
+		// Se mira cada referencia con visión antes de mostrarla: descarta las que
+		// son imposibles de clonar para este producto (una modelo fitness, una
+		// ilustración anatómica, un layout sin producto). Antes esas plantillas
+		// llegaban a generarse y salían anuncios sin sentido, gastando créditos.
+		const productHasImage = productPhotoCount > 0 || Boolean(storedProduct?.image_path);
+		const candidates = [...winners, ...spares];
+		const screened = new Map<string, { compatible: boolean; why: string }>();
+		try {
+			const downloads = await Promise.all(candidates.map(async (winner) => {
+				const { data } = await admin.storage.from('creative-references').download(winner.imagePath);
+				if (!data) return null;
+				return { imagePath: winner.imagePath, buffer: Buffer.from(await data.arrayBuffer()), mime: data.type || 'image/webp' };
+			}));
+			const verdicts = await screenWinners(
+				downloads.filter((item): item is NonNullable<typeof item> => Boolean(item)),
+				{ googleKey },
+			);
+			for (const [imagePath, verdict] of verdicts) {
+				screened.set(imagePath, isCompatible(verdict, { wearable: signals.wearable, hasImage: productHasImage }));
+			}
+		} catch (screeningError) {
+			console.warn('Screening de referencias falló, se muestran sin filtrar:', screeningError);
+		}
+
+		const usable = (winner: Winner) => screened.get(winner.imagePath)?.compatible !== false;
+		// Se rearma el lote priorizando las compatibles y tapando los huecos con
+		// suplentes que también pasaron el filtro, sin repetir marca: el relleno
+		// anterior salteaba ese tope y devolvía dos veces el mismo anunciante.
+		const finalWinners: Winner[] = winners.filter(usable);
+		const finalSpares: Winner[] = spares.filter(usable);
+		const usedBrands = new Set(finalWinners.map((winner) => (winner.name || '').toLowerCase()));
+		for (let index = 0; index < finalSpares.length && finalWinners.length < count; index += 1) {
+			const brand = (finalSpares[index].name || '').toLowerCase();
+			if (usedBrands.has(brand)) continue;
+			usedBrands.add(brand);
+			finalWinners.push(finalSpares.splice(index, 1)[0]);
+			index -= 1;
+		}
+		const discarded = candidates.length - finalWinners.length - finalSpares.length;
+
+		const toPayload = (winner: Winner) => ({
 			imagePath: winner.imagePath,
 			// Para que la UI marque cuáles pegan poco con el producto y el usuario
 			// los reemplace primero.
@@ -222,8 +265,9 @@ export const POST: APIRoute = async ({ request }) => {
 			quality: clean(form.get('quality'), 6) === 'text' ? 'text' : 'fast',
 			brief,
 			matchedNiches: signals.niches,
-			winners: winners.map(toPayload),
-			spares: spares.map(toPayload),
+			winners: finalWinners.slice(0, count).map(toPayload),
+			spares: finalSpares.map(toPayload),
+			discarded,
 		});
 	} catch (error: any) {
 		console.error('Error en POST batch-url:', error);
