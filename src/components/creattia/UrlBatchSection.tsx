@@ -207,6 +207,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 	// Paso 2: revisión de las referencias ganadoras antes de gastar créditos.
 	const [step, setStep] = useState<'form' | 'review' | 'results'>('form');
+	// El formulario es secuencial: primero la cantidad, después el producto.
+	const [formStep, setFormStep] = useState<1 | 2>(1);
 	const [isScanning, setIsScanning] = useState(false);
 	const [preview, setPreview] = useState<BatchPreview | null>(null);
 	const [selected, setSelected] = useState<WinnerRef[]>([]);
@@ -504,9 +506,23 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			{/* PASO 1 — Cuántos anuncios y qué vas a promocionar. Nada más:
 			    formato, idioma y estilo no influyen en qué referencias se traen,
 			    así que se piden recién en el paso 2. */}
+			{/* Indicador de progreso: siempre visible, marca dónde estás. */}
+			<ol className="wiz-progress" aria-label="Progreso">
+				{[
+					{ n: 1, label: 'Cantidad', active: step === 'form' && formStep === 1, done: step !== 'form' || formStep > 1 },
+					{ n: 2, label: 'Tu producto', active: step === 'form' && formStep === 2, done: step !== 'form' },
+					{ n: 3, label: 'Referencias y estilo', active: step === 'review', done: step === 'results' },
+				].map((item) => (
+					<li key={item.n} className={`wiz-progress-item ${item.active ? 'active' : ''} ${item.done ? 'done' : ''}`}>
+						<span className="wiz-progress-dot">{item.done ? '✓' : item.n}</span>
+						<span className="wiz-progress-label">{item.label}</span>
+					</li>
+				))}
+			</ol>
+
 			{step === 'form' && (
 			<form onSubmit={handleScan} className="url-batch-form">
-				<div className="wiz-step">
+				<div className="wiz-step" hidden={formStep !== 1}>
 					<span className="wiz-num">1</span>
 					<div className="wiz-body">
 						<label className="picker-label">¿Cuántos anuncios querés crear?</label>
@@ -526,7 +542,14 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				</div>
 
-				<div className="wiz-step">
+				{formStep === 1 && (
+					<button type="button" className="url-batch-submit-btn" onClick={() => { setError(null); setFormStep(2); }}>
+						<span>Continuar</span>
+						<span className="btn-credits-badge">{count} créditos cuando generes</span>
+					</button>
+				)}
+
+				<div className="wiz-step" hidden={formStep !== 2}>
 					<span className="wiz-num">2</span>
 					<div className="wiz-body">
 						<label className="picker-label">¿Qué vas a promocionar?</label>
@@ -683,20 +706,27 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				)}
 
-				<button
-					type="submit"
-					className="url-batch-submit-btn"
-					disabled={isScanning || (mode === 'url' ? !url.trim() : !manualName.trim())}
-				>
-					{isScanning ? (
-						<><span className="spinner">⌛</span> Buscando los mejores anuncios ganadores…</>
-					) : (
-						<>
-							<span>🔎 Buscar {count} anuncios ganadores</span>
-							<span className="btn-credits-badge">Todavía no gastás créditos</span>
-						</>
-					)}
-				</button>
+				{formStep === 2 && (
+					<div className="wiz-actions">
+						<button type="button" className="wiz-back" onClick={() => { setError(null); setFormStep(1); }} disabled={isScanning}>
+							← Atrás
+						</button>
+						<button
+							type="submit"
+							className="url-batch-submit-btn"
+							disabled={isScanning || (mode === 'url' ? !url.trim() : !manualName.trim())}
+						>
+							{isScanning ? (
+								<><span className="spinner">⌛</span> Buscando los mejores anuncios ganadores…</>
+							) : (
+								<>
+									<span>🔎 Buscar {count} anuncios ganadores</span>
+									<span className="btn-credits-badge">Todavía no gastás créditos</span>
+								</>
+							)}
+						</button>
+					</div>
+				)}
 			</form>
 			)}
 
@@ -795,7 +825,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</button>
 						<button
 							type="button"
-							onClick={() => { setStep('form'); setPreview(null); setSelected([]); setSpares([]); seenPathsRef.current = new Set(); }}
+							onClick={() => { setStep('form'); setFormStep(1); setPreview(null); setSelected([]); setSpares([]); seenPathsRef.current = new Set(); }}
 							disabled={isGenerating}
 							style={{
 								padding: '0 20px', borderRadius: '12px', border: '2px solid #e6e0f2',
@@ -832,6 +862,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 									onClick={() => {
 										if (pollRef.current) clearInterval(pollRef.current);
 										setStep('form');
+										setFormStep(1);
 										setPreview(null);
 										setSelected([]);
 										setSpares([]);

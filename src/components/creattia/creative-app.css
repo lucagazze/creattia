@@ -3663,3 +3663,88 @@
 
 .ref-modal-head button:hover { background: #e7dffa; }
 .ref-modal-box img { max-width: 100%; max-height: 76vh; object-fit: contain; border-radius: 12px; display: block; }
+
+/* ── Indicador de progreso del generador ─────────────────────────────────
+   El formulario es secuencial: se ve un paso por vez y el indicador marca
+   dónde estás. Antes los pasos 1 y 2 aparecían juntos, que no es un paso a
+   paso sino una lista numerada. */
+.wiz-progress {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	list-style: none;
+	margin: 0 0 18px;
+	padding: 0;
+	flex-wrap: wrap;
+}
+
+.wiz-progress-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 13px 7px 8px;
+	border-radius: 999px;
+	background: #f5f2fb;
+	color: #8b8496;
+	font-size: 12px;
+	font-weight: 700;
+	transition: background .18s ease, color .18s ease;
+}
+
+.wiz-progress-item + .wiz-progress-item::before {
+	content: '';
+	width: 14px;
+	height: 2px;
+	border-radius: 2px;
+	background: #e4dcf3;
+	margin-right: 2px;
+	margin-left: -6px;
+}
+
+.wiz-progress-dot {
+	width: 21px;
+	height: 21px;
+	border-radius: 999px;
+	background: #e4dcf3;
+	color: #8b8496;
+	font-size: 11px;
+	font-weight: 900;
+	display: grid;
+	place-items: center;
+	flex: 0 0 auto;
+}
+
+.wiz-progress-item.done { background: #eef8f1; color: #157a45; }
+.wiz-progress-item.done .wiz-progress-dot { background: #157a45; color: #fff; }
+.wiz-progress-item.active { background: #efeafc; color: #4f27b5; }
+.wiz-progress-item.active .wiz-progress-dot { background: #5f32cf; color: #fff; }
+
+@media (max-width: 520px) {
+	.wiz-progress-label { display: none; }
+	.wiz-progress-item { padding: 6px; }
+	.wiz-progress-item.active .wiz-progress-label { display: inline; padding-right: 6px; }
+}
+
+/* Fila de acciones: volver atrás + avanzar */
+.wiz-actions { display: flex; gap: 10px; align-items: stretch; }
+.wiz-actions .url-batch-submit-btn { flex: 1 1 auto; }
+
+.wiz-back {
+	flex: 0 0 auto;
+	padding: 0 20px;
+	border-radius: 12px;
+	border: 2px solid #e6e0f2;
+	background: #fff;
+	color: #5f32cf;
+	font-family: inherit;
+	font-size: 13px;
+	font-weight: 800;
+	cursor: pointer;
+	transition: background .14s ease, border-color .14s ease;
+}
+
+.wiz-back:hover:not(:disabled) { background: #f6f3fd; border-color: #cbbcf0; }
+.wiz-back:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Un paso oculto no debe dejar hueco */
+.wiz-step[hidden] { display: none; }
