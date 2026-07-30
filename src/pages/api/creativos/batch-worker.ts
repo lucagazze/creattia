@@ -123,15 +123,15 @@ export const POST: APIRoute = async ({ request }) => {
 		const { data: profile } = await admin.from('creative_profiles')
 			.select('brand_name,brand_colors,logo_path,brand_style').eq('user_id', userId).maybeSingle();
 		const brandName = profile?.brand_name || '';
-		let hasLogo = false;
+		// El logo va aparte de las fotos del producto: cuando el ganador no muestra
+		// ningún producto, se manda el logo pero NO las fotos.
+		let logoImage: EngineImage | null = null;
 		if (profile?.logo_path) {
 			const { data: logoBlob } = await admin.storage.from(ASSETS).download(profile.logo_path);
 			const normalizedLogo = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
-			if (normalizedLogo) {
-				productImages.push({ buffer: normalizedLogo.buffer, type: normalizedLogo.type });
-				hasLogo = true;
-			}
+			if (normalizedLogo) logoImage = { buffer: normalizedLogo.buffer, type: normalizedLogo.type };
 		}
+		const hasLogo = Boolean(logoImage);
 
 		// ── 4. Análisis con visión del ganador: qué dice cada zona de texto y
 		// cómo se reemplaza para este producto, en el idioma elegido ──────────
@@ -175,12 +175,23 @@ export const POST: APIRoute = async ({ request }) => {
 			} catch { /* sin metadata: cuadrado */ }
 		}
 
-		// ── 6. Generar: referencia primero, después producto (y logo) ─────────
+		// ── 6. Generar ────────────────────────────────────────────────────────
+		// Si el anuncio ganador NO muestra ningún producto (puro texto, tipografía
+		// grande sobre un fondo), se clona tal cual: solo cambia el copy. En ese
+		// caso las fotos del producto no se adjuntan, porque tenerlas a la vista
+		// hace que el modelo las pegue igual y arruine el diseño original.
+		const referenceShowsProduct = analysis?.referenceHasProduct !== false;
+		const engineImages: EngineImage[] = [
+			{ buffer: normalizedReference.buffer, type: normalizedReference.type },
+			...(referenceShowsProduct ? productImages : []),
+			...(logoImage ? [logoImage] : []),
+		];
+
 		const { buffer, engine } = await generateAdImage({
 			googleKey,
 			openAIKey,
 			prompt,
-			images: [{ buffer: normalizedReference.buffer, type: normalizedReference.type }, ...productImages],
+			images: engineImages,
 			format,
 			quality,
 		});

@@ -100,9 +100,10 @@ export function isCompatible(verdict: ScreeningVerdict, product: { wearable: boo
 	if (verdict.isIllustration) {
 		return { compatible: false, why: 'es una ilustración o diagrama: no se puede insertar una foto real de producto' };
 	}
-	if (!verdict.hasProductShot) {
-		return { compatible: false, why: 'la plantilla no tiene un producto físico que reemplazar' };
-	}
+	// Un ganador SIN producto (puro texto, tipografía grande, fondo de color) sí
+	// se puede usar teniendo foto: se clona tal cual y solo se reemplaza el copy
+	// con los datos del producto. Meterle la foto a la fuerza rompería el diseño,
+	// así que en la generación no se adjunta.
 	return { compatible: true, why: '' };
 }
 
