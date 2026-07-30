@@ -22,6 +22,13 @@ export type ScreeningVerdict = {
 	isIllustration: boolean;
 	/** La imagen central es una persona/escena y el producto no es lo que se ve. */
 	personIsTheSubject: boolean;
+	/**
+	 * El anuncio está dominado por una FOTOGRAFÍA de una escena real (un lugar, una
+	 * casa, un paisaje, un interior, una persona). Sin producto que reemplazar esa
+	 * foto se queda tal cual y termina fuera de tema: clonando un aviso
+	 * inmobiliario para un curso de Meta Ads quedaba la foto de una casa.
+	 */
+	dominantPhoto: boolean;
 	reason: string;
 };
 
@@ -32,6 +39,7 @@ const FALLBACK: ScreeningVerdict = {
 	productOnBody: false,
 	isIllustration: false,
 	personIsTheSubject: false,
+	dominantPhoto: true,
 	reason: 'sin análisis',
 };
 
@@ -41,6 +49,7 @@ const PROMPT = `Mirá este anuncio publicitario y respondé SOLO con JSON:
  "productOnBody": true si el producto se usa puesto sobre una persona (prenda, calzado, ropa interior, joya, parche en la piel),
  "isIllustration": true si es un dibujo, diagrama, ilustración médica o infografía en vez de una fotografía,
  "personIsTheSubject": true si lo que domina la imagen es el CUERPO o la CARA de una persona y el producto es secundario o no se ve (foto de gimnasio, antes y después de un cuerpo, retrato, selfie de cuerpo entero),
+ "dominantPhoto": true si la mayor parte del anuncio es una FOTOGRAFÍA de algo real (un lugar, una casa, un paisaje, un interior, comida, un animal, una persona). false si es puramente gráfico: tipografía grande sobre un fondo de color, una placa de texto, un cuadro comparativo, una tarjeta de reseña o una captura de interfaz,
  "reason": "una frase corta en español describiendo qué se ve"
 }`;
 
@@ -69,6 +78,7 @@ async function screenOne(
 			productOnBody: parsed.productOnBody === true,
 			isIllustration: parsed.isIllustration === true,
 			personIsTheSubject: parsed.personIsTheSubject === true,
+			dominantPhoto: parsed.dominantPhoto === true,
 			reason: String(parsed.reason || '').slice(0, 160),
 		};
 	} catch (error) {
@@ -87,8 +97,23 @@ async function screenOne(
  */
 export function isCompatible(verdict: ScreeningVerdict, product: { wearable: boolean; hasImage: boolean }): { compatible: boolean; why: string } {
 	if (!product.hasImage) {
-		// Sin foto de producto solo se pueden clonar layouts que no muestren uno.
+		// Sin foto solo sirven layouts que no muestren un producto...
 		if (verdict.hasProductShot) return { compatible: false, why: 'la plantilla muestra un producto y no cargaste ninguna foto' };
+		// ...y que además no dependan de una foto de persona ajena. Un primer plano
+		// de una boca sirve para un dentista, pero clonado para un curso de Meta Ads
+		// queda una cara desconocida que no tiene nada que ver con la oferta.
+		if (verdict.personIsTheSubject) {
+			return { compatible: false, why: 'el anuncio se apoya en la foto de una persona que no tiene relación con lo que ofrecés' };
+		}
+		if (verdict.isIllustration) {
+			return { compatible: false, why: 'es una ilustración o diagrama de otro tema' };
+		}
+		// Sin foto propia que insertar, cualquier fotografía del ganador se queda
+		// tal cual y queda fuera de tema. Solo sirven los anuncios gráficos:
+		// tipografía sobre un fondo, placas de texto, comparativas, reseñas.
+		if (verdict.dominantPhoto) {
+			return { compatible: false, why: 'el anuncio se apoya en una fotografía ajena que quedaría fuera de tema' };
+		}
 		return { compatible: true, why: '' };
 	}
 	if (verdict.productOnBody && !product.wearable) {

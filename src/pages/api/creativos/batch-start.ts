@@ -39,23 +39,35 @@ export const POST: APIRoute = async ({ request }) => {
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';
 		// 'text' usa gpt-image-2 medium: más lento pero escribe mejor la letra chica.
 		const quality = body?.quality === 'text' ? 'text' : 'fast';
+		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
+		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
 
-		if (!productId) return json({ error: 'Falta el producto analizado.' }, 400);
+		// En modo 'text' no hay producto en la base: el anuncio se arma solo con el
+		// texto que escribió el usuario.
+		const textMode = body?.mode === 'text' || (!productId && Boolean(body?.productName));
+		const textName = String(body?.productName || '').trim().slice(0, 140);
+		const textDescription = String(body?.productDescription || '').trim().slice(0, 1200);
+		if (!productId && !textName) return json({ error: 'Falta el producto o el texto a promocionar.' }, 400);
 		const paths = [...new Set(requestedPaths)];
 		if (!paths.length) return json({ error: 'Elegí al menos una referencia ganadora.' }, 400);
 		if (paths.length > 40) return json({ error: 'El máximo por lote es 40 anuncios.' }, 400);
 
-		// El producto tiene que ser del usuario y tener al menos una foto real.
-		const { data: product, error: productError } = await admin.from('creative_products')
-			.select('id,name,description,price_text,currency,product_url,image_path')
-			.eq('id', productId).eq('user_id', userId).maybeSingle();
-		if (productError) throw productError;
-		if (!product) return json({ error: 'El producto no existe o no pertenece a tu cuenta.' }, 404);
+		// Con producto: tiene que ser del usuario y tener al menos una foto real.
+		// Sin producto (modo texto): se usa el nombre y la descripción escritos.
+		let product: any = { name: textName, description: textDescription, price_text: '', currency: '', product_url: '', image_path: null };
+		if (productId) {
+			const { data: found, error: productError } = await admin.from('creative_products')
+				.select('id,name,description,price_text,currency,product_url,image_path')
+				.eq('id', productId).eq('user_id', userId).maybeSingle();
+			if (productError) throw productError;
+			if (!found) return json({ error: 'El producto no existe o no pertenece a tu cuenta.' }, 404);
+			product = found;
 
-		const { count: photoCount } = await admin.from('creative_product_images')
-			.select('id', { count: 'exact', head: true }).eq('product_id', productId).eq('user_id', userId);
-		if (!photoCount && !product.image_path) {
-			return json({ error: 'El producto no tiene ninguna foto real guardada. Subí una foto y volvé a intentar.', code: 'NO_PRODUCT_PHOTO' }, 422);
+			const { count: photoCount } = await admin.from('creative_product_images')
+				.select('id', { count: 'exact', head: true }).eq('product_id', productId).eq('user_id', userId);
+			if (!photoCount && !product.image_path) {
+				return json({ error: 'El producto no tiene ninguna foto real guardada. Subí una foto y volvé a intentar.', code: 'NO_PRODUCT_PHOTO' }, 422);
+			}
 		}
 
 		// Las referencias tienen que existir en la biblioteca: nunca se acepta una
@@ -94,7 +106,7 @@ export const POST: APIRoute = async ({ request }) => {
 			format,
 			image_type: 'product',
 			variant_key: winner.categoryLeaf || 'hero',
-			product_id: productId,
+			product_id: productId || null,
 			// El brief va limpio: es lo que el modelo lee como USER DIRECTION.
 			user_brief: brief || null,
 			batch_id: batchId,
@@ -104,14 +116,17 @@ export const POST: APIRoute = async ({ request }) => {
 				format,
 				language,
 				quality,
+				colorMode,
+				typoMode,
 				imageType: 'product',
+				textMode,
 				referencePath: winner.imagePath,
 				referenceName: winner.name,
 				referenceNotes: winner.promptNotes || '',
 				referenceLeaf: winner.categoryLeaf || '',
 				referenceNiches: winner.metadata?.foreplayNiches || [],
 				templateId: winner.templateId || null,
-				productId,
+				productId: productId || null,
 				productName: product.name,
 				productDescription: product.description || '',
 				productPriceText: product.price_text || '',
@@ -134,7 +149,7 @@ export const POST: APIRoute = async ({ request }) => {
 			throw new Error(`El lote se guardó incompleto (${generations.length} de ${count}).`);
 		}
 
-		try {
+		if (productId) try {
 			await admin.from('creative_generation_products').insert(generations.map((generation) => ({
 				generation_id: generation.id,
 				product_id: productId,

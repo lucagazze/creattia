@@ -161,6 +161,11 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'de', label: 'Alemán', flag: 'DE' },
 ];
 
+const STYLE_OPTIONS = [
+	{ value: 'winner', label: 'Del anuncio ganador', emoji: '🏆', hint: 'Conserva lo que hizo funcionar al original' },
+	{ value: 'brand', label: 'De mi marca', emoji: '🎨', hint: 'Usa los colores y la tipografía de tu marca' },
+];
+
 const QUALITY_OPTIONS = [
 	{ value: 'fast', label: 'Rápida', emoji: '⚡', hint: '~15 s por anuncio · recomendada para lotes grandes' },
 	{ value: 'text', label: 'Texto impecable', emoji: '🔍', hint: '~80 s por anuncio · mejor con etiquetas y letra chica' },
@@ -182,6 +187,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
 	const [quality, setQuality] = useState('fast');
+	const [colorMode, setColorMode] = useState('winner');
+	const [typoMode, setTypoMode] = useState('winner');
 	const [brief, setBrief] = useState('');
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [extraImages, setExtraImages] = useState<File[]>([]);
@@ -260,6 +267,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			formData.append('format', format);
 			formData.append('language', language);
 			formData.append('quality', quality);
+			formData.append('colorMode', colorMode);
+			formData.append('typoMode', typoMode);
 			if (brief.trim()) formData.append('brief', brief.trim());
 			extraImages.forEach((file) => formData.append('extraImages', file));
 
@@ -328,6 +337,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					format,
 					language,
 					quality,
+					colorMode,
+					typoMode,
 					brief: brief.trim(),
 				}),
 			});
@@ -484,6 +495,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						<BatchSelect label="Formato del anuncio" value={format} options={FORMAT_OPTIONS} onChange={setFormat} />
 						<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
 						<BatchSelect label="Calidad" value={quality} options={QUALITY_OPTIONS} onChange={setQuality} />
+						<BatchSelect label="Colores" value={colorMode} options={STYLE_OPTIONS} onChange={setColorMode} />
+						<BatchSelect label="Tipografía" value={typoMode} options={STYLE_OPTIONS} onChange={setTypoMode} />
 					</div>
 				</div>
 

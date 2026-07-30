@@ -42,17 +42,36 @@ export const POST: APIRoute = async ({ request }) => {
 		const requestedFormat = clean(form.get('format'), 20) || 'original';
 		const allowedFormats = new Set(['original', 'square', 'portrait', 'story', 'landscape']);
 		const format = allowedFormats.has(requestedFormat) ? requestedFormat : 'original';
+		// Estilo: paleta y tipografía del ganador (default, conserva lo que hizo
+		// ganar al anuncio) o de la marca del usuario.
+		const colorMode = clean(form.get('colorMode'), 8) === 'brand' ? 'brand' : 'winner';
+		const typoMode = clean(form.get('typoMode'), 8) === 'brand' ? 'brand' : 'winner';
 		const requestedLanguage = clean(form.get('language'), 5) || 'es';
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';
 		const extraImagesUploaded = form.getAll('extraImages').filter((item): item is File => item instanceof File && item.size > 0);
 
-		if (!rawUrl) return json({ error: 'Ingresá la URL del producto.' }, 400);
+		// Tres formas de arrancar:
+		//   url    → se escanea la página del producto (lo de siempre)
+		//   manual → el usuario escribe nombre y descripción, y sube fotos si quiere
+		//   text   → sin producto: solo texto, para clonar ganadores tipográficos
+		const requestedMode = clean(form.get('mode'), 10);
+		const mode: 'url' | 'manual' | 'text' = requestedMode === 'manual' || requestedMode === 'text' ? requestedMode : 'url';
+		const manualName = clean(form.get('productName'), 140);
+		const manualDescription = clean(form.get('productDescription'), 1200);
+		const manualPrice = clean(form.get('productPriceText'), 60);
+
+		if (mode === 'url' && !rawUrl) return json({ error: 'Ingresá la URL del producto.' }, 400);
+		if (mode !== 'url' && !manualName) {
+			return json({ error: 'Escribí al menos el nombre de lo que querés promocionar.' }, 400);
+		}
 
 		let productUrl = '';
-		try {
-			productUrl = normalizeExternalUrl(rawUrl);
-		} catch {
-			return json({ error: 'La URL ingresada no es válida. Verificá que sea pública e incluyas https://' }, 400);
+		if (rawUrl) {
+			try {
+				productUrl = normalizeExternalUrl(rawUrl);
+			} catch {
+				if (mode === 'url') return json({ error: 'La URL ingresada no es válida. Verificá que sea pública e incluyas https://' }, 400);
+			}
 		}
 
 		for (const file of extraImagesUploaded) {
@@ -65,7 +84,20 @@ export const POST: APIRoute = async ({ request }) => {
 		// desde URL" y el error real quedaba en los logs: el usuario recibía un
 		// mensaje equivocado sobre las fotos. Ahora se devuelve la causa concreta.
 		let scannedProduct: ScannedProduct;
-		try {
+		if (mode !== 'url') {
+			// Sin página que leer: los datos los escribió el usuario.
+			scannedProduct = {
+				externalId: `${mode}:${manualName}`,
+				name: manualName,
+				description: manualDescription,
+				priceText: manualPrice,
+				currency: '',
+				productUrl,
+				imageUrl: '',
+				imageUrls: [],
+				metadata: { enteredManually: true },
+			};
+		} else try {
 			scannedProduct = await extractProductPageWithAI(productUrl, openAIKey);
 		} catch (extractErr) {
 			const detail = extractErr instanceof Error ? extractErr.message : String(extractErr);
@@ -82,12 +114,13 @@ export const POST: APIRoute = async ({ request }) => {
 		// Sin al menos una foto real no se puede clonar un ganador: el modelo
 		// tendría que inventar el producto, que es justo lo que no queremos.
 		let productPhotoCount = 0;
-		if (scannedProduct) {
+		// En modo 'text' no se crea producto: el anuncio se arma solo con el texto.
+		if (scannedProduct && mode !== 'text') {
 			try {
 				const { data: existing } = await admin.from('creative_products')
 					.select('id,name,description,price_text,currency,image_path,source_image_url')
 					.eq('user_id', userId)
-					.eq('product_url', scannedProduct.productUrl || productUrl)
+					.eq(mode === 'manual' ? 'name' : 'product_url', mode === 'manual' ? scannedProduct.name : (scannedProduct.productUrl || productUrl))
 					.limit(1).maybeSingle();
 
 				if (existing) {
@@ -100,8 +133,8 @@ export const POST: APIRoute = async ({ request }) => {
 						description: scannedProduct.description || null,
 						price_text: scannedProduct.priceText || null,
 						currency: scannedProduct.currency || null,
-						product_url: scannedProduct.productUrl || productUrl,
-						source: 'website',
+						product_url: scannedProduct.productUrl || productUrl || null,
+						source: mode === 'manual' ? 'manual' : 'website',
 						external_id: scannedProduct.externalId || productUrl,
 						source_image_url: scannedProduct.imageUrl || null,
 						metadata: { ...scannedProduct.metadata, importedFromUrl: productUrl, sourceImageUrls: scannedProduct.imageUrls },
@@ -159,15 +192,18 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		// Si no hay ninguna foto real del producto, se corta antes de cobrar: el
-		// resultado serían anuncios con un producto inventado.
-		if (!storedProductId || productPhotoCount === 0) {
+		// resultado serían anuncios con un producto inventado. En modo 'text' no
+		// aplica, porque justamente se clonan ganadores que no muestran producto.
+		if (mode !== 'text' && (!storedProductId || productPhotoCount === 0)) {
 			const { count: existingPhotos } = storedProductId
 				? await admin.from('creative_product_images').select('id', { count: 'exact', head: true })
 					.eq('product_id', storedProductId).eq('user_id', userId)
 				: { count: 0 };
 			if (!existingPhotos) {
 				return json({
-					error: 'No pudimos obtener ninguna foto del producto desde esa URL. Subí al menos una foto real en "Más fotos e instrucciones" y volvé a intentar.',
+					error: mode === 'manual'
+						? 'Subí al menos una foto real del producto, o cambiá al modo "Solo texto" para generar anuncios sin foto.'
+						: 'No pudimos obtener ninguna foto del producto desde esa URL. Subí al menos una foto real, o usá el modo "Solo texto".',
 					code: 'NO_PRODUCT_PHOTO',
 				}, 422);
 			}
@@ -177,7 +213,7 @@ export const POST: APIRoute = async ({ request }) => {
 		// del dominio del producto. Así no hay que llenar "Mi marca" antes de poder
 		// generar, y el clon puede usar los colores y la tipografía reales. Importa:
 		// sin estos datos el modelo tiende a inventar sellos con texto ilegible.
-		try {
+		if (productUrl) try {
 			const { data: profile } = await admin.from('creative_profiles')
 				.select('brand_name,brand_colors,brand_style,website_url').eq('user_id', userId).maybeSingle();
 			// El par #18181b/#ffffff es el placeholder que crea el perfil vacío: no
@@ -290,14 +326,17 @@ export const POST: APIRoute = async ({ request }) => {
 			product: {
 				id: storedProductId,
 				name: scannedProduct.name,
-				description: scannedProduct.description,
-				priceText: scannedProduct.priceText,
+				description: scannedProduct.description || '',
+				priceText: scannedProduct.priceText || '',
 				imageUrl: scannedProduct.imageUrl,
 				productUrl,
 			},
+			mode,
 			count,
 			format,
 			language,
+			colorMode,
+			typoMode,
 			quality: clean(form.get('quality'), 6) === 'text' ? 'text' : 'fast',
 			brief,
 			winners: finalWinners.slice(0, count).map(toPayload),

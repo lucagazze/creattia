@@ -105,7 +105,10 @@ export const POST: APIRoute = async ({ request }) => {
 				if (normalized) productImages.push({ buffer: normalized.buffer, type: normalized.type });
 			}
 		}
-		if (!productImages.length) {
+		// En modo texto no hay fotos y está bien: se clonan ganadores que no
+		// muestran producto y todo se cuenta con el copy.
+		const textMode = snapshot.textMode === true || !productId;
+		if (!productImages.length && !textMode) {
 			throw new Error('No hay ninguna foto real del producto disponible para clonar el anuncio.');
 		}
 
@@ -140,8 +143,8 @@ export const POST: APIRoute = async ({ request }) => {
 			analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 				referenceB64: normalizedReference.buffer.toString('base64'),
 				referenceMime: normalizedReference.type,
-				productB64: productImages[0].buffer.toString('base64'),
-				productMime: productImages[0].type,
+				productB64: productImages[0]?.buffer.toString('base64'),
+				productMime: productImages[0]?.type,
 				productName,
 				productFacts,
 				brandName,
@@ -158,8 +161,8 @@ export const POST: APIRoute = async ({ request }) => {
 			brief,
 			analysis,
 			languageCode: language,
-			colorMode: 'winner',
-			typoMode: 'winner',
+			colorMode: snapshot.colorMode === 'brand' ? 'brand' : 'winner',
+			typoMode: snapshot.typoMode === 'brand' ? 'brand' : 'winner',
 			brandColors: Array.isArray(profile?.brand_colors) ? profile.brand_colors : [],
 			brandTypography: (profile?.brand_style as any)?.typography || undefined,
 		});

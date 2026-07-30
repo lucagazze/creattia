@@ -18,6 +18,16 @@ export type LayoutAnalysis = {
 	productInstances?: Array<{ where?: string; howShown?: string; onBody?: boolean }>;
 	/** El producto del ganador se usa puesto sobre el cuerpo de una persona. */
 	productOnBody?: boolean;
+	/**
+	 * Cada ÁREA DE IMAGEN del ganador (foto, panel, viñeta, collage, fondo) con
+	 * qué muestra hoy y qué debería mostrar para el producto nuevo.
+	 *
+	 * Es la diferencia entre clonar y copiar: el ganador funciona por su
+	 * estructura y su idea, no por su contenido. Sin esto quedaban las fotos
+	 * originales del template — un aviso de una veterinaria clonado para un
+	 * proveedor de cuero conservaba las fotos de chicas con perros.
+	 */
+	imageSlots?: Array<{ where?: string; showsNow?: string; replaceWith?: string }>;
 	language?: string;
 	creativeOptions?: string[];
 	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
@@ -96,6 +106,11 @@ Return STRICT JSON:
       "onBody": true|false }
   ],
   "productOnBody": true|false,
+  "imageSlots": [
+    { "where": "position and shape of THIS image area (e.g. 'three tilted photo cards stacked on the right third', 'full-bleed background photo', 'small circular avatar top-left', 'left half of a 50/50 split')",
+      "showsNow": "what that area currently depicts in the template",
+      "replaceWith": "what that SAME area must depict for the target product — a concrete, photographable scene tied to the product, its user, its making, its use or its result. Keep the same shot type, crop, angle and mood as the original so the composition still works. Never keep the template's original subject." }
+  ],
   "people": [
     { "where": "where the person appears (e.g. 'right half, holding the product')",
       "role": "their job in the ad (e.g. 'testimonial author', 'lifestyle model', 'before/after subject')",
@@ -118,6 +133,7 @@ Rules:
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
 - "productInstances" (CRITICAL): list EVERY separate place where the TEMPLATE'S OWN product is visible — not just the hero shot. Count the product worn by a model, on someone's feet, held in a hand, repeated as colour variants, shown again small in a corner, or duplicated across a grid. If the same product appears 6 times in a circle, that is 6 instances (or one instance describing the whole arrangement, but say so explicitly). Missing one means it survives into the final ad and the ad ends up selling two different products at once.
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
+- "imageSlots" (CRITICAL): a winning ad wins because of its STRUCTURE and its IDEA — the layout, the rhythm, the way attention is directed — not because of the specific photos it happens to contain. List EVERY visual area of the template: the hero shot, each photo in a collage or grid, the background image, avatars, before/after panels, lifestyle scenes, and decorative photo strips. For each one, propose what that area should depict for the TARGET product instead. Think like an art director briefing a photographer: if the template shows three photos of people hugging dogs and the target product is wholesale leather, the replacement is three photos of artisans cutting, stitching and finishing leather at a workbench — same tilt, same crop, same lighting mood, same energy. Never propose keeping the template's original subject, and never propose an empty or generic "product photo" when the slot is clearly a lifestyle or context shot. If the template has a single product shot and nothing else, one entry is enough.
 - "productHasPackaging": look ONLY at the REAL product photo — true ONLY if that photo clearly shows a printed box, wrapper or label belonging to the product. Raw materials (leather hides, fabrics, wood), unpackaged food, plants, garments or bare objects have NO packaging → false. The template's product is irrelevant for this field.
 - TESTIMONIALS: if the template shows a person's photo next to a quote, the replacement quote and attribution must plausibly belong to that SAME visible person (never mismatch apparent gender or age; a neutral attribution like 'Cliente verificada' is fine).
 - PEOPLE: list in "people" EVERY human clearly visible in the ad (models, testimonial faces, before/after subjects). Empty array if none. The user may later specify how they want each person to look.
@@ -275,6 +291,17 @@ After finishing, sweep the whole canvas: no garment, shoe, bottle, jar, pack or 
 WEARABILITY CONFLICT — In the template the product is worn on a body. Decide honestly whether ${productLabel} can be worn the same way. If it CANNOT (it is a material, a hide, a bottle, a tool, a food, a device, anything not a garment/shoe/jewellery), you must NOT leave the template's worn garment or footwear in the image and you must NOT dress the person in an invented version of the new product. Instead, re-stage that region: keep the human presence only if it makes sense (e.g. hands presenting, holding or working with the product) and otherwise replace that area with the product properly staged in a coherent scene, preserving the template's framing, background, lighting and the position/size of every text block. A model wearing the template's original garment next to the new product is a hard failure.`
 		: '';
 
+	// Cada área de imagen del ganador, con qué debe mostrar ahora. Esto es lo que
+	// convierte el clon en "misma estructura, contenido propio" en vez de dejar las
+	// fotos originales del template.
+	const slots = (input.analysis?.imageSlots || []).filter((slot) => slot && slot.replaceWith);
+	const imageSlotBlock = slots.length
+		? `
+0. RE-SHOOT EVERY IMAGE AREA — This ad works because of its structure and its idea: the layout, the visual rhythm and where it sends the eye. You are keeping that skeleton and replacing what fills it. The template's own photos, models, scenes and subjects have NOTHING to do with ${productLabel} and must not survive anywhere in the output. Re-photograph each area as follows, keeping the SAME frame, crop, angle, tilt, scale, lighting mood and position as the template so the composition still reads the same:
+${slots.map((slot, index) => `   ${index + 1}. [${slot.where || 'image area'}] now shows: ${slot.showsNow || 'unspecified'} → must show instead: ${slot.replaceWith}`).join('\n')}
+Every scene you render must be photorealistic, plausible and clearly about ${productLabel}, its maker, its user or its result. Do not leave a single frame showing the template's original subject, and do not blur or crop it away — replace it with real content.`
+		: '';
+
 	const productSwap = referenceHasProduct
 		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-STAGE the product INTO the template's scene — do NOT paste it: re-photograph it as if it were shot in that exact environment, matching the scene's camera angle, perspective, lighting direction, color temperature, reflections and shadow behavior (e.g. if the template's product leans against a tiled wall in daylight, the new product must sit in that same tiled-wall daylight scene with the same grounding). Give it real volume and dimension, adapt its pose and orientation to fit the composition naturally, and ground it with the same shadow style the template uses. POSITION: place it at the SAME position and size ratio as the template's product — if the template's product occupies the right side, yours must occupy the right side; never center it unless the template does. Never leave hard cut-out edges or a floating pasted look: blend the product's edges with the scene lighting. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable.${packagingRule}${labelFidelityRule}${instanceBlock}${onBodyRule}`
 		: `1. NO PRODUCT INSERTION — The template does NOT show a physical product, so the new ad must not show one either. This ad sells through its words and its design, not through a product shot: that is exactly why it works. Keep its imagery style as it is (the typographic treatment, the colour field, the graphic devices, the scene) and adapt it naturally to the new context. Do NOT insert, paste, collage or hint at a product photo anywhere, at any size, not even small in a corner — not even if a product photo was supplied as input. Everything about ${productLabel} must come through the copy.`;
@@ -302,8 +329,8 @@ WEARABILITY CONFLICT — In the template the product is worn on a body. Decide h
 		? `\nMESSAGE STRATEGY OF THE WINNING AD (the new copy must deliver the same persuasion, adapted to ${productLabel}): ${input.analysis.messageStrategy}\n`
 		: '';
 
-	return `The first input image is a WINNING AD TEMPLATE. Recreate this exact advertisement, keeping its layout, composition, background, color palette, graphic devices (badges, stars, speech bubbles, banners, buttons), text block positions and typographic hierarchy visually identical to the template. Apply ONLY these replacements:
-${strategyBlock}
+	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every text block and the typographic hierarchy. What must change is everything it is ABOUT: the product, the scenes, the people and the words all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
+${strategyBlock}${imageSlotBlock}
 ${productSwap}
 
 2. TEXT SWAP — Replace the template's wording with this exact copy, written in ${language}, placing each text in the same position, size and style as the template text it replaces. Every zone listed MUST contain its text — never leave a badge, pill or button empty:
