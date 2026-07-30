@@ -185,6 +185,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	onBatchCreated,
 }) => {
 	const [url, setUrl] = useState(initialUrl);
+	// Tres formas de arrancar. 'text' genera sin foto de producto, clonando
+	// ganadores puramente tipográficos.
+	const [mode, setMode] = useState<'url' | 'manual' | 'text'>('url');
+	const [manualName, setManualName] = useState('');
+	const [manualDescription, setManualDescription] = useState('');
+	const [manualPrice, setManualPrice] = useState('');
 	const [count, setCount] = useState<10 | 20 | 30 | 40>(10);
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
@@ -252,8 +258,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	// No cobra créditos: solo devuelve los ganadores para que el usuario revise.
 	const handleScan = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!url.trim()) {
+		if (mode === 'url' && !url.trim()) {
 			setError('Ingresá la URL del producto para continuar.');
+			return;
+		}
+		if (mode !== 'url' && !manualName.trim()) {
+			setError('Escribí al menos el nombre de lo que querés promocionar.');
 			return;
 		}
 		if (userCredits < count) {
@@ -268,14 +278,14 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 		try {
 			const formData = new FormData();
-			formData.append('productUrl', url.trim());
+			formData.append('mode', mode);
 			formData.append('count', String(count));
-			formData.append('format', format);
-			formData.append('language', language);
-			formData.append('quality', quality);
-			formData.append('colorMode', colorMode);
-			formData.append('typoMode', typoMode);
-			if (brief.trim()) formData.append('brief', brief.trim());
+			if (mode === 'url') formData.append('productUrl', url.trim());
+			else {
+				formData.append('productName', manualName.trim());
+				formData.append('productDescription', manualDescription.trim());
+				if (manualPrice.trim()) formData.append('productPriceText', manualPrice.trim());
+			}
 			extraImages.forEach((file) => formData.append('extraImages', file));
 
 			const accessToken = await getAccessToken();
@@ -369,7 +379,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 	// PASO 2 — Confirmar: acá se cobran los créditos y arranca la generación.
 	const handleConfirmGeneration = async () => {
-		if (!preview?.product?.id || !selected.length) return;
+		if (!preview || !selected.length) return;
 		setError(null);
 		setIsGenerating(true);
 
@@ -382,7 +392,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
 				},
 				body: JSON.stringify({
+					mode,
 					productId: preview.product.id,
+					productName: preview.product.name,
+					productDescription: preview.product.description,
 					winnerPaths: selected.map((winner) => winner.imagePath),
 					format,
 					language,
@@ -493,129 +506,169 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			</div>
 
 			{/* Formulario Principal */}
+			{/* PASO 1 — Cuántos anuncios y qué vas a promocionar. Nada más:
+			    formato, idioma y estilo no influyen en qué referencias se traen,
+			    así que se piden recién en el paso 2. */}
 			{step === 'form' && (
 			<form onSubmit={handleScan} className="url-batch-form">
-				<div className="url-batch-input-wrap" style={{ background: '#ffffff', border: '2px solid #744bde', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
-					<span className="input-icon" style={{ fontSize: '20px' }}>🔗</span>
-					<input
-						type="url"
-						className="url-batch-input"
-						placeholder="https://tu-tienda.com/productos/zapato-deportivo-run"
-						value={url}
-						onChange={(e) => setUrl(e.target.value)}
-						required
-						style={{ color: '#19171d', fontWeight: 600, fontSize: '15px' }}
-					/>
-					<button
-						type="button"
-						className="paste-btn"
-						onClick={async () => {
-							try {
-								const text = await navigator.clipboard.readText();
-								if (text.startsWith('http')) setUrl(text);
-							} catch { /* ignore */ }
-						}}
-						title="Pegar URL"
-					>
-						📋 Pegar
-					</button>
-				</div>
-
-				{/* Selector de Cantidad (10, 20, 30, 40) */}
-				<div className="batch-quantity-picker">
-					<label className="picker-label">¿Cuántos anuncios ganadores querés recrear con tu producto?</label>
-					<div className="picker-options">
-						{[10, 20, 30, 40].map((num) => (
-							<button
-								key={num}
-								type="button"
-								className={`picker-pill ${count === num ? 'active' : ''}`}
-								onClick={() => setCount(num as any)}
-							>
-								<span className="pill-count">{num} Anuncios</span>
-								<span className="pill-sub">{num} créditos</span>
-							</button>
-						))}
+				<div className="wiz-step">
+					<span className="wiz-num">1</span>
+					<div className="wiz-body">
+						<label className="picker-label">¿Cuántos anuncios querés crear?</label>
+						<div className="picker-options">
+							{[10, 20, 30, 40].map((num) => (
+								<button
+									key={num}
+									type="button"
+									className={`picker-pill ${count === num ? 'active' : ''}`}
+									onClick={() => setCount(num as any)}
+								>
+									<span className="pill-count">{num} Anuncios</span>
+									<span className="pill-sub">{num} créditos</span>
+								</button>
+							))}
+						</div>
 					</div>
 				</div>
 
-				{/* Formato, idioma y calidad: lo que cambia el resultado, siempre visible */}
-				<div className="batch-quantity-picker">
-					<div className="batch-select-row">
-						<BatchSelect label="Formato del anuncio" value={format} options={FORMAT_OPTIONS} onChange={setFormat} />
-						<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
-						<BatchSelect label="Calidad" value={quality} options={QUALITY_OPTIONS} onChange={setQuality} />
-						<BatchSelect label="Colores" value={colorMode} options={STYLE_OPTIONS} onChange={setColorMode} />
-						<BatchSelect label="Tipografía" value={typoMode} options={STYLE_OPTIONS} onChange={setTypoMode} />
-					</div>
-				</div>
+				<div className="wiz-step">
+					<span className="wiz-num">2</span>
+					<div className="wiz-body">
+						<label className="picker-label">¿Qué vas a promocionar?</label>
+						<div className="wiz-tabs">
+							{([
+								['url', '🔗', 'Con URL', 'Analizamos tu página'],
+								['manual', '✍️', 'A mano', 'Vos cargás los datos'],
+								['text', '📝', 'Solo texto', 'Sin foto de producto'],
+							] as const).map(([value, icon, label, hint]) => (
+								<button
+									key={value}
+									type="button"
+									className={`wiz-tab ${mode === value ? 'active' : ''}`}
+									onClick={() => setMode(value)}
+								>
+									<span className="wiz-tab-icon">{icon}</span>
+									<span className="wiz-tab-label">{label}</span>
+									<small>{hint}</small>
+								</button>
+							))}
+						</div>
 
-				{/* Desplegable de Opciones Avanzadas */}
-				<div className="advanced-options-toggle">
-					<button
-						type="button"
-						className="toggle-btn"
-						onClick={() => setShowAdvanced(!showAdvanced)}
-					>
-						<span>{showAdvanced ? '➖ Menos opciones' : '➕ Más fotos e instrucciones para la IA (Opcional)'}</span>
-					</button>
-				</div>
+						{mode === 'url' && (
+							<div className="url-batch-input-wrap" style={{ background: '#ffffff', border: '2px solid #744bde', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
+								<span className="input-icon" style={{ fontSize: '20px' }}>🔗</span>
+								<input
+									type="url"
+									className="url-batch-input"
+									placeholder="https://tu-tienda.com/productos/zapato-deportivo-run"
+									value={url}
+									onChange={(e) => setUrl(e.target.value)}
+									style={{ color: '#19171d', fontWeight: 600, fontSize: '15px' }}
+								/>
+								<button
+									type="button"
+									className="paste-btn"
+									onClick={async () => {
+										try {
+											const text = await navigator.clipboard.readText();
+											if (text.startsWith('http')) setUrl(text);
+										} catch { /* ignore */ }
+									}}
+									title="Pegar URL"
+								>
+									📋 Pegar
+								</button>
+							</div>
+						)}
 
-				{showAdvanced && (
-					<div className="advanced-panel">
-						<div className="advanced-grid">
-							{/* Subida de Imágenes Adicionales */}
-							<div className="advanced-field">
-								<label className="field-label">Sumar otras fotos del producto</label>
-								<div className="image-uploader-box">
-									<input
-										type="file"
-										accept="image/png, image/jpeg, image/webp"
-										multiple
-										onChange={handleImageChange}
-										id="batch-extra-imgs"
-										className="hidden-file-input"
-									/>
-									<label htmlFor="batch-extra-imgs" className="uploader-label">
-										<span>📷 Subir fotos adicionales (max 5)</span>
-									</label>
-								</div>
-								{extraImagePreviews.length > 0 && (
-									<div className="extra-previews-grid">
-										{extraImagePreviews.map((src, idx) => (
-											<div key={idx} className="preview-thumb">
-												<img src={src} alt="Foto extra" />
-												<button
-													type="button"
-													className="remove-img-btn"
-													onClick={() => removeExtraImage(idx)}
-												>
-													✕
-												</button>
-											</div>
-										))}
-									</div>
+						{mode !== 'url' && (
+							<div className="wiz-fields">
+								<input
+									className="wiz-input"
+									placeholder="Nombre del producto o servicio"
+									value={manualName}
+									onChange={(e) => setManualName(e.target.value)}
+								/>
+								<textarea
+									className="wiz-input"
+									rows={3}
+									placeholder={mode === 'text'
+										? 'Qué ofrecés, a quién le sirve y por qué. La IA escribe los anuncios con esto.'
+										: 'Descripción del producto: materiales, medidas, beneficios reales.'}
+									value={manualDescription}
+									onChange={(e) => setManualDescription(e.target.value)}
+								/>
+								{mode === 'manual' && (
+									<>
+										<input
+											className="wiz-input"
+											placeholder="Precio (opcional). Ej: $38.50"
+											value={manualPrice}
+											onChange={(e) => setManualPrice(e.target.value)}
+										/>
+										<div className="image-uploader-box">
+											<input
+												type="file"
+												accept="image/png, image/jpeg, image/webp"
+												multiple
+												onChange={handleImageChange}
+												id="wiz-manual-imgs"
+												className="hidden-file-input"
+											/>
+											<label htmlFor="wiz-manual-imgs" className="uploader-label">
+												<span>📷 Subir fotos reales del producto (necesario)</span>
+											</label>
+										</div>
+									</>
+								)}
+								{mode === 'text' && (
+									<p className="wiz-hint">
+										Sin foto usamos solo anuncios ganadores que no muestran producto: placas
+										tipográficas, comparativas y tarjetas de reseña.
+									</p>
 								)}
 							</div>
+						)}
 
-						</div>
+						{mode !== 'text' && (
+							<>
+								<button
+									type="button"
+									className="toggle-btn"
+									onClick={() => setShowAdvanced(!showAdvanced)}
+								>
+									<span>{showAdvanced ? '➖ Menos opciones' : `➕ ${mode === 'url' ? 'Sumar fotos propias del producto' : 'Más fotos'} (Opcional)`}</span>
+								</button>
+								{showAdvanced && mode === 'url' && (
+									<div className="image-uploader-box">
+										<input
+											type="file"
+											accept="image/png, image/jpeg, image/webp"
+											multiple
+											onChange={handleImageChange}
+											id="wiz-extra-imgs"
+											className="hidden-file-input"
+										/>
+										<label htmlFor="wiz-extra-imgs" className="uploader-label">
+											<span>📷 Subir fotos adicionales (máx. 5)</span>
+										</label>
+									</div>
+								)}
+							</>
+						)}
 
-						{/* Brief: se inyecta como USER DIRECTION en cada anuncio del lote */}
-						<div className="advanced-field full-width">
-							<label className="field-label">Qué querés que digan los anuncios (Opcional)</label>
-							<textarea
-								className="brief-textarea"
-								placeholder="Ej: hablarle a mujeres de 30-45, destacar que es libre de fragancia, tono cercano y sin tecnicismos. Estas indicaciones se aplican a los anuncios del lote."
-								value={brief}
-								onChange={(e) => setBrief(e.target.value)}
-								rows={3}
-							/>
-							<small style={{ color: '#6b6478', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
-								La IA solo usa datos reales de tu producto: nunca inventa precios, descuentos ni certificaciones.
-							</small>
-						</div>
+						{extraImagePreviews.length > 0 && (
+							<div className="extra-previews-grid">
+								{extraImagePreviews.map((src, idx) => (
+									<div key={idx} className="preview-thumb">
+										<img src={src} alt="Foto del producto" />
+										<button type="button" className="remove-img-btn" onClick={() => removeExtraImage(idx)}>✕</button>
+									</div>
+								))}
+							</div>
+						)}
 					</div>
-				)}
+				</div>
 
 				{error && (
 					<div className="url-batch-error" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -625,15 +678,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								type="button"
 								onClick={onNavigateToPlans}
 								style={{
-									alignSelf: 'flex-start',
-									padding: '9px 18px',
-									borderRadius: '10px',
-									border: 0,
-									background: '#744bde',
-									color: '#ffffff',
-									fontWeight: 800,
-									fontSize: '13px',
-									cursor: 'pointer'
+									alignSelf: 'flex-start', padding: '9px 18px', borderRadius: '10px', border: 0,
+									background: '#744bde', color: '#ffffff', fontWeight: 800, fontSize: '13px', cursor: 'pointer',
 								}}
 							>
 								💳 Comprar Créditos / Ver Planes
@@ -642,19 +688,16 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				)}
 
-				{/* Botón de Acción Principal */}
 				<button
 					type="submit"
 					className="url-batch-submit-btn"
-					disabled={isScanning || !url.trim()}
+					disabled={isScanning || (mode === 'url' ? !url.trim() : !manualName.trim())}
 				>
 					{isScanning ? (
-						<>
-							<span className="spinner">⌛</span> Analizando tu producto y buscando ganadores…
-						</>
+						<><span className="spinner">⌛</span> Buscando los mejores anuncios ganadores…</>
 					) : (
 						<>
-							<span>🔎 Buscar {count} Anuncios Ganadores para mi Producto</span>
+							<span>🔎 Buscar {count} anuncios ganadores</span>
 							<span className="btn-credits-badge">Todavía no gastás créditos</span>
 						</>
 					)}
@@ -709,7 +752,37 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						))}
 					</div>
 
-					<div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '18px' }}>
+					{/* Los ajustes de generación viven acá: no cambian qué referencias se
+				    eligen, solo cómo se construye cada anuncio. */}
+				<div className="wiz-step" style={{ marginTop: '20px' }}>
+					<span className="wiz-num">✓</span>
+					<div className="wiz-body">
+						<label className="picker-label">Cómo querés que salgan</label>
+						<div className="batch-select-row">
+							<BatchSelect label="Formato" value={format} options={FORMAT_OPTIONS} onChange={setFormat} />
+							<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+							<BatchSelect label="Calidad" value={quality} options={QUALITY_OPTIONS} onChange={setQuality} />
+							<BatchSelect label="Colores" value={colorMode} options={STYLE_OPTIONS} onChange={setColorMode} />
+							<BatchSelect label="Tipografía" value={typoMode} options={STYLE_OPTIONS} onChange={setTypoMode} />
+						</div>
+
+						<label className="field-label" style={{ marginTop: '14px', display: 'block' }}>
+							Qué querés que digan los anuncios (Opcional)
+						</label>
+						<textarea
+							className="brief-textarea"
+							placeholder="Ej: hablarle a mujeres de 30-45, destacar que es libre de fragancia, tono cercano y sin tecnicismos."
+							value={brief}
+							onChange={(e) => setBrief(e.target.value)}
+							rows={2}
+						/>
+						<small style={{ color: '#6b6478', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
+							La IA solo usa datos reales de tu producto: nunca inventa precios, descuentos ni certificaciones.
+						</small>
+					</div>
+				</div>
+
+				<div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '18px' }}>
 						<button
 							type="button"
 							className="url-batch-submit-btn"
@@ -728,14 +801,14 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</button>
 						<button
 							type="button"
-							onClick={() => { setStep('form'); setPreview(null); setSelected([]); setSpares([]); }}
+							onClick={() => { setStep('form'); setPreview(null); setSelected([]); setSpares([]); seenPathsRef.current = new Set(); }}
 							disabled={isGenerating}
 							style={{
 								padding: '0 20px', borderRadius: '12px', border: '2px solid #e6e0f2',
 								background: '#fff', color: '#5f32cf', fontWeight: 700, fontSize: '13px', cursor: 'pointer',
 							}}
 						>
-							← Cambiar producto u opciones
+							← Cambiar producto
 						</button>
 					</div>
 

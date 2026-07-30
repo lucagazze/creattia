@@ -3532,3 +3532,134 @@
 }
 
 .studio-card-ref:hover { background: #fff; box-shadow: 0 8px 22px rgba(25, 23, 29, 0.26); }
+
+/* ── Paso a paso del generador ────────────────────────────────────────────
+   Antes todo iba en un solo bloque largo. Ahora el paso 1 pide solo cantidad y
+   producto, y los ajustes de generación (formato, idioma, estilo) aparecen en el
+   paso 2 junto a las referencias, que es cuando de verdad importan. */
+.wiz-step {
+	display: flex;
+	gap: 13px;
+	align-items: flex-start;
+	padding: 15px;
+	border: 1px solid #eee9f6;
+	border-radius: 15px;
+	background: #fdfcff;
+}
+
+.wiz-num {
+	flex: 0 0 auto;
+	width: 25px;
+	height: 25px;
+	border-radius: 999px;
+	background: #5f32cf;
+	color: #fff;
+	font-size: 12.5px;
+	font-weight: 900;
+	display: grid;
+	place-items: center;
+	margin-top: 1px;
+}
+
+.wiz-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 11px; }
+.wiz-body > .picker-label { margin-bottom: -2px; }
+
+.wiz-tabs {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 9px;
+}
+
+.wiz-tab {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 1px;
+	padding: 10px 12px;
+	border-radius: 12px;
+	border: 2px solid #e9e3f5;
+	background: #fff;
+	cursor: pointer;
+	font-family: inherit;
+	text-align: left;
+	transition: border-color .14s ease, background .14s ease;
+}
+
+.wiz-tab:hover { border-color: #cbbcf0; }
+.wiz-tab.active { border-color: #744bde; background: #f7f4ff; }
+.wiz-tab-icon { font-size: 15px; line-height: 1; }
+.wiz-tab-label { font-size: 13px; font-weight: 800; color: #19171d; }
+.wiz-tab small { font-size: 10.5px; font-weight: 600; color: #8b8496; }
+.wiz-tab.active .wiz-tab-label { color: #4f27b5; }
+
+.wiz-fields { display: flex; flex-direction: column; gap: 9px; }
+
+.wiz-input {
+	width: 100%;
+	padding: 11px 13px;
+	border-radius: 11px;
+	border: 2px solid #e6e0f2;
+	background: #fff;
+	color: #19171d;
+	font-family: inherit;
+	font-size: 13.5px;
+	font-weight: 600;
+	resize: vertical;
+	box-sizing: border-box;
+}
+
+.wiz-input::placeholder { color: #a49dae; font-weight: 500; }
+.wiz-input:focus-visible { outline: none; border-color: #744bde; box-shadow: 0 0 0 3px rgba(116,75,222,.14); }
+
+.wiz-hint {
+	margin: 0;
+	font-size: 11.5px;
+	font-weight: 600;
+	color: #6b6478;
+	background: #f6f3fd;
+	border-radius: 9px;
+	padding: 9px 11px;
+}
+
+/* Modal del anuncio ganador de referencia. Antes se abría en una pestaña nueva,
+   que saca al usuario de la app. */
+.ref-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 400;
+	display: grid;
+	place-items: center;
+	padding: 26px;
+	background: rgba(18, 15, 24, 0.72);
+	backdrop-filter: blur(5px);
+	animation: ref-modal-in .14s ease;
+}
+
+@keyframes ref-modal-in { from { opacity: 0 } to { opacity: 1 } }
+
+.ref-modal-box {
+	background: #fff;
+	border-radius: 18px;
+	padding: 14px;
+	max-width: min(560px, 92vw);
+	max-height: 92vh;
+	display: flex;
+	flex-direction: column;
+	gap: 11px;
+	box-shadow: 0 26px 70px rgba(0, 0, 0, .4);
+}
+
+.ref-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ref-modal-kicker { font-size: 9.5px; font-weight: 900; letter-spacing: .05em; color: #8b8490; }
+.ref-modal-head h4 { margin: 3px 0 0; font-size: 15px; color: #19171d; }
+
+.ref-modal-head button {
+	flex: 0 0 auto;
+	width: 30px; height: 30px;
+	border: 0; border-radius: 9px;
+	background: #f3effa; color: #5f32cf;
+	font-size: 14px; font-weight: 800; cursor: pointer; font-family: inherit;
+}
+
+.ref-modal-head button:hover { background: #e7dffa; }
+.ref-modal-box img { max-width: 100%; max-height: 76vh; object-fit: contain; border-radius: 12px; display: block; }

@@ -3030,6 +3030,8 @@ function GenerationCard({
 }) {
 	const [showFolderDropdown, setShowFolderDropdown] = useState(false);
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+	// El anuncio ganador de referencia se ve en un modal, no en una pestaña nueva.
+	const [refPreview, setRefPreview] = useState<{ path: string; name: string } | null>(null);
 
 	useEffect(() => {
 		if (!showFolderDropdown) return;
@@ -3193,17 +3195,19 @@ function GenerationCard({
 						<img src={item.imageUrl} alt={item.title} loading="lazy"/>
 						<a href={item.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(item.imageUrl, `creattia-${item.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a>
 						{item.referencePath && (
-							<a
+							<button
+								type="button"
 								className="studio-card-ref"
-								href={`${REFERENCES_PUBLIC_BASE}/${item.referencePath}`}
-								target="_blank"
-								rel="noreferrer"
-								onClick={(event) => event.stopPropagation()}
+								onClick={(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+									setRefPreview({ path: item.referencePath!, name: item.referenceName || '' });
+								}}
 								title={`Inspirado en el anuncio ganador${item.referenceName ? ` de ${item.referenceName}` : ''} — tocá para verlo`}
 							>
 								<img src={`${REFERENCES_PUBLIC_BASE}/${item.referencePath}`} alt="" loading="lazy" />
 								<span>🏆 Referencia</span>
-							</a>
+							</button>
 						)}
 						{onDeleteImage && (
 							<button
@@ -3224,6 +3228,22 @@ function GenerationCard({
 				<span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>
 				{(onExpand || onReuse) && <button onClick={onExpand || onReuse}><Icon name="history" size={14}/>Crear otra versión</button>}
 			</footer>
+
+			{/* Modal del anuncio ganador de referencia */}
+			{refPreview && (
+				<div className="ref-modal" onClick={() => setRefPreview(null)}>
+					<div className="ref-modal-box" onClick={(event) => event.stopPropagation()}>
+						<div className="ref-modal-head">
+							<div>
+								<span className="ref-modal-kicker">🏆 ANUNCIO GANADOR DE REFERENCIA</span>
+								{refPreview.name && <h4>{refPreview.name}</h4>}
+							</div>
+							<button type="button" onClick={() => setRefPreview(null)} aria-label="Cerrar">✕</button>
+						</div>
+						<img src={`${REFERENCES_PUBLIC_BASE}/${refPreview.path}`} alt={refPreview.name || 'Anuncio ganador'} />
+					</div>
+				</div>
+			)}
 
 			{/* Context menu for right-click premium features */}
 			{contextMenu && (
@@ -3338,6 +3358,8 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 	const [starting, setStarting] = useState(false);
 	const [error, setError] = useState('');
 	const [showReference, setShowReference] = useState(false);
+	// Ganador de referencia en modal, sin salir de la app.
+	const [lightboxRef, setLightboxRef] = useState<{ path: string; name: string } | null>(null);
 	const [revisionFormat, setRevisionFormat] = useState<string>(item.format || 'original');
 
 	// Product overrides
@@ -3465,11 +3487,11 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 
 					{/* De qué anuncio ganador salió esta imagen */}
 					{item.referencePath && (
-						<a
-							href={`${REFERENCES_PUBLIC_BASE}/${item.referencePath}`}
-							target="_blank"
-							rel="noreferrer"
+						<button
+							type="button"
+							onClick={() => setLightboxRef({ path: item.referencePath!, name: item.referenceName || '' })}
 							style={{
+								width: '100%', font: 'inherit', cursor: 'pointer',
 								display: 'flex', alignItems: 'center', gap: '10px', padding: '9px',
 								borderRadius: '12px', border: '1.5px solid #eae5f3', background: '#faf8fd',
 								textDecoration: 'none',
@@ -3490,7 +3512,7 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 									{item.referenceName || 'Anuncio ganador de la biblioteca'}
 								</span>
 							</span>
-						</a>
+						</button>
 					)}
 					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
 					{item.referenceUrl && (
@@ -3649,6 +3671,22 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 					</div>
 				</aside>
 			</div>
+
+			{/* Ganador de referencia, en modal sobre el lightbox */}
+			{lightboxRef && (
+				<div className="ref-modal" onClick={() => setLightboxRef(null)}>
+					<div className="ref-modal-box" onClick={(event) => event.stopPropagation()}>
+						<div className="ref-modal-head">
+							<div>
+								<span className="ref-modal-kicker">🏆 ANUNCIO GANADOR DE REFERENCIA</span>
+								{lightboxRef.name && <h4>{lightboxRef.name}</h4>}
+							</div>
+							<button type="button" onClick={() => setLightboxRef(null)} aria-label="Cerrar">✕</button>
+						</div>
+						<img src={`${REFERENCES_PUBLIC_BASE}/${lightboxRef.path}`} alt={lightboxRef.name || 'Anuncio ganador'} />
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
