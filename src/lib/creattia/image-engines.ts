@@ -13,8 +13,16 @@ const geminiAspectRatios: Record<string, string> = {
 	square: '1:1', portrait: '3:4', story: '9:16', landscape: '4:3',
 };
 
-// gpt-image-1 solo acepta estos tres tamaños.
+// gpt-image-2 acepta cualquier tamaño divisible por 16, así que da los ratios
+// exactos. Antes acá estaba el mapa viejo de gpt-image-1, que solo tiene tres
+// tamaños: un Story 9:16 terminaba saliendo en 2:3, bastante menos alto.
 const openAISizes: Record<string, string> = {
+	'1:1': '1024x1024', '3:4': '1152x1536', '9:16': '864x1536', '4:3': '1536x1152', '16:9': '1536x864',
+	square: '1024x1024', portrait: '1152x1536', story: '864x1536', landscape: '1536x1152',
+};
+
+// gpt-image-1 (legacy) solo acepta estos tres.
+const legacyOpenAISizes: Record<string, string> = {
 	'1:1': '1024x1024', '3:4': '1024x1536', '9:16': '1024x1536', '4:3': '1536x1024', '16:9': '1536x1024',
 	square: '1024x1024', portrait: '1024x1536', story: '1024x1536', landscape: '1536x1024',
 };
@@ -117,16 +125,9 @@ export async function generateAdImage(input: {
 	prompt: string;
 	images?: EngineImage[];
 	format: string;
-	/**
-	 * 'fast'  → Gemini flash: 10s, USD 0.067/img (medido jul-2026).
-	 * 'text'  → gpt-image-2 medium: 77s, USD 0.078/img. Escribe mejor el texto
-	 *           chico (etiquetas del envase, badges) que cualquier Gemini.
-	 */
-	quality?: 'fast' | 'text';
 }): Promise<{ buffer: Buffer; engine: string }> {
 	const images = input.images || [];
 	const failures: string[] = [];
-	const preferOpenAI = input.quality === 'text';
 
 	// Gemini bloquea prompts con su filtro de contenido (IMAGE_SAFETY) sin decir
 	// qué parte le molestó. Antes eso daba la generación por perdida; ahora se
@@ -136,15 +137,22 @@ export async function generateAdImage(input: {
 		.replace(/(underwear|bralette|lingerie|bare|nude|skin|body)/gi, 'garment')
 		.replace(/(kill|destroy|attack)\w*/gi, 'address');
 
-	if (preferOpenAI && input.openAIKey) {
+	// Motor único: gpt-image-2 en calidad media.
+	// Medido contra Gemini con el mismo prompt y las mismas entradas: escribe bien
+	// el texto chico de las etiquetas de forma consistente (Gemini alternaba
+	// "PORN PINK" por "PDRN PINK" y repetía palabras del titular) y cuesta apenas
+	// 12% más (USD 0.078 contra 0.067 por imagen). Lo que se paga es tiempo:
+	// ~40-60s por imagen contra ~10s. Con 5 en paralelo no hay límite de tasa.
+	if (input.openAIKey) {
 		const model = process.env.OPENAI_IMAGE_MODEL || import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
+		const sizeMap = model === 'gpt-image-1' ? legacyOpenAISizes : openAISizes;
 		try {
 			const buffer = await generateWithOpenAI({
 				apiKey: input.openAIKey,
 				model,
 				prompt: input.prompt,
 				images,
-				size: openAISizes[input.format] || '1024x1024',
+				size: sizeMap[input.format] || '1024x1024',
 				openAIQuality: 'medium',
 			});
 			if (buffer.length > 1024) return { buffer, engine: `${model} (medium)` };
@@ -156,6 +164,7 @@ export async function generateAdImage(input: {
 		}
 	}
 
+	// Respaldo: si OpenAI falla o se cae, Gemini salva la generación en ~10s.
 	if (input.googleKey) {
 		// Medido sobre el mismo prompt/referencia/producto (jul-2026):
 		//   flash-lite  7.7s  $0.034/img  OK en layouts simples, pero en un
@@ -190,27 +199,6 @@ export async function generateAdImage(input: {
 					break;
 				}
 			}
-		}
-	}
-
-	// Último recurso: OpenAI. Es el mejor con el texto de la etiqueta pero midió
-	// 225s por imagen, así que solo se usa si los tres modelos de Gemini fallaron.
-	// gpt-image-1-mini queda descartado a propósito: en la prueba escribió mal el
-	// nombre del producto, inventó un logo y cambió la cara de la modelo.
-	if (input.openAIKey) {
-		const model = process.env.OPENAI_IMAGE_MODEL || import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
-		try {
-			const buffer = await generateWithOpenAI({
-				apiKey: input.openAIKey,
-				model,
-				prompt: input.prompt,
-				images,
-				size: openAISizes[input.format] || '1024x1024',
-			});
-			if (buffer.length > 1024) return { buffer, engine: model };
-			failures.push(`${model}: respuesta vacía`);
-		} catch (error) {
-			failures.push(`${model}: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 

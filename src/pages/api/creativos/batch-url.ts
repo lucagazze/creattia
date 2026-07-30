@@ -341,7 +341,6 @@ export const POST: APIRoute = async ({ request }) => {
 			language,
 			colorMode,
 			typoMode,
-			quality: clean(form.get('quality'), 6) === 'text' ? 'text' : 'fast',
 			brief,
 			winners: finalWinners.slice(0, count).map(toPayload),
 			spares: finalSpares.map(toPayload),

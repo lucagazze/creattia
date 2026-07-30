@@ -4,7 +4,8 @@ import { supabase } from '../../lib/creattia/supabase-browser';
 
 // Cuántos anuncios se generan a la vez. Cada uno es una request independiente:
 // si una falla o se corta, las demás siguen y esa se puede reintentar sola.
-const WORKER_CONCURRENCY = 4;
+// 5 verificado contra OpenAI sin toparse con límites de tasa.
+const WORKER_CONCURRENCY = 5;
 
 /** Dispara un worker por generación pendiente, con concurrencia limitada. */
 async function driveBatchWorkers(
@@ -168,10 +169,6 @@ const STYLE_OPTIONS = [
 	{ value: 'brand', label: 'De mi marca', emoji: '🎨', hint: 'Usa los colores y la tipografía de tu marca' },
 ];
 
-const QUALITY_OPTIONS = [
-	{ value: 'fast', label: 'Rápida', emoji: '⚡', hint: '~15 s por anuncio · recomendada para lotes grandes' },
-	{ value: 'text', label: 'Texto impecable', emoji: '🔍', hint: '~80 s por anuncio · mejor con etiquetas y letra chica' },
-];
 
 const referenceUrlFor = (imagePath: string) => `${REFERENCES_PUBLIC_BASE}/${imagePath}`;
 
@@ -194,7 +191,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [count, setCount] = useState<10 | 20 | 30 | 40>(10);
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
-	const [quality, setQuality] = useState('fast');
 	const [colorMode, setColorMode] = useState('winner');
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brief, setBrief] = useState('');
@@ -399,7 +395,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					winnerPaths: selected.map((winner) => winner.imagePath),
 					format,
 					language,
-					quality,
 					colorMode,
 					typoMode,
 					brief: brief.trim(),
@@ -761,8 +756,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						<div className="batch-select-row">
 							<BatchSelect label="Formato" value={format} options={FORMAT_OPTIONS} onChange={setFormat} />
 							<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
-							<BatchSelect label="Calidad" value={quality} options={QUALITY_OPTIONS} onChange={setQuality} />
-							<BatchSelect label="Colores" value={colorMode} options={STYLE_OPTIONS} onChange={setColorMode} />
+								<BatchSelect label="Colores" value={colorMode} options={STYLE_OPTIONS} onChange={setColorMode} />
 							<BatchSelect label="Tipografía" value={typoMode} options={STYLE_OPTIONS} onChange={setTypoMode} />
 						</div>
 
