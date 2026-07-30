@@ -523,7 +523,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			{step === 'form' && (
 			<form onSubmit={handleScan} className="url-batch-form">
 				<div className="wiz-step" hidden={formStep !== 1}>
-					<span className="wiz-num">1</span>
 					<div className="wiz-body">
 						<label className="picker-label">¿Cuántos anuncios querés crear?</label>
 						<div className="picker-options">
@@ -550,7 +549,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				)}
 
 				<div className="wiz-step" hidden={formStep !== 2}>
-					<span className="wiz-num">2</span>
 					<div className="wiz-body">
 						<label className="picker-label">¿Qué vas a promocionar?</label>
 						<div className="wiz-tabs">
@@ -652,10 +650,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							<>
 								<button
 									type="button"
-									className="toggle-btn"
+									className="wiz-ghost"
 									onClick={() => setShowAdvanced(!showAdvanced)}
 								>
-									<span>{showAdvanced ? '➖ Menos opciones' : `➕ ${mode === 'url' ? 'Sumar fotos propias del producto' : 'Más fotos'} (Opcional)`}</span>
+									<span>{showAdvanced ? 'Ocultar fotos' : `+ ${mode === 'url' ? 'Sumar fotos propias' : 'Más fotos'} · opcional`}</span>
 								</button>
 								{showAdvanced && mode === 'url' && (
 									<div className="image-uploader-box">
@@ -780,7 +778,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					{/* Los ajustes de generación viven acá: no cambian qué referencias se
 				    eligen, solo cómo se construye cada anuncio. */}
 				<div className="wiz-step" style={{ marginTop: '20px' }}>
-					<span className="wiz-num">✓</span>
 					<div className="wiz-body">
 						<label className="picker-label">Cómo querés que salgan</label>
 						<div className="batch-select-row">

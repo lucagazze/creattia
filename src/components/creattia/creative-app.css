@@ -3748,3 +3748,99 @@
 
 /* Un paso oculto no debe dejar hueco */
 .wiz-step[hidden] { display: none; }
+
+/* ── Ajuste estético del paso a paso ─────────────────────────────────────
+   Se veía estirado y sobredimensionado: las tarjetas de modo ocupaban todo el
+   ancho disponible en pantallas grandes, el botón de fotos era una barra gris a
+   lo ancho, y el número del paso estaba duplicado — el indicador de arriba ya
+   dice en cuál estás. */
+
+/* El contenido no se estira más allá de una medida cómoda de lectura. */
+.url-batch-form,
+.url-batch-header {
+	max-width: 780px;
+	margin-left: auto;
+	margin-right: auto;
+	width: 100%;
+}
+
+.url-batch-form { gap: 14px; }
+
+/* La tarjeta del paso pierde el marco doble y el número redundante. */
+.wiz-step {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	gap: 0;
+}
+
+.wiz-body { gap: 12px; }
+
+.wiz-body > .picker-label {
+	font-size: 12px;
+	font-weight: 800;
+	letter-spacing: .01em;
+	color: #6b6478;
+	text-transform: none;
+}
+
+/* Solapas de modo: compactas y parejas, no bloques gigantes. */
+.wiz-tabs { gap: 8px; grid-template-columns: repeat(3, 1fr); }
+
+.wiz-tab {
+	padding: 9px 12px;
+	border-width: 1.5px;
+	border-radius: 11px;
+	gap: 0;
+}
+
+.wiz-tab-icon { font-size: 13px; margin-bottom: 3px; }
+.wiz-tab-label { font-size: 12.5px; }
+.wiz-tab small { font-size: 10px; line-height: 1.25; }
+
+@media (max-width: 560px) {
+	.wiz-tabs { grid-template-columns: 1fr; }
+	.wiz-tab { flex-direction: row; align-items: center; gap: 9px; }
+	.wiz-tab-icon { margin-bottom: 0; }
+	.wiz-tab small { display: none; }
+}
+
+/* Campo de URL a una altura normal. */
+.url-batch-input-wrap { padding: 5px 6px 5px 13px; border-width: 1.5px; border-radius: 12px; }
+.url-batch-input { height: 40px; font-size: 14px !important; }
+.url-batch-input-wrap .input-icon { font-size: 15px !important; }
+.paste-btn { padding: 8px 13px; font-size: 12px; }
+
+/* Pastillas de cantidad más contenidas. */
+.picker-options { gap: 9px; }
+.picker-pill { padding: 12px 10px; border-radius: 12px; }
+.pill-count { font-size: 14px; }
+.pill-sub { font-size: 10.5px; }
+
+/* Enlace discreto para sumar fotos, en vez de una barra gris a lo ancho. */
+.wiz-ghost {
+	align-self: flex-start;
+	padding: 6px 0;
+	border: 0;
+	background: transparent;
+	color: #5f32cf;
+	font-family: inherit;
+	font-size: 12.5px;
+	font-weight: 700;
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	text-decoration-color: #d5c8f2;
+}
+
+.wiz-ghost:hover { text-decoration-color: #5f32cf; }
+
+/* Botón principal: alto fijo y tipografía pareja con el resto de la app. */
+.url-batch-submit-btn { height: 50px; border-radius: 13px; font-size: 14px; }
+.btn-credits-badge { font-size: 11.5px; opacity: .85; }
+.wiz-back { padding: 0 18px; border-width: 1.5px; border-radius: 13px; font-size: 12.5px; }
+
+/* Indicador de progreso: un poco más chico para no competir con el título. */
+.wiz-progress { margin-bottom: 16px; }
+.wiz-progress-item { font-size: 11.5px; padding: 6px 12px 6px 7px; }
+.wiz-progress-dot { width: 19px; height: 19px; font-size: 10px; }
