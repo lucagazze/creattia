@@ -41,16 +41,48 @@ const FUNNEL_MIX: Array<{ leaf: string; weight: number }> = [
 
 let cachedWinners: Winner[] | null = null;
 
-/** Carga el manifest de ganadores (asset estático del propio deploy). */
+/**
+ * Carga el manifest de ganadores.
+ *
+ * La fuente de verdad es Supabase Storage, igual que en la Biblioteca de
+ * ganadores del front. `public/scraped_ads/` está en .gitignore, así que en
+ * Vercel ese archivo NO existe: leerlo desde el propio origen daba 404 en
+ * producción y el lote no se podía armar. Se deja como fallback para desarrollo.
+ */
 export async function loadWinners(siteOrigin: string): Promise<Winner[]> {
 	if (cachedWinners) return cachedWinners;
-	const response = await fetch(`${siteOrigin.replace(/\/$/, '')}/scraped_ads/manifest.json`);
-	if (!response.ok) throw new Error(`No se pudo cargar la biblioteca de ganadores (${response.status}).`);
-	const data: any = await response.json();
-	const items: Winner[] = Array.isArray(data) ? data : data.items || [];
-	// Solo estáticos con imagen: los carruseles no sirven como referencia única.
-	cachedWinners = items.filter((item) => item.imagePath && item.metadata?.mediaType !== 'carousel');
-	return cachedWinners;
+
+	const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '';
+	const sources = [
+		supabaseUrl
+			? `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/creative-references/manifests/starter-static-50.json`
+			: '',
+		`${siteOrigin.replace(/\/$/, '')}/scraped_ads/manifest.json`,
+	].filter(Boolean);
+
+	const failures: string[] = [];
+	for (const source of sources) {
+		try {
+			const response = await fetch(source);
+			if (!response.ok) {
+				failures.push(`${response.status} en ${source.split('/').slice(-1)[0]}`);
+				continue;
+			}
+			const data: any = await response.json();
+			const items: Winner[] = Array.isArray(data) ? data : data.items || [];
+			// Solo estáticos con imagen: los carruseles no sirven como referencia única.
+			const usable = items.filter((item) => item.imagePath && item.metadata?.mediaType !== 'carousel');
+			if (usable.length) {
+				cachedWinners = usable;
+				return cachedWinners;
+			}
+			failures.push(`sin items usables en ${source.split('/').slice(-1)[0]}`);
+		} catch (error) {
+			failures.push(error instanceof Error ? error.message : String(error));
+		}
+	}
+
+	throw new Error(`No se pudo cargar la biblioteca de ganadores (${failures.join(' | ')}).`);
 }
 
 /** Pide a la IA el nicho y las palabras clave del producto para hacer el match. */

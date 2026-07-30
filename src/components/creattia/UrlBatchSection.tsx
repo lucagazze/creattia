@@ -88,6 +88,23 @@ type BatchPreview = {
 	matchedNiches?: string[];
 };
 
+const FORMAT_OPTIONS: Array<[string, string]> = [
+	['original', '🏆 Igual al anuncio ganador'],
+	['square', '🔲 Cuadrado 1:1'],
+	['portrait', '📱 Vertical 4:5'],
+	['story', '📐 Story / Reel 9:16'],
+	['landscape', '🖥️ Horizontal 4:3'],
+];
+
+const LANGUAGE_OPTIONS: Array<[string, string]> = [
+	['es', '🇦🇷 Español'],
+	['en', '🇺🇸 Inglés'],
+	['pt', '🇧🇷 Portugués'],
+	['it', '🇮🇹 Italiano'],
+	['fr', '🇫🇷 Francés'],
+	['de', '🇩🇪 Alemán'],
+];
+
 const referenceUrlFor = (imagePath: string) => `${REFERENCES_PUBLIC_BASE}/${imagePath}`;
 
 export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
@@ -101,7 +118,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 }) => {
 	const [url, setUrl] = useState(initialUrl);
 	const [count, setCount] = useState<10 | 20 | 30 | 40>(10);
-	const [format, setFormat] = useState<'original' | 'square' | 'portrait' | 'story'>('original');
+	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
 	const [brief, setBrief] = useState('');
 	const [showAdvanced, setShowAdvanced] = useState(false);
@@ -397,51 +414,34 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				</div>
 
-				{/* Formato e idioma: siempre visibles porque cambian el resultado */}
+				{/* Formato e idioma: listas desplegables. Antes eran filas de botones y
+				    con 6 idiomas se desbordaban una sobre la otra. */}
 				<div className="batch-quantity-picker">
-					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
-						<div>
-							<label className="picker-label">Formato del anuncio</label>
-							<div className="format-selector">
-								{([
-									['original', '🏆 Igual al ganador'],
-									['square', '🔲 Cuadrado 1:1'],
-									['portrait', '📱 Vertical 4:5'],
-									['story', '📐 Story 9:16'],
-								] as const).map(([value, label]) => (
-									<button
-										key={value}
-										type="button"
-										className={`format-btn ${format === value ? 'active' : ''}`}
-										onClick={() => setFormat(value)}
-									>
-										{label}
-									</button>
+					<div className="batch-select-row">
+						<label className="batch-select-field">
+							<span className="picker-label">Formato del anuncio</span>
+							<select
+								className="batch-select"
+								value={format}
+								onChange={(e) => setFormat(e.target.value as typeof format)}
+							>
+								{FORMAT_OPTIONS.map(([value, label]) => (
+									<option key={value} value={value}>{label}</option>
 								))}
-							</div>
-						</div>
-						<div>
-							<label className="picker-label">Idioma de los textos</label>
-							<div className="format-selector">
-								{([
-									['es', '🇦🇷 Español'],
-									['en', '🇺🇸 Inglés'],
-									['pt', '🇧🇷 Portugués'],
-									['it', '🇮🇹 Italiano'],
-									['fr', '🇫🇷 Francés'],
-									['de', '🇩🇪 Alemán'],
-								] as const).map(([value, label]) => (
-									<button
-										key={value}
-										type="button"
-										className={`format-btn ${language === value ? 'active' : ''}`}
-										onClick={() => setLanguage(value)}
-									>
-										{label}
-									</button>
+							</select>
+						</label>
+						<label className="batch-select-field">
+							<span className="picker-label">Idioma de los textos</span>
+							<select
+								className="batch-select"
+								value={language}
+								onChange={(e) => setLanguage(e.target.value)}
+							>
+								{LANGUAGE_OPTIONS.map(([value, label]) => (
+									<option key={value} value={value}>{label}</option>
 								))}
-							</div>
-						</div>
+							</select>
+						</label>
 					</div>
 				</div>
 

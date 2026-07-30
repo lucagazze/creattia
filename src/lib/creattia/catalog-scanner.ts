@@ -358,14 +358,36 @@ export async function analyzeCatalogWithAI(input: { sources: ScannedSource[]; pr
 export async function extractProductPageWithAI(rawUrl: string, apiKey: string): Promise<ScannedProduct> {
 	const url = normalizeExternalUrl(rawUrl);
 
-	// 1. Fetch the page HTML
-	const response = await safeExternalFetch(url, {
-		headers: {
-			accept: 'text/html,application/xhtml+xml',
-			'user-agent': 'Mozilla/5.0 (compatible; CreattiaBot/1.0)',
-		},
-	});
-	if (!response.ok) throw new Error(`El sitio respondió con estado ${response.status}.`);
+	// 1. Fetch the page HTML.
+	// Shopify y Cloudflare tiran 429 con facilidad (y castigan más a los
+	// user-agents de bot), así que se reintenta respetando Retry-After. Sin esto
+	// un 429 pasajero hacía fracasar todo el lote.
+	let response: Response | null = null;
+	let lastStatus = 0;
+	for (let attempt = 0; attempt < 3; attempt += 1) {
+		response = await safeExternalFetch(url, {
+			headers: {
+				accept: 'text/html,application/xhtml+xml',
+				'accept-language': 'es-AR,es;q=0.9,en;q=0.8',
+				'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+			},
+		});
+		if (response.ok) break;
+		lastStatus = response.status;
+		const retryable = response.status === 429 || response.status >= 500;
+		if (!retryable || attempt === 2) break;
+		const retryAfter = Number(response.headers.get('retry-after'));
+		const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+			? Math.min(retryAfter * 1000, 8000)
+			: 1200 * (attempt + 1);
+		await new Promise((resolve) => setTimeout(resolve, waitMs));
+	}
+	if (!response || !response.ok) {
+		if (lastStatus === 429) {
+			throw new Error('El sitio del producto está limitando las consultas (429). Esperá un minuto y volvé a intentar.');
+		}
+		throw new Error(`El sitio respondió con estado ${lastStatus || response?.status || 0}.`);
+	}
 	const contentType = (response.headers.get('content-type') || '').toLowerCase();
 	if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
 		throw new Error('La URL no apunta a una página web compatible.');

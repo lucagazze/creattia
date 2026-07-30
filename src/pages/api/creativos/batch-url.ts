@@ -58,23 +58,20 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!acceptedInputTypes.has(file.type)) return json({ error: `Formato no soportado para ${file.name}. Usá PNG, JPG o WebP.` }, 415);
 		}
 
-		// 1. Extraer o encontrar producto por URL
-		let scannedProduct: ScannedProduct | null = null;
+		// 1. Extraer el producto de la URL.
+		// Antes, si esto fallaba se guardaba un producto vacío llamado "Producto
+		// desde URL" y el error real quedaba en los logs: el usuario recibía un
+		// mensaje equivocado sobre las fotos. Ahora se devuelve la causa concreta.
+		let scannedProduct: ScannedProduct;
 		try {
 			scannedProduct = await extractProductPageWithAI(productUrl, openAIKey);
 		} catch (extractErr) {
-			console.warn('AI product extraction failed, creating fallback product info from URL:', extractErr);
-			scannedProduct = {
-				externalId: productUrl,
-				name: 'Producto desde URL',
-				description: 'Producto analizado directamente desde ' + productUrl,
-				priceText: '',
-				currency: 'ARS',
-				productUrl,
-				imageUrl: '',
-				imageUrls: [],
-				metadata: {},
-			};
+			const detail = extractErr instanceof Error ? extractErr.message : String(extractErr);
+			console.error('Fallo la extracción del producto:', extractErr);
+			return json({
+				error: `No pudimos leer la página del producto. ${detail}`,
+				code: 'SCAN_FAILED',
+			}, 502);
 		}
 
 		// 2. Guardar producto en DB si es nuevo o actualizarlo (de forma segura)

@@ -3167,3 +3167,46 @@
 	font-size: 24px;
 	cursor: pointer;
 }
+
+/* Formato e idioma del lote por URL: listas desplegables.
+   Antes eran filas de botones y con 6 idiomas se desbordaban una sobre la otra. */
+.batch-select-row {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 14px;
+}
+
+.batch-select-field {
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	min-width: 0;
+}
+
+.batch-select {
+	width: 100%;
+	padding: 11px 34px 11px 13px;
+	border-radius: 11px;
+	border: 2px solid #e6e0f2;
+	background: #ffffff;
+	color: #19171d;
+	font-size: 13.5px;
+	font-weight: 700;
+	font-family: inherit;
+	cursor: pointer;
+	appearance: none;
+	background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%235f32cf' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 13px center;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.batch-select:hover {
+	border-color: #cbbcf0;
+}
+
+.batch-select:focus-visible {
+	outline: none;
+	border-color: #744bde;
+	box-shadow: 0 0 0 3px rgba(116, 75, 222, 0.16);
+}
