@@ -3210,3 +3210,149 @@
 	border-color: #744bde;
 	box-shadow: 0 0 0 3px rgba(116, 75, 222, 0.16);
 }
+
+/* ── Revisión de referencias ganadoras ────────────────────────────────────
+   Tarjeta propia en vez de reusar .batch-card: las referencias tienen
+   proporciones muy distintas entre sí y con la tarjeta del lote la imagen
+   quedaba chica y el texto se desbordaba al costado. */
+.ref-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+	gap: 14px;
+}
+
+.ref-card {
+	background: #ffffff;
+	border: 1px solid #eae5f3;
+	border-radius: 14px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.ref-card:hover {
+	border-color: #d5c8f2;
+	box-shadow: 0 10px 26px rgba(52, 40, 79, 0.10);
+	transform: translateY(-2px);
+}
+
+/* Marco de proporción fija: toda la grilla se ve prolija sin importar el
+   ratio original de cada anuncio. */
+.ref-thumb {
+	position: relative;
+	display: block;
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	padding: 0;
+	border: 0;
+	background: #f4f1fa;
+	cursor: zoom-in;
+	overflow: hidden;
+}
+
+.ref-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	transition: transform .35s ease;
+}
+
+.ref-card:hover .ref-thumb img { transform: scale(1.04); }
+
+.ref-index {
+	position: absolute;
+	top: 7px;
+	left: 7px;
+	min-width: 19px;
+	height: 19px;
+	padding: 0 5px;
+	border-radius: 6px;
+	background: rgba(25, 23, 29, 0.62);
+	backdrop-filter: blur(3px);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 800;
+	line-height: 19px;
+	text-align: center;
+}
+
+.ref-leaf {
+	position: absolute;
+	bottom: 7px;
+	left: 7px;
+	right: 7px;
+	padding: 3px 7px;
+	border-radius: 6px;
+	background: rgba(255, 255, 255, 0.93);
+	color: #5f32cf;
+	font-size: 9.5px;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: .02em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.ref-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 9px 9px;
+	min-width: 0;
+}
+
+.ref-name {
+	font-size: 11px;
+	font-weight: 700;
+	color: #6b6478;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.ref-replace {
+	flex: 0 0 auto;
+	padding: 5px 10px;
+	border-radius: 8px;
+	border: 1.5px solid #e6e0f2;
+	background: #fbfaff;
+	color: #5f32cf;
+	font-size: 10.5px;
+	font-weight: 800;
+	font-family: inherit;
+	cursor: pointer;
+	transition: background .14s ease, border-color .14s ease, color .14s ease;
+}
+
+.ref-replace:hover:not(:disabled) {
+	background: #5f32cf;
+	border-color: #5f32cf;
+	color: #ffffff;
+}
+
+.ref-replace:disabled {
+	opacity: .45;
+	cursor: not-allowed;
+}
+
+/* Las listas ocupaban todo el ancho de la fila y quedaban desproporcionadas. */
+.batch-select-row {
+	grid-template-columns: repeat(auto-fit, minmax(190px, 240px));
+	justify-content: start;
+}
+
+/* Punto de aviso cuando la referencia pega poco con el producto. */
+.ref-weak {
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin-right: 5px;
+	border-radius: 999px;
+	background: #e0a01f;
+	vertical-align: middle;
+}

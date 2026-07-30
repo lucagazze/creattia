@@ -80,6 +80,8 @@ type WinnerRef = {
 	niches?: string[];
 	templateId?: number | null;
 	domain?: string;
+	/** true cuando la referencia pega poco con el producto (conviene reemplazarla). */
+	weakMatch?: boolean;
 };
 
 type BatchPreview = {
@@ -568,8 +570,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								{preview.matchedNiches?.length ? ` · Rubro detectado: ${preview.matchedNiches.join(', ')}` : ''}
 							</p>
 							<p style={{ fontSize: '12.5px', color: '#6b6478', marginTop: '6px' }}>
-								Descartá con ✕ el que no te guste y entra otro automáticamente. Recién cuando toques
-								<strong> Generar</strong> se usan tus créditos.
+								Tocá <strong>Reemplazar</strong> en el que no te guste y entra otro al instante.
+								Recién cuando toques <strong>Generar</strong> se usan tus créditos.
 							</p>
 						</div>
 						<div className="batch-counter">
@@ -577,49 +579,35 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</div>
 					</div>
 
-					<div className="batch-grid">
+					<div className="ref-grid">
 						{selected.map((winner, index) => (
-							<div key={winner.imagePath} className="batch-card">
-								<div className="batch-card-header">
-									<span className="template-badge">🏆 {winner.name}</span>
-									{winner.leaf && <span className="ring-tag">{LEAF_LABELS[winner.leaf] || winner.leaf}</span>}
-								</div>
-								<div className="batch-card-body">
-									<div className="card-image-wrap">
-										<img
-											src={referenceUrlFor(winner.imagePath)}
-											alt={winner.name}
-											loading="lazy"
-											onClick={() => setPreviewModalUrl(referenceUrlFor(winner.imagePath))}
-										/>
-										<button
-											type="button"
-											onClick={() => discardWinner(winner.imagePath)}
-											title="Descartar y traer otro ganador"
-											style={{
-												position: 'absolute', top: '8px', right: '8px', zIndex: 3,
-												width: '30px', height: '30px', borderRadius: '999px', border: 0,
-												background: 'rgba(25,23,29,0.82)', color: '#fff', cursor: 'pointer',
-												fontSize: '14px', fontWeight: 800, lineHeight: 1,
-											}}
-										>
-											✕
-										</button>
-										<span
-											style={{
-												position: 'absolute', bottom: '8px', left: '8px', zIndex: 3,
-												padding: '3px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: 700,
-												background: 'rgba(255,255,255,0.92)', color: '#5f32cf',
-											}}
-										>
-											#{index + 1}
-										</span>
-									</div>
-									{winner.notes && (
-										<p style={{ fontSize: '11px', color: '#6b6478', padding: '8px 10px 0', margin: 0 }}>
-											{winner.notes}
-										</p>
+							<div key={winner.imagePath} className="ref-card">
+								<button
+									type="button"
+									className="ref-thumb"
+									onClick={() => setPreviewModalUrl(referenceUrlFor(winner.imagePath))}
+									title="Ver el anuncio ganador en grande"
+								>
+									<img src={referenceUrlFor(winner.imagePath)} alt={winner.name} loading="lazy" />
+									<span className="ref-index">{index + 1}</span>
+									{winner.leaf && (
+										<span className="ref-leaf">{LEAF_LABELS[winner.leaf] || winner.leaf}</span>
 									)}
+								</button>
+								<div className="ref-foot">
+									<span className="ref-name" title={winner.name}>
+										{winner.weakMatch && <span className="ref-weak" title="Pega poco con tu producto">·</span>}
+										{winner.name}
+									</span>
+									<button
+										type="button"
+										className="ref-replace"
+										onClick={() => discardWinner(winner.imagePath)}
+										disabled={!spares.length}
+										title={spares.length ? 'Cambiar por otro anuncio ganador' : 'No quedan más referencias en el banco'}
+									>
+										Reemplazar
+									</button>
 								</div>
 							</div>
 						))}

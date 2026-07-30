@@ -178,7 +178,7 @@ export const POST: APIRoute = async ({ request }) => {
 		// La generación arranca después en /api/creativos/batch-start.
 		const siteOrigin = new URL(request.url).origin;
 		const allWinners = await loadWinners(siteOrigin);
-		const { winners, spares, signals } = await pickWinnersForProduct({
+		const { winners, spares, signals, scoreByPath, minRelevance } = await pickWinnersForProduct({
 			winners: allWinners,
 			product: {
 				name: scannedProduct?.name || 'Producto',
@@ -196,6 +196,9 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const toPayload = (winner: typeof winners[number]) => ({
 			imagePath: winner.imagePath,
+			// Para que la UI marque cuáles pegan poco con el producto y el usuario
+			// los reemplace primero.
+			weakMatch: (scoreByPath.get(winner.imagePath) || 0) < minRelevance,
 			name: winner.name,
 			notes: winner.promptNotes || '',
 			leaf: winner.categoryLeaf || '',
