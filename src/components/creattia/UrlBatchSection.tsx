@@ -123,17 +123,6 @@ type BatchItem = {
 };
 
 // Nombre legible del tipo de anuncio ganador.
-const LEAF_LABELS: Record<string, string> = {
-	hero: 'Producto destacado',
-	resenas: 'Prueba social',
-	precio: 'Oferta / precio',
-	competencia: 'Comparación',
-	caracteristicas: 'Características',
-	urgencia: 'Urgencia',
-	garantia: 'Garantía',
-	mitos: 'Mito vs realidad',
-	envio: 'Envío',
-};
 
 const REFERENCES_PUBLIC_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
 
@@ -146,14 +135,11 @@ type WinnerRef = {
 	niches?: string[];
 	templateId?: number | null;
 	domain?: string;
-	/** true cuando la referencia pega poco con el producto (conviene reemplazarla). */
-	weakMatch?: boolean;
 };
 
 type BatchPreview = {
 	product: { id: string; name: string; description?: string; priceText?: string; imageUrl?: string };
 	count: number;
-	matchedNiches?: string[];
 };
 
 const FORMAT_OPTIONS = [
@@ -286,7 +272,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || 'No se pudo analizar el producto.');
 
-			setPreview({ product: data.product, count: data.count, matchedNiches: data.matchedNiches });
+			setPreview({ product: data.product, count: data.count });
 			setSelected(data.winners || []);
 			setSpares(data.spares || []);
 			setProductName(data.product?.name || 'Producto');
@@ -621,7 +607,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							<h3>🏆 Estos son los {selected.length} anuncios ganadores que vamos a recrear</h3>
 							<p className="product-tag">
 								Producto: <strong>{preview.product?.name}</strong>
-								{preview.matchedNiches?.length ? ` · Rubro detectado: ${preview.matchedNiches.join(', ')}` : ''}
 							</p>
 							<p style={{ fontSize: '12.5px', color: '#6b6478', marginTop: '6px' }}>
 								Tocá <strong>Reemplazar</strong> en el que no te guste y entra otro al instante.
@@ -644,12 +629,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								>
 									<img src={referenceUrlFor(winner.imagePath)} alt={winner.name} loading="lazy" />
 									<span className="ref-index">{index + 1}</span>
-									{winner.leaf && (
-										<span className="ref-leaf">{LEAF_LABELS[winner.leaf] || winner.leaf}</span>
-									)}
 								</button>
-								<div className="ref-foot">
-									<span className="ref-name" title={winner.name}>{winner.name}</span>
+								<div className="ref-foot single">
 									<button
 										type="button"
 										className="ref-replace"
@@ -748,12 +729,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						{batchItems.map((item, index) => (
 								<div key={item.id || index} className="batch-card">
 									<div className="batch-card-header">
-										<span className="template-badge">
-											{item.referenceName ? `🏆 ${item.referenceName}` : `Anuncio #${index + 1}`}
-										</span>
-										{item.referenceLeaf && (
-											<span className="ring-tag">{LEAF_LABELS[item.referenceLeaf] || item.referenceLeaf}</span>
-										)}
+										<span className="template-badge">Anuncio #{index + 1}</span>
 									</div>
 
 									<div className="batch-card-body">

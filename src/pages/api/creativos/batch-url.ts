@@ -179,7 +179,7 @@ export const POST: APIRoute = async ({ request }) => {
 		// La generación arranca después en /api/creativos/batch-start.
 		const siteOrigin = new URL(request.url).origin;
 		const allWinners = await loadWinners(siteOrigin);
-		const { winners, spares, signals, scoreByPath, minRelevance } = await pickWinnersForProduct({
+		const { winners, spares, signals } = await pickWinnersForProduct({
 			winners: allWinners,
 			product: {
 				name: scannedProduct?.name || 'Producto',
@@ -188,8 +188,9 @@ export const POST: APIRoute = async ({ request }) => {
 			},
 			count,
 			// El screening con visión descarta hasta 60% en productos difíciles, así
-			// que se piden bastantes más candidatos para no quedarse corto.
-			spareCount: Math.max(24, count * 3),
+			// que se piden más candidatos para no quedarse corto. No más de eso:
+			// cada candidato es una llamada de visión y alarga el análisis.
+			spareCount: Math.max(16, count * 2),
 			openAIKey,
 			googleKey,
 		});
@@ -239,9 +240,6 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const toPayload = (winner: Winner) => ({
 			imagePath: winner.imagePath,
-			// Para que la UI marque cuáles pegan poco con el producto y el usuario
-			// los reemplace primero.
-			weakMatch: (scoreByPath.get(winner.imagePath) || 0) < minRelevance,
 			name: winner.name,
 			notes: winner.promptNotes || '',
 			leaf: winner.categoryLeaf || '',
@@ -264,7 +262,6 @@ export const POST: APIRoute = async ({ request }) => {
 			language,
 			quality: clean(form.get('quality'), 6) === 'text' ? 'text' : 'fast',
 			brief,
-			matchedNiches: signals.niches,
 			winners: finalWinners.slice(0, count).map(toPayload),
 			spares: finalSpares.map(toPayload),
 			discarded,

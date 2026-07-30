@@ -110,7 +110,7 @@ export function isCompatible(verdict: ScreeningVerdict, product: { wearable: boo
 export async function screenWinners(
 	items: Array<{ imagePath: string; buffer: Buffer; mime: string }>,
 	keys: { googleKey?: string },
-	concurrency = 10,
+	concurrency = 16,
 ): Promise<Map<string, ScreeningVerdict>> {
 	const results = new Map<string, ScreeningVerdict>();
 	const queue = [...items];
