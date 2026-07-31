@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import OpenAI, { toFile } from 'openai';
 import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
+import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
@@ -22,12 +23,6 @@ const formatSizes: Record<string, string> = {
 };
 
 // gpt-image-1 solo acepta 1024x1024, 1024x1536 y 1536x1024
-function snapSizeForGptImage1(size: string) {
-	const [width, height] = size.split('x').map(Number);
-	if (width === height) return '1024x1024';
-	return height > width ? '1024x1536' : '1536x1024';
-}
-
 const geminiAspectRatios: Record<string, string> = {
 	'1:1': '1:1', '3:4': '3:4', '9:16': '9:16', '4:3': '4:3', '16:9': '16:9',
 	square: '1:1', portrait: '3:4', story: '9:16', landscape: '4:3',
@@ -35,35 +30,6 @@ const geminiAspectRatios: Record<string, string> = {
 
 // Motor primario: Gemini image (nano-banana). ~6x más barato y ~10x más rápido
 // que gpt-image en calidad alta, con excelente fidelidad de producto y texto.
-async function generateWithGemini(input: {
-	apiKey: string;
-	model: string;
-	prompt: string;
-	images: Array<{ buffer: Buffer; type: string }>;
-	aspectRatio: string;
-	count: number;
-}): Promise<Buffer[]> {
-	const parts = [
-		{ text: input.prompt },
-		...input.images.map((image) => ({ inline_data: { mime_type: image.type, data: image.buffer.toString('base64') } })),
-	];
-	const generateOne = async () => {
-		const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent?key=${input.apiKey}`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				contents: [{ parts }],
-				generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: input.aspectRatio } },
-			}),
-		});
-		const data: any = await response.json().catch(() => ({}));
-		if (!response.ok) throw new Error(`Gemini ${response.status}: ${JSON.stringify(data.error || data).slice(0, 180)}`);
-		const part = data.candidates?.[0]?.content?.parts?.find((item: any) => item.inlineData?.data || item.inline_data?.data);
-		if (!part) throw new Error(`Gemini no devolvió imagen (${data.candidates?.[0]?.finishReason || 'sin candidatos'}).`);
-		return Buffer.from(part.inlineData?.data || part.inline_data?.data, 'base64');
-	};
-	return Promise.all(Array.from({ length: input.count }, generateOne));
-}
 const imageTypes = new Set(['product', 'promotion', 'lifestyle', 'catalog']);
 // 'original' = usar la proporción del anuncio ganador de referencia
 const formats = new Set([...Object.keys(formatSizes), 'original']);
@@ -683,149 +649,23 @@ The result must look like the same image with only that one adjustment applied.`
 		if (promptUpdateError) throw promptUpdateError;
 		stamp('prompt construido y guardado');
 
-		// ── Image generation ────────────────────────────────────────────────
-		// Primario: Gemini (nano-banana pro) — barato, rápido y excelente con texto.
-		// Fallback: OpenAI gpt-image. Fal/Flux solo si no hay ninguno de los dos.
-		const falKey: string | undefined = process.env.FAL_KEY || (typeof import.meta.env !== 'undefined' && import.meta.env.FAL_KEY);
-
-		// Collect all output images as raw buffers
+		// ── Generación ──────────────────────────────────────────────────────
+		// Mismo motor que el generador por lote: gpt-image-2 medium, con Gemini de
+		// respaldo. Antes el Studio tenía su propia cadena — Gemini primero y
+		// gpt-image-1 después — así que la misma referencia daba peor texto acá que
+		// en el lote. Ahora las dos pantallas generan igual.
 		const outputBuffers: Buffer[] = [];
-
-		if (googleKey) {
-			// Nano Banana 2 (flash) da calidad nivel Pro a ~1/3 del precio.
-			// Si el usuario eligió calidad Pro (3 créditos), se genera directo con Pro.
-			// En calidad estándar se usa flash y, si falla, se prueba Pro antes de caer a OpenAI.
-			const preferredGemini = import.meta.env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
-			const geminiAttempts = quality === 'pro'
-				? ['gemini-3-pro-image-preview']
-				: [...new Set([preferredGemini, 'gemini-3-pro-image-preview'])];
-			for (const geminiModel of geminiAttempts) {
-				try {
-					const buffers = await generateWithGemini({
-						apiKey: googleKey,
-						model: geminiModel,
-						prompt,
-						images: inputBuffers,
-						aspectRatio: geminiAspectRatios[effectiveFormat] || '1:1',
-						count,
-					});
-					outputBuffers.push(...buffers);
-					stamp(`imagen generada con Gemini ${geminiModel}`);
-					break;
-				} catch (geminiError) {
-					console.error(`Gemini generation failed with ${geminiModel}:`, geminiError);
-				}
-			}
-		}
-
-		if (!outputBuffers.length && openAIKey) {
-			// Cuando hay imágenes de input (referencia ganadora, fotos del producto, logo)
-			// usamos images.edit para que el modelo VEA las imágenes reales.
-			const openai = new OpenAI({ apiKey: openAIKey });
-			const preferredModel = import.meta.env.OPENAI_IMAGE_MODEL || process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
-			const requestedSize = formatSizes[effectiveFormat] || '1024x1024';
-			// Si el modelo configurado falla (p. ej. la key no lo soporta), reintentar con gpt-image-1.
-			const attemptModels = [...new Set([preferredModel, 'gpt-image-1'])];
-			let openaiError: any = null;
-
-			for (const model of attemptModels) {
-				const size = model === 'gpt-image-1' ? snapSizeForGptImage1(requestedSize) : requestedSize;
-				try {
-					const useEdit = inputs.length > 0;
-					const editParams: Record<string, unknown> = { model, image: inputs, prompt, size, quality: 'high', n: count };
-					// input_fidelity solo existe en gpt-image-1; gpt-image-2 lo trae nativo.
-					if (model === 'gpt-image-1') editParams.input_fidelity = 'high';
-					const result = useEdit
-						? await openai.images.edit(editParams as any)
-						: await openai.images.generate({ model, prompt, size: size as any, quality: 'high', n: count });
-
-					const outputs = (result.data || []).flatMap((item) => item.b64_json ? [item.b64_json] : []);
-					if (!outputs.length) {
-						const urls = (result.data || []).flatMap((item) => item.url ? [item.url] : []);
-						if (!urls.length) throw new Error('La API de OpenAI no devolvió ninguna imagen.');
-						for (const url of urls) {
-							const imgRes = await fetch(url);
-							if (!imgRes.ok) throw new Error('No se pudo descargar la imagen de OpenAI.');
-							outputBuffers.push(Buffer.from(await imgRes.arrayBuffer()));
-						}
-					} else {
-						for (const b64 of outputs) {
-							outputBuffers.push(Buffer.from(b64, 'base64'));
-						}
-					}
-					openaiError = null;
-					stamp(`imagen generada con OpenAI ${model}`);
-					break;
-				} catch (openaiErr: any) {
-					openaiError = openaiErr;
-					console.error(`OpenAI generation failed with ${model}:`, openaiErr);
-				}
-			}
-
-			// Si OpenAI también falló, NO caer a Flux: con anuncios cargados de texto
-			// genera resultados ilegibles. Mejor error claro + créditos devueltos.
-			if (openaiError) throw openaiError;
-		} else if (!outputBuffers.length && !openAIKey && falKey) {
-			await runFalFallback();
-		} else if (!outputBuffers.length) {
-			throw new Error('No se pudo generar con ningún motor configurado (Gemini/OpenAI).');
-		}
-
-		async function runFalFallback() {
-			// Build image_url for Fal (base64 data URL of the reference template image, if any)
-			let falImageUrl: string | undefined;
-			let falImageStrength = 0.85;
-
-			if (inputs.length > 0) {
-				// inputs[0] is the reference template image
-				const buf = Buffer.from(await (inputs[0] as any).arrayBuffer());
-				falImageUrl = `data:image/png;base64,${buf.toString('base64')}`;
-				falImageStrength = 0.65;
-			}
-
-			const [falWidth, falHeight] = (formatSizes[effectiveFormat] || '1024x1024').split('x').map(Number);
-			const falModel = falImageUrl
-				? 'fal-ai/flux/dev/image-to-image'
-				: 'fal-ai/flux/schnell';
-
-			const falBody: Record<string, unknown> = {
+		for (let index = 0; index < count; index += 1) {
+			const { buffer, engine } = await generateAdImage({
+				googleKey,
+				openAIKey,
 				prompt,
-				num_images: count,
-				output_format: 'png',
-				width: falWidth,
-				height: falHeight,
-			};
-			if (falImageUrl) {
-				falBody.image_url = falImageUrl;
-				falBody.strength = falImageStrength;
-			}
-
-			const falRes = await fetch(`https://fal.run/${falModel}`, {
-				method: 'POST',
-				headers: {
-					'Authorization': `Key ${falKey}`,
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(falBody),
+				images: inputBuffers,
+				format: effectiveFormat,
+				tier: quality === 'pro' ? 'high' : 'medium',
 			});
-
-			if (!falRes.ok) {
-				const errText = await falRes.text().catch(() => '');
-				if (falRes.status === 403 && errText.includes('Exhausted balance')) {
-					throw new Error('Tu saldo de Fal.ai se agotó. Recargá en fal.ai/dashboard/billing.');
-				}
-				throw new Error(`Error al generar la imagen (${falRes.status}).`);
-			}
-
-			const falData: any = await falRes.json();
-			const falImages: Array<{ url: string }> = falData.images || [];
-			if (!falImages.length) throw new Error('Fal.ai no devolvió ninguna imagen.');
-
-			for (const img of falImages.slice(0, count)) {
-				const imgRes = await fetch(img.url);
-				if (!imgRes.ok) throw new Error('No se pudo descargar la imagen generada.');
-				outputBuffers.push(Buffer.from(await imgRes.arrayBuffer()));
-			}
+			outputBuffers.push(buffer);
+			stamp(`imagen ${index + 1}/${count} generada con ${engine}`);
 		}
 
 		if (!outputBuffers.length) throw new Error('No se generaron imágenes.');

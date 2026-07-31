@@ -3432,15 +3432,15 @@
 .bsel-arrow { flex: 0 0 auto; color: #5f32cf; }
 .bsel-trigger.open .bsel-arrow { transform: rotate(180deg); }
 
+/* Bandera como imagen: el emoji no se dibuja en Windows. */
 .bsel-flag {
 	flex: 0 0 auto;
-	padding: 2px 5px;
-	border-radius: 5px;
-	background: #efeafc;
-	color: #5f32cf;
-	font-size: 9.5px;
-	font-weight: 900;
-	letter-spacing: .04em;
+	width: 22px;
+	height: 16px;
+	border-radius: 3px;
+	object-fit: cover;
+	display: block;
+	box-shadow: 0 0 0 1px rgba(25, 23, 29, .08);
 }
 
 .bsel-emoji { flex: 0 0 auto; font-size: 14px; line-height: 1; }

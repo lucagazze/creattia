@@ -45,7 +45,7 @@ export { driveBatchWorkers };
 const BatchSelect: React.FC<{
 	label: string;
 	value: string;
-	options: Array<{ value: string; label: string; flag?: string; emoji?: string; hint?: string }>;
+	options: Array<{ value: string; label: string; cc?: string; emoji?: string; hint?: string }>;
 	onChange: (value: string) => void;
 }> = ({ label, value, options, onChange }) => {
 	const [open, setOpen] = useState(false);
@@ -61,8 +61,8 @@ const BatchSelect: React.FC<{
 		return () => document.removeEventListener('mousedown', close);
 	}, [open]);
 
-	const face = (option: { flag?: string; emoji?: string }) => option.flag
-		? <span className="bsel-flag" aria-hidden>{option.flag}</span>
+	const face = (option: { cc?: string; emoji?: string }) => option.cc
+		? <img className="bsel-flag" src={`https://flagcdn.com/w40/${option.cc}.png`} alt="" width={22} height={16} loading="lazy" />
 		: <span className="bsel-emoji" aria-hidden>{option.emoji}</span>;
 
 	return (
@@ -155,15 +155,16 @@ const FORMAT_OPTIONS = [
 	{ value: 'landscape', label: 'Horizontal 4:3', emoji: '🖥️', hint: 'Display y ubicaciones de escritorio' },
 ];
 
-// Se usa la sigla del país en una pastilla en vez del emoji de bandera: Windows
-// no tiene glifos de bandera y los dibuja como las dos letras sueltas.
+// Banderas como imagen, igual que en la generación individual. Los emoji de
+// bandera no sirven: Windows no trae los glifos y los dibuja como las dos letras
+// del código ("AR Español" en vez de la bandera).
 const LANGUAGE_OPTIONS = [
-	{ value: 'es', label: 'Español', flag: 'AR' },
-	{ value: 'en', label: 'Inglés', flag: 'US' },
-	{ value: 'pt', label: 'Portugués', flag: 'BR' },
-	{ value: 'it', label: 'Italiano', flag: 'IT' },
-	{ value: 'fr', label: 'Francés', flag: 'FR' },
-	{ value: 'de', label: 'Alemán', flag: 'DE' },
+	{ value: 'es', label: 'Español', cc: 'ar' },
+	{ value: 'en', label: 'Inglés', cc: 'us' },
+	{ value: 'pt', label: 'Portugués', cc: 'br' },
+	{ value: 'it', label: 'Italiano', cc: 'it' },
+	{ value: 'fr', label: 'Francés', cc: 'fr' },
+	{ value: 'de', label: 'Alemán', cc: 'de' },
 ];
 
 const BRAND_OPTIONS = [
