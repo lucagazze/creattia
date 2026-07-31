@@ -14,16 +14,16 @@ export const prerender = false;
  * Mercado Pago. Con estos precios el margen queda por encima del 50% incluso si
  * el usuario consume el 100% de sus créditos:
  *
- * Costo real por imagen: USD 0.069 con la mezcla medida de niveles de calidad
- * (37% en 'low'), USD 0.086 en el peor caso de que todo caiga en 'medium'.
+ * Costo real por imagen: USD 0.086. Todas las imágenes salen en gpt-image-2
+ * medium — se descartó el ruteo automático a 'low' porque degradaba la letra
+ * chica de las etiquetas, y no vale arriesgar un anuncio por unos centavos.
  *
- *   Creator   USD 11.99/mes ->  80 créditos  -> esperado 54.0%  peor caso 42.4%
- *   Pro       USD 39.99/mes -> 280 créditos  -> esperado 51.7%  peor caso 39.5%
- *   Scale     USD 109.99/mes-> 800 créditos  -> esperado 49.8%  peor caso 37.2%
+ *   Creator   USD 11.99/mes ->  65 créditos  -> costo 5.62  -> margen 53.2%
+ *   Pro       USD 39.99/mes -> 230 créditos  -> costo 19.87 -> margen 50.3%
+ *   Scale     USD 109.99/mes-> 635 créditos  -> costo 54.86 -> margen 50.1%
  *
- * Con el consumo real típico (55% de los créditos) los tres rondan el 73%.
- * No conviene subir más los créditos: con 100/340/1000 el peor caso cae a 21-28%
- * y un mes cargado de anuncios con etiquetas y precios te deja sin margen.
+ * Esos márgenes son con el usuario consumiendo el 100% de sus créditos; con el
+ * consumo real típico (55%) los tres superan el 70%.
  *
  * Compra suelta sin suscripción (CREDIT_UNIT_PRICE): USD 0.69 por imagen, 90% de
  * margen. Tiene que quedar claramente más caro que el plan (0.15/img en Creator)
@@ -36,19 +36,19 @@ const plans = {
 	creator: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_CREATOR_ID', fallback: 'MERCADO_PAGO_PLAN_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_CREATOR_YEARLY_ID', fallback: 'MERCADO_PAGO_PLAN_YEARLY_ID' },
-		credits: 80,
+		credits: 65,
 		reason: 'Creattia — Creator' 
 	},
 	pro: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_PRO_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_PRO_YEARLY_ID' },
-		credits: 280,
+		credits: 230,
 		reason: 'Creattia — Pro' 
 	},
 	scale: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_SCALE_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_SCALE_YEARLY_ID' },
-		credits: 800,
+		credits: 635,
 		reason: 'Creattia — Scale' 
 	},
 } as const;

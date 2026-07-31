@@ -213,7 +213,14 @@ export const POST: APIRoute = async ({ request }) => {
 		const outputPath = `${userId}/generations/${row.batch_id || row.id}/${row.output_index || 1}.${extension}`;
 		const { error: uploadError } = await admin.storage.from(ASSETS)
 			.upload(outputPath, buffer, { contentType, upsert: true });
-		if (uploadError) throw uploadError;
+		if (uploadError) {
+			// El error de Storage venía como "Bad Request" pelado: sin la ruta, el
+			// tipo ni el tamaño no había forma de saber qué lo rechazó.
+			throw new Error(
+				`Storage rechazó la subida (${outputPath}, ${contentType}, ${Math.round(buffer.length / 1024)} KB): `
+				+ `${(uploadError as any).message || ''} ${JSON.stringify(uploadError).slice(0, 200)}`,
+			);
+		}
 
 		const { error: completionError } = await admin.from('creative_generations').update({
 			status: 'completed',
