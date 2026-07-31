@@ -136,7 +136,7 @@ Return STRICT JSON:
   "productOnBody": true|false,
   "templateProductScale": "real-world size of the TEMPLATE's product and how it is handled in the shot (e.g. 'a pill, a couple of centimetres, pinched between two fingertips', 'a 500ml bottle held in one hand', 'a sofa filling the room')",
   "targetProductScale": "real-world size of the TARGET product judging by its photo and facts (e.g. 'a full cowhide shoulder, roughly 60x80cm, needs both hands or a surface')",
-  "stagingAdaptation": "if the two sizes differ enough that copying the template's handling would look absurd, describe how to re-stage the target product so the scene stays physically believable while keeping the SAME shot type, crop, framing and composition (e.g. 'keep the extreme close-up of the hand, but instead of pinching a tiny object, drape the hide over the open hand so it fills the same area of the frame and continues out of shot'). If the sizes are comparable, say 'same handling as the template'.",
+  "stagingAdaptation": "if copying the template's handling would look physically impossible, describe how to re-stage the target product so the scene is believable, keeping the SAME shot type, crop, framing and composition. Be specific about hands: if the template holds a small object in one hand and the target product is large and floppy (a hide, a rug, a panel, a textile), a single hand cannot hold it — say so and propose the alternative, preferring to REMOVE the hand and show the product alone, resting on a surface, hanging, rolled or held with both hands. If the sizes are comparable, say 'same handling as the template'.",
   "imageSlots": [
     { "where": "position and shape of THIS image area (e.g. 'three tilted photo cards stacked on the right third', 'full-bleed background photo', 'small circular avatar top-left', 'left half of a 50/50 split')",
       "showsNow": "what that area currently depicts in the template",
@@ -357,7 +357,15 @@ Every scene you render must be photorealistic, plausible and clearly about ${pro
 	// pastilla entra entre dos dedos, un cuero entero no. El resultado era una
 	// mano pellizcando un recorte diminuto de cuero.
 	const scaleAlways = `
-TRUE SIZE (CRITICAL) — Render ${productLabel} at its real physical size relative to everything else in frame. Judge it from the product photo: a hand, a face, a table or a room in the same shot must be in believable proportion to it. Never shrink the product so it fits the pose the template used, and never blow it up to fill a space. If it is a large item (a hide, a panel, a rug, a piece of furniture) a single hand cannot pinch it or hold it up like a small object: use both hands, drape it, lean it against something, lay it on a surface, or let it run out of frame.`;
+TRUE SIZE AND BELIEVABLE HANDLING (CRITICAL) — Render ${productLabel} at its real physical size relative to everything else in frame, judged from the product photo. Never shrink it to fit the pose the template used, and never enlarge it to fill a gap.
+
+   HANDS: only show a hand touching the product if a real person could actually hold it that way. Ask yourself whether the grip would work in real life. A single hand cannot pinch, dangle or hold up a large flexible item — a full hide, a rug, a panel, a bolt of fabric, a blanket: the weight and the size make it fall. If the product is large, choose ONE of these instead, whichever fits the template's composition best:
+     · show the product on its own, with no hand at all — often the cleanest and the safest choice;
+     · rest it on a table, a workbench, a shelf or the floor;
+     · hang or drape it over a rack, a rail, a chair or an edge;
+     · roll it and stand it up, or fold it into a neat stack;
+     · use TWO hands, or a forearm supporting the weight, with the product clearly continuing out of frame.
+   A hand pinching a corner while an entire heavy hide hangs weightless is a hard failure: it reads as fake immediately and ruins the ad. When in doubt, remove the hand and show the product alone, well lit and well composed.`;
 
 	const scaleRule = input.analysis?.stagingAdaptation
 		&& !/same handling as the template/i.test(input.analysis.stagingAdaptation)

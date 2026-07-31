@@ -3755,16 +3755,19 @@
    lo ancho, y el número del paso estaba duplicado — el indicador de arriba ya
    dice en cuál estás. */
 
-/* El contenido no se estira más allá de una medida cómoda de lectura. */
-.url-batch-form,
-.url-batch-header {
-	max-width: 780px;
-	margin-left: auto;
-	margin-right: auto;
-	width: 100%;
-}
+/* El contenido llena la tarjeta. Antes se limitaba a 780px centrados, pero el
+   dashboard es a ancho completo (.studio-content tiene max-width: none), así que
+   la tarjeta medía 1580px y quedaban huecos enormes a los costados.
+   Lo único que se limita es el texto corrido, por legibilidad. */
+.url-batch-form { gap: 14px; width: 100%; }
+.url-batch-subtitle, .wiz-help { max-width: 74ch; }
 
-.url-batch-form { gap: 14px; }
+/* En pantallas anchas los controles no necesitan estirarse a lo bruto: el campo
+   de URL y el botón principal quedan largos pero alineados al resto. */
+@media (min-width: 1500px) {
+	.picker-options { grid-template-columns: repeat(4, minmax(0, 220px)); }
+	.wiz-tabs { grid-template-columns: repeat(3, minmax(0, 260px)); }
+}
 
 /* La tarjeta del paso pierde el marco doble y el número redundante. */
 .wiz-step {

@@ -1087,10 +1087,16 @@ export default function CreativeApp() {
 	}
 
 	// ── Generación en segundo plano ─────────────────────────────────────
-	function startBatchTracking(batch: { batchId: string; title: string; referenceUrl?: string; count: number }) {
+	function startBatchTracking(
+		batch: { batchId: string; title: string; referenceUrl?: string; count: number },
+		options?: { stay?: boolean },
+	) {
 		const record: ActiveBatch = { ...batch, startedAt: Date.now(), status: 'processing', results: [] };
 		setActiveBatch(record);
-		setView('history');
+		// El generador por URL se queda en su propia pantalla: ahí está la grilla
+		// con cada anuncio y la barra de progreso. Mandarlo a "Mis imágenes" hacía
+		// que el usuario nunca viera cómo avanzaba el lote.
+		if (!options?.stay) setView('history');
 		try {
 			window.localStorage.setItem(ACTIVE_BATCH_KEY, JSON.stringify({
 				batchId: batch.batchId, title: batch.title, referenceUrl: batch.referenceUrl || '', count: batch.count, startedAt: record.startedAt,
@@ -1406,7 +1412,7 @@ export default function CreativeApp() {
 									title: 'Generación por URL',
 									referenceUrl: '',
 									count: generations.length,
-								});
+								}, { stay: true });
 							}}
 							randomWinners={randomWinners}
 							swipePool={(swipePool.filter((item) => !discoverSeen.has(item.imagePath)).length >= 8 ? swipePool.filter((item) => !discoverSeen.has(item.imagePath)) : swipePool).slice(0, 40)}
