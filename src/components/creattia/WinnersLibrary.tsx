@@ -228,12 +228,14 @@ export default function WinnersLibrary({
 	favorites = new Set(),
 	onToggleFavorite,
 	onGenerationStarted,
+	onGenerationRequested,
 	onBackToPreviousView
 }: {
 	session: any;
 	profile?: any;
 	onGenerated?: (generations: any[], credits: number) => void;
 	onGenerationStarted?: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
+	onGenerationRequested?: () => void;
 	isSupabaseConfigured?: boolean;
 	onToast?: (message: string) => void;
 	preselectedTemplateId?: number | null;
@@ -525,6 +527,7 @@ export default function WinnersLibrary({
 			return;
 		}
 
+		onGenerationRequested?.();
 		setGenerating(true);
 		setGenerationError('');
 		setGeneratedResult('');
@@ -1462,4 +1465,3 @@ export default function WinnersLibrary({
 		</div>
 	);
 }
-

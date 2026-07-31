@@ -108,7 +108,8 @@ export const POST: APIRoute = async ({ request }) => {
 		// En modo texto no hay fotos y está bien: se clonan ganadores que no
 		// muestran producto y todo se cuenta con el copy.
 		const textMode = snapshot.textMode === true || !productId;
-		if (!productImages.length && !textMode) {
+		const allowNoProductImage = snapshot.allowNoProductImage === true;
+		if (!productImages.length && !textMode && !allowNoProductImage) {
 			throw new Error('No hay ninguna foto real del producto disponible para clonar el anuncio.');
 		}
 

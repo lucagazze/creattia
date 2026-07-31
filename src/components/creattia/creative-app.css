@@ -224,6 +224,42 @@
 .studio-spinner.small { width: 17px; height: 17px; border-width: 2px; }
 @keyframes studio-spin { to { transform: rotate(360deg); } }
 
+.studio-generation-error {
+	min-height: 220px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	padding: 20px;
+	background: linear-gradient(135deg, #fff8f8 0%, #fff1f3 100%);
+	color: #9f3046;
+	text-align: center;
+}
+.studio-generation-error > span {
+	width: 28px;
+	height: 28px;
+	display: grid;
+	place-items: center;
+	border-radius: 50%;
+	background: #f8d8df;
+	font-size: 15px;
+	font-weight: 900;
+}
+.studio-generation-error strong { font-size: 12.5px; color: #7f2438; }
+.studio-generation-error small { max-width: 220px; color: #a95d6c; font-size: 10.5px; line-height: 1.4; }
+.studio-generation-error button {
+	margin-top: 4px;
+	padding: 5px 11px;
+	border: 1px solid #e8b8c2;
+	border-radius: 8px;
+	background: #fff;
+	color: #8f2b42;
+	font-size: 10.5px;
+	font-weight: 800;
+	cursor: pointer;
+}
+
 .creative-app-shell {
 	min-height: 100vh;
 	background:
@@ -2213,6 +2249,13 @@
 /* Historial: entra la cantidad de tarjetas que dé el ancho */
 .studio-recent-row, .studio-history-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important; }
 
+@media (max-width: 700px) {
+	.studio-recent-row, .studio-history-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+}
+@media (max-width: 420px) {
+	.studio-recent-row, .studio-history-grid { grid-template-columns: 1fr !important; }
+}
+
 /* Chips de filtros: mismo tamaño de texto en categorías y nichos */
 .studio-filter-row button { font-size: 13px !important; height: 34px !important; padding: 0 14px !important; }
 
@@ -2883,12 +2926,26 @@
 }
 
 .url-batch-error {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
 	padding: 12px 16px;
 	border-radius: 12px;
 	background: #fde8e8;
 	color: #dc2626;
 	font-size: 13.5px;
 	font-weight: 700;
+}
+.batch-credit-link {
+	align-self: flex-start;
+	padding: 8px 12px;
+	border: 0;
+	border-radius: 8px;
+	background: #744bde;
+	color: #fff;
+	font-size: 12px;
+	font-weight: 800;
+	cursor: pointer;
 }
 
 .url-batch-submit-btn {
@@ -3928,14 +3985,14 @@
 }
 
 .wiz-tabs {
-	grid-template-columns: repeat(3, minmax(0, 270px));
+	grid-template-columns: repeat(2, minmax(0, 270px));
 	justify-content: start;
 	gap: 10px;
 }
 
 @media (max-width: 900px) {
 	.picker-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-	.wiz-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.wiz-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 560px) {
@@ -3945,7 +4002,10 @@
 
 /* Barra del lote dentro de "Mis imágenes": el usuario llega acá apenas toca
    generar, así que el avance tiene que estar a la vista. */
+.active-batch-notice { display: none !important; }
+
 .history-batch-bar {
+	display: none !important;
 	margin-bottom: 20px;
 	padding: 13px 15px;
 	border-radius: 13px;

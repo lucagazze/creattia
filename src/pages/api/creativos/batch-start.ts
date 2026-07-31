@@ -46,9 +46,10 @@ export const POST: APIRoute = async ({ request }) => {
 		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
 		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
 
-		// En modo 'text' no hay producto en la base: el anuncio se arma solo con el
-		// texto que escribió el usuario.
+		// En modo manual se permite continuar sin foto; el nombre y la descripción
+		// siguen siendo obligatorios para que el anuncio tenga contexto.
 		const textMode = body?.mode === 'text' || (!productId && Boolean(body?.productName));
+		const allowNoProductImage = body?.mode === 'manual';
 		const textName = String(body?.productName || '').trim().slice(0, 140);
 		const textDescription = String(body?.productDescription || '').trim().slice(0, 1200);
 		if (!productId && !textName) return json({ error: 'Falta el producto o el texto a promocionar.' }, 400);
@@ -69,7 +70,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 			const { count: photoCount } = await admin.from('creative_product_images')
 				.select('id', { count: 'exact', head: true }).eq('product_id', productId).eq('user_id', userId);
-			if (!photoCount && !product.image_path) {
+			if (!photoCount && !product.image_path && !allowNoProductImage) {
 				return json({ error: 'El producto no tiene ninguna foto real guardada. Subí una foto y volvé a intentar.', code: 'NO_PRODUCT_PHOTO' }, 422);
 			}
 		}
@@ -124,6 +125,7 @@ export const POST: APIRoute = async ({ request }) => {
 				brandSource,
 				imageType: 'product',
 				textMode,
+				allowNoProductImage,
 				referencePath: winner.imagePath,
 				referenceName: winner.name,
 				referenceNotes: winner.promptNotes || '',

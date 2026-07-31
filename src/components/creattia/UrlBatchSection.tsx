@@ -110,6 +110,7 @@ type UrlBatchSectionProps = {
 	initialUrl?: string;
 	session?: any;
 	onBatchCreated?: (generations: any[], batchId: string) => void;
+	onGenerationRequested?: () => void;
 };
 
 type BatchItem = {
@@ -189,11 +190,11 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	initialUrl = '',
 	session,
 	onBatchCreated,
+	onGenerationRequested,
 }) => {
 	const [url, setUrl] = useState(initialUrl);
-	// Tres formas de arrancar. 'text' genera sin foto de producto, clonando
-	// ganadores puramente tipográficos.
-	const [mode, setMode] = useState<'url' | 'manual' | 'text'>('url');
+	// Dos formas de arrancar: URL o carga manual (con imágenes opcionales).
+	const [mode, setMode] = useState<'url' | 'manual'>('url');
 	const [manualName, setManualName] = useState('');
 	const [manualDescription, setManualDescription] = useState('');
 	const [manualPrice, setManualPrice] = useState('');
@@ -204,7 +205,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brandSource, setBrandSource] = useState('url');
 	const [brief, setBrief] = useState('');
-	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [extraImages, setExtraImages] = useState<File[]>([]);
 	const [extraImagePreviews, setExtraImagePreviews] = useState<string[]>([]);
 
@@ -431,8 +431,13 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	// PASO 2 — Confirmar: acá se cobran los créditos y arranca la generación.
 	const handleConfirmGeneration = async () => {
 		if (!preview || !selected.length) return;
+		if (userCredits < selected.length) {
+			setError(`Necesitás ${selected.length} créditos para generar este lote. Comprá un paquete o elegí un plan para continuar.`);
+			return;
+		}
 		setError(null);
 		setIsGenerating(true);
+		onGenerationRequested?.();
 
 		try {
 			const accessToken = await getAccessToken();
@@ -580,14 +585,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 		<div className="url-batch-container">
 			{/* Banner / Header */}
 			<div className="url-batch-header">
-				<div className="url-batch-badge">
-					<span className="badge-icon">⚡</span>
-					<span>CLONADOR DE ANUNCIOS GANADORES</span>
-				</div>
 				<h2 className="url-batch-title">Creá anuncios que ya funcionan, con tu producto</h2>
-				<p className="url-batch-subtitle">
-					Pegá el enlace de tu producto. La IA elige los anuncios ganadores de la biblioteca que mejor le pegan y los recrea con tu producto real, cubriendo todo el embudo.
-				</p>
 			</div>
 
 			{/* Formulario Principal */}
@@ -614,7 +612,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				<div className="wiz-step" hidden={formStep !== 1}>
 					<div className="wiz-body">
 						<label className="picker-label">¿Cuántos anuncios querés crear?</label>
-						<p className="wiz-help">Cada anuncio usa 1 crédito. Podés empezar con 5 para ver cómo quedan.</p>
 						<div className="picker-options">
 							{[5, 10, 20, 30].map((num) => (
 								<button
@@ -640,9 +637,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</p>
 						<div className="wiz-tabs">
 							{([
-								['url', '🔗', 'Con URL', 'Analizamos tu página'],
-								['manual', '✍️', 'A mano', 'Vos cargás los datos'],
-								['text', '📝', 'Solo texto', 'Sin foto de producto'],
+								['url', '🔗', 'URL', 'Analizamos tu página'],
+								['manual', '✍️', 'A mano', 'Cargás los datos'],
 							] as const).map(([value, icon, label, hint]) => (
 								<button
 									key={value}
@@ -684,7 +680,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							</div>
 						)}
 
-						{mode !== 'url' && (
+						{mode === 'manual' && (
 							<div className="wiz-fields">
 								<input
 									className="wiz-input"
@@ -695,9 +691,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								<textarea
 									className="wiz-input"
 									rows={3}
-									placeholder={mode === 'text'
-										? 'Qué ofrecés, a quién le sirve y por qué. La IA escribe los anuncios con esto.'
-										: 'Descripción del producto: materiales, medidas, beneficios reales.'}
+									placeholder="Descripción del producto: materiales, medidas, beneficios reales."
 									value={manualDescription}
 									onChange={(e) => setManualDescription(e.target.value)}
 								/>
@@ -719,45 +713,16 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 												className="hidden-file-input"
 											/>
 											<label htmlFor="wiz-manual-imgs" className="uploader-label">
-												<span>📷 Subir fotos reales del producto (necesario)</span>
+													<span>📷 Imágenes del producto (opcional · podés subir varias)</span>
 											</label>
 										</div>
 									</>
 								)}
-								{mode === 'text' && (
-									<p className="wiz-hint">
-										Sin foto usamos solo anuncios ganadores que no muestran producto: placas
-										tipográficas, comparativas y tarjetas de reseña.
-									</p>
-								)}
 							</div>
 						)}
 
-						{mode !== 'text' && (
-							<>
-								<button
-									type="button"
-									className="wiz-ghost"
-									onClick={() => setShowAdvanced(!showAdvanced)}
-								>
-									<span>{showAdvanced ? 'Ocultar fotos' : `+ ${mode === 'url' ? 'Sumar fotos propias' : 'Más fotos'} · opcional`}</span>
-								</button>
-								{showAdvanced && mode === 'url' && (
-									<div className="image-uploader-box">
-										<input
-											type="file"
-											accept="image/png, image/jpeg, image/webp"
-											multiple
-											onChange={handleImageChange}
-											id="wiz-extra-imgs"
-											className="hidden-file-input"
-										/>
-										<label htmlFor="wiz-extra-imgs" className="uploader-label">
-											<span>📷 Subir fotos adicionales (máx. 5)</span>
-										</label>
-									</div>
-								)}
-							</>
+						{mode === 'manual' && extraImagePreviews.length > 0 && (
+							<p className="wiz-hint">Podés subir una o varias imágenes; también podés continuar sin ninguna.</p>
 						)}
 
 						{extraImagePreviews.length > 0 && (
@@ -955,6 +920,9 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					{error && (
 						<div className="url-batch-error" style={{ marginTop: '14px' }}>
 							<span>{error}</span>
+							{onNavigateToPlans && userCredits < selected.length && (
+								<button type="button" className="batch-credit-link" onClick={onNavigateToPlans}>Comprar créditos / Ver planes</button>
+							)}
 						</div>
 					)}
 				</div>
@@ -1030,11 +998,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 														src={item.referenceUrl}
 														alt=""
 														loading="lazy"
-														style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.18, filter: 'blur(1px)' }}
-													/>
-												)}
-												<div className="skeleton-pulse"></div>
-												<span style={{ position: 'relative' }}>Clonando el ganador con tu producto…</span>
+															style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.18, filter: 'blur(1px)' }}
+														/>
+													)}
+													<div className="skeleton-pulse"></div>
+													<span className="studio-spinner" style={{ position: 'relative', width: '24px', height: '24px', borderWidth: '3px' }} aria-label="Generando anuncio" />
+													<span style={{ position: 'relative' }}>Generando anuncio…</span>
 											</div>
 										)}
 

@@ -5,12 +5,13 @@ import React, { useState } from 'react';
 // 1) producto  2) formato  3) idioma  4) estilo (colores/tipografía/logo)
 // 5) indicación extra → "Generar textos" → editor de copy por zona → generar.
 // ─────────────────────────────────────────────────────────────────────────────
-export default function CreationFlow({ ad, session, savedProducts, onToast, onGenerationStarted, onBack }: {
+export default function CreationFlow({ ad, session, savedProducts, onToast, onGenerationStarted, onGenerationRequested, onBack }: {
 	ad: any;
 	session: any;
 	savedProducts: any[];
 	onToast?: (message: string) => void;
 	onGenerationStarted?: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
+	onGenerationRequested?: () => void;
 	onBack: () => void;
 }) {
 	const token = session?.access_token || '';
@@ -149,6 +150,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 	async function approveAndGenerate() {
 		setPhase('starting'); setError('');
+		onGenerationRequested?.();
 		try {
 			const pathPrefixId = parseInt(ad.imagePath.split('/')[0], 10);
 			const form = new FormData();

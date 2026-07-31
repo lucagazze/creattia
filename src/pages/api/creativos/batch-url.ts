@@ -50,18 +50,17 @@ export const POST: APIRoute = async ({ request }) => {
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';
 		const extraImagesUploaded = form.getAll('extraImages').filter((item): item is File => item instanceof File && item.size > 0);
 
-		// Tres formas de arrancar:
-		//   url    → se escanea la página del producto (lo de siempre)
-		//   manual → el usuario escribe nombre y descripción, y sube fotos si quiere
-		//   text   → sin producto: solo texto, para clonar ganadores tipográficos
+		// Dos formas de arrancar:
+		//   url    → se escanea la página del producto
+		//   manual → el usuario escribe nombre y descripción; las fotos son opcionales
 		const requestedMode = clean(form.get('mode'), 10);
-		const mode: 'url' | 'manual' | 'text' = requestedMode === 'manual' || requestedMode === 'text' ? requestedMode : 'url';
+		const mode: 'url' | 'manual' = requestedMode === 'manual' ? 'manual' : 'url';
 		const manualName = clean(form.get('productName'), 140);
 		const manualDescription = clean(form.get('productDescription'), 1200);
 		const manualPrice = clean(form.get('productPriceText'), 60);
 
 		if (mode === 'url' && !rawUrl) return json({ error: 'Ingresá la URL del producto.' }, 400);
-		if (mode !== 'url' && !manualName) {
+		if (mode === 'manual' && !manualName) {
 			return json({ error: 'Escribí al menos el nombre de lo que querés promocionar.' }, 400);
 		}
 
@@ -111,11 +110,10 @@ export const POST: APIRoute = async ({ request }) => {
 		// 2. Guardar producto en DB si es nuevo o actualizarlo (de forma segura)
 		let storedProductId: string | null = null;
 		let storedProduct: any = null;
-		// Sin al menos una foto real no se puede clonar un ganador: el modelo
-		// tendría que inventar el producto, que es justo lo que no queremos.
+		// Las fotos son recomendables, pero el modo manual también puede trabajar
+		// solo con el nombre, descripción y referencia ganadora.
 		let productPhotoCount = 0;
-		// En modo 'text' no se crea producto: el anuncio se arma solo con el texto.
-		if (scannedProduct && mode !== 'text') {
+		if (scannedProduct) {
 			try {
 				const { data: existing } = await admin.from('creative_products')
 					.select('id,name,description,price_text,currency,image_path,source_image_url,metadata')
@@ -163,7 +161,7 @@ export const POST: APIRoute = async ({ request }) => {
 						}
 					}
 
-					// Fotos extra subidas por el usuario: se suman al producto para que
+					// Imágenes adicionales subidas por el usuario: se suman al producto para que
 					// el modelo tenga más ángulos reales.
 					for (let index = 0; index < extraImagesUploaded.length; index += 1) {
 						try {
@@ -191,19 +189,16 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
-		// Si no hay ninguna foto real del producto, se corta antes de cobrar: el
-		// resultado serían anuncios con un producto inventado. En modo 'text' no
-		// aplica, porque justamente se clonan ganadores que no muestran producto.
-		if (mode !== 'text' && (!storedProductId || productPhotoCount === 0)) {
+		// En modo manual las imágenes son opcionales. Si no hay una, el worker usa
+		// el nombre, descripción y la referencia ganadora sin inventar una foto.
+		if (mode === 'url' && (!storedProductId || productPhotoCount === 0)) {
 			const { count: existingPhotos } = storedProductId
 				? await admin.from('creative_product_images').select('id', { count: 'exact', head: true })
 					.eq('product_id', storedProductId).eq('user_id', userId)
 				: { count: 0 };
 			if (!existingPhotos) {
 				return json({
-					error: mode === 'manual'
-						? 'Subí al menos una foto real del producto, o cambiá al modo "Solo texto" para generar anuncios sin foto.'
-						: 'No pudimos obtener ninguna foto del producto desde esa URL. Subí al menos una foto real, o usá el modo "Solo texto".',
+					error: 'No pudimos obtener ninguna foto del producto desde esa URL. Subí al menos una foto real para continuar.',
 					code: 'NO_PRODUCT_PHOTO',
 				}, 422);
 			}

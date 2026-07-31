@@ -66,6 +66,8 @@ type Generation = {
 	/** Anuncio ganador que se usó como referencia para generar esta imagen. */
 	referencePath?: string;
 	referenceName?: string;
+	status?: 'processing' | 'completed' | 'failed';
+	error?: string;
 };
 type VariationStrength = 'exact' | 'light' | 'strong';
 type CreativeReference = {
@@ -1087,7 +1089,7 @@ export default function CreativeApp() {
 	}
 
 	// ── Generación en segundo plano ─────────────────────────────────────
-	function startBatchTracking(
+	async function startBatchTracking(
 		batch: { batchId: string; title: string; referenceUrl?: string; count: number },
 		options?: { stay?: boolean },
 	) {
@@ -1101,6 +1103,41 @@ export default function CreativeApp() {
 				batchId: batch.batchId, title: batch.title, referenceUrl: batch.referenceUrl || '', count: batch.count, startedAt: record.startedAt,
 			}));
 		} catch { /* almacenamiento lleno o bloqueado: solo perdemos la reanudación */ }
+		if (supabase) {
+			try {
+				const { data: rows } = await supabase
+					.from('creative_generations')
+					.select('id,title,format,created_at,template_id,batch_id,output_index,status,settings_snapshot')
+					.eq('batch_id', batch.batchId)
+					.order('output_index');
+				if (rows?.length) {
+					const placeholders: Generation[] = rows.map((row: any) => ({
+						id: row.id,
+						title: row.title || batch.title,
+						imageUrl: '',
+						format: row.format || 'square',
+						createdAt: row.created_at || new Date().toISOString(),
+						category: 'Creativo',
+						templateId: row.template_id,
+						batchId: row.batch_id || batch.batchId,
+						outputIndex: row.output_index,
+						status: row.status || 'processing',
+						referencePath: row.settings_snapshot?.referencePath || '',
+						referenceName: row.settings_snapshot?.referenceName || '',
+					} as Generation));
+					setHistory((previous) => {
+						const byId = new Map(previous.map((item) => [item.id, item]));
+						for (const placeholder of placeholders) {
+							const existing = byId.get(placeholder.id);
+							byId.set(placeholder.id, existing ? { ...placeholder, ...existing } : placeholder);
+						}
+						return Array.from(byId.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+					});
+				}
+			} catch (error) {
+				console.warn('No se pudieron precargar las tarjetas del lote:', error);
+			}
+		}
 	}
 
 	// Reanudar un lote pendiente al volver a la app (otro tab, recarga, etc.)
@@ -1157,6 +1194,7 @@ export default function CreativeApp() {
 					outputIndex: row.output_index,
 					referencePath: row.settings_snapshot?.referencePath || '',
 					referenceName: row.settings_snapshot?.referenceName || '',
+					error: row.error_code || '',
 					status: row.status,
 				} as any);
 			}
@@ -1218,9 +1256,9 @@ export default function CreativeApp() {
 	return (
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
-			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} products={products} onProductsChanged={refreshProducts} />}
+			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} onGenerationRequested={() => { setLightbox(null); setView('history'); }} products={products} onProductsChanged={refreshProducts} />}
 			{activeBatch && view !== 'generation' && activeBatch.status !== 'failed' && (
-				<div style={{ position: 'fixed', bottom: '18px', right: '18px', zIndex: 80, display: 'flex', alignItems: 'center', gap: '8px' }}>
+				<div className="active-batch-notice" style={{ position: 'fixed', bottom: '18px', right: '18px', zIndex: 80, display: 'flex', alignItems: 'center', gap: '8px' }}>
 					<button
 						onClick={() => navigateTo('generation')}
 						style={{
@@ -1389,7 +1427,7 @@ export default function CreativeApp() {
 							onView={navigateTo} 
 							onChoose={chooseCreative} 
 							onReuse={reuseGeneration} 
-							onBatchCreated={(generations, batchId) => {
+							 onBatchCreated={(generations, batchId) => {
 								const newItems: Generation[] = generations.map((g: any) => ({
 									id: g.id,
 									title: g.title || 'Anuncio desde URL',
@@ -1413,6 +1451,7 @@ export default function CreativeApp() {
 									count: generations.length,
 								});
 							}}
+							onGenerationRequested={() => setView('history')}
 							randomWinners={randomWinners}
 							swipePool={(swipePool.filter((item) => !discoverSeen.has(item.imagePath)).length >= 8 ? swipePool.filter((item) => !discoverSeen.has(item.imagePath)) : swipePool).slice(0, 40)}
 							onDiscoverSeen={markDiscoverSeen}
@@ -1435,6 +1474,7 @@ export default function CreativeApp() {
 							profile={profile} 
 							onGenerated={addGenerations}
 							onGenerationStarted={startBatchTracking}
+							onGenerationRequested={() => setView('history')}
 							isSupabaseConfigured={isSupabaseConfigured}
 							onToast={setToast} 
 							preselectedTemplateId={preselectedTemplateId}
@@ -1474,7 +1514,7 @@ export default function CreativeApp() {
 							onReuse={reuseGeneration}
 						/>
 					)}
-					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={goBack} onGenerated={addGenerations} onToast={setToast} onGenerationStarted={startBatchTracking} />}
+					{view === 'studio' && <Studio creative={selected} reuseSeed={reuseSeed} initialProductIds={creationProductIds} onSeedConsumed={() => setCreationProductIds([])} profile={profile} session={session} products={products} onProductsChanged={refreshProducts} onChooseLibrary={goBack} onGenerated={addGenerations} onToast={setToast} onGenerationStarted={startBatchTracking} onGenerationRequested={() => setView('history')} />}
 					{view === 'generation' && activeBatch && (
 						<GenerationView
 							batch={activeBatch}
@@ -1502,7 +1542,7 @@ export default function CreativeApp() {
 							// Sin tarjetas sintéticas: las filas en 'processing' de la base ya
 							// se dibujan como placeholder, con su id real y sobreviven a un
 							// refresh. Pasar las dos cosas mostraba cada imagen dos veces.
-							pending={null} 
+							pending={activeBatch?.status === 'processing' ? { count: activeBatch.count, title: activeBatch.title, referenceUrl: activeBatch.referenceUrl, startedAt: activeBatch.startedAt } : null}
 							onViewProgress={() => navigateTo('generation')}
 							likedImageIds={likedImageIds}
 							onToggleLike={toggleLike}
@@ -1947,6 +1987,7 @@ function Dashboard({
 	onUseScrapedWinner,
 	onExpand,
 	onBatchCreated,
+	onGenerationRequested,
 }: {
 	profile: AppProfile;
 	session?: AppSession;
@@ -1965,6 +2006,7 @@ function Dashboard({
 	onUseScrapedWinner: (path: string) => void;
 	onExpand?: (generation: Generation) => void;
 	onBatchCreated?: (generations: any[], batchId: string) => void;
+	onGenerationRequested?: () => void;
 }) {
 	const [initialUrlFromQuery, setInitialUrlFromQuery] = useState('');
 
@@ -1986,6 +2028,7 @@ function Dashboard({
 				initialUrl={initialUrlFromQuery}
 				session={session}
 				onBatchCreated={onBatchCreated}
+				onGenerationRequested={onGenerationRequested}
 				onNavigateToPlans={() => onView('plans')}
 				onSelectRemodel={(generation, templateId) => {
 					const tplId = templateId || generation.templateId || 1;
@@ -2521,7 +2564,7 @@ function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBa
 	);
 }
 
-function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profile, session, products, onProductsChanged, onChooseLibrary, onGenerated, onToast, onGenerationStarted }: { creative: Creativo; reuseSeed: Generation | null; initialProductIds: string[]; onSeedConsumed: () => void; profile: AppProfile; session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onChooseLibrary: () => void; onGenerated: (generations: Generation[], credits: number) => void; onToast: (message: string) => void; onGenerationStarted?: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void }) {
+function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profile, session, products, onProductsChanged, onChooseLibrary, onGenerated, onToast, onGenerationStarted, onGenerationRequested }: { creative: Creativo; reuseSeed: Generation | null; initialProductIds: string[]; onSeedConsumed: () => void; profile: AppProfile; session: AppSession; products: Product[]; onProductsChanged: () => Promise<Product[]>; onChooseLibrary: () => void; onGenerated: (generations: Generation[], credits: number) => void; onToast: (message: string) => void; onGenerationStarted?: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void; onGenerationRequested?: () => void }) {
 	const [wizardOpen, setWizardOpen] = useState(true);
 	const [step, setStep] = useState(1);
 	const [imageType, setImageType] = useState('product');
@@ -2661,6 +2704,7 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 		if (profile.credits < effectiveCount) { setError(`Necesitás ${effectiveCount} ${effectiveCount === 1 ? 'crédito' : 'créditos'} para generar este lote.`); return; }
 		if (imageType !== 'promotion' && !selectedProducts.length) { setError('Elegí al menos un producto para generar esta imagen.'); return; }
 		const effectiveBrief = sourceGeneration ? revisionBrief.trim() : brief.trim();
+		onGenerationRequested?.();
 		setGenerating(true); if (!sourceGeneration) { setResults([]); setResult(null); }
 		try {
 			let generations: Generation[]; let credits = profile.credits - effectiveCount;
@@ -2838,6 +2882,9 @@ function History({
 	});
 
 	const hasContent = filteredHistory.length > 0 || Boolean(pending);
+	const pendingPlaceholders = pending && filteredHistory.length === 0
+		? Array.from({ length: Math.min(Math.max(pending.count, 1), 40) })
+		: [];
 
 	return (
 		<>
@@ -2983,7 +3030,7 @@ function History({
 				return (
 					<div className="history-batch-bar">
 						<div className="history-batch-head">
-							<strong>Generando tus anuncios…</strong>
+							<strong>Procesando lote…</strong>
 							<span>{listas} de {total} listos</span>
 						</div>
 						<div className="batch-progress-bar-container">
@@ -3007,6 +3054,20 @@ function History({
 							onReuse={() => onReuse(item)}
 							onDeleteImage={onDeleteImage}
 							onCancel={onCleanupStuck ? () => onCleanupStuck(item.id) : undefined}
+							/>
+						))}
+					{pendingPlaceholders.map((_, index) => (
+						<GenerationCard
+							key={`pending-${index}`}
+							item={{
+								id: `pending-${index}`,
+								title: pending!.title,
+								imageUrl: '',
+								format: 'square',
+								createdAt: new Date(pending!.startedAt || Date.now()).toISOString(),
+								category: 'Creativo',
+								status: 'processing',
+							}}
 						/>
 					))}
 				</div>
@@ -3192,7 +3253,14 @@ function GenerationCard({
 					</div>
 				)}
 
-				{!item.imageUrl ? (
+				{!item.imageUrl && item.status === 'failed' ? (
+					<div className="studio-generation-error" role="status">
+						<span aria-hidden>!</span>
+						<strong>No se pudo generar</strong>
+						<small>{item.error || 'Probá de nuevo en unos segundos.'}</small>
+						{onCancel && <button type="button" onClick={(event) => { event.stopPropagation(); onCancel(); }}>Limpiar</button>}
+					</div>
+				) : !item.imageUrl ? (
 					<div 
 						style={{
 							minHeight: '220px',
@@ -3208,7 +3276,7 @@ function GenerationCard({
 						}}
 					>
 						<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
-						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Diseñando anuncio con IA…</strong>
+						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Generando anuncio…</strong>
 						<span className="studio-card-progress" aria-hidden />
 						{onCancel && (
 							<button
@@ -3380,11 +3448,12 @@ function GenerationCard({
 	);
 }
 
-function ImageLightbox({ item, session, onClose, onStarted, products, onProductsChanged }: {
+function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequested, products, onProductsChanged }: {
 	item: Generation;
 	session: AppSession;
 	onClose: () => void;
 	onStarted: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
+	onGenerationRequested?: () => void;
 	products: Product[];
 	onProductsChanged?: () => void;
 }) {
@@ -3489,6 +3558,7 @@ function ImageLightbox({ item, session, onClose, onStarted, products, onProducts
 				form.append('productIds', catalogProductId);
 			}
 
+			onGenerationRequested?.();
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}` }, body: form });
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar la nueva versión.');
