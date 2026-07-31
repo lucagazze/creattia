@@ -3973,19 +3973,19 @@
 
    Ojo con el orden: una media query no suma especificidad, así que una regla
    suelta escrita más abajo la pisa. Por eso este bloque va al final del archivo. */
-.url-batch-container { padding: 26px 30px; }
+.url-batch-container { width: 100%; box-sizing: border-box; padding: 26px 30px; }
 
-.url-batch-form { max-width: 880px; }
-.url-batch-header { max-width: 880px; }
+.url-batch-form,
+.url-batch-header { max-width: none; width: 100%; }
 
 .picker-options {
-	grid-template-columns: repeat(4, minmax(0, 205px));
+	grid-template-columns: repeat(4, minmax(0, 1fr));
 	justify-content: start;
 	gap: 10px;
 }
 
 .wiz-tabs {
-	grid-template-columns: repeat(2, minmax(0, 270px));
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	justify-content: start;
 	gap: 10px;
 }
