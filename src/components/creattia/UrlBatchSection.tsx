@@ -190,7 +190,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [manualName, setManualName] = useState('');
 	const [manualDescription, setManualDescription] = useState('');
 	const [manualPrice, setManualPrice] = useState('');
-	const [count, setCount] = useState<10 | 20 | 30 | 40>(10);
+	const [count, setCount] = useState(10);
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState('winner');
@@ -572,7 +572,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					<span className="badge-icon">⚡</span>
 					<span>CLONADOR DE ANUNCIOS GANADORES</span>
 				</div>
-				<h2 className="url-batch-title">Generá Anuncios Ganadores desde URL</h2>
+				<h2 className="url-batch-title">Creá anuncios que ya funcionan, con tu producto</h2>
 				<p className="url-batch-subtitle">
 					Pegá el enlace de tu producto. La IA elige los anuncios ganadores de la biblioteca que mejor le pegan y los recrea con tu producto real, cubriendo todo el embudo.
 				</p>
@@ -601,13 +601,14 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				<div className="wiz-step">
 					<div className="wiz-body">
 						<label className="picker-label">¿Cuántos anuncios querés crear?</label>
+						<p className="wiz-help">Cada anuncio usa 1 crédito. Podés empezar con 5 para ver cómo quedan.</p>
 						<div className="picker-options">
-							{[10, 20, 30, 40].map((num) => (
+							{[5, 10, 20, 30].map((num) => (
 								<button
 									key={num}
 									type="button"
 									className={`picker-pill ${count === num ? 'active' : ''}`}
-									onClick={() => setCount(num as any)}
+									onClick={() => setCount(num)}
 								>
 									<span className="pill-count">{num} Anuncios</span>
 									<span className="pill-sub">{num} créditos</span>
@@ -620,6 +621,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				<div className="wiz-step">
 					<div className="wiz-body">
 						<label className="picker-label">¿Qué vas a promocionar?</label>
+						<p className="wiz-help">
+							Lo más rápido es pegar el link de tu producto: leemos la página sola y sacamos foto,
+							precio y descripción.
+						</p>
 						<div className="wiz-tabs">
 							{([
 								['url', '🔗', 'Con URL', 'Analizamos tu página'],
@@ -645,7 +650,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								<input
 									type="url"
 									className="url-batch-input"
-									placeholder="https://tu-tienda.com/productos/zapato-deportivo-run"
+									placeholder="Pegá acá el link de tu producto"
 									value={url}
 									onChange={(e) => setUrl(e.target.value)}
 									style={{ color: '#19171d', fontWeight: 600, fontSize: '15px' }}
@@ -670,7 +675,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							<div className="wiz-fields">
 								<input
 									className="wiz-input"
-									placeholder="Nombre del producto o servicio"
+									placeholder="¿Qué vendés? Ej: Zapatillas de running Nova"
 									value={manualName}
 									onChange={(e) => setManualName(e.target.value)}
 								/>
@@ -783,8 +788,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								<><span className="spinner">⌛</span> Buscando los mejores anuncios ganadores…</>
 							) : (
 								<>
-									<span>🔎 Buscar {count} anuncios ganadores</span>
-									<span className="btn-credits-badge">Todavía no gastás créditos</span>
+									<span>Buscar {count} anuncios para mi producto</span>
+									<span className="btn-credits-badge">Gratis · todavía no gastás créditos</span>
 								</>
 							)}
 						</button>
@@ -798,15 +803,16 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					<div className="batch-status-header">
 						<div className="batch-status-info">
 							<h3>{reviewStep === 1
-								? `🏆 Estos son los ${selected.length} anuncios ganadores que vamos a recrear`
-								: '🎨 ¿Cómo querés que salgan?'}</h3>
+								? `Estos ${selected.length} anuncios le funcionaron a otras marcas`
+								: 'Últimos detalles antes de generar'}</h3>
 							<p className="product-tag">
 								Producto: <strong>{preview.product?.name}</strong>
 							</p>
 							{reviewStep === 1 && (
-								<p style={{ fontSize: '12.5px', color: '#6b6478', marginTop: '6px' }}>
-									Tocá <strong>Reemplazar</strong> en el que no te guste y entra otro al instante, sin
-									repetir. Tus anuncios guardados tienen prioridad.
+								<p style={{ fontSize: '12.5px', color: '#6b6478', marginTop: '6px', maxWidth: '62ch' }}>
+									Vamos a rehacer cada uno con tu producto: se mantiene el diseño y cambia todo lo demás.
+									No importa que sean de otro rubro. Si alguno no te convence, tocá <strong>Reemplazar</strong> y
+									entra otro al instante.
 								</p>
 							)}
 						</div>
@@ -849,7 +855,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				{reviewStep === 2 && (
 				<div className="wiz-step" style={{ marginTop: '20px' }}>
 					<div className="wiz-body">
-						<label className="picker-label">Cómo querés que salgan</label>
+						<label className="picker-label">Últimos detalles</label>
+						<p className="wiz-help">Todo esto ya viene elegido. Cambialo solo si querés algo distinto.</p>
 						<div className="batch-select-row">
 							<BatchSelect label="Formato" value={format} options={FORMAT_OPTIONS} onChange={setFormat} />
 							<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
@@ -858,7 +865,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</div>
 
 						<label className="field-label" style={{ marginTop: '14px', display: 'block' }}>
-							Qué querés que digan los anuncios (Opcional)
+							¿Algo puntual que quieras decir? (opcional)
 						</label>
 						<textarea
 							className="brief-textarea"
@@ -891,7 +898,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								onClick={() => setReviewStep(2)}
 								disabled={!selected.length}
 							>
-								<span>Me gustan estas {selected.length} referencias</span>
+								<span>Me gustan · continuar</span>
 								<span className="btn-credits-badge">Todavía no gastás créditos</span>
 							</button>
 						</>

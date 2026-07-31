@@ -3887,3 +3887,13 @@
 @media (prefers-reduced-motion: reduce) {
 	.batch-progress-bar-fill.live { animation: none; }
 }
+
+/* Texto de ayuda bajo cada pregunta del paso a paso: explica qué va a pasar,
+   para alguien que entra por primera vez y no conoce la herramienta. */
+.wiz-help {
+	margin: -4px 0 2px;
+	font-size: 12px;
+	line-height: 1.45;
+	color: #8b8496;
+	font-weight: 500;
+}

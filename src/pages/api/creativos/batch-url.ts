@@ -35,7 +35,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const form = await request.formData();
 		const rawUrl = clean(form.get('productUrl'), 500);
 		const requestedCount = Number(clean(form.get('count'), 3) || 10);
-		const count = [10, 20, 30, 40].includes(requestedCount) ? requestedCount : 10;
+		const count = [5, 10, 20, 30].includes(requestedCount) ? requestedCount : 10;
 		const brief = clean(form.get('brief'), 1000);
 		// 'original' mantiene la proporción exacta del anuncio ganador, que es lo
 		// que mejor conserva la composición al clonarlo.

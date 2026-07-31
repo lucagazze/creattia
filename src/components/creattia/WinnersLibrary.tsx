@@ -673,6 +673,13 @@ export default function WinnersLibrary({
 				seenPath.add(path);
 				return true;
 			});
+			// Orden al azar en cada visita: con 1.380 anuncios, dejarlos siempre en el
+			// mismo orden hace que el usuario vea una y otra vez los mismos y nunca
+			// llegue al fondo de la biblioteca.
+			for (let i = deduped.length - 1; i > 0; i -= 1) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[deduped[i], deduped[j]] = [deduped[j], deduped[i]];
+			}
 			setItems(deduped);
 		} catch (err: any) {
 			setError(err.message || 'Error cargando ganadores.');
