@@ -2411,7 +2411,7 @@
 .studio-plan-card small { font-size: 10.5px !important; }
 .studio-plan-card strong { font-size: 15px !important; }
 .studio-plan-card footer { font-size: 12.5px !important; }
-.studio-plan-card footer button { font-size: 12.5px !important; }
+.studio-plan-card footer button { font-size: 12.5px !important; min-height: 30px; padding: 0 2px; }
 
 /* Items del submenu Configuración */
 .studio-settings-item {
@@ -3907,25 +3907,35 @@
 .batch-status-info p { max-width: 78ch; }
 
 /* ── Ancho del generador (bloque final: gana sobre todo lo anterior) ───────
-   El dashboard es a ancho completo (.studio-content tiene max-width: none), así
-   que en un monitor ancho la tarjeta llegaba a 1600px y las tres solapas de modo
-   medían 500px cada una. Se acota la TARJETA y el contenido la llena: sin huecos
-   raros a los costados y sin controles gigantes.
+   La tarjeta ocupa todo el ancho, igual que el resto de las secciones del
+   dashboard. Lo que se acota son los CONTROLES: en un monitor de 1600px, cuatro
+   pastillas y tres solapas repartidas a 1fr medían 400 y 530px cada una.
+
+   El contenido se alinea a la IZQUIERDA, en la misma columna que el título. Con
+   márgenes automáticos quedaba centrado y dejaba huecos raros a los dos lados.
 
    Ojo con el orden: una media query no suma especificidad, así que una regla
    suelta escrita más abajo la pisa. Por eso este bloque va al final del archivo. */
-.url-batch-container {
-	max-width: 1080px;
-	margin-left: auto;
-	margin-right: auto;
-	padding: 26px 28px;
+.url-batch-container { padding: 26px 30px; }
+
+.url-batch-form { max-width: 880px; }
+.url-batch-header { max-width: 880px; }
+
+.picker-options {
+	grid-template-columns: repeat(4, minmax(0, 205px));
+	justify-content: start;
+	gap: 10px;
 }
 
-.picker-options { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.wiz-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.wiz-tabs {
+	grid-template-columns: repeat(3, minmax(0, 270px));
+	justify-content: start;
+	gap: 10px;
+}
 
-@media (max-width: 780px) {
+@media (max-width: 900px) {
 	.picker-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.wiz-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 560px) {

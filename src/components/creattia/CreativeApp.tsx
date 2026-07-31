@@ -4216,7 +4216,7 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 				<h2 style={{ margin: 0, fontSize: '18px', color: '#744bde' }}>Tus negocios</h2>
 				<span style={{ fontSize: '13px', color: '#716d79' }}>
 					{brands.length}/{limit} {limit === 1 ? 'marca' : 'marcas'} del plan
-					{brands.length >= limit && <button onClick={onPlans} style={{ marginLeft: '8px', border: 0, background: 'transparent', color: '#744bde', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}>Mejorar plan</button>}
+					{brands.length >= limit && <button onClick={onPlans} style={{ marginLeft: '8px', border: 0, background: 'transparent', color: '#744bde', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline', fontSize: '13px', minHeight: '34px', padding: '0 4px' }}>Mejorar plan</button>}
 				</span>
 			</div>
 			<p style={{ margin: '0 0 16px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
@@ -4252,7 +4252,7 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 						const isExpanded = expandedBrandId === brand.id;
 						return (
 							<article key={brand.id} style={{ position: 'relative', border: isActive ? '2px solid #744bde' : '1px solid #e5e1e8', borderRadius: '14px', padding: '16px', background: isActive ? '#faf9fb' : '#fff' }}>
-								<button onClick={() => void remove(brand.id)} aria-label="Eliminar marca" style={{ position: 'absolute', top: '10px', right: '10px', width: '22px', height: '22px', border: 0, borderRadius: '50%', background: 'transparent', color: '#b0a8b8', fontSize: '15px', cursor: 'pointer' }}>×</button>
+								<button onClick={() => void remove(brand.id)} aria-label="Eliminar marca" style={{ position: 'absolute', top: '6px', right: '6px', display: 'grid', placeItems: 'center', width: '32px', height: '32px', border: 0, borderRadius: '50%', background: 'transparent', color: '#b0a8b8', fontSize: '17px', lineHeight: 1, cursor: 'pointer' }}>×</button>
 								<div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
 									{brand.logoUrl
 										? <img src={brand.logoUrl} alt="" style={{ width: '44px', height: '44px', objectFit: 'contain', borderRadius: '10px', background: '#f4f2f6', padding: '4px' }} />
@@ -4296,7 +4296,8 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 											gap: '4px',
 											marginTop: '10px',
 											marginBottom: '12px',
-											padding: '4px 0'
+											padding: '6px 0',
+											minHeight: '34px'
 										}}
 									>
 										✏️ Ver detalles de diseño
