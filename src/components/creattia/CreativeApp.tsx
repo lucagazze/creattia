@@ -1025,6 +1025,25 @@ export default function CreativeApp() {
 					finalProfile = { ...finalProfile, catalogStatus: 'failed', catalogError: payload.error || 'No se pudieron analizar las fuentes.' };
 				}
 			}
+			// Persistir también la marca del formulario en creative_brands evita que
+			// quede únicamente en creative_profiles y permite reutilizarla o
+			// reemplazarla desde "Mis marcas" sin perder sus datos.
+			if (finalProfile.brandName.trim()) {
+				const response = await fetch('/api/creativos/brands', {
+					method: 'PATCH',
+					headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
+					body: JSON.stringify({
+						action: 'sync_profile',
+						name: finalProfile.brandName,
+						website_url: finalProfile.website,
+						brand_colors: [finalProfile.primaryColor, finalProfile.secondaryColor],
+						...(logoPath ? { logo_path: logoPath } : {}),
+						brand_style: { styleSummary: finalProfile.brandSummary },
+					}),
+				});
+				const payload = await response.json().catch(() => ({}));
+				if (!response.ok) throw new Error(payload.error || 'No se pudo guardar la marca en tu cuenta.');
+			}
 		} else saveLocal(PROFILE_KEY, finalProfile);
 		setProfile(finalProfile);
 	}
@@ -3693,7 +3712,7 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 										onClick={() => void handleFastImport()}
 										style={{ height: '36px', padding: '0 14px', borderRadius: '8px', border: 0, background: '#744bde', color: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', opacity: fastImporting ? 0.6 : 1 }}
 									>
-										{fastImporting ? 'Importando...' : 'Analizar'}
+										{fastImporting ? <><span className="studio-spinner small" aria-hidden="true" /> Importando…</> : 'Analizar'}
 									</button>
 								</div>
 							)}
@@ -3770,7 +3789,7 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 							disabled={starting}
 							style={{ width: '100%', height: '46px', marginTop: '10px', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: starting ? 0.6 : 1 }}
 						>
-							{starting ? 'Iniciando…' : 'Generar nueva versión'}
+							{starting ? <><span className="studio-spinner small" aria-hidden="true" /> Iniciando…</> : 'Generar nueva versión'}
 						</button>
 					</div>
 				</aside>
@@ -4305,7 +4324,7 @@ function BrandsManager({ session, planCode, onPlans }: { session: AppSession; pl
 					disabled={scanning || !url.trim() || brands.length >= limit}
 					style={{ padding: '0 20px', height: '44px', borderRadius: '10px', border: 0, background: '#744bde', color: '#fff', fontSize: '14px', fontWeight: 800, cursor: 'pointer', opacity: scanning || brands.length >= limit ? 0.55 : 1 }}
 				>
-					{scanning ? 'Analizando tu negocio…' : 'Analizar con IA'}
+					{scanning ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando tu negocio…</> : 'Analizar con IA'}
 				</button>
 			</div>
 			{error && <p style={{ margin: '0 0 14px', padding: '11px 13px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '13px' }}>{error}</p>}

@@ -318,7 +318,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 												}} />
 										</label>
 										<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: '1px dashed #cbb8f0', background: '#faf8ff', fontSize: '12.5px', fontWeight: 700, cursor: parsingDoc ? 'wait' : 'pointer', color: '#5b3fc4', width: 'fit-content', marginTop: '6px', opacity: parsingDoc ? 0.6 : 1 }}>
-											{parsingDoc ? 'Analizando archivo…' : '📄 Subir PDF / Word / Excel'}
+											{parsingDoc ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando archivo…</> : '📄 Subir PDF / Word / Excel'}
 											<input type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,application/pdf" style={{ display: 'none' }} disabled={parsingDoc}
 												onChange={(event) => { void parseDoc(event.target.files?.[0] || null); event.target.value = ''; }} />
 										</label>
@@ -485,7 +485,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							className="studio-primary-button"
 							style={{ width: '100%', height: '50px', background: '#744bde', color: '#fff', border: 0, fontSize: '15px', fontWeight: 800, borderRadius: '11px', cursor: 'pointer', opacity: phase === 'planning' ? 0.6 : 1 }}
 						>
-							{phase === 'planning' ? 'Analizando el ganador y escribiendo los textos…' : 'Generar textos del anuncio →'}
+							{phase === 'planning' ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando el ganador y escribiendo los textos…</> : 'Generar textos del anuncio →'}
 						</button>
 						<p style={{ margin: '7px 0 0', fontSize: '12px', color: '#8b8490', textAlign: 'center' }}>Todavía no se genera la imagen: primero revisás y aprobás los textos.</p>
 					</>}
@@ -651,7 +651,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								className="studio-primary-button"
 								style={{ flex: 1, height: '52px', background: '#744bde', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'starting' ? 0.6 : 1 }}
 							>
-								{phase === 'starting' ? 'Iniciando generación…' : `Aprobar y generar ✓ · ${count} ${count === 1 ? 'crédito' : 'créditos'}`}
+								{phase === 'starting' ? <><span className="studio-spinner small" aria-hidden="true" /> Iniciando generación…</> : `Aprobar y generar ✓ · ${count} ${count === 1 ? 'crédito' : 'créditos'}`}
 							</button>
 						</div>
 					</>}

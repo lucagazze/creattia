@@ -141,6 +141,56 @@ export const PATCH: APIRoute = async ({ request }) => {
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 	const body = await request.json().catch(() => ({}));
+	// El formulario "Mi marca" también mantiene una fila en creative_brands.
+	// Así los datos no dependen únicamente del perfil y pueden reemplazarse
+	// después desde el administrador de marcas.
+	if (body.action === 'sync_profile') {
+		const name = clean(body.name, 120);
+		const websiteUrl = clean(body.website_url, 500);
+		const logoPath = clean(body.logo_path, 500);
+		const colors = Array.isArray(body.brand_colors)
+			? body.brand_colors.map((color: any) => clean(color, 20)).filter(Boolean).slice(0, 5)
+			: [];
+		const style = body.brand_style && typeof body.brand_style === 'object' ? body.brand_style : {};
+		const { data: profile, error: profileError } = await admin.from('creative_profiles')
+			.select('active_brand_id,plan_code').eq('user_id', auth.user.id).maybeSingle();
+		if (profileError) return json({ error: profileError.message }, 500);
+
+		let brand: any = null;
+		if (profile?.active_brand_id) {
+			const result = await admin.from('creative_brands').select('*').eq('id', profile.active_brand_id)
+				.eq('user_id', auth.user.id).eq('is_active', true).maybeSingle();
+			brand = result.data;
+		}
+		// Si el perfil todavía no apunta a una marca, reutilizamos la primera
+		// existente en vez de crear duplicados cada vez que se guarda el formulario.
+		if (!brand) {
+			const result = await admin.from('creative_brands').select('*').eq('user_id', auth.user.id)
+				.eq('is_active', true).order('created_at', { ascending: true }).limit(1).maybeSingle();
+			brand = result.data;
+		}
+
+		if (brand) {
+			const updates: any = { name: name || brand.name, website_url: websiteUrl || brand.website_url, brand_colors: colors.length ? colors : brand.brand_colors, brand_style: { ...(brand.brand_style || {}), ...style }, updated_at: new Date().toISOString() };
+			if (logoPath) updates.logo_path = logoPath;
+			const { data: updated, error } = await admin.from('creative_brands').update(updates).eq('id', brand.id).eq('user_id', auth.user.id).select('*').single();
+			if (error) return json({ error: error.message }, 500);
+			await activateBrand(admin, auth.user.id, updated);
+			return json({ ok: true, brand: updated });
+		}
+
+		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze') || String(auth.user.email || '').toLowerCase().includes('algoritmiadesarrollos');
+		const limit = isAdmin ? 99 : (brandLimits[profile?.plan_code || 'trial'] || 1);
+		const { count } = await admin.from('creative_brands').select('id', { count: 'exact', head: true }).eq('user_id', auth.user.id).eq('is_active', true);
+		if ((count || 0) >= limit) return json({ error: `Tu plan permite hasta ${limit} ${limit === 1 ? 'marca' : 'marcas'}.` }, 402);
+		const { data: created, error } = await admin.from('creative_brands').insert({
+			user_id: auth.user.id, name: name || 'Mi marca', website_url: websiteUrl || null,
+			logo_path: logoPath || null, brand_colors: colors.length ? colors : null, brand_style: style,
+		}).select('*').single();
+		if (error) return json({ error: error.message }, 500);
+		await activateBrand(admin, auth.user.id, created);
+		return json({ ok: true, brand: created }, 201);
+	}
 	const brandId = clean(body.brandId, 60);
 	if (!brandId) return json({ error: 'Marca inválida.' }, 400);
 	const { data: brand, error } = await admin.from('creative_brands').select('*')

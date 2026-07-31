@@ -33,7 +33,7 @@ export const POST: APIRoute = async ({ request }) => {
 			: [];
 		const brief = String(body?.brief || '').trim().slice(0, 1000);
 		const requestedFormat = String(body?.format || 'original');
-		const allowedFormats = new Set(['original', 'square', 'portrait', 'story', 'landscape']);
+		const allowedFormats = new Set(['original', 'square', 'portrait', 'story', 'landscape', '1:1', '3:4', '9:16', '4:3', '16:9']);
 		const format = allowedFormats.has(requestedFormat) ? requestedFormat : 'original';
 		const requestedLanguage = String(body?.language || 'es');
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';

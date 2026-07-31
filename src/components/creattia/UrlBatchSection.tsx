@@ -148,12 +148,15 @@ type BatchPreview = {
 	hasImage?: boolean;
 };
 
-const FORMAT_OPTIONS = [
-	{ value: 'original', label: 'Igual al ganador', emoji: '🏆', hint: 'Conserva la proporción del anuncio original' },
-	{ value: 'square', label: 'Cuadrado 1:1', emoji: '⬛', hint: 'Feed de Instagram y Facebook' },
-	{ value: 'portrait', label: 'Vertical 4:5', emoji: '📱', hint: 'El que más pantalla ocupa en el feed' },
-	{ value: 'story', label: 'Story / Reel 9:16', emoji: '📲', hint: 'Historias y Reels' },
-	{ value: 'landscape', label: 'Horizontal 4:3', emoji: '🖥️', hint: 'Display y ubicaciones de escritorio' },
+// Formatos visuales del paso final, alineados con el generador individual.
+// Se mantienen los alias que ya entiende el worker para no romper lotes existentes.
+const FORMAT_CARDS = [
+	{ value: 'original', title: 'Original', label: 'Igual al ganador', ratio: 'Original', shape: 'original' },
+	{ value: 'square', title: '1:1', label: 'Feed cuadrado', ratio: '1:1', shape: 'square' },
+	{ value: 'portrait', title: '3:4', label: 'Feed vertical', ratio: '3:4', shape: 'portrait' },
+	{ value: 'story', title: '9:16', label: 'Historia / Reel', ratio: '9:16', shape: 'story' },
+	{ value: 'landscape', title: '4:3', label: 'Horizontal', ratio: '4:3', shape: 'landscape' },
+	{ value: '16:9', title: '16:9', label: 'Panoramico', ratio: '16:9', shape: 'wide' },
 ];
 
 // Banderas como imagen, igual que en la generación individual. Los emoji de
@@ -169,15 +172,21 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const BRAND_OPTIONS = [
-	{ value: 'url', label: 'La marca del link', emoji: '🔗', hint: 'Nombre, colores y logo del sitio del producto' },
-	{ value: 'mine', label: 'Mi marca', emoji: '🏷️', hint: 'La que tenés guardada en Mi marca' },
-	{ value: 'none', label: 'Sin marca', emoji: '🚫', hint: 'El anuncio habla solo del producto' },
+	{ value: 'url', label: 'Marca de la URL', emoji: '🔗', hint: 'Nombre, logo, URL y redes del sitio del producto' },
+	{ value: 'mine', label: 'Mi marca', emoji: '🏷️', hint: 'Nombre, logo, web y redes guardados' },
+	{ value: 'none', label: 'Sin marca', emoji: '🚫', hint: 'Solo producto, sin logo ni redes' },
 ];
 
 const STYLE_OPTIONS = [
 	{ value: 'winner', label: 'Del anuncio ganador', emoji: '🏆', hint: 'Conserva lo que hizo funcionar al original' },
 	{ value: 'brand', label: 'De mi marca', emoji: '🎨', hint: 'Usa los colores y la tipografía de tu marca' },
 ];
+
+const brandSourceDescription = (source: string) => {
+	if (source === 'mine') return 'Usa lo guardado en Mi marca: nombre, logo, colores, URL y redes sociales.';
+	if (source === 'none') return 'No agrega nombre, logo ni redes: el foco queda solo en el producto.';
+	return 'Toma de la URL el nombre, logo, colores, URL y redes sociales que encuentre en la pagina.';
+};
 
 
 const referenceUrlFor = (imagePath: string) => `${REFERENCES_PUBLIC_BASE}/${imagePath}`;
@@ -757,9 +766,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				)}
 
 				{formStep === 1 && (
-					<button type="button" className="url-batch-submit-btn" onClick={() => { setError(null); setFormStep(2); }}>
+					<button type="button" className="url-batch-submit-btn wiz-continue-btn" onClick={() => { setError(null); setFormStep(2); }}>
 						<span>Continuar</span>
-						<span className="btn-credits-badge">{count} créditos cuando generes</span>
 					</button>
 				)}
 
@@ -774,7 +782,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							disabled={isScanning || (mode === 'url' ? !url.trim() : !manualName.trim())}
 						>
 							{isScanning ? (
-								<><span className="spinner">⌛</span> Buscando los mejores anuncios ganadores…</>
+								<><span className="studio-spinner small" aria-hidden="true" /> Buscando los mejores anuncios ganadores…</>
 							) : (
 								<>
 									<span>Buscar {count} anuncios para mi producto</span>
@@ -847,12 +855,38 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					<div className="wiz-body">
 						<label className="picker-label">Últimos detalles</label>
 						<p className="wiz-help">Todo esto ya viene elegido. Cambialo solo si querés algo distinto.</p>
-						<div className="batch-select-row">
-							<BatchSelect label="Formato" value={format} options={FORMAT_OPTIONS} onChange={setFormat} />
+						<div className="batch-details-layout">
+							<div className="batch-format-block">
+								<span className="picker-label">Formato</span>
+								<p className="batch-detail-help">Elegí dónde se va a publicar el anuncio.</p>
+								<div className="batch-format-grid">
+									{FORMAT_CARDS.map((item) => (
+										<button key={item.value} type="button" className={`batch-format-card ${format === item.value ? 'active' : ''}`} onClick={() => setFormat(item.value)} aria-pressed={format === item.value}>
+											<span className={`batch-format-shape shape-${item.shape}`} aria-hidden="true"><i /></span>
+											<span className="batch-format-copy"><strong>{item.title}</strong><small>{item.label}</small></span>
+											<em>{item.ratio}</em>
+											{format === item.value && <b aria-hidden="true">✓</b>}
+										</button>
+									))}
+								</div>
+							</div>
 							<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
-								<BatchSelect label="¿De quién es el anuncio?" value={brandSource} options={BRAND_OPTIONS} onChange={setBrandSource} />
-							<BatchSelect label="Colores" value={colorMode} options={STYLE_OPTIONS} onChange={setColorMode} />
-							<BatchSelect label="Tipografía" value={typoMode} options={STYLE_OPTIONS} onChange={setTypoMode} />
+							<div className="batch-brand-block">
+								<span className="picker-label">¿De quién es el anuncio?</span>
+								<p className="batch-detail-help">Define que identidad aparece: nombre, logo, URL y redes sociales.</p>
+								<div className="batch-brand-options">
+									{BRAND_OPTIONS.map((option) => (
+										<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => setBrandSource(option.value)} aria-pressed={brandSource === option.value}>
+											<span className="batch-brand-icon" aria-hidden="true">{option.emoji}</span>
+											<span><strong>{option.label}</strong><small>{option.hint}</small></span>
+											{brandSource === option.value && <b aria-hidden="true">✓</b>}
+										</button>
+									))}
+								</div>
+								<small className="batch-brand-note">{brandSourceDescription(brandSource)}</small>
+							</div>
+							<div className="batch-style-group"><span className="picker-label">Colores</span><div className="batch-style-options">{STYLE_OPTIONS.map((option) => <button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value)} aria-pressed={colorMode === option.value}>{option.label}</button>)}</div></div>
+							<div className="batch-style-group"><span className="picker-label">Tipografía</span><div className="batch-style-options">{STYLE_OPTIONS.map((option) => <button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value)} aria-pressed={typoMode === option.value}>{option.label}</button>)}</div></div>
 						</div>
 
 						<label className="field-label" style={{ marginTop: '14px', display: 'block' }}>
@@ -905,7 +939,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								disabled={isGenerating || !selected.length}
 							>
 								{isGenerating ? (
-									<><span className="spinner">⌛</span> Iniciando la generación…</>
+									<><span className="studio-spinner small" aria-hidden="true" /> Iniciando la generación…</>
 								) : (
 									<>
 										<span>🚀 Generar {selected.length} anuncios</span>

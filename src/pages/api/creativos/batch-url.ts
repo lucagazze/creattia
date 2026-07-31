@@ -40,7 +40,7 @@ export const POST: APIRoute = async ({ request }) => {
 		// 'original' mantiene la proporción exacta del anuncio ganador, que es lo
 		// que mejor conserva la composición al clonarlo.
 		const requestedFormat = clean(form.get('format'), 20) || 'original';
-		const allowedFormats = new Set(['original', 'square', 'portrait', 'story', 'landscape']);
+		const allowedFormats = new Set(['original', 'square', 'portrait', 'story', 'landscape', '1:1', '3:4', '9:16', '4:3', '16:9']);
 		const format = allowedFormats.has(requestedFormat) ? requestedFormat : 'original';
 		// Estilo: paleta y tipografía del ganador (default, conserva lo que hizo
 		// ganar al anuncio) o de la marca del usuario.
