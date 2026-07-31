@@ -118,7 +118,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (scannedProduct && mode !== 'text') {
 			try {
 				const { data: existing } = await admin.from('creative_products')
-					.select('id,name,description,price_text,currency,image_path,source_image_url')
+					.select('id,name,description,price_text,currency,image_path,source_image_url,metadata')
 					.eq('user_id', userId)
 					.eq(mode === 'manual' ? 'name' : 'product_url', mode === 'manual' ? scannedProduct.name : (scannedProduct.productUrl || productUrl))
 					.limit(1).maybeSingle();
@@ -141,7 +141,7 @@ export const POST: APIRoute = async ({ request }) => {
 						is_active: true,
 						updated_at: new Date().toISOString(),
 						synced_at: new Date().toISOString(),
-					}).select('id,name,description,price_text,currency,image_path,source_image_url').single();
+					}).select('id,name,description,price_text,currency,image_path,source_image_url,metadata').single();
 
 					if (!insertErr && newData) {
 						storedProductId = newData.id;
@@ -209,41 +209,29 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
-		// Marca automática: si el perfil todavía no tiene datos de marca, se sacan
-		// del dominio del producto. Así no hay que llenar "Mi marca" antes de poder
-		// generar, y el clon puede usar los colores y la tipografía reales. Importa:
-		// sin estos datos el modelo tiende a inventar sellos con texto ilegible.
-		if (productUrl) try {
-			const { data: profile } = await admin.from('creative_profiles')
-				.select('brand_name,brand_colors,brand_style,website_url').eq('user_id', userId).maybeSingle();
-			// El par #18181b/#ffffff es el placeholder que crea el perfil vacío: no
-			// son colores de marca reales, así que cuenta como "sin definir".
-			const currentColors = (profile?.brand_colors as string[]) || [];
-			const isPlaceholderPalette = currentColors.length <= 2
-				&& currentColors.every((color) => ['#18181b', '#ffffff'].includes(String(color).toLowerCase()));
-			const missingBrand = !profile?.brand_name || isPlaceholderPalette || !profile?.brand_style;
-			if (missingBrand) {
+		// Marca del sitio del producto. Se guarda EN EL PRODUCTO, no en el perfil:
+		// la URL que se analiza puede ser de otra marca (un producto de eBay, de
+		// Frávega, de un competidor) y pisar "Mi marca" con eso hacía que un
+		// anuncio de una PlayStation terminara firmado por una curtiembre.
+		if (productUrl && storedProductId) {
+			try {
 				const origin = new URL(productUrl).origin;
 				const style = await analyzeBrandStyle(origin, { openAIKey, googleKey });
-				const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-				if (!profile?.brand_name) patch.brand_name = new URL(productUrl).hostname.replace(/^www\./, '');
-				if (isPlaceholderPalette && style.colors?.length) patch.brand_colors = style.colors.slice(0, 5);
-				if (!profile?.website_url) patch.website_url = origin;
-				if (!profile?.brand_style) {
-					patch.brand_style = {
-						typography: style.typography,
-						styleSummary: style.styleSummary,
-						brandPersonality: style.brandPersonality,
-						logoUrl: style.logoUrl,
-						detectedFrom: origin,
-					};
-				}
-				await admin.from('creative_profiles').update(patch).eq('user_id', userId);
-				console.log(`[batch-url] marca detectada desde ${origin}: ${(style.colors || []).length} colores`);
+				const brandFromUrl = {
+					name: new URL(productUrl).hostname.replace(/^www\./, ''),
+					website: origin,
+					colors: (style.colors || []).slice(0, 5),
+					typography: style.typography || null,
+					styleSummary: style.styleSummary || '',
+					logoUrl: style.logoUrl || '',
+				};
+				await admin.from('creative_products')
+					.update({ metadata: { ...(storedProduct?.metadata || {}), brandFromUrl } })
+					.eq('id', storedProductId).eq('user_id', userId);
+				console.log(`[batch-url] marca del sitio detectada: ${brandFromUrl.name} (${brandFromUrl.colors.length} colores)`);
+			} catch (brandError) {
+				console.warn('No se pudo detectar la marca del sitio:', brandError);
 			}
-		} catch (brandError) {
-			// No es crítico: se genera igual, solo sin los datos de marca.
-			console.warn('No se pudo detectar la marca desde la URL:', brandError);
 		}
 
 		// 3. Elegir los anuncios GANADORES de la biblioteca que mejor pegan con este

@@ -88,7 +88,7 @@ export const POST: APIRoute = async ({ request }) => {
 		let productRecord: any = null;
 		if (productId) {
 			const { data: product } = await admin.from('creative_products')
-				.select('name,description,price_text,currency,image_path,analysis')
+				.select('name,description,price_text,currency,image_path,analysis,metadata')
 				.eq('id', productId).eq('user_id', userId).maybeSingle();
 			productRecord = product;
 			const paths: string[] = [];
@@ -122,17 +122,49 @@ export const POST: APIRoute = async ({ request }) => {
 			productRecord?.analysis?.category,
 		].filter(Boolean).join(' · ');
 
-		// ── 3. Marca del usuario (para el swap de marca del ganador) ──────────
+		// ── 3. De qué marca habla el anuncio ──────────────────────────────────
+		// 'url'  → la marca del sitio de donde salió el producto
+		// 'mine' → la que el usuario tiene guardada en Mi marca
+		// 'none' → ninguna: el anuncio habla solo del producto
+		const brandSource = String(snapshot.brandSource || 'url');
 		const { data: profile } = await admin.from('creative_profiles')
 			.select('brand_name,brand_colors,logo_path,brand_style').eq('user_id', userId).maybeSingle();
-		const brandName = profile?.brand_name || '';
-		// El logo va aparte de las fotos del producto: cuando el ganador no muestra
-		// ningún producto, se manda el logo pero NO las fotos.
+
+		let brandName = '';
+		let brandColors: string[] = [];
+		let brandTypography: any = undefined;
 		let logoImage: EngineImage | null = null;
-		if (profile?.logo_path) {
-			const { data: logoBlob } = await admin.storage.from(ASSETS).download(profile.logo_path);
-			const normalizedLogo = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
-			if (normalizedLogo) logoImage = { buffer: normalizedLogo.buffer, type: normalizedLogo.type };
+
+		if (brandSource === 'mine') {
+			brandName = profile?.brand_name || '';
+			brandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
+			brandTypography = (profile?.brand_style as any)?.typography;
+			if (profile?.logo_path) {
+				const { data: logoBlob } = await admin.storage.from(ASSETS).download(profile.logo_path);
+				const normalized = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
+				if (normalized) logoImage = { buffer: normalized.buffer, type: normalized.type };
+			}
+		} else if (brandSource === 'url') {
+			const fromUrl = (productRecord?.metadata as any)?.brandFromUrl;
+			brandName = fromUrl?.name || '';
+			brandColors = Array.isArray(fromUrl?.colors) ? fromUrl.colors : [];
+			brandTypography = fromUrl?.typography || undefined;
+			// El logo del sitio viene como URL: se baja y se normaliza. Si sale
+			// sucio o no se puede leer, se sigue sin logo antes que arruinar el aviso.
+			if (fromUrl?.logoUrl) {
+				try {
+					const logoResponse = await fetch(fromUrl.logoUrl);
+					if (logoResponse.ok) {
+						const raw = Buffer.from(await logoResponse.arrayBuffer());
+						if (raw.length > 500 && raw.length < 4_000_000) {
+							const normalized = await normalizeImageInput(raw);
+							if (normalized) logoImage = { buffer: normalized.buffer, type: normalized.type };
+						}
+					}
+				} catch (logoError) {
+					console.warn(`[batch-worker ${generationId}] no se pudo bajar el logo del sitio:`, logoError);
+				}
+			}
 		}
 		const hasLogo = Boolean(logoImage);
 
@@ -163,8 +195,8 @@ export const POST: APIRoute = async ({ request }) => {
 			languageCode: language,
 			colorMode: snapshot.colorMode === 'brand' ? 'brand' : 'winner',
 			typoMode: snapshot.typoMode === 'brand' ? 'brand' : 'winner',
-			brandColors: Array.isArray(profile?.brand_colors) ? profile.brand_colors : [],
-			brandTypography: (profile?.brand_style as any)?.typography || undefined,
+			brandColors,
+			brandTypography,
 		});
 
 		// ── 5. Formato: 'original' toma la proporción real del ganador ────────

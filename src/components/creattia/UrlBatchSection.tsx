@@ -166,6 +166,12 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'de', label: 'Alemán', flag: 'DE' },
 ];
 
+const BRAND_OPTIONS = [
+	{ value: 'url', label: 'La marca del link', emoji: '🔗', hint: 'Nombre, colores y logo del sitio del producto' },
+	{ value: 'mine', label: 'Mi marca', emoji: '🏷️', hint: 'La que tenés guardada en Mi marca' },
+	{ value: 'none', label: 'Sin marca', emoji: '🚫', hint: 'El anuncio habla solo del producto' },
+];
+
 const STYLE_OPTIONS = [
 	{ value: 'winner', label: 'Del anuncio ganador', emoji: '🏆', hint: 'Conserva lo que hizo funcionar al original' },
 	{ value: 'brand', label: 'De mi marca', emoji: '🎨', hint: 'Usa los colores y la tipografía de tu marca' },
@@ -195,6 +201,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState('winner');
 	const [typoMode, setTypoMode] = useState('winner');
+	const [brandSource, setBrandSource] = useState('url');
 	const [brief, setBrief] = useState('');
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [extraImages, setExtraImages] = useState<File[]>([]);
@@ -441,6 +448,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					language,
 					colorMode,
 					typoMode,
+					brandSource,
 					brief: brief.trim(),
 				}),
 			});
@@ -860,7 +868,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						<div className="batch-select-row">
 							<BatchSelect label="Formato" value={format} options={FORMAT_OPTIONS} onChange={setFormat} />
 							<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
-								<BatchSelect label="Colores" value={colorMode} options={STYLE_OPTIONS} onChange={setColorMode} />
+								<BatchSelect label="¿De quién es el anuncio?" value={brandSource} options={BRAND_OPTIONS} onChange={setBrandSource} />
+							<BatchSelect label="Colores" value={colorMode} options={STYLE_OPTIONS} onChange={setColorMode} />
 							<BatchSelect label="Tipografía" value={typoMode} options={STYLE_OPTIONS} onChange={setTypoMode} />
 						</div>
 

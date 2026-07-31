@@ -41,8 +41,61 @@ function imageUrls(values: unknown[], base: string, limit = 6) {
 			return [record.url, record.contentUrl, record.src];
 		}
 		return [value];
-	}).map((value) => absoluteUrl(value, base)).filter(Boolean);
+	}).map((value) => absoluteUrl(value, base)).filter(Boolean)
+		.filter((url) => looksLikeProductPhoto(url as string))
+		.map((url) => upgradeImageSize(url as string));
 	return [...new Set(urls)].slice(0, limit);
+}
+
+
+/**
+ * Descarta lo que no es una foto de producto: logos, iconos, banners de pago,
+ * sellos y sprites. Frávega, por ejemplo, publica su propio logo como og:image,
+ * así que sin este filtro el "producto" terminaba siendo el logo de la tienda.
+ */
+const NOT_A_PRODUCT_PHOTO = /(logo|isologo|favicon|sprite|icon|placeholder|banner|badge|seal|payment|mercadopago|visa|mastercard|whatsapp|arrow|chevron|avatar)/i;
+
+function looksLikeProductPhoto(url: string) {
+	if (!url) return false;
+	if (NOT_A_PRODUCT_PHOTO.test(url)) return false;
+	if (/\.svg($|\?)/i.test(url)) return false;
+	return true;
+}
+
+/**
+ * Sube la resolución de las miniaturas de los CDN más comunes. Las tiendas
+ * suelen servir versiones de 300px en el listado, y una foto de 300px hace que
+ * el producto salga borroso en el anuncio final.
+ */
+function upgradeImageSize(url: string) {
+	return url
+		.replace(/\/f\d{2,4}\//, '/f1200/')            // images.fravega.com/f300/
+		.replace(/(\/\d{2,4}x\d{2,4})\//, '/1200x1200/') // cdn genéricos con /300x300/
+		.replace(/([?&])width=\d+/i, '$1width=1200')
+		.replace(/_\d{2,3}x\d{2,3}(\.[a-z]{3,4})/i, '_1200x1200$1'); // shopify _300x300.jpg
+}
+
+/**
+ * Muchas tiendas modernas son SPA: el HTML casi no trae <img> y las fotos viven
+ * dentro del JSON que hidrata la página (__NEXT_DATA__, __NUXT__, apolloState).
+ * Acá se barre ese JSON buscando URLs de imagen del propio CDN del sitio.
+ */
+function imagesFromEmbeddedJson(html: string, base: string, limit = 8) {
+	const found: string[] = [];
+	const blocks = html.match(/<script[^>]*>[\s\S]{0,400000}?<\/script>/gi) || [];
+	for (const block of blocks) {
+		if (!/__NEXT_DATA__|__NUXT__|apolloState|"image"|"images"|"media"/i.test(block)) continue;
+		const urls = block.match(/https?:\/\/[^"'\s\\]+\.(?:jpg|jpeg|png|webp|avif)(?:\?[^"'\s\\]*)?/gi) || [];
+		for (const raw of urls) {
+			// El JSON embebido escapa las barras como / o \/.
+			const clean = raw.replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+			if (!looksLikeProductPhoto(clean)) continue;
+			found.push(upgradeImageSize(clean));
+			if (found.length >= limit * 3) break;
+		}
+	}
+	// Las que más se repiten suelen ser las del producto; se conserva el orden.
+	return [...new Set(found)].slice(0, limit);
 }
 
 function samePageUrl(left: string, right: string) {
@@ -268,10 +321,16 @@ export async function scanWebsite(rawUrl: string): Promise<ScannedSource> {
 			return [image.attr('src'), image.attr('data-src'), image.attr('data-lazy-src')];
 		}),
 	], canonical || url);
+	// Las tiendas hechas con Next/Nuxt casi no traen <img> en el HTML: las fotos
+	// están dentro del JSON que hidrata la página. Sin esto, en Frávega el único
+	// "producto" que se encontraba era el logo de la tienda publicado como
+	// og:image, y la generación se cortaba por falta de foto.
+	const embeddedGallery = imagesFromEmbeddedJson(html, canonical || url);
+	const gallery = [...new Set([...pageGallery, ...embeddedGallery])];
 	const currentProduct = products.find((product) => product.productUrl && samePageUrl(product.productUrl, canonical || url))
 		|| (products.length === 1 ? products[0] : undefined);
-	if (currentProduct && pageGallery.length) {
-		currentProduct.imageUrls = [...new Set([...(currentProduct.imageUrls || []), ...pageGallery])].slice(0, 6);
+	if (currentProduct && gallery.length) {
+		currentProduct.imageUrls = [...new Set([...(currentProduct.imageUrls || []), ...gallery])].slice(0, 6);
 		currentProduct.imageUrl = currentProduct.imageUrls[0] || currentProduct.imageUrl;
 	}
 
@@ -439,7 +498,13 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 		addImage($(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src') || $(el).attr('data-original'));
 	});
 	// Deduplicate and limit
-	const finalImages = [...new Set(productImages)].slice(0, 8);
+	// Último recurso: las tiendas SPA (Next/Nuxt) no publican las fotos en el HTML
+	// sino dentro del JSON que hidrata la página. Sin esto, en Frávega no se
+	// encontraba ninguna foto y la generación se cortaba antes de empezar.
+	const finalImages = [...new Set([
+		...productImages,
+		...(productImages.length ? [] : imagesFromEmbeddedJson(html, base)),
+	])].slice(0, 8);
 
 	// 4. Extract clean text content (remove chrome, keep product content)
 	$('script, style, noscript, nav, footer, header, aside, [class*="breadcrumb"], [class*="cookie"], [class*="popup"], [class*="modal"], [class*="cart"], [class*="related"], [class*="recommend"]').remove();

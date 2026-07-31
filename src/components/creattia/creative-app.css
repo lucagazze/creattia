@@ -3508,12 +3508,12 @@
 	backdrop-filter: blur(4px);
 	box-shadow: 0 4px 14px rgba(25, 23, 29, 0.18);
 	text-decoration: none;
-	opacity: 0;
-	transform: translateY(4px);
-	transition: opacity .16s ease, transform .16s ease;
+	/* Solo se ve al abrir la imagen, no al pasar el mouse: sobre la tarjeta
+	   tapaba el creativo, que es lo que el usuario quiere mirar. */
+	display: none;
 }
 
-.studio-generation-card:hover .studio-card-ref { opacity: 1; transform: translateY(0); }
+
 
 .studio-card-ref img {
 	width: 34px;
@@ -3900,3 +3900,13 @@
 	color: #8b8496;
 	font-weight: 500;
 }
+
+/* Tipografía pareja en los botones del generador. El botón de volver quedaba
+   más chico y más fino que el resto, y se leía como texto secundario. */
+.wiz-back { font-size: 13.5px; font-weight: 800; }
+.url-batch-submit-btn { font-weight: 800; }
+.btn-credits-badge { font-weight: 700; }
+
+/* El contenedor de la explicación del paso 2 quedaba angosto y el texto se
+   cortaba en tres renglones cortos. */
+.batch-status-info p { max-width: 78ch; }

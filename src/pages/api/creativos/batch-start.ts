@@ -37,6 +37,12 @@ export const POST: APIRoute = async ({ request }) => {
 		const format = allowedFormats.has(requestedFormat) ? requestedFormat : 'original';
 		const requestedLanguage = String(body?.language || 'es');
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';
+		// De qué marca habla el anuncio: la del sitio del producto, la que el
+		// usuario tiene guardada, o ninguna. Sin esto, un producto de eBay salía
+		// firmado por la marca guardada en el perfil.
+		const brandSources = new Set(['url', 'mine', 'none']);
+		const brandSource = brandSources.has(String(body?.brandSource)) ? String(body?.brandSource) : 'url';
+		// El estilo puede venir del ganador o de la marca elegida arriba.
 		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
 		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
 
@@ -115,6 +121,7 @@ export const POST: APIRoute = async ({ request }) => {
 				language,
 				colorMode,
 				typoMode,
+				brandSource,
 				imageType: 'product',
 				textMode,
 				referencePath: winner.imagePath,
