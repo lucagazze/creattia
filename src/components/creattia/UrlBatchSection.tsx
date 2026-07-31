@@ -219,6 +219,9 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	// El formulario es secuencial: primero la cantidad, después el producto.
 	// La revisión tiene dos pantallas: elegir referencias y después cómo salen.
 	const [reviewStep, setReviewStep] = useState<1 | 2>(1);
+	// El formulario vuelve a tener dos pasos: primero la cantidad, después qué
+	// se promociona. Son decisiones distintas y mezclarlas cargaba la pantalla.
+	const [formStep, setFormStep] = useState<1 | 2>(1);
 	const [isScanning, setIsScanning] = useState(false);
 	const [preview, setPreview] = useState<BatchPreview | null>(null);
 	const [selected, setSelected] = useState<WinnerRef[]>([]);
@@ -593,9 +596,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			{/* Indicador de progreso: siempre visible, marca dónde estás. */}
 			<ol className="wiz-progress" aria-label="Progreso">
 				{[
-					{ n: 1, label: 'Tu producto', active: step === 'form', done: step !== 'form' },
-					{ n: 2, label: 'Elegí las referencias', active: step === 'review' && reviewStep === 1, done: step === 'results' || (step === 'review' && reviewStep === 2) },
-					{ n: 3, label: 'Cómo salen', active: step === 'review' && reviewStep === 2, done: step === 'results' },
+					{ n: 1, label: 'Cantidad', active: step === 'form' && formStep === 1, done: step !== 'form' || formStep > 1 },
+					{ n: 2, label: 'Tu producto', active: step === 'form' && formStep === 2, done: step !== 'form' },
+					{ n: 3, label: 'Referencias', active: step === 'review' && reviewStep === 1, done: step === 'results' || (step === 'review' && reviewStep === 2) },
+					{ n: 4, label: 'Cómo salen', active: step === 'review' && reviewStep === 2, done: step === 'results' },
 				].map((item) => (
 					<li key={item.n} className={`wiz-progress-item ${item.active ? 'active' : ''} ${item.done ? 'done' : ''}`}>
 						<span className="wiz-progress-dot">{item.done ? '✓' : item.n}</span>
@@ -606,7 +610,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 			{step === 'form' && (
 			<form onSubmit={handleScan} className="url-batch-form">
-				<div className="wiz-step">
+				<div className="wiz-step" hidden={formStep !== 1}>
 					<div className="wiz-body">
 						<label className="picker-label">¿Cuántos anuncios querés crear?</label>
 						<p className="wiz-help">Cada anuncio usa 1 crédito. Podés empezar con 5 para ver cómo quedan.</p>
@@ -626,7 +630,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				</div>
 
-				<div className="wiz-step">
+				<div className="wiz-step" hidden={formStep !== 2}>
 					<div className="wiz-body">
 						<label className="picker-label">¿Qué vas a promocionar?</label>
 						<p className="wiz-help">
@@ -786,7 +790,18 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					</div>
 				)}
 
+				{formStep === 1 && (
+					<button type="button" className="url-batch-submit-btn" onClick={() => { setError(null); setFormStep(2); }}>
+						<span>Continuar</span>
+						<span className="btn-credits-badge">{count} créditos cuando generes</span>
+					</button>
+				)}
+
+				{formStep === 2 && (
 				<div className="wiz-actions">
+						<button type="button" className="wiz-back" onClick={() => { setError(null); setFormStep(1); }} disabled={isScanning}>
+							← Atrás
+						</button>
 						<button
 							type="submit"
 							className="url-batch-submit-btn"
@@ -802,6 +817,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							)}
 						</button>
 					</div>
+				)}
 			</form>
 			)}
 
@@ -896,7 +912,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							<button
 								type="button"
 								className="wiz-back"
-								onClick={() => { setStep('form'); setReviewStep(1); }}
+								onClick={() => { setStep('form'); setFormStep(1); setReviewStep(1); }}
 								disabled={isGenerating}
 							>
 								← Cambiar producto
@@ -968,6 +984,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 									onClick={() => {
 										if (pollRef.current) clearInterval(pollRef.current);
 										setStep('form');
+										setFormStep(1);
 										setReviewStep(1);
 										setPreview(null);
 										setSelected([]);

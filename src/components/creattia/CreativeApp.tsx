@@ -1093,9 +1093,8 @@ export default function CreativeApp() {
 	) {
 		const record: ActiveBatch = { ...batch, startedAt: Date.now(), status: 'processing', results: [] };
 		setActiveBatch(record);
-		// El generador por URL se queda en su propia pantalla: ahí está la grilla
-		// con cada anuncio y la barra de progreso. Mandarlo a "Mis imágenes" hacía
-		// que el usuario nunca viera cómo avanzaba el lote.
+		// Siempre a "Mis imágenes": es donde el usuario espera encontrar lo que se
+		// está generando, y ahí está la barra del lote más el progreso por imagen.
 		if (!options?.stay) setView('history');
 		try {
 			window.localStorage.setItem(ACTIVE_BATCH_KEY, JSON.stringify({
@@ -1412,7 +1411,7 @@ export default function CreativeApp() {
 									title: 'Generación por URL',
 									referenceUrl: '',
 									count: generations.length,
-								}, { stay: true });
+								});
 							}}
 							randomWinners={randomWinners}
 							swipePool={(swipePool.filter((item) => !discoverSeen.has(item.imagePath)).length >= 8 ? swipePool.filter((item) => !discoverSeen.has(item.imagePath)) : swipePool).slice(0, 40)}
@@ -1518,6 +1517,7 @@ export default function CreativeApp() {
 								setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, imageIds: [] }]);
 							}}
 							onDeleteImage={deleteImage}
+							activeBatch={activeBatch}
 							stuckCount={stuckCount}
 							onCleanupStuck={cleanupStuck}
 						/>
@@ -2797,6 +2797,7 @@ function History({
 	onRemoveFolder,
 	onCreateFolder,
 	onDeleteImage,
+	activeBatch,
 	stuckCount,
 	onCleanupStuck,
 }: { 
@@ -2813,6 +2814,7 @@ function History({
 	onRemoveFolder?: (folderId: string) => void;
 	onCreateFolder?: (name: string) => void;
 	onDeleteImage?: (imgId: string) => void;
+	activeBatch?: ActiveBatch | null;
 	stuckCount?: number;
 	onCleanupStuck?: (generationId?: string) => void;
 }) {
@@ -2965,6 +2967,31 @@ function History({
 					</button>
 				)}
 			</div>
+
+			{/* Barra del lote en curso: acá es donde el usuario espera ver el avance. */}
+			{activeBatch?.status === 'processing' && (() => {
+				const delLote = filteredHistory.filter((item) => item.batchId === activeBatch.batchId);
+				const listas = delLote.filter((item) => item.imageUrl).length;
+				const total = delLote.length || activeBatch.count;
+				// Lo terminado cuenta entero; lo que falta avanza con el tiempo
+				// transcurrido, con tope, para que la barra no salte ni mienta.
+				const porImagen = 60_000;
+				const transcurrido = Date.now() - (activeBatch.startedAt || Date.now());
+				const enCurso = Math.max(0, total - listas);
+				const parcial = enCurso ? Math.min(0.9, transcurrido / (porImagen * Math.ceil(total / 5))) * enCurso : 0;
+				const pct = total ? Math.min(99, ((listas + parcial) / total) * 100) : 0;
+				return (
+					<div className="history-batch-bar">
+						<div className="history-batch-head">
+							<strong>Generando tus anuncios…</strong>
+							<span>{listas} de {total} listos</span>
+						</div>
+						<div className="batch-progress-bar-container">
+							<div className="batch-progress-bar-fill live" style={{ width: `${pct}%` }} />
+						</div>
+					</div>
+				);
+			})()}
 
 			{hasContent ? (
 				<div className="studio-history-grid">
@@ -3182,6 +3209,7 @@ function GenerationCard({
 					>
 						<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
 						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Diseñando anuncio con IA…</strong>
+						<span className="studio-card-progress" aria-hidden />
 						{onCancel && (
 							<button
 								type="button"

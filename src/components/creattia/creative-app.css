@@ -3762,12 +3762,7 @@
 .url-batch-form { gap: 14px; width: 100%; }
 .url-batch-subtitle, .wiz-help { max-width: 74ch; }
 
-/* En pantallas anchas los controles no necesitan estirarse a lo bruto: el campo
-   de URL y el botón principal quedan largos pero alineados al resto. */
-@media (min-width: 1500px) {
-	.picker-options { grid-template-columns: repeat(4, minmax(0, 220px)); }
-	.wiz-tabs { grid-template-columns: repeat(3, minmax(0, 260px)); }
-}
+
 
 /* La tarjeta del paso pierde el marco doble y el número redundante. */
 .wiz-step {
@@ -3910,3 +3905,83 @@
 /* El contenedor de la explicación del paso 2 quedaba angosto y el texto se
    cortaba en tres renglones cortos. */
 .batch-status-info p { max-width: 78ch; }
+
+/* ── Ancho del generador (bloque final: gana sobre todo lo anterior) ───────
+   El dashboard es a ancho completo (.studio-content tiene max-width: none), así
+   que en un monitor ancho la tarjeta llegaba a 1600px y las tres solapas de modo
+   medían 500px cada una. Se acota la TARJETA y el contenido la llena: sin huecos
+   raros a los costados y sin controles gigantes.
+
+   Ojo con el orden: una media query no suma especificidad, así que una regla
+   suelta escrita más abajo la pisa. Por eso este bloque va al final del archivo. */
+.url-batch-container {
+	max-width: 1080px;
+	margin-left: auto;
+	margin-right: auto;
+	padding: 26px 28px;
+}
+
+.picker-options { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.wiz-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
+@media (max-width: 780px) {
+	.picker-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+	.url-batch-container { padding: 18px 15px; }
+	.wiz-tabs { grid-template-columns: 1fr; }
+}
+
+/* Barra del lote dentro de "Mis imágenes": el usuario llega acá apenas toca
+   generar, así que el avance tiene que estar a la vista. */
+.history-batch-bar {
+	margin-bottom: 20px;
+	padding: 13px 15px;
+	border-radius: 13px;
+	background: #faf8fd;
+	border: 1px solid #eae5f3;
+}
+
+.history-batch-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 9px;
+}
+
+.history-batch-head strong { font-size: 13.5px; color: #19171d; font-weight: 800; }
+.history-batch-head span { font-size: 12px; color: #8b8496; font-weight: 700; font-variant-numeric: tabular-nums; }
+.history-batch-bar .batch-progress-bar-container { margin-bottom: 0; }
+
+/* Barra fina dentro de cada tarjeta que todavía se está generando. */
+.studio-card-progress {
+	position: absolute;
+	left: 14px;
+	right: 14px;
+	bottom: 14px;
+	height: 4px;
+	border-radius: 999px;
+	background: rgba(116, 75, 222, .14);
+	overflow: hidden;
+}
+
+.studio-card-progress::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	width: 40%;
+	border-radius: 999px;
+	background: linear-gradient(90deg, #744bde, #ec4492);
+	animation: card-progress-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes card-progress-slide {
+	0%   { transform: translateX(-100%); }
+	100% { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.studio-card-progress::after { animation: none; width: 100%; opacity: .5; }
+}
