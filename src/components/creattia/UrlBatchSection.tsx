@@ -171,7 +171,7 @@ export const LANGUAGE_OPTIONS = [
 	{ value: 'de', label: 'Alemán', cc: 'de' },
 ];
 
-const BRAND_OPTIONS = [
+export const BRAND_OPTIONS = [
 	{ value: 'url', label: 'Marca de la URL', emoji: '🔗', hint: 'Nombre, logo, URL y redes del sitio del producto' },
 	{ value: 'mine', label: 'Mi marca', emoji: '🏷️', hint: 'Nombre, logo, web y redes guardados' },
 	{ value: 'none', label: 'Sin marca', emoji: '🚫', hint: 'Solo producto, sin logo ni redes' },
@@ -182,7 +182,7 @@ export const STYLE_OPTIONS = [
 	{ value: 'brand', label: 'De mi marca', emoji: '🎨', hint: 'Usa los colores y la tipografía de tu marca' },
 ];
 
-const brandSourceDescription = (source: string) => {
+export const brandSourceDescription = (source: string) => {
 	if (source === 'mine') return 'Usa lo guardado en Mi marca: nombre, logo, colores, URL y redes sociales.';
 	if (source === 'none') return 'No agrega nombre, logo ni redes: el foco queda solo en el producto.';
 	return 'Toma de la URL el nombre, logo, colores, URL y redes sociales que encuentre en la pagina.';

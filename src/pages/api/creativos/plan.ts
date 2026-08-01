@@ -28,6 +28,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const requestedLanguage = clean(form.get('language'), 5);
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : '';
 		const product = form.get('product');
+		const brandSourceParam = clean(form.get('brandSource'), 10);
+		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
 
 		if (!referencePath || !/^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(referencePath)) {
 			return json({ error: 'Elegí un anuncio ganador válido.' }, 400);
@@ -56,14 +58,16 @@ export const POST: APIRoute = async ({ request }) => {
 		let productB64: string | undefined;
 		let productMime: string | undefined;
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
+		let brandFromUrl: { name?: string } | null = null;
 		if (productId) {
 			const { data: stored, error } = await admin.from('creative_products')
-				.select('id,name,description,price_text,currency,image_path,analysis')
+				.select('id,name,description,price_text,currency,image_path,analysis,metadata')
 				.eq('id', productId).eq('user_id', auth.user.id).eq('is_active', true).maybeSingle();
 			if (error) throw error;
 			if (!stored) return json({ error: 'El producto elegido no existe.' }, 400);
 			productName = stored.name;
 			productFacts = [stored.description, stored.price_text && `${stored.price_text} ${stored.currency || ''}`, stored.analysis?.category].filter(Boolean).join(' · ');
+			brandFromUrl = (stored.metadata as any)?.brandFromUrl || null;
 			if (stored.image_path) {
 				const { data: photoBlob } = await admin.storage.from('creative-assets').download(stored.image_path);
 				const normalized = photoBlob ? await normalizeImageInput(Buffer.from(await photoBlob.arrayBuffer())) : null;
@@ -88,6 +92,14 @@ export const POST: APIRoute = async ({ request }) => {
 		const { data: profile } = await admin.from('creative_profiles')
 			.select('brand_name').eq('user_id', auth.user.id).maybeSingle();
 
+		// Qué marca aparece en el mensaje: la del sitio del producto, la guardada
+		// en "Mi marca", o ninguna. Mismo criterio que la generación por lote.
+		const effectiveBrandName = brandSource === 'mine'
+			? (profile?.brand_name || '')
+			: brandSource === 'url'
+				? (brandFromUrl?.name || '')
+				: '';
+
 		const analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 			referenceB64: normalizedReference.buffer.toString('base64'),
 			referenceMime: normalizedReference.type,
@@ -95,7 +107,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productMime,
 			productName: productName || 'no specific product yet',
 			productFacts,
-			brandName: profile?.brand_name || clean(form.get('brandName'), 80),
+			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 			language,
 		});
 		if (!analysis) return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);

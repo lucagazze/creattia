@@ -227,6 +227,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const colorMode = clean(form.get('colorMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
 		const typoMode = clean(form.get('typoMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
 		const includeLogo = clean(form.get('includeLogo'), 2) !== '0';
+		const brandSourceParam = clean(form.get('brandSource'), 10);
+		// 'url'  → la marca del sitio de donde salió el producto
+		// 'mine' → la que el usuario tiene guardada en Mi marca
+		// 'none' → ninguna: el anuncio habla solo del producto
+		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
 		const requestedVariationStrength = clean(form.get('variationStrength'), 20) || 'exact';
 		const variationStrength = variationStrengths.has(requestedVariationStrength) ? requestedVariationStrength : 'exact';
 		const productIds = uniqueIds([
@@ -269,7 +274,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const productImagesById = new Map<string, Array<{ storage_path: string; sort_order: number }>>();
 		if (productIds.length) {
 			const { data, error } = await admin.from('creative_products')
-				.select('id,name,description,price_text,currency,image_path,source_image_url,analysis')
+				.select('id,name,description,price_text,currency,image_path,source_image_url,analysis,metadata')
 				.in('id', productIds).eq('user_id', auth.user.id).eq('is_active', true);
 			if (error) throw error;
 			if ((data || []).length !== productIds.length) return json({ error: 'Uno de los productos ya no existe o no pertenece a tu cuenta.' }, 400);
@@ -299,6 +304,23 @@ export const POST: APIRoute = async ({ request }) => {
 				analysis: { category: '' }
 			}];
 		}
+		// ── De quién es el anuncio: la marca del sitio del producto, la guardada
+		// en "Mi marca", o ninguna. Se resuelve acá para no repetir profile?.x
+		// en cada uso del prompt más abajo.
+		const urlBrand = (storedProducts[0] as any)?.metadata?.brandFromUrl || null;
+		const effectiveBrandName = brandSource === 'mine' ? (profile?.brand_name || '') : brandSource === 'url' ? (urlBrand?.name || '') : '';
+		const effectiveBrandColors = brandSource === 'mine'
+			? (Array.isArray(profile?.brand_colors) ? profile.brand_colors : [])
+			: brandSource === 'url' ? (Array.isArray(urlBrand?.colors) ? urlBrand.colors : []) : [];
+		const effectiveBrandTypography = brandSource === 'mine' ? brandStyle?.typography : brandSource === 'url' ? (urlBrand?.typography || undefined) : undefined;
+		const effectiveWebsite = brandSource === 'mine' ? (profile?.website_url || '') : brandSource === 'url' ? (urlBrand?.website || '') : '';
+		const effectiveInstagram = brandSource === 'mine' ? (profile?.instagram_handle || '') : '';
+		const effectiveBrandSummary = brandSource === 'mine' ? (profile?.brand_summary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
+		const effectiveBrandVoice = brandSource === 'mine' ? (profile?.brand_voice || '') : '';
+		const effectiveStyleSummary = brandSource === 'mine' ? (brandStyle?.styleSummary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
+		const effectiveBrandPersonality = brandSource === 'mine' ? (brandStyle?.brandPersonality || '') : '';
+		const urlLogoUrl = brandSource === 'url' ? (urlBrand?.logoUrl || '') : '';
+
 		// Allow generation without product when a reference image is provided (winner library mode)
 		const hasReferenceOrSource = !!(referencePath || sourceGenerationId);
 		if (imageType !== 'promotion' && !hasReferenceOrSource && !storedProducts.length && !(product instanceof File && product.size > 0)) {
@@ -484,15 +506,33 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!storedProducts.length && productsUploaded.length > 0) hasUploadedProduct = true;
 
 		let hasLogo = false;
-		if (!includeLogo || isExactRevision) {
-			// El usuario pidió sin logo: no se adjunta ninguno.
+		if (!includeLogo || isExactRevision || brandSource === 'none') {
+			// El usuario pidió sin logo o sin marca: no se adjunta ninguno.
 		} else if (logo instanceof File && logo.size > 0) {
 			const normalized = await normalizeImageInput(Buffer.from(await logo.arrayBuffer()));
 			if (normalized) {
 				await pushInput(normalized.buffer, normalized.type, 'logo.png', 'the official brand logo; reproduce it accurately once');
 				hasLogo = true;
 			}
-		} else if (profile?.logo_path) {
+		} else if (brandSource === 'url' && urlLogoUrl) {
+			// El logo del sitio viene como URL: se baja y se normaliza. Si sale
+			// sucio o no se puede leer, se sigue sin logo antes que arruinar el aviso.
+			try {
+				const logoResponse = await fetch(urlLogoUrl);
+				if (logoResponse.ok) {
+					const raw = Buffer.from(await logoResponse.arrayBuffer());
+					if (raw.length > 500 && raw.length < 4_000_000) {
+						const normalized = await normalizeImageInput(raw);
+						if (normalized) {
+							await pushInput(normalized.buffer, normalized.type, 'logo.png', 'the official brand logo; reproduce it accurately once');
+							hasLogo = true;
+						}
+					}
+				}
+			} catch (logoError) {
+				console.warn('No se pudo bajar el logo del sitio:', logoError);
+			}
+		} else if (brandSource === 'mine' && profile?.logo_path) {
 			const { data: logoBlob } = await admin.storage.from('creative-assets').download(profile.logo_path);
 			const normalized = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
 			// Un logo ilegible se omite: nunca puede tumbar la generación entera.
@@ -536,7 +576,7 @@ export const POST: APIRoute = async ({ request }) => {
 					productMime: primaryProductMime,
 					productName: storedProducts[0]?.name || 'the product in the supplied photo',
 					productFacts,
-					brandName: profile?.brand_name || clean(form.get('brandName'), 80),
+					brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 					language,
 				});
 			} catch (analysisErr) {
@@ -602,33 +642,33 @@ The result must look like the same image with only that one adjustment applied.`
 
 		const prompt = isExactRevision ? revisionPrompt : useClonePrompt ? buildReferenceClonePrompt({
 			productNames: storedProducts.map((item) => item.name),
-			brandName: profile?.brand_name || clean(form.get('brandName'), 80),
+			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 			hasLogo,
 			brief,
 			analysis: layoutAnalysis,
 			languageCode: language || undefined,
 			colorMode,
 			typoMode,
-			brandColors: Array.isArray(profile?.brand_colors) ? profile.brand_colors : [],
-			brandTypography: brandStyle?.typography || undefined,
+			brandColors: effectiveBrandColors,
+			brandTypography: effectiveBrandTypography,
 			adCopy,
 		}) : buildPrompt({
 			templateName,
 			purpose: templatePurpose,
 			usageHint: templateUsageHint,
 			preset,
-			brandName: profile?.brand_name || clean(form.get('brandName'), 80),
-			website: profile?.website_url || clean(form.get('website'), 300),
-			instagram: profile?.instagram_handle || clean(form.get('instagram'), 300),
-			colors: Array.isArray(profile?.brand_colors) ? profile.brand_colors.join(', ') : clean(form.get('colors'), 80),
-			brandSummary: profile?.brand_summary || '',
-			brandVoice: profile?.brand_voice || '',
+			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
+			website: effectiveWebsite || clean(form.get('website'), 300),
+			instagram: effectiveInstagram || clean(form.get('instagram'), 300),
+			colors: effectiveBrandColors.length ? effectiveBrandColors.join(', ') : clean(form.get('colors'), 80),
+			brandSummary: effectiveBrandSummary,
+			brandVoice: effectiveBrandVoice,
 			targetAudience: profile?.target_audience || '',
-			typography: brandStyle?.typography
-				? [brandStyle.typography.headings && `Headings: ${brandStyle.typography.headings}`, brandStyle.typography.body && `Body: ${brandStyle.typography.body}`].filter(Boolean).join(' · ')
+			typography: effectiveBrandTypography
+				? [effectiveBrandTypography.headings && `Headings: ${effectiveBrandTypography.headings}`, effectiveBrandTypography.body && `Body: ${effectiveBrandTypography.body}`].filter(Boolean).join(' · ')
 				: '',
-			styleSummary: brandStyle?.styleSummary || '',
-			brandPersonality: brandStyle?.brandPersonality || '',
+			styleSummary: effectiveStyleSummary,
+			brandPersonality: effectiveBrandPersonality,
 			products: storedProducts.map((item) => ({
 				name: item.name,
 				description: [item.description, item.price_text && `${item.price_text} ${item.currency || ''}`, item.analysis?.category].filter(Boolean).join(' · '),

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS } from './UrlBatchSection';
+import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, brandSourceDescription } from './UrlBatchSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -45,8 +45,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState<'winner' | 'brand'>('winner');
 	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
+	const [brandSource, setBrandSource] = useState('url');
 	const [includeLogo, setIncludeLogo] = useState(false);
-	const [extra, setExtra] = useState('');
 	const [count, setCount] = useState(1);
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
@@ -141,12 +141,13 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			const form = new FormData();
 			form.set('referencePath', ad.imagePath);
 			form.set('language', language);
+			form.set('brandSource', brandSource);
 			if (productMode === 'url' && productIds.length) {
 				form.set('productId', productIds[0]); // contexto de análisis
 			} else if (productMode === 'manual') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
-				form.set('productFacts', manualProductFacts.trim() || extra);
+				form.set('productFacts', manualProductFacts.trim());
 			}
 			// productMode === 'none' → no se manda producto
 			const response = await fetch('/api/creativos/plan', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
@@ -185,6 +186,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('language', language);
 			form.set('colorMode', colorMode);
 			form.set('typoMode', typoMode);
+			form.set('brandSource', brandSource);
 			form.set('includeLogo', includeLogo ? '1' : '0');
 			if (productMode === 'url' && scannedProductIds.length) {
 				scannedProductIds.forEach((id) => form.append('productIds', id));
@@ -194,8 +196,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 				form.set('productFacts', manualProductFacts.trim());
 			}
 			// productMode === 'none' → sin producto
-			const brief = extra.trim();
-			form.set('brief', brief);
 			form.set('plan', JSON.stringify({ ...plan, textZones: zones, people, comparisonItems: comparisons }));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
@@ -233,7 +233,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					messageRole: zone.messageRole,
 					productName: manualProductName || 'producto',
 					productFacts: manualProductFacts,
-					extra: extra,
 					language: language
 				})
 			});
@@ -400,11 +399,25 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							</div>
 						</div>
 
-						{/* 3 · Estilo (idioma, colores, tipografía, cantidad, indicación extra) */}
+						{/* 3 · Estilo (idioma, de quién es el anuncio, colores, tipografía, cantidad) */}
 						<div className="wiz-step" hidden={formStep !== 3}>
 							<div className="wiz-body">
-								<label className="picker-label">Estilo del anuncio</label>
 								<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+
+								<div className="batch-brand-block">
+									<span className="picker-label">¿De quién es el anuncio?</span>
+									<div className="batch-brand-options">
+										{BRAND_OPTIONS.map((option) => (
+											<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => setBrandSource(option.value)} aria-pressed={brandSource === option.value}>
+												<span className="batch-brand-icon" aria-hidden="true">{option.emoji}</span>
+												<span><strong>{option.label}</strong></span>
+												{brandSource === option.value && <b aria-hidden="true">✓</b>}
+											</button>
+										))}
+									</div>
+									<small className="batch-brand-note">{brandSourceDescription(brandSource)}</small>
+								</div>
+
 								<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
 									<div className="batch-style-group" style={{ flex: '0 1 220px', maxWidth: '260px' }}>
 										<span className="picker-label">Colores</span>
@@ -423,7 +436,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										</div>
 									</div>
 								</div>
-								<p style={{ margin: '0', fontSize: '11.5px', color: '#8b8490' }}>Si el anuncio ganador tiene un logo, en el paso de revisión te vamos a preguntar si querés poner el tuyo.</p>
 
 								<label className="picker-label" style={{ marginTop: '4px' }}>Cantidad de variantes</label>
 								<div className="picker-options" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
@@ -434,15 +446,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										</button>
 									))}
 								</div>
-
-								<label className="picker-label" style={{ marginTop: '4px' }}>Indicación extra (opcional)</label>
-								<textarea
-									className="wiz-input"
-									value={extra}
-									onChange={(event) => setExtra(event.target.value)}
-									placeholder="Ej: resaltá el precio, tono más descontracturado…"
-									rows={2}
-								/>
 							</div>
 						</div>
 

@@ -65,6 +65,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 	if (!admin) throw new Error('Supabase no está configurado.');
 	const apiKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';
 	const groqApiKey = process.env.GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
+	const googleKey = process.env.GOOGLE_AI_API_KEY || import.meta.env.GOOGLE_AI_API_KEY || '';
 	if (!apiKey && !groqApiKey) throw new Error('Falta configurar las credenciales de IA (OpenAI o Groq).');
 
 	const errors: Array<{ url: string; error: string }> = [];
@@ -84,6 +85,12 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			const product: ScannedProduct = await extractProductPageWithAI(url, apiKey);
 
 			// 2. Upsert into DB
+			const baseMetadata = {
+				...product.metadata,
+				importedFromUrl: url,
+				sourceImageUrls: product.imageUrls,
+				aiExtracted: true,
+			};
 			const { data: stored, error } = await admin.from('creative_products').upsert({
 				user_id: userId,
 				name: product.name,
@@ -94,12 +101,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 				source: 'website',
 				external_id: product.externalId || url,
 				source_image_url: product.imageUrl || null,
-				metadata: {
-					...product.metadata,
-					importedFromUrl: url,
-					sourceImageUrls: product.imageUrls,
-					aiExtracted: true,
-				},
+				metadata: baseMetadata,
 				analysis: {
 					category: product.metadata?.category || '',
 					keywords: [],
@@ -118,6 +120,27 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 				await mirrorProductImages(userId, stored, product.imageUrls);
 			} else if (product.imageUrl) {
 				await mirrorProductImages(userId, stored, [product.imageUrl]);
+			}
+
+			// Marca del sitio de este producto (no "Mi marca": puede ser la web de
+			// otra marca). Se guarda en el producto para poder ofrecer "Marca de la
+			// URL" como opción de identidad al generar el anuncio.
+			try {
+				const origin = new URL(product.productUrl || url).origin;
+				const style = await analyzeBrandStyle(origin, { openAIKey: apiKey, googleKey });
+				const brandFromUrl = {
+					name: new URL(product.productUrl || url).hostname.replace(/^www\./, ''),
+					website: origin,
+					colors: (style.colors || []).slice(0, 5),
+					typography: style.typography || null,
+					styleSummary: style.styleSummary || '',
+					logoUrl: style.logoUrl || '',
+				};
+				await admin.from('creative_products')
+					.update({ metadata: { ...baseMetadata, brandFromUrl } })
+					.eq('id', stored.id).eq('user_id', userId);
+			} catch (brandError) {
+				console.warn('No se pudo detectar la marca del sitio:', brandError);
 			}
 
 			importedIds.push(stored.id as string);
