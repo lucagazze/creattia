@@ -213,7 +213,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [colorMode, setColorMode] = useState('winner');
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brandSource, setBrandSource] = useState('url');
-	const [brief, setBrief] = useState('');
 	const [extraImages, setExtraImages] = useState<File[]>([]);
 	const [extraImagePreviews, setExtraImagePreviews] = useState<string[]>([]);
 
@@ -247,8 +246,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const pollRef = useRef<NodeJS.Timeout | null>(null);
 	// Momento en que arrancó cada imagen: la barra avanza con el tiempo real de
 	// cada una, no a saltos de 1/N cuando alguna termina.
-	const startedAtRef = useRef<Record<string, number>>({});
-	const [tick, setTick] = useState(0);
 
 	useEffect(() => {
 		if (initialUrl && !url) {
@@ -467,7 +464,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					colorMode,
 					typoMode,
 					brandSource,
-					brief: brief.trim(),
 				}),
 			});
 			const data = await response.json();
@@ -497,7 +493,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				initialItems.map((item) => item.id),
 				accessToken,
 				undefined,
-				(id) => { startedAtRef.current[id] = Date.now(); },
 			);
 		} catch (err: any) {
 			console.error('Error al generar lote por URL:', err);
@@ -568,28 +563,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	 * mueve todo el tiempo en vez de saltar de 0 a 50 a 100.
 	 */
 	const ESPERADO_MS = 50_000;
-	const enCurso = batchItems.filter((item) => item.status === 'processing');
-	const parcial = enCurso.reduce((acc, item) => {
-		const desde = startedAtRef.current[item.id];
-		if (!desde) return acc;
-		return acc + Math.min(0.92, (Date.now() - desde) / ESPERADO_MS);
-	}, 0);
-	const progressPercent = totalCount
-		? Math.min(99.5, ((completedCount + failedCount + parcial) / totalCount) * 100)
-		: 0;
 	// Estimación de lo que falta, para no dejar al usuario sin referencia.
 	const restantes = totalCount - completedCount - failedCount;
 	const tandas = Math.ceil(restantes / WORKER_CONCURRENCY);
 	const segundosRestantes = Math.max(0, Math.round((tandas * ESPERADO_MS) / 1000));
 
 	// Reloj que redibuja la barra mientras haya algo generándose.
-	useEffect(() => {
-		if (!enCurso.length) return;
-		const id = window.setInterval(() => setTick((n) => n + 1), 500);
-		return () => window.clearInterval(id);
-	}, [enCurso.length]);
-	void tick;
-
 	return (
 		<div className="url-batch-container">
 			{/* Banner / Header */}
@@ -840,7 +819,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 										disabled={replacing.has(winner.imagePath)}
 										title="Cambiar por otro anuncio ganador al azar de la biblioteca"
 									>
-										{replacing.has(winner.imagePath) ? 'Buscando…' : 'Reemplazar'}
+										{replacing.has(winner.imagePath) ? <><span className="studio-spinner small" aria-hidden="true" /> Buscando…</> : 'Reemplazar'}
 									</button>
 								</div>
 							</div>
@@ -889,19 +868,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							<div className="batch-style-group"><span className="picker-label">Tipografía</span><div className="batch-style-options">{STYLE_OPTIONS.map((option) => <button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value)} aria-pressed={typoMode === option.value}>{option.label}</button>)}</div></div>
 						</div>
 
-						<label className="field-label" style={{ marginTop: '14px', display: 'block' }}>
-							¿Algo puntual que quieras decir? (opcional)
-						</label>
-						<textarea
-							className="brief-textarea"
-							placeholder="Ej: hablarle a mujeres de 30-45, destacar que es libre de fragancia, tono cercano y sin tecnicismos."
-							value={brief}
-							onChange={(e) => setBrief(e.target.value)}
-							rows={2}
-						/>
-						<small style={{ color: '#6b6478', fontSize: '11.5px', marginTop: '4px', display: 'block' }}>
-							La IA solo usa datos reales de tu producto: nunca inventa precios, descuentos ni certificaciones.
-						</small>
 					</div>
 				</div>
 				)}
@@ -917,36 +883,34 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							>
 								← Cambiar producto
 							</button>
-							<button
-								type="button"
-								className="url-batch-submit-btn"
-								onClick={() => setReviewStep(2)}
-								disabled={!selected.length}
-							>
-								<span>Me gustan · continuar</span>
-								<span className="btn-credits-badge">Todavía no gastás créditos</span>
-							</button>
+							<div className="batch-continue-wrap">
+								<button
+									type="button"
+									className="url-batch-submit-btn"
+									onClick={() => setReviewStep(2)}
+									disabled={!selected.length}
+								>
+									Continuar
+								</button>
+								<span className="batch-credit-note">Todavía no gastás créditos</span>
+							</div>
 						</>
 					) : (
 						<>
 							<button type="button" className="wiz-back" onClick={() => setReviewStep(1)} disabled={isGenerating}>
 								← Ver referencias
 							</button>
-							<button
-								type="button"
-								className="url-batch-submit-btn"
-								onClick={handleConfirmGeneration}
-								disabled={isGenerating || !selected.length}
-							>
-								{isGenerating ? (
-									<><span className="studio-spinner small" aria-hidden="true" /> Iniciando la generación…</>
-								) : (
-									<>
-										<span>🚀 Generar {selected.length} anuncios</span>
-										<span className="btn-credits-badge">({selected.length} créditos)</span>
-									</>
-								)}
-							</button>
+							<div className="batch-continue-wrap">
+								<button
+									type="button"
+									className="url-batch-submit-btn"
+									onClick={handleConfirmGeneration}
+									disabled={isGenerating || !selected.length}
+								>
+									{isGenerating ? <><span className="studio-spinner small" aria-hidden="true" /> Iniciando la generación…</> : `Generar ${selected.length} anuncios`}
+								</button>
+								{!isGenerating && <span className="batch-credit-note">{selected.length} {selected.length === 1 ? 'crédito' : 'créditos'}</span>}
+							</div>
 						</>
 					)}
 				</div>
@@ -1005,15 +969,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</div>
 					</div>
 
-					<div className="batch-progress-wrap">
-						<div className="batch-progress-bar-container">
-							<div
-								className={`batch-progress-bar-fill ${isGenerating ? 'live' : ''}`}
-								style={{ width: `${progressPercent}%` }}
-							/>
+					{isGenerating && (
+						<div className="batch-generating-status" role="status" aria-live="polite">
+							<span className="studio-spinner small" aria-hidden="true" />
+							<span>Generando tus anuncios…</span>
 						</div>
-						<span className="batch-progress-pct">{Math.round(progressPercent)}%</span>
-					</div>
+					)}
 
 					{/* Grilla de Anuncios Generados */}
 					<div className="batch-grid">

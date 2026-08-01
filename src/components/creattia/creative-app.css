@@ -216,12 +216,30 @@
 	display: inline-block;
 	width: 28px;
 	height: 28px;
-	border: 3px solid rgba(25, 23, 29, .18);
-	border-top-color: #19171d;
+	flex: 0 0 auto;
+	border: 3px solid rgba(116, 75, 222, .18);
+	border-top-color: #744bde;
+	border-right-color: #ec4492;
 	border-radius: 50%;
-	animation: studio-spin .8s linear infinite;
+	animation: studio-spin .75s linear infinite;
 }
-.studio-spinner.small { width: 17px; height: 17px; border-width: 2px; }
+.studio-spinner.small { width: 17px; height: 17px; border-width: 2px; vertical-align: middle; }
+.studio-spinner.boot { position: absolute; inset: 2px; width: auto; height: auto; border-width: 2px; opacity: .9; }
+.studio-primary-button .studio-spinner,
+.url-batch-submit-btn .studio-spinner,
+.wizard-footer .primary .studio-spinner,
+.plan-subscribe-btn .studio-spinner,
+.studio-cancel-subscription .studio-spinner {
+	border-color: rgba(255, 255, 255, .28);
+	border-top-color: #fff;
+	border-right-color: #f7b4da;
+}
+.copy-zone-row button .studio-spinner,
+.studio-cancel-subscription .studio-spinner {
+	border-color: rgba(116, 75, 222, .18);
+	border-top-color: #744bde;
+	border-right-color: #ec4492;
+}
 @keyframes studio-spin { to { transform: rotate(360deg); } }
 
 .studio-generation-error {
@@ -2573,6 +2591,11 @@
 
 /* Preloader con la mascota saludando */
 .moki-loader { position: relative; width: 96px; height: 96px; display: grid; place-items: center; }
+.moki-loader::before {
+	content: ''; position: absolute; inset: 0; border: 2px solid rgba(116,75,222,.16);
+	border-top-color: #744bde; border-right-color: #ec4492; border-radius: 50%;
+	animation: studio-spin 1.2s linear infinite;
+}
 .moki-loader::after {
 	content: ''; position: absolute; bottom: 6px; width: 58px; height: 12px; border-radius: 50%;
 	background: rgba(111,56,221,0.18); filter: blur(4px); animation: moki-shadow 1.4s ease-in-out infinite;
@@ -2595,8 +2618,24 @@
 	75% { transform: scaleX(0.82); opacity: 0.6; }
 }
 @media (prefers-reduced-motion: reduce) {
-	.moki-loader img, .moki-loader::after { animation: none; }
+	.studio-spinner, .moki-loader img, .moki-loader::before, .moki-loader::after { animation: none; }
 }
+
+/* Los estados de espera ocupan el mismo lenguaje visual en toda la app. */
+.studio-loading-panel {
+	display: grid;
+	place-items: center;
+	gap: 12px;
+	min-height: 180px;
+	padding: 28px;
+	border: 1px solid #e9e3f1;
+	border-radius: 16px;
+	background: linear-gradient(145deg, #fff 0%, #faf7ff 100%);
+	color: #716d79;
+	text-align: center;
+}
+.studio-loading-panel p { margin: 0; font-size: 13px; font-weight: 700; color: #5f5668; }
+.studio-loading-panel small { color: #9a91a4; font-size: 11px; }
 
 /* ── URL BATCH GENERATOR COMPONENT ────────────────────────────────────────── */
 .url-batch-container {
@@ -3381,8 +3420,8 @@
 	background: #fbfaff;
 	color: #5f32cf;
 	font-size: 10.5px;
-	font-weight: 800;
-	font-family: inherit;
+	font-weight: 900;
+	font-family: 'Satoshi', 'Inter Variable', Inter, sans-serif;
 	cursor: pointer;
 	transition: background .14s ease, border-color .14s ease, color .14s ease;
 }
@@ -3793,9 +3832,9 @@
 	border: 2px solid #e6e0f2;
 	background: #fff;
 	color: #5f32cf;
-	font-family: inherit;
+	font-family: 'Satoshi', 'Inter Variable', Inter, sans-serif;
 	font-size: 13px;
-	font-weight: 800;
+	font-weight: 900;
 	cursor: pointer;
 	transition: background .14s ease, border-color .14s ease;
 }
@@ -4006,7 +4045,7 @@
 .active-batch-notice { display: none !important; }
 
 .history-batch-bar {
-	display: none !important;
+	display: block;
 	margin-bottom: 20px;
 	padding: 13px 15px;
 	border-radius: 13px;
@@ -4022,39 +4061,24 @@
 	margin-bottom: 9px;
 }
 
-.history-batch-head strong { font-size: 13.5px; color: #19171d; font-weight: 800; }
+.history-batch-head strong { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: #19171d; font-weight: 800; }
 .history-batch-head span { font-size: 12px; color: #8b8496; font-weight: 700; font-variant-numeric: tabular-nums; }
 .history-batch-bar .batch-progress-bar-container { margin-bottom: 0; }
 
 /* Barra fina dentro de cada tarjeta que todavía se está generando. */
-.studio-card-progress {
-	position: absolute;
-	left: 14px;
-	right: 14px;
-	bottom: 14px;
-	height: 4px;
-	border-radius: 999px;
-	background: rgba(116, 75, 222, .14);
-	overflow: hidden;
-}
-
-.studio-card-progress::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	width: 40%;
-	border-radius: 999px;
-	background: linear-gradient(90deg, #744bde, #ec4492);
-	animation: card-progress-slide 1.4s ease-in-out infinite;
-}
-
-@keyframes card-progress-slide {
-	0%   { transform: translateX(-100%); }
-	100% { transform: translateX(250%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.studio-card-progress::after { animation: none; width: 100%; opacity: .5; }
+.batch-generating-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 9px;
+	min-height: 34px;
+	margin: 0 0 18px;
+	padding: 8px 12px;
+	border: 1px solid #e7def8;
+	border-radius: 10px;
+	background: linear-gradient(100deg, #faf8ff, #fff8fc);
+	color: #5f32cf;
+	font-size: 12px;
+	font-weight: 800;
 }
 
 /* Legibilidad y responsive final del flujo de referencias. */
@@ -4070,6 +4094,30 @@
 .ref-replace { min-height: 40px; font-size: 11px; font-weight: 850; }
 .url-batch-submit-btn { font-weight: 850; }
 .btn-credits-badge { opacity: .95; font-weight: 750; }
+
+/* La acción principal tiene un solo mensaje; el contexto de créditos vive
+   afuera como una nota secundaria y no compite con el CTA. */
+.batch-continue-wrap {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.batch-continue-wrap .url-batch-submit-btn { flex: 1 1 auto; }
+.batch-credit-note {
+	flex: 0 0 auto;
+	color: #6d6379;
+	font-size: 11px;
+	font-weight: 750;
+	white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+	.batch-continue-wrap { width: 100%; flex-direction: column; align-items: stretch; gap: 6px; }
+	.batch-continue-wrap .url-batch-submit-btn { width: 100%; }
+	.batch-credit-note { text-align: center; }
+}
 
 @media (max-width: 720px) {
 	.batch-status-header { align-items: flex-start; flex-direction: column; }
@@ -4205,4 +4253,35 @@
 	.batch-format-card { padding: 10px 8px; }
 	.batch-format-copy strong { font-size: 12px; }
 	.batch-format-copy small { font-size: 9px; }
+}
+
+/* Revisión compacta: concentra los últimos detalles en menos altura sin perder
+   jerarquía ni claridad en los controles. */
+.batch-details-layout { gap: 12px 18px; }
+.batch-detail-help { margin: 2px 0 6px; font-size: 11px; line-height: 1.3; }
+.batch-format-grid { gap: 8px; }
+.batch-format-card { min-height: 82px; gap: 5px; padding: 9px; border-radius: 11px; }
+.batch-format-card > em { top: 7px; right: 8px; font-size: 9px; }
+.batch-format-card > b { right: 7px; bottom: 7px; width: 17px; height: 17px; font-size: 10px; }
+.batch-format-shape { width: 36px; height: 32px; border-radius: 7px; }
+.batch-format-shape.shape-original i { width: 20px; height: 24px; }
+.batch-format-shape.shape-square i { width: 21px; height: 21px; }
+.batch-format-shape.shape-portrait i { width: 18px; height: 23px; }
+.batch-format-shape.shape-story i { width: 14px; height: 25px; }
+.batch-format-shape.shape-landscape i { width: 25px; height: 18px; }
+.batch-format-shape.shape-wide i { width: 29px; height: 16px; }
+.batch-format-copy strong { font-size: 11px; }
+.batch-format-copy small { font-size: 9px; }
+.batch-brand-options { gap: 8px; }
+.batch-brand-option { gap: 7px; padding: 9px; border-radius: 10px; }
+.batch-brand-option strong { font-size: 11px; }
+.batch-brand-option small { font-size: 9px; line-height: 1.25; }
+.batch-brand-icon { width: 22px; height: 22px; border-radius: 7px; font-size: 12px; }
+.batch-brand-note { margin-top: 5px; font-size: 10px; }
+.batch-style-groups { gap: 12px; }
+.batch-style-options { gap: 6px; margin-top: 5px; }
+.batch-style-options button { min-height: 36px; padding: 6px 8px; font-size: 10px; }
+
+@media (max-width: 640px) {
+	.batch-format-card { min-height: 78px; padding: 8px; }
 }

@@ -546,7 +546,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
 							<strong style={{ ...label, marginBottom: 0 }}>Textos del anuncio</strong>
 							<div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-								<button type="button" onClick={() => void regenerateAllCopies()} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+								<button type="button" onClick={() => void regenerateAllCopies()} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
 									✨ Rehacer todos
 								</button>
 								<button type="button" onClick={() => setCopyMode('auto')} style={chip(copyMode === 'auto')}>✨ Automáticos</button>
@@ -600,7 +600,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 												}}
 												title="Rehacer este texto con IA"
 											>
-												{isRegen ? '...' : '✨ Rehacer'}
+												{isRegen ? <><span className="studio-spinner small" aria-hidden="true" /> Rehaciendo</> : '✨ Rehacer'}
 											</button>
 										</div>
 									</div>

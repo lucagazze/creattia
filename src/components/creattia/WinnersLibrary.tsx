@@ -1456,7 +1456,7 @@ export default function WinnersLibrary({
 								style={{ height: '42px', marginTop: '10px' }}
 								disabled={submitting}
 							>
-								{submitting ? 'Guardando...' : 'Guardar en la biblioteca'}
+								{submitting ? <><span className="studio-spinner small" aria-hidden="true" /> Guardando...</> : 'Guardar en la biblioteca'}
 							</button>
 						</form>
 					</div>
