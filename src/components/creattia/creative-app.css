@@ -4011,27 +4011,6 @@
    generar, así que el avance tiene que estar a la vista. */
 .active-batch-notice { display: none !important; }
 
-.history-batch-bar {
-	display: block;
-	margin-bottom: 20px;
-	padding: 13px 15px;
-	border-radius: 13px;
-	background: #faf8fd;
-	border: 1px solid #eae5f3;
-}
-
-.history-batch-head {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 12px;
-	margin-bottom: 9px;
-}
-
-.history-batch-head strong { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: #19171d; font-weight: 800; }
-.history-batch-head span { font-size: 12px; color: #8b8496; font-weight: 700; font-variant-numeric: tabular-nums; }
-.history-batch-bar .batch-progress-bar-container { margin-bottom: 0; }
-
 /* Barra fina dentro de cada tarjeta que todavía se está generando. */
 .batch-generating-status {
 	display: inline-flex;

@@ -3036,21 +3036,6 @@ function History({
 				)}
 			</div>
 
-			{/* Barra del lote en curso: acá es donde el usuario espera ver el avance. */}
-			{activeBatch?.status === 'processing' && (() => {
-				const delLote = filteredHistory.filter((item) => item.batchId === activeBatch.batchId);
-				const listas = delLote.filter((item) => item.imageUrl).length;
-				const total = delLote.length || activeBatch.count;
-				return (
-					<div className="history-batch-bar">
-						<div className="history-batch-head">
-							<strong><span className="studio-spinner small" aria-hidden="true" /> Procesando lote…</strong>
-							<span>{listas} de {total} listos</span>
-						</div>
-					</div>
-				);
-			})()}
-
 			{hasContent ? (
 				<div className="studio-history-grid">
 						{filteredHistory.map((item) => (
